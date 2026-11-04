@@ -1,0 +1,13 @@
+{
+  "_comment": "ADS sensitivity multiplier per optic. ADS deg/count = hip deg/count * adsMultiplier (* the gun's own adsMultiplier). 1.0 = same as hipfire. Edit these after calibrating against the real game. zoom is the magnification used for the ADS field of view.",
+  "optics": [
+    { "zoom": 1.0,  "adsMultiplier": 1.0 },
+    { "zoom": 1.5,  "adsMultiplier": 1.0 },
+    { "zoom": 2.0,  "adsMultiplier": 1.0 },
+    { "zoom": 2.5,  "adsMultiplier": 1.0 },
+    { "zoom": 3.0,  "adsMultiplier": 1.0 },
+    { "zoom": 3.5,  "adsMultiplier": 1.0 },
+    { "zoom": 5.0,  "adsMultiplier": 1.0 },
+    { "zoom": 12.0, "adsMultiplier": 1.0 }
+  ]
+}

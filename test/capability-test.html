@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recoil trainer - capability test</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 system-ui, "Segoe UI", sans-serif; background: #12141a; color: #e6e8ee; }
+  main { max-width: 880px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.lead { margin: 0 0 12px; color: #aab0c0; }
+  #stage { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; border: 1px solid #2a2f3c; border-radius: 6px; overflow: hidden; }
+  #stage:fullscreen { aspect-ratio: auto; border: 0; border-radius: 0; }
+  #gl { width: 100%; height: 100%; display: block; }
+  #overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; background: rgba(8, 10, 14, .55); cursor: pointer; text-align: center; padding: 12px; }
+  #overlay strong { font-size: 18px; }
+  #overlay.hidden { display: none; }
+  #hud { position: absolute; left: 8px; bottom: 8px; font: 12px ui-monospace, Consolas, monospace; background: rgba(0, 0, 0, .6); padding: 4px 8px; border-radius: 4px; pointer-events: none; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid #262b38; vertical-align: top; }
+  th { width: 30%; font-weight: 600; }
+  .tag { display: inline-block; min-width: 52px; text-align: center; padding: 1px 6px; border-radius: 4px; font-weight: 700; font-size: 12px; }
+  .pass { background: #14532d; color: #bbf7d0; }
+  .warn { background: #713f12; color: #fde68a; }
+  .fail { background: #7f1d1d; color: #fecaca; }
+  .info { background: #1e3a5f; color: #bfdbfe; }
+  .wait { background: #2a2f3c; color: #c4c9d6; }
+  button { font: inherit; padding: 6px 12px; border-radius: 6px; border: 1px solid #3a4152; background: #1c2030; color: inherit; cursor: pointer; }
+  button:hover { background: #252a3d; }
+  textarea { width: 100%; height: 170px; margin-top: 8px; background: #0c0e13; color: #d6d9e2; border: 1px solid #2a2f3c; border-radius: 6px; padding: 8px; font: 12px ui-monospace, Consolas, monospace; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .small { color: #aab0c0; font-size: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Recoil trainer - capability test</h1>
+  <p class="lead">Click the black box to capture your mouse, then move it around for a few seconds. Press Esc to release it. Leave this tab visible for about 10 seconds so the frame rate can be measured, then copy the report at the bottom.</p>
+
+  <div id="stage">
+    <canvas id="gl" width="1280" height="720"></canvas>
+    <div id="overlay"><strong>Click to capture the mouse</strong><span>Esc releases it</span></div>
+    <div id="hud">not locked</div>
+  </div>
+
+  <div class="row" style="margin-top: 8px">
+    <button id="fsBtn" type="button">Test fullscreen</button>
+    <span class="small">Optional. Esc leaves fullscreen.</span>
+  </div>
+
+  <table><tbody id="checks"></tbody></table>
+
+  <div class="row">
+    <button id="copyBtn" type="button">Copy report</button>
+    <span id="copyNote" class="small"></span>
+  </div>
+  <textarea id="report" readonly spellcheck="false"></textarea>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  var ROWS = [
+    ['frame', 'Page context'],
+    ['webgl', 'WebGL'],
+    ['gpu', 'Graphics adapter'],
+    ['lock', 'Mouse capture'],
+    ['raw', 'Raw mouse input'],
+    ['delta', 'Mouse movement data'],
+    ['fps', 'Frame rate (5 s sample)'],
+    ['fs', 'Fullscreen']
+  ];
+  var LABEL = { pass: 'PASS', warn: 'WARN', fail: 'FAIL', info: 'INFO', wait: '...' };
+  var state = {};
+  var tbody = document.getElementById('checks');
+
+  ROWS.forEach(function (r) {
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<th></th><td><span class="tag wait">...</span> <span class="d">waiting</span></td>';
+    tr.children[0].textContent = r[1];
+    tbody.appendChild(tr);
+    state[r[0]] = { label: r[1], status: 'wait', detail: 'waiting', tr: tr };
+  });
+
+  function writeReport() {
+    var lines = ['Recoil trainer capability test', new Date().toISOString(), ''];
+    ROWS.forEach(function (r) {
+      var s = state[r[0]];
+      lines.push(s.label + ': ' + LABEL[s.status] + ' - ' + s.detail);
+    });
+    lines.push('');
+    lines.push('Browser: ' + navigator.userAgent);
+    lines.push('Screen: ' + screen.width + 'x' + screen.height + ' @' + (window.devicePixelRatio || 1) +
+      'x, CPU threads: ' + (navigator.hardwareConcurrency || '?'));
+    lines.push('URL: ' + location.href);
+    document.getElementById('report').value = lines.join('\n');
+  }
+
+  function set(id, status, detail) {
+    var s = state[id];
+    s.status = status;
+    s.detail = detail;
+    var tag = s.tr.querySelector('.tag');
+    tag.className = 'tag ' + status;
+    tag.textContent = LABEL[status];
+    s.tr.querySelector('.d').textContent = detail;
+    writeReport();
+  }
+
+  function errText(e) {
+    return (e && e.name ? e.name : 'Error') + (e && e.message ? ': ' + e.message : '');
+  }
+
+  /* ---------- page context ---------- */
+  var embedded = false;
+  try { embedded = window.self !== window.top; } catch (e) { embedded = true; }
+  set('frame', 'info', embedded ? 'Embedded in another page (iframe)' : 'Top-level page (opened directly)');
+
+  /* ---------- WebGL + frame rate ---------- */
+  var canvas = document.getElementById('gl');
+  var gl = canvas.getContext('webgl2', { antialias: false }) || canvas.getContext('webgl', { antialias: false });
+
+  if (!gl) {
+    set('webgl', 'fail', 'Not available - a 3D version would not run here');
+    set('gpu', 'fail', 'n/a');
+    set('fps', 'fail', 'n/a');
+  } else {
+    var isV2 = (typeof WebGL2RenderingContext !== 'undefined') && (gl instanceof WebGL2RenderingContext);
+    var dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    var gpuName = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+    var soft = /swiftshader|llvmpipe|software|basic render/i.test(String(gpuName));
+    set('gpu', soft ? 'warn' : 'info', gpuName + (soft ? ' - software rendering, expect a low frame rate' : ''));
+
+    try {
+      var vsSrc = 'attribute vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }';
+      var fsSrc = [
+        'precision mediump float;',
+        'uniform vec2 res; uniform float t;',
+        'void main(){',
+        '  vec2 uv = gl_FragCoord.xy / res;',
+        '  vec2 q = uv * 6.0;',
+        '  float v = 0.0;',
+        '  for (int i = 0; i < 8; i++) {',
+        '    float fi = float(i);',
+        '    v += sin(q.x * (1.0 + fi * 0.3) + t) * cos(q.y * (1.0 + fi * 0.2) - t * 0.7);',
+        '    q += vec2(sin(v), cos(v)) * 0.15;',
+        '  }',
+        '  float c = 0.5 + 0.5 * sin(v);',
+        '  vec2 d = abs(gl_FragCoord.xy - res * 0.5);',
+        '  float xh = step(d.x, 1.0) * step(d.y, 12.0) + step(d.y, 1.0) * step(d.x, 12.0);',
+        '  gl_FragColor = vec4(vec3(0.10, 0.25, 0.45) * c + vec3(xh), 1.0);',
+        '}'
+      ].join('\n');
+
+      var compile = function (type, src) {
+        var s = gl.createShader(type);
+        gl.shaderSource(s, src);
+        gl.compileShader(s);
+        if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s) || 'shader compile failed');
+        return s;
+      };
+      var prog = gl.createProgram();
+      gl.attachShader(prog, compile(gl.VERTEX_SHADER, vsSrc));
+      gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, fsSrc));
+      gl.bindAttribLocation(prog, 0, 'p');
+      gl.linkProgram(prog);
+      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog) || 'link failed');
+      gl.useProgram(prog);
+
+      var buf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+      gl.uniform2f(gl.getUniformLocation(prog, 'res'), canvas.width, canvas.height);
+      var uT = gl.getUniformLocation(prog, 't');
+      gl.viewport(0, 0, canvas.width, canvas.height);
+
+      set('webgl', 'pass', (isV2 ? 'WebGL 2' : 'WebGL 1') + ' running, drew a ' + canvas.width + 'x' + canvas.height + ' test scene');
+      set('fps', 'wait', 'measuring... keep this tab visible');
+
+      var t0 = performance.now();
+      var prev = 0, winStart = 0, deltas = [], tainted = false;
+      document.addEventListener('visibilitychange', function () { tainted = true; });
+
+      var frame = function (now) {
+        requestAnimationFrame(frame);
+        gl.uniform1f(uT, (now - t0) / 1000);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+        if (!prev) { prev = now; winStart = now + 1000; return; }
+        var dt = now - prev;
+        prev = now;
+        if (now < winStart) return;
+        deltas.push(dt);
+
+        if (now - winStart >= 5000) {
+          if (!tainted && deltas.length > 10) {
+            var sum = 0, worst = 0, i;
+            for (i = 0; i < deltas.length; i++) { sum += deltas[i]; if (deltas[i] > worst) worst = deltas[i]; }
+            var avg = deltas.length * 1000 / sum;
+            var sorted = deltas.slice().sort(function (a, b) { return b - a; });
+            var n = Math.max(1, Math.floor(sorted.length * 0.01));
+            var lowSum = 0;
+            for (i = 0; i < n; i++) lowSum += sorted[i];
+            var low1 = 1000 / (lowSum / n);
+            var status = (avg >= 55 && low1 >= 30) ? 'pass' : (avg >= 30 ? 'warn' : 'fail');
+            set('fps', status, Math.round(avg) + ' fps average, 1% low ' + Math.round(low1) +
+              ' fps, worst frame ' + Math.round(worst) + ' ms');
+          }
+          deltas = [];
+          tainted = false;
+          winStart = now;
+        }
+      };
+      requestAnimationFrame(frame);
+    } catch (err) {
+      set('webgl', 'fail', 'Context exists but drawing failed: ' + errText(err));
+      set('fps', 'fail', 'n/a');
+    }
+  }
+
+  /* ---------- mouse capture ---------- */
+  var stage = document.getElementById('stage');
+  var overlay = document.getElementById('overlay');
+  var hud = document.getElementById('hud');
+  var lockMode = null;
+
+  set('lock', 'wait', 'click the black box to test');
+  set('raw', 'wait', 'untested');
+  set('delta', 'wait', 'move the mouse while captured');
+
+  async function requestLock() {
+    if (!stage.requestPointerLock) {
+      set('lock', 'fail', 'Pointer Lock API is not available here');
+      set('raw', 'fail', 'n/a');
+      return;
+    }
+    set('lock', 'wait', 'requesting...');
+    var rawErr = '';
+    lockMode = null;
+    try {
+      var p = stage.requestPointerLock({ unadjustedMovement: true });
+      if (p && typeof p.then === 'function') {
+        await p;
+        lockMode = 'raw';
+      } else {
+        lockMode = 'standard';
+        rawErr = 'browser ignored the raw-input option';
+      }
+    } catch (e) {
+      rawErr = errText(e);
+      try {
+        var p2 = stage.requestPointerLock();
+        if (p2 && typeof p2.then === 'function') await p2;
+        lockMode = 'standard';
+      } catch (e2) {
+        lockMode = null;
+        set('lock', 'fail', errText(e2) + (embedded ? ' - the frame may not allow mouse capture (it needs allow-pointer-lock)' : ''));
+        set('raw', 'wait', 'untested (capture failed)');
+        return;
+      }
+    }
+    set('lock', 'pass', 'Mouse captured' + (embedded ? ' inside the frame' : ''));
+    if (lockMode === 'raw') {
+      set('raw', 'pass', 'Raw input active - Windows pointer settings do not change aim');
+    } else {
+      set('raw', 'warn', 'Standard input only (' + rawErr + ') - Windows "Enhance pointer precision" could change how aim feels');
+    }
+  }
+
+  overlay.addEventListener('click', function () { requestLock(); });
+
+  document.addEventListener('pointerlockchange', function () {
+    var locked = document.pointerLockElement === stage;
+    overlay.className = locked ? 'hidden' : '';
+    hud.textContent = locked ? 'locked (' + (lockMode || '?') + ')' : 'not locked';
+  });
+
+  document.addEventListener('pointerlockerror', function () {
+    if (state.lock.status === 'wait') {
+      set('lock', 'fail', 'pointerlockerror event fired (the browser refused the capture)');
+    }
+  });
+
+  /* ---------- mouse movement data ---------- */
+  var totX = 0, totY = 0, events = 0, maxMove = 0, lastRow = 0;
+  document.addEventListener('mousemove', function (e) {
+    if (document.pointerLockElement !== stage) return;
+    var dx = e.movementX || 0, dy = e.movementY || 0;
+    totX += dx; totY += dy; events++;
+    var m = Math.max(Math.abs(dx), Math.abs(dy));
+    if (m > maxMove) maxMove = m;
+    hud.textContent = 'locked (' + (lockMode || '?') + ')  move ' + dx + ', ' + dy + '   total ' + totX + ', ' + totY;
+
+    var now = performance.now();
+    if (events >= 50 && now - lastRow > 250) {
+      lastRow = now;
+      if (maxMove > 1500) {
+        set('delta', 'warn', events + ' events, one jumped ' + maxMove + ' counts at once (a Chrome spike glitch or a very fast flick)');
+      } else {
+        set('delta', 'pass', events + ' events, largest single move ' + maxMove + ' counts');
+      }
+    }
+  });
+
+  /* ---------- fullscreen ---------- */
+  var fsBtn = document.getElementById('fsBtn');
+  set('fs', document.fullscreenEnabled ? 'info' : 'warn',
+    document.fullscreenEnabled ? 'Allowed - use the button to try it' : 'Not allowed here (an iframe needs allow="fullscreen")');
+  fsBtn.addEventListener('click', async function () {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await stage.requestFullscreen();
+      set('fs', 'pass', 'Fullscreen toggled successfully');
+    } catch (e) {
+      set('fs', 'fail', errText(e));
+    }
+  });
+
+  /* ---------- copy report ---------- */
+  var copyNote = document.getElementById('copyNote');
+  document.getElementById('copyBtn').addEventListener('click', function () {
+    var ta = document.getElementById('report');
+    function done(ok) {
+      copyNote.textContent = ok ? 'Copied.' : 'Could not copy automatically - click the box, press Ctrl+A then Ctrl+C.';
+    }
+    function fallback() {
+      ta.focus(); ta.select();
+      var ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+      done(ok);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(ta.value).then(function () { done(true); }, fallback);
+    } else {
+      fallback();
+    }
+  });
+
+  writeReport();
+})();
+</script>
+</body>
+</html>

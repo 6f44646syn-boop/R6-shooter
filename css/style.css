@@ -1,0 +1,90 @@
+/* Recoil Range. Single dark theme; system fonts only (no web fonts, no external requests). */
+:root {
+  color-scheme: dark;
+  --bg: #0e1013;
+  --panel: rgba(18, 21, 26, 0.94);
+  --panel-edge: #2b313b;
+  --fg: #e7e9ec;
+  --muted: #9aa3ae;
+  --accent: #f2b33d;      /* range-tape amber */
+  --accent-ink: #1a1305;
+  --warn: #ff8f6b;
+  --hud-bg: rgba(8, 10, 12, 0.55);
+  --font: system-ui, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, Consolas, "Cascadia Mono", monospace;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 14px/1.45 var(--font); overflow: hidden; }
+#app { position: fixed; inset: 0; }
+#view { display: block; width: 100%; height: 100%; }
+
+/* ---------- HUD ---------- */
+#hud { position: absolute; inset: 0; pointer-events: none; user-select: none; }
+#crosshair { position: absolute; left: 50%; top: 50%; image-rendering: pixelated; }
+.hud-box { position: absolute; background: var(--hud-bg); padding: 6px 10px; border-radius: 4px; font-variant-numeric: tabular-nums; }
+.hud-sub { color: var(--muted); font-size: 12px; }
+#hud-gun { left: 16px; top: 16px; }
+#gun-slot { display: inline-block; min-width: 18px; text-align: center; background: var(--fg); color: var(--bg); border-radius: 3px; font-weight: 700; font-size: 12px; }
+.tag-placeholder { margin-left: 6px; padding: 1px 6px; border: 1px solid var(--accent); color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; border-radius: 3px; }
+#hud-range { left: 16px; bottom: 16px; }
+#hud-ammo { right: 16px; bottom: 16px; text-align: right; }
+#ammo-count { font: 700 32px/1 var(--mono); }
+#ammo-count.low { color: var(--warn); }
+#hud-plot { right: 16px; top: 16px; padding: 4px; }
+#plot { display: block; width: 220px; height: 250px; }
+#notice { position: absolute; left: 50%; top: 16px; transform: translateX(-50%); background: var(--hud-bg); color: var(--accent); padding: 4px 10px; border-radius: 4px; font-size: 12px; }
+#reload-bar { position: absolute; left: 50%; top: calc(50% + 40px); width: 120px; height: 4px; margin-left: -60px; background: rgba(255,255,255,0.15); }
+#reload-bar > i { display: block; height: 100%; width: 0; background: var(--accent); }
+
+#debug { position: absolute; left: 16px; top: 80px; margin: 0; padding: 8px 10px; background: rgba(0, 0, 0, 0.72); font: 12px/1.4 var(--mono); color: #cfe; border-radius: 4px; pointer-events: none; white-space: pre; }
+
+/* ---------- Menu ---------- */
+#menu { position: absolute; inset: 0; display: flex; justify-content: center; align-items: flex-start; overflow-y: auto; background: rgba(6, 8, 10, 0.6); padding: 32px 16px; }
+#menu[hidden] { display: none; }
+#menu-panel { width: 100%; max-width: 760px; background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 8px; padding: 20px 24px; display: grid; gap: 18px; }
+.menu-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+h1 { margin: 0; font-size: 22px; letter-spacing: 0.01em; }
+h2 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.menu-lead { margin: 2px 0 0; color: var(--muted); }
+.hint { margin: 0; color: var(--accent); }
+.errors { margin: 0; color: var(--warn); white-space: pre-wrap; font: 12px/1.4 var(--mono); }
+
+button, .primary, input, select { font: inherit; color: inherit; }
+button { padding: 6px 12px; border-radius: 5px; border: 1px solid var(--panel-edge); background: #1b2028; cursor: pointer; }
+button:hover { background: #242a34; }
+button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.primary { display: inline-block; padding: 10px 18px; border-radius: 5px; border: 0; background: var(--accent); color: var(--accent-ink); font-weight: 700; text-decoration: none; cursor: pointer; }
+.primary:hover { background: #ffc65a; }
+
+.keys dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; }
+.keys dt { font-family: var(--mono); color: var(--accent); }
+.keys dd { margin: 0; }
+
+/* ---------- Settings ---------- */
+.settings { display: grid; gap: 18px; }
+.set-group { display: grid; gap: 8px; }
+.set-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px 16px; }
+.field { display: grid; gap: 3px; min-width: 0; }
+.field > span { font-size: 12px; color: var(--muted); }
+.field input[type=number], .field input[type=text], .field select { width: 100%; padding: 6px 8px; background: #0b0d10; border: 1px solid var(--panel-edge); border-radius: 4px; }
+.field input[type=range] { width: 100%; accent-color: var(--accent); }
+.field input[type=color] { width: 100%; height: 32px; padding: 0 2px; background: #0b0d10; border: 1px solid var(--panel-edge); border-radius: 4px; }
+.check { display: flex; align-items: center; gap: 8px; }
+.derived { font: 12px/1.6 var(--mono); color: var(--fg); background: #0b0d10; border: 1px solid var(--panel-edge); border-radius: 4px; padding: 6px 10px; font-variant-numeric: tabular-nums; }
+.derived b { color: var(--accent); font-weight: 600; }
+.optic-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.optic-table th, .optic-table td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--panel-edge); }
+.optic-table input { width: 90px; padding: 4px 6px; background: #0b0d10; border: 1px solid var(--panel-edge); border-radius: 4px; }
+.optic-table .edited { color: var(--accent); font-size: 12px; }
+.table-wrap { overflow-x: auto; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.small { color: var(--muted); font-size: 12px; }
+
+/* ---------- Embedded (iframe) screen ---------- */
+#embedded { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--bg); padding: 16px; }
+#embedded[hidden] { display: none; }
+.embedded-box { max-width: 420px; text-align: center; display: grid; gap: 12px; justify-items: center; }
+.embedded-box p { margin: 0; color: var(--muted); }
+
+[hidden] { display: none !important; }

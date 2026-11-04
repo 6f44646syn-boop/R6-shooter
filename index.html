@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recoil Range</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="view"></canvas>
+
+  <div id="hud">
+    <canvas id="crosshair"></canvas>
+    <div id="hud-gun" class="hud-box">
+      <div><span id="gun-slot">1</span> <strong id="gun-name">-</strong> <span id="gun-tag" class="tag-placeholder" hidden>PLACEHOLDER RECOIL</span></div>
+      <div class="hud-sub"><span id="gun-info">-</span></div>
+    </div>
+    <div id="hud-range" class="hud-box">
+      <div>Target <strong id="hud-distance">10 m</strong> <span class="hud-sub">Q / E</span></div>
+      <div class="hud-sub">Shots <span id="hud-shots">0</span> &middot; Hits <span id="hud-hits">0</span> <span id="hud-acc"></span></div>
+    </div>
+    <div id="hud-ammo" class="hud-box">
+      <div id="ammo-count">30</div>
+      <div class="hud-sub" id="ammo-sub">/ 30</div>
+    </div>
+    <div id="hud-plot" class="hud-box" hidden>
+      <canvas id="plot" width="220" height="250"></canvas>
+    </div>
+    <div id="notice" hidden></div>
+  </div>
+
+  <pre id="debug" hidden></pre>
+
+  <div id="menu">
+    <div id="menu-panel">
+      <header class="menu-head">
+        <div>
+          <h1>Recoil Range</h1>
+          <p class="menu-lead">A one-wall range for practising spray control.</p>
+        </div>
+        <button id="start-btn" type="button" class="primary">Click to start</button>
+      </header>
+      <p id="lock-hint" class="hint" hidden></p>
+      <p id="data-errors" class="errors" hidden></p>
+      <div id="settings-root"></div>
+      <section class="keys">
+        <h2>Controls</h2>
+        <dl>
+          <dt>Mouse</dt><dd>Look</dd>
+          <dt>Left button</dt><dd>Fire (hold for automatic)</dd>
+          <dt>Right button</dt><dd>Aim down sights (hold)</dd>
+          <dt>R</dt><dd>Reload</dd>
+          <dt>1-9, 0</dt><dd>Select gun 1-10</dd>
+          <dt>Q / E</dt><dd>Target closer / further (5, 10, 15, 20 m)</dd>
+          <dt>C</dt><dd>Clear bullet holes and shot counters</dd>
+          <dt>F3</dt><dd>Debug readout (Z zeroes its counters)</dd>
+          <dt>Esc</dt><dd>Release the mouse and open this menu</dd>
+        </dl>
+      </section>
+    </div>
+  </div>
+
+  <div id="embedded" hidden>
+    <div class="embedded-box">
+      <h1>Recoil Range</h1>
+      <p>This page is shown inside another site, which blocks mouse capture. Open it in its own tab to play.</p>
+      <a id="open-tab" class="primary" href="./" target="_blank" rel="noopener">Open in a full tab</a>
+    </div>
+  </div>
+</div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
