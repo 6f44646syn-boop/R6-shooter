@@ -16,6 +16,7 @@ import { DebugHud } from './ui/debug-hud.js';
 import { drawCrosshair } from './ui/crosshair.js';
 import { Hud } from './ui/hud.js';
 import { MagPlot } from './ui/plot.js';
+import { SettingsUI } from './ui/settings-ui.js';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -130,7 +131,7 @@ function boot(data) {
     onChange(locked) {
       $('menu').hidden = locked;
       if (locked) $('lock-hint').hidden = true;
-      else { weapon.releaseTrigger(); setAds(false); }
+      else { weapon.releaseTrigger(); setAds(false); settingsUI.refresh(); }
     },
     onRetry() {
       // Usually Chrome refusing a re-lock straight after Esc. Stay quiet; the next click retries.
@@ -190,6 +191,7 @@ function boot(data) {
       settings.debugHud = !settings.debugHud;
       debug.setVisible(settings.debugHud);
       saveSettings(settings);
+      settingsUI.refresh();
       return;
     }
     if (!lock.locked) return;
@@ -266,6 +268,24 @@ function boot(data) {
   selectGun(Math.min(settings.gunIndex, data.guns.length - 1));
   resize();
   drawCrosshair($('crosshair'), settings.crosshair);
+
+  /* ---------- settings panel ---------- */
+  const settingsUI = new SettingsUI($('settings-root'), {
+    settings, guns: data.guns, optics: data.optics, opticMultiplier,
+    getState: () => state,
+    onChange(key) {
+      const all = key === 'all';
+      if (all || key === 'scale') resize();
+      if (all || key === 'fov') updateFov();
+      if (all || key === 'crosshair') drawCrosshair($('crosshair'), settings.crosshair);
+      if (all || key === 'holes') range.holes.setSize(settings.holeSizeCm / 100);
+      if (all || key === 'volume') sfx.setVolume(settings.volume);
+      if (all || key === 'debug') debug.setVisible(settings.debugHud);
+      if (all || key === 'gun') selectGun(Math.min(settings.gunIndex, data.guns.length - 1));
+      if (all || key === 'distance') setDistance(settings.distance);
+      if (key === 'seed') newMagazine(); // takes effect from the current magazine
+    },
+  });
 
   /* ---------- frame loop ---------- */
   // In ?test mode the clock is driven by the test script (window.__range.step), so firing and
