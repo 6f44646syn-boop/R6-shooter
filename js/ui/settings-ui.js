@@ -100,6 +100,8 @@ export class SettingsUI {
         this.num('set-dpi', 'Mouse DPI', { min: 50, max: 32000, step: 50 }, () => this.s.dpi, (v) => { this.s.dpi = v; }, 'sens'),
         this.range('set-sens-h', 'Horizontal sensitivity', { min: 1, max: 50, step: 1, fmt: (v) => String(v) }, () => this.s.sensH, (v) => { this.s.sensH = v; }, 'sens'),
         this.range('set-sens-v', 'Vertical sensitivity', { min: 1, max: 50, step: 1, fmt: (v) => String(v) }, () => this.s.sensV, (v) => { this.s.sensV = v; }, 'sens'),
+        this.select('set-ads-sens', 'Aimed sensitivity', [['focal', 'Match screen distance (focal length)'], ['game', 'My game values (sens.json)']], () => this.s.adsSens, (v) => { this.s.adsSens = v; }, 'sens'),
+        this.range('set-mdm', 'Monitor distance (focal mode)', { min: 0, max: 1, step: 0.05, fmt: (v) => Math.round(v * 100) + '%' + (v === 0 ? ' (match at crosshair)' : v === 1 ? ' (match at screen edge)' : '') }, () => this.s.mdm, (v) => { this.s.mdm = v; }, 'sens'),
         this.range('set-assist', 'Aim assist', { min: 0, max: 1, step: 0.05, fmt: (v) => v === 0 ? 'off' : Math.round(v * 100) + '%' }, () => this.s.aimAssist, (v) => { this.s.aimAssist = v; }, 'assist'),
       ),
       this.derived);
@@ -132,7 +134,7 @@ export class SettingsUI {
     const resetOptics = el('button', { type: 'button', text: 'Clear my edits' });
     resetOptics.addEventListener('click', () => { this.s.opticOverrides = {}; this.commit('optics'); this.refresh(); });
     const optics = this.group('ADS sensitivity per magnification',
-      el('p', { class: 'small', text: 'ADS deg/count = hip deg/count \u00d7 multiplier (\u00d7 the gun\u2019s own ADS factor). 1.0 = same as hipfire. Rows are the magnifications in data/sens.json plus any a sight uses. \u201cGame slider\u201d is your in-game value, shown for reference: it is not converted, because how the game turns it into degrees per count is not known here. A row with no calibrated multiplier (an "ads" entry in data/sens.json) uses the 1.0x multiplier divided by the zoom and is marked placeholder. Edits here are saved in this browser only.' }),
+      el('p', { class: 'small', text: 'ADS deg/count = hip deg/count \u00d7 multiplier (\u00d7 the gun\u2019s own ADS factor). 1.0 = same as hipfire. Used when Aimed sensitivity is \u201cMy game values\u201d; the default (focal length) needs no table. Rows are the magnifications in data/sens.json plus any a sight uses. \u201cGame slider\u201d is your in-game value, shown for reference: it is not converted, because how the game turns it into degrees per count is not known here. A row with no calibrated multiplier (an "ads" entry in data/sens.json) uses the 1.0x multiplier divided by the zoom and is marked placeholder. Edits here are saved in this browser only.' }),
       gameLine,
       el('div', { class: 'table-wrap' }, el('table', { class: 'optic-table' },
         el('thead', {}, el('tr', {}, el('th', { text: 'Magnification' }), el('th', { text: 'Game slider' }), el('th', { text: 'Multiplier' }), el('th', { text: 'deg/count' }))),
@@ -244,7 +246,7 @@ export class SettingsUI {
     line('counts / 360\u00b0', fmt(countsPer360(s.dpi, s.cm360), 2));
     line('degrees / count (hip)', fmt(dpc, 8) + '\u00b0 horizontal, ' + fmt(dpc * s.sensV / s.sensH, 8) + '\u00b0 vertical');
     if (g && st.optic) {
-      const m = this.ctx.opticMultiplier(st.optic.sensKey) * g.adsMultiplier;
+      const m = this.ctx.aimedMultiplier(st.optic);
       line('ADS deg/count for ' + g.name + ' with ' + st.optic.label + ' (' + st.optic.sensKey + ')', fmt(dpc * m, 8) + '\u00b0  = ' + fmt(s.cm360 / m, 2) + ' cm/360');
     }
     for (const r of this.opticRows) {

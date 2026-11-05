@@ -11,7 +11,9 @@ export const DEFAULTS = Object.freeze({
   sensH: 7,              // Siege-style horizontal sensitivity (1-50); yours is 7
   sensV: 7,              // vertical sensitivity (1-50)
   cm360: 14.25,          // derived from DPI and sensH (kept for display and the maths)
-  aimAssist: 0,          // 0..1 slight pull and slowdown near a target (0 = off)
+  aimAssist: 0,
+  adsSens: 'focal',      // 'focal' = screen-distance matched (focal length scaling); 'game' = your game's aimed values (sens.json)
+  mdm: 0,                // monitor distance coefficient for 'focal' (0 = match at the crosshair)          // 0..1 slight pull and slowdown near a target (0 = off)
   fov: 83,               // VERTICAL degrees, like the game's FOV slider (60-90)
   // Per-magnification ADS multiplier overrides, keyed like "2.5x". Anything missing comes from
   // data/sens.json (or a placeholder of the 1.0x value / zoom), so editing that file changes the defaults.
@@ -48,6 +50,7 @@ const NUM = {
   sensH: [1, 50],
   sensV: [1, 50],
   aimAssist: [0, 1],
+  mdm: [0, 1],
   fov: [60, 90],
   volume: [0, 1],
   holeSizeCm: [0.5, 10],
@@ -93,6 +96,7 @@ export function sanitize(input) {
   out.dotMoving = typeof s.dotMoving === 'boolean' ? s.dotMoving : (s.movingTarget === true ? true : DEFAULTS.dotMoving);
   out.dotCount = Number.isInteger(s.dotCount) ? Math.min(12, Math.max(1, s.dotCount)) : DEFAULTS.dotCount;
   out.lensQuality = ['auto', '3', '2', '1', '0'].includes(String(s.lensQuality)) ? String(s.lensQuality) : DEFAULTS.lensQuality;
+  out.adsSens = s.adsSens === 'game' ? 'game' : 'focal';
   out.aimSmooth = typeof s.aimSmooth === 'boolean' ? s.aimSmooth : DEFAULTS.aimSmooth;
   out.antialias = typeof s.antialias === 'boolean' ? s.antialias : DEFAULTS.antialias;
   if (out.renderScale > 0 && out.renderScale < 0.5) out.renderScale = 0.5;

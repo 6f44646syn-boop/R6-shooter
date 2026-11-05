@@ -47,6 +47,19 @@ export function horizontalFovDeg(vFovDeg, aspect) {
   return 2 * Math.atan(Math.tan(vFovDeg * DEG / 2) * aspect) / DEG;
 }
 
+// Focal-length scaling (monitor distance matching). Sensitivity multiplier for a view of
+// vertical FOV `fov` relative to the hip FOV `hip`, matched at coefficient `c` of the way
+// from the screen centre to the top/bottom edge:
+//   c = 0  (0%, focal length): tan(fov / 2) / tan(hip / 2)
+//          -> a mouse movement moves the view by the same distance ON SCREEN at the crosshair
+//   c > 0: atan(c * tan(fov / 2)) / atan(c * tan(hip / 2))  (c = 1: matched at the edge)
+// Pure function of the current FOV, so it changes smoothly frame by frame with the zoom.
+export function focalRatio(fovDeg, hipDeg, c = 0) {
+  const a = Math.tan(fovDeg * DEG / 2), b = Math.tan(hipDeg * DEG / 2);
+  if (!(c > 1e-6)) return a / b;
+  return Math.atan(c * a) / Math.atan(c * b);
+}
+
 // FOV through an optic of magnification `zoom`. Magnification scales the tangent of the
 // half-angle (everything on screen gets `zoom` times bigger), not the angle itself:
 //   tan(ads/2) = tan(hip/2) / zoom

@@ -4,7 +4,7 @@ import { Look, PITCH_LIMIT } from './core/look.js';
 import { Player } from './core/player.js';
 import { PointerLock } from './core/pointer-lock.js';
 import { loadSettings, saveSettings, DISTANCES } from './core/settings.js';
-import { degPerCount, horizontalFovDeg, zoomedFovDeg } from './core/sensitivity.js';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js';
 import { Weapon } from './core/weapon.js';
 import { RecoilEngine } from './core/recoil.js';
 import { loadGameData } from './core/guns.js';
@@ -139,10 +139,25 @@ function boot(data) {
     if (Math.abs(tHip - tAds) < 1e-9) return state.adsE;
     return Math.min(1, Math.max(0, (tHip - Math.tan(state.fovV * DEG / 2)) / (tHip - tAds)));
   }
+  // Two models (Settings > Aimed sensitivity):
+  //  focal: focal-length scaling. Sensitivity = hip x focalRatio(current FOV), recomputed every
+  //         frame from the FOV actually on screen, so it eases in lockstep with the zoom and a
+  //         given mouse movement moves the view the same distance on screen at the crosshair
+  //         (monitor distance 0%), hip or fully aimed. The gun's own multipliers still apply.
+  //  game:  your game's aimed multipliers (sens.json adsCm360), blended by the FOV progress.
   function currentDpc() {
     const g = state.gun;
+    if (settings.adsSens === 'focal') {
+      const gm = g.hipMultiplier + (g.adsMultiplier - g.hipMultiplier) * fovProgress();
+      return baseDpc() * gm * focalRatio(state.fovV, settings.fov, settings.mdm);
+    }
     const hip = g.hipMultiplier, ads = opticMultiplier(state.optic.sensKey) * g.adsMultiplier;
     return baseDpc() * (hip + (ads - hip) * fovProgress());
+  }
+  // Aimed multiplier for a sight (fully aimed), for the Settings readout.
+  function aimedMultiplier(optic) {
+    if (settings.adsSens === 'focal') return focalRatio(adsVFov(optic), settings.fov, settings.mdm) * state.gun.adsMultiplier;
+    return opticMultiplier(optic.sensKey) * state.gun.adsMultiplier;
   }
 
   // Fixed seed from settings or ?seed=, otherwise a new random seed per magazine.
@@ -578,7 +593,7 @@ function boot(data) {
 
   /* ---------- settings panel ---------- */
   settingsUI = new SettingsUI($('settings-root'), {
-    settings, guns: data.guns, sensKeys: sensRows(catalogue, data.sens), sensFile: data.sens.ads,
+    settings, guns: data.guns, sensKeys: sensRows(catalogue, data.sens), sensFile: data.sens.ads, aimedMultiplier,
     gameSliders: Object.fromEntries(data.sens.magnifications.map((m) => [m.key, m.slider])), gameSens: data.sens.game, opticMultiplier, isPlaceholder,
     getState: () => state,
     onChange(key) {
@@ -723,7 +738,7 @@ function boot(data) {
   let lastShotT = -1, frameT = 0;
   const lensOff = { x: 0, y: 0, scale: 1 };
   const lensP = { cx: 0, cy: 0, hw: 0, hh: 0, corner: 0, round: true, mag: false, strength: 0, glareX: 0, glareY: 0,
-    gunHalfW: 0, flash: 0, tint: [1, 1, 1], ret: null, retHalf: 1, retOn: 0, quality: 3 };
+    gunHalfW: 0, flash: 0, tint: [1, 1, 1], ret: null, retHalf: 1, retOn: 0, retX: 0, retY: 0, quality: 3 };
   const smooth = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
   // Lens quality: setting, or auto (starts at 3 and steps down when frames are slow).
   let autoLevel = 3, qAcc = 0, qN = 0, qT0 = 0;
@@ -758,10 +773,13 @@ function boot(data) {
     lensP.flash = Math.max(0, 1 - (frameT - lastShotT) / 0.06);
     lensP.tint = lensP.mag ? [0.93, 1.0, 0.96] : [1, 1, 1];
     lensP.ret = reticleTextures(o, RETICLE_COLORS[settings.reticleColor], H);
-    // Reticle keeps its angular size in the world while the FOV eases (fixed at full aim).
-    const fovScale = Math.tan(state.adsFov * DEG / 2) / Math.tan(state.fovV * DEG / 2);
-    lensP.retHalf = lensP.ret.half * (H / 1080) * fovScale;
-    lensP.retOn = smooth(0.45, 1, state.adsE);
+    // Reticle is drawn at its full aimed size from the first frame, so the aim point is clearly
+    // marked through the whole raise.
+    lensP.retHalf = lensP.ret.half * (H / 1080);
+    // Reticle: at full strength from the first frame of aiming, at the exact screen centre,
+    // whatever the gun model is doing. Until the sight's glass arrives it is not masked by it.
+    lensP.retOn = state.ads ? 1 : smooth(0.5, 1, state.adsE);
+    lensP.retX = renderW / 2; lensP.retY = renderH / 2;
     lensP.quality = lensQuality();
     post.render(scene, camera, rig.scene, rig.camera, lensP);
   }
@@ -842,6 +860,7 @@ function boot(data) {
       offsetAt(t) { return recoil.offsetAt(t, [0, 0]); },
       now: () => manualT,
       cpuFrameMs: () => Array.from(cpuMs.subarray(0, Math.min(cpuIdx, cpuMs.length))),
+      lensParams: () => ({ retOn: lensP.retOn, retX: lensP.retX, retY: lensP.retY, w: renderW, h: renderH, strength: lensP.strength, camX: camera.position.x, camY: camera.position.y, camZ: camera.position.z }),
       renderInfo: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, w: renderW, h: renderH }),
     };
   }

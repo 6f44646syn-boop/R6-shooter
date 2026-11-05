@@ -36,7 +36,7 @@ void main() {
 
 const COMPOSITE = /* glsl */`
 uniform sampler2D tScene, tBlur, tRet, tEtch;
-uniform vec2 res, lensC, lensHalf, glareOff, gunBand;
+uniform vec2 res, lensC, lensHalf, glareOff, gunBand, retC;
 uniform float lensCorner, lensRound, mag, strength, blurOn, caOn, glareOn, flash, retHalf, retOn;
 uniform vec3 tint;
 varying vec2 vUv;
@@ -107,10 +107,13 @@ void main() {
   col += vec3(1.0, 0.7, 0.4) * flash * inside * (mag > 0.5 ? 0.16 : 0.09);
 
   // Reticle: fixed at the screen centre, only seen through the glass.
-  vec2 r = (p - res * 0.5) / (2.0 * retHalf) + 0.5;
+  // Fixed at retC (the exact screen centre). Seen only through the glass once the sight is
+  // in place; before that (start of the raise) it shows on its own so it is there from frame one.
+  vec2 r = (p - retC) / (2.0 * retHalf) + 0.5;
   if (retOn > 0.0 && r.x > 0.0 && r.x < 1.0 && r.y > 0.0 && r.y < 1.0) {
-    col *= 1.0 - texture2D(tEtch, r).a * inside * retOn;
-    col += texture2D(tRet, r).rgb * inside * retOn * 1.4;
+    float m = mix(1.0, inside, strength);
+    col *= 1.0 - texture2D(tEtch, r).a * m * retOn;
+    col += texture2D(tRet, r).rgb * m * retOn * 1.4;
   }
   gl_FragColor = vec4(col, 1.0);
   #include <colorspace_fragment>
@@ -142,7 +145,7 @@ export class LensPost {
       glareOff: { value: new THREE.Vector2() }, gunBand: { value: new THREE.Vector2(1, 0) },
       lensCorner: { value: 0 }, lensRound: { value: 1 }, mag: { value: 0 }, strength: { value: 0 },
       blurOn: { value: 1 }, caOn: { value: 1 }, glareOn: { value: 1 }, flash: { value: 0 },
-      retHalf: { value: 100 }, retOn: { value: 0 }, tint: { value: new THREE.Color(1, 1, 1) },
+      retHalf: { value: 100 }, retOn: { value: 0 }, retC: { value: new THREE.Vector2() }, tint: { value: new THREE.Color(1, 1, 1) },
     };
     this.compMat = mk(COMPOSITE, this.u);
     this.quad = new THREE.Mesh(tri, this.copyMat);
@@ -211,6 +214,7 @@ export class LensPost {
     u.tEtch.value = p.ret.etch;
     u.retHalf.value = p.retHalf;
     u.retOn.value = p.retOn;
+    u.retC.value.set(p.retX, p.retY);
     this._pass(this.compMat, null);
   }
 }

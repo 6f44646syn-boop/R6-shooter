@@ -262,7 +262,8 @@ try {
     });
     const tH = Math.tan(83 * Math.PI / 360), tA = Math.tan(83 * 0.42 * Math.PI / 360), tC = Math.tan(mid.s.fovV * Math.PI / 360);
     const pf = (tH - tC) / (tH - tA);
-    const want = mid.hip + (mid.ads - mid.hip) * pf;
+    // Focal-length scaling (default): sensitivity = hip x tan(current FOV / 2) / tan(83 / 2).
+    const want = mid.hip * tC / tH; void pf;
     check('mid-ease: FOV ' + mid.s.fovV.toFixed(2) + ' deg, eased ' + mid.s.adsE.toFixed(3) + ' at half time (smooth both ends)', Math.abs(mid.s.adsE - 0.5) < 1e-9 && mid.s.fovV < 83 && mid.s.fovV > 83 * 0.42, JSON.stringify(mid.s));
     check('mid-ease sensitivity matches the FOV (' + (mid.s.dpc / mid.hip).toFixed(4) + ' x hip)', Math.abs(mid.s.dpc - want) < 1e-12, 'want ' + want + ' got ' + mid.s.dpc);
 
@@ -282,7 +283,55 @@ try {
     check('auto quality: 3 -> 2 (blur off) -> 1 (fringing off) -> 0 (glare off), stays down: ' + aq.join(' > '), aq.join(',') === '3,2,1,0,0,0', aq.join(','));
 
     check('ADS slower with mag_a (' + sc.mag.adsTime.toFixed(4) + ' s) than holo_a (' + sc.holo.adsTime.toFixed(4) + ' s)', sc.mag.adsTime > sc.holo.adsTime, '');
-    check('ADS sens from your turn distances: 2.5x / 1.0x = 11.8 / 22.3 cm', !sc.mag.placeholderSens && Math.abs(sc.mag.dpc / sc.holo.dpc - 11.8 / 22.3) < 1e-12, 'ratio ' + sc.mag.dpc / sc.holo.dpc);
+    const tanH = (v) => Math.tan(v * Math.PI / 360);
+    check('focal sens: 2.5x / 1x = tan(34.86/2) / tan(74.7/2)', Math.abs(sc.mag.dpc / sc.holo.dpc - tanH(83 * 0.42) / tanH(83 * 0.9)) < 1e-12, 'ratio ' + sc.mag.dpc / sc.holo.dpc);
+    const gameSens = await page.evaluate(() => {
+      const R = window.__range;
+      R.setSetting('adsSens', 'game'); R.manual(true); R.selectGun(1);
+      const get = (o) => { R.setOptic(o); R.setAds(true); R.step(1); const d = R.state().dpc; R.setAds(false); R.step(1); return d; };
+      const out = { mag: get('mag_a'), holo: get('holo_a') };
+      R.setOptic('mag_a'); R.setSetting('adsSens', 'focal');
+      return out;
+    });
+    check('game-values sens: 2.5x / 1.0x = 11.8 / 22.3 cm', Math.abs(gameSens.mag / gameSens.holo - 11.8 / 22.3) < 1e-12, JSON.stringify(gameSens));
+
+    // Acceptance: uniform screen distance, no sensitivity stepping, frame-one centred reticle,
+    // zero parallax.
+    const acc = await page.evaluate(() => {
+      const R = window.__range;
+      R.manual(true); R.selectGun(1); R.setOptic('mag_a'); R.setAim(0, 0); R.setAds(false); R.step(1); R.renderFrame();
+      const camHip = R.lensParams();
+      const measure = () => { const a = R.look(); R.applyCounts(0, -40); const b = R.look(); R.setAim(a.yaw, a.pitch); return b.pitch - a.pitch; };
+      const out = { hipFov: R.state().fovV, hipDeg: measure(), hipDpc: R.state().dpc };
+      // frame one of aiming
+      R.setAds(true); R.step(1 / 60); R.renderFrame();
+      out.f1 = R.lensParams(); out.f1.adsE = R.state().adsE;
+      // sensitivity through the whole raise at 240 fps
+      R.setAds(false); R.step(1); R.setAds(true);
+      const series = [R.state().dpc];
+      for (let i = 0; i < 80; i++) { R.step(1 / 240, 240); series.push(R.state().dpc); }
+      out.series = series;
+      out.adsFov = R.state().fovV; out.adsDeg = measure(); out.adsDpc = R.state().dpc;
+      R.renderFrame(); out.camAds = R.lensParams();
+      // monitor distance 100%: matched at the top edge of the screen
+      R.setSetting('mdm', 1); out.adsDpcEdge = R.state().dpc; R.setAds(false); R.step(1); out.hipDpcEdge = R.state().dpc; R.setSetting('mdm', 0);
+      R.setAds(false); R.step(1);
+      out.camHip = camHip;
+      return out;
+    });
+    const px = (deg, fov) => 540 * Math.tan(deg * Math.PI / 180) / Math.tan(fov * Math.PI / 360);
+    const pxHip = px(acc.hipDeg, acc.hipFov), pxAds = px(acc.adsDeg, acc.adsFov);
+    check('0% monitor distance: 40 counts move the view ' + pxHip.toFixed(2) + ' px at hip and ' + pxAds.toFixed(2) + ' px aimed (1080p)', Math.abs(pxAds / pxHip - 1) < 0.002, JSON.stringify({ pxHip, pxAds }));
+    const edgeHip = (acc.hipFov / 2) / acc.hipDpcEdge, edgeAds = (acc.adsFov / 2) / acc.adsDpcEdge;
+    check('100% monitor distance: counts to reach the screen edge equal (' + edgeHip.toFixed(1) + ' vs ' + edgeAds.toFixed(1) + ')', Math.abs(edgeAds / edgeHip - 1) < 1e-9, '');
+    const ser = acc.series, range = ser[0] - ser[ser.length - 1];
+    let maxStep = 0, mono = true;
+    for (let i = 1; i < ser.length; i++) { const d = ser[i - 1] - ser[i]; maxStep = Math.max(maxStep, Math.abs(d)); if (d < -1e-15) mono = false; }
+    const firstStep = (ser[0] - ser[1]) / range;
+    check('no sensitivity stepping: smooth, monotonic, largest 240 fps step ' + (100 * maxStep / range).toFixed(2) + '% of the change, first ' + (100 * firstStep).toFixed(3) + '%',
+      mono && maxStep / range < 0.05 && firstStep < 0.005 && Math.abs(ser[ser.length - 1] - acc.adsDpc) < 1e-12, JSON.stringify({ maxStep, range, firstStep }));
+    check('frame one of aiming (blend ' + acc.f1.adsE.toFixed(4) + '): reticle fully on at the exact screen centre', acc.f1.retOn === 1 && acc.f1.retX === acc.f1.w / 2 && acc.f1.retY === acc.f1.h / 2, JSON.stringify(acc.f1));
+    check('zero parallax: camera position unchanged by aiming (zoom is FOV only)', acc.camHip.camX === acc.camAds.camX && acc.camHip.camY === acc.camAds.camY && acc.camHip.camZ === acc.camAds.camZ, JSON.stringify([acc.camHip, acc.camAds]));
     check('lens pass off at hip, on when aimed', !sc.overlayHip && sc.overlayAds, sc.overlayHip + ' / ' + sc.overlayAds);
     check('F4 gallery shows 15 sights', sc.gallery === 15, 'got ' + sc.gallery);
 

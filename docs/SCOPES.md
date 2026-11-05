@@ -13,11 +13,21 @@ In game: the **Sight** row in the menu's Loadout panel lists the current slot's 
   `data/sens.json` `model.adsVFovMultipliers[magnification]`: 1.0x = 0.9 (74.7 deg),
   2.5x = 0.42 (34.9 deg). Magnifications not listed (3.5x, 8.0x) use
   `2 * atan(tan(hip / 2) / zoom)` until you add a value.
-- **Ease.** FOV and the gun raise ease out over `model.adsEaseSeconds` (120-180 ms) in both
-  directions: `gun.adsSeconds x 0.45 / (1 + adsSpeedBonus)`, clamped to that range.
-- **Sensitivity follows the FOV every frame.** Multiplier = hip + (aimed - hip) x p, where
-  p = (tan(hip/2) - tan(now/2)) / (tan(hip/2) - tan(aimed/2)). Fully aimed it is exactly the
-  aimed multiplier from `adsCm360`; half way through the zoom it is half way in tan-space.
+- **Ease.** One smooth curve (smootherstep: starts and lands at zero speed) drives the zoom,
+  gun raise, lens effects and crosshair fade, both ways, over `model.adsEaseSeconds`
+  (160-240 ms): `gun.adsSeconds x 0.6 / (1 + adsSpeedBonus)`, clamped to that range.
+- **Sensitivity follows the FOV every frame.** Settings > Aimed sensitivity:
+  - *Match screen distance (focal length)*, the default: sensitivity = hip x
+    tan(current FOV / 2) / tan(hip FOV / 2), computed from the FOV actually on screen each
+    frame. A mouse movement moves the view the same distance on screen at the crosshair, hip
+    or aimed (monitor distance 0%). *Monitor distance* moves the matching point towards the
+    screen edge: atan(c x tan(FOV / 2)) / atan(c x tan(hip / 2)); 100% matches at the edge.
+  - *My game values*: the aimed multipliers from `data/sens.json` (`adsCm360`), blended by how
+    far the FOV has zoomed.
+- **Reticle from frame one.** The reticle is always at the exact screen centre (where bullets
+  go) and is fully on from the first frame of aiming, before the sight arrives; once the
+  glass is in place it is only seen through it.
+- **Zero parallax.** Aiming never moves the camera: zoom is a FOV change only.
 - **Sights are 3D models** (`js/scene/sight-model.js`), built from the housing numbers below:
   extruded frame, tinted glass, hood, mount, rail clamp, screws; magnified sights add a
   rubber eyecup, machined lip and turrets. Dark anodised metal (MeshStandardMaterial,
