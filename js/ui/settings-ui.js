@@ -140,6 +140,9 @@ export class SettingsUI {
         this.select('set-gun', 'Gun', gunOpts, () => String(this.s.gunIndex), (v) => { this.s.gunIndex = Number(v); }, 'gun'),
         this.select('set-distance', 'Target distance', DISTANCES.map((d) => [String(d), d + ' m']), () => String(this.s.distance), (v) => { this.s.distance = Number(v); }, 'distance'),
         this.range('set-hole', 'Bullet hole size', { min: 0.5, max: 10, step: 0.5, fmt: (v) => v + ' cm' }, () => this.s.holeSizeCm, (v) => { this.s.holeSizeCm = v; }, 'holes'),
+        this.range('set-mover-speed', 'Moving dot speed', { min: 0.25, max: 6, step: 0.25, fmt: (v) => v + ' m/s' }, () => this.s.moverSpeed, (v) => { this.s.moverSpeed = v; }, 'mover'),
+        el('div', { class: 'field' }, el('span', { text: '\u00a0' }),
+          this.check('set-mover', 'Moving red dot target (M)', () => this.s.movingTarget, (v) => { this.s.movingTarget = v; }, 'mover')),
         this.num('set-seed', 'Fixed jitter seed (blank = random)', { min: 0, max: 4294967295, step: 1 }, () => this.s.fixedSeed, (v) => { this.s.fixedSeed = String(Math.floor(v)); }, 'seed'),
       ));
     // Allow clearing the seed field back to "random".

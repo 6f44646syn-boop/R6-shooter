@@ -40,6 +40,7 @@ Keys `1`-`9` and `0` select the first ten guns in file order.
   "adsMultiplier": 1.0,
   "resetSeconds": 0.35,
   "fireMode": "auto",
+  "model": "rifle",
   "tone": 0.5,
   "jitter": { "yawDeg": 0.04, "pitchDeg": 0.03 },
   "recovery": { "delaySeconds": 0.2, "degPerSecond": 10 },
@@ -65,6 +66,7 @@ Keys `1`-`9` and `0` select the first ten guns in file order.
 | `adsMultiplier` | number > 0 | Extra ADS sensitivity factor for this gun, on top of the optic multiplier. Normally 1.0. |
 | `resetSeconds` | number > 0 | Pause after the last shot before the next shot counts as bullet 1 again. Should be longer than one shot interval. |
 | `fireMode` | `"auto"` or `"semi"` (optional) | Default `"auto"`. Semi fires once per click, at most at `rpm`. |
+| `model` | optional | First-person model: `rifle`, `carbine`, `smg`, `lmg` or `marksman`. Cosmetic. If missing, guessed from the start of `id`, else `rifle`. The sight on top follows `optic` (reflex for 1.0x, short scope below 3x, long scope from 3x). |
 | `tone` | 0-1 (optional) | Pitch of the synthesised shot sound. Cosmetic. Default 0.5. |
 | `jitter.yawDeg`, `jitter.pitchDeg` | number >= 0 | Standard deviation, in degrees, of random noise added to each shot's kick. 0 = perfectly repeatable spray. |
 | `recovery.delaySeconds` | number >= 0 | How long the view stays where the recoil left it after you stop firing (never less than one shot interval). |

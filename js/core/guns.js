@@ -1,6 +1,10 @@
 // Loads and validates data/guns.json and data/optics.json.
 // Bad guns are skipped with a clear message naming the gun and the field; the rest still load.
 
+const MODELS = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
+// Default model when the field is missing: guess from the id ("smg-01" -> smg).
+const guessModel = (id) => MODELS.find((m) => id.toLowerCase().startsWith(m)) || 'rifle';
+
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
 
 // Returns { guns, errors, warnings }. `opticZooms` is the list of zoom levels from optics.json.
@@ -39,6 +43,7 @@ export function validateGuns(data, opticZooms) {
     else if (!opticZooms.includes(g.optic)) bad('optic', g.optic + ' is not in data/optics.json (have ' + opticZooms.join(', ') + ')');
     if (typeof g.placeholder !== 'boolean') bad('placeholder', 'must be true or false');
     if (g.fireMode !== undefined && g.fireMode !== 'auto' && g.fireMode !== 'semi') bad('fireMode', 'must be "auto" or "semi" if given');
+    if (g.model !== undefined && !MODELS.includes(g.model)) bad('model', 'must be one of ' + MODELS.join(', ') + ' if given');
     if (g.tone !== undefined && (!isNum(g.tone) || g.tone < 0 || g.tone > 1)) bad('tone', 'must be a number from 0 to 1 if given');
 
     if (!Array.isArray(g.sprayPath) || g.sprayPath.length < 1) {
@@ -72,7 +77,7 @@ export function validateGuns(data, opticZooms) {
       id: g.id, name: g.name, rpm: g.rpm, magSize: g.magSize, reloadSeconds: g.reloadSeconds,
       optic: g.optic, hipMultiplier: g.hipMultiplier, adsMultiplier: g.adsMultiplier,
       resetSeconds: g.resetSeconds, placeholder: g.placeholder,
-      fireMode: g.fireMode || 'auto', tone: g.tone === undefined ? 0.5 : g.tone,
+      fireMode: g.fireMode || 'auto', model: g.model || guessModel(g.id), tone: g.tone === undefined ? 0.5 : g.tone,
       sprayPath: g.sprayPath.map((p) => [p[0], p[1]]),
       jitter: { yawDeg: g.jitter.yawDeg, pitchDeg: g.jitter.pitchDeg },
       recovery: { delaySeconds: g.recovery.delaySeconds, degPerSecond: g.recovery.degPerSecond },

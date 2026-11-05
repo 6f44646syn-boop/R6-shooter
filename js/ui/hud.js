@@ -22,7 +22,7 @@ export class Hud {
     this.el.info.textContent = gun.rpm + ' rpm · ' + opticLabel + ' optic' + (gun.fireMode === 'semi' ? ' · semi' : '');
   }
 
-  setDistance(d) { this.el.distance.textContent = d + ' m'; }
+  setDistance(d, moving) { this.el.distance.textContent = d + ' m' + (moving ? ' \u00b7 moving dot' : ''); }
 
   setStats(shots, hits) {
     if (shots === this.lastShots && hits === this.lastHits) return;

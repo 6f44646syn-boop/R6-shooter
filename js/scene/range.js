@@ -99,6 +99,7 @@ export class Range {
       new THREE.MeshLambertMaterial({ map: tTex }));
     paper.position.set((b.x0 + b.x1) / 2, EYE_HEIGHT + (b.y0 + b.y1) / 2, 0.006);
     this.wallGroup.add(paper);
+    this.paper = paper; // hidden while the moving dot is the target
 
     this.holes = new BulletHoles(this.wallGroup);
 

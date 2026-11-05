@@ -16,6 +16,8 @@ export const DEFAULTS = Object.freeze({
   holeSizeCm: 3,
   renderScale: 1,
   showViewmodel: true,
+  movingTarget: false,   // red dot sliding left to right instead of the paper target
+  moverSpeed: 1.5,       // metres per second
   debugHud: false,
   fixedSeed: '',         // empty = new random seed every magazine
   gunIndex: 0,
@@ -32,6 +34,7 @@ const NUM = {
   volume: [0, 1],
   holeSizeCm: [0.5, 10],
   renderScale: [0.5, 1],
+  moverSpeed: [0.25, 6],
 };
 const XH_NUM = { size: [2, 60], gap: [0, 40], thickness: [1, 8] };
 
@@ -63,6 +66,7 @@ export function sanitize(input) {
     }
   }
 
+  out.movingTarget = typeof s.movingTarget === 'boolean' ? s.movingTarget : DEFAULTS.movingTarget;
   out.showViewmodel = typeof s.showViewmodel === 'boolean' ? s.showViewmodel : DEFAULTS.showViewmodel;
   out.debugHud = typeof s.debugHud === 'boolean' ? s.debugHud : DEFAULTS.debugHud;
   out.fixedSeed = (typeof s.fixedSeed === 'string' && /^\d{0,10}$/.test(s.fixedSeed.trim())) ? s.fixedSeed.trim() : '';

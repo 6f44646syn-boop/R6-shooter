@@ -148,6 +148,30 @@ try {
     const expect = 2 * Math.atan(Math.tan(Math.PI / 4) / 2) * 180 / Math.PI;
     check('ADS FOV at 90 hip, 2.0x = ' + expect.toFixed(4), Math.abs(ads - expect) < 1e-9, 'got ' + ads);
 
+    // h) moving dot: slides left to right at the set speed; a shot aimed at it scores a hit.
+    const dot = await page.evaluate(() => {
+      const R = window.__range;
+      R.manual(true); R.selectGun(9); R.setDistance(10); R.clear();
+      R.setMover(true, 1.5);
+      const t0 = R.now();
+      const x0 = R.dotX(t0), x2 = R.dotX(t0 + 2), xWrap = R.dotX(t0 + 4 + 1 / 3);
+      // Aim where the dot will be at the moment of the shot, fire one semi-auto round.
+      R.step(1);
+      const x = R.dotX(R.now());
+      R.setAim(Math.atan(x / 10) * 180 / Math.PI, 0);
+      R.trigger(true); R.step(0.05); R.trigger(false);
+      // And one shot well behind it: a miss.
+      R.step(1);
+      R.setAim(Math.atan((R.dotX(R.now()) - 0.5) / 10) * 180 / Math.PI, 0);
+      R.trigger(true); R.step(0.05); R.trigger(false);
+      const st = R.state();
+      R.setMover(false);
+      return { x0, x2, xWrap, shots: st.shots, hits: st.hits };
+    });
+    check('dot starts at the left (-3 m), is centred after 2 s at 1.5 m/s, wraps back to the left',
+      Math.abs(dot.x0 + 3) < 1e-9 && Math.abs(dot.x2) < 1e-9 && Math.abs(dot.xWrap + 2.5) < 1e-6, JSON.stringify(dot));
+    check('shot on the moving dot hits, shot 50 cm behind misses', dot.shots === 2 && dot.hits === 1, JSON.stringify(dot));
+
     check('no page errors', errors.length === 0, errors.join('\n'));
     check('no third-party requests', external.length === 0, external.join('\n'));
     await page.close();

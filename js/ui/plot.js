@@ -10,7 +10,8 @@ export class MagPlot {
 
   // xy: Float64Array of [x0, y0, x1, y1, ...] in metres relative to the bullseye centre.
   // n: number of points. shots: bullets fired (some may have missed the wall). hits: on silhouette.
-  draw(xy, n, shots, hits, gunName, distance) {
+  // dotRadius > 0: the moving-dot target (points are relative to the dot centre).
+  draw(xy, n, shots, hits, gunName, distance, dotRadius = 0) {
     const g = this.g, W = this.cv.width, H = this.cv.height;
     const plotH = W; // square plot, text underneath
     g.clearRect(0, 0, W, H);
@@ -29,11 +30,16 @@ export class MagPlot {
     g.strokeStyle = 'rgba(120,150,190,0.55)';
     g.lineWidth = 1;
     const t = TARGET.torso, h = TARGET.head;
+    if (dotRadius > 0) {
+      g.strokeStyle = 'rgba(224,32,27,0.8)';
+      g.beginPath(); g.arc(cx, cy, dotRadius * s, 0, Math.PI * 2); g.stroke();
+    } else {
     g.beginPath();
     g.roundRect(X(t.x0), Y(t.y1), (t.x1 - t.x0) * s, (t.y1 - t.y0) * s, t.r * s);
     g.stroke();
     g.beginPath(); g.arc(X(h.cx), Y(h.cy), h.r * s, 0, Math.PI * 2); g.stroke();
     for (const r of TARGET.rings) { g.beginPath(); g.arc(cx, cy, r * s, 0, Math.PI * 2); g.stroke(); }
+    }
     // Aim point cross
     g.strokeStyle = 'rgba(255,255,255,0.5)';
     g.beginPath(); g.moveTo(cx - 6, cy); g.lineTo(cx + 6, cy); g.moveTo(cx, cy - 6); g.lineTo(cx, cy + 6); g.stroke();

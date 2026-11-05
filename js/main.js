@@ -11,6 +11,7 @@ import { randomSeed } from './core/prng.js';
 import { Range, EYE_HEIGHT } from './scene/range.js';
 import { hitsSilhouette } from './scene/target.js';
 import { Viewmodel } from './scene/viewmodel.js';
+import { MovingDot, DOT_RADIUS } from './scene/mover.js';
 import { Sfx } from './audio/sfx.js';
 import { DebugHud } from './ui/debug-hud.js';
 import { drawCrosshair } from './ui/crosshair.js';
@@ -48,6 +49,8 @@ function boot(data) {
   range.setDistance(settings.distance);
   range.holes.setSize(settings.holeSizeCm / 100);
   const viewmodel = new Viewmodel(camera);
+  const mover = new MovingDot(range.wallGroup);
+  mover.speed = settings.moverSpeed;
   const sfx = new Sfx();
   sfx.setVolume(settings.volume);
 
@@ -117,10 +120,12 @@ function boot(data) {
     state.gunIndex = index;
     weapon.setGun(gun);
     recoil.setGun(gun);
+    viewmodel.setGun(gun, index);
     newMagazine();
     mag.n = mag.shots = mag.hits = 0;
     hud.setGun(gun, index, gun.optic.toFixed(1) + 'x');
     updateFov();
+    renderLoadout();
     if (settings.gunIndex !== index) { settings.gunIndex = index; saveSettings(settings); }
   }
   hud.setDistance(range.distance);
@@ -198,6 +203,7 @@ function boot(data) {
     if (c === 'KeyZ' && settings.debugHud) look.reset();
     else if (c === 'KeyR') { if (weapon.startReload(clockNow())) { finishMagazine(); sfx.reload(); } }
     else if (c === 'KeyC') clearRange();
+    else if (c === 'KeyM') { settings.movingTarget = !settings.movingTarget; saveSettings(settings); applyMover(); }
     else if (/^Digit[0-9]$/.test(c)) selectGun((Number(c.slice(5)) + 9) % 10); // 1->0 ... 0->9
     else if (c === 'KeyQ' || c === 'KeyE') {
       const i = DISTANCES.indexOf(range.distance) + (c === 'KeyE' ? 1 : -1);
@@ -208,8 +214,38 @@ function boot(data) {
   function setDistance(d) {
     range.setDistance(d);
     settings.distance = d;
-    hud.setDistance(d);
+    hud.setDistance(d, settings.movingTarget);
     saveSettings(settings);
+  }
+
+  // Loadout grid in the menu: one button per slot (keys 1-9, 0).
+  const loadoutEl = $('loadout');
+  const slotButtons = data.guns.map((g, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'slot';
+    b.setAttribute('role', 'listitem');
+    const add = (cls, text) => { const s = document.createElement('span'); s.className = cls; s.textContent = text; b.append(s); };
+    add('slot-key', i < 10 ? String((i + 1) % 10) : '-');
+    add('slot-name', g.name);
+    add('slot-meta', g.model + ' \u00b7 ' + g.rpm + ' rpm \u00b7 ' + g.magSize + ' rnd \u00b7 ' + g.optic.toFixed(1) + 'x');
+    if (g.placeholder) add('slot-ph', 'PLACEHOLDER RECOIL');
+    b.addEventListener('click', () => { selectGun(i); settingsUI.refresh(); });
+    loadoutEl.append(b);
+    return b;
+  });
+  function renderLoadout() {
+    slotButtons.forEach((b, i) => b.setAttribute('aria-pressed', String(i === state.gunIndex)));
+  }
+
+  function applyMover() {
+    mover.speed = settings.moverSpeed;
+    if (mover.enabled !== settings.movingTarget) {
+      mover.setEnabled(settings.movingTarget, clockNow());
+      range.paper.visible = !settings.movingTarget;
+      mag.n = mag.shots = mag.hits = 0; // don't mix paper and moving shots in one plot
+    }
+    hud.setDistance(range.distance, settings.movingTarget);
   }
 
   function clearRange() {
@@ -230,8 +266,15 @@ function boot(data) {
     mag.shots++;
     if (range.raycastWall(yaw, pitch, hit)) {
       range.holes.add(hit.x, hit.y);
-      const tx = hit.x, ty = hit.y - EYE_HEIGHT; // target coordinates: aim point at the origin
-      const onTarget = hitsSilhouette(tx, ty);
+      let tx, ty, onTarget;
+      if (mover.enabled) {
+        // Relative to the dot centre at the exact shot time.
+        tx = hit.x - mover.xAt(t); ty = hit.y - EYE_HEIGHT;
+        onTarget = tx * tx + ty * ty <= DOT_RADIUS * DOT_RADIUS;
+      } else {
+        tx = hit.x; ty = hit.y - EYE_HEIGHT; // target coordinates: aim point at the origin
+        onTarget = hitsSilhouette(tx, ty);
+      }
       if (onTarget) { state.hits++; mag.hits++; }
       if (mag.n < mag.xy.length / 2) { mag.xy[mag.n * 2] = tx; mag.xy[mag.n * 2 + 1] = ty; mag.n++; }
     }
@@ -242,7 +285,7 @@ function boot(data) {
   // Called when a magazine runs dry or a reload starts: draw that magazine's plot.
   function finishMagazine() {
     if (mag.shots === 0) return;
-    plot.draw(mag.xy, mag.n, mag.shots, mag.hits, state.gun.name, range.distance);
+    plot.draw(mag.xy, mag.n, mag.shots, mag.hits, state.gun.name, range.distance, mover.enabled ? DOT_RADIUS : 0);
     $('hud-plot').hidden = false;
     mag.n = mag.shots = mag.hits = 0;
   }
@@ -283,6 +326,7 @@ function boot(data) {
       if (all || key === 'debug') debug.setVisible(settings.debugHud);
       if (all || key === 'gun') selectGun(Math.min(settings.gunIndex, data.guns.length - 1));
       if (all || key === 'distance') setDistance(settings.distance);
+      if (all || key === 'mover') applyMover();
       if (key === 'seed') newMagazine(); // takes effect from the current magazine
     },
   });
@@ -312,6 +356,7 @@ function boot(data) {
     const pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, look.pitch + offset[1]));
     camera.rotation.y = -(look.yaw + offset[0]) * DEG;   // three.js: positive Y rotation turns left
     camera.rotation.x = pitch * DEG;
+    mover.update(t);
     viewmodel.update(dt, settings.showViewmodel && !state.ads);
     hud.setAmmo(weapon.ammo, state.gun.magSize, weapon.reloading);
     hud.setStats(state.shots, state.hits);
@@ -351,6 +396,7 @@ function boot(data) {
     }
   }
   requestAnimationFrame(frame);
+  applyMover();
 
   /* ---------- test hooks (only with ?test in the URL) ---------- */
   if (testMode) {
@@ -365,6 +411,8 @@ function boot(data) {
         for (let i = 0; i < n; i++) { manualT += dt; update(manualT); }
       },
       selectGun, setDistance, clear: clearRange,
+      setMover(on, speed) { settings.movingTarget = on; if (speed) settings.moverSpeed = speed; applyMover(); },
+      dotX: (t) => mover.xAt(t),
       setAim(yaw, pitch) { look.setAngles(yaw, pitch); },
       applyCounts(dx, dy) { return look.apply(dx, dy, currentDpc()); },
       setAds,

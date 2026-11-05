@@ -57,7 +57,7 @@ const guns = [
 const ordered = guns.map((g) => ({
   id: g.id, name: g.name, placeholder: true, rpm: g.rpm, magSize: g.magSize, reloadSeconds: g.reloadSeconds,
   optic: g.optic, hipMultiplier: 1.0, adsMultiplier: 1.0, resetSeconds: g.resetSeconds,
-  ...(g.fireMode ? { fireMode: g.fireMode } : {}), tone: g.tone,
+  ...(g.fireMode ? { fireMode: g.fireMode } : {}), model: g.id.split('-')[0], tone: g.tone,
   jitter: g.jitter, recovery: g.recovery, sprayPath: g.sprayPath,
 }));
 
