@@ -6,7 +6,8 @@ import { buildDummy, raycastDummy } from './dummy.js';
 import { DotField } from './dots.js';
 import { mergeStatic } from './sight-model.js';
 import { mulberry32 } from '../core/prng.js';
-import { treadPlate, laneMarkings, corrugatedWall, backstopPlate, duskSky, padTexture, drawBoard } from './range-tex.js';
+import { treadPlate, laneMarkings, corrugatedWall, backstopPlate, duskSky, padTexture, drawBoard,
+  treadPlateMaps, corrugatedMaps, backstopMaps } from './range-tex.js';
 
 export const EYE_HEIGHT = 1.6;
 export const ROOM = { halfWidth: 4, height: 3.6, near: 3, far: 24 };
@@ -33,20 +34,37 @@ export class Range {
     scene.background = new THREE.Color(0x241a16);
     scene.fog = new THREE.Fog(0x7a5546, 30, 95);
 
-    scene.add(new THREE.HemisphereLight(0xa8b4d0, 0x3a2a20, 1.25));
+    this.hemi = new THREE.HemisphereLight(0xa8b4d0, 0x3a2a20, 1.25);
+    scene.add(this.hemi);
     const sun = new THREE.DirectionalLight(0xffb478, 1.3);      // low sun down range
     sun.position.set(-2, 2.5, -8);
     scene.add(sun);
     const fill = new THREE.DirectionalLight(0xc8d4ff, 0.7);    // cool fill from behind you
     fill.position.set(1.5, 3, 4);
     scene.add(fill);
+    this.sun = sun; this.fill = fill;
+    // High graphics only: a warm key light from behind your left shoulder that casts shadows
+    // (the truss roof, rails and dummy throw them across the floor and backstop).
+    const key = new THREE.DirectionalLight(0xffe2c0, 0);
+    key.target.position.set(0, 0, -11);
+    key.position.set(-6, 9, 4).add(key.target.position);
+    key.shadow.mapSize.set(2048, 2048);
+    Object.assign(key.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16, near: 1, far: 50 });
+    key.shadow.bias = -0.0004;
+    key.shadow.normalBias = 0.02;
+    key.visible = false;
+    scene.add(key, key.target);
+    this.key = key;
+    this.high = false;
+    this._hiMats = new Map();       // standard material -> its high-graphics replacement (built on first use)
 
     const len = ROOM.far + ROOM.near;
     const midZ = (ROOM.near - ROOM.far) / 2;
 
     // Sky dome and the ground around the lane.
+    this.skyTex = duskSky();
     const sky = new THREE.Mesh(new THREE.SphereGeometry(90, 32, 16),
-      new THREE.MeshBasicMaterial({ map: duskSky(), side: THREE.BackSide, fog: false, depthWrite: false }));
+      new THREE.MeshBasicMaterial({ map: this.skyTex, side: THREE.BackSide, fog: false, depthWrite: false }));
     sky.renderOrder = -1;
     scene.add(sky);
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(500, 500), new THREE.MeshLambertMaterial({ color: 0x2e2420 }));
@@ -129,11 +147,11 @@ export class Range {
     this.boardTex = new THREE.CanvasTexture(this.boardCv);
     this.boardTex.colorSpace = THREE.SRGBColorSpace;
     this.boardTex.anisotropy = 4;
-    const board = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 1.0), new THREE.MeshBasicMaterial({ map: this.boardTex, fog: false }));
+    const board = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 1.0), new THREE.MeshBasicMaterial({ map: this.boardTex, fog: false, toneMapped: false }));
     board.position.set(-ROOM.halfWidth + 1.0, 2.15, -4.2);
     board.rotation.y = 0.42;
     scene.add(board);
-    box(scene, steel, 0.08, 2.1, 0.08, -ROOM.halfWidth + 1.0, 1.05, -4.25);
+    this.boardPost = box(scene, steel, 0.08, 2.1, 0.08, -ROOM.halfWidth + 1.0, 1.05, -4.25);
     this.boardLabel = 'dummy';
 
     // Spent brass at the firing line (instanced; new casings are added as you shoot).
@@ -171,10 +189,84 @@ export class Range {
     scene.traverse((o) => {
       if (o !== this.wallGroup && o !== this.casings && o.isMesh && o.parent === scene) { o.updateMatrix(); o.matrixAutoUpdate = false; }
     });
+    // Shadow flags (used only while the key light casts, i.e. high graphics).
+    for (const o of [ground, floor, marks, wall, pad]) o.receiveShadow = true;
+    scene.traverse((o) => { if (o.isMesh && o.material === sideMat) o.receiveShadow = true; });
+    for (const o of [...frame.children, ...rails.children, this.boardPost]) o.castShadow = true;
+    this.dummy.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    this._parts = { ground, floor, marks, sideMat, wall, pad, steel, railMat, dark, tread, wallTex };
+
     this._d = [0, 0, 0]; this._o = [0, 0, 0];
     this._dh = { t: 0, p: [0, 0, 0], n: [0, 0, 0], zone: null };
     this.distance = 10;
     this.setDistance(10);
+  }
+
+  // High graphics: physically based materials with normal and roughness maps, a shadow-casting
+  // key light, image-based lighting from the sky and filmic tone mapping. Standard graphics
+  // is the original cheap Lambert look. Materials for high are built the first time it is used.
+  setGraphics(high, renderer) {
+    high = !!high;
+    if (!this._hiReady && high) this._buildHigh(renderer);
+    this.high = high;
+    const swap = (o) => {
+      if (!o.isMesh) return;
+      if (high) {
+        const hi = this._hiMats.get(o.material);
+        if (hi) { o.userData.loMat = o.material; o.material = hi; }
+      } else if (o.userData.loMat) { o.material = o.userData.loMat; o.userData.loMat = null; }
+    };
+    this.scene.traverse(swap);
+    this.key.visible = high;
+    this.key.castShadow = high;
+    this.key.intensity = high ? 2.6 : 0;
+    this.hemi.intensity = high ? 0.35 : 1.25;
+    this.sun.intensity = high ? 1.4 : 1.3;
+    this.fill.intensity = high ? 0.25 : 0.7;
+    this.scene.environment = high ? this.env : null;
+    this.scene.fog.color.set(high ? 0x6d4c40 : 0x7a5546);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = high ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
+    renderer.toneMappingExposure = high ? 1.15 : 1;
+  }
+
+  _buildHigh(renderer) {
+    const P = this._parts, M = this._hiMats;
+    const aniso = Math.min(16, renderer.capabilities.getMaxAnisotropy());
+    // Image-based lighting: the dusk sky, prefiltered once.
+    const pm = new THREE.PMREMGenerator(renderer);
+    this.env = pm.fromEquirectangular(this.skyTex).texture;
+    pm.dispose();
+
+    const std = (o) => new THREE.MeshStandardMaterial({ envMapIntensity: 0.6, ...o });
+    const tp = treadPlateMaps(), cw = corrugatedMaps(), bp = backstopMaps();
+    for (const m of [tp, cw]) for (const t of [m.normal, m.rough]) t.anisotropy = aniso;
+    tp.normal.repeat.copy(P.tread.repeat); tp.rough.repeat.copy(P.tread.repeat);
+    cw.normal.repeat.set(P.wallTex.repeat.x, 3.6 / 2 * 7); cw.rough.repeat.copy(P.wallTex.repeat);
+    P.tread.anisotropy = aniso; P.wallTex.anisotropy = aniso;
+    P.tread.needsUpdate = P.wallTex.needsUpdate = true;
+
+    M.set(P.floor.material, std({ map: P.tread, normalMap: tp.normal, normalScale: new THREE.Vector2(1, 1),
+      roughnessMap: tp.rough, roughness: 1, metalness: 0.55 }));
+    M.set(P.marks.material, std({ map: P.marks.material.map, transparent: true, depthWrite: false, roughness: 0.7, metalness: 0,
+      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+    M.set(P.sideMat, std({ map: P.wallTex, normalMap: cw.normal, normalScale: new THREE.Vector2(1, 1),
+      roughnessMap: cw.rough, roughness: 1, metalness: 0.3 }));
+    M.set(P.wall.material, std({ map: P.wall.material.map, normalMap: bp.normal, roughnessMap: bp.rough, roughness: 1, metalness: 0.6 }));
+    M.set(P.pad.material, std({ map: P.pad.material.map, roughness: 0.75, metalness: 0.1 }));
+    M.set(P.ground.material, std({ color: 0x2e2420, roughness: 1, metalness: 0 }));
+    M.set(P.steel, std({ color: 0x34373b, roughness: 0.55, metalness: 0.75, envMapIntensity: 0.8 }));
+    M.set(P.railMat, std({ color: 0x8a9096, roughness: 0.35, metalness: 0.85, envMapIntensity: 0.9 }));
+    M.set(P.dark, std({ color: 0x3a2c2a, roughness: 1, metalness: 0 }));
+    M.set(this.casings.material, std({ color: 0xd4a85a, roughness: 0.28, metalness: 1, envMapIntensity: 1.2 }));
+    this.dummy.traverse((o) => {
+      if (!o.isMesh || M.has(o.material)) return;
+      M.set(o.material, o.material.vertexColors
+        ? std({ vertexColors: true, color: 0xd8d0c8, roughness: 0.82, metalness: 0 })              // painted foam
+        : std({ color: o.material.color, roughness: 0.5, metalness: 0.7 }));     // steel base
+    });
+    this._hiReady = true;
   }
 
   setDistance(d) {

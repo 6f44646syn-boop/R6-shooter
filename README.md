@@ -105,9 +105,14 @@ tab** button. Embed the GitHub Pages URL and players click through to a normal t
 
 Built for Intel UHD 630 at 1920x1080 / 60 fps:
 
-- About 17 draw calls in hip-fire (world, dummy, bullet holes, gun and 3D sight), under
-  13,000 triangles. No shadows. The gun and sight use MeshStandardMaterial with a small
-  prefiltered environment map; the room uses Lambert.
+- Standard graphics (default): about 25 draw calls in hip-fire, around 20,000 triangles, no
+  shadows. The room uses Lambert; the gun and sight use cheap matcap shading.
+- Settings > Graphics quality > High is for gaming PCs: physically based materials with
+  procedural normal and roughness maps (tread plate, corrugated walls, riveted backstop, gun
+  finishes with edge wear, polymer stipple and machined barrels), a 2048 soft shadow map from
+  a key light, image-based lighting from the dusk sky and ACES filmic tone mapping. It adds the
+  shadow pass (about 5 draw calls) and heavier pixel shading. Everything is still generated in
+  code: no image files, no extra libraries.
 - Aiming adds one lens pass (4 draw calls: downsample, two half-resolution blur passes,
   composite). The scene is never drawn twice. Hip-fire skips the pass entirely.
 - Settings > Lens effects: Auto lowers the lens quality one step at a time if frames average

@@ -9,6 +9,7 @@
 // Local frame of a sight: origin at the centre of its rear opening, -z forward, y up.
 import * as THREE from '../../vendor/three/three.module.min.js';
 import { matcap } from './matcap.js';
+import { gunMaps } from './range-tex.js';
 
 export const VM_FOV = 50;      // vertical FOV of the weapon camera, degrees
 export const EYE_Z = 0.14;     // eye to rear of the sight, metres
@@ -19,8 +20,23 @@ export const VIEW_H = 2 * EYE_Z * Math.tan((VM_FOV * Math.PI) / 360);
 //   fast:     MeshMatcapMaterial (one texture read per pixel). Default; much cheaper on
 //             integrated graphics, which matters when the sight fills the screen while aiming.
 //   detailed: MeshStandardMaterial, metalness 0.8, roughness 0.45, with an environment map.
+//   high:     MeshStandardMaterial with procedural wear, roughness and normal maps, lit by the
+//             range's sky (HIGH_ENV) so reflections match the world. Used by high graphics.
 let SHADING = 'fast';
-export function setSightShading(mode) { SHADING = mode === 'detailed' ? 'detailed' : 'fast'; }
+let HIGH_ENV = null;
+export function setSightShading(mode) { SHADING = ['detailed', 'high'].includes(mode) ? mode : 'fast'; }
+export function setHighEnv(env) { HIGH_ENV = env; }
+export function highEnv() { return HIGH_ENV; }
+// Textured physically based material for high graphics. kind: 'metal' | 'polymer'.
+export function highMaterial(color, kind = 'metal', o = {}) {
+  const t = gunMaps(kind);
+  const metal = kind === 'metal';
+  return new THREE.MeshStandardMaterial({
+    color, map: t.map, roughnessMap: t.rough, metalnessMap: metal ? t.rough : null, normalMap: t.normal,
+    normalScale: new THREE.Vector2(1, 1), roughness: metal ? 1 : 0.85, metalness: metal ? 1 : 0.05,
+    envMap: HIGH_ENV, envMapIntensity: metal ? 1.1 : 0.6, ...o,
+  });
+}
 export function sightShading() { return SHADING; }
 const MATSETS = {};
 export function sightMaterials(envMap) {
@@ -32,6 +48,14 @@ export function sightMaterials(envMap) {
       rubber: mc(0x4a4c50, 'rubber'), screw: mc(0x9aa0a8, 'metal'), post: mc(0x3a3e44, 'metal'),
     };
     return MATSETS.fast;
+  }
+  if (SHADING === 'high') {
+    MATSETS.high = {
+      metal: highMaterial(0x3a3f46, 'metal'), edge: highMaterial(0x5a616b, 'metal'),
+      inner: new THREE.MeshStandardMaterial({ color: 0x08090a, metalness: 0.2, roughness: 0.9 }),
+      rubber: highMaterial(0x1a1b1d, 'polymer'), screw: highMaterial(0x8a9098, 'metal'), post: highMaterial(0x202328, 'metal'),
+    };
+    return MATSETS.high;
   }
   let MATS = null;
   const metal = new THREE.MeshStandardMaterial({ color: 0x30343a, metalness: 0.8, roughness: 0.45, envMap, envMapIntensity: 1.6 });
@@ -233,16 +257,20 @@ export function mergeStatic(group) {
     let n = 0;
     for (const g of geos) n += g.attributes.position.count;
     const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3);
+    // UVs too (textured parts in high graphics); a part without them gets (0, 0).
+    const uv = new Float32Array(n * 2);
     let k = 0;
     for (const g of geos) {
       pos.set(g.attributes.position.array, k * 3);
       nor.set(g.attributes.normal.array, k * 3);
+      if (g.attributes.uv) uv.set(g.attributes.uv.array, k * 2);
       k += g.attributes.position.count;
       g.dispose();
     }
     const merged = new THREE.BufferGeometry();
     merged.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     merged.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+    merged.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
     const mesh = new THREE.Mesh(merged, material);
     mesh.frustumCulled = false;
     group.add(mesh);

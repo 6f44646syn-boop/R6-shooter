@@ -68,7 +68,15 @@ function boot(data) {
   range.holes.setSize(settings.holeSizeCm / 100);
   renderer.info.autoReset = false; // several passes per frame; reset once per frame
   const rig = new WeaponRig(renderer);
-  rig.setShading(settings.weaponShading);
+  // Graphics quality: high swaps the range to textured PBR with shadows and tone mapping, and
+  // the gun to textured PBR lit by the same sky. Standard is the original fast look.
+  const gunShading = () => (settings.graphics === 'high' ? 'high' : settings.weaponShading);
+  function applyGraphics() {
+    range.setGraphics(settings.graphics === 'high', renderer);
+    if (range.env) rig.setHighEnv(range.env);
+    rig.setShading(gunShading());
+  }
+  applyGraphics();
   const post = new LensPost(renderer, { samples: settings.antialias && renderer.capabilities.isWebGL2 ? 4 : 0 });
   const dots = range.dots;
   const sfx = new Sfx();
@@ -623,7 +631,7 @@ function boot(data) {
       if (all || key === 'crosshair') drawCrosshair($('crosshair'), settings.crosshair);
       if (all || key === 'holes') range.holes.setSize(settings.holeSizeCm / 100);
       if (all || key === 'reload') weapon.reloadSpeed = settings.reloadSpeed;
-      if (all || key === 'shading') { rig.setShading(settings.weaponShading); rig.setGun(state.gun, state.gunIndex, state.optic); }
+      if (all || key === 'shading' || key === 'graphics') { applyGraphics(); rig.setGun(state.gun, state.gunIndex, state.optic); }
       if (key === 'sens' || key === 'assist') { /* read live each mouse event */ }
       if (all || key === 'recoil') { recoil.aimScale = settings.aimRecoil; recoil.aimSmooth = settings.aimSmooth; }
       if (all || key === 'volume') sfx.setVolume(settings.volume);
@@ -856,6 +864,9 @@ function boot(data) {
       overlayVisible: () => state.adsP > 0,
       lensQuality, setAutoLevel(l) { autoLevel = l; }, renderFrame,
       setLensQuality(q) { settings.lensQuality = q; },
+      toneMapping: () => renderer.toneMapping,
+      shadowCasters: () => (range.key.castShadow ? range.key.shadow.map ? 1 : 0 : 0),
+      setGraphics(g) { settings.graphics = g; applyGraphics(); rig.setGun(state.gun, state.gunIndex, state.optic); },
       setHipMs(ms) { hipMs = ms; },
       noLens(on) { noLensDebug = on; },
       move(keys) { Object.assign(player.keys, keys); },

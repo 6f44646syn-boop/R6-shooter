@@ -588,6 +588,20 @@ try {
     check('lens pass only while aiming', !cmp.hip.lens && cmp.ads.lens, JSON.stringify(cmp));
     // The scene is drawn once: aiming adds only the post passes (copy, 2 blur, composite).
     check('aiming adds at most 4 draw calls (no second scene render)', cmp.ads.calls - cmp.hip.calls <= 4 && cmp.adsLow.calls - cmp.hip.calls <= 1, JSON.stringify(cmp));
+    // Graphics quality: high swaps to PBR + shadows + tone mapping and back without errors,
+    // and the hip frame keeps the same draw calls plus the shadow pass.
+    const gq = await page.evaluate(() => {
+      const R = window.__range;
+      R.setAds(false); R.step(0.5); R.renderFrame();
+      const std = R.renderInfo().calls;
+      R.setGraphics('high'); R.renderFrame();
+      const hi = { calls: R.renderInfo().calls, tone: R.toneMapping(), shadows: R.shadowCasters() };
+      R.setAds(true); R.step(0.5); R.renderFrame(); R.setAds(false); R.step(0.5);
+      R.setGraphics('standard'); R.renderFrame();
+      return { std, hi, back: R.renderInfo().calls, toneBack: R.toneMapping() };
+    });
+    check('high graphics: tone mapping on, shadows cast (' + gq.hi.calls + ' calls vs ' + gq.std + ')', gq.hi.tone !== 0 && gq.hi.shadows > 0, JSON.stringify(gq));
+    check('back to standard graphics restores the original look', gq.toneBack === 0 && gq.back === gq.std, JSON.stringify(gq));
     check('no page errors', errors.length === 0, errors.join('\n'));
     await page.close();
   }

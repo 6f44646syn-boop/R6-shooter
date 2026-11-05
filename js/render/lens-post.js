@@ -101,6 +101,11 @@ void main() {
     col *= 1.0 - 0.3 * dot(c, c) * strength;                           // mild vignette
   }
 
+  // High graphics: the scene was drawn linear into the target; tone map it here, as a
+  // direct-to-screen draw would have, before the glass effects are added.
+  #ifdef TONE_MAPPING
+  col = toneMapping(col);
+  #endif
   // Glare streak across the glass, drifting with the view.
   if (glareOn > 0.5) {
     vec2 q = p - lensC - glareOff;
@@ -201,6 +206,7 @@ export class LensPost {
     this.compMat = mk(COMPOSITE, this.u);
     this.overlayMat = mk(OVERLAY, this.u);
     this.overlayMat.transparent = true;
+    this.overlayMat.toneMapped = false;   // blended on top of an already tone-mapped screen
     this.overlayMat.blending = THREE.CustomBlending;
     this.overlayMat.blendEquation = THREE.AddEquation;
     this.overlayMat.blendSrc = THREE.OneFactor;        // + effect

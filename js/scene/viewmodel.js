@@ -2,7 +2,7 @@
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
 import * as THREE from '../../vendor/three/three.module.min.js';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js';
 import { matcap } from './matcap.js';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
@@ -12,10 +12,15 @@ const FINISHES = [0x3a3d42, 0x6b5b45, 0x46523b, 0x2f3540, 0x5a5048, 0x4a4f57, 0x
 
 const mats = new Map();
 let ENV = null;
-function mat(color) {
-  const key = sightShading() + color;
+// kind: 'auto' (black = polymer, else metal) or 'metal' (barrels, tubes).
+function mat(color, kind = 'auto') {
+  const key = sightShading() + color + kind;
   if (!mats.has(key)) {
-    mats.set(key, sightShading() === 'fast'
+    const sh = sightShading();
+    mats.set(key, sh === 'high'
+      // Black parts are polymer (grip, magazine); steel and finish colours are coated metal.
+      ? (color === BLACK && kind === 'auto' ? highMaterial(0x232528, 'polymer') : highMaterial(color, 'metal'))
+      : sh === 'fast'
       // Matcap tints multiply a mid-grey sphere, so brighten the finish colour to match.
       ? new THREE.MeshMatcapMaterial({ color: new THREE.Color(color).multiplyScalar(1.7), matcap: matcap('metal') })
       : new THREE.MeshStandardMaterial({ color, metalness: 0.55, roughness: 0.55, envMap: ENV, envMapIntensity: 0.8 }));
@@ -32,7 +37,7 @@ function box(g, color, w, h, d, x, y, z, rx = 0) {
   return m;
 }
 function tube(g, color, r, len, x, y, z, seg = 10) {
-  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, seg), mat(color));
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, seg), mat(color, 'metal'));
   m.rotation.x = Math.PI / 2;
   m.position.set(x, y, z);
   g.add(m);
@@ -103,13 +108,15 @@ export class WeaponRig {
     ENV = makeEnvMap(renderer);
     this.env = ENV;
     this.scene = new THREE.Scene();
-    this.scene.add(new THREE.HemisphereLight(0xe8ecf2, 0x2a2824, 0.9));
+    this.hemi = new THREE.HemisphereLight(0xe8ecf2, 0x2a2824, 0.9);
+    this.scene.add(this.hemi);
     const key = new THREE.DirectionalLight(0xffffff, 1.8);
     key.position.set(-0.5, 0.8, 0.9);   // from above-left and a little in front, so edges facing you catch light
     const rim = new THREE.DirectionalLight(0xb8c8ff, 0.6);
     rim.position.set(0.8, 0.3, -0.5);
     this.scene.add(rim);
     this.scene.add(key);
+    this.key = key; this.rim = rim;
     this.camera = new THREE.PerspectiveCamera(VM_FOV, 16 / 9, 0.01, 3);
     this.root = new THREE.Group();            // posed between hip and aimed
     this.scene.add(this.root);
@@ -141,10 +148,20 @@ export class WeaponRig {
     this.H = H;
   }
 
-  // 'fast' (matcap) or 'detailed' (PBR). Rebuilds the cached models on change.
+  // High graphics: reflections come from the range's sky (env, a PMREM texture).
+  setHighEnv(env) { setHighEnv(env); }
+
+  // 'fast' (matcap), 'detailed' (PBR) or 'high' (textured PBR, high graphics). Rebuilds the
+  // cached models on change.
   setShading(mode) {
     if (mode === sightShading()) return;
     setSightShading(mode);
+    const high = sightShading() === 'high';
+    // Same light directions as the range in high graphics: warm key over the left shoulder.
+    this.hemi.intensity = high ? 0.3 : 0.9;
+    this.key.color.set(high ? 0xffe8d0 : 0xffffff);
+    this.key.intensity = high ? 2.4 : 1.8;
+    this.rim.intensity = high ? 0.9 : 0.6;
     for (const m of this.models.values()) this.root.remove(m);
     this.models.clear();
     this.current = null;
