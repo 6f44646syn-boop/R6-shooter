@@ -287,7 +287,12 @@ function boot(data) {
   /* ---------- mouse look: every event, straight to yaw/pitch ---------- */
   document.addEventListener('mousemove', (e) => {
     if (!lock.locked) return;
-    look.apply(e.movementX, e.movementY, currentDpc());
+    const dpc = currentDpc();
+    if (look.apply(e.movementX, e.movementY, dpc) && state.adsP > 0) {
+      // Scope sway: the housing lags behind the turn (degrees -> screen pixels).
+      const pxPerDeg = window.innerHeight / state.fovV;
+      overlay.nudge(e.movementX * dpc * pxPerDeg, e.movementY * dpc * pxPerDeg);
+    }
   });
 
   document.addEventListener('mousedown', (e) => {
@@ -438,6 +443,7 @@ function boot(data) {
     if (kind && dotHit < 0) range.holes.add(hit.p[0], hit.p[1], hit.p[2], hit.n[0], hit.n[1], hit.n[2]);
     if (!testMode) sfx.shot(state.gun.tone);
     viewmodel.shot();
+    if (state.adsP > 0) overlay.kick((state.shots & 1) ? 1 : -1);
   }
 
   // Called when a magazine runs dry or a reload starts: draw that magazine's plot.
@@ -535,7 +541,7 @@ function boot(data) {
     }
     // Sight overlay fades in over the last 40% of the blend; hipfire keeps the crosshair.
     const aimed = state.adsP >= 0.6;
-    overlay.draw(state.optic, RETICLE_COLORS[settings.reticleColor], aimed ? (state.adsP - 0.6) / 0.4 : 0);
+    overlay.frame(state.optic, RETICLE_COLORS[settings.reticleColor], state.adsP, t, dt);
     if (crosshairEl.hidden !== aimed) crosshairEl.hidden = aimed;
     viewmodel.update(dt, settings.showViewmodel && !aimed);
     hud.setAmmo(weapon.ammo, state.gun.magSize, weapon.reloading);
