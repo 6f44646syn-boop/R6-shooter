@@ -8,9 +8,10 @@ export const DEFAULTS = Object.freeze({
   dpi: 800,
   cm360: 40,
   hipFov: 90,            // horizontal degrees
-  // Per-optic ADS multiplier overrides, keyed by zoom ("2.5"). Anything missing comes from
-  // data/optics.json, so editing that file changes the defaults for everyone.
+  // Per-magnification ADS multiplier overrides, keyed like "2.5x". Anything missing comes from
+  // data/sens.json (or a placeholder of the 1.0x value / zoom), so editing that file changes the defaults.
   opticOverrides: {},
+  reticleColor: 'red',   // ADS sight reticle: red, green, cyan, white, yellow
   crosshair: { style: 'cross', size: 10, gap: 4, thickness: 2, color: '#3dff9a', outline: true },
   volume: 0.35,
   holeSizeCm: 3,
@@ -24,6 +25,7 @@ export const DEFAULTS = Object.freeze({
   distance: 10,
 });
 
+export const RETICLE_COLOR_NAMES = ['red', 'green', 'cyan', 'white', 'yellow'];
 export const DISTANCES = [5, 10, 15, 20];
 export const CROSSHAIR_STYLES = ['cross', 'dot', 'cross-dot', 'circle', 't'];
 
@@ -62,10 +64,12 @@ export function sanitize(input) {
   if (s.opticOverrides && typeof s.opticOverrides === 'object') {
     for (const [zoom, m] of Object.entries(s.opticOverrides)) {
       const v = num(m, [0.01, 20], NaN);
-      if (Number.isFinite(v)) out.opticOverrides[zoom] = v;
+      // Keys are magnifications like "2.5x"; old-style keys ("2.5") are dropped.
+      if (Number.isFinite(v) && /^\d+(\.\d+)?x$/.test(zoom)) out.opticOverrides[zoom] = v;
     }
   }
 
+  out.reticleColor = RETICLE_COLOR_NAMES.includes(s.reticleColor) ? s.reticleColor : DEFAULTS.reticleColor;
   out.movingTarget = typeof s.movingTarget === 'boolean' ? s.movingTarget : DEFAULTS.movingTarget;
   out.showViewmodel = typeof s.showViewmodel === 'boolean' ? s.showViewmodel : DEFAULTS.showViewmodel;
   out.debugHud = typeof s.debugHud === 'boolean' ? s.debugHud : DEFAULTS.debugHud;

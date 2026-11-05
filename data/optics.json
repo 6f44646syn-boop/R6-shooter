@@ -1,13 +1,110 @@
 {
-  "_comment": "ADS sensitivity multiplier per optic. ADS deg/count = hip deg/count * adsMultiplier (* the gun's own adsMultiplier). 1.0 = same as hipfire. Edit these after calibrating against the real game. zoom is the magnification used for the ADS field of view.",
+  "_comment": "Sight catalogue. Housing numbers are fractions of screen HEIGHT. Reticle shapes are pixels at 1080p, origin at screen centre, y down. See docs/SCOPES.md.",
+  "groups": {
+    "iron":       { "label": "Iron sights", "zoom": 1.0, "adsSpeedBonus": 0.10 },
+    "sight":      { "label": "1x sights",   "zoom": 1.0, "adsSpeedBonus": 0.05 },
+    "magnified":  { "label": "Magnified",   "zoom": 2.5, "adsSpeedBonus": 0.0 },
+    "telescopic": { "label": "Telescopic",  "zoom": 3.5, "adsSpeedBonus": 0.0 }
+  },
   "optics": [
-    { "zoom": 1.0,  "adsMultiplier": 1.0 },
-    { "zoom": 1.5,  "adsMultiplier": 1.0 },
-    { "zoom": 2.0,  "adsMultiplier": 1.0 },
-    { "zoom": 2.5,  "adsMultiplier": 1.0 },
-    { "zoom": 3.0,  "adsMultiplier": 1.0 },
-    { "zoom": 3.5,  "adsMultiplier": 1.0 },
-    { "zoom": 5.0,  "adsMultiplier": 1.0 },
-    { "zoom": 12.0, "adsMultiplier": 1.0 }
+    { "id": "iron", "group": "iron", "label": "Iron",
+      "housing": { "shape": "round", "w": 0.16, "h": 0.16, "bezel": 0.008, "base": 0.5, "tint": 0.0 },
+      "reticle": { "glow": 0.0, "shapes": [
+        { "t": "poly", "fill": true, "c": "dark", "pts": [[-5, 0], [5, 0], [6, 120], [-6, 120]] },
+        { "t": "poly", "fill": true, "c": "dark", "pts": [[-16, 40], [16, 40], [20, 120], [-20, 120]] }
+      ] } },
+
+    { "id": "dot_a", "group": "sight", "label": "Dot A",
+      "housing": { "shape": "round", "w": 0.22, "h": 0.22, "bezel": 0.012, "tint": 0.03 },
+      "reticle": { "glow": 0.6, "shapes": [ { "t": "dot", "r": 2 } ] } },
+    { "id": "dot_b", "group": "sight", "label": "Dot B",
+      "housing": { "shape": "round", "w": 0.26, "h": 0.26, "bezel": 0.014, "base": 0.03, "tint": 0.04 },
+      "reticle": { "glow": 0.7, "shapes": [ { "t": "dot", "r": 4.5 } ] } },
+    { "id": "dot_c", "group": "sight", "label": "Dot C",
+      "housing": { "shape": "round", "w": 0.2, "h": 0.2, "bezel": 0.012, "hood": 0.02, "tint": 0.03 },
+      "reticle": { "glow": 0.6, "shapes": [ { "t": "ring", "r": 9, "w": 1.5 }, { "t": "dot", "r": 2 } ] } },
+
+    { "id": "holo_a", "group": "sight", "label": "Holo A",
+      "housing": { "shape": "rect", "w": 0.36, "h": 0.26, "radius": 0.035, "bezel": 0.01, "tint": 0.04 },
+      "reticle": { "glow": 0.6, "shapes": [ { "t": "ring", "r": 30, "w": 2 }, { "t": "dot", "r": 2.5 } ] } },
+    { "id": "holo_b", "group": "sight", "label": "Holo B",
+      "housing": { "shape": "rect", "w": 0.38, "h": 0.24, "radius": 0.02, "bezel": 0.01, "base": 0.03, "tint": 0.04 },
+      "reticle": { "glow": 0.6, "shapes": [
+        { "t": "ring", "r": 26, "w": 2 },
+        { "t": "line", "x1": 0, "y1": -26, "x2": 0, "y2": -36, "w": 2 },
+        { "t": "line", "x1": 0, "y1": 26, "x2": 0, "y2": 36, "w": 2 },
+        { "t": "line", "x1": -26, "y1": 0, "x2": -36, "y2": 0, "w": 2 },
+        { "t": "line", "x1": 26, "y1": 0, "x2": 36, "y2": 0, "w": 2 },
+        { "t": "dot", "r": 2 }
+      ] } },
+    { "id": "holo_c", "group": "sight", "label": "Holo C",
+      "housing": { "shape": "rect", "w": 0.34, "h": 0.25, "radius": 0.04, "bezel": 0.011, "hood": 0.02, "tint": 0.04 },
+      "reticle": { "glow": 0.6, "shapes": [
+        { "t": "poly", "fill": true, "pts": [[0, 0], [11, 12], [7, 12], [0, 5], [-7, 12], [-11, 12]] },
+        { "t": "ring", "r": 34, "w": 1.5 }
+      ] } },
+    { "id": "holo_d", "group": "sight", "label": "Holo D",
+      "housing": { "shape": "rect", "w": 0.4, "h": 0.28, "radius": 0.03, "bezel": 0.012, "base": 0.04, "tint": 0.04 },
+      "reticle": { "glow": 0.6, "shapes": [
+        { "t": "ring", "r": 36, "w": 2 },
+        { "t": "line", "x1": -30, "y1": 0, "x2": -8, "y2": 0, "w": 2 },
+        { "t": "line", "x1": 8, "y1": 0, "x2": 30, "y2": 0, "w": 2 },
+        { "t": "line", "x1": 0, "y1": -30, "x2": 0, "y2": -8, "w": 2 },
+        { "t": "line", "x1": 0, "y1": 8, "x2": 0, "y2": 30, "w": 2 },
+        { "t": "dot", "r": 2 }
+      ] } },
+
+    { "id": "reflex_a", "group": "sight", "label": "Reflex A",
+      "housing": { "shape": "rect", "w": 0.26, "h": 0.2, "radius": 0.012, "bezel": 0.009, "tint": 0.03 },
+      "reticle": { "glow": 0.6, "shapes": [ { "t": "poly", "fill": true, "pts": [[0, -6], [6, 5], [-6, 5]] } ] } },
+    { "id": "reflex_b", "group": "sight", "label": "Reflex B",
+      "housing": { "shape": "rect", "w": 0.24, "h": 0.18, "radius": 0.008, "bezel": 0.008, "hood": 0.015, "tint": 0.03 },
+      "reticle": { "glow": 0.6, "shapes": [
+        { "t": "line", "x1": -10, "y1": 10, "x2": 0, "y2": 0, "w": 2.5 },
+        { "t": "line", "x1": 0, "y1": 0, "x2": 10, "y2": 10, "w": 2.5 }
+      ] } },
+    { "id": "reflex_c", "group": "sight", "label": "Reflex C",
+      "housing": { "shape": "rect", "w": 0.28, "h": 0.2, "radius": 0.01, "bezel": 0.009, "base": 0.03, "tint": 0.03 },
+      "reticle": { "glow": 0.6, "shapes": [
+        { "t": "line", "x1": 0, "y1": 7, "x2": 0, "y2": 26, "w": 3 },
+        { "t": "dot", "r": 2.2 }
+      ] } },
+
+    { "id": "mag_a", "group": "magnified", "label": "Magnified A",
+      "housing": { "shape": "round", "w": 0.4, "h": 0.36, "bezel": 0.06, "base": 0.05, "tint": 0.08 },
+      "reticle": { "glow": 0.5, "shapes": [
+        { "t": "poly", "fill": true, "pts": [[0, 0], [8, 11], [5, 11], [0, 5], [-5, 11], [-8, 11]] },
+        { "t": "line", "x1": -10, "y1": 26, "x2": 10, "y2": 26, "w": 2 },
+        { "t": "line", "x1": -7, "y1": 40, "x2": 7, "y2": 40, "w": 2 },
+        { "t": "line", "x1": -5, "y1": 54, "x2": 5, "y2": 54, "w": 2 },
+        { "t": "line", "x1": 0, "y1": 14, "x2": 0, "y2": 60, "w": 1 }
+      ] } },
+    { "id": "mag_b", "group": "magnified", "label": "Magnified B",
+      "housing": { "shape": "rect", "w": 0.46, "h": 0.38, "radius": 0.12, "bezel": 0.08, "base": 0.05, "tint": 0.08 },
+      "reticle": { "glow": 0.5, "shapes": [ { "t": "ring", "r": 60, "w": 2 }, { "t": "dot", "r": 2.5 } ] } },
+    { "id": "mag_c", "group": "magnified", "label": "Magnified C",
+      "housing": { "shape": "round", "w": 0.4, "h": 0.36, "bezel": 0.045, "base": 0.05, "tint": 0.06 },
+      "reticle": { "glow": 0.3, "shapes": [
+        { "t": "line", "x1": -90, "y1": 0, "x2": -4, "y2": 0, "w": 1 },
+        { "t": "line", "x1": 4, "y1": 0, "x2": 90, "y2": 0, "w": 1 },
+        { "t": "line", "x1": 0, "y1": -90, "x2": 0, "y2": -4, "w": 1 },
+        { "t": "line", "x1": 0, "y1": 4, "x2": 0, "y2": 90, "w": 1 },
+        { "t": "dot", "r": 1.5 }
+      ] } },
+
+    { "id": "tele_a", "group": "telescopic", "label": "Telescopic A",
+      "housing": { "shape": "round", "w": 0.3, "h": 0.3, "bezel": 0.1, "base": 0.05, "tint": 0.1 },
+      "reticle": { "glow": 0.2, "shapes": [
+        { "t": "line", "x1": -150, "y1": 0, "x2": 150, "y2": 0, "w": 1 },
+        { "t": "line", "x1": 0, "y1": -150, "x2": 0, "y2": 150, "w": 1 },
+        { "t": "line", "x1": -40, "y1": -4, "x2": -40, "y2": 4, "w": 1 },
+        { "t": "line", "x1": -80, "y1": -4, "x2": -80, "y2": 4, "w": 1 },
+        { "t": "line", "x1": 40, "y1": -4, "x2": 40, "y2": 4, "w": 1 },
+        { "t": "line", "x1": 80, "y1": -4, "x2": 80, "y2": 4, "w": 1 },
+        { "t": "line", "x1": -4, "y1": 40, "x2": 4, "y2": 40, "w": 1 },
+        { "t": "line", "x1": -4, "y1": 80, "x2": 4, "y2": 80, "w": 1 },
+        { "t": "line", "x1": -4, "y1": -40, "x2": 4, "y2": -40, "w": 1 },
+        { "t": "line", "x1": -4, "y1": -80, "x2": 4, "y2": -80, "w": 1 }
+      ] } }
   ]
 }

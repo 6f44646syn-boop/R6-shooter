@@ -116,22 +116,27 @@ const BUILDERS = {
   },
 };
 
-// Sight on top, chosen by optic magnification.
-function addSight(g, zoom, topY) {
-  if (zoom <= 1) {
-    // Open reflex sight: base plus a thin frame around the glass.
-    box(g, BLACK, 0.03, 0.012, 0.05, 0, topY + 0.006, -0.02);
-    box(g, BLACK, 0.004, 0.035, 0.008, -0.016, topY + 0.03, -0.035);
-    box(g, BLACK, 0.004, 0.035, 0.008, 0.016, topY + 0.03, -0.035);
-    box(g, BLACK, 0.036, 0.004, 0.008, 0, topY + 0.047, -0.035);
-    const glass = new THREE.Mesh(new THREE.PlaneGeometry(0.028, 0.03),
+// Sight on top, chosen by the selected sight's group and zoom.
+function addSight(g, optic, topY) {
+  if (optic.group === 'iron') {
+    box(g, BLACK, 0.008, 0.03, 0.01, 0, topY + 0.015, -0.2);    // front post
+    box(g, BLACK, 0.026, 0.026, 0.01, 0, topY + 0.013, 0.1);    // rear aperture block
+  } else if (optic.zoom <= 1) {
+    // Open 1x sight: base plus a thin frame around the glass (wider frame for holo-style windows).
+    const wide = optic.housing.shape === 'rect' && optic.housing.w >= 0.3;
+    const fw = wide ? 0.04 : 0.03;
+    box(g, BLACK, fw, 0.012, 0.05, 0, topY + 0.006, -0.02);
+    box(g, BLACK, 0.004, 0.035, 0.008, -fw / 2, topY + 0.03, -0.035);
+    box(g, BLACK, 0.004, 0.035, 0.008, fw / 2, topY + 0.03, -0.035);
+    box(g, BLACK, fw + 0.006, 0.004, 0.008, 0, topY + 0.047, -0.035);
+    const glass = new THREE.Mesh(new THREE.PlaneGeometry(fw - 0.002, 0.03),
       new THREE.MeshBasicMaterial({ color: 0x5fb3a4, transparent: true, opacity: 0.35 }));
     glass.position.set(0, topY + 0.03, -0.035);
     g.add(glass);
   } else {
     // Tube scope: longer and fatter as the zoom goes up.
-    const len = zoom < 3 ? 0.1 : 0.16 + Math.min(zoom, 12) * 0.006;
-    const r = zoom < 3 ? 0.014 : 0.018;
+    const len = 0.1 + optic.zoom * 0.015;
+    const r = 0.014 + optic.zoom * 0.001;
     box(g, BLACK, 0.02, 0.016, 0.03, 0, topY + 0.008, -0.04);
     box(g, BLACK, 0.02, 0.016, 0.03, 0, topY + 0.008, 0.04);
     tube(g, BLACK, r, len, 0, topY + 0.016 + r, 0);
@@ -155,15 +160,15 @@ export class Viewmodel {
     this.kick = 0;
   }
 
-  // gun: validated gun data; slot: its index (picks the finish colour).
-  setGun(gun, slot) {
+  // gun: validated gun data; slot: its index (picks the finish colour); optic: chosen sight.
+  setGun(gun, slot, optic) {
     const type = MODEL_TYPES.includes(gun.model) ? gun.model : 'rifle';
-    const key = gun.id;
+    const key = gun.id + '|' + optic.id;
     let m = this.models.get(key);
     if (!m) {
       m = new THREE.Group();
       BUILDERS[type](m, FINISHES[slot % FINISHES.length]);
-      addSight(m, gun.optic, TOP_Y[type]);
+      addSight(m, optic, TOP_Y[type]);
       mergeByMaterial(m);
       this.models.set(key, m);
       this.root.add(m);

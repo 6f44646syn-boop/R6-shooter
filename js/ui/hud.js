@@ -19,7 +19,7 @@ export class Hud {
     this.el.slot.textContent = String((index + 1) % 10);
     this.el.name.textContent = gun.name;
     this.el.tag.hidden = !gun.placeholder;
-    this.el.info.textContent = gun.rpm + ' rpm · ' + opticLabel + ' optic' + (gun.fireMode === 'semi' ? ' · semi' : '');
+    this.el.info.textContent = gun.rpm + ' rpm · ' + opticLabel + (gun.fireMode === 'semi' ? ' · semi' : '');
   }
 
   setDistance(d, moving) { this.el.distance.textContent = d + ' m' + (moving ? ' \u00b7 moving dot' : ''); }

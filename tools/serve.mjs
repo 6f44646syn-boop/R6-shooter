@@ -19,6 +19,8 @@ export function startServer(port = 8080) {
       let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
       let file = normalize(join(ROOT, p));
       if (file !== ROOT && !file.startsWith(ROOT + sep)) { res.writeHead(403); res.end(); return; }
+      // reference/ holds private game screenshots for tuning sights: never serve it.
+      if (file.startsWith(join(ROOT, 'reference'))) { res.writeHead(403); res.end('reference/ is not served'); return; }
       if ((await stat(file).catch(() => null))?.isDirectory()) file = join(file, 'index.html');
       const body = await readFile(file);
       res.writeHead(200, { 'Content-Type': TYPES[extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-store' });

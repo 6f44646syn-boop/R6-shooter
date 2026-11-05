@@ -138,15 +138,35 @@ try {
     });
     check('hole cap 300 (shots ' + cap.shots + ')', cap.holes === 300 && cap.shots === 330, JSON.stringify(cap));
 
-    // g) ADS FOV through a 2.0x optic, and look counts with the glitch guard.
-    const ads = await page.evaluate(() => {
+    // g) sights: defaults, ADS zoom/FOV/sens key/speed, overlay, picker counts, gallery.
+    const sc = await page.evaluate(() => {
       const R = window.__range;
-      R.selectGun(2); R.setAds(true);
-      const f = R.state().fovH; R.setAds(false);
-      return f;
+      R.manual(true);
+      const out = {};
+      R.selectGun(0); out.defaultDef = R.state().optic; out.rowDef = R.sightRowCount();
+      R.selectGun(1); out.defaultAtt = R.state().optic; out.rowAtt = R.sightRowCount();
+      out.overlayHip = R.overlayVisible();
+      R.setAds(true); R.step(1);
+      out.mag = R.state(); out.overlayAds = R.overlayVisible();
+      R.setAds(false); R.step(1);
+      R.setOptic('holo_a');
+      R.setAds(true); R.step(1);
+      out.holo = R.state();
+      R.setAds(false); R.step(1);
+      R.setOptic('mag_a');
+      R.toggleGallery(true); out.gallery = R.galleryCount(); R.toggleGallery(false);
+      return out;
     });
-    const expect = 2 * Math.atan(Math.tan(Math.PI / 4) / 2) * 180 / Math.PI;
-    check('ADS FOV at 90 hip, 2.0x = ' + expect.toFixed(4), Math.abs(ads - expect) < 1e-9, 'got ' + ads);
+    const magFov = 2 * Math.atan(Math.tan(Math.PI / 4) / 2.5) * 180 / Math.PI;
+    check('defender slot 1 starts on holo_a, attacker slot 2 on mag_a', sc.defaultDef === 'holo_a' && sc.defaultAtt === 'mag_a', sc.defaultDef + ' / ' + sc.defaultAtt);
+    check('picker lists 11 sights for a defender slot, 14 for an attacker slot', sc.rowDef === 11 && sc.rowAtt === 14, sc.rowDef + ' / ' + sc.rowAtt);
+    check('mag_a: zoom 2.5, sens key 2.5x, ADS FOV ' + sc.mag.fovH.toFixed(3) + ' = 2*atan(tan(45)/2.5)',
+      sc.mag.zoom === 2.5 && sc.mag.sensKey === '2.5x' && Math.abs(sc.mag.fovH - magFov) < 1e-9, JSON.stringify(sc.mag));
+    check('holo_a: zoom 1, ADS FOV stays 90 (wider than mag_a)', sc.holo.zoom === 1 && Math.abs(sc.holo.fovH - 90) < 1e-9 && sc.holo.fovH > sc.mag.fovH, JSON.stringify(sc.holo));
+    check('ADS slower with mag_a (' + sc.mag.adsTime.toFixed(4) + ' s) than holo_a (' + sc.holo.adsTime.toFixed(4) + ' s)', sc.mag.adsTime > sc.holo.adsTime, '');
+    check('2.5x sens is a placeholder of 1.0x / 2.5 until calibrated', sc.mag.placeholderSens && Math.abs(sc.mag.dpc / sc.holo.dpc - 1 / 2.5) < 1e-12, 'ratio ' + sc.mag.dpc / sc.holo.dpc);
+    check('scope overlay hidden at hip, shown when aimed', !sc.overlayHip && sc.overlayAds, sc.overlayHip + ' / ' + sc.overlayAds);
+    check('F4 gallery shows 15 sights', sc.gallery === 15, 'got ' + sc.gallery);
 
     // h) moving dot: slides left to right at the set speed; a shot aimed at it scores a hit.
     const dot = await page.evaluate(() => {
@@ -175,6 +195,55 @@ try {
     check('no page errors', errors.length === 0, errors.join('\n'));
     check('no third-party requests', external.length === 0, external.join('\n'));
     await page.close();
+  }
+
+  /* ---------- 2b. sight choice persistence and data-only additions ---------- */
+  console.log('\nSights: saved choice and a test sight added through data only');
+  {
+    const { page, errors } = await openPage('index.html?test');
+    await page.waitForFunction(() => window.__range && window.__range.ready);
+    await page.evaluate(() => { window.__range.selectGun(0); window.__range.setOptic('reflex_a'); });
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForFunction(() => window.__range && window.__range.ready);
+    const kept = await page.evaluate(() => { window.__range.selectGun(0); return window.__range.state().optic; });
+    check('chosen sight is remembered per slot after reload', kept === 'reflex_a', 'got ' + kept);
+    await page.evaluate(() => localStorage.setItem('scope:smg-01', 'mag_a')); // not allowed on a defender slot
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForFunction(() => window.__range && window.__range.ready);
+    const fell = await page.evaluate(() => { window.__range.selectGun(0); return window.__range.state().optic; });
+    check('a saved sight the slot no longer allows falls back to defaultOptic', fell === 'holo_a', 'got ' + fell);
+    check('no page errors', errors.length === 0, errors.join('\n'));
+    await page.close();
+
+    // Serve modified JSON (files on disk are untouched): one new sight, listed on slot 1 only.
+    const p2 = await browser.newPage();
+    const errs2 = [];
+    p2.on('pageerror', (e) => errs2.push(String(e)));
+    await p2.route('**/data/optics.json', async (route) => {
+      const res = await route.fetch(); const j = await res.json();
+      j.optics.push({ id: 'test_x', group: 'telescopic', label: 'Test X', zoom: 4,
+        housing: { shape: 'round', w: 0.25, h: 0.25, bezel: 0.05 }, reticle: { shapes: [{ t: 'dot', r: 6 }] } });
+      route.fulfill({ response: res, json: j });
+    });
+    await p2.route('**/data/guns.json', async (route) => {
+      const res = await route.fetch(); const j = await res.json();
+      j.guns[0].optics.push('test_x');
+      route.fulfill({ response: res, json: j });
+    });
+    await p2.goto(BASE + 'index.html?test', { waitUntil: 'networkidle' });
+    await p2.waitForFunction(() => window.__range && window.__range.ready);
+    const t = await p2.evaluate(() => {
+      const R = window.__range;
+      R.manual(true); R.selectGun(1); const other = R.sightRowCount();
+      R.selectGun(0); const row = R.sightRowCount(); R.setOptic('test_x'); R.setAds(true); R.step(1);
+      const st = R.state(); R.toggleGallery(true); const gal = R.galleryCount();
+      return { row, other, optic: st.optic, zoom: st.zoom, sensKey: st.sensKey, gal,
+        sensRows: [...document.querySelectorAll('.optic-table tbody tr td:first-child')].map((td) => td.textContent) };
+    });
+    check('test sight appears on slot 1 only (12 vs 14), selectable, zoom 4', t.row === 12 && t.other === 14 && t.optic === 'test_x' && t.zoom === 4, JSON.stringify(t));
+    check('gallery shows 16 and the sens table gains a 4.0x row', t.gal === 16 && t.sensRows.join(',') === '1.0x,2.5x,3.5x,4.0x', JSON.stringify(t.sensRows));
+    check('no page errors', errs2.length === 0, errs2.join('\n'));
+    await p2.close();
   }
 
   /* ---------- 3. frame-time check ---------- */
@@ -225,6 +294,38 @@ try {
     check('draw calls <= 20', r.info.calls <= 20, 'calls ' + r.info.calls);
     check('render size 1920x1080 at devicePixelRatio 1', r.info.w === 1920 && r.info.h === 1080, r.info.w + 'x' + r.info.h);
     check('CPU p95 under 4 ms', pct(r.cpu, 0.95) < 4, 'p95 ' + pct(r.cpu, 0.95));
+
+    // Scope overlay cost: 4 s at hip, then 4 s aimed with the 2.5x sight with the overlay shown
+    // and with it hidden. Aimed vs aimed isolates the overlay from the cost of the zoomed view.
+    const cmp = await page.evaluate(async () => {
+      const R = window.__range;
+      R.selectGun(1); R.setOptic('mag_a');
+      const sc = document.getElementById('scope');
+      const measure = async (ads, hideOverlay) => {
+        R.setAds(ads);
+        sc.style.visibility = hideOverlay ? 'hidden' : '';
+        await new Promise((ok) => setTimeout(ok, 800)); // let the ADS blend finish
+        const ints = []; let last = 0; const c0 = R.cpuFrameMs().length;
+        await new Promise((ok) => {
+          const t0 = performance.now();
+          function f(now) { if (last) ints.push(now - last); last = now; if (now - t0 < 4000) requestAnimationFrame(f); else ok(); }
+          requestAnimationFrame(f);
+        });
+        const avg = ints.reduce((a, b) => a + b, 0) / ints.length;
+        return { fps: 1000 / avg, overlay: R.overlayVisible(), calls: R.renderInfo().calls };
+      };
+      const hip = await measure(false);
+      const ads = await measure(true);
+      const adsBare = await measure(true, true);
+      sc.style.visibility = '';
+      R.setAds(false);
+      return { hip, ads, adsBare };
+    });
+    console.log('  hip, no overlay:      ' + cmp.hip.fps.toFixed(1) + ' fps, ' + cmp.hip.calls + ' draw calls');
+    console.log('  aimed, scope overlay: ' + cmp.ads.fps.toFixed(1) + ' fps, ' + cmp.ads.calls + ' draw calls (viewmodel hidden)');
+    console.log('  aimed, overlay hidden: ' + cmp.adsBare.fps.toFixed(1) + ' fps (difference = the overlay\'s own cost)');
+    check('scope overlay visible only in the aimed run', !cmp.hip.overlay && cmp.ads.overlay, JSON.stringify(cmp));
+    check('overlay costs under 10% (aimed with vs without overlay)', cmp.ads.fps >= cmp.adsBare.fps * 0.9, JSON.stringify(cmp));
     check('no page errors', errors.length === 0, errors.join('\n'));
     await page.close();
   }

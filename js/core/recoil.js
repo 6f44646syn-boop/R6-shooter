@@ -77,8 +77,11 @@ export class RecoilEngine {
     this.rng = new GaussianRng(1);
     this.step = [0, 0];
     this.gun = null;
+    this.scale = 1; // per-sight sprayPath multiplier (gun.opticRecoilScale), 1 = unchanged
     this.reset();
   }
+
+  setScale(k) { this.scale = k; }
 
   setGun(gun) {
     this.gun = gun;
@@ -132,6 +135,8 @@ export class RecoilEngine {
 
     const i = this.shotIndex + 1;
     sprayStep(gun.sprayPath, i, this.step);
+    this.step[0] *= this.scale;
+    this.step[1] *= this.scale;
     const jy = gun.jitter.yawDeg, jp = gun.jitter.pitchDeg;
     // Always draw two samples so the stream stays aligned even if one sd is 0.
     const ny = this.rng.next(), np = this.rng.next();

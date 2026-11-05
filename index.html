@@ -11,6 +11,7 @@
   <canvas id="view"></canvas>
 
   <div id="hud">
+    <canvas id="scope" hidden></canvas>
     <canvas id="crosshair"></canvas>
     <div id="hud-gun" class="hud-box">
       <div><span id="gun-slot">1</span> <strong id="gun-name">-</strong> <span id="gun-tag" class="tag-placeholder" hidden>PLACEHOLDER RECOIL</span></div>
@@ -33,6 +34,15 @@
 
   <pre id="debug" hidden></pre>
 
+  <div id="gallery" hidden>
+    <div class="gallery-head">
+      <h1>Sight gallery</h1>
+      <span class="small">Drawn by the same code as the ADS overlay, at 1080p proportions. F4 or Esc closes.</span>
+      <button id="gallery-close" type="button">Close</button>
+    </div>
+    <div id="gallery-grid"></div>
+  </div>
+
   <div id="menu">
     <div id="menu-panel">
       <header class="menu-head">
@@ -47,6 +57,9 @@
       <section class="set-group">
         <h2>Loadout</h2>
         <div id="loadout" class="loadout" role="list"></div>
+        <h2 class="sight-head">Sight</h2>
+        <div id="sight-row" class="sight-row"></div>
+        <p id="sight-note" class="small"></p>
       </section>
       <div id="settings-root"></div>
       <section class="keys">
@@ -56,11 +69,13 @@
           <dt>Left button</dt><dd>Fire (hold for automatic)</dd>
           <dt>Right button</dt><dd>Aim down sights (hold)</dd>
           <dt>R</dt><dd>Reload</dd>
+          <dt>[ / ]</dt><dd>Previous / next sight (while not aiming)</dd>
           <dt>1-9, 0</dt><dd>Select gun 1-10</dd>
           <dt>Q / E</dt><dd>Target closer / further (5, 10, 15, 20 m)</dd>
           <dt>C</dt><dd>Clear bullet holes and shot counters</dd>
           <dt>M</dt><dd>Moving red dot target on / off</dd>
           <dt>F3</dt><dd>Debug readout (Z zeroes its counters)</dd>
+          <dt>F4</dt><dd>Sight gallery (every sight side by side)</dd>
           <dt>Esc</dt><dd>Release the mouse and open this menu</dd>
         </dl>
       </section>

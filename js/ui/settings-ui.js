@@ -1,6 +1,6 @@
 // Settings panel inside the Esc menu. Every change is sanitised, saved to localStorage and
 // handed to main.js through onChange(key) so it takes effect immediately.
-import { sanitize, saveSettings, clearSavedSettings, DEFAULTS, DISTANCES, CROSSHAIR_STYLES } from '../core/settings.js';
+import { sanitize, saveSettings, clearSavedSettings, DEFAULTS, DISTANCES, CROSSHAIR_STYLES, RETICLE_COLOR_NAMES } from '../core/settings.js';
 import { degPerCount, countsPer360, inchesPer360, verticalFovDeg } from '../core/sensitivity.js';
 import { drawCrosshair } from './crosshair.js';
 
@@ -19,7 +19,7 @@ function el(tag, attrs = {}, ...kids) {
 const XH_LABELS = { cross: 'Cross', dot: 'Dot', 'cross-dot': 'Cross + dot', circle: 'Circle', t: 'T (no top arm)' };
 
 export class SettingsUI {
-  // ctx: { settings, guns, optics, getState(), onChange(key) }
+  // ctx: { settings, guns, sensKeys, sensFile, opticMultiplier(key), isPlaceholder(key), getState(), onChange(key) }
   constructor(root, ctx) {
     this.root = root;
     this.ctx = ctx;
@@ -98,38 +98,38 @@ export class SettingsUI {
     const sens = this.group('Sensitivity',
       el('div', { class: 'set-grid' },
         this.num('set-dpi', 'Mouse DPI', { min: 50, max: 32000, step: 50 }, () => this.s.dpi, (v) => { this.s.dpi = v; }, 'sens'),
-        this.num('set-cm360', 'cm per 360° (hipfire)', { min: 1, max: 1000, step: 0.1 }, () => this.s.cm360, (v) => { this.s.cm360 = v; }, 'sens'),
+        this.num('set-cm360', 'cm per 360\u00b0 (hipfire)', { min: 1, max: 1000, step: 0.1 }, () => this.s.cm360, (v) => { this.s.cm360 = v; }, 'sens'),
       ),
       this.derived);
 
-    /* ADS multipliers */
+    /* ADS multipliers: one row per magnification used in data/optics.json */
     const tbody = el('tbody');
     this.opticRows = [];
-    for (const o of ctx.optics) {
-      const key = String(o.zoom);
-      const input = el('input', { type: 'number', min: 0.01, max: 20, step: 0.01, id: 'set-optic-' + key.replace('.', '_') });
+    for (const key of ctx.sensKeys) {
+      const fileVal = ctx.sensFile[key];
+      const input = el('input', { type: 'number', min: 0.01, max: 20, step: 0.01, id: 'set-ads-' + key.replace('.', '_') });
       const mark = el('span', { class: 'edited' });
       input.addEventListener('input', () => {
         const v = parseFloat(input.value);
         if (!Number.isFinite(v) || v <= 0) return;
-        if (v === o.adsMultiplier) delete this.s.opticOverrides[key];
+        if (v === fileVal) delete this.s.opticOverrides[key];
         else this.s.opticOverrides[key] = v;
         this.commit('optics');
       });
       const dpcCell = el('td', { class: 'small' });
-      this.opticRows.push({ o, key, input, mark, dpcCell });
+      this.opticRows.push({ key, fileVal, input, mark, dpcCell });
       tbody.append(el('tr', {},
-        el('td', { text: o.zoom.toFixed(1) + 'x' }),
-        el('td', { class: 'small', text: String(o.adsMultiplier) }),
+        el('td', { text: key }),
+        el('td', { class: 'small', text: fileVal !== undefined ? String(fileVal) : '—' }),
         el('td', {}, input, ' ', mark),
         dpcCell));
     }
-    const resetOptics = el('button', { type: 'button', text: 'Use the values from optics.json' });
+    const resetOptics = el('button', { type: 'button', text: 'Use the values from sens.json' });
     resetOptics.addEventListener('click', () => { this.s.opticOverrides = {}; this.commit('optics'); this.refresh(); });
-    const optics = this.group('ADS sensitivity multipliers',
-      el('p', { class: 'small', text: 'ADS deg/count = hip deg/count × multiplier (× the gun’s own ADS factor). 1.0 = same as hipfire. Edits here are saved in this browser only; copy final values into data/optics.json.' }),
+    const optics = this.group('ADS sensitivity per magnification',
+      el('p', { class: 'small', text: 'ADS deg/count = hip deg/count × multiplier (× the gun’s own ADS factor). 1.0 = same as hipfire. Rows come from the magnifications in data/optics.json. A row with no value in data/sens.json uses the 1.0x value divided by the zoom and is marked placeholder. Edits here are saved in this browser only; copy final values into data/sens.json.' }),
       el('div', { class: 'table-wrap' }, el('table', { class: 'optic-table' },
-        el('thead', {}, el('tr', {}, el('th', { text: 'Optic' }), el('th', { text: 'File' }), el('th', { text: 'Multiplier' }), el('th', { text: 'deg/count' }))),
+        el('thead', {}, el('tr', {}, el('th', { text: 'Magnification' }), el('th', { text: 'File' }), el('th', { text: 'Multiplier' }), el('th', { text: 'deg/count' }))),
         tbody)),
       el('div', { class: 'row' }, resetOptics));
 
@@ -152,7 +152,7 @@ export class SettingsUI {
     this.fovNote = el('span', { class: 'small' });
     const view = this.group('View',
       el('div', { class: 'set-grid' },
-        this.range('set-fov', 'Horizontal FOV', { min: 60, max: 110, step: 1, fmt: (v) => v + '°' }, () => this.s.hipFov, (v) => { this.s.hipFov = v; }, 'fov'),
+        this.range('set-fov', 'Horizontal FOV', { min: 60, max: 110, step: 1, fmt: (v) => v + '\u00b0' }, () => this.s.hipFov, (v) => { this.s.hipFov = v; }, 'fov'),
         this.select('set-scale', 'Render resolution', [['1', '100%'], ['0.85', '85%'], ['0.75', '75%'], ['0.5', '50%']], () => String(this.s.renderScale), (v) => { this.s.renderScale = Number(v); }, 'scale'),
         this.range('set-volume', 'Volume', { min: 0, max: 1, step: 0.05, fmt: (v) => Math.round(v * 100) + '%' }, () => this.s.volume, (v) => { this.s.volume = v; }, 'volume'),
       ),
@@ -168,6 +168,7 @@ export class SettingsUI {
     const cross = this.group('Crosshair',
       el('div', { class: 'xh-wrap' },
         el('div', { class: 'set-grid' },
+          this.select('set-reticle', 'Sight reticle colour (ADS)', RETICLE_COLOR_NAMES.map((v) => [v, v[0].toUpperCase() + v.slice(1)]), () => this.s.reticleColor, (v) => { this.s.reticleColor = v; }, 'reticle'),
           this.select('set-xh-style', 'Style', CROSSHAIR_STYLES.map((v) => [v, XH_LABELS[v]]), () => xh().style, (v) => { xh().style = v; }, 'crosshair'),
           this.field('Colour', (() => {
             const i = el('input', { type: 'color' });
@@ -211,10 +212,7 @@ export class SettingsUI {
       else i.value = i._get();
       if (i._show) i._show();
     }
-    for (const r of this.opticRows) {
-      const ov = this.s.opticOverrides[r.key];
-      r.input.value = ov !== undefined ? ov : r.o.adsMultiplier;
-    }
+    for (const r of this.opticRows) r.input.value = +this.ctx.opticMultiplier(r.key).toFixed(4);
     this.refreshDerived();
   }
 
@@ -226,21 +224,21 @@ export class SettingsUI {
     const fmt = (v, d = 6) => v.toFixed(d);
     this.derived.innerHTML = '';
     const line = (label, value) => this.derived.append(label + ' ', el('b', { text: value }), el('br'));
-    line('inches / 360°', fmt(inchesPer360(s.cm360), 3) + ' in');
-    line('counts / 360°', fmt(countsPer360(s.dpi, s.cm360), 2));
-    line('degrees / count (hip)', fmt(dpc, 8) + '°');
-    if (g) {
-      const m = this.ctx.opticMultiplier(g.optic) * g.adsMultiplier;
-      line('ADS deg/count for ' + g.name + ' (' + g.optic.toFixed(1) + 'x)', fmt(dpc * m, 8) + '°  = ' + fmt(s.cm360 / m, 2) + ' cm/360');
+    line('inches / 360\u00b0', fmt(inchesPer360(s.cm360), 3) + ' in');
+    line('counts / 360\u00b0', fmt(countsPer360(s.dpi, s.cm360), 2));
+    line('degrees / count (hip)', fmt(dpc, 8) + '\u00b0');
+    if (g && st.optic) {
+      const m = this.ctx.opticMultiplier(st.optic.sensKey) * g.adsMultiplier;
+      line('ADS deg/count for ' + g.name + ' with ' + st.optic.label + ' (' + st.optic.sensKey + ')', fmt(dpc * m, 8) + '\u00b0  = ' + fmt(s.cm360 / m, 2) + ' cm/360');
     }
     for (const r of this.opticRows) {
       const ov = s.opticOverrides[r.key];
-      r.mark.textContent = ov !== undefined ? 'edited' : '';
-      r.dpcCell.textContent = fmt(dpc * (ov !== undefined ? ov : r.o.adsMultiplier), 6);
+      r.mark.textContent = ov !== undefined ? 'edited' : (this.ctx.isPlaceholder(r.key) ? 'placeholder' : '');
+      r.dpcCell.textContent = fmt(dpc * this.ctx.opticMultiplier(r.key), 6);
     }
     const aspect = window.innerWidth / Math.max(1, window.innerHeight);
-    this.fovNote.textContent = 'Vertical FOV at this window size: ' + verticalFovDeg(s.hipFov, aspect).toFixed(2) + '°. ' +
-      'ADS FOV = hip FOV divided by the optic zoom in tan-space.';
+    this.fovNote.textContent = 'Vertical FOV at this window size: ' + verticalFovDeg(s.hipFov, aspect).toFixed(2) + '\u00b0. ' +
+      'ADS FOV = 2 · atan(tan(hip FOV / 2) / zoom).';
     drawCrosshair(this.preview, s.crosshair);
     this.preview.style.margin = '0';
   }

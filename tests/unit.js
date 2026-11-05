@@ -5,6 +5,7 @@ import { Look, MAX_EVENT_COUNTS } from '../js/core/look.js';
 import { sprayStep, sprayTarget, sampleSpray, easeOutCubic, RecoilEngine, EASE_FRACTION } from '../js/core/recoil.js';
 import { GaussianRng, mulberry32 } from '../js/core/prng.js';
 import { validateGuns } from '../js/core/guns.js';
+import { validateCatalogue, resolveGunOptics, sensKeys } from '../js/core/optics.js';
 import { sanitize } from '../js/core/settings.js';
 import { hitsSilhouette } from '../js/scene/target.js';
 
@@ -161,28 +162,82 @@ test('Gaussian PRNG: mean ~0, sd ~1, deterministic', () => {
   eq(mulberry32(5)(), mulberry32(5)());
 });
 
+/* ---------- sight catalogue ---------- */
+const CAT = {
+  groups: {
+    iron: { label: 'Iron', zoom: 1, adsSpeedBonus: 0.1 },
+    sight: { label: '1x', zoom: 1, adsSpeedBonus: 0.05 },
+    magnified: { label: 'Mag', zoom: 2.5, adsSpeedBonus: 0 },
+  },
+  optics: [
+    { id: 'iron', group: 'iron', housing: { shape: 'round', w: 0.1, h: 0.1 }, reticle: { shapes: [{ t: 'dot', r: 2 }] } },
+    { id: 'holo', group: 'sight', housing: { shape: 'rect', w: 0.3, h: 0.2 }, reticle: { shapes: [{ t: 'ring', r: 20 }] } },
+    { id: 'dot', group: 'sight', housing: { shape: 'round', w: 0.2, h: 0.2 }, reticle: { shapes: [{ t: 'dot', r: 2 }] } },
+    { id: 'mag', group: 'magnified', housing: { shape: 'round', w: 0.4, h: 0.36 }, reticle: { shapes: [{ t: 'line', x1: 0, y1: 0, x2: 0, y2: 9 }] } },
+    { id: 'mag35', group: 'magnified', zoom: 3.5, housing: { shape: 'round', w: 0.3, h: 0.3 }, reticle: { shapes: [{ t: 'poly', pts: [[0, 0], [1, 1]] }] } },
+  ],
+};
+const cat = validateCatalogue(CAT);
+test('catalogue: good data validates; groups give zoom, bonus and sens key', () => {
+  eq(cat.errors.length, 0, cat.errors.join('; '));
+  eq(cat.byId.get('holo').zoom, 1); eq(cat.byId.get('holo').adsSpeedBonus, 0.05);
+  eq(cat.byId.get('mag').sensKey, '2.5x');
+  eq(cat.byId.get('mag35').sensKey, '3.5x', 'zoom override');
+  eq(sensKeys(cat).join(','), '1.0x,2.5x,3.5x');
+});
+test('catalogue: duplicate id, bad zoom, unknown shape, fraction out of range are errors', () => {
+  const bad = JSON.parse(JSON.stringify(CAT));
+  bad.optics.push({ ...bad.optics[0] });                                   // duplicate id
+  bad.optics.push({ ...bad.optics[1], id: 'z', zoom: 0.5 });               // zoom < 1
+  bad.optics.push({ ...bad.optics[1], id: 'h', housing: { shape: 'hex', w: 0.3, h: 0.2 } });
+  bad.optics.push({ ...bad.optics[1], id: 'f', housing: { shape: 'rect', w: 1.4, h: 0.2 } });
+  bad.optics.push({ ...bad.optics[1], id: 'r', reticle: { shapes: [{ t: 'star' }] } });
+  const e = validateCatalogue(bad).errors.join('\n');
+  for (const f of ['duplicate optic id', '(z).zoom', '(h).housing.shape', '(f).housing.w', '(r).reticle.shapes[0].t']) {
+    if (!e.includes(f)) throw new Error('missing "' + f + '" in:\n' + e);
+  }
+});
+test('resolveGunOptics: @group expansion, exclude, default check', () => {
+  const r = resolveGunOptics({ optics: ['@iron', '@sight', 'mag'], opticsExclude: ['dot'], defaultOptic: 'mag' }, cat);
+  eq(r.errors.length, 0, r.errors.join('; '));
+  eq(r.ids.join(','), 'iron,holo,mag');
+  const bad = resolveGunOptics({ optics: ['@nope', 'ghost'], defaultOptic: 'holo' }, cat);
+  if (!bad.errors.some((m) => m.includes('"@nope"')) || !bad.errors.some((m) => m.includes('"ghost"'))) throw new Error(bad.errors.join('; '));
+  const empty = resolveGunOptics({ optics: ['dot'], opticsExclude: ['dot'], defaultOptic: 'dot' }, cat);
+  if (!empty.errors.some((m) => m.includes('empty'))) throw new Error('empty list not reported');
+  const def = resolveGunOptics({ optics: ['@iron'], defaultOptic: 'mag' }, cat);
+  if (!def.errors.some((m) => m.startsWith('defaultOptic'))) throw new Error('bad default not reported');
+});
+
 /* ---------- data validation ---------- */
 const goodGun = {
-  id: 'g1', name: 'Gun', placeholder: true, rpm: 600, magSize: 30, reloadSeconds: 2, optic: 1,
-  hipMultiplier: 1, adsMultiplier: 1, resetSeconds: 0.3,
+  id: 'g1', name: 'Gun', placeholder: true, rpm: 600, magSize: 30, reloadSeconds: 2,
+  hipMultiplier: 1, adsMultiplier: 1, resetSeconds: 0.3, optics: ['@iron', '@sight'], defaultOptic: 'holo',
   jitter: { yawDeg: 0, pitchDeg: 0 }, recovery: { delaySeconds: 0.2, degPerSecond: 5 }, sprayPath: [[0, 0], [0, 1]],
 };
-test('validateGuns accepts a good gun', () => {
-  const r = validateGuns({ guns: [goodGun] }, [1, 2]);
-  eq(r.errors.length, 0, 'errors'); eq(r.guns.length, 1);
+test('validateGuns accepts a good gun and resolves its sights', () => {
+  const r = validateGuns({ guns: [goodGun] }, cat);
+  eq(r.errors.length, 0, r.errors.join('; ')); eq(r.guns.length, 1);
+  eq(r.guns[0].optics.length, 3);
 });
 test('validateGuns names the gun and field for bad data', () => {
-  const bad = { ...goodGun, id: 'bad', rpm: -5, optic: 7, sprayPath: [[0, 0], [1]], jitter: { yawDeg: 'x', pitchDeg: 0 } };
-  const r = validateGuns({ guns: [goodGun, bad] }, [1, 2]);
+  const bad = { ...goodGun, id: 'bad', rpm: -5, optics: ['@nope'], sprayPath: [[0, 0], [1]], jitter: { yawDeg: 'x', pitchDeg: 0 } };
+  const r = validateGuns({ guns: [goodGun, bad] }, cat);
   eq(r.guns.length, 1, 'good gun still loads');
   const all = r.errors.join('\n');
-  for (const f of ['(bad).rpm', '(bad).optic', '(bad).sprayPath[1]', '(bad).jitter.yawDeg']) {
+  for (const f of ['(bad).rpm', '(bad).optics', '(bad).sprayPath[1]', '(bad).jitter.yawDeg']) {
     if (!all.includes(f)) throw new Error('missing error for ' + f + ' in:\n' + all);
   }
 });
 test('validateGuns rejects duplicate ids and a missing guns array', () => {
-  eq(validateGuns({ guns: [goodGun, goodGun] }, [1]).guns.length, 1);
-  eq(validateGuns({}, [1]).errors.length, 1);
+  eq(validateGuns({ guns: [goodGun, goodGun] }, cat).guns.length, 1);
+  eq(validateGuns({}, cat).errors.length, 1);
+});
+test('RecoilEngine: opticRecoilScale multiplies sprayPath steps', () => {
+  const r = new RecoilEngine(); r.setGun(testGun()); r.newMagazine(1); r.setScale(2);
+  const o = [0, 0];
+  r.fire(0, o); r.fire(0.1, o);
+  near(o[1], 1.0, 1e-12, 'pitch doubled'); near(o[0], 0.2, 1e-12, 'yaw doubled');
 });
 
 /* ---------- settings and target ---------- */

@@ -1,5 +1,6 @@
-// Loads and validates data/guns.json and data/optics.json.
+// Loads and validates data/guns.json, data/optics.json and data/sens.json.
 // Bad guns are skipped with a clear message naming the gun and the field; the rest still load.
+import { validateCatalogue, resolveGunOptics } from './optics.js';
 
 const MODELS = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 // Default model when the field is missing: guess from the id ("smg-01" -> smg).
@@ -7,8 +8,10 @@ const guessModel = (id) => MODELS.find((m) => id.toLowerCase().startsWith(m)) ||
 
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
 
-// Returns { guns, errors, warnings }. `opticZooms` is the list of zoom levels from optics.json.
-export function validateGuns(data, opticZooms) {
+const SIDES = ['attacker', 'defender'];
+
+// Returns { guns, errors, warnings }. `catalogue` is validateCatalogue(optics.json).
+export function validateGuns(data, catalogue) {
   const errors = [];
   const warnings = [];
   const guns = [];
@@ -39,8 +42,10 @@ export function validateGuns(data, opticZooms) {
     positive('hipMultiplier', 20);
     positive('adsMultiplier', 20);
     positive('resetSeconds', 10);
-    if (!isNum(g.optic)) bad('optic', 'must be a number such as 1.0 or 2.5');
-    else if (!opticZooms.includes(g.optic)) bad('optic', g.optic + ' is not in data/optics.json (have ' + opticZooms.join(', ') + ')');
+    if (g.adsSeconds !== undefined && (!isNum(g.adsSeconds) || g.adsSeconds <= 0 || g.adsSeconds > 3)) bad('adsSeconds', 'must be a number from 0 to 3 if given');
+    if (g.side !== undefined && !SIDES.includes(g.side)) bad('side', 'must be "attacker" or "defender" if given');
+    const res = resolveGunOptics(g, catalogue);
+    for (const e of res.errors) errs.push(where + '.' + e);
     if (typeof g.placeholder !== 'boolean') bad('placeholder', 'must be true or false');
     if (g.fireMode !== undefined && g.fireMode !== 'auto' && g.fireMode !== 'semi') bad('fireMode', 'must be "auto" or "semi" if given');
     if (g.model !== undefined && !MODELS.includes(g.model)) bad('model', 'must be one of ' + MODELS.join(', ') + ' if given');
@@ -65,6 +70,7 @@ export function validateGuns(data, opticZooms) {
     obj('recovery', ['delaySeconds', 'degPerSecond']);
 
     if (errs.length) { errors.push(...errs); return; }
+    if (g.optic !== undefined) warnings.push(where + '.optic: old field, ignored. Sights now come from "optics" / "defaultOptic" (see docs/SCOPES.md).');
 
     // Soft checks: the gun still loads.
     const p0 = g.sprayPath[0];
@@ -75,7 +81,9 @@ export function validateGuns(data, opticZooms) {
     ids.add(g.id);
     guns.push({
       id: g.id, name: g.name, rpm: g.rpm, magSize: g.magSize, reloadSeconds: g.reloadSeconds,
-      optic: g.optic, hipMultiplier: g.hipMultiplier, adsMultiplier: g.adsMultiplier,
+      optics: res.ids, defaultOptic: g.defaultOptic, opticRecoilScale: { ...(g.opticRecoilScale || {}) },
+      opticsVerified: g.opticsVerified === true, side: g.side || null, adsSeconds: g.adsSeconds || 0.3,
+      hipMultiplier: g.hipMultiplier, adsMultiplier: g.adsMultiplier,
       resetSeconds: g.resetSeconds, placeholder: g.placeholder,
       fireMode: g.fireMode || 'auto', model: g.model || guessModel(g.id), tone: g.tone === undefined ? 0.5 : g.tone,
       sprayPath: g.sprayPath.map((p) => [p[0], p[1]]),
@@ -86,18 +94,17 @@ export function validateGuns(data, opticZooms) {
   return { guns, errors, warnings };
 }
 
-// Returns { optics: [{zoom, adsMultiplier}], errors }
-export function validateOptics(data) {
+// data/sens.json: { "ads": { "1.0x": 1.0, ... } }. Returns { ads, errors }.
+export function validateSens(data) {
+  const ads = {};
   const errors = [];
-  const optics = [];
-  const list = data && Array.isArray(data.optics) ? data.optics : null;
-  if (!list) return { optics, errors: ['optics.json: expected an object with an "optics" array.'] };
-  list.forEach((o, i) => {
-    if (!o || !isNum(o.zoom) || o.zoom < 1) errors.push('optics[' + i + '].zoom: must be a number >= 1');
-    else if (!isNum(o.adsMultiplier) || o.adsMultiplier <= 0) errors.push('optics[' + i + '].adsMultiplier: must be a number > 0');
-    else optics.push({ zoom: o.zoom, adsMultiplier: o.adsMultiplier });
-  });
-  return { optics, errors };
+  if (!data || typeof data.ads !== 'object' || !data.ads) return { ads, errors: ['sens.json: expected { "ads": { "1.0x": 1.0 } }'] };
+  for (const [k, v] of Object.entries(data.ads)) {
+    if (!/^\d+(\.\d+)?x$/.test(k)) errors.push('sens.json ads.' + k + ': key must look like "2.5x"');
+    else if (!isNum(v) || v <= 0) errors.push('sens.json ads.' + k + ': must be a number > 0');
+    else ads[k] = v;
+  }
+  return { ads, errors };
 }
 
 async function fetchJson(url) {
@@ -109,24 +116,31 @@ async function fetchJson(url) {
 
 // Loads both files (relative URLs, so it works under any GitHub Pages sub-path).
 export async function loadGameData() {
-  const out = { guns: [], optics: [], errors: [], warnings: [] };
+  const out = { guns: [], catalogue: null, sens: { ads: {} }, errors: [], warnings: [] };
+  let catalogue = { groups: {}, optics: [], byId: new Map(), errors: [] };
   try {
-    const o = validateOptics(await fetchJson('data/optics.json'));
-    out.optics = o.optics;
-    out.errors.push(...o.errors);
+    catalogue = validateCatalogue(await fetchJson('data/optics.json'));
+    out.errors.push(...catalogue.errors);
   } catch (e) {
     out.errors.push(String(e.message || e));
   }
-  if (!out.optics.length) out.optics = [{ zoom: 1, adsMultiplier: 1 }];
+  out.catalogue = catalogue;
   try {
-    const g = validateGuns(await fetchJson('data/guns.json'), out.optics.map((o) => o.zoom));
+    const s = validateSens(await fetchJson('data/sens.json'));
+    out.sens = s;
+    out.errors.push(...s.errors);
+  } catch (e) {
+    out.errors.push(String(e.message || e));
+  }
+  try {
+    const g = validateGuns(await fetchJson('data/guns.json'), catalogue);
     out.guns = g.guns;
     out.errors.push(...g.errors);
     out.warnings.push(...g.warnings);
   } catch (e) {
     out.errors.push(String(e.message || e));
   }
-  for (const e of out.errors) console.error('[data] ' + e);
+  for (const e of out.errors) console.warn('[data] ' + e);
   for (const w of out.warnings) console.warn('[data] ' + w);
   return out;
 }

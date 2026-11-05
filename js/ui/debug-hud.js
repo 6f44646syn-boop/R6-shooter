@@ -44,6 +44,8 @@ export class DebugHud {
       'raw input      ' + (info.raw ? 'yes' : 'no'),
       'fov h / v      ' + info.fovH.toFixed(3) + ' / ' + info.fovV.toFixed(3) + ' deg',
       'recoil offset  ' + info.recoilYaw.toFixed(3) + ', ' + info.recoilPitch.toFixed(3) + ' deg  shot ' + info.shotIndex,
+      'sight          ' + info.optic + '  zoom ' + info.zoom.toFixed(2) + '  sens key ' + info.sensKey,
+      'ADS FOV        ' + info.adsFov.toFixed(3) + ' deg h   ADS ' + info.adsCm360.toFixed(2) + ' cm/360',
       'seed           ' + info.seed,
       'frame          ' + avg.toFixed(2) + ' ms avg, ' + worst.toFixed(1) + ' ms worst, ' + (avg ? (1000 / avg).toFixed(0) : '-') + ' fps',
       'render         ' + info.renderW + 'x' + info.renderH + '  calls ' + info.calls + '  tris ' + info.tris,

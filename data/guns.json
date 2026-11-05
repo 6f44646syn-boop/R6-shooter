@@ -2,16 +2,25 @@
   "_comment": "PLACEHOLDER DATA. These recoil numbers are invented test shapes, not measurements. Replace them with your own (see docs/GUN_DATA.md).",
   "guns": [
     {
-      "id": "scorpion-evo3-a1",
-      "name": "Scorpion EVO 3 A1",
+      "id": "smg-01",
+      "name": "SMG 01",
       "placeholder": true,
       "rpm": 750,
       "magSize": 30,
       "reloadSeconds": 2.4,
-      "optic": 1,
       "hipMultiplier": 1,
       "adsMultiplier": 1,
       "resetSeconds": 0.35,
+      "adsSeconds": 0.3,
+      "side": "defender",
+      "optics": [
+        "@iron",
+        "@sight"
+      ],
+      "opticsExclude": [],
+      "defaultOptic": "holo_a",
+      "opticRecoilScale": {},
+      "opticsVerified": false,
       "model": "smg",
       "tone": 0.5,
       "jitter": {
@@ -56,16 +65,26 @@
       ]
     },
     {
-      "id": "f2",
-      "name": "F2",
+      "id": "rifle-01",
+      "name": "Rifle 01",
       "placeholder": true,
       "rpm": 800,
       "magSize": 30,
       "reloadSeconds": 2.5,
-      "optic": 1.5,
       "hipMultiplier": 1,
       "adsMultiplier": 1,
       "resetSeconds": 0.35,
+      "adsSeconds": 0.3,
+      "side": "attacker",
+      "optics": [
+        "@iron",
+        "@sight",
+        "@magnified"
+      ],
+      "opticsExclude": [],
+      "defaultOptic": "mag_a",
+      "opticRecoilScale": {},
+      "opticsVerified": false,
       "model": "rifle",
       "tone": 0.45,
       "jitter": {
@@ -110,16 +129,26 @@
       ]
     },
     {
-      "id": "r4-c",
-      "name": "R4-C",
+      "id": "rifle-02",
+      "name": "Rifle 02",
       "placeholder": true,
       "rpm": 700,
       "magSize": 25,
       "reloadSeconds": 2.3,
-      "optic": 2,
       "hipMultiplier": 1,
       "adsMultiplier": 1,
       "resetSeconds": 0.4,
+      "adsSeconds": 0.3,
+      "side": "attacker",
+      "optics": [
+        "@iron",
+        "@sight",
+        "@magnified"
+      ],
+      "opticsExclude": [],
+      "defaultOptic": "mag_a",
+      "opticRecoilScale": {},
+      "opticsVerified": false,
       "model": "carbine",
       "tone": 0.55,
       "jitter": {
@@ -159,16 +188,25 @@
       ]
     },
     {
-      "id": "smg-12",
-      "name": "SMG-12",
+      "id": "mp-01",
+      "name": "Machine Pistol 01",
       "placeholder": true,
       "rpm": 950,
       "magSize": 40,
       "reloadSeconds": 2,
-      "optic": 1,
       "hipMultiplier": 1,
       "adsMultiplier": 1,
       "resetSeconds": 0.3,
+      "adsSeconds": 0.3,
+      "side": "defender",
+      "optics": [
+        "@iron",
+        "@sight"
+      ],
+      "opticsExclude": [],
+      "defaultOptic": "holo_a",
+      "opticRecoilScale": {},
+      "opticsVerified": false,
       "model": "smg",
       "tone": 0.3,
       "jitter": {
@@ -223,16 +261,25 @@
       ]
     },
     {
-      "id": "mp5",
-      "name": "MP5",
+      "id": "smg-02",
+      "name": "SMG 02",
       "placeholder": true,
       "rpm": 1100,
       "magSize": 50,
       "reloadSeconds": 2.1,
-      "optic": 1,
       "hipMultiplier": 1,
       "adsMultiplier": 1,
       "resetSeconds": 0.25,
+      "adsSeconds": 0.3,
+      "side": "defender",
+      "optics": [
+        "@iron",
+        "@sight"
+      ],
+      "opticsExclude": [],
+      "defaultOptic": "holo_a",
+      "opticRecoilScale": {},
+      "opticsVerified": false,
       "model": "smg",
       "tone": 0.2,
       "jitter": {
@@ -297,16 +344,26 @@
       ]
     },
     {
-      "id": "552-commando",
-      "name": "552 Commando",
+      "id": "rifle-03",
+      "name": "Rifle 03",
       "placeholder": true,
       "rpm": 650,
       "magSize": 30,
       "reloadSeconds": 5.5,
-      "optic": 2.5,
       "hipMultiplier": 1,
       "adsMultiplier": 1,
       "resetSeconds": 0.5,
+      "adsSeconds": 0.3,
+      "side": "attacker",
+      "optics": [
+        "@iron",
+        "@sight",
+        "@magnified"
+      ],
+      "opticsExclude": [],
+      "defaultOptic": "mag_a",
+      "opticRecoilScale": {},
+      "opticsVerified": false,
       "model": "carbine",
       "tone": 0.75,
       "jitter": {
@@ -381,17 +438,26 @@
       ]
     },
     {
-      "id": "mxp5",
-      "name": "MXP5",
+      "id": "rifle-04",
+      "name": "Rifle 04",
       "placeholder": true,
       "rpm": 850,
       "magSize": 30,
       "reloadSeconds": 2.2,
-      "optic": 1,
       "hipMultiplier": 1,
       "adsMultiplier": 1,
       "resetSeconds": 0.35,
-      "model": "smg",
+      "adsSeconds": 0.3,
+      "side": "defender",
+      "optics": [
+        "@iron",
+        "@sight"
+      ],
+      "opticsExclude": [],
+      "defaultOptic": "holo_a",
+      "opticRecoilScale": {},
+      "opticsVerified": false,
+      "model": "rifle",
       "tone": 0.4,
       "jitter": {
         "yawDeg": 0.04,
@@ -435,16 +501,26 @@
       ]
     },
     {
-      "id": "c8-sfw",
-      "name": "C8-SFW",
+      "id": "rifle-05",
+      "name": "Rifle 05",
       "placeholder": true,
       "rpm": 720,
       "magSize": 30,
       "reloadSeconds": 2.6,
-      "optic": 3,
       "hipMultiplier": 1,
       "adsMultiplier": 1,
       "resetSeconds": 0.4,
+      "adsSeconds": 0.3,
+      "side": "attacker",
+      "optics": [
+        "@iron",
+        "@sight",
+        "@magnified"
+      ],
+      "opticsExclude": [],
+      "defaultOptic": "mag_a",
+      "opticRecoilScale": {},
+      "opticsVerified": false,
       "model": "rifle",
       "tone": 0.6,
       "jitter": {
@@ -489,16 +565,25 @@
       ]
     },
     {
-      "id": "mp7",
-      "name": "MP7",
+      "id": "smg-03",
+      "name": "SMG 03",
       "placeholder": true,
       "rpm": 1000,
       "magSize": 32,
       "reloadSeconds": 1.9,
-      "optic": 1,
       "hipMultiplier": 1,
       "adsMultiplier": 1,
       "resetSeconds": 0.3,
+      "adsSeconds": 0.3,
+      "side": "defender",
+      "optics": [
+        "@iron",
+        "@sight"
+      ],
+      "opticsExclude": [],
+      "defaultOptic": "holo_a",
+      "opticRecoilScale": {},
+      "opticsVerified": false,
       "model": "smg",
       "tone": 0.25,
       "jitter": {
@@ -545,16 +630,25 @@
       ]
     },
     {
-      "id": "t-5-smg",
-      "name": "T-5 SMG",
+      "id": "smg-04",
+      "name": "SMG 04",
       "placeholder": true,
       "rpm": 780,
       "magSize": 20,
       "reloadSeconds": 2.8,
-      "optic": 1.5,
       "hipMultiplier": 1,
       "adsMultiplier": 1,
       "resetSeconds": 0.6,
+      "adsSeconds": 0.3,
+      "side": "defender",
+      "optics": [
+        "@iron",
+        "@sight"
+      ],
+      "opticsExclude": [],
+      "defaultOptic": "holo_a",
+      "opticRecoilScale": {},
+      "opticsVerified": false,
       "model": "smg",
       "tone": 0.9,
       "jitter": {

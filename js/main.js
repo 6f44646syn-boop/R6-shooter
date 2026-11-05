@@ -18,6 +18,8 @@ import { drawCrosshair } from './ui/crosshair.js';
 import { Hud } from './ui/hud.js';
 import { MagPlot } from './ui/plot.js';
 import { SettingsUI } from './ui/settings-ui.js';
+import { sensKeys } from './core/optics.js';
+import { ScopeOverlay, RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -70,6 +72,9 @@ function boot(data) {
   const recoil = new RecoilEngine();
   const params = new URLSearchParams(location.search);
   const testMode = params.has('test');
+  const catalogue = data.catalogue;
+  const overlay = new ScopeOverlay($('scope'));
+  let settingsUI = null; // created further down
 
   if (data.errors.length || data.warnings.length) {
     const el = $('data-errors');
@@ -87,16 +92,24 @@ function boot(data) {
     ads: false, fovH: settings.hipFov, fovV: 60,
     shots: 0, hits: 0,
     gun: null, gunIndex: 0, seed: 0,
+    optic: null,   // selected sight (resolved catalogue entry)
+    adsP: 0,       // ADS blend 0 = hip, 1 = fully aimed
+    adsFov: 90,    // horizontal FOV when fully aimed with this sight
   };
   const offset = [0, 0];     // current recoil offset [yaw, pitch] for the camera
   const bulletOff = [0, 0];  // recoil offset of the bullet being fired
 
-  // ADS multiplier for an optic: user override from settings, else data/optics.json.
-  function opticMultiplier(zoom) {
-    const o = settings.opticOverrides[String(zoom)];
+  // ADS multiplier for a magnification key ("2.5x"): browser override from Settings, else
+  // data/sens.json, else a placeholder of the 1.0x value divided by the zoom.
+  function opticMultiplier(key) {
+    const o = settings.opticOverrides[key];
     if (o !== undefined) return o;
-    const row = data.optics.find((r) => r.zoom === zoom);
-    return row ? row.adsMultiplier : 1;
+    const f = data.sens.ads[key];
+    if (f !== undefined) return f;
+    return key === '1.0x' ? 1 : opticMultiplier('1.0x') / parseFloat(key);
+  }
+  function isPlaceholder(key) {
+    return settings.opticOverrides[key] === undefined && data.sens.ads[key] === undefined;
   }
 
   // Shots of the current magazine relative to the aim point, for the plot.
@@ -107,7 +120,7 @@ function boot(data) {
   function baseDpc() { return degPerCount(settings.dpi, settings.cm360); }
   function currentDpc() {
     const g = state.gun;
-    return state.ads ? baseDpc() * opticMultiplier(g.optic) * g.adsMultiplier : baseDpc() * g.hipMultiplier;
+    return state.ads ? baseDpc() * opticMultiplier(state.optic.sensKey) * g.adsMultiplier : baseDpc() * g.hipMultiplier;
   }
 
   // Fixed seed from settings or ?seed=, otherwise a new random seed per magazine.
@@ -127,15 +140,111 @@ function boot(data) {
     state.gunIndex = index;
     weapon.setGun(gun);
     recoil.setGun(gun);
-    viewmodel.setGun(gun, index);
     newMagazine();
     mag.n = mag.shots = mag.hits = 0;
-    hud.setGun(gun, index, gun.optic.toFixed(1) + 'x');
-    updateFov();
     renderLoadout();
+    setOptic(savedOptic(gun), false);
     if (settings.gunIndex !== index) { settings.gunIndex = index; saveSettings(settings); }
   }
   hud.setDistance(range.distance);
+
+  /* ---------- sights ---------- */
+  // The chosen sight is saved per slot ("scope:<gun id>"). A saved id that the gun no longer
+  // allows falls back to the gun's defaultOptic.
+  function savedOptic(gun) {
+    let id = null;
+    try { id = localStorage.getItem('scope:' + gun.id); } catch (e) { id = null; }
+    return gun.optics.includes(id) ? id : gun.defaultOptic;
+  }
+  function setOptic(id, save = true) {
+    const gun = state.gun;
+    if (!gun.optics.includes(id)) return;
+    state.optic = catalogue.byId.get(id);
+    if (save) { try { localStorage.setItem('scope:' + gun.id, id); } catch (e) { /* ignore */ } }
+    recoil.setScale(gun.opticRecoilScale[id] || 1); // sprayPath is only scaled when the data says so
+    viewmodel.setGun(gun, state.gunIndex, state.optic);
+    hud.setGun(gun, state.gunIndex, state.optic.label);
+    renderSightRow();
+    updateFov();
+    if (settingsUI) settingsUI.refreshDerived();
+  }
+  function cycleOptic(d) {
+    const l = state.gun.optics;
+    setOptic(l[(l.indexOf(state.optic.id) + d + l.length) % l.length]);
+  }
+
+  // "Sight" row in the loadout panel: the slot's allowed sights, grouped, with previews.
+  const sightRow = $('sight-row');
+  let sightRowFor = '';
+  const sightButtons = new Map();
+  function renderSightRow(force) {
+    const gun = state.gun;
+    const color = RETICLE_COLORS[settings.reticleColor];
+    if (force || sightRowFor !== gun.id + color) {
+      sightRowFor = gun.id + color;
+      sightRow.textContent = '';
+      sightButtons.clear();
+      for (const [gid, grp] of Object.entries(catalogue.groups)) {
+        const ids = gun.optics.filter((id) => catalogue.byId.get(id).group === gid);
+        if (!ids.length) continue;
+        const box = document.createElement('div');
+        box.className = 'sight-group';
+        const h = document.createElement('h3');
+        h.textContent = grp.label + ' \u00b7 ' + grp.zoom.toFixed(1) + 'x';
+        const list = document.createElement('div');
+        list.className = 'sight-list';
+        for (const id of ids) {
+          const o = catalogue.byId.get(id);
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'sight';
+          const cv = document.createElement('canvas');
+          cv.width = 128; cv.height = 72;
+          const g = cv.getContext('2d');
+          drawBackdrop(g, 128, 72);
+          // Zoom the preview so the housing fills the tile (same drawing code, just magnified).
+          const hs = o.housing, k = Math.min(3, 0.8 / Math.max(hs.h + 2 * hs.bezel, (hs.w + 2 * hs.bezel) * 72 / 128));
+          g.setTransform(k, 0, 0, k, 64 * (1 - k), 36 * (1 - k));
+          drawScope(g, 128, 72, o, color);
+          g.setTransform(1, 0, 0, 1, 0, 0);
+          const label = document.createElement('span');
+          label.textContent = o.label;
+          b.append(cv, label);
+          b.addEventListener('click', () => setOptic(id));
+          list.append(b);
+          sightButtons.set(id, b);
+        }
+        box.append(h, list);
+        sightRow.append(box);
+      }
+    }
+    for (const [id, b] of sightButtons) b.setAttribute('aria-pressed', String(id === state.optic.id));
+    $('sight-note').textContent = (gun.opticsVerified ? '' : 'Sight list not yet checked in game. ') + '[ and ] switch sights while not aiming.';
+  }
+
+  // F4 sight gallery: every optic, drawn by the same code as the ADS overlay.
+  function toggleGallery(show) {
+    const el = $('gallery');
+    const open = show !== undefined ? show : el.hidden;
+    el.hidden = !open;
+    if (!open) return;
+    const grid = $('gallery-grid');
+    grid.textContent = '';
+    const color = RETICLE_COLORS[settings.reticleColor];
+    for (const o of catalogue.optics) {
+      const fig = document.createElement('figure');
+      const cv = document.createElement('canvas');
+      cv.width = 480; cv.height = 270; // 16:9, the same proportions as 1920x1080
+      const g = cv.getContext('2d');
+      drawBackdrop(g, 480, 270);
+      drawScope(g, 480, 270, o, color);
+      const cap = document.createElement('figcaption');
+      cap.textContent = o.id + ' \u00b7 ' + o.zoom.toFixed(1) + 'x \u00b7 ' + catalogue.groups[o.group].label;
+      fig.append(cv, cap);
+      grid.append(fig);
+    }
+  }
+  $('gallery-close').addEventListener('click', () => toggleGallery(false));
 
   /* ---------- pointer lock ---------- */
   const notice = $('notice');
@@ -200,6 +309,8 @@ function boot(data) {
   document.addEventListener('keydown', (e) => {
     if (e.repeat && e.code !== 'KeyR') return;
     const c = e.code;
+    if (c === 'F4') { e.preventDefault(); toggleGallery(); return; }
+    if (c === 'Escape' && !$('gallery').hidden) { toggleGallery(false); return; }
     if (c === 'F3') {
       e.preventDefault();
       settings.debugHud = !settings.debugHud;
@@ -212,6 +323,7 @@ function boot(data) {
     if (c === 'KeyZ' && settings.debugHud) look.reset();
     else if (c === 'KeyR') { if (weapon.startReload(clockNow())) { finishMagazine(); sfx.reload(); } }
     else if (c === 'KeyC') clearRange();
+    else if ((c === 'BracketLeft' || c === 'BracketRight') && !state.ads) cycleOptic(c === 'BracketLeft' ? -1 : 1);
     else if (c === 'KeyM') { settings.movingTarget = !settings.movingTarget; saveSettings(settings); applyMover(); }
     else if (/^Digit[0-9]$/.test(c)) selectGun((Number(c.slice(5)) + 9) % 10); // 1->0 ... 0->9
     else if (c === 'KeyQ' || c === 'KeyE') {
@@ -237,7 +349,7 @@ function boot(data) {
     const add = (cls, text) => { const s = document.createElement('span'); s.className = cls; s.textContent = text; b.append(s); };
     add('slot-key', i < 10 ? String((i + 1) % 10) : '-');
     add('slot-name', g.name);
-    add('slot-meta', g.model + ' \u00b7 ' + g.rpm + ' rpm \u00b7 ' + g.magSize + ' rnd \u00b7 ' + g.optic.toFixed(1) + 'x');
+    add('slot-meta', (g.side ? g.side + ' \u00b7 ' : '') + g.model + ' \u00b7 ' + g.rpm + ' rpm \u00b7 ' + g.magSize + ' rnd \u00b7 ' + g.optics.length + ' sights');
     if (g.placeholder) add('slot-ph', 'PLACEHOLDER RECOIL');
     b.addEventListener('click', () => { selectGun(i); settingsUI.refresh(); });
     loadoutEl.append(b);
@@ -294,7 +406,7 @@ function boot(data) {
   // Called when a magazine runs dry or a reload starts: draw that magazine's plot.
   function finishMagazine() {
     if (mag.shots === 0) return;
-    plot.draw(mag.xy, mag.n, mag.shots, mag.hits, state.gun.name, range.distance, mover.enabled ? DOT_RADIUS : 0);
+    plot.draw(mag.xy, mag.n, mag.shots, mag.hits, state.gun.name + ' \u00b7 ' + state.optic.id, range.distance, mover.enabled ? DOT_RADIUS : 0);
     $('hud-plot').hidden = false;
     mag.n = mag.shots = mag.hits = 0;
   }
@@ -309,9 +421,14 @@ function boot(data) {
     camera.aspect = renderW / renderH;
     updateFov();
   }
+  // FOV blends in tan-space from hip FOV to the sight's ADS FOV as the ADS blend runs:
+  //   adsFov = 2 * atan(tan(adsFovBase / 2) / zoom), with adsFovBase = the hip FOV (1x).
   function updateFov() {
-    if (!state.gun) return;
-    state.fovH = state.ads ? zoomedFovDeg(settings.hipFov, state.gun.optic) : settings.hipFov;
+    if (!state.gun || !state.optic) return;
+    state.adsFov = zoomedFovDeg(settings.hipFov, state.optic.zoom);
+    const tHip = Math.tan(settings.hipFov * DEG / 2), tAds = Math.tan(state.adsFov * DEG / 2);
+    const p = state.adsP, e = p * p * (3 - 2 * p); // smoothstep
+    state.fovH = 2 * Math.atan(tHip + (tAds - tHip) * e) / DEG;
     state.fovV = verticalFovDeg(state.fovH, camera.aspect);
     camera.fov = state.fovV;
     camera.updateProjectionMatrix();
@@ -322,8 +439,8 @@ function boot(data) {
   drawCrosshair($('crosshair'), settings.crosshair);
 
   /* ---------- settings panel ---------- */
-  const settingsUI = new SettingsUI($('settings-root'), {
-    settings, guns: data.guns, optics: data.optics, opticMultiplier,
+  settingsUI = new SettingsUI($('settings-root'), {
+    settings, guns: data.guns, sensKeys: sensKeys(catalogue), sensFile: data.sens.ads, opticMultiplier, isPlaceholder,
     getState: () => state,
     onChange(key) {
       const all = key === 'all';
@@ -336,6 +453,7 @@ function boot(data) {
       if (all || key === 'gun') selectGun(Math.min(settings.gunIndex, data.guns.length - 1));
       if (all || key === 'distance') setDistance(settings.distance);
       if (all || key === 'mover') applyMover();
+      if (all || key === 'reticle') renderSightRow(true);
       if (key === 'seed') newMagazine(); // takes effect from the current magazine
     },
   });
@@ -348,7 +466,7 @@ function boot(data) {
 
   const info = {
     look, dpc: 0, ads: false, raw: false, fovH: 0, fovV: 0, recoilYaw: 0, recoilPitch: 0,
-    shotIndex: 0, seed: '-', renderW: 0, renderH: 0, calls: 0, tris: 0,
+    shotIndex: 0, seed: '-', optic: '-', zoom: 1, sensKey: '-', adsFov: 0, adsCm360: 0, renderW: 0, renderH: 0, calls: 0, tris: 0,
   };
   let prevT = clockNow();
 
@@ -366,11 +484,26 @@ function boot(data) {
     camera.rotation.y = -(look.yaw + offset[0]) * DEG;   // three.js: positive Y rotation turns left
     camera.rotation.x = pitch * DEG;
     mover.update(t);
-    viewmodel.update(dt, settings.showViewmodel && !state.ads);
+
+    // ADS blend: takes gun.adsSeconds / (1 + the sight's adsSpeedBonus) each way.
+    const target = state.ads ? 1 : 0;
+    if (state.adsP !== target) {
+      const step = dt / adsTime();
+      state.adsP = target ? Math.min(1, state.adsP + step) : Math.max(0, state.adsP - step);
+      updateFov();
+    }
+    // Sight overlay fades in over the last 40% of the blend; hipfire keeps the crosshair.
+    const aimed = state.adsP >= 0.6;
+    overlay.draw(state.optic, RETICLE_COLORS[settings.reticleColor], aimed ? (state.adsP - 0.6) / 0.4 : 0);
+    if (crosshairEl.hidden !== aimed) crosshairEl.hidden = aimed;
+    viewmodel.update(dt, settings.showViewmodel && !aimed);
     hud.setAmmo(weapon.ammo, state.gun.magSize, weapon.reloading);
     hud.setStats(state.shots, state.hits);
     reloadBar(weapon.reloading ? weapon.reloadProgress : -1);
   }
+
+  function adsTime() { return state.gun.adsSeconds / (1 + state.optic.adsSpeedBonus); }
+  const crosshairEl = $('crosshair');
 
   const reloadEl = $('reload-bar'), reloadFill = reloadEl.firstElementChild;
   let reloadShown = -2;
@@ -399,6 +532,9 @@ function boot(data) {
       info.fovH = state.fovH; info.fovV = state.fovV;
       info.recoilYaw = offset[0]; info.recoilPitch = offset[1];
       info.shotIndex = recoil.shotIndex; info.seed = state.seed;
+      info.optic = state.optic.id; info.zoom = state.optic.zoom; info.sensKey = state.optic.sensKey;
+      info.adsFov = state.adsFov;
+      info.adsCm360 = settings.cm360 / (opticMultiplier(state.optic.sensKey) * state.gun.adsMultiplier);
       info.renderW = renderW; info.renderH = renderH;
       info.calls = renderer.info.render.calls; info.tris = renderer.info.render.triangles;
       debug.update(nowMs, info);
@@ -419,7 +555,10 @@ function boot(data) {
         const n = Math.round(seconds * fps);
         for (let i = 0; i < n; i++) { manualT += dt; update(manualT); }
       },
-      selectGun, setDistance, clear: clearRange,
+      selectGun, setDistance, clear: clearRange, setOptic, cycleOptic, toggleGallery,
+      galleryCount: () => $('gallery-grid').children.length,
+      sightRowCount: () => sightButtons.size,
+      overlayVisible: () => !$('scope').hidden,
       setMover(on, speed) { settings.movingTarget = on; if (speed) settings.moverSpeed = speed; applyMover(); },
       dotX: (t) => mover.xAt(t),
       setAim(yaw, pitch) { look.setAngles(yaw, pitch); },
@@ -436,7 +575,9 @@ function boot(data) {
         return out;
       },
       state: () => ({ ammo: weapon.ammo, shots: state.shots, hits: state.hits, seed: state.seed, gun: state.gun.id,
-        shotIndex: recoil.shotIndex, offset: [offset[0], offset[1]], distance: range.distance, fovH: state.fovH }),
+        shotIndex: recoil.shotIndex, offset: [offset[0], offset[1]], distance: range.distance, fovH: state.fovH,
+        optic: state.optic.id, zoom: state.optic.zoom, sensKey: state.optic.sensKey, adsP: state.adsP, adsFov: state.adsFov,
+        adsTime: adsTime(), dpc: currentDpc(), placeholderSens: isPlaceholder(state.optic.sensKey) }),
       offsetAt(t) { return recoil.offsetAt(t, [0, 0]); },
       now: () => manualT,
       cpuFrameMs: () => Array.from(cpuMs.subarray(0, Math.min(cpuIdx, cpuMs.length))),

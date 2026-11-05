@@ -18,11 +18,13 @@ Pick a gun, hold the trigger, pull against the recoil, and read the spray on the
 | Left button | Fire (hold for automatic) |
 | Right button | Aim down sights (hold) |
 | R | Reload |
+| [ / ] | Previous / next sight (while not aiming) |
 | 1-9, 0 | Select gun 1-10 |
 | Q / E | Target closer / further (5, 10, 15, 20 m) |
 | C | Clear bullet holes and shot counters |
 | M | Moving red dot target on / off |
 | F3 | Debug readout (Z zeroes its counters) |
+| F4 | Sight gallery |
 | Esc | Release the mouse and open the menu / settings |
 
 ## Sensitivity
@@ -40,10 +42,12 @@ deg per count  = 360 / counts per 360
 - Every `mousemove` event's `movementX/Y` goes straight into yaw/pitch as float64. No
   smoothing, acceleration, filtering, or frame-rate scaling. Single events over 2000 counts
   are dropped (a known Chrome glitch) and counted in the debug readout.
-- ADS sensitivity = hip deg/count × the optic's multiplier (`data/optics.json`, editable in
-  Settings) × the gun's own `adsMultiplier`. All default to 1.0.
-- Horizontal FOV 60-110 (default 90). ADS FOV divides the hip FOV by the optic zoom in
-  tan-space.
+- ADS sensitivity = hip deg/count × the multiplier for the sight's magnification
+  (`data/sens.json`, keyed `"1.0x"`, `"2.5x"`, `"3.5x"`, editable in Settings) × the gun's own
+  `adsMultiplier`. A magnification with no value yet uses the 1.0x value divided by the zoom
+  and is marked placeholder.
+- Horizontal FOV 60-110 (default 90). ADS FOV = 2·atan(tan(hip FOV / 2) / zoom), reached
+  over the gun's ADS time.
 
 **Checking it:** press F3, press Z to zero the counters, then turn. The readout shows total
 counts, the unwrapped yaw, and counts per 360. Turning exactly `counts / 360` counts gives
@@ -135,8 +139,11 @@ js/scene/                range, target (shape + hit test), bullet holes, viewmod
 js/ui/                   HUD, crosshair, magazine plot, debug readout, settings panel
 js/audio/sfx.js          WebAudio sounds
 data/guns.json           gun data (placeholders)
-data/optics.json         ADS multipliers per optic
+data/optics.json         sight catalogue (see docs/SCOPES.md)
+data/sens.json           ADS sensitivity per magnification
 docs/GUN_DATA.md         gun data schema
+docs/SCOPES.md           sights: recipes and drawing reference
+tools/check-data.mjs     validates the data files (npm run check)
 tools/serve.mjs          local static server
 tools/path-from-points.mjs   traced hole pixels -> sprayPath degrees
 tools/make-placeholder-guns.mjs  regenerates the placeholder guns
