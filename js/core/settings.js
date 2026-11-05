@@ -15,6 +15,8 @@ export const DEFAULTS = Object.freeze({
   crosshair: { style: 'cross', size: 10, gap: 4, thickness: 2, color: '#3dff9a', outline: true },
   volume: 0.35,
   holeSizeCm: 3,
+  aimRecoil: 1,          // Aimed recoil strength (1 = as measured)
+  aimSmooth: true,       // smooth measured sprays while aiming (hip-fire always exact)
   reloadSpeed: 2,        // x faster than each gun's measured reloadSeconds (1 = as measured)
   renderScale: 0,        // 0 = auto (screen's pixel ratio, up to 2x); else 0.5 to 2 (above 1 = supersampling)
   antialias: true,       // MSAA; takes effect after a reload
@@ -42,6 +44,7 @@ const NUM = {
   volume: [0, 1],
   holeSizeCm: [0.5, 10],
   reloadSpeed: [1, 5],
+  aimRecoil: [0.25, 1.5],
   renderScale: [0, 2],
   dotSpeed: [0.25, 6],
   dotSizeCm: [5, 50],
@@ -82,6 +85,7 @@ export function sanitize(input) {
   out.dotMoving = typeof s.dotMoving === 'boolean' ? s.dotMoving : (s.movingTarget === true ? true : DEFAULTS.dotMoving);
   out.dotCount = Number.isInteger(s.dotCount) ? Math.min(12, Math.max(1, s.dotCount)) : DEFAULTS.dotCount;
   out.lensQuality = ['auto', '3', '2', '1', '0'].includes(String(s.lensQuality)) ? String(s.lensQuality) : DEFAULTS.lensQuality;
+  out.aimSmooth = typeof s.aimSmooth === 'boolean' ? s.aimSmooth : DEFAULTS.aimSmooth;
   out.antialias = typeof s.antialias === 'boolean' ? s.antialias : DEFAULTS.antialias;
   if (out.renderScale > 0 && out.renderScale < 0.5) out.renderScale = 0.5;
   out.showViewmodel = typeof s.showViewmodel === 'boolean' ? s.showViewmodel : DEFAULTS.showViewmodel;

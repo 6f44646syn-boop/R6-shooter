@@ -150,17 +150,40 @@ try {
     const wantShots = Math.floor(1 / (60 / rate.rpm) + 1e-9) + 1;   // shots at t = 0, 1 interval, ... <= 1 s
     check(rate.rpm + ' rpm for 1 s = ' + wantShots + ' shots', rate.shots === wantShots, 'got ' + rate.shots);
 
-    // e) recovery returns the offset to zero; shotIndex resets on the next shot.
+    // e) no recovery: after you stop firing the view stays where the recoil left it.
     const rec = await page.evaluate(() => {
       const R = window.__range;
       R.manual(true); R.selectGun(0); R.clear(); R.setAim(0, 0);
       R.trigger(true); R.step(0.5); R.trigger(false);
       const during = R.state().offset[1];
+      R.step(0.1);                                   // let the last kick finish
+      const stopped = R.state().viewPitch;
       R.step(3);
-      return { during, after: R.state().offset };
+      const st = R.state();
+      return { during, stopped, after: st.viewPitch, offset: st.offset };
     });
     check('recoil offset climbs while firing (' + rec.during.toFixed(3) + ' deg)', rec.during > 0.5, 'offset ' + rec.during);
-    check('offset recovers to zero', Math.abs(rec.after[0]) < 1e-9 && Math.abs(rec.after[1]) < 1e-9, JSON.stringify(rec.after));
+    check('view does not drift back after firing (' + rec.stopped.toFixed(3) + ' deg up, still ' + rec.after.toFixed(3) + ' after 3 s)', Math.abs(rec.after - rec.stopped) < 1e-9 && rec.after > 0.5, JSON.stringify(rec));
+    check('leftover recoil is folded into the aim after the spray', rec.offset[0] === 0 && rec.offset[1] === 0, JSON.stringify(rec));
+
+    // Aiming: the spray follows the smoothed path (and the aimed strength); hip-fire stays exact.
+    const aimSm = await page.evaluate(() => {
+      const R = window.__range;
+      const run = (ads) => {
+        R.manual(true); R.selectGun(1); R.setOptic('mag_a'); R.setDistance(10); R.clear(); R.clearShotPoints();
+        R.setAim(0, -14); R.setAds(ads); R.step(1);
+        R.trigger(true); R.step(3); R.trigger(false); R.setAds(false); R.step(1);
+        return R.shotPoints();
+      };
+      const g = R.guns[1];
+      return { ads: run(true), hip: run(false), smooth: g.sprayPathSmooth, raw: g.sprayPath };
+    });
+    const toPlane = ([yaw, pitch]) => { const yr = yaw * Math.PI / 180, pr = (pitch - 14) * Math.PI / 180; return [10 * Math.tan(yr), 10 * Math.tan(pr) / Math.cos(yr)]; };
+    const worstVs = (pts, path) => pts.slice(0, path.length).reduce((w, [x, y], i) => { const [ex, ey] = toPlane(path[i]); return Math.max(w, Math.hypot(x - ex, y - ey)); }, 0);
+    check('aimed spray follows the smoothed path (worst ' + (worstVs(aimSm.ads, aimSm.smooth) * 1000).toFixed(3) + ' mm)', worstVs(aimSm.ads, aimSm.smooth) < 1e-5, '');
+    check('hip-fire spray still follows the measured path exactly', worstVs(aimSm.hip, aimSm.raw) < 1e-5, '');
+    const endS = aimSm.smooth[aimSm.smooth.length - 1], endR = aimSm.raw[aimSm.raw.length - 1];
+    check('smoothing keeps the measured end point', Math.abs(endS[0] - endR[0]) < 1e-9 && Math.abs(endS[1] - endR[1]) < 1e-9, JSON.stringify([endS, endR]));
 
     // f) hole cap: 11 magazines of 30 rounds, recoil compensated -> 300 holes kept.
     const cap = await page.evaluate(() => {
@@ -254,7 +277,7 @@ try {
         const yaw = Math.atan(x / d);
         R.setAim(yaw * 180 / Math.PI, Math.atan((y - 1.6) * Math.cos(yaw) / d) * 180 / Math.PI);
       };
-      const shoot = () => { R.step(1); R.trigger(true); R.step(0.01, 1000); R.trigger(false); };
+      const shoot = () => { R.trigger(true); R.step(0.01, 1000); R.trigger(false); R.step(1); };
       aimAt(before.x[2], before.y[2]); shoot();
       const afterHit = R.dots();
       aimAt(0, 3.4); shoot();                             // above every dot: a miss
@@ -275,7 +298,8 @@ try {
     const dm = await page.evaluate(() => {
       const R = window.__range;
       R.manual(true); R.selectGun(9); R.setDistance(10); R.clear();
-      const shoot = (pitch) => { R.setAim(0, pitch); R.step(1); R.trigger(true); R.step(0.01, 1000); R.trigger(false); };
+      // Wait for the previous spray to settle (its recoil folds into the aim), then aim and fire.
+      const shoot = (pitch) => { R.step(1); R.setAim(0, pitch); R.trigger(true); R.step(0.01, 1000); R.trigger(false); };
       shoot(0); shoot(Math.atan(-0.45 / 10) * 180 / Math.PI); shoot(Math.atan(0.5 / 10) * 180 / Math.PI);
       return R.state();
     });

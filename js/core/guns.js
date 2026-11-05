@@ -1,6 +1,7 @@
 // Loads and validates data/guns.json, data/optics.json and data/sens.json.
 // Bad guns are skipped with a clear message naming the gun and the field; the rest still load.
 import { validateCatalogue, resolveGunOptics } from './optics.js';
+import { smoothPath } from './recoil.js';
 
 const MODELS = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 // Default model when the field is missing: guess from the id ("smg-01" -> smg).
@@ -94,6 +95,7 @@ export function validateGuns(data, catalogue) {
       placeholderFields: Array.isArray(g.placeholderFields) ? g.placeholderFields.filter((f) => typeof f === 'string') : [],
       fireMode: g.fireMode || 'auto', model: g.model || guessModel(g.id), tone: g.tone === undefined ? 0.5 : g.tone,
       sprayPath: g.sprayPath.map((p) => [p[0], p[1]]),
+      sprayPathSmooth: smoothPath(g.sprayPath),
       jitter: { yawDeg: g.jitter.yawDeg, pitchDeg: g.jitter.pitchDeg },
       recovery: { delaySeconds: g.recovery.delaySeconds, degPerSecond: g.recovery.degPerSecond },
     });

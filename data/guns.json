@@ -29,7 +29,7 @@
       },
       "recovery": {
         "delaySeconds": 0.2,
-        "degPerSecond": 10
+        "degPerSecond": 0
       },
       "sprayPath": [
         [0, 0],
@@ -94,7 +94,7 @@
       },
       "recovery": {
         "delaySeconds": 0.15,
-        "degPerSecond": 10
+        "degPerSecond": 0
       },
       "sprayPath": [
         [0, 0],
@@ -194,7 +194,7 @@
       },
       "recovery": {
         "delaySeconds": 0.15,
-        "degPerSecond": 10
+        "degPerSecond": 0
       },
       "sprayPath": [
         [0, 0],
@@ -297,7 +297,7 @@
       },
       "recovery": {
         "delaySeconds": 0.15,
-        "degPerSecond": 10
+        "degPerSecond": 0
       },
       "sprayPath": [
         [0, 0],
@@ -389,7 +389,7 @@
       },
       "recovery": {
         "delaySeconds": 0.15,
-        "degPerSecond": 10
+        "degPerSecond": 0
       },
       "sprayPath": [
         [0, 0],
@@ -489,7 +489,7 @@
       },
       "recovery": {
         "delaySeconds": 0.15,
-        "degPerSecond": 10
+        "degPerSecond": 0
       },
       "sprayPath": [
         [0, 0],
@@ -607,7 +607,7 @@
       },
       "recovery": {
         "delaySeconds": 0.15,
-        "degPerSecond": 10
+        "degPerSecond": 0
       },
       "sprayPath": [
         [0, 0],
@@ -705,7 +705,7 @@
       },
       "recovery": {
         "delaySeconds": 0.15,
-        "degPerSecond": 10
+        "degPerSecond": 0
       },
       "sprayPath": [
         [0, 0],
@@ -799,7 +799,7 @@
       },
       "recovery": {
         "delaySeconds": 0.15,
-        "degPerSecond": 10
+        "degPerSecond": 0
       },
       "sprayPath": [
         [0, 0],
@@ -899,7 +899,7 @@
       },
       "recovery": {
         "delaySeconds": 0.15,
-        "degPerSecond": 10
+        "degPerSecond": 0
       },
       "sprayPath": [
         [0, 0],

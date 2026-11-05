@@ -25,6 +25,31 @@ import { GaussianRng } from './prng.js';
 export const TAIL_STEPS = 3;
 export const EASE_FRACTION = 0.4;
 
+// Smoothed copy of a spray path for aiming. Measured paths come from hip-fire screenshots,
+// whose small shot-to-shot side steps are partly the game's hip-fire spread, not recoil;
+// through a 2.5x sight they are magnified into jitter. This averages each shot's step
+// (yaw over `yawWin` shots, pitch over `pitchWin`) and rebuilds the path, so the shape and
+// the total drift stay the same while the wobble goes. path[0] stays [0, 0].
+export function smoothPath(path, yawWin = 5, pitchWin = 3) {
+  const n = path.length;
+  if (n < 3) return path.map((p) => [p[0], p[1]]);
+  const dy = [], dp = [];
+  for (let i = 1; i < n; i++) { dy.push(path[i][0] - path[i - 1][0]); dp.push(path[i][1] - path[i - 1][1]); }
+  const avg = (arr, win) => arr.map((_, i) => {
+    const h = Math.floor(win / 2), a = Math.max(0, i - h), b = Math.min(arr.length - 1, i + h);
+    let s = 0;
+    for (let k = a; k <= b; k++) s += arr[k];
+    return s / (b - a + 1);
+  });
+  const sy = avg(dy, yawWin), sp = avg(dp, pitchWin);
+  // Keep the end point exactly where it was measured.
+  const fix = (sm, raw) => { const d = (raw.reduce((a, b) => a + b, 0) - sm.reduce((a, b) => a + b, 0)) / sm.length; return sm.map((v) => v + d); };
+  const fy = fix(sy, dy), fp = fix(sp, dp);
+  const out = [[path[0][0], path[0][1]]];
+  for (let i = 0; i < fy.length; i++) out.push([out[i][0] + fy[i], out[i][1] + fp[i]]);
+  return out;
+}
+
 export function easeOutCubic(x) {
   const u = 1 - x;
   return 1 - u * u * u;
@@ -80,6 +105,9 @@ export class RecoilEngine {
     this.step = [0, 0];
     this.gun = null;
     this.scale = 1; // per-sight sprayPath multiplier (gun.opticRecoilScale), 1 = unchanged
+    this.aimed = false;      // set per shot by main.js
+    this.aimScale = 1;       // Settings > Aimed recoil strength
+    this.aimSmooth = true;   // Settings > Smooth measured spray when aiming
     this.reset();
   }
 
@@ -98,6 +126,13 @@ export class RecoilEngine {
     this.easeStart = -Infinity;
     this.easeDur = 0;
     this.interval = 0;
+  }
+
+  // Drop the offset to zero instantly (main.js has already moved the aim by the same amount).
+  clearOffset() {
+    this.from[0] = this.from[1] = this.to[0] = this.to[1] = 0;
+    this.easeStart = -Infinity;
+    this.easeDur = 0;
   }
 
   // Start a magazine's jitter stream.
@@ -136,9 +171,12 @@ export class RecoilEngine {
     this.offsetAt(t, out);
 
     const i = this.shotIndex + 1;
-    sprayStep(gun.sprayPath, i, this.step, gun.tail);
-    this.step[0] *= this.scale;
-    this.step[1] *= this.scale;
+    // Aiming: the smoothed path (if enabled) and the aimed strength. Hip-fire: the path exactly.
+    const path = this.aimed && this.aimSmooth ? (gun.sprayPathSmooth || gun.sprayPath) : gun.sprayPath;
+    sprayStep(path, i, this.step, gun.tail);
+    const k = this.scale * (this.aimed ? this.aimScale : 1);
+    this.step[0] *= k;
+    this.step[1] *= k;
     const jy = gun.jitter.yawDeg, jp = gun.jitter.pitchDeg;
     // Always draw two samples so the stream stays aligned even if one sd is 0.
     const ny = this.rng.next(), np = this.rng.next();

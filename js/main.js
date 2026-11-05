@@ -79,6 +79,8 @@ function boot(data) {
   const weapon = new Weapon();
   weapon.reloadSpeed = settings.reloadSpeed;
   const recoil = new RecoilEngine();
+  recoil.aimScale = settings.aimRecoil;
+  recoil.aimSmooth = settings.aimSmooth;
   const params = new URLSearchParams(location.search);
   const testMode = params.has('test');
   const catalogue = data.catalogue;
@@ -480,6 +482,7 @@ function boot(data) {
   let shotPtsN = 0;
   function fireShot(t) {
     // The bullet leaves through the crosshair: aim + the recoil offset at the shot time.
+    recoil.aimed = state.ads;
     recoil.fire(t, bulletOff);
     const yaw = look.yaw + bulletOff[0];
     const pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, look.pitch + bulletOff[1]));
@@ -573,6 +576,7 @@ function boot(data) {
       if (all || key === 'crosshair') drawCrosshair($('crosshair'), settings.crosshair);
       if (all || key === 'holes') range.holes.setSize(settings.holeSizeCm / 100);
       if (all || key === 'reload') weapon.reloadSpeed = settings.reloadSpeed;
+      if (all || key === 'recoil') { recoil.aimScale = settings.aimRecoil; recoil.aimSmooth = settings.aimSmooth; }
       if (all || key === 'volume') sfx.setVolume(settings.volume);
       if (all || key === 'debug') debug.setVisible(settings.debugHud);
       if (all || key === 'gun') selectGun(Math.min(settings.gunIndex, data.guns.length - 1));
@@ -605,6 +609,15 @@ function boot(data) {
 
     // View = aim + recoil offset (view punch), so the crosshair visibly climbs.
     recoil.offsetAt(t, offset);
+    // No recovery (degPerSecond 0): once the spray is over, the recoil that is left becomes
+    // part of the aim. The view does not move; the next spray starts from a clean offset.
+    const gr = state.gun.recovery;
+    if (gr.degPerSecond === 0 && (offset[0] !== 0 || offset[1] !== 0) &&
+        t - recoil.lastShot > Math.max(state.gun.resetSeconds, recoil.easeDur)) {
+      look.setAngles(look.yaw + offset[0], look.pitch + offset[1]);
+      recoil.clearOffset();
+      offset[0] = offset[1] = 0;
+    }
     const pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, look.pitch + offset[1]));
     camera.rotation.y = -(look.yaw + offset[0]) * DEG;   // three.js: positive Y rotation turns left
     camera.rotation.x = pitch * DEG;
@@ -762,7 +775,7 @@ function boot(data) {
         for (let i = 0; i < h.count; i++) { const k = (start + i) % 300; out.push([h.data[k * 6], h.data[k * 6 + 1], h.data[k * 6 + 2]]); }
         return out;
       },
-      state: () => ({ ammo: weapon.ammo, shots: state.shots, hits: state.hits, headshots: state.headshots, score: state.score, reloading: weapon.reloading, seed: state.seed, gun: state.gun.id,
+      state: () => ({ ammo: weapon.ammo, shots: state.shots, hits: state.hits, headshots: state.headshots, score: state.score, viewPitch: look.pitch + offset[1], viewYaw: look.yaw + offset[0], reloading: weapon.reloading, seed: state.seed, gun: state.gun.id,
         shotIndex: recoil.shotIndex, offset: [offset[0], offset[1]], distance: range.distance, fovH: state.fovH, fovV: state.fovV,
         optic: state.optic.id, zoom: state.optic.zoom, sensKey: state.optic.sensKey, adsP: state.adsP, adsE: state.adsE, adsFov: state.adsFov, fovV: state.fovV,
         adsTime: adsTime(), dpc: currentDpc(), placeholderSens: isPlaceholder(state.optic.sensKey) }),

@@ -2,7 +2,7 @@
 // the same JS engine as the game. Results go to window.__results for tests/run.mjs.
 import { degPerCount, countsPer360, inchesPer360, verticalFovDeg, zoomedFovDeg } from '../js/core/sensitivity.js';
 import { Look, MAX_EVENT_COUNTS } from '../js/core/look.js';
-import { sprayStep, sprayTarget, sampleSpray, easeOutCubic, RecoilEngine, EASE_FRACTION } from '../js/core/recoil.js';
+import { sprayStep, sprayTarget, sampleSpray, easeOutCubic, RecoilEngine, EASE_FRACTION, smoothPath } from '../js/core/recoil.js';
 import { GaussianRng, mulberry32 } from '../js/core/prng.js';
 import { validateGuns, validateSens } from '../js/core/guns.js';
 import { validateCatalogue, resolveGunOptics, sensKeys } from '../js/core/optics.js';
@@ -130,6 +130,15 @@ function testGun(over) {
     jitter: { yawDeg: 0, pitchDeg: 0 }, recovery: { delaySeconds: 0.2, degPerSecond: 10 },
   }, over);
 }
+test('smoothPath: keeps start and end, removes zig-zag in yaw', () => {
+  const zig = [[0, 0]];
+  for (let i = 1; i < 20; i++) zig.push([zig[i - 1][0] + (i % 2 ? 0.4 : -0.3), zig[i - 1][1] + 1]);
+  const sm = smoothPath(zig);
+  eq(sm[0][0], 0); eq(sm[0][1], 0);
+  near(sm[19][0], zig[19][0], 1e-9, 'end yaw'); near(sm[19][1], zig[19][1], 1e-9, 'end pitch');
+  const wob = (p) => p.slice(2).reduce((a, q, i) => a + Math.abs((q[0] - p[i + 1][0]) - (p[i + 1][0] - p[i][0])), 0);
+  if (!(wob(sm) < wob(zig) * 0.3)) throw new Error('not smoother: ' + wob(sm) + ' vs ' + wob(zig));
+});
 test('RecoilEngine: with no jitter, bullet i leaves at sprayPath[i]', () => {
   const g = testGun();
   const r = new RecoilEngine(); r.setGun(g); r.newMagazine(1);

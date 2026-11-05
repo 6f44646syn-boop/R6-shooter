@@ -79,7 +79,7 @@ Keys `1`-`9` and `0` select the first ten guns in file order.
 | `tone` | 0-1 (optional) | Pitch of the synthesised shot sound. Cosmetic. Default 0.5. |
 | `jitter.yawDeg`, `jitter.pitchDeg` | number >= 0 | Standard deviation, in degrees, of random noise added to each shot's kick. 0 = perfectly repeatable spray. |
 | `recovery.delaySeconds` | number >= 0 | How long the view stays where the recoil left it after you stop firing (never less than one shot interval). |
-| `recovery.degPerSecond` | number >= 0 | How fast the view then returns to where you aimed. 0 = never returns. |
+| `recovery.degPerSecond` | number >= 0 | How fast the view then returns to where you aimed. 0 = it stays where the recoil left it (all guns ship with 0, like the game); once the spray is over the leftover recoil simply becomes your aim. |
 | `sprayPath` | array of `[yawDeg, pitchDeg]` | See below. |
 
 ## sprayPath
@@ -165,6 +165,18 @@ assumption ever turns out wrong. Merge again afterwards.
 
 `tools/make-placeholder-guns.mjs` refuses to run while any gun is measured (use `--force` only
 to throw the measured data away).
+
+## Aiming vs hip-fire
+
+Measured sprays come from hip-fire screenshots, so their small shot-to-shot side steps are
+partly the game's hip-fire spread. Through a 2.5x sight that is magnified into jitter. While
+aiming, the trainer therefore follows a smoothed copy of each `sprayPath` (each shot's step
+averaged over 5 shots in yaw and 3 in pitch, end point kept exactly). Hip-fire always uses the
+path exactly. Settings:
+
+- **Smooth measured spray when aiming** (on by default).
+- **Aimed recoil strength** (100% = as measured) scales the aimed spray, for matching how hard
+  aimed recoil feels in your game.
 
 ## Sights and ADS sensitivity
 
