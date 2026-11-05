@@ -2,8 +2,10 @@
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
 import * as THREE from '../../vendor/three/three.module.min.js';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js';
 import { matcap } from './matcap.js';
+import { gunMaps } from './range-tex.js';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar, SKINS } from '../render/gpu-tex.js';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -12,11 +14,56 @@ const FINISHES = [0x3a3d42, 0x6b5b45, 0x46523b, 0x2f3540, 0x5a5048, 0x4a4f57, 0x
 
 const mats = new Map();
 let ENV = null;
+let RENDERER = null;
+let SKIN_SLOT = 0;              // slot whose skin the finish-coloured parts get (ultra)
+let ULTRA_TEX = 4096;           // skin size (tests use less: software rendering)
+export function setUltraTexSize(n) { ULTRA_TEX = n; }
+const skins = new Map();        // slot -> baked skin; the last few are kept
+let detailPaint = null, detailBrushed = null;
+function skinFor(slot) {
+  if (!skins.has(slot)) {
+    skins.set(slot, bakeSkin(RENDERER, slot % SKINS.length, ULTRA_TEX));
+    if (skins.size > 3) {            // 4096 maps are big: keep three guns' worth
+      const [old, sk] = skins.entries().next().value;
+      disposeBaked(sk.albedo); disposeBaked(sk.rm); skins.delete(old);
+      for (const [k, m] of mats) if (m.userData.skinSlot === old) { m.dispose(); mats.delete(k); }
+    }
+  }
+  return skins.get(slot);
+}
+function ultraDetail(kind) {
+  if (kind === 'paint') return (detailPaint = detailPaint || bakeDetail(RENDERER, 'paint', Math.min(ULTRA_TEX, 2048)));
+  return (detailBrushed = detailBrushed || bakeDetail(RENDERER, 'brushed', Math.min(ULTRA_TEX, 2048)));
+}
+export function skinName(slot) { return SKINS[slot % SKINS.length].name; }
+// Ultra: the finish parts wear the slot's skin (MeshPhysical: optional lacquer clearcoat),
+// mapped by 3D position, with edges worn to bare metal and paint micro-detail on top.
+function skinMaterial(slot) {
+  const sk = skinFor(slot);
+  const m = new THREE.MeshPhysicalMaterial({
+    color: 0xffffff, roughness: 1, metalness: 1, normalMap: gunMaps('metal').normal, normalScale: new THREE.Vector2(0.6, 0.6),
+    clearcoat: sk.clearcoat, clearcoatRoughness: 0.12, envMap: highEnv(), envMapIntensity: 1.1,
+  });
+  triplanar(m, { skin: sk, scale: 2.8, detail: ultraDetail('paint'), detailScale: 9, detailStrength: 0.5 });
+  m.userData.skinSlot = slot;
+  return m;
+}
 // kind: 'auto' (black = polymer, else metal) or 'metal' (barrels, tubes).
 function mat(color, kind = 'auto') {
-  const key = sightShading() + color + kind;
+  const sh = sightShading();
+  const finish = sh === 'ultra' && kind === 'auto' && color !== BLACK && color !== STEEL;
+  const key = sh + color + kind + (finish ? '|skin' + SKIN_SLOT : '');
   if (!mats.has(key)) {
-    const sh = sightShading();
+    if (finish) { mats.set(key, skinMaterial(SKIN_SLOT)); return mats.get(key); }
+    if (sh === 'ultra') {
+      // Polymer, steel and fabric: the high materials plus micro-detail.
+      const m = kind === 'cloth' ? highMaterial(color, 'polymer', { roughness: 0.95, envMapIntensity: 0.35, envMap: highEnv() })
+        : color === BLACK && kind === 'auto' ? highMaterial(0x232528, 'polymer', { envMap: highEnv() })
+          : highMaterial(color, 'metal', { envMap: highEnv() });
+      if (kind !== 'cloth') triplanar(m, { detail: ultraDetail(color === BLACK && kind === 'auto' ? 'paint' : 'brushed'), detailScale: 10, detailStrength: 0.5 });
+      mats.set(key, m);
+      return m;
+    }
     if (kind === 'cloth') {
       // Gloves and sleeves: matt fabric.
       mats.set(key, sh === 'high' ? highMaterial(color, 'polymer', { roughness: 0.95, envMapIntensity: 0.35 })
@@ -53,36 +100,36 @@ function tube(g, color, r, len, x, y, z, seg = 10) {
 
 // Gun coordinates: -z is forward (muzzle), y up, origin at the receiver centre.
 const BUILDERS = {
-  rifle(g, c) {
+  rifle(g, c, mg) {
     box(g, c, 0.05, 0.07, 0.36, 0, 0, 0);                  // receiver
     box(g, c, 0.046, 0.05, 0.22, 0, 0.004, -0.28);         // handguard
     tube(g, BLACK, 0.011, 0.16, 0, 0.012, -0.46);          // barrel
     box(g, BLACK, 0.034, 0.1, 0.045, 0, -0.08, 0.06, 0.25);   // grip
-    box(g, BLACK, 0.03, 0.08, 0.05, 0, -0.07, -0.07, -0.15);  // curved mag, upper
-    box(g, BLACK, 0.03, 0.07, 0.05, 0, -0.14, -0.1, -0.4);    // curved mag, lower
+    box(mg, BLACK, 0.03, 0.08, 0.05, 0, -0.07, -0.07, -0.15);  // curved mag, upper
+    box(mg, BLACK, 0.03, 0.07, 0.05, 0, -0.14, -0.1, -0.4);    // curved mag, lower
     box(g, c, 0.045, 0.07, 0.2, 0, -0.012, 0.27);          // fixed stock
   },
-  carbine(g, c) {
+  carbine(g, c, mg) {
     box(g, c, 0.05, 0.068, 0.3, 0, 0, 0);
     box(g, c, 0.05, 0.055, 0.14, 0, 0.004, -0.22);         // short rail handguard
     for (let i = 0; i < 4; i++) box(g, BLACK, 0.052, 0.006, 0.018, 0, 0.034, -0.17 - i * 0.03); // rail teeth
     tube(g, BLACK, 0.01, 0.12, 0, 0.012, -0.35);
     box(g, BLACK, 0.012, 0.022, 0.03, 0, 0.018, -0.42);    // muzzle brake
     box(g, BLACK, 0.034, 0.1, 0.045, 0, -0.08, 0.05, 0.25);
-    box(g, BLACK, 0.03, 0.13, 0.05, 0, -0.09, -0.07, -0.08);  // straight mag
+    box(mg, BLACK, 0.03, 0.13, 0.05, 0, -0.09, -0.07, -0.08);  // straight mag
     box(g, STEEL, 0.012, 0.012, 0.18, 0, 0.012, 0.24);     // collapsible stock tube
     box(g, c, 0.04, 0.08, 0.04, 0, -0.01, 0.33);           // butt pad
   },
-  smg(g, c) {
+  smg(g, c, mg) {
     box(g, c, 0.048, 0.075, 0.24, 0, 0, 0);
     tube(g, BLACK, 0.016, 0.1, 0, 0.01, -0.17);            // stubby suppressor-ish shroud
     box(g, BLACK, 0.032, 0.09, 0.04, 0, -0.075, 0.05, 0.2);
-    box(g, BLACK, 0.026, 0.19, 0.035, 0, -0.13, -0.06);    // long stick mag
+    box(mg, BLACK, 0.026, 0.19, 0.035, 0, -0.13, -0.06);    // long stick mag
     box(g, BLACK, 0.026, 0.07, 0.03, 0, -0.07, -0.12);     // vertical foregrip
     box(g, STEEL, 0.01, 0.06, 0.012, 0, -0.01, 0.15);      // folded stock arms
     box(g, STEEL, 0.04, 0.01, 0.13, 0, -0.04, 0.12);
   },
-  lmg(g, c) {
+  lmg(g, c, mg) {
     box(g, c, 0.07, 0.09, 0.4, 0, 0, 0);                   // big receiver
     box(g, c, 0.07, 0.03, 0.12, 0, 0.06, 0.02);            // feed cover
     box(g, STEEL, 0.012, 0.04, 0.1, 0, 0.09, -0.08);       // carry handle
@@ -90,15 +137,15 @@ const BUILDERS = {
     tube(g, BLACK, 0.013, 0.12, 0, 0.005, -0.5);           // heavy barrel
     box(g, BLACK, 0.012, 0.012, 0.16, -0.02, -0.03, -0.32); // folded bipod legs
     box(g, BLACK, 0.012, 0.012, 0.16, 0.02, -0.03, -0.32);
-    box(g, BLACK, 0.11, 0.1, 0.12, 0.005, -0.09, -0.05);   // box magazine
+    box(mg, BLACK, 0.11, 0.1, 0.12, 0.005, -0.09, -0.05);   // box magazine
     box(g, BLACK, 0.036, 0.1, 0.045, 0, -0.09, 0.09, 0.25);
     box(g, c, 0.05, 0.085, 0.2, 0, -0.01, 0.3);
   },
-  marksman(g, c) {
+  marksman(g, c, mg) {
     box(g, c, 0.048, 0.07, 0.34, 0, 0, 0);
     box(g, c, 0.04, 0.045, 0.26, 0, 0.002, -0.29);         // slim long handguard
     tube(g, BLACK, 0.009, 0.24, 0, 0.012, -0.53);          // long barrel
-    box(g, BLACK, 0.03, 0.06, 0.07, 0, -0.06, -0.06);      // short box mag
+    box(mg, BLACK, 0.03, 0.06, 0.07, 0, -0.06, -0.06);      // short box mag
     box(g, BLACK, 0.034, 0.1, 0.045, 0, -0.08, 0.06, 0.25);
     box(g, c, 0.045, 0.06, 0.24, 0, -0.008, 0.29);         // long stock
     box(g, c, 0.04, 0.03, 0.08, 0, 0.04, 0.27);            // cheek riser
@@ -160,6 +207,113 @@ function hands(g, type) {
   capsule(g, SLEEVE, 0.04, [0.06, -0.2, gz + 0.12], [0.13, -0.42, gz + 0.22]);        // forearm
 }
 
+
+/* ---------- moving parts and ultra detail (gun coordinates) ---------- */
+// half receiver width, ejection port z, muzzle [y, z], trigger z, handguard [y, from, to]
+const SPEC = {
+  rifle: { hw: 0.025, port: 0.0, muzzle: [0.012, -0.545], trig: 0.0, hg: [0.004, -0.19, -0.37] },
+  carbine: { hw: 0.025, port: 0.0, muzzle: [0.018, -0.44], trig: -0.005, hg: [0.004, -0.16, -0.28] },
+  smg: { hw: 0.024, port: 0.02, muzzle: [0.01, -0.225], trig: 0.0, hg: null },
+  lmg: { hw: 0.035, port: 0.0, muzzle: [0.005, -0.565], trig: 0.03, hg: [0.005, -0.22, -0.42] },
+  marksman: { hw: 0.024, port: 0.0, muzzle: [0.012, -0.655], trig: 0.0, hg: [0.002, -0.18, -0.4] },
+};
+const DARK = 0x0d0e10;
+
+// Bolt carrier seen through the ejection port, with its charging handle; slides back per shot.
+function boltGroup(type) {
+  const sp = SPEC[type], g = new THREE.Group();
+  box(g, STEEL, 0.004, 0.012, 0.045, sp.hw + 0.0015, 0.012, sp.port);
+  const knob = tube(g, STEEL, 0.004, 0.018, sp.hw + 0.01, 0.012, sp.port + 0.03);
+  knob.rotation.set(0, 0, Math.PI / 2);
+  mergeStatic(g);
+  return g;
+}
+
+// Small parts that make the silhouettes read as real guns: ports, trigger and guard,
+// selector, pins, handguard vents, a muzzle device, magazine ribs, sling points.
+function ultraDetails(g, type, c, mg) {
+  const sp = SPEC[type], tz = sp.trig;
+  box(g, DARK, 0.0025, 0.02, 0.055, sp.hw + 0.0005, 0.012, sp.port);                 // ejection port
+  box(g, BLACK, 0.0035, 0.004, 0.06, sp.hw + 0.001, 0.024, sp.port);                 // dust cover hinge
+  box(g, BLACK, 0.006, 0.004, 0.06, 0, -0.062, tz - 0.01);                           // trigger guard
+  box(g, BLACK, 0.006, 0.026, 0.004, 0, -0.05, tz - 0.04);
+  const trig = box(g, STEEL, 0.004, 0.022, 0.005, 0, -0.046, tz - 0.012, 0.35);      // trigger
+  void trig;
+  const sel = box(g, STEEL, 0.003, 0.006, 0.016, -sp.hw - 0.0015, -0.012, tz + 0.03, 0.6);   // selector
+  void sel;
+  for (const z of [-0.06, tz + 0.02, 0.09]) {                                         // pins
+    const pin = tube(g, STEEL, 0.0025, sp.hw * 2 + 0.003, 0, -0.02, z, 8);
+    pin.rotation.set(0, 0, Math.PI / 2);
+  }
+  if (sp.hg) {
+    const [y, from, to] = sp.hg;
+    for (let z = from; z > to + 0.02; z -= 0.035) for (const sx of [-1, 1]) box(g, DARK, 0.002, 0.012, 0.022, sx * 0.024, y - 0.004, z);   // vents
+  }
+  // Muzzle device: a short brake with side ports.
+  const [my, mz] = sp.muzzle;
+  tube(g, BLACK, 0.0115, 0.04, 0, my, mz - 0.01, 12);
+  for (const dz of [-0.022, -0.01, 0.002]) for (const sx of [-1, 1]) box(g, DARK, 0.004, 0.008, 0.006, sx * 0.0105, my, mz + dz);
+  // Magazine ribs and base plate.
+  mg.updateMatrixWorld(true);
+  const bb = new THREE.Box3().setFromObject(mg);
+  if (!bb.isEmpty()) {
+    const h = bb.max.y - bb.min.y, cz = (bb.min.z + bb.max.z) / 2, d = bb.max.z - bb.min.z;
+    for (let i = 1; i <= 3; i++) for (const sx of [-1, 1]) box(mg, BLACK, 0.002, 0.004, d * 0.7, sx * (bb.max.x + 0.0005), bb.max.y - h * i * 0.22, cz);
+    box(mg, STEEL, bb.max.x - bb.min.x + 0.004, 0.006, d * 0.9 + 0.004, (bb.min.x + bb.max.x) / 2, bb.min.y + 0.002, cz);
+  }
+  // Sling loop at the back.
+  const loop = new THREE.Mesh(new THREE.TorusGeometry(0.008, 0.0018, 6, 14), mat(STEEL, 'metal'));
+  loop.position.set(-sp.hw - 0.006, -0.01, 0.16);
+  loop.rotation.y = Math.PI / 2;
+  g.add(loop);
+}
+
+// Muzzle flash: a star-shaped glow facing you and two crossed side flames. Additive, unlit.
+let FLASH_TEX = null;
+function flashTexture() {
+  if (FLASH_TEX) return FLASH_TEX;
+  const S = 128, cv = document.createElement('canvas');
+  cv.width = cv.height = S;
+  const g = cv.getContext('2d'), c = S / 2;
+  const gr = g.createRadialGradient(c, c, 0, c, c, c);
+  gr.addColorStop(0, 'rgba(255,250,225,1)'); gr.addColorStop(0.2, 'rgba(255,200,110,0.9)');
+  gr.addColorStop(0.5, 'rgba(255,130,40,0.35)'); gr.addColorStop(1, 'rgba(255,90,20,0)');
+  g.fillStyle = gr;
+  g.beginPath();
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2, r = i % 2 ? c * 0.35 : c;
+    g.lineTo(c + Math.cos(a) * r, c + Math.sin(a) * r);
+  }
+  g.closePath(); g.fill();
+  FLASH_TEX = new THREE.CanvasTexture(cv);
+  FLASH_TEX.colorSpace = THREE.SRGBColorSpace;
+  return FLASH_TEX;
+}
+function flashGroup() {
+  const m = new THREE.MeshBasicMaterial({ map: flashTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
+  // Three planes (front star, two crossed side flames) in one geometry: one draw call.
+  const parts = [new THREE.PlaneGeometry(0.09, 0.09)];
+  for (const r of [0, Math.PI / 2]) {
+    const side = new THREE.PlaneGeometry(0.03, 0.12);
+    side.applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(Math.PI / 2, r, 0)).setPosition(0, 0, -0.05));
+    parts.push(side);
+  }
+  const pos = [], uv = [];
+  for (const pg of parts) {
+    const ng = pg.toNonIndexed();
+    pos.push(...ng.attributes.position.array); uv.push(...ng.attributes.uv.array);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  const g = new THREE.Mesh(geo, m);
+  g.frustumCulled = false;
+  g.visible = false;
+  g.renderOrder = 2;
+  return g;
+}
+const smooth01 = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+
 const TOP_Y = { rifle: 0.035, carbine: 0.034, smg: 0.0375, lmg: 0.075, marksman: 0.035 };
 
 
@@ -202,6 +356,106 @@ export class WeaponRig {
     this.bobY = 0;           // walking bob, set by main.js
     this._v = new THREE.Vector3();
     this._e = new THREE.Vector3();
+    RENDERER = renderer;
+    // Animations (Settings > Weapon animations): draw, reload, sprint pose, bolt, flash, brass.
+    this.animations = true;
+    this.drawT = 1;          // 0 -> 1 while the gun is being drawn
+    this.reloadP = -1;       // reload progress 0..1 from main.js, -1 when not reloading
+    this._lastP = -1;
+    this.sprinting = false;  // set by main.js
+    this.inspectT = -1;      // 0..1 while inspecting (I), -1 otherwise
+    this.inspectHold = -1;   // tests: hold the inspect pose at this progress
+    this.sprintE = 0;
+    this.boltZ = 0; this.flashT = 0; this.flashRot = 0; this.flashS = 1;
+    this._a = { x: 0, y: 0, z: 0, p: 0, yw: 0, r: 0 };
+    this._ae = new THREE.Euler(0, 0, 0, 'YXZ');
+    this._aq = new THREE.Quaternion();
+    this._pv = new THREE.Vector3(); this._pb = new THREE.Vector3();
+    // Muzzle flash light on the gun (no effect on the cheap matcap shading).
+    this.flashLight = new THREE.PointLight(0xffb060, 0, 0.8, 2);
+    this.scene.add(this.flashLight);
+    // Ejected brass (in view space).
+    const caseGeo = new THREE.CylinderGeometry(0.0035, 0.0035, 0.016, 10);
+    const caseMat = new THREE.MeshStandardMaterial({ color: 0xc8963c, metalness: 1, roughness: 0.3, envMap: ENV, envMapIntensity: 1.5 });
+    this.brass = [];
+    this.brassI = 0;
+    for (let i = 0; i < 8; i++) {
+      const b = new THREE.Mesh(caseGeo, caseMat);
+      b.visible = false;
+      b.frustumCulled = false;
+      b.userData = { v: new THREE.Vector3(), w: new THREE.Vector3(), life: 0 };
+      this.scene.add(b);
+      this.brass.push(b);
+    }
+  }
+
+  // Animation offsets for this frame (position in metres, angles in radians), and the
+  // magazine, bolt, flash and brass. e: ADS blend (animations are toned down while aiming).
+  _animate(dt, e) {
+    const a = this._a;
+    a.x = a.y = a.z = a.p = a.yw = a.r = 0;
+    const u = this.current && this.current.userData;
+    if (!this.animations) {
+      if (u && u.mag) { u.mag.position.y = 0; u.mag.visible = true; u.bolt.position.z = u.boltZ; u.flash.visible = false; }
+      this.flashLight.intensity = 0;
+      for (const b of this.brass) b.visible = false;
+      return a;
+    }
+    // Draw: the gun comes up from below, pitched down and rolled.
+    if (this.drawT < 1) this.drawT = Math.min(1, this.drawT + dt / 0.42);
+    const d = 1 - Math.pow(1 - this.drawT, 3);
+    a.y -= 0.11 * (1 - d); a.p -= 0.7 * (1 - d); a.r += 0.25 * (1 - d);
+    // Inspect: bring the gun to the middle, show the right side, then the left, then back.
+    if (this.inspectHold >= 0) this.inspectT = this.inspectHold;
+    else if (this.inspectT >= 0) { this.inspectT += dt / 3.2; if (this.inspectT >= 1) this.inspectT = -1; }
+    if (this.inspectT >= 0) {
+      const p = this.inspectT;
+      const w = smooth01(0, 0.15, p) * (1 - smooth01(0.85, 1, p)) * (1 - e);
+      const side = smooth01(0.42, 0.62, p);           // 0: right side towards you, 1: left side
+      a.yw += w * (1.15 * (1 - side) - 1.0 * side);
+      a.r += w * (0.18 - 0.36 * side);
+      a.p += w * 0.12;
+      a.x -= 0.075 * w; a.y += 0.075 * w; a.z -= 0.11 * w;
+    }
+    // Sprint: lowered and turned in towards the chest.
+    this.sprintE += ((this.sprinting ? 1 : 0) - this.sprintE) * Math.min(1, dt * 9);
+    const se = this.sprintE * (1 - e);
+    a.x -= 0.035 * se; a.y -= 0.045 * se; a.yw += 0.55 * se; a.r += 0.35 * se; a.p -= 0.2 * se;
+    if (u && u.mag) {
+      // Reload: tilt the gun, old magazine drops out, new one goes in, slap, charge.
+      const p = this.reloadP;
+      if (p >= 0) {
+        const tilt = smooth01(0, 0.15, p) * (1 - smooth01(0.85, 1, p)) * (1 - 0.6 * e);
+        a.r += 0.45 * tilt; a.p += 0.12 * tilt; a.y += 0.05 * tilt; a.x -= 0.05 * tilt; a.z -= 0.05 * tilt;   // brought up to look at the mag well
+        let my = 0, vis = true;
+        if (p >= 0.15 && p < 0.4) { const q = (p - 0.15) / 0.25; my = -0.35 * q * q; }
+        else if (p >= 0.4 && p < 0.5) vis = false;
+        else if (p >= 0.5 && p < 0.75) { const q = (p - 0.5) / 0.25; my = -0.25 * Math.pow(1 - q, 3); }
+        u.mag.position.y = my; u.mag.visible = vis;
+        if (this._lastP >= 0 && this._lastP < 0.75 && p >= 0.75) { this.vp += 0.6; this.vz += 0.15; }   // slap
+        if (p > 0.8 && p < 0.92) this.boltZ = Math.max(this.boltZ, 0.04 * Math.sin(Math.PI * (p - 0.8) / 0.12));
+        this._lastP = p;
+      } else { u.mag.position.y = 0; u.mag.visible = true; this._lastP = -1; }
+      // Bolt returns forward; flash lasts one or two frames.
+      this.boltZ *= Math.exp(-dt * 30);
+      u.bolt.position.z = u.boltZ + this.boltZ;
+      this.flashT -= dt;
+      const on = this.flashT > 0;
+      u.flash.visible = on;
+      if (on) { u.flash.rotation.z = this.flashRot; u.flash.scale.setScalar(this.flashS * (1 - 0.5 * e)); }
+      this.flashLight.intensity = on ? 2.5 * this.flashS : 0;
+      if (on) { u.flash.getWorldPosition(this.flashLight.position); }
+    }
+    for (const b of this.brass) {
+      if (!b.visible) continue;
+      const v = b.userData.v, w = b.userData.w;
+      b.userData.life -= dt;
+      if (b.userData.life <= 0) { b.visible = false; continue; }
+      v.y -= 9.8 * dt;
+      b.position.addScaledVector(v, dt);
+      b.rotation.x += w.x * dt; b.rotation.y += w.y * dt; b.rotation.z += w.z * dt;
+    }
+    return a;
   }
 
   setAspect(a, H) {
@@ -218,7 +472,7 @@ export class WeaponRig {
   setShading(mode) {
     if (mode === sightShading()) return;
     setSightShading(mode);
-    const high = sightShading() === 'high';
+    const high = sightShading() === 'high' || sightShading() === 'ultra';
     // Same light directions as the range in high graphics: warm key over the left shoulder.
     this.hemi.intensity = high ? 0.3 : 0.9;
     this.key.color.set(high ? 0xffe8d0 : 0xffffff);
@@ -240,10 +494,23 @@ export class WeaponRig {
       sight.group.position.set(0, 0, -EYE_Z);
       m.add(sight.group);
       const gunG = new THREE.Group();
-      BUILDERS[type](gunG, FINISHES[slot % FINISHES.length]);
+      const magG = new THREE.Group();
+      SKIN_SLOT = slot;
+      const finish = FINISHES[slot % FINISHES.length];
+      BUILDERS[type](gunG, finish, magG);
       for (const [y, from, to] of RAILS[type]) topRail(gunG, y, from, to);
+      if (sightShading() === 'ultra') ultraDetails(gunG, type, finish, magG);
       hands(gunG, type);
       mergeStatic(gunG);
+      mergeStatic(magG);
+      gunG.add(magG);
+      const bolt = boltGroup(type);
+      gunG.add(bolt);
+      const flash = flashGroup();
+      const [my, mz] = SPEC[type].muzzle;
+      flash.position.set(0, my, mz - 0.035);
+      gunG.add(flash);
+      m.userData = { mag: magG, bolt, boltZ: bolt.position.z, flash, port: new THREE.Vector3(SPEC[type].hw + 0.01, 0.014, SPEC[type].port), gun: gunG };
       const s = 0.62;
       gunG.scale.setScalar(s);
       // Rail (top of the receiver) under the sight's mount; receiver centred a little ahead.
@@ -255,6 +522,9 @@ export class WeaponRig {
     }
     if (this.current) this.current.visible = false;
     m.visible = true;
+    // Draw animation when the gun itself changes (not for a sight change).
+    if (this.gunId !== gun.id && this.gunId !== undefined && this.animations) this.drawT = 0;
+    this.gunId = gun.id;
     this.current = m;
   }
 
@@ -271,6 +541,30 @@ export class WeaponRig {
     // about 0.67 * v / w: 0.25 m/s -> 5.6 mm, 0.55 m/s -> 12 mm.
     this.vz += 0.25 + Math.random() * 0.3;
     this.vp += 0.9;
+    this.cancelInspect();
+    if (!this.animations || !this.current) return;
+    this.boltZ = 0.032;                        // bolt slams back, then returns
+    this.flashT = 0.045;
+    this.flashRot = Math.random() * Math.PI;
+    this.flashS = 0.75 + Math.random() * 0.5;
+    this._ejectBrass();
+  }
+
+  // I: inspect the weapon (ignored while aiming or reloading).
+  inspect() { if (this.animations && this.reloadP < 0) this.inspectT = 0; }
+  cancelInspect() { if (this.inspectHold < 0) this.inspectT = -1; }
+
+  // Spent case out of the ejection port: up and to the right, spinning, under gravity.
+  _ejectBrass() {
+    const u = this.current.userData;
+    if (!u.port) return;
+    const b = this.brass[this.brassI++ % this.brass.length];
+    this.current.updateMatrixWorld(true);
+    b.position.copy(u.port).applyMatrix4(u.gun.matrixWorld);
+    b.userData.v.set(0.9 + Math.random() * 0.5, 0.7 + Math.random() * 0.4, -0.15 + Math.random() * 0.15);   // right, up, a little forward
+    b.userData.w.set(Math.random() * 30, Math.random() * 20, Math.random() * 30);
+    b.userData.life = 0.55;
+    b.visible = true;
   }
 
   // e: eased ADS blend 0..1. t: seconds (breathing). dt: frame time.
@@ -299,6 +593,7 @@ export class WeaponRig {
     // with the zoom. The raise follows a slight arc (dips, then rises into line) with a
     // little cant on the way, instead of sliding in a straight line.
     const k = e;
+    const A = this._animate(Math.min(dt, 0.1), k);
     const arc = Math.sin(Math.PI * k);
     const br = (1 - 0.6 * k) * 0.0004;
     this.root.position.set(
@@ -306,10 +601,19 @@ export class WeaponRig {
       this.hipPos.y * (1 - k) - 0.012 * arc + this.sy + Math.sin(t * 0.7 + 1) * br + this.bobY,
       this.hipPos.z * (1 - k) + this.kz,
     );
+    this.root.position.x += A.x; this.root.position.y += A.y; this.root.position.z += A.z;
     this.qt.slerpQuaternions(this.q0, this.q1, k);
     this.kickQ.setFromAxisAngle(this.xAxis, this.kp * 0.05);
     this.cantQ.setFromAxisAngle(this.zAxis, -0.12 * arc);
     this.root.quaternion.copy(this.qt).multiply(this.cantQ).multiply(this.kickQ);
+    if (A.p || A.yw || A.r) {
+      // Animation turns pivot about the middle of the gun (between the hands), not the eye.
+      const pv = this._pv.set(0, -0.045, -0.26);
+      const before = this._pb.copy(pv).applyQuaternion(this.root.quaternion);
+      this.root.quaternion.multiply(this._aq.setFromEuler(this._ae.set(A.p, A.yw, A.r)));
+      pv.applyQuaternion(this.root.quaternion);
+      this.root.position.add(before.sub(pv));
+    }
   }
 
   // Where the sight's window is on screen right now (for the lens pass), in pixels from the

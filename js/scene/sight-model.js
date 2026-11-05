@@ -24,7 +24,7 @@ export const VIEW_H = 2 * EYE_Z * Math.tan((VM_FOV * Math.PI) / 360);
 //             range's sky (HIGH_ENV) so reflections match the world. Used by high graphics.
 let SHADING = 'fast';
 let HIGH_ENV = null;
-export function setSightShading(mode) { SHADING = ['detailed', 'high'].includes(mode) ? mode : 'fast'; }
+export function setSightShading(mode) { SHADING = ['detailed', 'high', 'ultra'].includes(mode) ? mode : 'fast'; }
 export function setHighEnv(env) { HIGH_ENV = env; }
 export function highEnv() { return HIGH_ENV; }
 // Textured physically based material for high graphics. kind: 'metal' | 'polymer'.
@@ -49,8 +49,9 @@ export function sightMaterials(envMap) {
     };
     return MATSETS.fast;
   }
-  if (SHADING === 'high') {
-    MATSETS.high = {
+  if (SHADING === 'high' || SHADING === 'ultra') {
+    if (MATSETS.high) return (MATSETS[SHADING] = MATSETS.high);
+    MATSETS[SHADING] = MATSETS.high = {
       metal: highMaterial(0x3a3f46, 'metal'), edge: highMaterial(0x5a616b, 'metal'),
       inner: new THREE.MeshStandardMaterial({ color: 0x08090a, metalness: 0.2, roughness: 0.9 }),
       rubber: highMaterial(0x1a1b1d, 'polymer'), screw: highMaterial(0x8a9098, 'metal'), post: highMaterial(0x202328, 'metal'),

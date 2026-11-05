@@ -622,6 +622,43 @@ try {
     });
     check('high graphics: tone mapping on, shadows cast (' + gq.hi.calls + ' calls vs ' + gq.std + ')', gq.hi.tone !== 0 && gq.hi.shadows > 0, JSON.stringify(gq));
     check('back to standard graphics restores the original look', gq.toneBack === 0 && gq.back === gq.std, JSON.stringify(gq));
+
+    // Ultra: GPU-baked skins and detail (small sizes here: software rendering), the slot's
+    // skin named in the HUD, and back to standard without errors.
+    const uq = await page.evaluate(() => {
+      const R = window.__range;
+      R.setGraphics('ultra'); R.selectGun(5); R.step(1); R.renderFrame();
+      const info = document.getElementById('gun-info').textContent;
+      R.selectGun(8); R.step(1); R.renderFrame();
+      const info2 = document.getElementById('gun-info').textContent;
+      R.setGraphics('standard'); R.selectGun(0); R.step(1); R.renderFrame();
+      return { info, info2, tone: R.toneMapping() };
+    });
+    check('ultra graphics: each slot has its own skin (' + uq.info.split(' · ').pop() + ', ' + uq.info2.split(' · ').pop() + ')',
+      /Teal Hexcore/.test(uq.info) && /Carbon Weave/.test(uq.info2) && uq.tone === 0, JSON.stringify(uq));
+
+    // Weapon animations: a shot shows the muzzle flash, kicks the bolt and ejects brass; a
+    // reload drops the magazine out of sight and puts it back; switching guns draws the new one.
+    const an = await page.evaluate(() => {
+      const R = window.__range;
+      R.manual(true); R.setAnimations(true); R.selectGun(2); R.step(1); R.clear();
+      R.trigger(true); R.step(0.01, 1000); R.trigger(false);
+      const shot = R.rig();
+      R.step(0.6);
+      const after = R.rig();
+      R.reload();
+      const seen = { minY: 0, hidden: false };
+      for (let i = 0; i < 400 && R.state().reloading; i++) { R.step(0.01); const r = R.rig(); seen.minY = Math.min(seen.minY, r.magY); seen.hidden = seen.hidden || !r.magVisible; }
+      R.step(0.1);
+      const done = R.rig();
+      R.selectGun(3); const draw0 = R.rig().drawT; R.step(1); const draw1 = R.rig().drawT;
+      R.setAnimations(false); R.trigger(true); R.step(0.01, 1000); R.trigger(false); const off = R.rig(); R.setAnimations(true);
+      R.step(1);
+      return { shot, after, seen, done, draw0, draw1, off };
+    });
+    check('animations: shot -> flash, bolt back, brass; all gone 0.6 s later', an.shot.flash && an.shot.boltZ > 0.01 && an.shot.brass === 1 && !an.after.flash && an.after.brass === 0, JSON.stringify(an));
+    check('animations: reload drops the magazine and puts it back', an.seen.minY < -0.2 && an.seen.hidden && an.done.magY === 0 && an.done.magVisible, JSON.stringify(an.seen) + JSON.stringify(an.done));
+    check('animations: a new gun is drawn (0 -> 1); animations off -> no flash or brass', an.draw0 === 0 && an.draw1 === 1 && !an.off.flash && an.off.brass === 0, JSON.stringify(an));
     check('no page errors', errors.length === 0, errors.join('\n'));
     await page.close();
   }

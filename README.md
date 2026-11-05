@@ -114,6 +114,19 @@ Built for Intel UHD 630 at 1920x1080 / 60 fps:
   a key light, image-based lighting from the dusk sky and ACES filmic tone mapping. It adds the
   shadow pass (about 5 draw calls) and heavier pixel shading. Everything is still generated in
   code: no image files, no extra libraries.
+- Settings > Graphics quality > Ultra is for a PC with a graphics card. Surface textures are
+  drawn at 2-8x resolution with normal maps baked on the GPU, 4096 x 4096 micro-detail
+  (concrete pores and cracks, orange-peel paint and scratches, brushed steel) is mapped by 3D
+  position so nothing stretches, shadows are 4096 with a second shadow-casting lamp on the
+  target, and each of the ten guns wears its own 4096 procedural skin (Contour Crimson,
+  Arctic Digital, Deep Woodland, Night Tiger, Desert Veteran, Teal Hexcore, Damascus, Dry
+  Ridge, Carbon Weave, Concrete Splinter) with edge wear and a clearcoat where it suits. Guns
+  get extra parts (ejection port, bolt, trigger and guard, selector, pins, vents, muzzle
+  brake, magazine ribs). Auto render resolution supersamples at 150% or more. All of it is
+  baked by shaders at start-up (js/render/gpu-tex.js); about 0.5 GB of video memory.
+- Weapon animations (Settings > View, on by default): draw on switching guns, reload (tilt,
+  magazine out and in, slap, charge), sprint pose, inspect (I), bolt cycling, muzzle flash
+  and ejected brass.
 - Aiming adds one lens pass (4 draw calls: downsample, two half-resolution blur passes,
   composite). The scene is never drawn twice. Hip-fire skips the pass entirely.
 - Settings > Lens effects: Auto lowers the lens quality one step at a time if frames average

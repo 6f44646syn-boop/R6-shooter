@@ -11,7 +11,7 @@ import { loadGameData } from './core/guns.js';
 import { randomSeed } from './core/prng.js';
 import { Range, EYE_HEIGHT } from './scene/range.js';
 import { RING_STEP } from './scene/range-tex.js';
-import { WeaponRig } from './scene/viewmodel.js';
+import { WeaponRig, setUltraTexSize, skinName } from './scene/viewmodel.js';
 import { LensPost } from './render/lens-post.js';
 import { reticleTextures } from './ui/reticle-tex.js';
 import { DOT_POINTS } from './scene/dots.js';
@@ -71,9 +71,11 @@ function boot(data) {
   const rig = new WeaponRig(renderer);
   // Graphics quality: high swaps the range to textured PBR with shadows and tone mapping, and
   // the gun to textured PBR lit by the same sky. Standard is the original fast look.
-  const gunShading = () => (settings.graphics === 'high' ? 'high' : settings.weaponShading);
+  const gunShading = () => (settings.graphics === 'standard' ? settings.weaponShading : settings.graphics);
+  // Software rendering in the tests cannot bake 4096 maps quickly; real graphics cards can.
+  if (new URLSearchParams(location.search).has('test')) { Range.ULTRA_TEX = 512; setUltraTexSize(512); }
   function applyGraphics() {
-    range.setGraphics(settings.graphics === 'high', renderer);
+    range.setGraphics(settings.graphics, renderer);
     if (range.env) rig.setHighEnv(range.env);
     rig.setShading(gunShading());
   }
@@ -210,7 +212,7 @@ function boot(data) {
     if (save) { try { localStorage.setItem('scope:' + gun.id, id); } catch (e) { /* ignore */ } }
     recoil.setScale(gun.opticRecoilScale[id] || 1); // sprayPath is only scaled when the data says so
     rig.setGun(gun, state.gunIndex, state.optic);
-    hud.setGun(gun, state.gunIndex, state.optic.label);
+    hud.setGun(gun, state.gunIndex, state.optic.label, settings.graphics === 'ultra' ? skinName(state.gunIndex) : '');
     renderSightRow();
     updateFov();
     if (settingsUI) settingsUI.refreshDerived();
@@ -306,6 +308,7 @@ function boot(data) {
         rig.kp = mode === 'recoil' ? 0.02 : 0;
         camera.rotation.set(mode === 'recoil' ? 1.5 * DEG : 0, 0, 0);
         frameT = 10; lastShotT = mode === 'recoil' ? 10 - 0.02 : -1;
+        rig.drawT = 1; rig.reloadP = -1;
         rig.update(0, state.adsE, 0);
         renderFrame();
         const box = document.createElement('div');
@@ -406,6 +409,7 @@ function boot(data) {
     if (state.ads === on) return;
     const e = state.adsE;
     state.ads = on;
+    if (on) rig.cancelInspect();
     state.adsP = on ? 1 - Math.cbrt(1 - e) : Math.cbrt(e);
     updateFov();
   }
@@ -444,6 +448,7 @@ function boot(data) {
     if (c === 'KeyZ' && settings.debugHud) look.reset();
     else if (c === 'KeyR') { if (weapon.startReload(clockNow())) { finishMagazine(); sfx.reload(); } }
     else if (c === 'KeyC') clearRange();
+    else if (c === 'KeyI' && !state.ads) rig.inspect();
     else if ((c === 'BracketLeft' || c === 'BracketRight') && !state.ads) cycleOptic(c === 'BracketLeft' ? -1 : 1);
     else if (c === 'KeyM') {
       // Cycle: dummy -> paper -> red dots (still) -> red dots (moving) -> dummy
@@ -596,7 +601,8 @@ function boot(data) {
   let renderW = 0, renderH = 0;
   function resize() {
     // Auto: the screen's own sharpness (devicePixelRatio, 1x to 2x). Above 1 = supersampling.
-    const s = settings.renderScale || Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+    // Ultra (graphics card) supersamples at least 150% on Auto so the fine detail resolves.
+    const s = settings.renderScale || Math.min(2, Math.max(settings.graphics === 'ultra' ? 1.5 : 1, window.devicePixelRatio || 1));
     renderW = Math.max(1, Math.round(window.innerWidth * s));
     renderH = Math.max(1, Math.round(window.innerHeight * s));
     renderer.setSize(renderW, renderH, false);
@@ -640,7 +646,7 @@ function boot(data) {
       if (all || key === 'crosshair') drawCrosshair($('crosshair'), settings.crosshair);
       if (all || key === 'holes') range.holes.setSize(settings.holeSizeCm / 100);
       if (all || key === 'reload') weapon.reloadSpeed = settings.reloadSpeed;
-      if (all || key === 'shading' || key === 'graphics') { applyGraphics(); rig.setGun(state.gun, state.gunIndex, state.optic); }
+      if (all || key === 'shading' || key === 'graphics') { applyGraphics(); rig.setGun(state.gun, state.gunIndex, state.optic); hud.setGun(state.gun, state.gunIndex, state.optic.label, settings.graphics === 'ultra' ? skinName(state.gunIndex) : ''); resize(); }
       if (key === 'sens' || key === 'assist') { /* read live each mouse event */ }
       if (all || key === 'recoil') { recoil.aimScale = settings.aimRecoil; recoil.aimSmooth = settings.aimSmooth; }
       if (all || key === 'volume') sfx.setVolume(settings.volume);
@@ -710,6 +716,9 @@ function boot(data) {
     // Gentle walking bob on the weapon (none when still or fully aimed).
     walkPhase += dt * 9 * Math.min(1, player.speed / 3);
     rig.bobY = Math.sin(walkPhase) * 0.004 * Math.min(1, player.speed / 3) * (1 - 0.8 * state.adsE);
+    rig.animations = settings.animations;
+    rig.reloadP = weapon.reloading ? weapon.reloadProgress : -1;
+    rig.sprinting = player.sprinting;
     rig.update(dt, state.adsE, t);
     rig.root.visible = settings.showViewmodel || state.adsE > 0;
     if (crosshairEl.hidden !== (xo === 0)) crosshairEl.hidden = xo === 0;
@@ -877,6 +886,11 @@ function boot(data) {
       _range: range,
       shadowCasters: () => (range.key.castShadow ? range.key.shadow.map ? 1 : 0 : 0),
       setGraphics(g) { settings.graphics = g; applyGraphics(); rig.setGun(state.gun, state.gunIndex, state.optic); },
+      setAnimations(on) { settings.animations = on; },
+      inspectAt(p) { rig.inspectHold = p; },
+      setUltraTex(n) { Range.ULTRA_TEX = n; setUltraTexSize(n); },
+      rig: () => ({ drawT: rig.drawT, magY: rig.current.userData.mag.position.y, magVisible: rig.current.userData.mag.visible,
+        flash: rig.current.userData.flash.visible, brass: rig.brass.filter((b) => b.visible).length, boltZ: rig.boltZ }),
       setHipMs(ms) { hipMs = ms; },
       noLens(on) { noLensDebug = on; },
       move(keys) { Object.assign(player.keys, keys); },

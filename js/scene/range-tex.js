@@ -9,10 +9,22 @@ function tex(cv, repeat) {
   if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; }
   return t;
 }
+// Resolution multiplier (ultra graphics draws the same textures at 2-4x: withRes). The
+// drawing code works in the base pixel units; the context is scaled.
+let RES = 1;
+let NORMAL_BAKER = null;     // (heightCanvas, strength, wrap) => texture, on the GPU (ultra)
+export function setNormalBaker(fn) { NORMAL_BAKER = fn; }
+export function withRes(k, fn) {
+  const prev = RES;
+  RES = k;
+  try { return fn(); } finally { RES = prev; }
+}
 function canvas(w, h) {
   const cv = document.createElement('canvas');
-  cv.width = w; cv.height = h;
-  return [cv, cv.getContext('2d')];
+  cv.width = Math.round(w * RES); cv.height = Math.round(h * RES);
+  const g = cv.getContext('2d');
+  if (RES !== 1) g.scale(RES, RES);
+  return [cv, g];
 }
 function speckle(g, w, h, n, rng, colors) {
   for (let i = 0; i < n; i++) {
@@ -109,9 +121,14 @@ function dataTex(cv, repeat, srgb = false) {
 
 // Height canvas (grey = height) -> tangent-space normal map. wrap: tile seamlessly.
 export function normalFromHeight(hc, strength = 2, wrap = true) {
+  // At RES x the same slope spans RES times more pixels: scale the strength to match.
+  if (NORMAL_BAKER && RES !== 1) {
+    const t = NORMAL_BAKER(hc, strength * RES, wrap);
+    if (t) return t;
+  }
   const W = hc.width, H = hc.height;
   const src = hc.getContext('2d').getImageData(0, 0, W, H).data;
-  const [cv, g] = canvas(W, H);
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d');
   const out = g.createImageData(W, H), o = out.data;
   const h = (x, y) => {
     if (wrap) { x = (x + W) % W; y = (y + H) % H; } else { x = Math.min(W - 1, Math.max(0, x)); y = Math.min(H - 1, Math.max(0, y)); }

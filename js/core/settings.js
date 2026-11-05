@@ -27,7 +27,8 @@ export const DEFAULTS = Object.freeze({
   reloadSpeed: 2,        // x faster than each gun's measured reloadSeconds (1 = as measured)
   renderScale: 0,        // 0 = auto (screen's pixel ratio, up to 2x); else 0.5 to 2 (above 1 = supersampling)
   antialias: true,       // MSAA; takes effect after a reload
-  graphics: 'standard',  // 'standard' (fast, school PCs) or 'high' (shadows, PBR textures, filmic tone mapping)
+  graphics: 'standard',  // 'standard' (fast, school PCs), 'high' (shadows, PBR textures, filmic tone mapping) or 'ultra' (graphics card: 4K textures, weapon skins)
+  animations: true,      // weapon animations: draw, reload, sprint pose, bolt, muzzle flash, brass
   weaponShading: 'fast', // gun and sight look: 'fast' (matcap, cheap) or 'detailed' (PBR metal)
   lensQuality: 'auto',   // ADS lens pass: 'auto' or 3 (all) / 2 (no blur) / 1 (no blur, fringing) / 0 (no glare either)
   showViewmodel: true,
@@ -97,7 +98,8 @@ export function sanitize(input) {
   out.targetMode = ['dots', 'dummy', 'paper'].includes(s.targetMode) ? s.targetMode : (s.movingTarget === true ? 'dots' : DEFAULTS.targetMode);
   out.dotMoving = typeof s.dotMoving === 'boolean' ? s.dotMoving : (s.movingTarget === true ? true : DEFAULTS.dotMoving);
   out.dotCount = Number.isInteger(s.dotCount) ? Math.min(12, Math.max(1, s.dotCount)) : DEFAULTS.dotCount;
-  out.graphics = s.graphics === 'high' ? 'high' : 'standard';
+  out.graphics = ['high', 'ultra'].includes(s.graphics) ? s.graphics : 'standard';
+  out.animations = typeof s.animations === 'boolean' ? s.animations : DEFAULTS.animations;
   out.weaponShading = s.weaponShading === 'detailed' ? 'detailed' : 'fast';
   out.lensQuality = ['auto', '3', '2', '1', '0'].includes(String(s.lensQuality)) ? String(s.lensQuality) : DEFAULTS.lensQuality;
   out.adsSens = s.adsSens === 'game' ? 'game' : 'focal';

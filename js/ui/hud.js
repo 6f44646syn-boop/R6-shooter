@@ -15,7 +15,7 @@ export class Hud {
     this.lastReloading = null;
   }
 
-  setGun(gun, index, opticLabel) {
+  setGun(gun, index, opticLabel, skin = '') {
     this.el.slot.textContent = String((index + 1) % 10);
     this.el.name.textContent = gun.name;
     // PLACEHOLDER RECOIL: invented spray. MEASURED: spray from the game, with any values the
@@ -25,7 +25,7 @@ export class Hud {
     this.el.tag.title = gun.placeholder ? 'Invented test pattern' :
       'Measured ' + (gun.measuredAiming ? 'aimed' : 'hip-fire') + ' at ' + gun.measuredAtVFov + '\u00b0 vertical FOV' + (gun.placeholderFields.length ? '. Still placeholders: ' + gun.placeholderFields.join(', ') : '');
     this.el.tag.classList.toggle('measured', !gun.placeholder);
-    this.el.info.textContent = gun.rpm + ' rpm · ' + opticLabel + (gun.fireMode === 'semi' ? ' · semi' : '');
+    this.el.info.textContent = gun.rpm + ' rpm · ' + opticLabel + (gun.fireMode === 'semi' ? ' · semi' : '') + (skin ? ' · ' + skin : '');
   }
 
   setDistance(d, label) { this.el.distance.textContent = d + ' m' + (label ? ' \u00b7 ' + label : ''); }

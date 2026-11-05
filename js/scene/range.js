@@ -11,10 +11,11 @@ import { BulletHoles } from './holes.js';
 import { buildDummy, raycastDummy } from './dummy.js';
 import { DotField } from './dots.js';
 import { mergeStatic, makeEnvMap } from './sight-model.js';
+import { bakeDetail, bakeNormal, triplanar } from '../render/gpu-tex.js';
 import { mulberry32 } from '../core/prng.js';
 import {
   backstopPlate, backstopMaps, duskSky, padTexture, concreteTiles, floorGrate, wallPanels, ceilingConcrete,
-  hazardStripes, ledgeFace, paperTarget, drawPanel,
+  hazardStripes, ledgeFace, paperTarget, drawPanel, withRes, setNormalBaker,
 } from './range-tex.js';
 
 export const EYE_HEIGHT = 1.6;
@@ -45,10 +46,21 @@ export class Range {
   constructor(scene) {
     this.scene = scene;
     this.high = false;
-    this._hiSpec = new Map();     // standard material -> () => its high-graphics replacement
-    this._hiMats = new Map();
-    // Standard material, plus how to build its high-graphics version.
-    const L = (lo, hi) => { if (hi) this._hiSpec.set(lo, hi); return lo; };
+    this.quality = 'standard';
+    this._hiSpec = new Map();     // standard material -> { make(q), detail } for high and ultra
+    this._tierMats = { high: new Map(), ultra: new Map() };
+    // Standard material, plus how to build its high / ultra version. make(q) gets 'high' or
+    // 'ultra'; detail: [kind, tiles per metre, strength] of the ultra micro-detail layer.
+    const L = (lo, make, detail = null) => { if (make) this._hiSpec.set(lo, { make, detail }); return lo; };
+    // Ultra: the same procedural texture drawn at k x resolution (normals baked on the GPU),
+    // with the standard texture's tiling.
+    const up = (q, fn, like, k = 4) => {
+      if (q !== 'ultra') return like;
+      const t = withRes(k, fn);
+      const copy = (a, b) => { if (a && b && b.repeat) a.repeat.copy(b.repeat); };
+      if (t.isTexture) copy(t, like); else for (const key of Object.keys(t)) copy(t[key], like[key]);
+      return t;
+    };
     const std = (o) => new THREE.MeshStandardMaterial({ envMapIntensity: 1.2, ...o });
 
     scene.background = new THREE.Color(0x14161a);
@@ -88,7 +100,8 @@ export class Range {
     tiles.map.repeat.set(W, len / 2);
     tiles.normal.repeat.copy(tiles.map.repeat); tiles.rough.repeat.copy(tiles.map.repeat);
     const floorMat = L(new THREE.MeshLambertMaterial({ map: tiles.map }),
-      () => std({ map: tiles.map, normalMap: tiles.normal, roughnessMap: tiles.rough, roughness: 1, metalness: 0 }));
+      (q) => { const t = up(q, concreteTiles, tiles); return std({ map: t.map, normalMap: t.normal, roughnessMap: t.rough, roughness: 1, metalness: 0 }); },
+      ['concrete', 1.5, 0.9]);
     const floor = plane(scene, floorMat, W * 2, len, 0, 0, midZ, -Math.PI / 2);
 
     // Grating where you stand (between the back wall and the ledge).
@@ -97,21 +110,23 @@ export class Range {
     grate.map.repeat.set(LANE_HALF * 2 / 0.25, (gz0 - gz1) / 0.25);
     grate.normal.repeat.copy(grate.map.repeat);
     const grateMat = L(new THREE.MeshLambertMaterial({ map: grate.map, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }),
-      () => std({ map: grate.map, normalMap: grate.normal, roughness: 0.55, metalness: 0.7, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+      (q) => { const t = up(q, floorGrate, grate, 8); return std({ map: t.map, normalMap: t.normal, roughness: 0.55, metalness: 0.7, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }); },
+      ['brushed', 3, 0.6]);
     const grating = plane(scene, grateMat, LANE_HALF * 2, gz0 - gz1, 0, 0.004, (gz0 + gz1) / 2, -Math.PI / 2);
 
     // Hazard stripe along the floor at the firing line.
     const hz = hazardStripes();
     hz.repeat.set(LANE_HALF * 2 / 0.5, 1);
     const hazardMat = L(new THREE.MeshLambertMaterial({ map: hz, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }),
-      () => std({ map: hz, roughness: 0.6, metalness: 0, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
+      () => std({ map: hz, roughness: 0.6, metalness: 0, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }),
+      ['paint', 2, 0.8]);
     const hazardStrip = plane(scene, hazardMat, LANE_HALF * 2, 0.14, 0, 0.006, LEDGE_Z + 0.1, -Math.PI / 2);
 
     // Steel: one shared dark painted steel for structure.
     const steel = L(new THREE.MeshLambertMaterial({ color: 0x2a2d31 }),
-      () => std({ color: 0x2e3135, roughness: 0.55, metalness: 0.7 }));
+      () => std({ color: 0x2e3135, roughness: 0.55, metalness: 0.7 }), ['paint', 1.5, 1]);
     const bright = L(new THREE.MeshLambertMaterial({ color: 0x70757b }),
-      () => std({ color: 0x9aa0a6, roughness: 0.3, metalness: 0.9 }));
+      () => std({ color: 0x9aa0a6, roughness: 0.3, metalness: 0.9 }), ['brushed', 4, 0.6]);
 
     // Target rail down the middle of the lane, with sleepers.
     const rails = new THREE.Group();
@@ -125,7 +140,7 @@ export class Range {
     box(ledge, steel, LANE_HALF * 2, 0.8, 0.04, 0, 0.42, LEDGE_Z - 0.02);            // face towards you
     for (const x of [-LANE_HALF + 0.05, LANE_HALF - 0.05]) box(ledge, steel, 0.06, 0.84, 0.3, x, 0.42, LEDGE_Z - 0.15);
     const faceTex = ledgeFace(LANE_HALF * 2);
-    const faceMat = L(new THREE.MeshLambertMaterial({ map: faceTex }), () => std({ map: faceTex, roughness: 0.7, metalness: 0.5 }));
+    const faceMat = L(new THREE.MeshLambertMaterial({ map: faceTex }), (q) => std({ map: up(q, () => ledgeFace(LANE_HALF * 2), faceTex, 2), roughness: 0.7, metalness: 0.5 }), ['paint', 2, 1]);
     const ledgeFront = plane(scene, faceMat, LANE_HALF * 2, 0.16, 0, 0.75, LEDGE_Z + 0.002);
 
     /* ---------- side walls, far wall, benches, lamps ---------- */
@@ -133,7 +148,8 @@ export class Range {
     wp.map.repeat.set(len / 1.2, 1);
     wp.normal.repeat.copy(wp.map.repeat);
     const wallMat = L(new THREE.MeshLambertMaterial({ map: wp.map }),
-      () => std({ map: wp.map, normalMap: wp.normal, roughness: 0.6, metalness: 0.55 }));
+      (q) => { const t = up(q, wallPanels, wp); return std({ map: t.map, normalMap: t.normal, roughness: 0.6, metalness: 0.55 }); },
+      ['paint', 1.2, 1]);
     // Side, far and back walls share one material; the end walls' UVs are scaled so the
     // panels keep their 1.2 m width. One merged mesh.
     const wallG = new THREE.Group();
@@ -148,7 +164,7 @@ export class Range {
     const walls = wallG.children;
 
     // Benches: a long counter along each wall, and shooting tables in the next lanes.
-    const benchTop = L(new THREE.MeshLambertMaterial({ color: 0x3b3f44 }), () => std({ color: 0x40454b, roughness: 0.45, metalness: 0.75 }));
+    const benchTop = L(new THREE.MeshLambertMaterial({ color: 0x3b3f44 }), () => std({ color: 0x40454b, roughness: 0.45, metalness: 0.75 }), ['brushed', 2, 0.7]);
     const benches = new THREE.Group();
     const props = [];   // casings on benches: [x, y, z]
     for (const s of [-1, 1]) {
@@ -167,8 +183,8 @@ export class Range {
     }
 
     // Ear defenders on the benches (yellow cups on a black band).
-    const yellow = L(new THREE.MeshLambertMaterial({ color: 0xd8b020 }), () => std({ color: 0xd8b020, roughness: 0.45, metalness: 0 }));
-    const black = L(new THREE.MeshLambertMaterial({ color: 0x18191b }), () => std({ color: 0x18191b, roughness: 0.6, metalness: 0 }));
+    const yellow = L(new THREE.MeshLambertMaterial({ color: 0xd8b020 }), () => std({ color: 0xd8b020, roughness: 0.45, metalness: 0 }), ['paint', 8, 0.5]);
+    const black = L(new THREE.MeshLambertMaterial({ color: 0x18191b }), () => std({ color: 0x18191b, roughness: 0.6, metalness: 0 }), ['paint', 8, 0.5]);
     const muffs = new THREE.Group();
     const cupGeo = new THREE.CylinderGeometry(0.045, 0.045, 0.04, 14);
     const placeMuff = (x, y, z, ry) => {
@@ -197,7 +213,7 @@ export class Range {
     const ceilTex = ceilingConcrete();
     const ceilLen = ROOM.near - CEILING_END;
     ceilTex.repeat.set(W * 2 / 2, ceilLen / 2);
-    const ceilMat = L(new THREE.MeshLambertMaterial({ map: ceilTex }), () => std({ map: ceilTex, roughness: 0.95, metalness: 0 }));
+    const ceilMat = L(new THREE.MeshLambertMaterial({ map: ceilTex }), (q) => std({ map: up(q, ceilingConcrete, ceilTex), roughness: 0.95, metalness: 0 }), ['concrete', 1, 0.8]);
     const ceiling = plane(scene, ceilMat, W * 2, ceilLen, 0, ROOM.height, (ROOM.near + CEILING_END) / 2, Math.PI / 2);
     const frame = new THREE.Group();
     for (let z = ROOM.near - 0.5; z > CEILING_END; z -= 3) {
@@ -264,19 +280,20 @@ export class Range {
     const bpMaps = backstopMaps();
     const bpTex = backstopPlate();
     const wall = new THREE.Mesh(new THREE.PlaneGeometry(W * 2, ROOM.height),
-      L(new THREE.MeshLambertMaterial({ map: bpTex, color: 0x9a9a9a }), () => std({ map: bpTex, color: 0xa0a0a0, normalMap: bpMaps.normal, roughnessMap: bpMaps.rough, roughness: 1, metalness: 0.6 })));
+      L(new THREE.MeshLambertMaterial({ map: bpTex, color: 0x9a9a9a }), (q) => { const m = up(q, backstopMaps, bpMaps); return std({ map: up(q, backstopPlate, bpTex), color: 0xa0a0a0, normalMap: m.normal, roughnessMap: m.rough, roughness: 1, metalness: 0.6 }); },
+        ['paint', 1, 0.8]));
     wall.position.set(0, ROOM.height / 2, -WALL_GAP);
     this.wallGroup.add(wall);
     // Round carriage: hazard-striped rim around a painted top, on the rail.
     const padTex = padTexture();
     const pad = new THREE.Mesh(new THREE.CircleGeometry(0.6, 40),
-      L(new THREE.MeshLambertMaterial({ map: padTex }), () => std({ map: padTex, roughness: 0.7, metalness: 0.2 })));
+      L(new THREE.MeshLambertMaterial({ map: padTex }), (q) => std({ map: up(q, padTexture, padTex), roughness: 0.7, metalness: 0.2 }), ['paint', 3, 0.8]));
     pad.rotation.x = -Math.PI / 2;
     pad.position.y = 0.09;
     this.wallGroup.add(pad);
     const rimTex = hazardStripes(); rimTex.repeat.set(12, 1);
     const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.62, 0.09, 40, 1, true),
-      L(new THREE.MeshLambertMaterial({ map: rimTex }), () => std({ map: rimTex, roughness: 0.6, metalness: 0.2 })));
+      L(new THREE.MeshLambertMaterial({ map: rimTex }), () => std({ map: rimTex, roughness: 0.6, metalness: 0.2 }), ['paint', 4, 0.8]));
     rim.position.y = 0.045;
     this.wallGroup.add(rim);
     // Lamp over the target, so it stands out against the dark backstop.
@@ -292,7 +309,7 @@ export class Range {
     // Paper target: a ringed card on a board, centred at eye height (the aim point).
     this.paper = new THREE.Group();
     const pTex = paperTarget(PAPER_SIZE);
-    plane(this.paper, L(new THREE.MeshLambertMaterial({ map: pTex }), () => std({ map: pTex, roughness: 0.9, metalness: 0 })),
+    plane(this.paper, L(new THREE.MeshLambertMaterial({ map: pTex }), (q) => std({ map: up(q, () => paperTarget(PAPER_SIZE), pTex), roughness: 0.9, metalness: 0 })),
       PAPER_SIZE, PAPER_SIZE, 0, EYE_HEIGHT, 0);
     box(this.paper, steel, PAPER_SIZE + 0.06, PAPER_SIZE + 0.06, 0.03, 0, EYE_HEIGHT, -0.02);
     box(this.paper, steel, 0.06, EYE_HEIGHT - PAPER_SIZE / 2, 0.06, 0, (EYE_HEIGHT - PAPER_SIZE / 2) / 2, -0.06);
@@ -320,9 +337,10 @@ export class Range {
     this.setGraphicsLights(false);
   }
 
-  setGraphicsLights(high) {
+  setGraphicsLights(q) {
+    const high = q !== 'standard';
     // Standard graphics keeps to two lights (each light is per-pixel work on every surface);
-    // high adds the fill and the lamp over the target.
+    // high and ultra add the fill and the lamp over the target.
     this.hemi.intensity = high ? 0.9 : 2.0;
     this.key.intensity = high ? 2.6 : 1.5;
     this.fill.intensity = 0.5;
@@ -331,44 +349,75 @@ export class Range {
     this.spot.visible = high;
   }
 
-  // High graphics: physically based materials with normal and roughness maps, the key light
-  // casting soft shadows, image-based lighting from a small prefiltered room, and filmic tone
-  // mapping. Standard graphics is the cheap Lambert look. High materials are built on first use.
-  setGraphics(high, renderer) {
-    high = !!high;
-    if (high && !this._hiReady) this._buildHigh(renderer);
-    this.high = high;
+  // q: 'standard' | 'high' | 'ultra'.
+  //   standard: cheap Lambert materials, no shadows (school PCs).
+  //   high:     physically based materials with normal and roughness maps, the key light
+  //             casting soft shadows (2048), image-based lighting, filmic tone mapping.
+  //   ultra:    for a graphics card: every surface texture drawn at 2-8x resolution with
+  //             GPU-baked normal maps, 4096 x 4096 micro-detail (concrete pores, paint and
+  //             scratches, brushed steel) mapped by 3D position, 4096 shadows and a shadow-
+  //             casting lamp over the target.
+  // Materials for high / ultra are built the first time that level is used.
+  setGraphics(q, renderer) {
+    if (q === true) q = 'high';
+    if (q !== 'high' && q !== 'ultra') q = 'standard';
+    if (q !== 'standard' && !this._tierMats[q].size) this._build(q, renderer);
+    this.quality = q;
+    this.high = q !== 'standard';
+    const tier = this._tierMats[q];
     this.scene.traverse((o) => {
       if (!o.isMesh) return;
-      if (high) {
-        const hi = this._hiMats.get(o.material);
-        if (hi) { o.userData.loMat = o.material; o.material = hi; }
-      } else if (o.userData.loMat) { o.material = o.userData.loMat; o.userData.loMat = null; }
+      const lo = o.userData.loMat || o.material;
+      o.userData.loMat = lo;
+      o.material = (tier && tier.get(lo)) || lo;
     });
-    this.key.castShadow = high;
-    this.setGraphicsLights(high);
-    this.scene.environment = high ? this.env : null;
+    this.key.castShadow = this.high;
+    const ks = q === 'ultra' ? 4096 : 2048;
+    if (this.key.shadow.mapSize.x !== ks) {
+      this.key.shadow.mapSize.set(ks, ks);
+      if (this.key.shadow.map) { this.key.shadow.map.dispose(); this.key.shadow.map = null; }
+    }
+    this.spot.castShadow = q === 'ultra';
+    this.spot.shadow.mapSize.set(2048, 2048);
+    this.spot.shadow.bias = -0.0005;
+    this.setGraphicsLights(q);
+    this.scene.environment = this.high ? this.env : null;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.toneMapping = high ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
-    renderer.toneMappingExposure = high ? 1.5 : 1;
+    renderer.toneMapping = this.high ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
+    renderer.toneMappingExposure = this.high ? 1.5 : 1;
   }
 
-  _buildHigh(renderer) {
-    this.env = makeEnvMap(renderer);
+  _build(q, renderer) {
+    if (!this.env) this.env = makeEnvMap(renderer);
     const aniso = Math.min(16, renderer.capabilities.getMaxAnisotropy());
-    for (const [lo, make] of this._hiSpec) {
-      const hi = make();
-      for (const k of ['map', 'normalMap', 'roughnessMap']) if (hi[k]) { hi[k].anisotropy = aniso; hi[k].needsUpdate = true; }
-      this._hiMats.set(lo, hi);
+    const M = this._tierMats[q];
+    if (q === 'ultra') {
+      setNormalBaker((cv, strength, wrap) => bakeNormal(renderer, cv, strength, wrap));
+      this._detail = this._detail || {};
     }
-    this.dummy.traverse((o) => {
-      if (!o.isMesh || this._hiMats.has(o.material)) return;
-      this._hiMats.set(o.material, o.material.vertexColors
-        ? new THREE.MeshStandardMaterial({ vertexColors: true, color: 0xd8d0c8, roughness: 0.82, metalness: 0, envMapIntensity: 0.7 })   // painted foam
-        : new THREE.MeshStandardMaterial({ color: o.material.color, roughness: 0.5, metalness: 0.7, envMapIntensity: 0.7 }));             // steel base
-    });
-    this._hiReady = true;
+    const detail = (kind) => (this._detail[kind] = this._detail[kind] || bakeDetail(renderer, kind, Range.ULTRA_TEX));
+    try {
+      for (const [lo, spec] of this._hiSpec) {
+        const hi = spec.make(q);
+        for (const k of ['map', 'normalMap', 'roughnessMap']) if (hi[k]) { hi[k].anisotropy = aniso; hi[k].needsUpdate = !hi[k].isRenderTargetTexture; }
+        if (q === 'ultra' && spec.detail) {
+          const [kind, scale, strength] = spec.detail;
+          triplanar(hi, { detail: detail(kind), detailScale: scale, detailStrength: strength });
+        }
+        M.set(lo, hi);
+      }
+      this.dummy.traverse((o) => {
+        if (!o.isMesh || M.has(o.material)) return;
+        const m = o.material.vertexColors
+          ? new THREE.MeshStandardMaterial({ vertexColors: true, color: 0xd8d0c8, roughness: 0.82, metalness: 0, envMapIntensity: 0.7 })   // painted foam
+          : new THREE.MeshStandardMaterial({ color: o.material.color, roughness: 0.5, metalness: 0.7, envMapIntensity: 0.7 });             // steel base
+        if (q === 'ultra') triplanar(m, { detail: detail(o.material.vertexColors ? 'concrete' : 'paint'), detailScale: 6, detailStrength: 0.5 });
+        M.set(o.material, m);
+      });
+    } finally {
+      setNormalBaker(null);
+    }
   }
 
   setDistance(d) {
@@ -438,3 +487,4 @@ export class Range {
     return hit.kind;
   }
 }
+Range.ULTRA_TEX = 4096;   // ultra micro-detail size (tests use less: software rendering)
