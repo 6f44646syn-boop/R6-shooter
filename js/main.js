@@ -29,6 +29,7 @@ function sensRows(catalogue, sens) {
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
 import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js';
+import { Battle } from './battle/battle.js';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -71,7 +72,7 @@ function boot(data) {
   const rig = new WeaponRig(renderer);
   // Graphics quality: high swaps the range to textured PBR with shadows and tone mapping, and
   // the gun to textured PBR lit by the same sky. Standard is the original fast look.
-  const gunShading = () => (settings.graphics === 'standard' ? settings.weaponShading : settings.graphics);
+  const gunShading = () => (settings.graphics === 'low' ? 'fast' : settings.graphics === 'standard' ? settings.weaponShading : settings.graphics);
   // Software rendering in the tests cannot bake 4096 maps quickly; real graphics cards can.
   if (new URLSearchParams(location.search).has('test')) { Range.ULTRA_TEX = 512; setUltraTexSize(512); }
   function applyGraphics() {
@@ -338,6 +339,12 @@ function boot(data) {
   const notice = $('notice');
   const lock = new PointerLock(canvas, {
     onChange(locked) {
+      if (battle && battle.active) {
+        if (locked) { battle.resume(clockNow()); $('menu').hidden = true; }
+        else { battle.pause(); $('menu').hidden = battle.over; settingsUI.refresh(); }
+        if (locked) $('lock-hint').hidden = true;
+        return;
+      }
       $('menu').hidden = locked;
       if (locked) $('lock-hint').hidden = true;
       else { weapon.releaseTrigger(); setAds(false); player.releaseKeys(); player.crouched = false; settingsUI.refresh(); }
@@ -371,6 +378,7 @@ function boot(data) {
   /* ---------- mouse look: every event, straight to yaw/pitch ---------- */
   document.addEventListener('mousemove', (e) => {
     if (!lock.locked) return;
+    if (battle && battle.active) { battle.mouseMove(e.movementX, e.movementY); return; }
     // Siege-style: vertical sensitivity scales pitch; aim assist may slow the aim near a target.
     const dpc = currentDpc() * assistSlow;
     if (look.apply(e.movementX, e.movementY, dpc, dpc * settings.sensV / settings.sensH) && state.adsP > 0) {
@@ -382,6 +390,7 @@ function boot(data) {
 
   document.addEventListener('mousedown', (e) => {
     if (!lock.locked) return;
+    if (battle && battle.active) { if (e.button >= 3) e.preventDefault(); battle.mouseButton(e.button, true); return; }
     if (e.button === 0) {
       if (weapon.ammo === 0 && !weapon.reloading) sfx.click();
       weapon.pressTrigger(e.timeStamp / 1000);
@@ -390,6 +399,7 @@ function boot(data) {
     else if (e.button === 4) { e.preventDefault(); player.leanR = true; }   // mouse forward button: lean right
   });
   document.addEventListener('mouseup', (e) => {
+    if (battle && battle.active) { battle.mouseButton(e.button, false); return; }
     if (e.button === 0) weapon.releaseTrigger();
     else if (e.button === 2) setAds(false);
     else if (e.button === 3) { e.preventDefault(); player.leanL = false; }
@@ -417,6 +427,7 @@ function boot(data) {
   /* ---------- keys ---------- */
   document.addEventListener('keyup', (e) => {
     const c = e.code;
+    if (battle && battle.active) { if (battle.key(c, false)) e.preventDefault(); return; }
     if (c === 'KeyW' || c === 'KeyA' || c === 'KeyS' || c === 'KeyD') player.keys[c[3].toLowerCase()] = false;
     else if (c === 'ShiftLeft' || c === 'ShiftRight') player.sprint = false;
     else if (c === 'KeyQ') player.leanL = false;
@@ -438,6 +449,7 @@ function boot(data) {
       return;
     }
     if (!lock.locked && !testMode) return;
+    if (battle && battle.active) { if (battle.key(c, true)) e.preventDefault(); return; }
     if (c === 'KeyW' || c === 'KeyA' || c === 'KeyS' || c === 'KeyD') { player.keys[c[3].toLowerCase()] = true; return; }
     if (c === 'ShiftLeft' || c === 'ShiftRight') { player.sprint = true; return; }
     if (c === 'KeyQ') { player.leanL = true; return; }   // hold to lean left
@@ -602,7 +614,8 @@ function boot(data) {
   function resize() {
     // Auto: the screen's own sharpness (devicePixelRatio, 1x to 2x). Above 1 = supersampling.
     // Ultra (graphics card) supersamples at least 150% on Auto so the fine detail resolves.
-    const s = settings.renderScale || Math.min(2, Math.max(settings.graphics === 'ultra' ? 1.5 : 1, window.devicePixelRatio || 1));
+    // Low draws at plain 100% even on a high-DPI screen.
+    const s = settings.renderScale || (settings.graphics === 'low' ? 1 : Math.min(2, Math.max(settings.graphics === 'ultra' ? 1.5 : 1, window.devicePixelRatio || 1)));
     renderW = Math.max(1, Math.round(window.innerWidth * s));
     renderH = Math.max(1, Math.round(window.innerHeight * s));
     renderer.setSize(renderW, renderH, false);
@@ -647,6 +660,8 @@ function boot(data) {
       if (all || key === 'holes') range.holes.setSize(settings.holeSizeCm / 100);
       if (all || key === 'reload') weapon.reloadSpeed = settings.reloadSpeed;
       if (all || key === 'shading' || key === 'graphics') { applyGraphics(); rig.setGun(state.gun, state.gunIndex, state.optic); hud.setGun(state.gun, state.gunIndex, state.optic.label, settings.graphics === 'ultra' ? skinName(state.gunIndex) : ''); resize(); }
+      // Battle in progress: after the range (which sets the shared gun shading), rebuild its view.
+      if (battle && battle.active && (all || key === 'shading' || key === 'graphics' || key === 'reticle')) battle.refreshGraphics();
       if (key === 'sens' || key === 'assist') { /* read live each mouse event */ }
       if (all || key === 'recoil') { recoil.aimScale = settings.aimRecoil; recoil.aimSmooth = settings.aimSmooth; }
       if (all || key === 'volume') sfx.setVolume(settings.volume);
@@ -658,6 +673,62 @@ function boot(data) {
       if (key === 'seed') newMagazine(); // takes effect from the current magazine
     },
   });
+
+  /* ---------- battle mode ---------- */
+  // Created on first use (it builds its own arena and weapon models).
+  let battle = null;
+  const bEl = (id) => $(id);
+  {
+    const p2 = bEl('b-p2gun');
+    data.guns.forEach((g, i) => { const o = document.createElement('option'); o.value = String(i); o.textContent = (i + 1) % 10 + '  ' + g.name; p2.append(o); });
+    const B = settings.battle;
+    bEl('b-opp').value = B.opponent; bEl('b-bots').value = String(B.bots); bEl('b-level').value = B.level;
+    bEl('b-kills').value = String(B.kills); p2.value = String(Math.min(B.p2Gun, data.guns.length - 1));
+    const sync = () => {
+      Object.assign(settings.battle, { opponent: bEl('b-opp').value, bots: Number(bEl('b-bots').value), level: bEl('b-level').value, kills: Number(bEl('b-kills').value), p2Gun: Number(p2.value) });
+      bEl('b-p2gun-field').hidden = settings.battle.opponent !== 'p2';
+      saveSettings(settings);
+    };
+    for (const id of ['b-opp', 'b-bots', 'b-level', 'b-kills', 'b-p2gun']) bEl(id).addEventListener('change', sync);
+    sync();
+  }
+  function battleDeps() {
+    return {
+      renderer, settings, guns: data.guns, sfx,
+      opticFor: (g) => catalogue.byId.get(savedOptic(g)), adsVFov, baseDpc, now: clockNow,
+      slotOf: (g) => data.guns.indexOf(g), onEnd: () => lock.exit(), hudRoot: $('app'),
+    };
+  }
+  function startBattle() {
+    const B = settings.battle;
+    if (B.opponent === 'bots' && B.bots < 1) { flashNotice('Choose at least one bot.'); return; }
+    if (!battle) {
+      battle = new Battle(battleDeps());
+      battle.hud.again.addEventListener('click', () => { startBattle(); });
+      battle.hud.leave.addEventListener('click', leaveBattle);
+    }
+    weapon.releaseTrigger(); setAds(false); player.releaseKeys();
+    battle.start({ opponent: B.opponent, bots: B.bots, level: B.level, killsToWin: B.kills, p1Gun: state.gun, p2Gun: data.guns[Math.min(B.p2Gun, data.guns.length - 1)] });
+    $('hud').hidden = true;
+    $('start-btn').textContent = 'Resume battle';
+    $('battle-leave').hidden = false;
+    $('battle-btn').textContent = 'Restart battle';
+    if (!testMode) startLock();
+  }
+  function leaveBattle() {
+    if (!battle) return;
+    battle.stop();
+    $('hud').hidden = false;
+    $('start-btn').textContent = 'Click to start';
+    $('battle-leave').hidden = true;
+    $('battle-btn').textContent = 'Start battle';
+    $('menu').hidden = lock.locked;
+    applyGraphics();
+    rig.setGun(state.gun, state.gunIndex, state.optic);
+    resize();
+  }
+  $('battle-btn').addEventListener('click', startBattle);
+  $('battle-leave').addEventListener('click', leaveBattle);
 
   /* ---------- frame loop ---------- */
   // In ?test mode the clock is driven by the test script (window.__range.step), so firing and
@@ -672,6 +743,7 @@ function boot(data) {
   let prevT = clockNow();
 
   function update(t) {
+    if (battle && battle.active) { prevT = t; battle.update(t); return; }
     const dt = Math.min(0.1, Math.max(0, t - prevT));
     prevT = t;
     const ammoBefore = weapon.ammo;
@@ -790,7 +862,8 @@ function boot(data) {
   const smooth = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
   // Lens quality: setting, or auto (starts at 3 and steps down when frames are slow).
   let autoLevel = 3, qAcc = 0, qN = 0, qT0 = 0;
-  function lensQuality() { return settings.lensQuality === 'auto' ? autoLevel : Number(settings.lensQuality); }
+  // Low graphics: always the cheapest lens path (darkening and reticle only).
+  function lensQuality() { return settings.graphics === 'low' ? 0 : settings.lensQuality === 'auto' ? autoLevel : Number(settings.lensQuality); }
   // Auto quality drop: average frame time over 20 ms for 2 s while aiming -> one level down.
   // Also steps down when aiming is clearly slower than hip-fire on this machine: the average
   // aimed frame is over 25% longer than the recent hip-fire average and misses ~58 fps.
@@ -808,6 +881,7 @@ function boot(data) {
     }
   }
   function renderFrame() {
+    if (battle && battle.active) { battle.render(); return; }
     renderer.info.reset();
     if (state.adsP <= 0 || noLensDebug) { post.render(scene, camera, rig.scene, rig.camera, null); return; }
     const o = state.optic, hs = o.housing, H = renderH;
@@ -887,6 +961,12 @@ function boot(data) {
       shadowCasters: () => (range.key.castShadow ? range.key.shadow.map ? 1 : 0 : 0),
       setGraphics(g) { settings.graphics = g; applyGraphics(); rig.setGun(state.gun, state.gunIndex, state.optic); },
       setAnimations(on) { settings.animations = on; },
+      battleStart(o = {}) { Object.assign(settings.battle, o); startBattle(); return !!(battle && battle.active); },
+      battleLeave: () => leaveBattle(),
+      battle: () => battle,
+      battleState: () => battle && ({ active: battle.active, over: battle.over, score: { ...battle.teamScore },
+        fighters: battle.fighters.map((f) => ({ name: f.name, team: f.team, x: f.x, z: f.z, yaw: f.yaw, health: f.health, alive: f.alive, kills: f.kills, deaths: f.deaths, crouch: f.crouch })),
+        holes: battle.arena.holes.count, calls: renderer.info.render.calls }),
       inspectAt(p) { rig.inspectHold = p; if (p < 0) rig.inspectT = -1; },
       setUltraTex(n) { Range.ULTRA_TEX = n; setUltraTexSize(n); },
       rig: () => ({ drawT: rig.drawT, magY: rig.current.userData.mag.position.y, magVisible: rig.current.userData.mag.visible,

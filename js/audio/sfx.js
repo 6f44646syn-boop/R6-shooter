@@ -29,7 +29,8 @@ export class Sfx {
   }
 
   // tone 0..1 shifts the pitch a little so guns sound different.
-  shot(tone = 0.5) {
+  // vol 0..1: quieter for distant shooters (battle mode).
+  shot(tone = 0.5, vol = 1) {
     const c = this.ctx;
     if (!c || this.volume <= 0) return;
     const t = c.currentTime;
@@ -41,7 +42,7 @@ export class Sfx {
     lp.frequency.exponentialRampToValueAtTime(400, t + 0.16);
     const g = c.createGain();
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.9, t + 0.002);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.0002, 0.9 * vol), t + 0.002);
     g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
     src.connect(lp).connect(g).connect(this.master);
     src.start(t, Math.random() * 0.7, 0.2);
@@ -51,7 +52,7 @@ export class Sfx {
     o.frequency.setValueAtTime(150 - tone * 60, t);
     o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
     const og = c.createGain();
-    og.gain.setValueAtTime(0.7, t);
+    og.gain.setValueAtTime(Math.max(0.0002, 0.7 * vol), t);
     og.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
     o.connect(og).connect(this.master);
     o.start(t);

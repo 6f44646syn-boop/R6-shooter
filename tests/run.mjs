@@ -659,6 +659,107 @@ try {
     check('animations: shot -> flash, bolt back, brass; all gone 0.6 s later', an.shot.flash && an.shot.boltZ > 0.01 && an.shot.brass === 1 && !an.after.flash && an.after.brass === 0, JSON.stringify(an));
     check('animations: reload drops the magazine and puts it back', an.seen.minY < -0.2 && an.seen.hidden && an.done.magY === 0 && an.done.magVisible, JSON.stringify(an.seen) + JSON.stringify(an.done));
     check('animations: a new gun is drawn (0 -> 1); animations off -> no flash or brass', an.draw0 === 0 && an.draw1 === 1 && !an.off.flash && an.off.brass === 0, JSON.stringify(an));
+
+    // Low graphics: flat materials, one light, cheapest lens path; back to standard after.
+    const lw = await page.evaluate(() => {
+      const R = window.__range;
+      R.setGraphics('low'); R.step(0.1); R.renderFrame();
+      const out = { lens: R.lensQuality(), tone: R.toneMapping(), key: R._range.key.visible, textured: 0 };
+      R._range.scene.traverse((o) => { if (o.isMesh && o.material.map && o.material.isMeshLambertMaterial && !o.material.userData.keepInLow) out.textured++; });
+      R.setGraphics('standard'); R.renderFrame();
+      out.keyBack = R._range.key.visible;
+      return out;
+    });
+    check('low graphics: flat colours (no decorative textures), one light, lens quality 0', lw.lens === 0 && lw.tone === 0 && !lw.key && lw.textured === 0 && lw.keyBack, JSON.stringify(lw));
+
+    // Battle mode.
+    const bt = await page.evaluate(() => {
+      const R = window.__range;
+      R.manual(true);
+      const out = {};
+      R.battleStart({ opponent: 'bots', bots: 3, level: 'easy', kills: 30 });
+      const B = R.battle(), A = B.arena;
+      out.path = A.findPath(-10, 12.5, 10, -12.5).length;
+      out.wallBlocks = !A.sightLine([16, 1.5, 2.5], [11, 1.5, 2.5]);      // tall wall at x = 13.5
+      out.lowWallCrouch = !A.sightLine([0, 0.9, 9], [0, 0.9, 7]);          // low wall at z = 8 hides a crouched head
+      out.lowWallStand = A.sightLine([0, 1.6, 9], [0, 1.6, 7]);            // ...but not a standing one
+      const p0 = B.bots.map((b) => [b.f.x, b.f.z]);
+      R.step(8, 30);
+      out.botsMoved = B.bots.filter((b, i) => Math.hypot(b.f.x - p0[i][0], b.f.z - p0[i][1]) > 1).length;
+      out.inBounds = B.fighters.every((f) => Math.abs(f.x) < 18 && Math.abs(f.z) < 14);
+      out.notInCover = B.fighters.every((f) => !A.boxes.some((b) => f.x > b.minX && f.x < b.maxX && f.z > b.minZ && f.z < b.maxZ));
+      // Your shots: a frozen bot in the open lane, tapped at the chest from 10 m.
+      const h = B.humans[0], bot = B.bots[0];
+      for (const b of B.bots) b.update = () => {};
+      for (const b of B.bots.slice(1)) { b.f.x = -16; b.f.z = -12; }
+      h.f.x = 16; h.f.z = 12; h.f.protectUntil = 0; h.f.health = 100; h.f.alive = true;
+      bot.f.x = 16; bot.f.z = 2; bot.f.protectUntil = 0; bot.f.health = 100; bot.f.alive = true; bot.f.crouch = 0;
+      let taps = 0;
+      while (bot.f.alive && taps < 40) {
+        h.look.setAngles(0, Math.atan2(1.18 - 1.6, 10) * 180 / Math.PI);
+        B.mouseButton(0, true); R.step(1 / 60, 60); B.mouseButton(0, false); R.step(0.5, 60); taps++;   // spray resets after 0.4 s
+      }
+      out.killed = !bot.f.alive; out.taps = taps; out.kills = h.f.kills; out.score = B.teamScore.p1;
+      out.feed = B.hud.feed.children.length;
+      R.step(3.2, 30);
+      out.respawned = bot.f.alive && bot.f.health === 100;
+      R.battleLeave();
+      // Win: first to 1.
+      R.battleStart({ opponent: 'bots', bots: 1, level: 'easy', kills: 5 });
+      const B2 = R.battle();
+      B2.opts.killsToWin = 1;
+      const b2 = B2.bots[0]; b2.update = () => {}; b2.f.protectUntil = 0;
+      B2._damage(b2.f, 500, B2.humans[0].f, 'head', R.now ? R.now() : 0);
+      out.over = B2.over; out.endShown = !B2.hud.end.hidden; out.endTitle = B2.hud.endTitle.textContent;
+      R.battleLeave();
+      out.rangeBack = !document.getElementById('hud').hidden && !B2.active;
+      return out;
+    });
+    check('battle: paths across the arena; a tall wall blocks sight, a low wall hides a crouched head only',
+      bt.path > 1 && bt.wallBlocks && bt.lowWallCrouch && bt.lowWallStand, JSON.stringify(bt));
+    check('battle: bots roam on their own, stay in bounds and never inside cover', bt.botsMoved >= 2 && bt.inBounds && bt.notInCover, JSON.stringify(bt));
+    check('battle: tapping a bot at 10 m kills it (' + bt.taps + ' taps), scores, shows in the kill feed, it respawns at full health',
+      bt.killed && bt.kills === 1 && bt.score === 1 && bt.feed === 1 && bt.respawned, JSON.stringify(bt));
+    check('battle: first to the kill target wins, end screen shown, leaving returns to the range', bt.over && bt.endShown && /You win/.test(bt.endTitle) && bt.rangeBack, JSON.stringify(bt));
+
+    // Bot levels: time for one bot to kill you standing in the open at 12 m.
+    const lv = await page.evaluate(() => {
+      const R = window.__range;
+      const out = {};
+      for (const level of ['easy', 'hard']) {
+        let sum = 0;
+        for (let trial = 0; trial < 5; trial++) {
+          R.battleStart({ opponent: 'bots', bots: 1, level, kills: 99 });
+          const B = R.battle(), h = B.humans[0], bot = B.bots[0];
+          R.step(0.1);
+          h.f.x = 16; h.f.z = 12; h.f.protectUntil = 0;
+          bot.f.x = 16; bot.f.z = 0; bot.f.yaw = 180; bot.f.protectUntil = 0; bot.target = null; bot.nextLook = 0;
+          let t = 0;
+          while (h.f.alive && t < 15) { R.step(0.05, 60); t += 0.05; }
+          sum += t;
+          R.battleLeave();
+        }
+        out[level] = +(sum / 5).toFixed(2);
+      }
+      return out;
+    });
+    check('bot levels: easy takes longer to kill you than hard (' + lv.easy + ' s vs ' + lv.hard + ' s)', lv.easy > lv.hard * 1.8 && lv.hard < 3, JSON.stringify(lv));
+
+    // Split screen: two viewports, player 2 on the keyboard.
+    const sp = await page.evaluate(() => {
+      const R = window.__range;
+      R.battleStart({ opponent: 'p2', bots: 0, level: 'easy', kills: 10 });
+      const B = R.battle();
+      R.step(0.2); R.renderFrame();
+      const vps = B.viewports().length, calls = R.battleState().calls;
+      const p2 = B.humans[1], z0 = p2.f.z, yaw0 = p2.look.yaw;
+      B.key('KeyI', true); B.key('ArrowRight', true); R.step(0.5); B.key('KeyI', false); B.key('ArrowRight', false);
+      const out = { vps, calls, moved: Math.hypot(p2.f.x - B.humans[1].f.x, p2.f.z - z0) > 0.5, turned: Math.abs(p2.look.yaw - yaw0) > 30, views: B.hud.views.length, teams: B.humans.map((h) => h.f.team) };
+      R.battleLeave();
+      return out;
+    });
+    check('split screen: 2 viewports and HUDs, player 2 moves (I) and turns (arrows) on the keyboard',
+      sp.vps === 2 && sp.views === 2 && sp.moved && sp.turned && sp.teams.join() === 'p1,p2', JSON.stringify(sp));
     check('no page errors', errors.length === 0, errors.join('\n'));
     await page.close();
   }

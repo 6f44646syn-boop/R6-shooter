@@ -472,15 +472,29 @@ export class WeaponRig {
   setShading(mode) {
     if (mode === sightShading()) return;
     setSightShading(mode);
+    this.applyLights();
+    for (const m of this.models.values()) this.root.remove(m);
+    this.models.clear();
+    this.current = null;
+  }
+
+  // Drop the cached models (after a shading change made through another rig).
+  rebuild() {
+    for (const m of this.models.values()) this.root.remove(m);
+    this.models.clear();
+    this.current = null;
+    this.gunId = undefined;
+    this.applyLights();
+  }
+
+  // Light levels for the current shading (also used by a second rig, e.g. battle player 2).
+  applyLights() {
     const high = sightShading() === 'high' || sightShading() === 'ultra';
     // Same light directions as the range in high graphics: warm key over the left shoulder.
     this.hemi.intensity = high ? 0.3 : 0.9;
     this.key.color.set(high ? 0xffe8d0 : 0xffffff);
     this.key.intensity = high ? 2.4 : 1.8;
     this.rim.intensity = high ? 0.9 : 0.6;
-    for (const m of this.models.values()) this.root.remove(m);
-    this.models.clear();
-    this.current = null;
   }
 
   // gun: validated gun data; slot: its index (finish colour); optic: chosen sight.

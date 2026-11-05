@@ -12,6 +12,7 @@ import { buildDummy, raycastDummy } from './dummy.js';
 import { DotField } from './dots.js';
 import { mergeStatic, makeEnvMap } from './sight-model.js';
 import { bakeDetail, bakeNormal, triplanar } from '../render/gpu-tex.js';
+import { flatMaterial } from './low.js';
 import { mulberry32 } from '../core/prng.js';
 import {
   backstopPlate, backstopMaps, duskSky, padTexture, concreteTiles, floorGrate, wallPanels, ceilingConcrete,
@@ -48,7 +49,7 @@ export class Range {
     this.high = false;
     this.quality = 'standard';
     this._hiSpec = new Map();     // standard material -> { make(q), detail } for high and ultra
-    this._tierMats = { high: new Map(), ultra: new Map() };
+    this._tierMats = { low: new Map(), high: new Map(), ultra: new Map() };
     // Standard material, plus how to build its high / ultra version. make(q) gets 'high' or
     // 'ultra'; detail: [kind, tiles per metre, strength] of the ultra micro-detail layer.
     const L = (lo, make, detail = null) => { if (make) this._hiSpec.set(lo, { make, detail }); return lo; };
@@ -309,7 +310,9 @@ export class Range {
     // Paper target: a ringed card on a board, centred at eye height (the aim point).
     this.paper = new THREE.Group();
     const pTex = paperTarget(PAPER_SIZE);
-    plane(this.paper, L(new THREE.MeshLambertMaterial({ map: pTex }), (q) => std({ map: up(q, () => paperTarget(PAPER_SIZE), pTex), roughness: 0.9, metalness: 0 })),
+    const paperMat = new THREE.MeshLambertMaterial({ map: pTex });
+    paperMat.userData.keepInLow = true;   // the rings are the target
+    plane(this.paper, L(paperMat, (q) => std({ map: up(q, () => paperTarget(PAPER_SIZE), pTex), roughness: 0.9, metalness: 0 })),
       PAPER_SIZE, PAPER_SIZE, 0, EYE_HEIGHT, 0);
     box(this.paper, steel, PAPER_SIZE + 0.06, PAPER_SIZE + 0.06, 0.03, 0, EYE_HEIGHT, -0.02);
     box(this.paper, steel, 0.06, EYE_HEIGHT - PAPER_SIZE / 2, 0.06, 0, (EYE_HEIGHT - PAPER_SIZE / 2) / 2, -0.06);
@@ -338,10 +341,12 @@ export class Range {
   }
 
   setGraphicsLights(q) {
-    const high = q !== 'standard';
+    const high = q === 'high' || q === 'ultra';
+    // Low: one hemisphere light only (flat, cheapest).
+    this.key.visible = q !== 'low';
     // Standard graphics keeps to two lights (each light is per-pixel work on every surface);
     // high and ultra add the fill and the lamp over the target.
-    this.hemi.intensity = high ? 0.9 : 2.0;
+    this.hemi.intensity = high ? 0.9 : q === 'low' ? 2.8 : 2.0;
     this.key.intensity = high ? 2.6 : 1.5;
     this.fill.intensity = 0.5;
     this.spot.intensity = 45;
@@ -360,10 +365,17 @@ export class Range {
   // Materials for high / ultra are built the first time that level is used.
   setGraphics(q, renderer) {
     if (q === true) q = 'high';
-    if (q !== 'high' && q !== 'ultra') q = 'standard';
-    if (q !== 'standard' && !this._tierMats[q].size) this._build(q, renderer);
+    if (!['low', 'high', 'ultra'].includes(q)) q = 'standard';
+    if (q === 'low' && !this._tierMats.low.size) {
+      this.scene.traverse((o) => {
+        if (!o.isMesh) return;
+        const lo = o.userData.loMat || o.material;
+        if (!this._tierMats.low.has(lo)) { const f = flatMaterial(lo); if (f) this._tierMats.low.set(lo, f); }
+      });
+    }
+    if ((q === 'high' || q === 'ultra') && !this._tierMats[q].size) this._build(q, renderer);
     this.quality = q;
-    this.high = q !== 'standard';
+    this.high = q === 'high' || q === 'ultra';
     const tier = this._tierMats[q];
     this.scene.traverse((o) => {
       if (!o.isMesh) return;

@@ -101,10 +101,37 @@ Google Sites shows embeds in a sandboxed iframe that blocks pointer lock and ful
 the page detects it is inside a frame, it replaces the start screen with an **Open in a full
 tab** button. Embed the GitHub Pages URL and players click through to a normal tab.
 
+## Battle mode
+
+Menu > Battle. You against 1-6 bots (Easy, Medium or Hard), or two players on one PC in
+split screen (with or without bots as a third side). First side to the kill target (5, 10,
+20 or 30) wins; you respawn 3 s after dying, with 1.5 s of spawn protection, and health
+regenerates after 5 s without damage.
+
+- Arena: an original walled yard with shipping containers, stacked crates, tall walls, low
+  walls you can crouch behind and concrete barriers, point-symmetric so both sides are equal.
+  Cover stops bullets; bullet holes stay on it.
+- Guns: the same guns, measured sprays, sights and sensitivity as the range. Damage per
+  bullet comes from the gun data (head x2.5, limbs x0.75).
+- Bots see along clear sight lines, react after a delay, turn at a limited rate with a
+  drifting aim error that settles while they track you, and fire bursts with the gun's real
+  spray, partly controlled. Easy: slow, inaccurate, stands still. Medium: faster, strafes,
+  retreats to cover when hurt. Hard: quick, accurate, aims for the head, strafes, crouch-peeks
+  low cover. They roam the arena on A* paths. (Stationary at 12 m, a single bot kills you in
+  about 3 s on Easy, 1.4 s on Medium and 0.5 s on Hard.)
+- Split screen: player 1 on mouse and keyboard (left half), player 2 on a gamepad (left stick
+  move, right stick look, RT fire, LT aim, X reload, B crouch, L3 sprint, LB/RB lean) or the
+  keyboard (I J K L move, arrow keys look, Enter fire, Right Shift aim, Backspace reload,
+  / crouch). In split screen player 1 sprints with Left Shift.
+- Esc pauses and opens the menu (Resume battle / Leave battle).
+
 ## Performance
 
 Built for Intel UHD 630 at 1920x1080 / 60 fps:
 
+- Low graphics: flat colours (each texture replaced by its average colour), one hemisphere
+  light, no shadows, the cheapest lens path and 100% render size: the look of the first
+  versions, for the slowest PCs.
 - Standard graphics (default): about 32 draw calls in hip-fire (the indoor hall's static
   structure is merged into one mesh per material), around 32,000 triangles, two lights, no
   shadows. The room uses Lambert; the gun and sight use cheap matcap shading.

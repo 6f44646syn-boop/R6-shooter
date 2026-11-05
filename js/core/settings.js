@@ -27,7 +27,7 @@ export const DEFAULTS = Object.freeze({
   reloadSpeed: 2,        // x faster than each gun's measured reloadSeconds (1 = as measured)
   renderScale: 0,        // 0 = auto (screen's pixel ratio, up to 2x); else 0.5 to 2 (above 1 = supersampling)
   antialias: true,       // MSAA; takes effect after a reload
-  graphics: 'standard',  // 'standard' (fast, school PCs), 'high' (shadows, PBR textures, filmic tone mapping) or 'ultra' (graphics card: 4K textures, weapon skins)
+  graphics: 'standard',  // 'low' (flat colours, slowest PCs), 'standard' (fast, school PCs), 'high' (shadows, PBR textures, filmic tone mapping) or 'ultra' (graphics card: 4K textures, weapon skins)
   animations: true,      // weapon animations: draw, reload, sprint pose, bolt, muzzle flash, brass
   weaponShading: 'fast', // gun and sight look: 'fast' (matcap, cheap) or 'detailed' (PBR metal)
   lensQuality: 'auto',   // ADS lens pass: 'auto' or 3 (all) / 2 (no blur) / 1 (no blur, fringing) / 0 (no glare either)
@@ -40,6 +40,7 @@ export const DEFAULTS = Object.freeze({
   debugHud: false,
   fixedSeed: '',         // empty = new random seed every magazine
   gunIndex: 0,
+  battle: { opponent: 'bots', bots: 3, level: 'medium', kills: 10, p2Gun: 1 },
   distance: 10,
 });
 
@@ -98,7 +99,7 @@ export function sanitize(input) {
   out.targetMode = ['dots', 'dummy', 'paper'].includes(s.targetMode) ? s.targetMode : (s.movingTarget === true ? 'dots' : DEFAULTS.targetMode);
   out.dotMoving = typeof s.dotMoving === 'boolean' ? s.dotMoving : (s.movingTarget === true ? true : DEFAULTS.dotMoving);
   out.dotCount = Number.isInteger(s.dotCount) ? Math.min(12, Math.max(1, s.dotCount)) : DEFAULTS.dotCount;
-  out.graphics = ['high', 'ultra'].includes(s.graphics) ? s.graphics : 'standard';
+  out.graphics = ['low', 'high', 'ultra'].includes(s.graphics) ? s.graphics : 'standard';
   out.animations = typeof s.animations === 'boolean' ? s.animations : DEFAULTS.animations;
   out.weaponShading = s.weaponShading === 'detailed' ? 'detailed' : 'fast';
   out.lensQuality = ['auto', '3', '2', '1', '0'].includes(String(s.lensQuality)) ? String(s.lensQuality) : DEFAULTS.lensQuality;
@@ -109,6 +110,14 @@ export function sanitize(input) {
   out.showViewmodel = typeof s.showViewmodel === 'boolean' ? s.showViewmodel : DEFAULTS.showViewmodel;
   out.debugHud = typeof s.debugHud === 'boolean' ? s.debugHud : DEFAULTS.debugHud;
   out.fixedSeed = (typeof s.fixedSeed === 'string' && /^\d{0,10}$/.test(s.fixedSeed.trim())) ? s.fixedSeed.trim() : '';
+  const bi = (s.battle && typeof s.battle === 'object') ? s.battle : {};
+  out.battle = {
+    opponent: bi.opponent === 'p2' ? 'p2' : 'bots',
+    bots: Number.isInteger(bi.bots) ? Math.min(6, Math.max(0, bi.bots)) : DEFAULTS.battle.bots,
+    level: ['easy', 'medium', 'hard'].includes(bi.level) ? bi.level : DEFAULTS.battle.level,
+    kills: [5, 10, 20, 30].includes(bi.kills) ? bi.kills : DEFAULTS.battle.kills,
+    p2Gun: Number.isInteger(bi.p2Gun) && bi.p2Gun >= 0 ? bi.p2Gun : DEFAULTS.battle.p2Gun,
+  };
   out.gunIndex = Number.isInteger(s.gunIndex) && s.gunIndex >= 0 ? s.gunIndex : DEFAULTS.gunIndex;
   out.distance = DISTANCES.includes(s.distance) ? s.distance : DEFAULTS.distance;
   // cm/360 always follows DPI and the horizontal slider.

@@ -65,6 +65,25 @@
         <div id="sight-row" class="sight-row"></div>
         <p id="sight-note" class="small"></p>
       </section>
+      <section class="set-group battle-setup" id="battle-setup">
+        <h2>Battle</h2>
+        <div class="set-grid">
+          <label class="field" for="b-opp"><span>Opponents</span>
+            <select id="b-opp"><option value="bots">Bots</option><option value="p2">Local player 2 (split screen)</option></select></label>
+          <label class="field" for="b-bots"><span>Bots</span>
+            <select id="b-bots"><option>0</option><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option></select></label>
+          <label class="field" for="b-level"><span>Bot level</span>
+            <select id="b-level"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option></select></label>
+          <label class="field" for="b-kills"><span>Kills to win</span>
+            <select id="b-kills"><option>5</option><option selected>10</option><option>20</option><option>30</option></select></label>
+          <label class="field" for="b-p2gun" id="b-p2gun-field"><span>Player 2 gun</span><select id="b-p2gun"></select></label>
+        </div>
+        <div class="row">
+          <button id="battle-btn" type="button" class="primary">Start battle</button>
+          <button id="battle-leave" type="button" hidden>Leave battle</button>
+        </div>
+        <p class="small" id="battle-help">You use the gun selected in Loadout. Player 2 plays with a gamepad (left stick move, right stick look, RT fire, LT aim, X reload, B crouch, L3 sprint, LB/RB lean) or the keyboard (I J K L move, arrow keys look, Enter fire, Right Shift aim, Backspace reload, / crouch). In split screen player 1 sprints with Left Shift.</p>
+      </section>
       <div id="settings-root"></div>
       <section class="keys">
         <h2>Controls</h2>
