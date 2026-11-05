@@ -17,6 +17,13 @@ function mat(color, kind = 'auto') {
   const key = sightShading() + color + kind;
   if (!mats.has(key)) {
     const sh = sightShading();
+    if (kind === 'cloth') {
+      // Gloves and sleeves: matt fabric.
+      mats.set(key, sh === 'high' ? highMaterial(color, 'polymer', { roughness: 0.95, envMapIntensity: 0.35 })
+        : sh === 'fast' ? new THREE.MeshMatcapMaterial({ color: new THREE.Color(color).multiplyScalar(2.2), matcap: matcap('rubber') })
+          : new THREE.MeshStandardMaterial({ color, metalness: 0, roughness: 0.9 }));
+      return mats.get(key);
+    }
     mats.set(key, sh === 'high'
       // Black parts are polymer (grip, magazine); steel and finish colours are coated metal.
       ? (color === BLACK && kind === 'auto' ? highMaterial(0x232528, 'polymer') : highMaterial(color, 'metal'))
@@ -97,6 +104,61 @@ const BUILDERS = {
     box(g, c, 0.04, 0.03, 0.08, 0, 0.04, 0.27);            // cheek riser
   },
 };
+
+// Picatinny-style rail along the top of the receiver and handguard: a base strip with
+// cross slots. from/to: z range (gun coordinates), y: top of the part it sits on.
+function topRail(g, y, from, to) {
+  box(g, BLACK, 0.026, 0.006, from - to, 0, y + 0.003, (from + to) / 2);
+  for (let z = from - 0.006; z > to + 0.004; z -= 0.01) box(g, BLACK, 0.026, 0.005, 0.005, 0, y + 0.0085, z);
+}
+const RAILS = {   // [top y, rear z, front z]
+  rifle: [[0.035, 0.12, -0.17], [0.029, -0.18, -0.38]],
+  carbine: [[0.034, 0.1, -0.14]],
+  smg: [[0.0375, 0.08, -0.11]],
+  lmg: [[0.075, 0.08, -0.04]],
+  marksman: [[0.035, 0.12, -0.16], [0.0245, -0.17, -0.4]],
+};
+
+// Gloved hands and sleeves (gun coordinates). Support hand under the handguard, firing
+// hand on the grip; forearms run out of the bottom of the screen.
+const GLOVE = 0x2c2e30, GLOVE_BACK = 0x55602e, SLEEVE = 0x30343a;
+const HAND_Z = { rifle: -0.24, carbine: -0.2, smg: -0.12, lmg: -0.28, marksman: -0.26 };
+const GRIP_Z = { rifle: 0.06, carbine: 0.05, smg: 0.05, lmg: 0.09, marksman: 0.06 };
+function capsule(g, color, r, a, b) {
+  const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), d = B.clone().sub(A), l = d.length();
+  const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, l, 3, 10), mat(color, 'cloth'));
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize());
+  m.position.copy(A.add(B).multiplyScalar(0.5));
+  g.add(m);
+  return m;
+}
+function hands(g, type) {
+  // Support hand: palm under the handguard, fingers wrapping up the left side, thumb on the right.
+  const hz = HAND_Z[type];
+  const palm = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.022, 0.085), mat(GLOVE, 'cloth'));
+  palm.position.set(-0.004, -0.04, hz);
+  palm.rotation.z = 0.25;
+  g.add(palm);
+  for (let i = 0; i < 4; i++) {
+    const z = hz - 0.03 + i * 0.02;
+    capsule(g, GLOVE, 0.0085, [-0.03, -0.04, z], [-0.036, -0.005, z - 0.004]);
+    capsule(g, GLOVE, 0.0075, [-0.036, -0.005, z - 0.004], [-0.022, 0.018, z - 0.006]);
+  }
+  capsule(g, GLOVE, 0.009, [0.022, -0.04, hz + 0.03], [0.03, -0.005, hz - 0.01]);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.04, 0.07), mat(GLOVE_BACK, 'cloth'));
+  back.position.set(-0.034, -0.03, hz);
+  back.rotation.z = -0.3;
+  g.add(back);
+  capsule(g, GLOVE, 0.024, [-0.01, -0.06, hz + 0.04], [-0.05, -0.1, hz + 0.1]);       // wrist
+  capsule(g, SLEEVE, 0.036, [-0.05, -0.1, hz + 0.1], [-0.16, -0.36, hz + 0.32]);      // forearm
+  // Firing hand on the grip, index finger along the frame.
+  const gz = GRIP_Z[type];
+  capsule(g, GLOVE, 0.026, [0.006, -0.065, gz + 0.02], [0.006, -0.11, gz + 0.04]);
+  capsule(g, GLOVE_BACK, 0.012, [0.03, -0.06, gz + 0.01], [0.03, -0.1, gz + 0.03]);
+  capsule(g, GLOVE, 0.007, [0.026, -0.03, gz - 0.005], [0.026, -0.03, gz - 0.06]);
+  capsule(g, GLOVE, 0.028, [0.02, -0.13, gz + 0.06], [0.06, -0.2, gz + 0.12]);        // wrist
+  capsule(g, SLEEVE, 0.04, [0.06, -0.2, gz + 0.12], [0.13, -0.42, gz + 0.22]);        // forearm
+}
 
 const TOP_Y = { rifle: 0.035, carbine: 0.034, smg: 0.0375, lmg: 0.075, marksman: 0.035 };
 
@@ -179,6 +241,8 @@ export class WeaponRig {
       m.add(sight.group);
       const gunG = new THREE.Group();
       BUILDERS[type](gunG, FINISHES[slot % FINISHES.length]);
+      for (const [y, from, to] of RAILS[type]) topRail(gunG, y, from, to);
+      hands(gunG, type);
       mergeStatic(gunG);
       const s = 0.62;
       gunG.scale.setScalar(s);

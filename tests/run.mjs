@@ -441,6 +441,26 @@ try {
     check('a shot away from every dot misses', dt.shots === 2 && dt.hits === 1, JSON.stringify(dt));
     check('12 moving dots travel 1.5 m/s to the right; dummy hidden in dot mode, back after', dt.n12 === 12 && Math.abs(dt.step - 3) < 1e-9 && dt.dummyHidden && dt.dummyBack, JSON.stringify(dt));
 
+    // h2) paper target: ring score (10 at the centre, 0 on the card outside the rings), and
+    // a shot past the card is a miss.
+    const pp = await page.evaluate(() => {
+      const R = window.__range, d = 10;
+      R.manual(true); R.selectGun(9); R.setDistance(d); R.clear();
+      R.setTarget('paper');
+      const shoot = (x, y) => {
+        const yaw = Math.atan(x / d);
+        R.setAim(yaw * 180 / Math.PI, Math.atan(y * Math.cos(yaw) / d) * 180 / Math.PI);
+        R.clear();   // restart the spray so every shot is a first shot
+        R.trigger(true); R.step(0.01, 1000); R.trigger(false); R.step(1);
+        const st = R.state(); return { hits: st.hits, score: st.score };
+      };
+      const out = { centre: shoot(0, 0), ring5: shoot(0.18, 0), card: shoot(0.46, 0.0), off: shoot(0.7, 0), visible: R.paperVisible(), dummy: R.dummyVisible() };
+      R.setTarget('dummy');
+      return out;
+    });
+    check('paper target: centre scores 10, 0.18 m scores 6, card outside the rings 0, off the card misses',
+      pp.centre.score === 10 && pp.ring5.score === 6 && pp.card.hits === 1 && pp.card.score === 0 && pp.off.hits === 0 && pp.visible && !pp.dummy, JSON.stringify(pp));
+
     // i) dummy: a level shot at 10 m is a headshot; a lower one hits the body.
     const dm = await page.evaluate(() => {
       const R = window.__range;
@@ -551,7 +571,7 @@ try {
     console.log('  frames: ' + r.intervals.length + ', avg ' + avgInt.toFixed(2) + ' ms (' + (1000 / avgInt).toFixed(0) + ' fps), p99 ' + pct(r.intervals, 0.99).toFixed(2) + ' ms');
     console.log('  CPU per frame (update + render submit): median ' + pct(r.cpu, 0.5).toFixed(3) + ' ms, p95 ' + pct(r.cpu, 0.95).toFixed(3) + ' ms');
     console.log('  JS heap change over 5 s of firing (after GC): ' + (r.heapDelta / 1024).toFixed(1) + ' KB');
-    check('draw calls <= 30 (world + 3D weapon and sight)', r.info.calls <= 30, 'calls ' + r.info.calls);
+    check('draw calls <= 35 (indoor hall, target, 3D weapon and sight)', r.info.calls <= 35, 'calls ' + r.info.calls);
     check('render size 1920x1080 at devicePixelRatio 1', r.info.w === 1920 && r.info.h === 1080, r.info.w + 'x' + r.info.h);
     // Median = our JavaScript per frame. The p95 is dominated by the software renderer
     // blocking on GPU work, so it is reported, not checked.

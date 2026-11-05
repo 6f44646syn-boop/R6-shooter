@@ -11,7 +11,7 @@ export class MagPlot {
   // xy: Float64Array of [x0, y0, x1, y1, ...] in metres relative to the aim point.
   // n: number of points. shots: bullets fired (some may have missed the wall). hits: on the dummy or a dot.
   // dotRadius > 0: the moving-dot target (points are relative to the dot centre).
-  draw(xy, n, shots, hits, gunName, distance, dotRadius = 0) {
+  draw(xy, n, shots, hits, gunName, distance, dotRadius = 0, ringStep = 0) {
     const g = this.g, W = this.cv.width, H = this.cv.height;
     const plotH = W; // square plot, text underneath
     g.clearRect(0, 0, W, H);
@@ -28,7 +28,13 @@ export class MagPlot {
 
     // Target outline: the red dot, or the dummy seen from the front.
     g.lineWidth = 1;
-    if (dotRadius > 0) {
+    if (ringStep > 0) {
+      // Paper target: its ten scoring rings around the aim point.
+      g.strokeStyle = 'rgba(200,200,195,0.35)';
+      for (let k = 1; k <= 10; k++) { g.beginPath(); g.arc(cx, cy, k * ringStep * s, 0, Math.PI * 2); g.stroke(); }
+      g.fillStyle = 'rgba(155,43,43,0.6)';
+      g.beginPath(); g.arc(cx, cy, ringStep * s, 0, Math.PI * 2); g.fill();
+    } else if (dotRadius > 0) {
       g.strokeStyle = 'rgba(224,32,27,0.8)';
       g.beginPath(); g.arc(cx, cy, dotRadius * s, 0, Math.PI * 2); g.stroke();
     } else {

@@ -105,7 +105,8 @@ tab** button. Embed the GitHub Pages URL and players click through to a normal t
 
 Built for Intel UHD 630 at 1920x1080 / 60 fps:
 
-- Standard graphics (default): about 25 draw calls in hip-fire, around 20,000 triangles, no
+- Standard graphics (default): about 32 draw calls in hip-fire (the indoor hall's static
+  structure is merged into one mesh per material), around 32,000 triangles, two lights, no
   shadows. The room uses Lambert; the gun and sight use cheap matcap shading.
 - Settings > Graphics quality > High is for gaming PCs: physically based materials with
   procedural normal and roughness maps (tread plate, corrugated walls, riveted backstop, gun

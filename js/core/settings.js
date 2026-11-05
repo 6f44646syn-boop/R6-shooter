@@ -31,7 +31,7 @@ export const DEFAULTS = Object.freeze({
   weaponShading: 'fast', // gun and sight look: 'fast' (matcap, cheap) or 'detailed' (PBR metal)
   lensQuality: 'auto',   // ADS lens pass: 'auto' or 3 (all) / 2 (no blur) / 1 (no blur, fringing) / 0 (no glare either)
   showViewmodel: true,
-  targetMode: 'dummy',   // 'dummy' or 'dots' (M cycles dummy -> still dots -> moving dots)
+  targetMode: 'dummy',   // 'dummy', 'paper' or 'dots' (M cycles dummy -> paper -> still dots -> moving dots)
   dotCount: 5,
   dotMoving: false,
   dotSpeed: 1.5,         // metres per second
@@ -94,7 +94,7 @@ export function sanitize(input) {
   }
 
   out.reticleColor = RETICLE_COLOR_NAMES.includes(s.reticleColor) ? s.reticleColor : DEFAULTS.reticleColor;
-  out.targetMode = s.targetMode === 'dots' || s.targetMode === 'dummy' ? s.targetMode : (s.movingTarget === true ? 'dots' : DEFAULTS.targetMode);
+  out.targetMode = ['dots', 'dummy', 'paper'].includes(s.targetMode) ? s.targetMode : (s.movingTarget === true ? 'dots' : DEFAULTS.targetMode);
   out.dotMoving = typeof s.dotMoving === 'boolean' ? s.dotMoving : (s.movingTarget === true ? true : DEFAULTS.dotMoving);
   out.dotCount = Number.isInteger(s.dotCount) ? Math.min(12, Math.max(1, s.dotCount)) : DEFAULTS.dotCount;
   out.graphics = s.graphics === 'high' ? 'high' : 'standard';

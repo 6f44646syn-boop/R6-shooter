@@ -10,6 +10,7 @@ import { RecoilEngine } from './core/recoil.js';
 import { loadGameData } from './core/guns.js';
 import { randomSeed } from './core/prng.js';
 import { Range, EYE_HEIGHT } from './scene/range.js';
+import { RING_STEP } from './scene/range-tex.js';
 import { WeaponRig } from './scene/viewmodel.js';
 import { LensPost } from './render/lens-post.js';
 import { reticleTextures } from './ui/reticle-tex.js';
@@ -445,8 +446,9 @@ function boot(data) {
     else if (c === 'KeyC') clearRange();
     else if ((c === 'BracketLeft' || c === 'BracketRight') && !state.ads) cycleOptic(c === 'BracketLeft' ? -1 : 1);
     else if (c === 'KeyM') {
-      // Cycle: dummy -> red dots (still) -> red dots (moving) -> dummy
-      if (settings.targetMode === 'dummy') { settings.targetMode = 'dots'; settings.dotMoving = false; }
+      // Cycle: dummy -> paper -> red dots (still) -> red dots (moving) -> dummy
+      if (settings.targetMode === 'dummy') settings.targetMode = 'paper';
+      else if (settings.targetMode === 'paper') { settings.targetMode = 'dots'; settings.dotMoving = false; }
       else if (!settings.dotMoving) settings.dotMoving = true;
       else settings.targetMode = 'dummy';
       saveSettings(settings); applyTarget(); settingsUI.refresh();
@@ -490,15 +492,17 @@ function boot(data) {
   }
 
   function targetLabel() {
-    const t = settings.targetMode === 'dummy' ? 'dummy' : settings.dotCount + ' red dot' + (settings.dotCount > 1 ? 's' : '') + (settings.dotMoving ? ', moving' : '');
-    range.setBoardLabel(t);
+    const m = settings.targetMode;
+    const t = m === 'dummy' ? 'dummy' : m === 'paper' ? 'paper target' : settings.dotCount + ' red dot' + (settings.dotCount > 1 ? 's' : '') + (settings.dotMoving ? ', moving' : '');
+    range.setBoardLabel(t, m);
     return (player.crouched ? 'crouched \u00b7 ' : '') + t;
   }
   // Show the dummy or lay out the red dots (new random spots each time, or ?seed= for tests).
   let dotSeed = 1;
   function applyTarget() {
     const dotsMode = settings.targetMode === 'dots';
-    range.dummy.visible = !dotsMode;
+    range.dummy.visible = settings.targetMode === 'dummy';
+    range.paper.visible = settings.targetMode === 'paper';
     dots.setVisible(dotsMode);
     if (dotsMode) {
       dotSeed = params.get('seed') !== null ? Number(params.get('seed')) >>> 0 : randomSeed();
@@ -564,6 +568,11 @@ function boot(data) {
       } else if (kind === 'dummy') {
         onTarget = true;
         if (hit.zone === 'head') state.headshots++;
+      } else if (kind === 'paper') {
+        // Ring score: 10 inside the first ring, 1 in the tenth, 0 on the card outside them.
+        onTarget = true;
+        const ring = Math.ceil(Math.hypot(tx, ty) / RING_STEP);
+        state.score += ring >= 1 && ring <= 10 ? 11 - ring : (ring === 0 ? 10 : 0);
       }
       if (mag.n < mag.xy.length / 2) { mag.xy[mag.n * 2] = tx; mag.xy[mag.n * 2 + 1] = ty; mag.n++; }
     }
@@ -578,7 +587,7 @@ function boot(data) {
   // Called when a magazine runs dry or a reload starts: draw that magazine's plot.
   function finishMagazine() {
     if (mag.shots === 0) return;
-    plot.draw(mag.xy, mag.n, mag.shots, mag.hits, state.gun.name + ' \u00b7 ' + state.optic.id, range.distance, dots.visible ? dots.radius : 0);
+    plot.draw(mag.xy, mag.n, mag.shots, mag.hits, state.gun.name + ' \u00b7 ' + state.optic.id, range.distance, dots.visible ? dots.radius : 0, range.paper.visible ? RING_STEP : 0);
     $('hud-plot').hidden = false;
     mag.n = mag.shots = mag.hits = 0;
   }
@@ -706,7 +715,7 @@ function boot(data) {
     if (crosshairEl.hidden !== (xo === 0)) crosshairEl.hidden = xo === 0;
     frameT = t;
     hud.setAmmo(weapon.ammo, state.gun.magSize, weapon.reloading);
-    hud.setStats(state.shots, state.hits, state.headshots, dots.visible ? state.score : -1);
+    hud.setStats(state.shots, state.hits, state.headshots, dots.visible || range.paper.visible ? state.score : -1);
     reloadBar(weapon.reloading ? weapon.reloadProgress : -1);
   }
 
@@ -865,6 +874,7 @@ function boot(data) {
       lensQuality, setAutoLevel(l) { autoLevel = l; }, renderFrame,
       setLensQuality(q) { settings.lensQuality = q; },
       toneMapping: () => renderer.toneMapping,
+      _range: range,
       shadowCasters: () => (range.key.castShadow ? range.key.shadow.map ? 1 : 0 : 0),
       setGraphics(g) { settings.graphics = g; applyGraphics(); rig.setGun(state.gun, state.gunIndex, state.optic); },
       setHipMs(ms) { hipMs = ms; },
@@ -883,6 +893,7 @@ function boot(data) {
       shotPoints() { const o = []; for (let i = 0; i < shotPtsN; i++) o.push([shotPts[i * 2], shotPts[i * 2 + 1]]); return o; },
       clearShotPoints() { shotPtsN = 0; },
       dummyVisible: () => range.dummy.visible,
+      paperVisible: () => range.paper.visible,
       setAim(yaw, pitch) { look.setAngles(yaw, pitch); },
       applyCounts(dx, dy) { const d = currentDpc(); return look.apply(dx, dy, d, d * settings.sensV / settings.sensH); },
       setAds,

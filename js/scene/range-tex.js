@@ -24,85 +24,6 @@ function speckle(g, w, h, n, rng, colors) {
   g.globalAlpha = 1;
 }
 
-// Steel tread plate, tiles every 0.5 m. Worn copper-rust tint, raised diagonal bars.
-export function treadPlate() {
-  const S = 256, [cv, g] = canvas(S, S), rng = mulberry32(11);
-  const base = g.createLinearGradient(0, 0, S, S);
-  base.addColorStop(0, '#6e4a37'); base.addColorStop(0.5, '#5f4a40'); base.addColorStop(1, '#6a4634');
-  g.fillStyle = base; g.fillRect(0, 0, S, S);
-  speckle(g, S, S, 260, rng, ['#2b1d16', '#8a5b40', '#4a4642', '#9a6a4a']);
-  const cell = 32;
-  for (let y = 0; y < S; y += cell) {
-    for (let x = 0; x < S; x += cell) {
-      const a = ((x + y) / cell) % 2 ? Math.PI / 4 : -Math.PI / 4;
-      g.save();
-      g.translate(x + cell / 2, y + cell / 2);
-      g.rotate(a);
-      // shadow, then the raised bar, then its lit edge
-      g.fillStyle = 'rgba(20,12,8,0.55)';
-      g.beginPath(); g.ellipse(1.5, 1.5, 11, 2.6, 0, 0, Math.PI * 2); g.fill();
-      g.fillStyle = '#8b6a56';
-      g.beginPath(); g.ellipse(0, 0, 11, 2.6, 0, 0, Math.PI * 2); g.fill();
-      g.fillStyle = 'rgba(255,230,200,0.25)';
-      g.beginPath(); g.ellipse(-0.6, -0.8, 9, 1.1, 0, 0, Math.PI * 2); g.fill();
-      g.restore();
-    }
-  }
-  speckle(g, S, S, 120, rng, ['#1d1410', '#3a2a22']);
-  return tex(cv, true);
-}
-
-// Painted lane markings on a transparent sheet: distance lines and numbers, firing line,
-// lane edges. ppm px per metre; the sheet covers halfWidth x 2 by (near + far) metres.
-export function laneMarkings(halfWidth, near, far, ppm = 48) {
-  const W = halfWidth * 2 * ppm, L = (near + far) * ppm, [cv, g] = canvas(W, L);
-  const row = (dist) => (far - dist) * ppm;
-  g.fillStyle = 'rgba(232,176,58,0.85)';
-  g.textAlign = 'center';
-  g.font = 'bold ' + Math.round(ppm * 0.6) + 'px sans-serif';
-  for (const d of [5, 10, 15, 20]) {
-    g.fillRect(ppm * 0.9, row(d) - 3, W - ppm * 1.8, 6);
-    g.fillText(d + ' m', W / 2, row(d) + ppm * 0.8);
-  }
-  g.fillStyle = 'rgba(235,235,230,0.9)';
-  g.fillRect(0, row(0) - 4, W, 8);                          // firing line
-  g.fillStyle = 'rgba(232,176,58,0.7)';
-  g.fillRect(ppm * 0.9 - 6, 0, 6, row(0));                  // lane edges, downrange only
-  g.fillRect(W - ppm * 0.9, 0, 6, row(0));
-  const t = tex(cv, false);
-  return t;
-}
-
-// Corrugated metal wall, 2 m wide x 3.6 m tall per tile, with a safety stripe band.
-export function corrugatedWall() {
-  const W = 256, H = 460, [cv, g] = canvas(W, H), rng = mulberry32(7);
-  for (let x = 0; x < W; x++) {
-    const v = Math.sin((x / W) * Math.PI * 2 * 16);        // 16 ridges per tile
-    const l = 58 + v * 14;
-    g.fillStyle = 'rgb(' + (l - 6) + ',' + (l + 2) + ',' + (l + 4) + ')';
-    g.fillRect(x, 0, 1, H);
-  }
-  // Lower 0.9 m: painted darker; safety stripe 0.9-1.1 m.
-  const y = (m) => H - (m / 3.6) * H;
-  g.fillStyle = 'rgba(30,36,34,0.55)';
-  g.fillRect(0, y(0.9), W, H - y(0.9));
-  g.save();
-  g.beginPath(); g.rect(0, y(1.1), W, y(0.9) - y(1.1)); g.clip();
-  g.fillStyle = '#d9a72e'; g.fillRect(0, y(1.1), W, y(0.9) - y(1.1));
-  g.fillStyle = '#1b1b1b';
-  for (let x = -40; x < W + 40; x += 32) { g.beginPath(); g.moveTo(x, y(0.9)); g.lineTo(x + 16, y(0.9)); g.lineTo(x + 40, y(1.1)); g.lineTo(x + 24, y(1.1)); g.closePath(); g.fill(); }
-  g.restore();
-  // grime streaks
-  for (let i = 0; i < 40; i++) {
-    const x = rng() * W, h = 20 + rng() * 120;
-    const gr = g.createLinearGradient(0, y(3.4), 0, y(3.4) + h);
-    gr.addColorStop(0, 'rgba(25,18,12,0.25)'); gr.addColorStop(1, 'rgba(25,18,12,0)');
-    g.fillStyle = gr; g.fillRect(x, y(3.4), 2 + rng() * 4, h);
-  }
-  speckle(g, W, H, 140, rng, ['#1c1f20', '#6a6f72']);
-  return tex(cv, true);
-}
-
 // Riveted steel backstop plate with rust streaks.
 export function backstopPlate() {
   const W = 512, H = 230, [cv, g] = canvas(W, H), rng = mulberry32(5);
@@ -173,28 +94,6 @@ export function padTexture() {
   return tex(cv, false);
 }
 
-// The distance board: lane name, selected distance and target type.
-export function drawBoard(g, W, H, distance, label) {
-  g.fillStyle = '#16191d'; g.fillRect(0, 0, W, H);
-  g.strokeStyle = '#3a4048'; g.lineWidth = 6; g.strokeRect(3, 3, W - 6, H - 6);
-  g.fillStyle = '#e8b03a'; g.font = 'bold 44px sans-serif'; g.textAlign = 'left';
-  g.fillText('LANE 1', 28, 62);
-  g.fillStyle = '#9aa3ae'; g.font = '26px sans-serif';
-  g.fillText(label.toUpperCase(), 28, 100);
-  const ds = [5, 10, 15, 20];
-  ds.forEach((d, i) => {
-    const x = 28 + i * ((W - 56) / 4), y = 130, w = (W - 56) / 4 - 12, h = 90;
-    const on = d === distance;
-    g.fillStyle = on ? '#e8b03a' : '#252a31';
-    g.fillRect(x, y, w, h);
-    g.fillStyle = on ? '#16191d' : '#c9ced6';
-    g.font = 'bold 40px sans-serif'; g.textAlign = 'center';
-    g.fillText(d + ' m', x + w / 2, y + 60);
-  });
-  g.fillStyle = '#6b737d'; g.font = '22px sans-serif'; g.textAlign = 'left';
-  g.fillText('-  /  +  change distance       M  change target', 28, H - 26);
-}
-
 /* ---------- High graphics: height-derived normal maps and roughness maps ----------
    Each surface is described once as a greyscale height field drawn on a canvas; the normal
    map is its gradient (Sobel), computed once on the CPU at start-up. Roughness maps put the
@@ -240,58 +139,6 @@ function noiseField(g, W, H, rng, n, rMin, rMax, a) {
     const r = rMin + rng() * (rMax - rMin);
     g.beginPath(); g.arc(rng() * W, rng() * H, r, 0, Math.PI * 2); g.fill();
   }
-}
-
-// Tread plate: same bar layout as treadPlate(). Bars are raised and worn smooth.
-export function treadPlateMaps() {
-  const S = 256, rng = mulberry32(12);
-  const [hc, hg] = canvas(S, S);
-  const [rc, rg] = canvas(S, S);
-  hg.fillStyle = '#404040'; hg.fillRect(0, 0, S, S);
-  noiseField(hg, S, S, rng, 500, 0.5, 2, 0.15);
-  rg.fillStyle = 'rgb(0,190,0)'; rg.fillRect(0, 0, S, S);
-  for (let i = 0; i < 300; i++) {   // grime and rust: rougher patches
-    const v = 170 + rng() * 85;
-    rg.fillStyle = 'rgba(0,' + (v | 0) + ',0,0.25)';
-    rg.beginPath(); rg.arc(rng() * S, rng() * S, 2 + rng() * 10, 0, Math.PI * 2); rg.fill();
-  }
-  const cell = 32;
-  hg.filter = 'blur(1px)';
-  for (let y = 0; y < S; y += cell) {
-    for (let x = 0; x < S; x += cell) {
-      const a = ((x + y) / cell) % 2 ? Math.PI / 4 : -Math.PI / 4;
-      for (const [g, col] of [[hg, '#e8e8e8'], [rg, 'rgb(0,105,0)']]) {
-        g.save(); g.translate(x + cell / 2, y + cell / 2); g.rotate(a);
-        g.fillStyle = col;
-        g.beginPath(); g.ellipse(0, 0, 11, 2.6, 0, 0, Math.PI * 2); g.fill();
-        g.restore();
-      }
-    }
-  }
-  hg.filter = 'none';
-  return { normal: normalFromHeight(hc, 3), rough: dataTex(rc, true) };
-}
-
-// Corrugated wall: 16 rounded ridges per 2 m tile (matches corrugatedWall()).
-export function corrugatedMaps() {
-  const W = 256, H = 64, rng = mulberry32(8);
-  const [hc, hg] = canvas(W, H);
-  for (let x = 0; x < W; x++) {
-    const v = Math.sin((x / W) * Math.PI * 2 * 16) * 0.5 + 0.5;
-    const l = (v * 200 + 28) | 0;
-    hg.fillStyle = 'rgb(' + l + ',' + l + ',' + l + ')'; hg.fillRect(x, 0, 1, H);
-  }
-  noiseField(hg, W, H, rng, 120, 0.5, 1.5, 0.08);
-  const [rc, rg] = canvas(W, 460);
-  rg.fillStyle = 'rgb(0,175,0)'; rg.fillRect(0, 0, W, 460);
-  for (let i = 0; i < 200; i++) {
-    const v = 120 + rng() * 120;
-    rg.fillStyle = 'rgba(0,' + (v | 0) + ',0,0.3)';
-    rg.fillRect(rng() * W, rng() * 460, 2 + rng() * 6, 10 + rng() * 80);
-  }
-  // Painted lower band and stripe: satin paint, a bit smoother.
-  rg.fillStyle = 'rgba(0,120,0,0.6)'; rg.fillRect(0, 460 - (1.1 / 3.6) * 460, W, (1.1 / 3.6) * 460);
-  return { normal: normalFromHeight(hc, 2), rough: dataTex(rc, true) };
 }
 
 // Backstop: panel seams, rivet heads and pitting from old hits (matches backstopPlate()).
@@ -381,4 +228,220 @@ export function gunMaps(kind) {
   const out = { map, rough: dataTex(rc, true), normal: normalFromHeight(hc, metal ? 0.8 : 2.2) };
   GUN_CACHE[kind] = out;
   return out;
+}
+
+/* ---------- Indoor range surfaces (each returns { map, normal, rough }) ----------
+   The normal and roughness maps are built once and used only by high graphics, but they
+   are cheap (a few hundred kB of canvas work at start-up). */
+
+// Concrete floor tiles: one texture covers 2 x 2 m, 4 x 4 tiles of 0.5 m with dark grout,
+// stains and scuffs.
+export function concreteTiles() {
+  const S = 512, T = S / 4, rng = mulberry32(41);
+  const [cv, g] = canvas(S, S), [hc, hg] = canvas(S, S), [rc, rg] = canvas(S, S);
+  hg.fillStyle = '#c0c0c0'; hg.fillRect(0, 0, S, S);
+  rg.fillStyle = 'rgb(0,215,0)'; rg.fillRect(0, 0, S, S);
+  for (let ty = 0; ty < 4; ty++) for (let tx = 0; tx < 4; tx++) {
+    const l = 150 + rng() * 26, w = 3 + rng() * 6;
+    g.fillStyle = 'rgb(' + (l | 0) + ',' + ((l - 3) | 0) + ',' + ((l - 10) | 0) + ')';
+    g.fillRect(tx * T, ty * T, T, T);
+    // soft light/dark patches inside each tile
+    for (let i = 0; i < 6; i++) {
+      const x = tx * T + rng() * T, y = ty * T + rng() * T, r = 10 + rng() * 40;
+      const gr = g.createRadialGradient(x, y, 0, x, y, r);
+      const d = rng() < 0.5 ? '40,34,28' : '230,225,215';
+      gr.addColorStop(0, 'rgba(' + d + ',' + (0.05 + rng() * 0.08) + ')'); gr.addColorStop(1, 'rgba(' + d + ',0)');
+      g.fillStyle = gr; g.fillRect(tx * T, ty * T, T, T);
+    }
+    void w;
+  }
+  speckle(g, S, S, 1400, rng, ['#5a534a', '#d8d2c6', '#7a7064', '#3a342e']);
+  // oil and rust stains (rougher), scuff marks (smoother)
+  for (let i = 0; i < 14; i++) {
+    const x = rng() * S, y = rng() * S, r = 14 + rng() * 50;
+    const gr = g.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, 'rgba(70,52,36,' + (0.15 + rng() * 0.2) + ')'); gr.addColorStop(1, 'rgba(70,52,36,0)');
+    g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+    rg.fillStyle = 'rgba(0,150,0,0.4)'; rg.beginPath(); rg.arc(x, y, r * 0.7, 0, Math.PI * 2); rg.fill();
+  }
+  g.lineWidth = 1;
+  for (let i = 0; i < 60; i++) {
+    const x = rng() * S, y = rng() * S, a = rng() * Math.PI, l = 8 + rng() * 40;
+    g.strokeStyle = 'rgba(40,36,30,0.25)';
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke();
+  }
+  // grout
+  g.fillStyle = '#3c3833'; hg.fillStyle = '#202020'; rg.fillStyle = 'rgb(0,250,0)';
+  for (let i = 0; i <= 4; i++) {
+    for (const [c, ww] of [[g, 4], [hg, 6], [rg, 6]]) { c.fillRect(i * T - ww / 2, 0, ww, S); c.fillRect(0, i * T - ww / 2, S, ww); }
+  }
+  noiseField(hg, S, S, rng, 2500, 0.5, 1.5, 0.12);
+  return { map: tex(cv, true), normal: normalFromHeight(hc, 2), rough: dataTex(rc, true) };
+}
+
+// Steel floor grating where you stand: 0.25 m per tile, square openings over a dark void.
+export function floorGrate() {
+  const S = 128, rng = mulberry32(43), n = 8, c = S / n;
+  const [cv, g] = canvas(S, S), [hc, hg] = canvas(S, S);
+  g.fillStyle = '#0d0e10'; g.fillRect(0, 0, S, S);
+  hg.fillStyle = '#000'; hg.fillRect(0, 0, S, S);
+  for (let i = 0; i < n; i++) {
+    for (const [cc, col] of [[g, '#4a4d52'], [hg, '#fff']]) {
+      cc.fillStyle = col;
+      cc.fillRect(i * c - 1.5, 0, 3, S); cc.fillRect(0, i * c - 2, S, 4);
+    }
+  }
+  speckle(g, S, S, 120, rng, ['#2a2622', '#6a5a48']);
+  return { map: tex(cv, true), normal: normalFromHeight(hc, 3) };
+}
+
+// Side wall: 1.2 m modules, 3.6 m tall. Dark painted steel panels with louvred vents, seams
+// and a grey kick band at the bottom.
+export function wallPanels() {
+  const W = 256, H = 768, rng = mulberry32(47);
+  const [cv, g] = canvas(W, H), [hc, hg] = canvas(W, H);
+  const y = (m) => H - (m / 3.6) * H;
+  g.fillStyle = '#4a4d51'; g.fillRect(0, 0, W, H);
+  hg.fillStyle = '#808080'; hg.fillRect(0, 0, W, H);
+  g.fillStyle = '#4a4c4e'; g.fillRect(0, y(0.4), W, H - y(0.4));                         // kick band
+  hg.fillStyle = '#a0a0a0'; hg.fillRect(0, y(0.4), W, H - y(0.4));
+  // vertical louvre column in the middle of the module, 0.6 to 2.8 m
+  const lx = W * 0.3, lw = W * 0.4;
+  g.fillStyle = '#26282b'; g.fillRect(lx, y(2.8), lw, y(0.6) - y(2.8));
+  for (let yy = y(2.8) + 4; yy < y(0.6) - 4; yy += 9) {
+    g.fillStyle = '#121315'; g.fillRect(lx + 6, yy, lw - 12, 4);
+    g.fillStyle = '#4f5256'; g.fillRect(lx + 6, yy + 4, lw - 12, 1.5);
+    hg.fillStyle = '#303030'; hg.fillRect(lx + 6, yy, lw - 12, 4);
+    hg.fillStyle = '#d0d0d0'; hg.fillRect(lx + 6, yy + 4, lw - 12, 2);
+  }
+  // seams at the module edges and a horizontal seam
+  for (const [c, col] of [[g, '#151618'], [hg, '#101010']]) {
+    c.fillStyle = col; c.fillRect(0, 0, 3, H); c.fillRect(W - 3, 0, 3, H); c.fillRect(0, y(3.0), W, 3);
+  }
+  speckle(g, W, H, 500, rng, ['#202224', '#55595d', '#4a3d30']);
+  for (let i = 0; i < 30; i++) {                   // grime runs
+    const x = rng() * W, y0 = rng() * H * 0.8, h = 30 + rng() * 120;
+    const gr = g.createLinearGradient(0, y0, 0, y0 + h);
+    gr.addColorStop(0, 'rgba(20,16,12,0.25)'); gr.addColorStop(1, 'rgba(20,16,12,0)');
+    g.fillStyle = gr; g.fillRect(x, y0, 2 + rng() * 5, h);
+  }
+  return { map: tex(cv, true), normal: normalFromHeight(hc, 2) };
+}
+
+// Ceiling: dark board-formed concrete.
+export function ceilingConcrete() {
+  const S = 256, rng = mulberry32(53), [cv, g] = canvas(S, S);
+  g.fillStyle = '#3a3b3e'; g.fillRect(0, 0, S, S);
+  for (let x = 0; x < S; x += 16) { g.fillStyle = 'rgba(0,0,0,' + (0.1 + rng() * 0.15) + ')'; g.fillRect(x, 0, 2, S); }
+  speckle(g, S, S, 500, rng, ['#1a1b1d', '#3a3b3e']);
+  return tex(cv, true);
+}
+
+// Yellow and black hazard stripes (diagonal), tiles along u.
+export function hazardStripes() {
+  const W = 128, H = 32, [cv, g] = canvas(W, H);
+  g.fillStyle = '#d9a72e'; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#18181a';
+  for (let x = -H; x < W + H; x += 32) { g.beginPath(); g.moveTo(x, H); g.lineTo(x + 16, H); g.lineTo(x + 16 + H, 0); g.lineTo(x + H, 0); g.closePath(); g.fill(); }
+  return tex(cv, true);
+}
+
+// Front face of the firing-line ledge: worn grey steel with a stencilled warning.
+export function ledgeFace(widthM) {
+  const W = 1024, H = 96, [cv, g] = canvas(W, H), rng = mulberry32(59);
+  g.fillStyle = '#3d4044'; g.fillRect(0, 0, W, H);
+  speckle(g, W, H, 400, rng, ['#2a2c2f', '#5a5e63']);
+  g.fillStyle = 'rgba(200,205,210,0.55)';
+  g.font = 'bold 54px monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  const text = 'D O   N O T   C R O S S';
+  g.fillText(text, W / 2, H / 2 + 2);
+  // stencil bridges
+  g.fillStyle = '#3d4044';
+  for (let x = 0; x < W; x += 11) if (rng() < 0.2) g.fillRect(x, H / 2 - 3, 2, 6);
+  void widthM;
+  return tex(cv, false);
+}
+
+// Paper target: light card, concentric scoring rings (RING_STEP apart, 10 rings), red
+// centre, alignment ticks. size: board edge in metres (the texture covers the board).
+export const RING_STEP = 0.04;      // metres between rings (score 10 inside the first)
+export function paperTarget(size) {
+  const S = 1024, [cv, g] = canvas(S, S), ppm = S / size, c = S / 2, rng = mulberry32(61);
+  g.fillStyle = '#cfcdc7'; g.fillRect(0, 0, S, S);
+  speckle(g, S, S, 300, rng, ['#bdbab3', '#dddbd5']);
+  const R = (k) => k * RING_STEP * ppm;
+  g.fillStyle = '#2b2b2d'; g.beginPath(); g.arc(c, c, R(10), 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#3a3a3d'; g.beginPath(); g.arc(c, c, R(6), 0, Math.PI * 2); g.fill();
+  g.strokeStyle = 'rgba(220,220,215,0.75)';
+  for (let k = 1; k <= 10; k++) { g.lineWidth = k % 2 ? 2 : 3.5; g.beginPath(); g.arc(c, c, R(k), 0, Math.PI * 2); g.stroke(); }
+  g.fillStyle = '#9b2b2b'; g.beginPath(); g.arc(c, c, R(1) - 2, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#3a3a3d';
+  for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+    const r0 = R(10) + 10, r1 = R(10) + 40;
+    g.fillRect(c + dx * r0 - (dx ? 0 : 3) - (dx < 0 ? r1 - r0 : 0), c + dy * r0 - (dy ? 0 : 3) - (dy < 0 ? r1 - r0 : 0), dx ? r1 - r0 : 6, dy ? r1 - r0 : 6);
+  }
+  g.font = 'bold 22px sans-serif'; g.fillStyle = 'rgba(220,220,215,0.8)'; g.textAlign = 'center';
+  for (let k = 2; k <= 9; k++) g.fillText(String(11 - k), c, c - R(k) + R(1) * 0.65);
+  g.strokeStyle = '#8a8882'; g.lineWidth = 8; g.strokeRect(4, 4, S - 8, S - 8);
+  const t = tex(cv, false);
+  t.anisotropy = 8;
+  return t;
+}
+
+// The lane's control screen. distance: selected metres; mode: 'dummy' | 'paper' | 'dots';
+// label: what is on the lane.
+export function drawPanel(g, W, H, distance, mode, label) {
+  g.fillStyle = '#0f1318'; g.fillRect(0, 0, W, H);
+  g.strokeStyle = '#2b3440'; g.lineWidth = 8; g.strokeRect(4, 4, W - 8, H - 8);
+  const sx = W * 0.36;
+  g.fillStyle = '#1f2a36'; g.fillRect(sx, 24, 3, H - 48);
+  // distances
+  g.textAlign = 'left'; g.textBaseline = 'middle';
+  g.fillStyle = '#7f8b99'; g.font = '600 26px sans-serif'; g.fillText('DISTANCE', 36, 52);
+  [5, 10, 15, 20].forEach((d, i) => {
+    const y = 120 + i * 98, on = d === distance;
+    g.strokeStyle = on ? '#6fb7ff' : '#46505c'; g.lineWidth = 3;
+    g.strokeRect(40, y - 30, 60, 60);
+    if (on) { g.fillStyle = 'rgba(80,160,255,0.35)'; g.fillRect(46, y - 24, 48, 48); }
+    g.fillStyle = on ? '#cfe6ff' : '#c9d0d8'; g.font = 'bold 44px sans-serif';
+    g.fillText(d + ' M', 124, y + 2);
+  });
+  g.fillStyle = '#6fb7ff'; g.font = '600 24px sans-serif'; g.fillText('-  /  +', 40, H - 46);
+  // target
+  const cx = sx + (W - sx) / 2;
+  g.textAlign = 'center';
+  g.fillStyle = '#7f8b99'; g.font = '600 26px sans-serif'; g.fillText('TARGET', cx, 52);
+  const modes = ['dummy', 'paper', 'dots'];
+  modes.forEach((m, i) => {
+    const x = cx + (i - 1) * 110, y = 112, on = m === mode;
+    g.strokeStyle = on ? '#6fb7ff' : '#46505c'; g.lineWidth = 3; g.strokeRect(x - 34, y - 34, 68, 68);
+    if (on) { g.fillStyle = 'rgba(80,160,255,0.3)'; g.fillRect(x - 28, y - 28, 56, 56); }
+    g.fillStyle = on ? '#e6f1ff' : '#9aa6b4'; g.strokeStyle = g.fillStyle; g.lineWidth = 3;
+    if (m === 'dummy') { g.beginPath(); g.arc(x, y - 14, 8, 0, Math.PI * 2); g.fill(); g.fillRect(x - 10, y - 4, 20, 26); }
+    else if (m === 'paper') { for (const r of [22, 14, 6]) { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.stroke(); } }
+    else { for (const [dx, dy] of [[-12, -10], [12, -4], [-2, 14]]) { g.fillStyle = '#e0201b'; g.beginPath(); g.arc(x + dx, y + dy, 7, 0, Math.PI * 2); g.fill(); } }
+  });
+  // preview of what is on the lane
+  const py = 300;
+  if (mode === 'paper') {
+    g.fillStyle = '#2b2b2d'; g.beginPath(); g.arc(cx, py, 110, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = '#9aa0a8'; g.lineWidth = 2;
+    for (let k = 1; k <= 10; k++) { g.beginPath(); g.arc(cx, py, k * 11, 0, Math.PI * 2); g.stroke(); }
+    g.fillStyle = '#9b2b2b'; g.beginPath(); g.arc(cx, py, 9, 0, Math.PI * 2); g.fill();
+  } else if (mode === 'dummy') {
+    g.fillStyle = '#c99550';
+    g.beginPath(); g.arc(cx, py - 80, 24, 0, Math.PI * 2); g.fill();
+    g.fillRect(cx - 40, py - 50, 80, 110); g.fillRect(cx - 34, py + 60, 26, 70); g.fillRect(cx + 8, py + 60, 26, 70);
+  } else {
+    g.strokeStyle = '#46505c'; g.lineWidth = 2; g.strokeRect(cx - 150, py - 100, 300, 200);
+    for (const [dx, dy] of [[-90, -40], [60, -60], [-20, 30], [100, 50], [-110, 70]]) {
+      g.fillStyle = '#fff'; g.beginPath(); g.arc(cx + dx, py + dy, 15, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#e0201b'; g.beginPath(); g.arc(cx + dx, py + dy, 11, 0, Math.PI * 2); g.fill();
+    }
+  }
+  g.fillStyle = '#9aa6b4'; g.font = '24px sans-serif'; g.fillText(label.toUpperCase(), cx, py + 150);
+  // clear button
+  g.strokeStyle = '#46505c'; g.lineWidth = 3; g.strokeRect(cx - 120, H - 76, 240, 54);
+  g.fillStyle = '#c9d0d8'; g.font = 'bold 28px sans-serif'; g.fillText('CLEAR  (C)', cx, H - 48);
+  g.fillStyle = '#6fb7ff'; g.font = '600 24px sans-serif'; g.textAlign = 'right'; g.fillText('M', W - 40, 52);
 }
