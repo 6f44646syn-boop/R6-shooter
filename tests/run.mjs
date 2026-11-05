@@ -129,14 +129,14 @@ try {
     check('recoil offset climbs while firing (' + rec.during.toFixed(3) + ' deg)', rec.during > 0.5, 'offset ' + rec.during);
     check('offset recovers to zero', Math.abs(rec.after[0]) < 1e-9 && Math.abs(rec.after[1]) < 1e-9, JSON.stringify(rec.after));
 
-    // f) hole cap: 4 magazines of the 100-round gun -> 300 holes kept.
+    // f) hole cap: 11 magazines of 30 rounds -> 300 holes kept.
     const cap = await page.evaluate(() => {
       const R = window.__range;
       R.manual(true); R.selectGun(5); R.clear(); R.setAim(0, 0);
-      for (let m = 0; m < 4; m++) { R.trigger(true); R.step(10); R.trigger(false); R.reload(); R.step(6); }
+      for (let m = 0; m < 11; m++) { R.trigger(true); R.step(10); R.trigger(false); R.reload(); R.step(6); }
       return { holes: R.holes().length, shots: R.state().shots };
     });
-    check('hole cap 300 (shots ' + cap.shots + ')', cap.holes === 300 && cap.shots === 400, JSON.stringify(cap));
+    check('hole cap 300 (shots ' + cap.shots + ')', cap.holes === 300 && cap.shots === 330, JSON.stringify(cap));
 
     // g) ADS FOV through a 2.0x optic, and look counts with the glitch guard.
     const ads = await page.evaluate(() => {
@@ -155,15 +155,15 @@ try {
       R.setMover(true, 1.5);
       const t0 = R.now();
       const x0 = R.dotX(t0), x2 = R.dotX(t0 + 2), xWrap = R.dotX(t0 + 4 + 1 / 3);
-      // Aim where the dot will be at the moment of the shot, fire one semi-auto round.
+      // Aim where the dot will be at the moment of the shot, fire a single round.
       R.step(1);
       const x = R.dotX(R.now());
       R.setAim(Math.atan(x / 10) * 180 / Math.PI, 0);
-      R.trigger(true); R.step(0.05); R.trigger(false);
+      R.trigger(true); R.step(0.01, 1000); R.trigger(false);
       // And one shot well behind it: a miss.
       R.step(1);
       R.setAim(Math.atan((R.dotX(R.now()) - 0.5) / 10) * 180 / Math.PI, 0);
-      R.trigger(true); R.step(0.05); R.trigger(false);
+      R.trigger(true); R.step(0.01, 1000); R.trigger(false);
       const st = R.state();
       R.setMover(false);
       return { x0, x2, xWrap, shots: st.shots, hits: st.hits };
@@ -184,7 +184,7 @@ try {
     await page.waitForFunction(() => window.__range && window.__range.ready, null, { timeout: 10000 });
     const r = await page.evaluate(async () => {
       const R = window.__range;
-      R.selectGun(5); // 100-round gun so it keeps firing
+      R.selectGun(4); // 50-round gun
       document.getElementById('menu').hidden = true;
       // Fill the wall with holes first so the instanced mesh is at its cap.
       R.manual(true); R.setAim(0, 0);

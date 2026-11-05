@@ -2,8 +2,8 @@
   "_comment": "PLACEHOLDER DATA. These recoil numbers are invented test shapes, not measurements. Replace them with your own (see docs/GUN_DATA.md).",
   "guns": [
     {
-      "id": "rifle-01",
-      "name": "Rifle 01",
+      "id": "scorpion-evo3-a1",
+      "name": "Scorpion EVO 3 A1",
       "placeholder": true,
       "rpm": 750,
       "magSize": 30,
@@ -12,7 +12,7 @@
       "hipMultiplier": 1,
       "adsMultiplier": 1,
       "resetSeconds": 0.35,
-      "model": "rifle",
+      "model": "smg",
       "tone": 0.5,
       "jitter": {
         "yawDeg": 0.04,
@@ -56,8 +56,8 @@
       ]
     },
     {
-      "id": "rifle-02",
-      "name": "Rifle 02",
+      "id": "f2",
+      "name": "F2",
       "placeholder": true,
       "rpm": 800,
       "magSize": 30,
@@ -110,8 +110,8 @@
       ]
     },
     {
-      "id": "rifle-03",
-      "name": "Rifle 03",
+      "id": "r4-c",
+      "name": "R4-C",
       "placeholder": true,
       "rpm": 700,
       "magSize": 25,
@@ -120,7 +120,7 @@
       "hipMultiplier": 1,
       "adsMultiplier": 1,
       "resetSeconds": 0.4,
-      "model": "rifle",
+      "model": "carbine",
       "tone": 0.55,
       "jitter": {
         "yawDeg": 0.05,
@@ -159,8 +159,8 @@
       ]
     },
     {
-      "id": "smg-01",
-      "name": "SMG 01",
+      "id": "smg-12",
+      "name": "SMG-12",
       "placeholder": true,
       "rpm": 950,
       "magSize": 40,
@@ -223,8 +223,8 @@
       ]
     },
     {
-      "id": "smg-02",
-      "name": "SMG 02",
+      "id": "mp5",
+      "name": "MP5",
       "placeholder": true,
       "rpm": 1100,
       "magSize": 50,
@@ -297,17 +297,17 @@
       ]
     },
     {
-      "id": "lmg-01",
-      "name": "LMG 01",
+      "id": "552-commando",
+      "name": "552 Commando",
       "placeholder": true,
       "rpm": 650,
-      "magSize": 100,
+      "magSize": 30,
       "reloadSeconds": 5.5,
       "optic": 2.5,
       "hipMultiplier": 1,
       "adsMultiplier": 1,
       "resetSeconds": 0.5,
-      "model": "lmg",
+      "model": "carbine",
       "tone": 0.75,
       "jitter": {
         "yawDeg": 0.05,
@@ -381,17 +381,17 @@
       ]
     },
     {
-      "id": "carbine-01",
-      "name": "Carbine 01",
+      "id": "mxp5",
+      "name": "MXP5",
       "placeholder": true,
       "rpm": 850,
       "magSize": 30,
       "reloadSeconds": 2.2,
-      "optic": 3,
+      "optic": 1,
       "hipMultiplier": 1,
       "adsMultiplier": 1,
       "resetSeconds": 0.35,
-      "model": "carbine",
+      "model": "smg",
       "tone": 0.4,
       "jitter": {
         "yawDeg": 0.04,
@@ -435,13 +435,13 @@
       ]
     },
     {
-      "id": "rifle-04",
-      "name": "Rifle 04",
+      "id": "c8-sfw",
+      "name": "C8-SFW",
       "placeholder": true,
       "rpm": 720,
       "magSize": 30,
       "reloadSeconds": 2.6,
-      "optic": 3.5,
+      "optic": 3,
       "hipMultiplier": 1,
       "adsMultiplier": 1,
       "resetSeconds": 0.4,
@@ -489,8 +489,8 @@
       ]
     },
     {
-      "id": "smg-03",
-      "name": "SMG 03",
+      "id": "mp7",
+      "name": "MP7",
       "placeholder": true,
       "rpm": 1000,
       "magSize": 32,
@@ -545,18 +545,17 @@
       ]
     },
     {
-      "id": "marksman-01",
-      "name": "Marksman 01",
+      "id": "t-5-smg",
+      "name": "T-5 SMG",
       "placeholder": true,
-      "rpm": 380,
+      "rpm": 780,
       "magSize": 20,
       "reloadSeconds": 2.8,
-      "optic": 5,
+      "optic": 1.5,
       "hipMultiplier": 1,
       "adsMultiplier": 1,
       "resetSeconds": 0.6,
-      "fireMode": "semi",
-      "model": "marksman",
+      "model": "smg",
       "tone": 0.9,
       "jitter": {
         "yawDeg": 0.1,
