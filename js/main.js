@@ -9,7 +9,9 @@ import { RecoilEngine } from './core/recoil.js';
 import { loadGameData } from './core/guns.js';
 import { randomSeed } from './core/prng.js';
 import { Range, EYE_HEIGHT } from './scene/range.js';
-import { Viewmodel } from './scene/viewmodel.js';
+import { WeaponRig } from './scene/viewmodel.js';
+import { LensPost } from './render/lens-post.js';
+import { reticleTextures } from './ui/reticle-tex.js';
 import { DOT_POINTS } from './scene/dots.js';
 import { Sfx } from './audio/sfx.js';
 import { DebugHud } from './ui/debug-hud.js';
@@ -17,14 +19,14 @@ import { drawCrosshair } from './ui/crosshair.js';
 import { Hud } from './ui/hud.js';
 import { MagPlot } from './ui/plot.js';
 import { SettingsUI } from './ui/settings-ui.js';
-import { sensKeys } from './core/optics.js';
+import { sensKeys, zoomKey } from './core/optics.js';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
 function sensRows(catalogue, sens) {
   const keys = new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)]);
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
-import { ScopeOverlay, RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js';
+import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -62,7 +64,9 @@ function boot(data) {
   const range = new Range(scene);
   range.setDistance(settings.distance);
   range.holes.setSize(settings.holeSizeCm / 100);
-  const viewmodel = new Viewmodel(camera);
+  renderer.info.autoReset = false; // several passes per frame; reset once per frame
+  const rig = new WeaponRig(renderer);
+  const post = new LensPost(renderer, { samples: settings.antialias && renderer.capabilities.isWebGL2 ? 4 : 0 });
   const dots = range.dots;
   const sfx = new Sfx();
   sfx.setVolume(settings.volume);
@@ -77,7 +81,6 @@ function boot(data) {
   const params = new URLSearchParams(location.search);
   const testMode = params.has('test');
   const catalogue = data.catalogue;
-  const overlay = new ScopeOverlay($('scope'));
   let settingsUI = null; // created further down
 
   if (data.errors.length || data.warnings.length) {
@@ -97,7 +100,8 @@ function boot(data) {
     shots: 0, hits: 0, headshots: 0, score: 0,
     gun: null, gunIndex: 0, seed: 0,
     optic: null,   // selected sight (resolved catalogue entry)
-    adsP: 0,       // ADS blend 0 = hip, 1 = fully aimed
+    adsP: 0,       // ADS blend progress, linear 0 = hip, 1 = fully aimed
+    adsE: 0,       // eased ADS blend (drives FOV, sensitivity and the weapon raise)
     adsFov: 83,    // vertical FOV when fully aimed with this sight
   };
   const offset = [0, 0];     // current recoil offset [yaw, pitch] for the camera
@@ -122,9 +126,18 @@ function boot(data) {
   // Sensitivity: hip = base deg/count * gun hip multiplier;
   //              ADS = base deg/count * optic multiplier * gun ADS multiplier.
   function baseDpc() { return degPerCount(settings.dpi, settings.cm360); }
+  // Sensitivity follows the FOV (data/sens.json model): the multiplier moves from hip to the
+  // aimed value by exactly as much as the FOV has moved (in tan-space). Fully aimed, it is
+  // the aimed multiplier from adsCm360; at hip it is the hip multiplier.
+  function fovProgress() {
+    const tHip = Math.tan(settings.fov * DEG / 2), tAds = Math.tan(state.adsFov * DEG / 2);
+    if (Math.abs(tHip - tAds) < 1e-9) return state.adsE;
+    return Math.min(1, Math.max(0, (tHip - Math.tan(state.fovV * DEG / 2)) / (tHip - tAds)));
+  }
   function currentDpc() {
     const g = state.gun;
-    return state.ads ? baseDpc() * opticMultiplier(state.optic.sensKey) * g.adsMultiplier : baseDpc() * g.hipMultiplier;
+    const hip = g.hipMultiplier, ads = opticMultiplier(state.optic.sensKey) * g.adsMultiplier;
+    return baseDpc() * (hip + (ads - hip) * fovProgress());
   }
 
   // Fixed seed from settings or ?seed=, otherwise a new random seed per magazine.
@@ -166,7 +179,7 @@ function boot(data) {
     state.optic = catalogue.byId.get(id);
     if (save) { try { localStorage.setItem('scope:' + gun.id, id); } catch (e) { /* ignore */ } }
     recoil.setScale(gun.opticRecoilScale[id] || 1); // sprayPath is only scaled when the data says so
-    viewmodel.setGun(gun, state.gunIndex, state.optic);
+    rig.setGun(gun, state.gunIndex, state.optic);
     hud.setGun(gun, state.gunIndex, state.optic.label);
     renderSightRow();
     updateFov();
@@ -226,7 +239,17 @@ function boot(data) {
     $('sight-note').textContent = (gun.opticsVerified ? '' : 'Sight list not yet checked in game. ') + '[ and ] switch sights while not aiming.';
   }
 
-  // F4 sight gallery: every optic, drawn by the same code as the ADS overlay.
+  // F4 sight gallery: every sight rendered by the real pipeline (3D sight + lens pass) at
+  // 1920x1080 in three states: hip, fully aimed, and mid-recoil (kicked back, view punched up,
+  // muzzle flash on the lens). Then shrunk into the grid.
+  function setRenderSize(w, h) {
+    renderW = w; renderH = h;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    post.setSize(w, h);
+    rig.setAspect(w / h, h);
+    updateFov();
+  }
   function toggleGallery(show) {
     const el = $('gallery');
     const open = show !== undefined ? show : el.hidden;
@@ -234,19 +257,47 @@ function boot(data) {
     if (!open) return;
     const grid = $('gallery-grid');
     grid.textContent = '';
-    const color = RETICLE_COLORS[settings.reticleColor];
+    const saved = { optic: state.optic, ads: state.ads, adsP: state.adsP, adsE: state.adsE, lastShotT, frameT,
+      rx: camera.rotation.x, ry: camera.rotation.y };
+    setRenderSize(1920, 1080);
+    const modes = [['hip', 'Hip'], ['ads', 'Aimed'], ['recoil', 'Mid-recoil']];
     for (const o of catalogue.optics) {
       const fig = document.createElement('figure');
-      const cv = document.createElement('canvas');
-      cv.width = 480; cv.height = 270; // 16:9, the same proportions as 1920x1080
-      const g = cv.getContext('2d');
-      drawBackdrop(g, 480, 270);
-      drawScope(g, 480, 270, o, color);
-      const cap = document.createElement('figcaption');
-      cap.textContent = o.id + ' \u00b7 ' + o.zoom.toFixed(1) + 'x \u00b7 ' + catalogue.groups[o.group].label;
-      fig.append(cv, cap);
+      const row = document.createElement('div');
+      row.className = 'gal-row';
+      for (const [mode, label] of modes) {
+        state.optic = o;
+        rig.setGun(state.gun, state.gunIndex, o);
+        state.ads = mode !== 'hip';
+        state.adsP = state.adsE = mode === 'hip' ? 0 : 1;
+        updateFov();
+        rig.sx = rig.sy = rig.vx = rig.vy = rig.vz = rig.vp = 0;
+        rig.kz = mode === 'recoil' ? 0.009 : 0;
+        rig.kp = mode === 'recoil' ? 0.02 : 0;
+        camera.rotation.set(mode === 'recoil' ? 1.5 * DEG : 0, 0, 0);
+        frameT = 10; lastShotT = mode === 'recoil' ? 10 - 0.02 : -1;
+        rig.update(0, state.adsE, 0);
+        renderFrame();
+        const box = document.createElement('div');
+        const cv = document.createElement('canvas');
+        cv.width = 480; cv.height = 270;
+        cv.getContext('2d').drawImage(renderer.domElement, 0, 0, 480, 270);
+        const cap = document.createElement('span');
+        cap.textContent = label;
+        box.append(cv, cap);
+        row.append(box);
+      }
+      const title = document.createElement('figcaption');
+      title.textContent = o.id + ' · ' + o.label + ' · ' + o.zoom.toFixed(1) + 'x · ' + catalogue.groups[o.group].label +
+        ' · aimed vFOV ' + adsVFov(o).toFixed(1) + '°';
+      fig.append(title, row);
       grid.append(fig);
     }
+    Object.assign(state, { optic: saved.optic, ads: saved.ads, adsP: saved.adsP, adsE: saved.adsE });
+    lastShotT = saved.lastShotT; frameT = saved.frameT;
+    camera.rotation.x = saved.rx; camera.rotation.y = saved.ry;
+    rig.setGun(state.gun, state.gunIndex, state.optic);
+    resize();
   }
   $('gallery-close').addEventListener('click', () => toggleGallery(false));
 
@@ -291,7 +342,7 @@ function boot(data) {
     if (look.apply(e.movementX, e.movementY, dpc) && state.adsP > 0) {
       // Scope sway: the housing lags behind the turn (degrees -> screen pixels).
       const pxPerDeg = window.innerHeight / state.fovV;
-      overlay.nudge(e.movementX * dpc * pxPerDeg, e.movementY * dpc * pxPerDeg);
+      rig.nudge(e.movementX * dpc * pxPerDeg, e.movementY * dpc * pxPerDeg);
     }
   });
 
@@ -308,9 +359,15 @@ function boot(data) {
   });
   document.addEventListener('contextmenu', (e) => e.preventDefault());
 
+  // Ease-out both ways: aiming in, e = 1 - (1 - p)^3; aiming out, e = p^3 on the way back
+  // (fast first, slow landing at hip). Switching direction mid-way remaps p so e is continuous.
+  const easeOut = (x) => 1 - (1 - x) * (1 - x) * (1 - x);
+  function adsEase(p, aimingIn) { return aimingIn ? easeOut(p) : 1 - easeOut(1 - p); }
   function setAds(on) {
     if (state.ads === on) return;
+    const e = state.adsE;
     state.ads = on;
+    state.adsP = on ? 1 - Math.cbrt(1 - e) : Math.cbrt(e);
     updateFov();
   }
 
@@ -442,8 +499,8 @@ function boot(data) {
     // A popped dot stops the bullet; anything else leaves a hole where it landed.
     if (kind && dotHit < 0) range.holes.add(hit.p[0], hit.p[1], hit.p[2], hit.n[0], hit.n[1], hit.n[2]);
     if (!testMode) sfx.shot(state.gun.tone);
-    viewmodel.shot();
-    if (state.adsP > 0) overlay.kick((state.shots & 1) ? 1 : -1);
+    rig.kick();
+    lastShotT = t;   // muzzle flash on the lens
   }
 
   // Called when a magazine runs dry or a reload starts: draw that magazine's plot.
@@ -463,18 +520,24 @@ function boot(data) {
     renderH = Math.max(1, Math.round(window.innerHeight * s));
     renderer.setSize(renderW, renderH, false);
     camera.aspect = renderW / renderH;
+    post.setSize(renderW, renderH);
+    rig.setAspect(renderW / renderH, renderH);
     updateFov();
   }
-  // FOV blends in tan-space from hip FOV to the sight's ADS FOV as the ADS blend runs:
-  //   adsFov = 2 * atan(tan(adsFovBase / 2) / zoom), with adsFovBase = the hip FOV (1x).
+  // Aimed vertical FOV = hip FOV * data/sens.json model.adsVFovMultipliers[magnification]
+  // (1.0x 0.9, 2.5x 0.42). A magnification without a value uses 2 * atan(tan(hip / 2) / zoom).
+  // The FOV eases between hip and aimed in tan-space.
+  function adsVFov(optic) {
+    const m = data.sens.model.adsVFovMultipliers[zoomKey(optic.zoom)];
+    return m !== undefined ? settings.fov * m : zoomedFovDeg(settings.fov, optic.zoom);
+  }
   // The FOV setting is VERTICAL (like the game's slider), so the vertical angle is fixed and
   // the horizontal one follows the window's aspect ratio. Zoom divides tan() of either one.
   function updateFov() {
     if (!state.gun || !state.optic) return;
-    state.adsFov = zoomedFovDeg(settings.fov, state.optic.zoom);
+    state.adsFov = adsVFov(state.optic);
     const tHip = Math.tan(settings.fov * DEG / 2), tAds = Math.tan(state.adsFov * DEG / 2);
-    const p = state.adsP, e = p * p * (3 - 2 * p); // smoothstep
-    state.fovV = 2 * Math.atan(tHip + (tAds - tHip) * e) / DEG;
+    state.fovV = 2 * Math.atan(tHip + (tAds - tHip) * state.adsE) / DEG;
     state.fovH = horizontalFovDeg(state.fovV, camera.aspect);
     camera.fov = state.fovV;
     camera.updateProjectionMatrix();
@@ -513,7 +576,7 @@ function boot(data) {
 
   const info = {
     look, dpc: 0, ads: false, raw: false, fovH: 0, fovV: 0, recoilYaw: 0, recoilPitch: 0,
-    shotIndex: 0, seed: '-', optic: '-', zoom: 1, sensKey: '-', adsFov: 0, adsCm360: 0, renderW: 0, renderH: 0, calls: 0, tris: 0,
+    shotIndex: 0, seed: '-', optic: '-', zoom: 1, sensKey: '-', adsFov: 0, adsCm360: 0, lens: '-', renderW: 0, renderH: 0, calls: 0, tris: 0,
   };
   let prevT = clockNow();
 
@@ -532,24 +595,31 @@ function boot(data) {
     camera.rotation.x = pitch * DEG;
     dots.update(t);
 
-    // ADS blend: takes gun.adsSeconds / (1 + the sight's adsSpeedBonus) each way.
+    // ADS blend: linear progress adsP, eased out in both directions into adsE.
     const target = state.ads ? 1 : 0;
     if (state.adsP !== target) {
       const step = dt / adsTime();
       state.adsP = target ? Math.min(1, state.adsP + step) : Math.max(0, state.adsP - step);
+      state.adsE = adsEase(state.adsP, state.ads);
       updateFov();
     }
-    // Sight overlay fades in over the last 40% of the blend; hipfire keeps the crosshair.
-    const aimed = state.adsP >= 0.6;
-    overlay.frame(state.optic, RETICLE_COLORS[settings.reticleColor], state.adsP, t, dt);
+    // Weapon raise and springs; hip-fire keeps the crosshair, aiming uses the sight.
+    const aimed = state.adsE >= 0.5;
+    rig.update(dt, state.adsE, t);
+    rig.root.visible = settings.showViewmodel || state.adsE > 0;
     if (crosshairEl.hidden !== aimed) crosshairEl.hidden = aimed;
-    viewmodel.update(dt, settings.showViewmodel && !aimed);
+    frameT = t;
     hud.setAmmo(weapon.ammo, state.gun.magSize, weapon.reloading);
     hud.setStats(state.shots, state.hits, state.headshots, dots.visible ? state.score : -1);
     reloadBar(weapon.reloading ? weapon.reloadProgress : -1);
   }
 
-  function adsTime() { return state.gun.adsSeconds / (1 + state.optic.adsSpeedBonus); }
+  // ADS ease time: gun.adsSeconds scaled into the model's 120-180 ms range, shortened by the
+  // sight's adsSpeedBonus. (0.35 s guns: 157 ms magnified, 150 ms 1x, 143 ms iron.)
+  function adsTime() {
+    const [lo, hi] = data.sens.model.adsEaseSeconds;
+    return Math.min(hi, Math.max(lo, state.gun.adsSeconds * 0.45 / (1 + state.optic.adsSpeedBonus)));
+  }
   const crosshairEl = $('crosshair');
 
   const reloadEl = $('reload-bar'), reloadFill = reloadEl.firstElementChild;
@@ -566,11 +636,59 @@ function boot(data) {
   const cpuMs = new Float32Array(600);
   let cpuIdx = 0, prevFrameMs = 0;
 
+  /* ---------- rendering: world + weapon, lens pass only while aiming ---------- */
+  let lastShotT = -1, frameT = 0;
+  const lensOff = { x: 0, y: 0, scale: 1 };
+  const lensP = { cx: 0, cy: 0, hw: 0, hh: 0, corner: 0, round: true, mag: false, strength: 0, glareX: 0, glareY: 0,
+    gunHalfW: 0, flash: 0, tint: [1, 1, 1], ret: null, retHalf: 1, retOn: 0, quality: 3 };
+  const smooth = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+  // Lens quality: setting, or auto (starts at 3 and steps down when frames are slow).
+  let autoLevel = 3, qAcc = 0, qN = 0, qT0 = 0;
+  function lensQuality() { return settings.lensQuality === 'auto' ? autoLevel : Number(settings.lensQuality); }
+  // Auto quality drop: average frame time over 20 ms for 2 s while aiming -> one level down.
+  function watchQuality(nowMs, frameMs) {
+    if (settings.lensQuality !== 'auto' || state.adsP <= 0 || autoLevel === 0) { qAcc = qN = 0; qT0 = nowMs; return; }
+    if (qN === 0) qT0 = nowMs;   // start a new 2 s window
+    qAcc += frameMs; qN++;
+    if (nowMs - qT0 >= 2000) {
+      if (qN && qAcc / qN > 20) autoLevel--;
+      qAcc = qN = 0; qT0 = nowMs;
+    }
+  }
+  function renderFrame() {
+    renderer.info.reset();
+    if (state.adsP <= 0) { post.render(scene, camera, rig.scene, rig.camera, null); return; }
+    const o = state.optic, hs = o.housing, H = renderH;
+    rig.lensOffset(lensOff);
+    const k = lensOff.scale;
+    lensP.cx = renderW / 2 + lensOff.x;
+    lensP.cy = renderH / 2 + lensOff.y;
+    lensP.hw = hs.w / 2 * H * k;
+    lensP.hh = hs.h / 2 * H * k;
+    lensP.corner = (hs.radius || 0) * H * k;
+    lensP.round = hs.shape === 'round';
+    lensP.mag = o.zoom > 1;
+    lensP.strength = smooth(0.55, 1, state.adsE);
+    lensP.glareX = Math.sin(look.yaw * DEG * 2) * 0.08 * H;
+    lensP.glareY = Math.sin(look.pitch * DEG * 3) * 0.08 * H;
+    lensP.gunHalfW = lensP.hw * 0.75;
+    lensP.flash = Math.max(0, 1 - (frameT - lastShotT) / 0.06);
+    lensP.tint = lensP.mag ? [0.93, 1.0, 0.96] : [1, 1, 1];
+    lensP.ret = reticleTextures(o, RETICLE_COLORS[settings.reticleColor], H);
+    // Reticle keeps its angular size in the world while the FOV eases (fixed at full aim).
+    const fovScale = Math.tan(state.adsFov * DEG / 2) / Math.tan(state.fovV * DEG / 2);
+    lensP.retHalf = lensP.ret.half * (H / 1080) * fovScale;
+    lensP.retOn = smooth(0.7, 1, state.adsE);
+    lensP.quality = lensQuality();
+    post.render(scene, camera, rig.scene, rig.camera, lensP);
+  }
+
   function frame(nowMs) {
     requestAnimationFrame(frame);
     const c0 = performance.now();
     if (!manualClock) update(clockNow());
-    renderer.render(scene, camera);
+    renderFrame();
+    if (prevFrameMs) watchQuality(nowMs, nowMs - prevFrameMs);
     cpuMs[cpuIdx++ % cpuMs.length] = performance.now() - c0;
     if (prevFrameMs) debug.recordFrame(nowMs - prevFrameMs);
     prevFrameMs = nowMs;
@@ -582,6 +700,7 @@ function boot(data) {
       info.optic = state.optic.id; info.zoom = state.optic.zoom; info.sensKey = state.optic.sensKey;
       info.adsFov = state.adsFov;
       info.adsCm360 = settings.cm360 / (opticMultiplier(state.optic.sensKey) * state.gun.adsMultiplier);
+      info.lens = state.adsP > 0 ? 'on, quality ' + lensQuality() + (settings.lensQuality === 'auto' ? ' (auto)' : '') : 'off (hip)';
       info.renderW = renderW; info.renderH = renderH;
       info.calls = renderer.info.render.calls; info.tris = renderer.info.render.triangles;
       debug.update(nowMs, info);
@@ -605,7 +724,10 @@ function boot(data) {
       selectGun, setDistance, clear: clearRange, setOptic, cycleOptic, toggleGallery,
       galleryCount: () => $('gallery-grid').children.length,
       sightRowCount: () => sightButtons.size,
-      overlayVisible: () => !$('scope').hidden,
+      overlayVisible: () => state.adsP > 0,
+      lensQuality, setAutoLevel(l) { autoLevel = l; }, renderFrame,
+      setLensQuality(q) { settings.lensQuality = q; },
+      qualityTick(nowMs, frameMs) { watchQuality(nowMs, frameMs); },
       setTarget(mode, o = {}) { settings.targetMode = mode; Object.assign(settings, o); applyTarget(); },
       dots: () => ({ count: dots.count, radius: dots.radius, x: Array.from({ length: dots.count }, (_, i) => dots.xAt(i, manualClock ? manualT : clockNow())), y: Array.from(dots.y.subarray(0, dots.count)) }),
       dotX: (i, t) => dots.xAt(i, t),
@@ -627,7 +749,7 @@ function boot(data) {
       },
       state: () => ({ ammo: weapon.ammo, shots: state.shots, hits: state.hits, headshots: state.headshots, score: state.score, seed: state.seed, gun: state.gun.id,
         shotIndex: recoil.shotIndex, offset: [offset[0], offset[1]], distance: range.distance, fovH: state.fovH, fovV: state.fovV,
-        optic: state.optic.id, zoom: state.optic.zoom, sensKey: state.optic.sensKey, adsP: state.adsP, adsFov: state.adsFov,
+        optic: state.optic.id, zoom: state.optic.zoom, sensKey: state.optic.sensKey, adsP: state.adsP, adsE: state.adsE, adsFov: state.adsFov, fovV: state.fovV,
         adsTime: adsTime(), dpc: currentDpc(), placeholderSens: isPlaceholder(state.optic.sensKey) }),
       offsetAt(t) { return recoil.offsetAt(t, [0, 0]); },
       now: () => manualT,

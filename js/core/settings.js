@@ -17,6 +17,7 @@ export const DEFAULTS = Object.freeze({
   holeSizeCm: 3,
   renderScale: 0,        // 0 = auto (screen's pixel ratio, up to 2x); else 0.5 to 2 (above 1 = supersampling)
   antialias: true,       // MSAA; takes effect after a reload
+  lensQuality: 'auto',   // ADS lens pass: 'auto' or 3 (all) / 2 (no blur) / 1 (no blur, fringing) / 0 (no glare either)
   showViewmodel: true,
   targetMode: 'dummy',   // 'dummy' or 'dots' (M cycles dummy -> still dots -> moving dots)
   dotCount: 5,
@@ -78,6 +79,7 @@ export function sanitize(input) {
   out.targetMode = s.targetMode === 'dots' || s.targetMode === 'dummy' ? s.targetMode : (s.movingTarget === true ? 'dots' : DEFAULTS.targetMode);
   out.dotMoving = typeof s.dotMoving === 'boolean' ? s.dotMoving : (s.movingTarget === true ? true : DEFAULTS.dotMoving);
   out.dotCount = Number.isInteger(s.dotCount) ? Math.min(12, Math.max(1, s.dotCount)) : DEFAULTS.dotCount;
+  out.lensQuality = ['auto', '3', '2', '1', '0'].includes(String(s.lensQuality)) ? String(s.lensQuality) : DEFAULTS.lensQuality;
   out.antialias = typeof s.antialias === 'boolean' ? s.antialias : DEFAULTS.antialias;
   if (out.renderScale > 0 && out.renderScale < 0.5) out.renderScale = 0.5;
   out.showViewmodel = typeof s.showViewmodel === 'boolean' ? s.showViewmodel : DEFAULTS.showViewmodel;

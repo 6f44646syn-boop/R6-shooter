@@ -140,9 +140,29 @@ export function validateSens(data) {
       else if (ads[k] === undefined) ads[k] = data.hipCm360 / v;
     }
   }
+  // FOV model: vertical FOV multiplier per magnification while aimed, and the ease time range.
+  const model = { adsVFovMultipliers: {}, adsEaseSeconds: [0.12, 0.18] };
+  if (data.model !== undefined) {
+    const m = data.model;
+    if (!m || typeof m !== 'object') errors.push('sens.json model: must be an object');
+    else {
+      if (m.adsVFovMultipliers !== undefined) {
+        for (const [k, v] of Object.entries(m.adsVFovMultipliers || {})) {
+          if (!keyOk(k)) errors.push('sens.json model.adsVFovMultipliers.' + k + ': key must look like "2.5x"');
+          else if (!isNum(v) || v <= 0 || v > 1) errors.push('sens.json model.adsVFovMultipliers.' + k + ': must be a number from 0 to 1');
+          else model.adsVFovMultipliers[k] = v;
+        }
+      }
+      if (m.adsEaseSeconds !== undefined) {
+        const e = m.adsEaseSeconds;
+        if (!Array.isArray(e) || e.length !== 2 || !isNum(e[0]) || !isNum(e[1]) || e[0] <= 0 || e[1] < e[0]) errors.push('sens.json model.adsEaseSeconds: must be [min, max] seconds');
+        else model.adsEaseSeconds = [e[0], e[1]];
+      }
+    }
+  }
   const game = {};
   for (const k of ['horizontal', 'vertical', 'aimMode', 'globalAim', 'advancedMouseSensitivity', 'dpi', 'hipCm360']) if (data[k] !== undefined) game[k] = data[k];
-  return { ads, magnifications, game, errors };
+  return { ads, magnifications, game, model, errors };
 }
 
 async function fetchJson(url) {
@@ -154,7 +174,7 @@ async function fetchJson(url) {
 
 // Loads both files (relative URLs, so it works under any GitHub Pages sub-path).
 export async function loadGameData() {
-  const out = { guns: [], catalogue: null, sens: { ads: {}, magnifications: [], game: {} }, errors: [], warnings: [] };
+  const out = { guns: [], catalogue: null, sens: { ads: {}, magnifications: [], game: {}, model: { adsVFovMultipliers: {}, adsEaseSeconds: [0.12, 0.18] } }, errors: [], warnings: [] };
   let catalogue = { groups: {}, optics: [], byId: new Map(), errors: [] };
   try {
     catalogue = validateCatalogue(await fetchJson('data/optics.json'));

@@ -7,6 +7,38 @@ Edit JSON, reload the page. No code changes.
 In game: the **Sight** row in the menu's Loadout panel lists the current slot's sights.
 `[` and `]` switch sights while not aiming. F4 opens the sight gallery.
 
+## How aiming works in game
+
+- **Zoom is a real FOV change.** Aimed vertical FOV = hip FOV (83) x
+  `data/sens.json` `model.adsVFovMultipliers[magnification]`: 1.0x = 0.9 (74.7 deg),
+  2.5x = 0.42 (34.9 deg). Magnifications not listed (3.5x, 8.0x) use
+  `2 * atan(tan(hip / 2) / zoom)` until you add a value.
+- **Ease.** FOV and the gun raise ease out over `model.adsEaseSeconds` (120-180 ms) in both
+  directions: `gun.adsSeconds x 0.45 / (1 + adsSpeedBonus)`, clamped to that range.
+- **Sensitivity follows the FOV every frame.** Multiplier = hip + (aimed - hip) x p, where
+  p = (tan(hip/2) - tan(now/2)) / (tan(hip/2) - tan(aimed/2)). Fully aimed it is exactly the
+  aimed multiplier from `adsCm360`; half way through the zoom it is half way in tan-space.
+- **Sights are 3D models** (`js/scene/sight-model.js`), built from the housing numbers below:
+  extruded frame, tinted glass, hood, mount, rail clamp, screws; magnified sights add a
+  rubber eyecup, machined lip and turrets. Dark anodised metal (MeshStandardMaterial,
+  metalness 0.8, roughness 0.45) with a small procedural environment map. The gun and sight
+  are drawn in their own scene with a fixed 50 deg camera, so they keep their size while the
+  world zooms; the window still covers `w` x `h` of the screen.
+- **Lens pass** (`js/render/lens-post.js`), only while aiming: the world and weapon are drawn
+  once into a texture, then one full-screen pass adds the blur (half resolution) outside a
+  magnified lens or on the rails under a 1x window, darkening and vignette, barrel distortion
+  and colour fringing at the rim (max 1.5 px), magnified coating tint, a glare streak that
+  drifts as you look around, muzzle-flash light (60 ms) and the reticle.
+- **Reticle**: an emissive texture (>= 1024 px, drawn at the screen's pixel ratio), added at
+  the screen centre, where bullets go. It keeps its size in the world while the FOV eases.
+  `"c": "dark"` marks are etched (they darken instead of glowing).
+- **Weapon feel**: the sight lags the view by up to 4 px on a spring and kicks back 5-12 mm
+  per shot. Recoil itself is still exactly `sprayPath`.
+- **Quality** (Settings > Lens effects when aiming): Auto starts at High and steps down one
+  level when frames average over 20 ms for 2 s while aiming: blur off, then fringing off,
+  then glare off. F3 shows the current level.
+- **F4 gallery**: every sight rendered in game at 1920x1080, hip / aimed / mid-recoil.
+
 ## a. Give a gun a sight
 
 On the gun in `data/guns.json`:
@@ -146,8 +178,7 @@ Sight list. Update that slot's `optics` (and `opticsExclude`) to match, then set
 1. Put your own screenshots in `reference/` at the repo root. That folder is in `.gitignore`
    and the dev server refuses to serve it, so it is never committed or published. Never add it
    to the site.
-2. Open the F4 gallery. Every sight is drawn there with the same code as the in-game overlay,
-   at 1080p proportions.
+2. Open the F4 gallery. Every sight is rendered there by the game itself at 1920x1080.
 3. Compare by eye, then adjust the numbers in `data/optics.json` (window `w`/`h`, `bezel`,
    reticle sizes, `glow`) and reload. Everything on screen stays drawn from scratch; the
    screenshots are only for reading off proportions.

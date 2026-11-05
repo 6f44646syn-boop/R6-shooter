@@ -98,13 +98,17 @@ tab** button. Embed the GitHub Pages URL and players click through to a normal t
 
 Built for Intel UHD 630 at 1920x1080 / 60 fps:
 
-- About 15 draw calls and under 1,000 triangles. Lambert/basic materials, no shadows, no
-  post-processing, no antialiasing, `devicePixelRatio` capped at 1.
-- Bullet holes are one `InstancedMesh` (one draw call), capped at 300; the oldest is recycled.
-- The frame loop creates no objects; HUD text is only rewritten when a value changes. Measured
-  with Chrome's heap sampler: about 5 KB/s idle (the `requestAnimationFrame` call itself) and
-  about 10 KB/s while firing, far below anything that causes GC hitches.
-- Settings → Render resolution (85/75/50%) helps on slower machines.
+- About 17 draw calls in hip-fire (world, dummy, bullet holes, gun and 3D sight), under
+  13,000 triangles. No shadows. The gun and sight use MeshStandardMaterial with a small
+  prefiltered environment map; the room uses Lambert.
+- Aiming adds one lens pass (4 draw calls: downsample, two half-resolution blur passes,
+  composite). The scene is never drawn twice. Hip-fire skips the pass entirely.
+- Settings > Lens effects: Auto lowers the lens quality one step at a time if frames average
+  over 20 ms for 2 s while aiming (blur off, then fringing off, then glare off).
+- Bullet holes are one `InstancedMesh`, capped at 300; red dots are two instanced meshes.
+- Settings > Render resolution and Antialiasing help on slower machines.
+- The test suite's frame rates come from a software renderer and are far below real
+  hardware; use `test/capability-test.html` on the school PCs.
 
 ## Tests
 

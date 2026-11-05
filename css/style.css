@@ -21,7 +21,6 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); f
 
 /* ---------- HUD ---------- */
 #hud { position: absolute; inset: 0; pointer-events: none; user-select: none; }
-.scope-layer { position: absolute; pointer-events: none; will-change: transform, opacity; }
 #crosshair { position: absolute; left: 50%; top: 50%; image-rendering: pixelated; }
 .hud-box { position: absolute; background: var(--hud-bg); padding: 6px 10px; border-radius: 4px; font-variant-numeric: tabular-nums; }
 .hud-sub { color: var(--muted); font-size: 12px; }
@@ -84,7 +83,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 /* ---------- Sight gallery (F4) ---------- */
 #gallery { position: absolute; inset: 0; overflow-y: auto; background: #0b0d10; padding: 20px 16px; z-index: 5; }
 .gallery-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-#gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+#gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 760px), 1fr)); gap: 16px; }
+.gal-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.gal-row > div { display: grid; gap: 2px; }
+.gal-row span { font: 11px var(--mono); color: var(--muted); }
 #gallery-grid figure { margin: 0; display: grid; gap: 4px; }
 #gallery-grid canvas { width: 100%; height: auto; display: block; border-radius: 4px; }
 #gallery-grid figcaption { font: 12px var(--mono); color: var(--muted); }

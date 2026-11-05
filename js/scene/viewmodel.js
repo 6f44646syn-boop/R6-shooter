@@ -1,7 +1,8 @@
-// Blocky first-person gun models, one look per gun type, plus a sight that matches the
-// optic's zoom. Purely cosmetic and original low-poly shapes; hidden while aiming down sights.
-// It is a child of the camera, so it follows the view (including recoil punch).
+// First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
+// drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
+// zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
 import * as THREE from '../../vendor/three/three.module.min.js';
+import { buildSight, makeEnvMap, mergeStatic, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -9,8 +10,9 @@ export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 const FINISHES = [0x3a3d42, 0x6b5b45, 0x46523b, 0x2f3540, 0x5a5048, 0x4a4f57, 0x3d4a48, 0x55493c, 0x383838, 0x4f5560];
 
 const mats = new Map();
+let ENV = null;
 function mat(color) {
-  if (!mats.has(color)) mats.set(color, new THREE.MeshLambertMaterial({ color }));
+  if (!mats.has(color)) mats.set(color, new THREE.MeshStandardMaterial({ color, metalness: 0.55, roughness: 0.55, envMap: ENV, envMapIntensity: 0.8 }));
   return mats.get(color);
 }
 const BLACK = 0x1c1e21, STEEL = 0x55595f;
@@ -28,38 +30,6 @@ function tube(g, color, r, len, x, y, z, seg = 10) {
   m.position.set(x, y, z);
   g.add(m);
   return m;
-}
-
-// Bake every part's transform into its geometry and merge parts that share a material, so a
-// whole gun is drawn in ~3 draw calls instead of one per box.
-function mergeByMaterial(group) {
-  const byMat = new Map();
-  group.updateMatrixWorld(true);
-  for (const m of [...group.children]) {
-    if (!m.isMesh || m.material.transparent) continue;
-    const geo = m.geometry.toNonIndexed();
-    geo.applyMatrix4(m.matrix);
-    if (!byMat.has(m.material)) byMat.set(m.material, []);
-    byMat.get(m.material).push(geo);
-    group.remove(m);
-    m.geometry.dispose();
-  }
-  for (const [material, geos] of byMat) {
-    let n = 0;
-    for (const g of geos) n += g.attributes.position.count;
-    const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3);
-    let o = 0;
-    for (const g of geos) {
-      pos.set(g.attributes.position.array, o * 3);
-      nor.set(g.attributes.normal.array, o * 3);
-      o += g.attributes.position.count;
-      g.dispose();
-    }
-    const merged = new THREE.BufferGeometry();
-    merged.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    merged.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
-    group.add(new THREE.Mesh(merged, material));
-  }
 }
 
 // Gun coordinates: -z is forward (muzzle), y up, origin at the receiver centre.
@@ -116,60 +86,68 @@ const BUILDERS = {
   },
 };
 
-// Sight on top, chosen by the selected sight's group and zoom.
-function addSight(g, optic, topY) {
-  if (optic.group === 'iron') {
-    box(g, BLACK, 0.008, 0.03, 0.01, 0, topY + 0.015, -0.2);    // front post
-    box(g, BLACK, 0.026, 0.026, 0.01, 0, topY + 0.013, 0.1);    // rear aperture block
-  } else if (optic.zoom <= 1) {
-    // Open 1x sight: base plus a thin frame around the glass (wider frame for holo-style windows).
-    const wide = optic.housing.shape === 'rect' && optic.housing.w >= 0.3;
-    const fw = wide ? 0.04 : 0.03;
-    box(g, BLACK, fw, 0.012, 0.05, 0, topY + 0.006, -0.02);
-    box(g, BLACK, 0.004, 0.035, 0.008, -fw / 2, topY + 0.03, -0.035);
-    box(g, BLACK, 0.004, 0.035, 0.008, fw / 2, topY + 0.03, -0.035);
-    box(g, BLACK, fw + 0.006, 0.004, 0.008, 0, topY + 0.047, -0.035);
-    const glass = new THREE.Mesh(new THREE.PlaneGeometry(fw - 0.002, 0.03),
-      new THREE.MeshBasicMaterial({ color: 0x5fb3a4, transparent: true, opacity: 0.35 }));
-    glass.position.set(0, topY + 0.03, -0.035);
-    g.add(glass);
-  } else {
-    // Tube scope: longer and fatter as the zoom goes up.
-    const len = 0.1 + optic.zoom * 0.015;
-    const r = 0.014 + optic.zoom * 0.001;
-    box(g, BLACK, 0.02, 0.016, 0.03, 0, topY + 0.008, -0.04);
-    box(g, BLACK, 0.02, 0.016, 0.03, 0, topY + 0.008, 0.04);
-    tube(g, BLACK, r, len, 0, topY + 0.016 + r, 0);
-    tube(g, BLACK, r * 1.35, 0.025, 0, topY + 0.016 + r, -len / 2);     // objective bell
-    tube(g, BLACK, r * 1.2, 0.02, 0, topY + 0.016 + r, len / 2);        // eyepiece
-  }
-}
-
 const TOP_Y = { rifle: 0.035, carbine: 0.034, smg: 0.0375, lmg: 0.075, marksman: 0.035 };
 
-export class Viewmodel {
-  constructor(camera) {
-    this.root = new THREE.Group();
-    this.base = new THREE.Vector3(0.16, -0.15, -0.36);
-    this.root.position.copy(this.base);
-    this.root.scale.setScalar(0.7);
-    this.root.rotation.y = 0.06;
-    camera.add(this.root);
-    this.models = new Map(); // cache key -> group, built once per gun
+
+const easeInOut = (x) => x * x * (3 - 2 * x);
+
+export class WeaponRig {
+  constructor(renderer) {
+    ENV = makeEnvMap(renderer);
+    this.env = ENV;
+    this.scene = new THREE.Scene();
+    this.scene.add(new THREE.HemisphereLight(0xe8ecf2, 0x2a2824, 0.9));
+    const key = new THREE.DirectionalLight(0xffffff, 1.8);
+    key.position.set(-0.5, 0.8, 0.9);   // from above-left and a little in front, so edges facing you catch light
+    const rim = new THREE.DirectionalLight(0xb8c8ff, 0.6);
+    rim.position.set(0.8, 0.3, -0.5);
+    this.scene.add(rim);
+    this.scene.add(key);
+    this.camera = new THREE.PerspectiveCamera(VM_FOV, 16 / 9, 0.01, 3);
+    this.root = new THREE.Group();            // posed between hip and aimed
+    this.scene.add(this.root);
+    this.models = new Map();                  // gun id + optic id -> group
     this.current = null;
-    this.kick = 0;
+    // Springs (metres / radians): sway lag x/y, kick-back z, kick pitch.
+    this.sx = 0; this.sy = 0; this.vx = 0; this.vy = 0;
+    this.kz = 0; this.vz = 0; this.kp = 0; this.vp = 0;
+    this.H = 1080;
+    this.visible = true;
+    // Hip and aimed poses of the root.
+    this.hipPos = new THREE.Vector3(0.085, -0.075, 0.015);
+    this.hipRot = new THREE.Euler(0.03, 0.09, 0.02);
+    this.q0 = new THREE.Quaternion().setFromEuler(this.hipRot);
+    this.q1 = new THREE.Quaternion();
+    this.qt = new THREE.Quaternion();
+    this.kickQ = new THREE.Quaternion();
+    this.xAxis = new THREE.Vector3(1, 0, 0);
   }
 
-  // gun: validated gun data; slot: its index (picks the finish colour); optic: chosen sight.
+  setAspect(a, H) {
+    this.camera.aspect = a;
+    this.camera.updateProjectionMatrix();
+    this.H = H;
+  }
+
+  // gun: validated gun data; slot: its index (finish colour); optic: chosen sight.
   setGun(gun, slot, optic) {
     const type = MODEL_TYPES.includes(gun.model) ? gun.model : 'rifle';
     const key = gun.id + '|' + optic.id;
     let m = this.models.get(key);
     if (!m) {
       m = new THREE.Group();
-      BUILDERS[type](m, FINISHES[slot % FINISHES.length]);
-      addSight(m, optic, TOP_Y[type]);
-      mergeByMaterial(m);
+      const sight = buildSight(optic, ENV);
+      sight.group.position.set(0, 0, -EYE_Z);
+      m.add(sight.group);
+      const gunG = new THREE.Group();
+      BUILDERS[type](gunG, FINISHES[slot % FINISHES.length]);
+      mergeStatic(gunG);
+      const s = 0.62;
+      gunG.scale.setScalar(s);
+      // Rail (top of the receiver) under the sight's mount; receiver centred a little ahead.
+      gunG.position.set(0, sight.railY - TOP_Y[type] * s, -EYE_Z - 0.05);
+      m.add(gunG);
+      m.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
       this.models.set(key, m);
       this.root.add(m);
     }
@@ -178,13 +156,62 @@ export class Viewmodel {
     this.current = m;
   }
 
-  shot() { this.kick = Math.min(1, this.kick + 0.6); }
+  // Mouse movement in screen pixels: the sight lags the view by a few pixels.
+  nudge(dxPx, dyPx) {
+    const mPerPx = VIEW_H / this.H;
+    this.vx -= dxPx * mPerPx * 2.5;
+    this.vy += dyPx * mPerPx * 2.5;
+  }
 
-  update(dt, visible) {
-    this.root.visible = visible;
-    // Exponential decay of the kick, independent of frame rate.
-    this.kick *= Math.exp(-dt * 18);
-    this.root.position.set(this.base.x, this.base.y + this.kick * 0.01, this.base.z + this.kick * 0.04);
-    this.root.rotation.x = this.kick * 0.08;
+  // A shot: kick back towards the eye (5-12 mm) and tip up slightly.
+  kick() {
+    // m/s impulse. With the spring below (w = 30 rad/s, near-critical damping) the peak is
+    // about 0.67 * v / w: 0.25 m/s -> 5.6 mm, 0.55 m/s -> 12 mm.
+    this.vz += 0.25 + Math.random() * 0.3;
+    this.vp += 0.9;
+  }
+
+  // e: eased ADS blend 0..1. t: seconds (breathing). dt: frame time.
+  update(dt, e, t) {
+    const mPerPx = VIEW_H / this.H;
+    let rem = Math.min(dt, 0.1);
+    while (rem > 0) {
+      const h = Math.min(rem, 1 / 240);
+      // Sway: stiff spring, settles in ~0.2 s.
+      this.vx += (-260 * this.sx - 30 * this.vx) * h;
+      this.vy += (-260 * this.sy - 30 * this.vy) * h;
+      this.sx += this.vx * h; this.sy += this.vy * h;
+      // Kick: snappy, returns in ~0.12 s.
+      this.vz += (-900 * this.kz - 55 * this.vz) * h;
+      this.vp += (-700 * this.kp - 50 * this.vp) * h;
+      this.kz += this.vz * h; this.kp += this.vp * h;
+      rem -= h;
+    }
+    // Lag limited to 2-4 px of screen.
+    const lim = 4 * mPerPx;
+    this.sx = Math.max(-lim, Math.min(lim, this.sx));
+    this.sy = Math.max(-lim, Math.min(lim, this.sy));
+    this.kz = Math.max(-0.002, Math.min(0.012, this.kz));
+
+    const k = easeInOut(e);
+    const br = (1 - 0.6 * k) * 0.0004;
+    this.root.position.set(
+      this.hipPos.x * (1 - k) + this.sx + Math.sin(t * 1.1) * br,
+      this.hipPos.y * (1 - k) + this.sy + Math.sin(t * 0.7 + 1) * br,
+      this.hipPos.z * (1 - k) + this.kz,
+    );
+    this.qt.slerpQuaternions(this.q0, this.q1, k);
+    this.kickQ.setFromAxisAngle(this.xAxis, this.kp * 0.05);
+    this.root.quaternion.copy(this.qt).multiply(this.kickQ);
+  }
+
+  // Where the sight's window is on screen right now (for the lens pass), in pixels from the
+  // screen centre, plus a scale for kick-back (closer = bigger).
+  lensOffset(out) {
+    const H = this.H, z = EYE_Z - this.root.position.z;
+    out.scale = EYE_Z / Math.max(0.05, z);
+    out.x = this.root.position.x / VIEW_H * H * out.scale;
+    out.y = this.root.position.y / VIEW_H * H * out.scale;
+    return out;
   }
 }

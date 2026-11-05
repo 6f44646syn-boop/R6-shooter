@@ -48,6 +48,7 @@ export class DebugHud {
       'ADS FOV        ' + info.adsFov.toFixed(3) + ' deg v   ADS ' + info.adsCm360.toFixed(2) + ' cm/360',
       'seed           ' + info.seed,
       'frame          ' + avg.toFixed(2) + ' ms avg, ' + worst.toFixed(1) + ' ms worst, ' + (avg ? (1000 / avg).toFixed(0) : '-') + ' fps',
+      'lens pass      ' + info.lens,
       'render         ' + info.renderW + 'x' + info.renderH + '  calls ' + info.calls + '  tris ' + info.tris,
     ];
     this.el.textContent = lines.join('\n');
