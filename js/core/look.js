@@ -25,7 +25,9 @@ export class Look {
 
   // dx, dy: raw counts from one mousemove event. dpc: degrees per count right now.
   // Returns false if the event was discarded by the glitch guard.
-  apply(dx, dy, dpc) {
+  // dpcY: degrees per count for pitch (Siege-style separate vertical sensitivity); defaults
+  // to dpc.
+  apply(dx, dy, dpc, dpcY = dpc) {
     if (dx > MAX_EVENT_COUNTS || dx < -MAX_EVENT_COUNTS || dy > MAX_EVENT_COUNTS || dy < -MAX_EVENT_COUNTS) {
       this.discarded++;
       return false;
@@ -41,7 +43,7 @@ export class Look {
     if (y < 0) y += 360;
     this.yaw = y;
 
-    let p = this.pitch - dy * dpc;
+    let p = this.pitch - dy * dpcY;
     if (p > PITCH_LIMIT) p = PITCH_LIMIT;
     else if (p < -PITCH_LIMIT) p = -PITCH_LIMIT;
     this.pitch = p;

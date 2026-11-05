@@ -270,9 +270,9 @@ test('RecoilEngine: opticRecoilScale multiplies sprayPath steps', () => {
 /* ---------- settings and target ---------- */
 test('settings sanitize clamps and fills defaults', () => {
   const s = sanitize({ dpi: 99999, cm360: 'abc', fov: 200, crosshair: { color: 'red', size: 5 } });
-  eq(s.dpi, 32000); eq(s.cm360, 14.25); eq(s.fov, 90); eq(sanitize({}).fov, 83, 'default vertical FOV'); eq(sanitize({ fov: 40 }).fov, 60);
+  eq(s.dpi, 32000); near(s.cm360, 360 * 2.54 / (32000 * 7 * 0.00572958), 1e-9, 'cm/360 follows DPI and sens'); eq(s.fov, 90); eq(sanitize({}).fov, 83, 'default vertical FOV'); eq(sanitize({ fov: 40 }).fov, 60);
   eq(s.crosshair.color, '#3dff9a'); eq(s.crosshair.size, 5);
-  eq(sanitize(null).dpi, 1600, 'default DPI'); eq(sanitize(null).cm360, 14.25, 'default hip cm/360');
+  eq(sanitize(null).dpi, 1600, 'default DPI'); near(sanitize(null).cm360, 14.25, 0.01, 'default hip cm/360 (sens 7 at 1600 DPI)');
 });
 test('dummy raycast: head, chest, gap between legs, miss beside', () => {
   const out = { t: 0, p: [0, 0, 0], n: [0, 0, 0], zone: null };

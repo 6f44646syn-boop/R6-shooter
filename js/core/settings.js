@@ -2,11 +2,16 @@
 // Storage can be missing or throw (private window, blocked site data), so every access is
 // wrapped and the app always works with the defaults.
 
+import { sensToCm360, cm360ToSens } from './sensitivity.js';
+
 const KEY = 'recoilRange.settings.v1';
 
 export const DEFAULTS = Object.freeze({
   dpi: 1600,             // your mouse (data/sens.json)
-  cm360: 14.25,          // your hipfire turn distance at 1600 DPI (game sens 7 / 7)
+  sensH: 7,              // Siege-style horizontal sensitivity (1-50); yours is 7
+  sensV: 7,              // vertical sensitivity (1-50)
+  cm360: 14.25,          // derived from DPI and sensH (kept for display and the maths)
+  aimAssist: 0,          // 0..1 slight pull and slowdown near a target (0 = off)
   fov: 83,               // VERTICAL degrees, like the game's FOV slider (60-90)
   // Per-magnification ADS multiplier overrides, keyed like "2.5x". Anything missing comes from
   // data/sens.json (or a placeholder of the 1.0x value / zoom), so editing that file changes the defaults.
@@ -40,6 +45,9 @@ export const CROSSHAIR_STYLES = ['cross', 'dot', 'cross-dot', 'circle', 't'];
 const NUM = {
   dpi: [50, 32000],
   cm360: [1, 1000],
+  sensH: [1, 50],
+  sensV: [1, 50],
+  aimAssist: [0, 1],
   fov: [60, 90],
   volume: [0, 1],
   holeSizeCm: [0.5, 10],
@@ -93,6 +101,8 @@ export function sanitize(input) {
   out.fixedSeed = (typeof s.fixedSeed === 'string' && /^\d{0,10}$/.test(s.fixedSeed.trim())) ? s.fixedSeed.trim() : '';
   out.gunIndex = Number.isInteger(s.gunIndex) && s.gunIndex >= 0 ? s.gunIndex : DEFAULTS.gunIndex;
   out.distance = DISTANCES.includes(s.distance) ? s.distance : DEFAULTS.distance;
+  // cm/360 always follows DPI and the horizontal slider.
+  out.cm360 = sensToCm360(out.dpi, out.sensH);
   return out;
 }
 
@@ -101,6 +111,11 @@ export function loadSettings() {
   try { raw = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { raw = null; }
   // Saved settings still on the old defaults (800 DPI, 40 cm/360) move to the new ones.
   if (raw && raw.dpi === 800 && raw.cm360 === 40) { raw.dpi = DEFAULTS.dpi; raw.cm360 = DEFAULTS.cm360; }
+  // Older saves had only cm/360: turn it into Siege-style sliders (same turn distance).
+  if (raw && raw.sensH === undefined && typeof raw.cm360 === 'number' && typeof raw.dpi === 'number') {
+    const sens = Math.round(cm360ToSens(raw.dpi, raw.cm360) * 100) / 100;
+    raw.sensH = raw.sensV = Math.min(50, Math.max(1, sens));
+  }
   return sanitize(raw);
 }
 

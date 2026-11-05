@@ -98,7 +98,9 @@ export class SettingsUI {
     const sens = this.group('Sensitivity',
       el('div', { class: 'set-grid' },
         this.num('set-dpi', 'Mouse DPI', { min: 50, max: 32000, step: 50 }, () => this.s.dpi, (v) => { this.s.dpi = v; }, 'sens'),
-        this.num('set-cm360', 'cm per 360\u00b0 (hipfire)', { min: 1, max: 1000, step: 0.1 }, () => this.s.cm360, (v) => { this.s.cm360 = v; }, 'sens'),
+        this.range('set-sens-h', 'Horizontal sensitivity', { min: 1, max: 50, step: 1, fmt: (v) => String(v) }, () => this.s.sensH, (v) => { this.s.sensH = v; }, 'sens'),
+        this.range('set-sens-v', 'Vertical sensitivity', { min: 1, max: 50, step: 1, fmt: (v) => String(v) }, () => this.s.sensV, (v) => { this.s.sensV = v; }, 'sens'),
+        this.range('set-assist', 'Aim assist', { min: 0, max: 1, step: 0.05, fmt: (v) => v === 0 ? 'off' : Math.round(v * 100) + '%' }, () => this.s.aimAssist, (v) => { this.s.aimAssist = v; }, 'assist'),
       ),
       this.derived);
 
@@ -237,9 +239,10 @@ export class SettingsUI {
     const fmt = (v, d = 6) => v.toFixed(d);
     this.derived.innerHTML = '';
     const line = (label, value) => this.derived.append(label + ' ', el('b', { text: value }), el('br'));
-    line('inches / 360\u00b0', fmt(inchesPer360(s.cm360), 3) + ' in');
+    line('turn (horizontal)', fmt(s.cm360, 2) + ' cm / 360\u00b0  (' + fmt(inchesPer360(s.cm360), 2) + ' in)');
+    line('turn (vertical)', fmt(s.cm360 * s.sensH / s.sensV, 2) + ' cm / 360\u00b0');
     line('counts / 360\u00b0', fmt(countsPer360(s.dpi, s.cm360), 2));
-    line('degrees / count (hip)', fmt(dpc, 8) + '\u00b0');
+    line('degrees / count (hip)', fmt(dpc, 8) + '\u00b0 horizontal, ' + fmt(dpc * s.sensV / s.sensH, 8) + '\u00b0 vertical');
     if (g && st.optic) {
       const m = this.ctx.opticMultiplier(st.optic.sensKey) * g.adsMultiplier;
       line('ADS deg/count for ' + g.name + ' with ' + st.optic.label + ' (' + st.optic.sensKey + ')', fmt(dpc * m, 8) + '\u00b0  = ' + fmt(s.cm360 / m, 2) + ' cm/360');

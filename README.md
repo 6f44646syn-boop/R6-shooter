@@ -15,6 +15,9 @@ Pick a gun, hold the trigger, pull against the recoil, and read the spray on the
 | Input | Action |
 |---|---|
 | Mouse | Look |
+| W A S D | Move (small area behind the firing line; you cannot step past it) |
+| Space | Crouch / stand |
+| X | Back to the firing line |
 | Left button | Fire (hold for automatic) |
 | Right button | Aim down sights (hold) |
 | R | Reload |
@@ -29,7 +32,9 @@ Pick a gun, hold the trigger, pull against the recoil, and read the spray on the
 
 ## Sensitivity
 
-Set your **mouse DPI** and **cm/360** in the menu. The game converts them to degrees per count:
+Set your **mouse DPI** and the Siege-style **horizontal / vertical sensitivity** (1-50) in the
+menu. Degrees per count = sens x 0.00572958, from your own numbers (sens 7 at 1600 DPI =
+14.25 cm/360); vertical sensitivity scales pitch only. cm/360 is shown, derived. The game converts them to degrees per count:
 
 ```
 counts per 360 = DPI * cm360 / 2.54

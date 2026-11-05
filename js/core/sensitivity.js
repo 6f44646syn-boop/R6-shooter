@@ -24,6 +24,17 @@ export function degPerCount(dpi, cm360) {
 
 const DEG = Math.PI / 180;
 
+// Siege-style sensitivity sliders (1-50). Your own numbers fix the scale: sensitivity 7 at
+// 1600 DPI turns 360 deg in 14.25 cm, i.e. degrees per count = sens x 0.00572958
+// (360 x 2.54 / (1600 x 14.25 x 7) = 0.0057296).
+export const DEG_PER_COUNT_PER_SENS = 0.00572958;
+export function sensToCm360(dpi, sens) {
+  return 360 * CM_PER_INCH / (dpi * sens * DEG_PER_COUNT_PER_SENS);
+}
+export function cm360ToSens(dpi, cm360) {
+  return 360 * CM_PER_INCH / (dpi * cm360 * DEG_PER_COUNT_PER_SENS);
+}
+
 // Vertical FOV for a given horizontal FOV and aspect ratio (width / height).
 // The view frustum is defined by the tangent of the half-angle, so convert in tan-space:
 //   tan(v/2) = tan(h/2) / aspect

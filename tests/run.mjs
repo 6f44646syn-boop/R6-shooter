@@ -243,8 +243,8 @@ try {
     check('mag_a: zoom 2.5, sens key 2.5x, vertical ADS FOV ' + sc.mag.fovV.toFixed(3) + ' = 83 x 0.42',
       sc.mag.zoom === 2.5 && sc.mag.sensKey === '2.5x' && Math.abs(sc.mag.fovV - magFov) < 1e-9, JSON.stringify(sc.mag));
     check('holo_a: zoom 1, vertical ADS FOV ' + sc.holo.fovV.toFixed(3) + ' = 83 x 0.9 (wider than mag_a)', sc.holo.zoom === 1 && Math.abs(sc.holo.fovV - holoFov) < 1e-9 && sc.holo.fovV > sc.mag.fovV, JSON.stringify(sc.holo));
-    check('ADS ease 120-180 ms (mag ' + (sc.mag.adsTime * 1000).toFixed(0) + ' ms, holo ' + (sc.holo.adsTime * 1000).toFixed(0) + ' ms)',
-      [sc.mag.adsTime, sc.holo.adsTime].every((x) => x >= 0.12 && x <= 0.18), '');
+    check('ADS ease 160-240 ms (mag ' + (sc.mag.adsTime * 1000).toFixed(0) + ' ms, holo ' + (sc.holo.adsTime * 1000).toFixed(0) + ' ms)',
+      [sc.mag.adsTime, sc.holo.adsTime].every((x) => x >= 0.16 && x <= 0.24), '');
 
     // Sensitivity follows the FOV mid-ease, and the ease is ease-out (more than half way at half time).
     const mid = await page.evaluate(() => {
@@ -255,7 +255,7 @@ try {
       R.setAds(false); R.step(1);
       R.setAds(true);
       const half = R.state().adsTime / 2;
-      R.step(half, 1 / half * 1);           // one frame of exactly half the ease time
+      R.step(half, 2 / half);               // two frames, together exactly half the ease time
       const s = R.state();
       R.setAds(false); R.step(1);
       return { hip, ads, s };
@@ -263,7 +263,7 @@ try {
     const tH = Math.tan(83 * Math.PI / 360), tA = Math.tan(83 * 0.42 * Math.PI / 360), tC = Math.tan(mid.s.fovV * Math.PI / 360);
     const pf = (tH - tC) / (tH - tA);
     const want = mid.hip + (mid.ads - mid.hip) * pf;
-    check('mid-ease: FOV ' + mid.s.fovV.toFixed(2) + ' deg, eased ' + mid.s.adsE.toFixed(3) + ' at half time (ease-out)', mid.s.adsE > 0.8 && mid.s.fovV < 83 && mid.s.fovV > 83 * 0.42, JSON.stringify(mid.s));
+    check('mid-ease: FOV ' + mid.s.fovV.toFixed(2) + ' deg, eased ' + mid.s.adsE.toFixed(3) + ' at half time (smooth both ends)', Math.abs(mid.s.adsE - 0.5) < 1e-9 && mid.s.fovV < 83 && mid.s.fovV > 83 * 0.42, JSON.stringify(mid.s));
     check('mid-ease sensitivity matches the FOV (' + (mid.s.dpc / mid.hip).toFixed(4) + ' x hip)', Math.abs(mid.s.dpc - want) < 1e-12, 'want ' + want + ' got ' + mid.s.dpc);
 
     // Auto quality: slow frames (> 20 ms average) for 2 s while aiming step down one level at a time.
@@ -285,6 +285,46 @@ try {
     check('ADS sens from your turn distances: 2.5x / 1.0x = 11.8 / 22.3 cm', !sc.mag.placeholderSens && Math.abs(sc.mag.dpc / sc.holo.dpc - 11.8 / 22.3) < 1e-12, 'ratio ' + sc.mag.dpc / sc.holo.dpc);
     check('lens pass off at hip, on when aimed', !sc.overlayHip && sc.overlayAds, sc.overlayHip + ' / ' + sc.overlayAds);
     check('F4 gallery shows 15 sights', sc.gallery === 15, 'got ' + sc.gallery);
+
+    // j) movement: WASD in a small box behind the firing line; Space crouches.
+    const mv = await page.evaluate(() => {
+      const R = window.__range;
+      R.manual(true); R.selectGun(9); R.setDistance(10); R.clear(); R.setAim(0, 0);
+      const out = {};
+      R.move({ w: true }); R.step(1); R.move({ w: false }); R.step(0.5); out.forward = R.player();
+      R.move({ s: true }); R.step(2); R.move({ s: false }); R.step(0.5); out.back = R.player();
+      R.move({ a: true }); R.step(2); R.move({ a: false }); R.step(0.5); out.left = R.player();
+      R.move({ d: true }); R.step(0.5); R.move({ d: false }); R.step(0.5);
+      R.move({ w: true }); R.step(3); R.move({ w: false }); R.step(0.5); out.home = R.player();
+      R.crouch(true); R.step(1); out.crouched = R.player();
+      R.clear(); R.setAim(0, 0); R.trigger(true); R.step(0.01, 1000); R.trigger(false); R.step(1);
+      out.crouchShot = R.state();
+      R.crouch(false); R.step(1); out.stand = R.player();
+      return out;
+    });
+    check('W cannot move past the firing line (z stays ' + mv.forward.z.toFixed(3) + ')', mv.forward.z === 0, JSON.stringify(mv.forward));
+    check('S / A stop at the box edge (2 m back, 1.5 m left)', Math.abs(mv.back.z - 2) < 1e-9 && Math.abs(mv.left.x + 1.5) < 1e-9, JSON.stringify([mv.back, mv.left]));
+    check('W walks back up to the line and stops there', mv.home.z === 0, JSON.stringify(mv.home));
+    check('Space crouch lowers the eye to 1.05 m, standing back to 1.6', Math.abs(mv.crouched.eye - 1.05) < 1e-3 && Math.abs(mv.stand.eye - 1.6) < 1e-3, JSON.stringify([mv.crouched, mv.stand]));
+    check('a level shot while crouched hits the dummy body, not the head', mv.crouchShot.hits === 1 && mv.crouchShot.headshots === 0, JSON.stringify(mv.crouchShot));
+
+    // k) Siege-style sensitivity: vertical slider scales pitch only; aim assist pulls gently.
+    const sv = await page.evaluate(() => {
+      const R = window.__range;
+      R.manual(true); R.selectGun(9); R.setAim(0, 0);
+      R.setSetting('sensH', 7); R.setSetting('sensV', 14);
+      const a = R.look(); R.applyCounts(100, -100); const b = R.look();
+      R.setSetting('sensV', 7);
+      const yawDeg = b.yaw - a.yaw, pitchDeg = b.pitch - a.pitch;
+      R.setAim(1.2, 0.3); R.setSetting('aimAssist', 0); R.step(0.5); const off = R.look();
+      R.setAim(1.2, 0.3); R.setSetting('aimAssist', 1); R.step(0.5); const on = R.look();
+      R.setSetting('aimAssist', 0); R.setAim(0, 0);
+      return { yawDeg, pitchDeg, off, on, dpc: R.dpc() };
+    });
+    check('vertical sens 14 vs horizontal 7: same counts turn pitch twice as far', Math.abs(sv.pitchDeg / sv.yawDeg - 2) < 1e-9, JSON.stringify(sv));
+    check('sens 7 at 1600 DPI = 14.25 cm/360 (' + (360 * 2.54 / (1600 * sv.dpc)).toFixed(3) + ')', Math.abs(360 * 2.54 / (1600 * sv.dpc) - 14.25) < 0.01, '');
+    check('aim assist off: aim stays put; on: pulled towards the head (' + sv.on.yaw.toFixed(3) + ' deg left)',
+      Math.abs(sv.off.yaw - 1.2) < 1e-9 && sv.on.yaw < 1.1 && sv.on.yaw > 0.4, JSON.stringify(sv));
 
     // h) red dots: several at once, still or moving; a hit scores 100 and the dot respawns.
     const dt = await page.evaluate(() => {

@@ -114,22 +114,23 @@ export class Range {
     this.wallGroup.position.z = -d;
   }
 
-  // Hitscan from the eye along (yaw, pitch) in degrees, in the target group's frame.
-  // Fills hit: plane = [x, y] where the ray crosses the target plane (y relative to eye
-  // height, i.e. relative to the aim point), and kind = 'dummy' | 'wall' | null with the
-  // surface point p, normal n and dummy zone. Returns hit.kind.
-  raycast(yawDeg, pitchDeg, hit) {
+  // Hitscan from the eye (ex, ey, ez in world metres; default: standing on the firing line)
+  // along (yaw, pitch) in degrees, in the target group's frame. Fills hit: plane = [x, y]
+  // where the ray crosses the target plane, relative to the aim point (the dummy's head
+  // centre, 1.6 m up), and kind = 'dummy' | 'wall' | null with the surface point p, normal n
+  // and dummy zone. Returns hit.kind.
+  raycast(yawDeg, pitchDeg, hit, ex = 0, ey = EYE_HEIGHT, ez = 0) {
     const yaw = yawDeg * Math.PI / 180, pitch = pitchDeg * Math.PI / 180;
     const cp = Math.cos(pitch);
     const d = this._d, o = this._o;
     d[0] = Math.sin(yaw) * cp; d[1] = Math.sin(pitch); d[2] = -Math.cos(yaw) * cp;
-    o[0] = 0; o[1] = EYE_HEIGHT; o[2] = this.distance;   // eye, in the target frame
+    o[0] = ex; o[1] = ey; o[2] = ez + this.distance;     // eye, in the target frame
     hit.kind = null;
     hit.planeOk = false;
     if (d[2] >= -1e-9) return null;                        // pointing away from the target
-    const tp = this.distance / -d[2];
-    hit.plane[0] = tp * d[0];
-    hit.plane[1] = tp * d[1];
+    const tp = o[2] / -d[2];
+    hit.plane[0] = o[0] + tp * d[0];
+    hit.plane[1] = o[1] + tp * d[1] - EYE_HEIGHT;   // relative to the head / aim point
     hit.planeOk = true;
     if (this.dummy.visible && raycastDummy(o, d, this._dh)) {
       hit.kind = 'dummy'; hit.zone = this._dh.zone;
@@ -137,8 +138,8 @@ export class Range {
       hit.n[0] = this._dh.n[0]; hit.n[1] = this._dh.n[1]; hit.n[2] = this._dh.n[2];
       return hit.kind;
     }
-    const tw = (this.distance + WALL_GAP) / -d[2];
-    const x = tw * d[0], y = EYE_HEIGHT + tw * d[1];
+    const tw = (o[2] + WALL_GAP) / -d[2];
+    const x = o[0] + tw * d[0], y = o[1] + tw * d[1];
     if (x < -ROOM.halfWidth || x > ROOM.halfWidth || y < 0 || y > ROOM.height) return null;
     hit.kind = 'wall'; hit.zone = null;
     hit.p[0] = x; hit.p[1] = y; hit.p[2] = -WALL_GAP;

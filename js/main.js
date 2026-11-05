@@ -1,6 +1,7 @@
 // Recoil Range entry point: wires input, camera, scene, HUD and the frame loop together.
 import * as THREE from '../vendor/three/three.module.min.js';
 import { Look, PITCH_LIMIT } from './core/look.js';
+import { Player } from './core/player.js';
 import { PointerLock } from './core/pointer-lock.js';
 import { loadSettings, saveSettings, DISTANCES } from './core/settings.js';
 import { degPerCount, horizontalFovDeg, zoomedFovDeg } from './core/sensitivity.js';
@@ -59,6 +60,7 @@ function boot(data) {
   const camera = new THREE.PerspectiveCamera(60, 16 / 9, 0.05, 100);
   camera.rotation.order = 'YXZ'; // yaw around world Y first, then pitch: standard FPS camera
   camera.position.set(0, EYE_HEIGHT, 0);
+  const player = new Player();
   scene.add(camera);             // so the viewmodel (a camera child) renders
 
   const range = new Range(scene);
@@ -310,7 +312,7 @@ function boot(data) {
     onChange(locked) {
       $('menu').hidden = locked;
       if (locked) $('lock-hint').hidden = true;
-      else { weapon.releaseTrigger(); setAds(false); settingsUI.refresh(); }
+      else { weapon.releaseTrigger(); setAds(false); player.releaseKeys(); settingsUI.refresh(); }
     },
     onRetry() {
       // Usually Chrome refusing a re-lock straight after Esc. Stay quiet; the next click retries.
@@ -341,8 +343,9 @@ function boot(data) {
   /* ---------- mouse look: every event, straight to yaw/pitch ---------- */
   document.addEventListener('mousemove', (e) => {
     if (!lock.locked) return;
-    const dpc = currentDpc();
-    if (look.apply(e.movementX, e.movementY, dpc) && state.adsP > 0) {
+    // Siege-style: vertical sensitivity scales pitch; aim assist may slow the aim near a target.
+    const dpc = currentDpc() * assistSlow;
+    if (look.apply(e.movementX, e.movementY, dpc, dpc * settings.sensV / settings.sensH) && state.adsP > 0) {
       // Scope sway: the housing lags behind the turn (degrees -> screen pixels).
       const pxPerDeg = window.innerHeight / state.fovV;
       rig.nudge(e.movementX * dpc * pxPerDeg, e.movementY * dpc * pxPerDeg);
@@ -364,17 +367,22 @@ function boot(data) {
 
   // Ease-out both ways: aiming in, e = 1 - (1 - p)^3; aiming out, e = p^3 on the way back
   // (fast first, slow landing at hip). Switching direction mid-way remaps p so e is continuous.
-  const easeOut = (x) => 1 - (1 - x) * (1 - x) * (1 - x);
-  function adsEase(p, aimingIn) { return aimingIn ? easeOut(p) : 1 - easeOut(1 - p); }
+  // One smooth curve (quintic smootherstep: starts and lands with zero speed) drives the zoom,
+  // the gun raise, the lens effects and the crosshair fade, both ways. It is symmetric, so
+  // letting go half way simply runs the same curve back with no jump.
+  function adsEase(p) { return p * p * p * (p * (p * 6 - 15) + 10); }
   function setAds(on) {
     if (state.ads === on) return;
-    const e = state.adsE;
     state.ads = on;
-    state.adsP = on ? 1 - Math.cbrt(1 - e) : Math.cbrt(e);
     updateFov();
   }
 
   /* ---------- keys ---------- */
+  document.addEventListener('keyup', (e) => {
+    const c = e.code;
+    if (c === 'KeyW' || c === 'KeyA' || c === 'KeyS' || c === 'KeyD') player.keys[c[3].toLowerCase()] = false;
+  });
+  window.addEventListener('blur', () => player.releaseKeys());
   document.addEventListener('keydown', (e) => {
     if (e.repeat && e.code !== 'KeyR') return;
     const c = e.code;
@@ -389,6 +397,9 @@ function boot(data) {
       return;
     }
     if (!lock.locked) return;
+    if (c === 'KeyW' || c === 'KeyA' || c === 'KeyS' || c === 'KeyD') { player.keys[c[3].toLowerCase()] = true; return; }
+    if (c === 'Space') { e.preventDefault(); player.toggleCrouch(); hud.setDistance(range.distance, targetLabel()); return; }
+    if (c === 'KeyX') { player.reset(); return; }
     if (c === 'KeyZ' && settings.debugHud) look.reset();
     else if (c === 'KeyR') { if (weapon.startReload(clockNow())) { finishMagazine(); sfx.reload(); } }
     else if (c === 'KeyC') clearRange();
@@ -439,7 +450,8 @@ function boot(data) {
   }
 
   function targetLabel() {
-    return settings.targetMode === 'dummy' ? 'dummy' : settings.dotCount + ' red dot' + (settings.dotCount > 1 ? 's' : '') + (settings.dotMoving ? ', moving' : '');
+    const t = settings.targetMode === 'dummy' ? 'dummy' : settings.dotCount + ' red dot' + (settings.dotCount > 1 ? 's' : '') + (settings.dotMoving ? ', moving' : '');
+    return (player.crouched ? 'crouched \u00b7 ' : '') + t;
   }
   // Show the dummy or lay out the red dots (new random spots each time, or ?seed= for tests).
   let dotSeed = 1;
@@ -488,7 +500,7 @@ function boot(data) {
     const pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, look.pitch + bulletOff[1]));
     state.shots++;
     mag.shots++;
-    const kind = range.raycast(yaw, pitch, hit);
+    const kind = range.raycast(yaw, pitch, hit, player.x, player.eye, player.z);
     let onTarget = false, dotHit = -1;
     if (hit.planeOk) {
       // Plot coordinates: where the bullet crosses the target plane, relative to the aim
@@ -576,6 +588,7 @@ function boot(data) {
       if (all || key === 'crosshair') drawCrosshair($('crosshair'), settings.crosshair);
       if (all || key === 'holes') range.holes.setSize(settings.holeSizeCm / 100);
       if (all || key === 'reload') weapon.reloadSpeed = settings.reloadSpeed;
+      if (key === 'sens' || key === 'assist') { /* read live each mouse event */ }
       if (all || key === 'recoil') { recoil.aimScale = settings.aimRecoil; recoil.aimSmooth = settings.aimSmooth; }
       if (all || key === 'volume') sfx.setVolume(settings.volume);
       if (all || key === 'debug') debug.setVisible(settings.debugHud);
@@ -621,6 +634,10 @@ function boot(data) {
     const pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, look.pitch + offset[1]));
     camera.rotation.y = -(look.yaw + offset[0]) * DEG;   // three.js: positive Y rotation turns left
     camera.rotation.x = pitch * DEG;
+    // Movement: WASD in a small box behind the firing line, Space crouches.
+    player.update(dt, look.yaw);
+    camera.position.set(player.x, player.eye, player.z);
+    aimAssist(dt, t);
     dots.update(t);
 
     // ADS blend: linear progress adsP, eased out in both directions into adsE.
@@ -628,27 +645,35 @@ function boot(data) {
     if (state.adsP !== target) {
       const step = dt / adsTime();
       state.adsP = target ? Math.min(1, state.adsP + step) : Math.max(0, state.adsP - step);
-      state.adsE = adsEase(state.adsP, state.ads);
+      state.adsE = adsEase(state.adsP);
       updateFov();
     }
     // Weapon raise and springs; hip-fire keeps the crosshair, aiming uses the sight.
     const aimed = state.adsE >= 0.5;
+    // Crosshair fades out over the first part of the raise instead of switching off.
+    const xo = 1 - smooth(0, 0.45, state.adsE);
+    if (xo !== crossOpacity) { crossOpacity = xo; crosshairEl.style.opacity = xo.toFixed(3); }
+    // Gentle walking bob on the weapon (none when still or fully aimed).
+    walkPhase += dt * 9 * Math.min(1, player.speed / 3);
+    rig.bobY = Math.sin(walkPhase) * 0.004 * Math.min(1, player.speed / 3) * (1 - 0.8 * state.adsE);
     rig.update(dt, state.adsE, t);
     rig.root.visible = settings.showViewmodel || state.adsE > 0;
-    if (crosshairEl.hidden !== aimed) crosshairEl.hidden = aimed;
+    if (crosshairEl.hidden !== (xo === 0)) crosshairEl.hidden = xo === 0;
     frameT = t;
     hud.setAmmo(weapon.ammo, state.gun.magSize, weapon.reloading);
     hud.setStats(state.shots, state.hits, state.headshots, dots.visible ? state.score : -1);
     reloadBar(weapon.reloading ? weapon.reloadProgress : -1);
   }
 
-  // ADS ease time: gun.adsSeconds scaled into the model's 120-180 ms range, shortened by the
-  // sight's adsSpeedBonus. (0.35 s guns: 157 ms magnified, 150 ms 1x, 143 ms iron.)
+  // ADS ease time: gun.adsSeconds scaled into the model's 160-240 ms range, shortened by the
+  // sight's adsSpeedBonus. (0.35 s guns: 210 ms magnified, 200 ms 1x, 191 ms iron.)
   function adsTime() {
     const [lo, hi] = data.sens.model.adsEaseSeconds;
-    return Math.min(hi, Math.max(lo, state.gun.adsSeconds * 0.45 / (1 + state.optic.adsSpeedBonus)));
+    return Math.min(hi, Math.max(lo, state.gun.adsSeconds * 0.6 / (1 + state.optic.adsSpeedBonus)));
   }
   const crosshairEl = $('crosshair');
+  let crossOpacity = 1;
+  let walkPhase = 0;
 
   const reloadEl = $('reload-bar'), reloadFill = reloadEl.firstElementChild;
   let reloadShown = -2;
@@ -663,6 +688,36 @@ function boot(data) {
   // Ring of CPU frame costs (update + render submit), read by the frame-time test.
   const cpuMs = new Float32Array(600);
   let cpuIdx = 0, prevFrameMs = 0;
+
+  /* ---------- aim assist (Settings, 0 = off) ---------- */
+  // Near a target (the dummy's head or chest, or a red dot), the aim is pulled gently towards
+  // it and the mouse slows down a little. Both fade out with distance from the target and
+  // scale with the slider; at 0 nothing happens. Frame-rate independent.
+  let assistSlow = 1;
+  const ASSIST_RADIUS = 2.5;   // degrees from the target where assist starts at 100%
+  function aimAssist(dt, t) {
+    assistSlow = 1;
+    const s = settings.aimAssist;
+    if (!(s > 0) || !lock.locked && !testMode) return;
+    const R = ASSIST_RADIUS * (0.4 + 0.6 * s);
+    const vy = look.yaw + offset[0], vp = look.pitch + offset[1];
+    const ez = player.z + range.distance;
+    let best = null, bd = R;
+    const consider = (x, y) => {
+      const dx = x - player.x, dy = y - player.eye;
+      const ty = Math.atan2(dx, ez) / DEG, tp = Math.atan2(dy, Math.hypot(dx, ez)) / DEG;
+      let ey = ty - vy; ey -= 360 * Math.round(ey / 360);
+      const ep = tp - vp, d = Math.hypot(ey, ep);
+      if (d < bd) { bd = d; best = [ey, ep]; }
+    };
+    if (dots.visible) for (let i = 0; i < dots.count; i++) consider(dots.xAt(i, t), dots.y[i]);
+    else { consider(0, 1.6); consider(0, 1.15); }
+    if (!best) return;
+    const near = 1 - bd / R;                         // 1 on the target, 0 at the edge
+    const pull = 1 - Math.exp(-dt * 2.5 * s * near); // slight: even at 100% only a nudge
+    look.setAngles(look.yaw + best[0] * pull, look.pitch + best[1] * pull);
+    assistSlow = 1 - 0.25 * s * near;
+  }
 
   /* ---------- rendering: world + weapon, lens pass only while aiming ---------- */
   let lastShotT = -1, frameT = 0;
@@ -696,7 +751,7 @@ function boot(data) {
     lensP.corner = (hs.radius || 0) * H * k;
     lensP.round = hs.shape === 'round';
     lensP.mag = o.zoom > 1;
-    lensP.strength = smooth(0.55, 1, state.adsE);
+    lensP.strength = smooth(0.15, 1, state.adsE);   // lens look fades in with the raise
     lensP.glareX = Math.sin(look.yaw * DEG * 2) * 0.08 * H;
     lensP.glareY = Math.sin(look.pitch * DEG * 3) * 0.08 * H;
     lensP.gunHalfW = lensP.hw * 0.75;
@@ -706,7 +761,7 @@ function boot(data) {
     // Reticle keeps its angular size in the world while the FOV eases (fixed at full aim).
     const fovScale = Math.tan(state.adsFov * DEG / 2) / Math.tan(state.fovV * DEG / 2);
     lensP.retHalf = lensP.ret.half * (H / 1080) * fovScale;
-    lensP.retOn = smooth(0.7, 1, state.adsE);
+    lensP.retOn = smooth(0.45, 1, state.adsE);
     lensP.quality = lensQuality();
     post.render(scene, camera, rig.scene, rig.camera, lensP);
   }
@@ -755,6 +810,10 @@ function boot(data) {
       overlayVisible: () => state.adsP > 0,
       lensQuality, setAutoLevel(l) { autoLevel = l; }, renderFrame,
       setLensQuality(q) { settings.lensQuality = q; },
+      move(keys) { Object.assign(player.keys, keys); },
+      crouch(on) { if (player.crouched !== on) player.toggleCrouch(); },
+      player: () => ({ x: player.x, z: player.z, eye: player.eye, crouched: player.crouched }),
+      setSetting(k, v) { settings[k] = v; },
       setAimSmooth(on) { settings.aimSmooth = on; recoil.aimSmooth = on; },
       qualityTick(nowMs, frameMs) { watchQuality(nowMs, frameMs); },
       setTarget(mode, o = {}) { settings.targetMode = mode; Object.assign(settings, o); applyTarget(); },
@@ -764,7 +823,7 @@ function boot(data) {
       clearShotPoints() { shotPtsN = 0; },
       dummyVisible: () => range.dummy.visible,
       setAim(yaw, pitch) { look.setAngles(yaw, pitch); },
-      applyCounts(dx, dy) { return look.apply(dx, dy, currentDpc()); },
+      applyCounts(dx, dy) { const d = currentDpc(); return look.apply(dx, dy, d, d * settings.sensV / settings.sensH); },
       setAds,
       dpc: currentDpc,
       look: () => ({ yaw: look.yaw, pitch: look.pitch, unwrappedYaw: look.unwrappedYaw, countsX: look.countsX, discarded: look.discarded }),

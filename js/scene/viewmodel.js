@@ -121,6 +121,11 @@ export class WeaponRig {
     this.qt = new THREE.Quaternion();
     this.kickQ = new THREE.Quaternion();
     this.xAxis = new THREE.Vector3(1, 0, 0);
+    this.zAxis = new THREE.Vector3(0, 0, 1);
+    this.cantQ = new THREE.Quaternion();
+    this.bobY = 0;           // walking bob, set by main.js
+    this._v = new THREE.Vector3();
+    this._e = new THREE.Vector3();
   }
 
   setAspect(a, H) {
@@ -193,25 +198,35 @@ export class WeaponRig {
     this.sy = Math.max(-lim, Math.min(lim, this.sy));
     this.kz = Math.max(-0.002, Math.min(0.012, this.kz));
 
-    const k = easeInOut(e);
+    // e is already eased (smootherstep) by main.js; use it directly so the gun lands exactly
+    // with the zoom. The raise follows a slight arc (dips, then rises into line) with a
+    // little cant on the way, instead of sliding in a straight line.
+    const k = e;
+    const arc = Math.sin(Math.PI * k);
     const br = (1 - 0.6 * k) * 0.0004;
     this.root.position.set(
       this.hipPos.x * (1 - k) + this.sx + Math.sin(t * 1.1) * br,
-      this.hipPos.y * (1 - k) + this.sy + Math.sin(t * 0.7 + 1) * br,
+      this.hipPos.y * (1 - k) - 0.012 * arc + this.sy + Math.sin(t * 0.7 + 1) * br + this.bobY,
       this.hipPos.z * (1 - k) + this.kz,
     );
     this.qt.slerpQuaternions(this.q0, this.q1, k);
     this.kickQ.setFromAxisAngle(this.xAxis, this.kp * 0.05);
-    this.root.quaternion.copy(this.qt).multiply(this.kickQ);
+    this.cantQ.setFromAxisAngle(this.zAxis, -0.12 * arc);
+    this.root.quaternion.copy(this.qt).multiply(this.cantQ).multiply(this.kickQ);
   }
 
   // Where the sight's window is on screen right now (for the lens pass), in pixels from the
   // screen centre, plus a scale for kick-back (closer = bigger).
+  // Projects the sight's real rear opening through the weapon camera, so the lens mask follows
+  // the sight through the whole raise (position, rotation, kick).
   lensOffset(out) {
-    const H = this.H, z = EYE_Z - this.root.position.z;
-    out.scale = EYE_Z / Math.max(0.05, z);
-    out.x = this.root.position.x / VIEW_H * H * out.scale;
-    out.y = this.root.position.y / VIEW_H * H * out.scale;
+    const H = this.H, W = H * this.camera.aspect;
+    this.root.updateMatrixWorld();
+    const v = this._v.set(0, 0, -EYE_Z).applyMatrix4(this.root.matrixWorld);
+    out.scale = EYE_Z / Math.max(0.03, -v.z);
+    v.project(this.camera);
+    out.x = v.x * W / 2;
+    out.y = v.y * H / 2;
     return out;
   }
 }
