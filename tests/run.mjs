@@ -727,7 +727,7 @@ try {
       const R = window.__range;
       const out = {};
       for (const level of ['easy', 'hard']) {
-        let sum = 0;
+        const times = [];
         for (let trial = 0; trial < 5; trial++) {
           R.battleStart({ opponent: 'bots', bots: 1, level, kills: 99 });
           const B = R.battle(), h = B.humans[0], bot = B.bots[0];
@@ -736,14 +736,15 @@ try {
           bot.f.x = 16; bot.f.z = 0; bot.f.yaw = 180; bot.f.protectUntil = 0; bot.target = null; bot.nextLook = 0;
           let t = 0;
           while (h.f.alive && t < 15) { R.step(0.05, 60); t += 0.05; }
-          sum += t;
+          times.push(t);
           R.battleLeave();
         }
-        out[level] = +(sum / 5).toFixed(2);
+        times.sort((a, b) => a - b);
+        out[level] = +times[2].toFixed(2);      // median (a strafing bot can briefly duck behind cover)
       }
       return out;
     });
-    check('bot levels: easy takes longer to kill you than hard (' + lv.easy + ' s vs ' + lv.hard + ' s)', lv.easy > lv.hard * 1.8 && lv.hard < 3, JSON.stringify(lv));
+    check('bot levels: easy takes longer to kill you than hard (median ' + lv.easy + ' s vs ' + lv.hard + ' s)', lv.easy > lv.hard * 1.8 && lv.hard < 3, JSON.stringify(lv));
 
     // Split screen: two viewports, player 2 on the keyboard.
     const sp = await page.evaluate(() => {
@@ -762,6 +763,69 @@ try {
       sp.vps === 2 && sp.views === 2 && sp.moved && sp.turned && sp.teams.join() === 'p1,p2', JSON.stringify(sp));
     check('no page errors', errors.length === 0, errors.join('\n'));
     await page.close();
+  }
+
+  // Network battle between two separate browser sessions (as two PCs would be): join codes,
+  // positions both ways, shots both ways, kill feed, host ending the match.
+  {
+    console.log('\nNetwork battle (two browser sessions, join codes)');
+    const A = await (await browser.newContext()).newPage({ viewport: { width: 960, height: 540 } });
+    const B = await (await browser.newContext()).newPage({ viewport: { width: 960, height: 540 } });
+    const nerr = [];
+    for (const [n, p] of [['host', A], ['player', B]]) p.on('pageerror', (e) => nerr.push(n + ': ' + String(e.stack || e)));
+    for (const p of [A, B]) { await p.goto(BASE + 'index.html?test', { waitUntil: 'networkidle' }); await p.waitForFunction(() => window.__range); }
+    for (const p of [A, B]) await p.evaluate(() => { const s = document.getElementById('b-opp'); s.value = 'net'; s.dispatchEvent(new Event('change')); });
+    await A.click('#net-host');
+    await B.click('#net-join');
+    await B.waitForFunction(() => document.getElementById('net-out-j').value.startsWith('RR1-'));
+    const join = await B.inputValue('#net-out-j');
+    await A.fill('#net-in-h', join); await A.click('#net-accept');
+    await A.waitForFunction(() => document.getElementById('net-out-h').value.startsWith('RR1-'));
+    await B.fill('#net-in-j', await A.inputValue('#net-out-h')); await B.click('#net-connect');
+    let connected = true;
+    try { await B.waitForFunction(() => /Connected/.test(document.getElementById('net-status').textContent), null, { timeout: 25000 }); } catch (e) { connected = false; }
+    check('join codes connect two sessions (code ' + join.length + ' characters)', connected, await B.textContent('#net-status'));
+    if (connected) {
+      await A.evaluate(() => { const R = window.__range; R.manual(true); R.battleStart({ opponent: 'net', bots: 1, level: 'easy', kills: 10 }); });
+      await B.waitForFunction(() => window.__range.battle() && window.__range.battle().active, null, { timeout: 5000 });
+      await B.evaluate(() => window.__range.manual(true));
+      const run = async (sec) => { for (let i = 0; i < sec * 20; i++) { await A.evaluate(() => window.__range.step(0.05, 60)); await B.evaluate(() => window.__range.step(0.05, 60)); await new Promise((r) => setTimeout(r, 5)); } };
+      await run(1);
+      await A.evaluate(() => { const Bt = window.__range.battle(); for (const b of Bt.bots) { b.update = () => {}; b.f.x = -16; b.f.z = -12; } const h = Bt.humans[0]; h.f.x = 16; h.f.z = 12; h.f.protectUntil = 0; });
+      await B.evaluate(() => { const h = window.__range.battle().humans[0]; h.f.x = 16; h.f.z = 2; h.f.protectUntil = 0; });
+      await run(0.6);
+      const seen = {
+        host: await A.evaluate(() => { const r = window.__range.battle().remotes[0].f; return [r.x, r.z]; }),
+        player: await B.evaluate(() => window.__range.battle().proxies.map((q) => [q.f.name, Math.round(q.f.x), Math.round(q.f.z)])),
+      };
+      check('positions sync both ways (host sees the player, the player sees the host and the bot)',
+        seen.host[0] === 16 && seen.host[1] === 2 && seen.player.some((p) => p[0] === 'Host' && p[1] === 16 && p[2] === 12) && seen.player.length === 2, JSON.stringify(seen));
+      const tap = async (P, yaw) => {
+        for (let k = 0; k < 8; k++) {
+          await P.evaluate((yaw) => { const Bt = window.__range.battle(); Bt.humans[0].look.setAngles(yaw, Math.atan2(1.18 - 1.6, 10) * 180 / Math.PI); Bt.mouseButton(0, true); }, yaw);
+          await run(0.05);
+          await P.evaluate(() => window.__range.battle().mouseButton(0, false));
+          await run(0.5);
+        }
+      };
+      await tap(B, 180);                       // the player shoots the host
+      const r1 = await A.evaluate(() => { const Bt = window.__range.battle(); return { hostDeaths: Bt.humans[0].f.deaths, playerKills: Bt.remotes[0].f.kills }; });
+      const feed1 = await B.evaluate(() => window.__range.battle().hud.feed.textContent);
+      check('the player on the other PC kills the host; the kill feed shows on both', r1.hostDeaths === 1 && r1.playerKills === 1 && /Player 2 › Host/.test(feed1), JSON.stringify(r1) + feed1);
+      await run(3.5);
+      await A.evaluate(() => { const Bt = window.__range.battle(); const h = Bt.humans[0]; h.f.x = 16; h.f.z = 12; h.f.protectUntil = 0; Bt.remotes[0].f.protectUntil = 0; });
+      await B.evaluate(() => { const h = window.__range.battle().humans[0]; h.f.x = 16; h.f.z = 2; h.f.protectUntil = 0; });
+      await run(0.3);
+      await tap(A, 0);                          // the host shoots back
+      const r2 = await B.evaluate(() => { const Bt = window.__range.battle(); return { myDeaths: Bt.fighters.find((f) => f.id === Bt.net.myId).deaths }; });
+      check('the host kills the player; the player\'s PC shows its own death', r2.myDeaths >= 1, JSON.stringify(r2));
+      await A.evaluate(() => window.__range.battleLeave());
+      await run(0.3);
+      const end = await B.evaluate(() => ({ active: window.__range.battle().active, status: document.getElementById('net-status').textContent }));
+      check('host ending the match returns the player to the menu, still connected', !end.active && /Still connected/.test(end.status), JSON.stringify(end));
+    }
+    check('no page errors in either session', nerr.length === 0, nerr.join('\n'));
+    await A.close(); await B.close();
   }
 } finally {
   await browser.close();

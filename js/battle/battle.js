@@ -3,14 +3,27 @@
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js';
-import { Arena } from './arena.js';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js';
-import { Bot, LEVELS } from './bot.js';
-import { Human } from './human.js';
-import { drawCrosshair } from '../ui/crosshair.js';
+import * as THREE from '../../vendor/three/three.module.min.js?v=c8418c9-mw475w2y';
+import { Arena } from './arena.js?v=c8418c9-mw475w2y';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=c8418c9-mw475w2y';
+import { Bot, LEVELS } from './bot.js?v=c8418c9-mw475w2y';
+import { Human } from './human.js?v=c8418c9-mw475w2y';
+import { drawCrosshair } from '../ui/crosshair.js?v=c8418c9-mw475w2y';
 
-const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, bots: 0xff7048 };
+const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, bots: 0xff7048 };
+const SNAP_HZ = 30;            // network position updates per second
+const INTERP_DELAY = 0.1;      // clients draw others this far in the past (smooth movement)
+const r2 = (v) => Math.round(v * 100) / 100, r1 = (v) => Math.round(v * 10) / 10;
+
+// Host side: a player on another PC. Their PC simulates their movement and aim and reports
+// position and shots; the host keeps health, damage, kills, respawns and the score.
+class Remote {
+  constructor(f, link, gun) { this.f = f; this.link = link; this.gun = gun; f.gun = gun; this.shotTimes = []; }
+}
+// Client side: anyone else (players and bots), drawn from the host's position updates.
+class Proxy {
+  constructor(f) { this.f = f; this.buf = []; }
+}
 const BOT_NAMES = ['Rook', 'Vex', 'Mako', 'Quill', 'Brisk', 'Tarn'];
 const RESPAWN_S = 3, PROTECT_S = 1.5, REGEN_DELAY = 5, REGEN_PER_S = 15;
 const MAX_TRACERS = 48;
@@ -35,16 +48,20 @@ export class Battle {
   }
 
   /* ---------- setup ---------- */
-  // opts: { opponent: 'bots' | 'p2', bots, level, killsToWin, p1Gun, p2Gun }
+  // opts: { opponent: 'bots' | 'p2' | 'net', bots, level, killsToWin, p1Gun, p2Gun,
+  //         remotes: [{ link, name, gunIndex }] (network game: players on other PCs) }
   start(opts) {
     this.stop();
     const d = this.deps;
-    this.opts = { ...opts };
+    this.opts = { ...opts, remotes: undefined };
+    this.net = opts.remotes && opts.remotes.length ? { role: 'host' } : null;
+    this.remotes = []; this.proxies = [];
+    this._nextSnap = 0;
     this.arena.setGraphics(d.settings.graphics, d.renderer);
     this.arena.holes.clear();
     for (const f of this.fighters) f.group.removeFromParent();
     this.fighters = []; this.humans = []; this.bots = [];
-    this.teamScore = { p1: 0, p2: 0, bots: 0 };
+    this.teamScore = { p1: 0, p2: 0, p3: 0, p4: 0, p5: 0, p6: 0, bots: 0 };
     this.feed = [];
     const two = opts.opponent === 'p2';
     const mk = (i, name, team, gun, controls) => {
@@ -56,8 +73,15 @@ export class Battle {
       this.humans.push(h); this.fighters.push(f);
       return h;
     };
-    mk(0, two ? 'Player 1' : 'You', 'p1', opts.p1Gun, 'mouse');
+    mk(0, two ? 'Player 1' : this.net ? (opts.hostName || 'Host') : 'You', 'p1', opts.p1Gun, 'mouse');
     if (two) mk(1, 'Player 2', 'p2', opts.p2Gun, 'keys');
+    (opts.remotes || []).forEach((r, i) => {
+      const team = 'p' + (i + 2);
+      const f = new Fighter({ name: r.name, team, color: TEAM_COLOR[team], human: true });
+      f.showBar = false;
+      this.remotes.push(new Remote(f, r.link, d.guns[r.gunIndex] || d.guns[0]));
+      this.fighters.push(f);
+    });
     const n = Math.max(0, Math.min(6, opts.bots | 0));
     for (let i = 0; i < n; i++) {
       const f = new Fighter({ name: BOT_NAMES[i] + ' (' + LEVELS[opts.level].name + ')', team: 'bots', color: TEAM_COLOR.bots });
@@ -65,9 +89,13 @@ export class Battle {
       const b = new Bot(f, opts.level, gun, 1000 + i * 7919 + Math.floor(Math.random() * 1e6));
       this.bots.push(b); this.fighters.push(f);
     }
-    for (const f of this.fighters) this.arena.scene.add(f.group);
+    this.fighters.forEach((f, i) => { f.id = i + 1; this.arena.scene.add(f.group); });
     const t = d.now();
     this.t = t; this.prevT = t;
+    // Network game: tell every remote player who is in the match before the spawns go out.
+    for (const r of this.remotes) {
+      r.link.send({ k: 'start', you: r.f.id, killsToWin: opts.killsToWin, roster: this._roster() });
+    }
     for (const f of this.fighters) this._spawn(f, t);
     this.active = true; this.paused = false; this.over = false;
     this.hud.root.hidden = false;
@@ -87,7 +115,13 @@ export class Battle {
     }
   }
 
+  _roster() {
+    return this.fighters.map((f) => ({ id: f.id, name: f.name, team: f.team, human: f.human, gun: this.deps.guns.indexOf(f.gun) }));
+  }
+
   stop() {
+    if (this.active && this.net && this.net.role === 'host') this._broadcast({ k: 'stopped' });
+    if (this.active && this.net && this.net.role === 'client') this.net.link.send({ k: 'left' });
     this.active = false;
     this.paused = false;
     if (this.hud) this.hud.root.hidden = true;
@@ -96,9 +130,14 @@ export class Battle {
   pause() { if (!this.active) return; this.paused = true; for (const h of this.humans) h.releaseAll(); }
   resume(t) { this.paused = false; this.prevT = t; }
 
-  _side(f) { return f.team === 'p1' ? 'A' : f.team === 'p2' ? 'B' : (this.opts.opponent === 'p2' ? null : 'B'); }
+  _side(f) {
+    if (f.team === 'p1') return 'A';
+    if (f.team === 'p2') return 'B';
+    if (f.team === 'bots') return this.opts.opponent === 'bots' ? 'B' : null;
+    return null;
+  }
   enemiesOf(f) { return this.fighters.filter((g) => g !== f && g.team !== f.team); }
-  _ctl(f) { return this.humans.find((h) => h.f === f) || this.bots.find((b) => b.f === f); }
+  _ctl(f) { return this.humans.find((h) => h.f === f) || this.bots.find((b) => b.f === f) || this.remotes.find((r) => r.f === f); }
 
   _spawn(f, t) {
     const p = this.arena.spawnPoint(this._side(f), this.enemiesOf(f).filter((e) => e.alive));
@@ -108,15 +147,18 @@ export class Battle {
     f.yaw = Math.atan2(-p.x, p.z) * 180 / Math.PI; f.pitch = 0;
     const c = this._ctl(f);
     if (c instanceof Human) c.respawn(p.x, p.z, t);
+    else if (c instanceof Remote) c.link.send({ k: 'spawn', x: r2(p.x), z: r2(p.z), yaw: r1(f.yaw) });
     else if (c) c.respawned();
   }
 
   /* ---------- simulation ---------- */
   update(t) {
     if (!this.active) return;
+    if (this.net && this.net.role === 'client') { this._clientUpdate(t); return; }
     let dt = Math.min(0.1, Math.max(0, t - this.prevT));
     this.prevT = t;
-    if (this.paused || this.over) dt = 0;
+    // A network game never pauses (Esc only opens your menu); local games do.
+    if ((this.paused && !this.net) || this.over) dt = 0;
     this.t = t;
     if (dt > 0) {
       for (const b of this.bots) b.update(t, dt, this);
@@ -129,10 +171,12 @@ export class Battle {
     for (const f of this.fighters) f.updateVisual(t);
     this._updateTracers(t);
     this._updateHud(t);
+    if (this.net && t >= this._nextSnap) { this._nextSnap = t + 1 / SNAP_HZ; this._sendSnapshot(t); }
   }
 
   // A bullet from shooter (Human or Bot) at time shotT.
   fire(shooter, shotT) {
+    if (this.net && this.net.role === 'client') { this._clientFire(shooter, shotT); return; }
     const f = shooter.f, d = this._dir, o = this._eye;
     if (!f.alive || this.over) return;
     shooter.shotDirection(shotT, d);
@@ -149,11 +193,14 @@ export class Battle {
     const end = bt === Infinity ? 60 : bt;
     const from = shooter instanceof Human ? this._v.set(o[0], o[1] - 0.12, o[2]).addScaledVector(new THREE.Vector3(d[0], d[1], d[2]), 0.6) : f.muzzleWorld(this._v);
     this._addTracer(from, [o[0] + d[0] * end, o[1] + d[1] * end, o[2] + d[2] * end], shotT, f.team);
+    let hole = null;
     if (best) this._damage(best.g, gunDamage(f.gun) * (ZONE_DAMAGE[best.r.zone] || 1), f, best.r.zone, shotT);
     else if (tw !== Infinity) {
       const n = this._hit.n;
-      this.arena.holes.add(o[0] + d[0] * tw, o[1] + d[1] * tw, o[2] + d[2] * tw, n[0], n[1], n[2]);
+      hole = [r2(o[0] + d[0] * tw), r2(o[1] + d[1] * tw), r2(o[2] + d[2] * tw), n[0], n[1], n[2]];
+      this.arena.holes.add(hole[0], hole[1], hole[2], n[0], n[1], n[2]);
     }
+    if (this.net) this._broadcast({ k: 'tr', by: f.id, a: [r2(from.x), r2(from.y), r2(from.z)], b: [r2(o[0] + d[0] * end), r2(o[1] + d[1] * end), r2(o[2] + d[2] * end)], team: f.team, tone: f.gun.tone, hole }, true);
     // Sound: your own shots full volume; others by distance to the nearest human (rate-limited).
     const sfx = this.deps.sfx;
     if (shooter instanceof Human) sfx.shot(f.gun.tone, this.humans.length > 1 ? 0.7 : 1);
@@ -174,15 +221,21 @@ export class Battle {
     if (victim instanceof Bot) victim.onHurt(by, t);
     const killer = this.humans.find((h) => h.f === by);
     const dead = g.health <= 0;
-    if (killer) this._hitMarker(killer, dead ? 'kill' : zone === 'head' ? 'head' : 'hit', t);
+    const kind = dead ? 'kill' : zone === 'head' ? 'head' : 'hit';
+    if (killer) this._hitMarker(killer, kind, t);
     const hv = this.humans.find((h) => h.f === g);
     if (hv) this._hurtFlash(hv, by, t);
+    const rk = this.remotes.find((r) => r.f === by), rv = this.remotes.find((r) => r.f === g);
+    if (rk) rk.link.send({ k: 'hm', kind });
+    if (rv) rv.link.send({ k: 'hurt', from: [r2(by.x), r2(by.z)], by: by.name });
     if (!dead) return;
     g.health = 0; g.alive = false; g.deaths++; g.respawnAt = t + RESPAWN_S;
     by.kills++;
     this.teamScore[by.team]++;
-    this.feed.unshift({ k: by.name, kc: by.team, v: g.name, vc: g.team, head: zone === 'head', t });
+    const entry = { k: by.name, kc: by.team, v: g.name, vc: g.team, vid: g.id, head: zone === 'head', t };
+    this.feed.unshift(entry);
     this.feed.length = Math.min(this.feed.length, 5);
+    if (this.net) this._broadcast({ k: 'feed', e: entry });
     this._renderFeed();
     this._updateScore();
     if (hv) hv.killedBy = by.name;
@@ -194,16 +247,237 @@ export class Battle {
     this.over = true;
     const two = this.opts.opponent === 'p2';
     const names = { p1: two ? 'Player 1 wins' : 'You win', p2: 'Player 2 wins', bots: 'The bots win' };
-    this.hud.endTitle.textContent = names[team];
-    const rows = this.fighters.slice().sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
-    this.hud.endTable.replaceChildren(...rows.map((f) => {
-      const r = el('div', 'b-row');
-      r.append(el('span', 'b-name t-' + f.team, f.name), el('span', '', f.kills + ' kills'), el('span', '', f.deaths + ' deaths'));
-      return r;
-    }));
-    this.hud.end.hidden = false;
+    let title = names[team];
+    if (this.net) { const w = this.fighters.find((f) => f.team === team); title = team === 'bots' ? 'The bots win' : (w ? w.name : 'Someone') + ' wins'; }
+    const rows = this.fighters.slice().sort((a, b) => b.kills - a.kills || a.deaths - b.deaths).map((f) => [f.name, f.team, f.kills, f.deaths]);
+    if (this.net) this._broadcast({ k: 'end', title, rows });
+    this._showEnd(title, rows, true);
     for (const h of this.humans) h.releaseAll();
     this.deps.onEnd();
+  }
+
+  _showEnd(title, rows, canRestart) {
+    this.over = true;
+    this.hud.endTitle.textContent = title;
+    this.hud.endTable.replaceChildren(...rows.map(([name, team, kills, deaths]) => {
+      const r = el('div', 'b-row');
+      r.append(el('span', 'b-name t-' + team, name), el('span', '', kills + ' kills'), el('span', '', deaths + ' deaths'));
+      return r;
+    }));
+    this.hud.again.hidden = !canRestart;
+    this.hud.endNote.textContent = canRestart ? 'Click "Play again" for a rematch with the same settings.' : 'The host can start a rematch; you will join it automatically.';
+    this.hud.end.hidden = false;
+  }
+
+  /* ---------- network: host ---------- */
+  _broadcast(msg, fast = false, except = null) {
+    for (const r of this.remotes) if (r !== except) r.link.send(msg, fast);
+  }
+  // Positions, health and score of everyone, ~30 times a second (newest wins).
+  _sendSnapshot(t) {
+    const f = this.fighters.map((g) => [g.id, r2(g.x), r2(g.z), r1(g.yaw), r1(g.pitch), r2(g.crouch), Math.ceil(Math.max(0, g.health)), g.alive ? 1 : 0, t < g.flashUntil ? 1 : 0, g.kills, g.deaths]);
+    this._broadcast({ k: 'snap', f, s: this.teamScore }, true);
+  }
+  // A message from a player on another PC (host), or from the host (client).
+  onNet(link, m) {
+    if (!this.active || !this.net) return;
+    if (this.net.role === 'client') { this._clientMsg(m); return; }
+    const r = this.remotes.find((x) => x.link === link);
+    if (!r) return;
+    const f = r.f, t = this.t;
+    if (m.k === 'st') {
+      if (!f.alive) return;
+      f.x = +m.x || 0; f.z = +m.z || 0; f.yaw = +m.yaw || 0; f.pitch = +m.pitch || 0; f.crouch = Math.min(1, Math.max(0, +m.crouch || 0));
+      this.arena.resolve(f);                      // never inside cover
+    } else if (m.k === 'shot') {
+      if (!f.alive || this.over) return;
+      // Rate check: no faster than the gun can fire (plus slack for network bunching).
+      r.shotTimes.push(t);
+      while (r.shotTimes.length && r.shotTimes[0] < t - 1) r.shotTimes.shift();
+      if (r.shotTimes.length > r.gun.rpm / 60 * 1.5 + 3) return;
+      if (t < f.protectUntil) f.protectUntil = t;
+      f.flashUntil = t + 0.05;
+      const a = f.muzzleWorld(this._v);
+      this._addTracer(a, m.b, t, f.team);
+      this._broadcast({ k: 'tr', by: f.id, a: [r2(a.x), r2(a.y), r2(a.z)], b: m.b, team: f.team, tone: r.gun.tone, hole: m.hole || null }, true, r);
+      if (m.hole) this.arena.holes.add(m.hole[0], m.hole[1], m.hole[2], m.hole[3], m.hole[4], m.hole[5]);
+      this._shotSound(f, t);
+      // The shooter's PC decided the hit (on what that player saw). Accept it if the target is
+      // alive, an enemy, near that point, and no cover stands between.
+      if (m.hit) {
+        const g = this.fighters.find((x) => x.id === m.hit.id);
+        const p = m.hit.p;
+        if (g && g.alive && g.team !== f.team && Array.isArray(p) && Math.hypot(p[0] - g.x, p[2] - g.z) < 2.5 &&
+          this.arena.sightLine([f.x, f.eyeH, f.z], [p[0], p[1], p[2]])) {
+          this._damage(g, gunDamage(r.gun) * (ZONE_DAMAGE[m.hit.zone] || 1), f, m.hit.zone, t);
+        }
+      }
+    } else if (m.k === 'left') this.onLinkClosed(link);
+  }
+  // A player's connection dropped (host) or the host's did (client).
+  onLinkClosed(link) {
+    if (!this.active || !this.net) return;
+    if (this.net.role === 'client') { if (link === this.net.link) this.deps.onNetLost('The host left or the connection dropped.'); return; }
+    const r = this.remotes.find((x) => x.link === link);
+    if (!r) return;
+    this.remotes.splice(this.remotes.indexOf(r), 1);
+    this.fighters.splice(this.fighters.indexOf(r.f), 1);
+    r.f.group.removeFromParent();
+    this.feed.unshift({ k: r.f.name, kc: r.f.team, v: 'left the game', vc: 'bots', t: this.t, info: true });
+    this.feed.length = Math.min(this.feed.length, 5);
+    this._renderFeed();
+    this._updateScore();
+  }
+  _shotSound(f, t) {
+    if (t - this._lastBotSound < 0.045) return;
+    this._lastBotSound = t;
+    const me = this.humans[0] && this.humans[0].f;
+    const dist = me ? Math.hypot(me.x - f.x, me.z - f.z) : 10;
+    this.deps.sfx.shot(f.gun ? f.gun.tone : 0.5, Math.max(0.06, Math.min(0.6, 3 / (dist + 2))));
+  }
+
+  /* ---------- network: client ---------- */
+  // The host started a match: build it from the roster. You play on this PC; everyone else
+  // follows the host's updates.
+  startClient(m, link) {
+    this.stop();
+    const d = this.deps;
+    this.opts = { opponent: 'net', killsToWin: m.killsToWin };
+    this.net = { role: 'client', link, myId: m.you };
+    this.arena.setGraphics(d.settings.graphics, d.renderer);
+    this.arena.holes.clear();
+    for (const f of this.fighters) f.group.removeFromParent();
+    this.fighters = []; this.humans = []; this.bots = []; this.remotes = []; this.proxies = [];
+    this.teamScore = { p1: 0, p2: 0, p3: 0, p4: 0, p5: 0, p6: 0, bots: 0 };
+    this.feed = [];
+    for (const e of m.roster) {
+      const f = new Fighter({ name: e.name, team: e.team, color: TEAM_COLOR[e.team] || 0xffffff, human: e.human });
+      f.id = e.id;
+      f.gun = d.guns[e.gun] || d.guns[0];
+      if (e.human) f.showBar = false;
+      this.fighters.push(f);
+      this.arena.scene.add(f.group);
+      if (e.id === m.you) {
+        let h = this.humanPool[0];
+        if (!h) h = this.humanPool[0] = new Human(f, 'mouse', { ...d }, d.slotOf);
+        h.f = f; h.controls = 'mouse'; h.padIndex = -1; h.releaseAll();
+        h.setGun(f.gun);
+        f.alive = false;                     // until the host's spawn message
+        this.humans.push(h);
+      } else this.proxies.push(new Proxy(f));
+    }
+    const t = d.now();
+    this.t = t; this.prevT = t; this._nextSnap = 0;
+    this.active = true; this.paused = false; this.over = false;
+    this.hud.root.hidden = false;
+    this.hud.end.hidden = true;
+    this._layoutHud();
+    this._updateScore();
+    this._renderFeed();
+  }
+
+  _clientMsg(m) {
+    const t = this.deps.now(), me = this.humans[0];
+    if (m.k === 'snap') {
+      for (const e of m.f) {
+        const [id, x, z, yaw, pitch, crouch, health, alive, flash, kills, deaths] = e;
+        const f = this.fighters.find((g) => g.id === id);
+        if (!f) continue;
+        f.kills = kills; f.deaths = deaths;
+        if (me && f === me.f) {
+          f.health = health;
+          if (f.alive && !alive) { f.alive = false; f.respawnAt = t + RESPAWN_S; }
+          continue;
+        }
+        f.health = health; f.alive = !!alive;
+        if (flash) f.flashUntil = t + 0.05;
+        const p = this.proxies.find((q) => q.f === f);
+        if (p) { p.buf.push([t, x, z, yaw, pitch, crouch]); if (p.buf.length > 12) p.buf.shift(); }
+      }
+      let changed = false;
+      for (const k of Object.keys(m.s)) if (this.teamScore[k] !== m.s[k]) { this.teamScore[k] = m.s[k]; changed = true; }
+      if (changed) this._updateScore();
+    } else if (m.k === 'spawn' && me) {
+      me.f.alive = true; me.f.health = MAX_HEALTH; me.f.protectUntil = t + PROTECT_S;
+      me.respawn(m.x, m.z, t);
+      me.look.setAngles(m.yaw, 0);
+    } else if (m.k === 'tr') {
+      const by = this.fighters.find((g) => g.id === m.by);
+      this._addTracer(new THREE.Vector3(m.a[0], m.a[1], m.a[2]), m.b, t, m.team);
+      if (m.hole) this.arena.holes.add(m.hole[0], m.hole[1], m.hole[2], m.hole[3], m.hole[4], m.hole[5]);
+      if (by) { by.flashUntil = t + 0.05; this._shotSound(by, t); }
+    } else if (m.k === 'hurt' && me) {
+      this._hurtFlash(me, { x: m.from[0], z: m.from[1] }, t);
+    } else if (m.k === 'hm' && me) {
+      this._hitMarker(me, m.kind, t);
+    } else if (m.k === 'feed') {
+      this.feed.unshift(m.e);
+      this.feed.length = Math.min(this.feed.length, 5);
+      this._renderFeed();
+      if (me && m.e.vid === me.f.id) me.killedBy = m.e.k;
+    } else if (m.k === 'end') {
+      for (const h of this.humans) h.releaseAll();
+      this._showEnd(m.title, m.rows, false);
+      this.deps.onEnd();
+    }
+  }
+
+  _clientUpdate(t) {
+    const dt = Math.min(0.1, Math.max(0, t - this.prevT));
+    this.prevT = t; this.t = t;
+    const me = this.humans[0];
+    if (me) me.update(t, this.over ? 0 : dt, this);
+    // Others: drawn INTERP_DELAY behind, between the two updates around that moment.
+    const rt = t - INTERP_DELAY;
+    for (const p of this.proxies) {
+      const b = p.buf, f = p.f;
+      if (!b.length) continue;
+      let i = b.length - 1;
+      while (i > 0 && b[i - 1][0] > rt) i--;
+      const A = b[Math.max(0, i - 1)], B = b[i];
+      const k = B[0] === A[0] ? 1 : Math.min(1, Math.max(0, (rt - A[0]) / (B[0] - A[0])));
+      f.x = A[1] + (B[1] - A[1]) * k; f.z = A[2] + (B[2] - A[2]) * k;
+      let dy = ((B[3] - A[3] + 540) % 360) - 180;
+      f.yaw = A[3] + dy * k; f.pitch = A[4] + (B[4] - A[4]) * k; f.crouch = A[5] + (B[5] - A[5]) * k;
+    }
+    if (me && me.f.alive && t >= this._nextSnap) {
+      this._nextSnap = t + 1 / SNAP_HZ;
+      const f = me.f;
+      this.net.link.send({ k: 'st', x: r2(f.x), z: r2(f.z), yaw: r1(f.yaw), pitch: r1(f.pitch), crouch: r2(f.crouch) }, true);
+    }
+    for (const f of this.fighters) f.updateVisual(t);
+    this._updateTracers(t);
+    this._updateHud(t);
+  }
+
+  // Your shot in a network game: decided here against what you see (so aiming feels exactly
+  // like single player), then sent to the host, which applies the damage.
+  _clientFire(shooter, shotT) {
+    const f = shooter.f, d = this._dir, o = this._eye;
+    if (!f.alive || this.over) return;
+    shooter.shotDirection(shotT, d);
+    shooter.eye(o);
+    const tw = this.arena.raycast(o, d, 200, this._hit);
+    let best = null, bt = tw;
+    for (const g of this.fighters) {
+      if (g === f || g.team === f.team || !g.alive) continue;
+      const r = g.raycast(o, d);
+      if (r && r.t < bt) { bt = r.t; best = { g, r }; }
+    }
+    const end = bt === Infinity ? 60 : bt;
+    const b = [r2(o[0] + d[0] * end), r2(o[1] + d[1] * end), r2(o[2] + d[2] * end)];
+    const from = this._v.set(o[0], o[1] - 0.12, o[2]).addScaledVector(new THREE.Vector3(d[0], d[1], d[2]), 0.6);
+    this._addTracer(from, b, shotT, f.team);
+    let hole = null;
+    if (!best && tw !== Infinity) {
+      const n = this._hit.n;
+      hole = [b[0], b[1], b[2], n[0], n[1], n[2]];
+      this.arena.holes.add(hole[0], hole[1], hole[2], n[0], n[1], n[2]);
+    }
+    const hit = best ? { id: best.g.id, zone: best.r.zone, p: best.r.p.map(r2) } : null;
+    if (best) this._hitMarker(shooter, best.r.zone === 'head' ? 'head' : 'hit', shotT);
+    this.net.link.send({ k: 'shot', b, hole, hit });
+    this.deps.sfx.shot(f.gun.tone, 1);
   }
 
   /* ---------- input ---------- */
@@ -315,11 +589,12 @@ export class Battle {
     const leave = el('button', '', 'Back to the range');
     again.type = leave.type = 'button';
     const row = el('div', 'row'); row.append(again, leave);
-    box.append(endTitle, endTable, row, el('p', 'small', 'Click "Play again" for a rematch with the same settings.'));
+    const endNote = el('p', 'small', '');
+    box.append(endTitle, endTable, row, endNote);
     end.append(box);
     root.append(end);
     this.deps.hudRoot.insertBefore(root, this.deps.hudRoot.querySelector('#menu'));   // under the menu
-    this.hud = { root, score, feed, end, endTitle, endTable, again, leave, views: [] };
+    this.hud = { root, score, feed, end, endTitle, endTable, endNote, again, leave, views: [] };
   }
   _layoutHud() {
     for (const v of this.hud.views) v.box.remove();
@@ -359,15 +634,20 @@ export class Battle {
   _updateScore() {
     const o = this.opts, two = o.opponent === 'p2';
     const parts = [];
-    parts.push([two ? 'P1' : 'You', 'p1', this.teamScore.p1]);
-    if (two) parts.push(['P2', 'p2', this.teamScore.p2]);
-    if (this.bots.length) parts.push(['Bots', 'bots', this.teamScore.bots]);
+    const seen = new Set();
+    for (const f of this.fighters) {
+      if (seen.has(f.team)) continue;
+      seen.add(f.team);
+      const label = f.team === 'bots' ? 'Bots' : this.net ? f.name : f.team === 'p1' ? (two ? 'P1' : 'You') : 'P2';
+      parts.push([label, f.team, this.teamScore[f.team] || 0]);
+    }
     this.hud.score.replaceChildren(...parts.map(([n, c, s]) => el('span', 't-' + c, n + ' ' + s)), el('span', 'b-goal', 'first to ' + o.killsToWin));
   }
   _renderFeed() {
     this.hud.feed.replaceChildren(...this.feed.map((e) => {
       const r = el('div', 'b-feedrow');
-      r.append(el('span', 't-' + e.kc, e.k), el('span', 'b-icon', e.head ? ' ✦ ' : ' › '), el('span', 't-' + e.vc, e.v));
+      if (e.info) r.append(el('span', 't-' + e.kc, e.k), el('span', 'b-icon', ' ' + e.v));
+      else r.append(el('span', 't-' + e.kc, e.k), el('span', 'b-icon', e.head ? ' ✦ ' : ' › '), el('span', 't-' + e.vc, e.v));
       return r;
     }));
   }

@@ -1,8 +1,8 @@
 // A combatant in battle mode (human or bot): body, health, team, score, and the exact hit
 // test. The body is the range's training dummy (sphere head, capsule limbs) in team colours,
 // so what you see is exactly what can be hit. Crouching squashes the body to CROUCH_SCALE.
-import * as THREE from '../../vendor/three/three.module.min.js';
-import { buildDummy, raycastDummy } from '../scene/dummy.js';
+import * as THREE from '../../vendor/three/three.module.min.js?v=c8418c9-mw475w2y';
+import { buildDummy, raycastDummy } from '../scene/dummy.js?v=c8418c9-mw475w2y';
 
 export const STAND_EYE = 1.6, CROUCH_EYE = 1.12;
 export const CROUCH_SCALE = 0.7;

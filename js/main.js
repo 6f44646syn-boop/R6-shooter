@@ -1,35 +1,36 @@
 // Recoil Range entry point: wires input, camera, scene, HUD and the frame loop together.
-import * as THREE from '../vendor/three/three.module.min.js';
-import { Look, PITCH_LIMIT } from './core/look.js';
-import { Player } from './core/player.js';
-import { PointerLock } from './core/pointer-lock.js';
-import { loadSettings, saveSettings, DISTANCES } from './core/settings.js';
-import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js';
-import { Weapon } from './core/weapon.js';
-import { RecoilEngine } from './core/recoil.js';
-import { loadGameData } from './core/guns.js';
-import { randomSeed } from './core/prng.js';
-import { Range, EYE_HEIGHT } from './scene/range.js';
-import { RING_STEP } from './scene/range-tex.js';
-import { WeaponRig, setUltraTexSize, skinName } from './scene/viewmodel.js';
-import { LensPost } from './render/lens-post.js';
-import { reticleTextures } from './ui/reticle-tex.js';
-import { DOT_POINTS } from './scene/dots.js';
-import { Sfx } from './audio/sfx.js';
-import { DebugHud } from './ui/debug-hud.js';
-import { drawCrosshair } from './ui/crosshair.js';
-import { Hud } from './ui/hud.js';
-import { MagPlot } from './ui/plot.js';
-import { SettingsUI } from './ui/settings-ui.js';
-import { sensKeys, zoomKey } from './core/optics.js';
+import * as THREE from '../vendor/three/three.module.min.js?v=c8418c9-mw475w2y';
+import { Look, PITCH_LIMIT } from './core/look.js?v=c8418c9-mw475w2y';
+import { Player } from './core/player.js?v=c8418c9-mw475w2y';
+import { PointerLock } from './core/pointer-lock.js?v=c8418c9-mw475w2y';
+import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=c8418c9-mw475w2y';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=c8418c9-mw475w2y';
+import { Weapon } from './core/weapon.js?v=c8418c9-mw475w2y';
+import { RecoilEngine } from './core/recoil.js?v=c8418c9-mw475w2y';
+import { loadGameData } from './core/guns.js?v=c8418c9-mw475w2y';
+import { randomSeed } from './core/prng.js?v=c8418c9-mw475w2y';
+import { Range, EYE_HEIGHT } from './scene/range.js?v=c8418c9-mw475w2y';
+import { RING_STEP } from './scene/range-tex.js?v=c8418c9-mw475w2y';
+import { WeaponRig, setUltraTexSize, skinName } from './scene/viewmodel.js?v=c8418c9-mw475w2y';
+import { LensPost } from './render/lens-post.js?v=c8418c9-mw475w2y';
+import { reticleTextures } from './ui/reticle-tex.js?v=c8418c9-mw475w2y';
+import { DOT_POINTS } from './scene/dots.js?v=c8418c9-mw475w2y';
+import { Sfx } from './audio/sfx.js?v=c8418c9-mw475w2y';
+import { DebugHud } from './ui/debug-hud.js?v=c8418c9-mw475w2y';
+import { drawCrosshair } from './ui/crosshair.js?v=c8418c9-mw475w2y';
+import { Hud } from './ui/hud.js?v=c8418c9-mw475w2y';
+import { MagPlot } from './ui/plot.js?v=c8418c9-mw475w2y';
+import { SettingsUI } from './ui/settings-ui.js?v=c8418c9-mw475w2y';
+import { sensKeys, zoomKey } from './core/optics.js?v=c8418c9-mw475w2y';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
 function sensRows(catalogue, sens) {
   const keys = new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)]);
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
-import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js';
-import { Battle } from './battle/battle.js';
+import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=c8418c9-mw475w2y';
+import { Battle } from './battle/battle.js?v=c8418c9-mw475w2y';
+import { createJoinRequest, acceptJoin } from './net/link.js?v=c8418c9-mw475w2y';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -541,12 +542,12 @@ function boot(data) {
   }
   $('clear-btn').addEventListener('click', () => { clearRange(); flashNotice('Cleared all bullet holes and shot data.'); });
   let noticeTimer = 0;
-  function flashNotice(text) {
+  function flashNotice(text, ms = 2500) {
     const n = $('menu-note');
     n.textContent = text;
     n.hidden = false;
     clearTimeout(noticeTimer);
-    noticeTimer = setTimeout(() => { n.hidden = true; }, 2500);
+    noticeTimer = setTimeout(() => { n.hidden = true; }, ms);
   }
 
   /* ---------- firing ---------- */
@@ -675,6 +676,7 @@ function boot(data) {
   });
 
   /* ---------- battle mode ---------- */
+  var netInit = false;   // the network lobby below is ready (var: readable before its line)
   // Created on first use (it builds its own arena and weapon models).
   let battle = null;
   const bEl = (id) => $(id);
@@ -687,7 +689,9 @@ function boot(data) {
     const sync = () => {
       Object.assign(settings.battle, { opponent: bEl('b-opp').value, bots: Number(bEl('b-bots').value), level: bEl('b-level').value, kills: Number(bEl('b-kills').value), p2Gun: Number(p2.value) });
       bEl('b-p2gun-field').hidden = settings.battle.opponent !== 'p2';
+      bEl('net-panel').hidden = settings.battle.opponent !== 'net';
       saveSettings(settings);
+      if (netInit) netUi();
     };
     for (const id of ['b-opp', 'b-bots', 'b-level', 'b-kills', 'b-p2gun']) bEl(id).addEventListener('change', sync);
     sync();
@@ -697,18 +701,32 @@ function boot(data) {
       renderer, settings, guns: data.guns, sfx,
       opticFor: (g) => catalogue.byId.get(savedOptic(g)), adsVFov, baseDpc, now: clockNow,
       slotOf: (g) => data.guns.indexOf(g), onEnd: () => lock.exit(), hudRoot: $('app'),
+      onNetLost: (msg) => { netReset(); leaveBattle(); netStatus(msg, 'bad'); },
     };
   }
   function startBattle() {
     const B = settings.battle;
     if (B.opponent === 'bots' && B.bots < 1) { flashNotice('Choose at least one bot.'); return; }
+    if (B.opponent === 'net') {
+      if (net.role === 'client') { flashNotice('Only the host can start a network battle.'); return; }
+      if (net.role !== 'host' || (!net.peers.length && B.bots < 1)) { flashNotice('Host a game and connect at least one player (or add bots) first.'); return; }
+    }
     if (!battle) {
       battle = new Battle(battleDeps());
       battle.hud.again.addEventListener('click', () => { startBattle(); });
       battle.hud.leave.addEventListener('click', leaveBattle);
     }
     weapon.releaseTrigger(); setAds(false); player.releaseKeys();
-    battle.start({ opponent: B.opponent, bots: B.bots, level: B.level, killsToWin: B.kills, p1Gun: state.gun, p2Gun: data.guns[Math.min(B.p2Gun, data.guns.length - 1)] });
+    try {
+      battle.start({ opponent: B.opponent, bots: B.bots, level: B.level, killsToWin: B.kills, p1Gun: state.gun, p2Gun: data.guns[Math.min(B.p2Gun, data.guns.length - 1)],
+        hostName: 'Host', remotes: B.opponent === 'net' ? net.peers.map((e) => ({ link: e.link, name: e.name, gunIndex: e.gunIndex })) : [] });
+    } catch (err) {
+      // Usually a half-updated page (old files still cached): say so instead of doing nothing.
+      console.error(err);
+      if (battle) battle.stop();
+      flashNotice('Could not start the battle (' + (err && err.message || err) + '). Press Ctrl+F5 to load the latest version.', 9000);
+      return;
+    }
     $('hud').hidden = true;
     $('start-btn').textContent = 'Resume battle';
     $('battle-leave').hidden = false;
@@ -723,11 +741,120 @@ function boot(data) {
     $('battle-leave').hidden = true;
     $('battle-btn').textContent = 'Start battle';
     $('menu').hidden = lock.locked;
+    if (netInit) netUi();
     applyGraphics();
     rig.setGun(state.gun, state.gunIndex, state.optic);
     resize();
   }
   $('battle-btn').addEventListener('click', startBattle);
+
+  /* ---------- network lobby (join codes, no server) ---------- */
+  const net = { role: null, peers: [], request: null, link: null };
+  function netStatus(text, kind = '') { const e = $('net-status'); e.textContent = text; e.className = 'small ' + kind; }
+  function netUi() {
+    $('net-host-box').hidden = net.role !== 'host';
+    $('net-join-box').hidden = net.role !== 'client';
+    $('net-host').hidden = $('net-join').hidden = !!net.role;
+    $('net-reset').hidden = !net.role;
+    $('net-players').textContent = net.peers.length ? net.peers.map((e) => e.name + ' (' + data.guns[e.gunIndex].name + ')').join(', ') : 'none yet';
+    const waiting = settings.battle.opponent === 'net' && net.role === 'client';
+    $('battle-btn').disabled = waiting && !(battle && battle.active);
+    if (waiting && !(battle && battle.active)) $('battle-btn').textContent = net.link ? 'Waiting for the host to start' : 'Only the host starts the battle';
+  }
+  function netReset() {
+    for (const e of net.peers) e.link.close();
+    if (net.link) net.link.close();
+    if (net.request) net.request.cancel();
+    net.role = null; net.peers = []; net.request = null; net.link = null;
+    for (const id of ['net-in-h', 'net-out-h', 'net-in-j', 'net-out-j']) $(id).value = '';
+    $('net-reply-box').hidden = true;
+    $('battle-btn').disabled = false;
+    netUi();
+  }
+  const copy = async (id) => {
+    const t = $(id);
+    try { await navigator.clipboard.writeText(t.value); netStatus('Copied.', 'ok'); }
+    catch (e) { t.select(); netStatus('Press Ctrl+C to copy the selected code.'); }
+  };
+  $('net-copy-h').addEventListener('click', () => copy('net-out-h'));
+  $('net-copy-j').addEventListener('click', () => copy('net-out-j'));
+  $('net-reset').addEventListener('click', () => { if (battle && battle.active && battle.net) leaveBattle(); netReset(); netStatus('Disconnected.'); });
+
+  // Host
+  $('net-host').addEventListener('click', () => { net.role = 'host'; netUi(); netStatus('Ask each player to press "Join a game" and send you their join code.'); });
+  $('net-accept').addEventListener('click', async () => {
+    const code = $('net-in-h').value.trim();
+    if (!code) { netStatus('Paste a join code first.', 'bad'); return; }
+    try {
+      netStatus('Making the reply code...');
+      const acc = await acceptJoin(code);
+      $('net-out-h').value = acc.code;
+      $('net-reply-box').hidden = false;
+      $('net-in-h').value = '';
+      netStatus('Send the reply code back. Waiting for them to connect...');
+      acc.link.then((link) => {
+        const entry = { link, name: 'Player ' + (net.peers.length + 2), gunIndex: 0 };
+        net.peers.push(entry);
+        link.onmessage = (m) => {
+          if (m.k === 'hello') { entry.gunIndex = Math.min(data.guns.length - 1, Math.max(0, m.gun | 0)); netUi(); return; }
+          if (battle && battle.active && battle.net) battle.onNet(link, m);
+        };
+        link.onclose = () => {
+          net.peers.splice(net.peers.indexOf(entry), 1);
+          if (battle && battle.active && battle.net) battle.onLinkClosed(link);
+          netUi(); netStatus(entry.name + ' disconnected.', 'bad');
+        };
+        netUi(); netStatus(entry.name + ' connected.', 'ok');
+        $('net-reply-box').hidden = true;
+      }).catch((err) => netStatus(err.message, 'bad'));
+    } catch (err) { netStatus(err.message, 'bad'); }
+  });
+
+  // Joiner
+  $('net-join').addEventListener('click', async () => {
+    net.role = 'client'; netUi();
+    try {
+      netStatus('Making your join code...');
+      net.request = await createJoinRequest();
+      $('net-out-j').value = net.request.code;
+      netStatus('Send the join code to the host, then paste their reply code below.');
+    } catch (err) { netStatus(err.message, 'bad'); }
+  });
+  $('net-connect').addEventListener('click', async () => {
+    if (!net.request) return;
+    try {
+      netStatus('Connecting...');
+      const link = await net.request.finish($('net-in-j').value.trim());
+      net.request = null; net.link = link;
+      link.send({ k: 'hello', gun: state.gunIndex });
+      link.onmessage = (m) => {
+        if (m.k === 'start') { startClientBattle(m); return; }
+        if (m.k === 'stopped') { if (battle && battle.active) { leaveBattle(); netStatus('The host ended the match. Still connected: wait for the next one.', 'ok'); } return; }
+        if (battle && battle.active && battle.net) battle.onNet(link, m);
+      };
+      link.onclose = () => {
+        if (battle && battle.active && battle.net) battle.onLinkClosed(link);
+        else { netReset(); netStatus('Disconnected from the host.', 'bad'); }
+      };
+      netUi(); netStatus('Connected. Waiting for the host to start the battle.', 'ok');
+    } catch (err) { netStatus(err.message, 'bad'); }
+  });
+  netInit = true;
+  netUi();
+  function startClientBattle(m) {
+    if (!battle) {
+      battle = new Battle(battleDeps());
+      battle.hud.again.addEventListener('click', () => { startBattle(); });
+      battle.hud.leave.addEventListener('click', leaveBattle);
+    }
+    weapon.releaseTrigger(); setAds(false); player.releaseKeys();
+    battle.startClient(m, net.link);
+    $('hud').hidden = true;
+    $('start-btn').textContent = 'Join the battle';
+    $('battle-leave').hidden = false;
+    netUi();
+    if (!lock.locked) { $('menu').hidden = false; flashNotice('The battle has started: click "Join the battle".', 6000); }
+  }
   $('battle-leave').addEventListener('click', leaveBattle);
 
   /* ---------- frame loop ---------- */

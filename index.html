@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recoil Range</title>
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/style.css?v=c8418c9-mw475w2y">
 </head>
 <body>
 <div id="app">
@@ -69,7 +69,7 @@
         <h2>Battle</h2>
         <div class="set-grid">
           <label class="field" for="b-opp"><span>Opponents</span>
-            <select id="b-opp"><option value="bots">Bots</option><option value="p2">Local player 2 (split screen)</option></select></label>
+            <select id="b-opp"><option value="bots">Bots</option><option value="p2">Local player 2 (split screen)</option><option value="net">Network: other PCs (join codes)</option></select></label>
           <label class="field" for="b-bots"><span>Bots</span>
             <select id="b-bots"><option>0</option><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option></select></label>
           <label class="field" for="b-level"><span>Bot level</span>
@@ -78,11 +78,35 @@
             <select id="b-kills"><option>5</option><option selected>10</option><option>20</option><option>30</option></select></label>
           <label class="field" for="b-p2gun" id="b-p2gun-field"><span>Player 2 gun</span><select id="b-p2gun"></select></label>
         </div>
+        <div id="net-panel" class="net-box" hidden>
+          <div class="row">
+            <button id="net-host" type="button">Host a game</button>
+            <button id="net-join" type="button">Join a game</button>
+            <button id="net-reset" type="button" hidden>Disconnect</button>
+          </div>
+          <div id="net-host-box" class="net-box" hidden>
+            <p class="small">You are hosting. Players: <span id="net-players">none yet</span>. For each player:</p>
+            <label class="field" for="net-in-h"><span>1. Paste the join code they send you</span><textarea id="net-in-h" spellcheck="false"></textarea></label>
+            <div class="row"><button id="net-accept" type="button">Make reply code</button></div>
+            <div id="net-reply-box" class="net-box" hidden>
+              <label class="field" for="net-out-h"><span>2. Send this reply code back to them</span><textarea id="net-out-h" readonly spellcheck="false"></textarea></label>
+              <div class="row"><button id="net-copy-h" type="button">Copy reply code</button></div>
+            </div>
+            <p class="small">When everyone is connected, press Start battle. Bots (if any) join as a third side.</p>
+          </div>
+          <div id="net-join-box" class="net-box" hidden>
+            <label class="field" for="net-out-j"><span>1. Send this join code to the host (chat, email...)</span><textarea id="net-out-j" readonly spellcheck="false"></textarea></label>
+            <div class="row"><button id="net-copy-j" type="button">Copy join code</button></div>
+            <label class="field" for="net-in-j"><span>2. Paste the reply code the host sends back</span><textarea id="net-in-j" spellcheck="false"></textarea></label>
+            <div class="row"><button id="net-connect" type="button">Connect</button></div>
+          </div>
+          <p id="net-status" class="small" role="status"></p>
+        </div>
         <div class="row">
           <button id="battle-btn" type="button" class="primary">Start battle</button>
           <button id="battle-leave" type="button" hidden>Leave battle</button>
         </div>
-        <p class="small" id="battle-help">You use the gun selected in Loadout. Player 2 plays with a gamepad (left stick move, right stick look, RT fire, LT aim, X reload, B crouch, L3 sprint, LB/RB lean) or the keyboard (I J K L move, arrow keys look, Enter fire, Right Shift aim, Backspace reload, / crouch). In split screen player 1 sprints with Left Shift.</p>
+        <p class="small" id="battle-help">You use the gun selected in Loadout. Player 2 plays with a gamepad (left stick move, right stick look, RT fire, LT aim, X reload, B crouch, L3 sprint, LB/RB lean) or the keyboard (I J K L move, arrow keys look, Enter fire, Right Shift aim, Backspace reload, / crouch). In split screen player 1 sprints with Left Shift. Network games: every PC must be on the same network (some school or public Wi-Fi blocks direct connections between PCs).</p>
       </section>
       <div id="settings-root"></div>
       <section class="keys">
@@ -121,6 +145,6 @@
     </div>
   </div>
 </div>
-<script type="module" src="js/main.js"></script>
+<script type="module" src="js/main.js?v=c8418c9-mw475w2y"></script>
 </body>
 </html>

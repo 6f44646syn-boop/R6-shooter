@@ -164,3 +164,9 @@ fieldset, .xh-wrap { min-width: 0; }
 .b-table { display: grid; gap: 4px; }
 .b-row { display: grid; grid-template-columns: 1fr auto auto; gap: 16px; }
 .battle-setup .row { display: flex; gap: 8px; flex-wrap: wrap; }
+.battle-hud .t-p3 { color: #d7a6ff; } .battle-hud .t-p4 { color: #ffe27a; } .battle-hud .t-p5 { color: #7ee8ef; } .battle-hud .t-p6 { color: #ff9ccb; }
+.net-box { display: grid; gap: 8px; }
+.net-box textarea { width: 100%; min-height: 64px; padding: 6px 8px; background: #0b0d10; border: 1px solid var(--panel-edge); border-radius: 4px; color: var(--fg); font: 11px/1.35 var(--mono); word-break: break-all; resize: vertical; }
+#net-status { margin: 0; }
+#net-status.ok { color: #7fd8a8; } #net-status.bad { color: var(--warn); }
+button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }

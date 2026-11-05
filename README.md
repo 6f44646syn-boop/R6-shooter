@@ -125,6 +125,30 @@ regenerates after 5 s without damage.
   / crouch). In split screen player 1 sprints with Left Shift.
 - Esc pauses and opens the menu (Resume battle / Leave battle).
 
+### Network battle (other PCs on the same network)
+
+Battle > Opponents > Network. No server and no outside service: the browsers connect directly
+(WebRTC), introduced by copy-paste codes.
+
+1. Host: press **Host a game**. Each other player: press **Join a game** and send the host
+   the join code (chat, email...).
+2. Host: paste each join code, press **Make reply code** and send the reply code back.
+3. Player: paste the reply code and press **Connect**.
+4. Host: press **Start battle** (bots optional, as a third side). Players join automatically
+   and click "Join the battle" to capture the mouse.
+
+The host runs the match (health, damage, bots, respawns, score). Each player moves and aims
+on their own PC, so recoil and sensitivity feel exactly like single player; their PC decides
+what their bullets hit (on what they saw) and the host checks it. Up to 5 other players.
+All PCs must be on the same network, and that network must allow devices to reach each
+other: many home networks do; some school and public Wi-Fi blocks it.
+
+### Publishing
+
+Run `node tools/stamp.mjs` before pushing: it adds `?v=<build>` to every module import and to
+the page's script and stylesheet links, so browsers never mix new files with old cached ones
+(GitHub Pages lets browsers cache files for 10 minutes).
+
 ## Performance
 
 Built for Intel UHD 630 at 1920x1080 / 60 fps:
