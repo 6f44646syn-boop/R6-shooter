@@ -375,6 +375,27 @@ try {
     const holdUp = await page.evaluate(() => { window.__range.step(0.5); return window.__range.player(); });
     check('holding Space crouches, releasing stands', holdDown.crouched && !holdUp.crouched && Math.abs(holdUp.eye - 1.6) < 1e-3, JSON.stringify([holdDown, holdUp]));
 
+    // Lean: hold E (right) / Q (left). The eye moves 0.32 m sideways and the view tilts; a level
+    // shot leaves from the leaned eye. Distance keys are - and +.
+    await page.evaluate(() => { const R = window.__range; R.manual(true); R.selectGun(9); R.setDistance(10); R.clear(); R.clearShotPoints(); R.setAim(0, 0); R.step(1); });
+    await page.keyboard.down('KeyE');
+    const leanR = await page.evaluate(() => { const R = window.__range; R.step(0.6); R.trigger(true); R.step(0.01, 1000); R.trigger(false); return { p: R.lean(), shot: R.shotPoints()[0] }; });
+    await page.keyboard.up('KeyE');
+    await page.keyboard.down('KeyQ');
+    const leanL = await page.evaluate(() => { window.__range.step(0.6); return window.__range.lean(); });
+    await page.keyboard.up('KeyQ');
+    const leanOff = await page.evaluate(() => { window.__range.step(0.6); return window.__range.lean(); });
+    check('E leans right: eye 0.32 m right, view tilted 11 deg; the shot leaves from there (x ' + leanR.shot[0].toFixed(3) + ' m)',
+      Math.abs(leanR.p.ex - 0.32) < 1e-3 && Math.abs(leanR.p.roll - 11) < 0.05 && Math.abs(leanR.shot[0] - 0.32) < 0.01, JSON.stringify(leanR));
+    check('Q leans left, releasing returns upright', Math.abs(leanL.ex + 0.32) < 1e-3 && leanL.roll < -10.9 && Math.abs(leanOff.ex) < 1e-3 && Math.abs(leanOff.roll) < 0.05, JSON.stringify([leanL, leanOff]));
+    await page.keyboard.press('Minus');
+    const dMinus = await page.evaluate(() => window.__range.state().distance);
+    await page.keyboard.press('Equal');
+    await page.keyboard.press('Equal');
+    const dPlus = await page.evaluate(() => window.__range.state().distance);
+    await page.keyboard.press('Minus');
+    check('- / + change the target distance (10 -> ' + dMinus + ' -> ' + dPlus + ')', dMinus === 5 && dPlus === 15, '');
+
     // k) Siege-style sensitivity: vertical slider scales pitch only; aim assist pulls gently.
     const sv = await page.evaluate(() => {
       const R = window.__range;

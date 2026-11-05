@@ -1,5 +1,5 @@
 // Player movement: WASD inside a small box behind the firing line, hold Shift to sprint,
-// hold Space to crouch.
+// hold Space to crouch, hold Q / E (or the mouse side buttons) to lean.
 // Frame-rate independent (velocity eases towards the target with exp(-k dt)).
 //
 // Coordinates: metres, x right, z towards the player. The firing line is z = 0 and you can
@@ -10,6 +10,8 @@ export const CROUCH_EYE = 1.05;
 export const BOX = { halfWidth: 1.5, depth: 2.0 };
 const WALK = 3.0, SPRINT = 5.5, CROUCH_WALK = 1.5;   // m/s (no sprinting while crouched or aiming)
 const ACCEL = 14;                      // 1/s, how fast velocity reaches the target
+const LEAN_DIST = 0.32, LEAN_ROLL = 11, LEAN_DROP = 0.05; // metres sideways, degrees of tilt, metres down
+const LEAN_RATE = 14;                  // 1/s, lean easing (snappy)
 const CROUCH_RATE = 16;                // 1/s, eye height easing (snappy: ~95% in 0.2 s)
 
 export class Player {
@@ -19,6 +21,10 @@ export class Player {
     this.eye = STAND_EYE;
     this.crouched = false;
     this.sprint = false;     // Shift held
+    this.leanL = false; this.leanR = false;   // Q / E or mouse side buttons held
+    this.lean = 0;           // -1 full left .. 1 full right (eased)
+    this.ex = 0; this.ey = STAND_EYE; this.ez = 0;  // eye position including lean
+    this.roll = 0;           // camera tilt in degrees (positive = leaning right)
     this.keys = { w: false, a: false, s: false, d: false };
   }
 
@@ -28,7 +34,7 @@ export class Player {
 
   toggleCrouch() { this.crouched = !this.crouched; }
 
-  releaseKeys() { this.keys.w = this.keys.a = this.keys.s = this.keys.d = false; this.sprint = false; }
+  releaseKeys() { this.keys.w = this.keys.a = this.keys.s = this.keys.d = false; this.sprint = false; this.leanL = this.leanR = false; }
 
   // yawDeg: where the player faces (positive = right). Moves relative to that heading.
   get sprinting() { return this.sprint && !this.crouched && !this._aiming && this.speed > 0.1; }
@@ -60,6 +66,16 @@ export class Player {
     const target = this.crouched ? CROUCH_EYE : STAND_EYE;
     this.eye += (target - this.eye) * (1 - Math.exp(-CROUCH_RATE * dt));
     if (Math.abs(target - this.eye) < 1e-4) this.eye = target;
+    // Lean: holding both cancels out. The eye moves sideways along the facing direction's
+    // right vector and dips a little; the camera tilts the same way.
+    const lt = (this.leanR ? 1 : 0) - (this.leanL ? 1 : 0);
+    this.lean += (lt - this.lean) * (1 - Math.exp(-LEAN_RATE * dt));
+    if (Math.abs(lt - this.lean) < 1e-4) this.lean = lt;
+    const y = yawDeg * Math.PI / 180;
+    this.ex = this.x + Math.cos(y) * LEAN_DIST * this.lean;
+    this.ez = this.z + Math.sin(y) * LEAN_DIST * this.lean;
+    this.ey = this.eye - LEAN_DROP * Math.abs(this.lean);
+    this.roll = LEAN_ROLL * this.lean;
   }
 
   get speed() { return Math.hypot(this.vx, this.vz); }

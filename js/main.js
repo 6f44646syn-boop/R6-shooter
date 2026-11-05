@@ -374,10 +374,14 @@ function boot(data) {
       if (weapon.ammo === 0 && !weapon.reloading) sfx.click();
       weapon.pressTrigger(e.timeStamp / 1000);
     } else if (e.button === 2) setAds(true);
+    else if (e.button === 3) { e.preventDefault(); player.leanL = true; }   // mouse back button: lean left
+    else if (e.button === 4) { e.preventDefault(); player.leanR = true; }   // mouse forward button: lean right
   });
   document.addEventListener('mouseup', (e) => {
     if (e.button === 0) weapon.releaseTrigger();
     else if (e.button === 2) setAds(false);
+    else if (e.button === 3) { e.preventDefault(); player.leanL = false; }
+    else if (e.button === 4) { e.preventDefault(); player.leanR = false; }
   });
   document.addEventListener('contextmenu', (e) => e.preventDefault());
 
@@ -402,6 +406,8 @@ function boot(data) {
     const c = e.code;
     if (c === 'KeyW' || c === 'KeyA' || c === 'KeyS' || c === 'KeyD') player.keys[c[3].toLowerCase()] = false;
     else if (c === 'ShiftLeft' || c === 'ShiftRight') player.sprint = false;
+    else if (c === 'KeyQ') player.leanL = false;
+    else if (c === 'KeyE') player.leanR = false;
     else if (c === 'Space') { player.crouched = false; hud.setDistance(range.distance, targetLabel()); }
   });
   window.addEventListener('blur', () => { player.releaseKeys(); player.crouched = false; });
@@ -421,6 +427,8 @@ function boot(data) {
     if (!lock.locked && !testMode) return;
     if (c === 'KeyW' || c === 'KeyA' || c === 'KeyS' || c === 'KeyD') { player.keys[c[3].toLowerCase()] = true; return; }
     if (c === 'ShiftLeft' || c === 'ShiftRight') { player.sprint = true; return; }
+    if (c === 'KeyQ') { player.leanL = true; return; }   // hold to lean left
+    if (c === 'KeyE') { player.leanR = true; return; }   // hold to lean right
     // Hold Space to crouch (released in keyup).
     if (c === 'Space') { e.preventDefault(); player.crouched = true; hud.setDistance(range.distance, targetLabel()); return; }
     if (c === 'KeyX') { player.reset(); return; }
@@ -436,8 +444,8 @@ function boot(data) {
       saveSettings(settings); applyTarget(); settingsUI.refresh();
     }
     else if (/^Digit[0-9]$/.test(c)) selectGun((Number(c.slice(5)) + 9) % 10); // 1->0 ... 0->9
-    else if (c === 'KeyQ' || c === 'KeyE') {
-      const i = DISTANCES.indexOf(range.distance) + (c === 'KeyE' ? 1 : -1);
+    else if (c === 'Minus' || c === 'NumpadSubtract' || c === 'Equal' || c === 'NumpadAdd') {
+      const i = DISTANCES.indexOf(range.distance) + (c === 'Equal' || c === 'NumpadAdd' ? 1 : -1);
       if (i >= 0 && i < DISTANCES.length) setDistance(DISTANCES[i]);
     }
   });
@@ -475,6 +483,7 @@ function boot(data) {
 
   function targetLabel() {
     const t = settings.targetMode === 'dummy' ? 'dummy' : settings.dotCount + ' red dot' + (settings.dotCount > 1 ? 's' : '') + (settings.dotMoving ? ', moving' : '');
+    range.setBoardLabel(t);
     return (player.crouched ? 'crouched \u00b7 ' : '') + t;
   }
   // Show the dummy or lay out the red dots (new random spots each time, or ?seed= for tests).
@@ -524,7 +533,9 @@ function boot(data) {
     const pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, look.pitch + bulletOff[1]));
     state.shots++;
     mag.shots++;
-    const kind = range.raycast(yaw, pitch, hit, player.x, player.eye, player.z);
+    const kind = range.raycast(yaw, pitch, hit, player.ex, player.ey, player.ez);
+    // Spent casing: ejected to the right, landing a little in front of you.
+    range.addCasing(Math.max(-1.6, Math.min(1.6, player.x + 0.25 + Math.random() * 0.6)), Math.min(-0.1, player.z - 0.1 - Math.random() * 0.45));
     let onTarget = false, dotHit = -1;
     if (hit.planeOk) {
       // Plot coordinates: where the bullet crosses the target plane, relative to the aim
@@ -661,7 +672,8 @@ function boot(data) {
     camera.rotation.x = pitch * DEG;
     // Movement: WASD in a small box behind the firing line, Space crouches.
     player.update(dt, look.yaw, state.ads);
-    camera.position.set(player.x, player.eye, player.z);
+    camera.position.set(player.ex, player.ey, player.ez);
+    camera.rotation.z = -player.roll * DEG;   // lean tilt (positive roll = leaning right)
     aimAssist(dt, t);
     dots.update(t);
 
@@ -726,10 +738,10 @@ function boot(data) {
     if (!(s > 0) || !lock.locked && !testMode) return;
     const R = ASSIST_RADIUS * (0.4 + 0.6 * s);
     const vy = look.yaw + offset[0], vp = look.pitch + offset[1];
-    const ez = player.z + range.distance;
+    const ez = player.ez + range.distance;
     let best = null, bd = R;
     const consider = (x, y) => {
-      const dx = x - player.x, dy = y - player.eye;
+      const dx = x - player.ex, dy = y - player.ey;
       const ty = Math.atan2(dx, ez) / DEG, tp = Math.atan2(dy, Math.hypot(dx, ez)) / DEG;
       let ey = ty - vy; ey -= 360 * Math.round(ey / 360);
       const ep = tp - vp, d = Math.hypot(ey, ep);
@@ -849,6 +861,7 @@ function boot(data) {
       move(keys) { Object.assign(player.keys, keys); },
       crouch(on) { player.crouched = on; },
       setSprint(on) { player.sprint = on; },
+      lean: () => ({ ex: player.ex, ey: player.ey, ez: player.ez, roll: player.roll, lean: player.lean }),
       player: () => ({ x: player.x, z: player.z, eye: player.eye, crouched: player.crouched, speed: player.speed }),
       setSetting(k, v) { settings[k] = v; },
       setAimSmooth(on) { settings.aimSmooth = on; recoil.aimSmooth = on; },
