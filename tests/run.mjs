@@ -61,38 +61,56 @@ try {
       R.selectGun(idx);
       R.setDistance(opts.distance || 10);
       R.clear();
-      R.setAim(0, 0);
+      R.setAim(0, opts.pitch || 0);
       if (opts.noJitter) { R.guns[idx]._j = R.guns[idx].jitter; R.guns[idx].jitter = { yawDeg: 0, pitchDeg: 0 }; }
       R.trigger(true);
       const g = R.guns[idx];
-      R.step(g.magSize * 60 / g.rpm + 0.5, opts.fps || 60);
+      R.step((g.magSize + 1) * 60 / g.rpm + 0.5, opts.fps || 60);
       R.trigger(false);
       if (opts.noJitter) R.guns[idx].jitter = R.guns[idx]._j;
-      return { holes: R.holes(), state: R.state(), gun: { sprayPath: g.sprayPath, magSize: g.magSize, jitter: g.jitter } };
+      return { holes: R.holes(), state: R.state(), gun: { sprayPath: g.sprayPath, magSize: g.magSize, capacity: g.magSize + (g.chambered ? 1 : 0), tail: g.tail, placeholder: g.placeholder, jitter: g.jitter } };
     }, [idx, opts]);
 
     // a) jitter off: every hole must sit exactly where sprayPath says.
+    // Slot 1 is a placeholder (extrapolated tail); slots 4 and 8 are measured ("tail": "hold",
+    // chambered). Measured sprays climb ~30 deg, so aim 14 deg low at 5 m to keep every hole on the wall.
     for (const idx of [0, 3, 7]) {
-      const d = 10;
-      const r = await fireMag(idx, { noJitter: true, distance: d });
+      const d = 5, aimPitch = -14;
+      const r = await fireMag(idx, { noJitter: true, distance: d, pitch: aimPitch });
       const p = r.gun.sprayPath;
       let worst = 0;
       r.holes.forEach(([x, y], i) => {
-        // extrapolate like the engine past the end of sprayPath
         let yaw, pitch;
-        if (i < p.length) { [yaw, pitch] = p[i]; }
-        else {
-          const n = p.length, k = Math.min(3, n - 1);
+        const n = p.length;
+        if (i < n) { [yaw, pitch] = p[i]; }
+        else if (r.gun.tail === 'hold') { [yaw, pitch] = p[n - 1]; }   // hold the last measured point
+        else {                                                        // extrapolate like the engine
+          const k = Math.min(3, n - 1);
           const sy = (p[n - 1][0] - p[n - 1 - k][0]) / k, sp = (p[n - 1][1] - p[n - 1 - k][1]) / k;
           yaw = p[n - 1][0] + sy * (i - n + 1); pitch = p[n - 1][1] + sp * (i - n + 1);
         }
-        const yr = yaw * Math.PI / 180, pr = pitch * Math.PI / 180;
+        const yr = yaw * Math.PI / 180, pr = (pitch + aimPitch) * Math.PI / 180;
         const ex = d * Math.tan(yr), ey = EYE + d * Math.tan(pr) / Math.cos(yr);
         worst = Math.max(worst, Math.hypot(x - ex, y - ey));
       });
-      check('gun ' + (idx + 1) + ': ' + r.holes.length + ' holes = magSize ' + r.gun.magSize, r.holes.length === r.gun.magSize, 'got ' + r.holes.length);
-      check('gun ' + (idx + 1) + ': holes match sprayPath (worst error ' + (worst * 1000).toFixed(4) + ' mm)', worst < 1e-5, 'worst error ' + worst + ' m');
+      const label = 'slot ' + (idx + 1) + (r.gun.placeholder ? ' (placeholder)' : ' (measured, tail ' + r.gun.tail + ')');
+      check(label + ': ' + r.holes.length + ' holes = full magazine ' + r.gun.capacity, r.holes.length === r.gun.capacity, 'got ' + r.holes.length);
+      check(label + ': holes match sprayPath (worst error ' + (worst * 1000).toFixed(4) + ' mm)', worst < 1e-5, 'worst error ' + worst + ' m');
     }
+
+    // Chambered round: a reload with rounds left gives magSize + 1, from empty gives magSize.
+    const ch = await page.evaluate(() => {
+      const R = window.__range;
+      R.manual(true); R.selectGun(7); R.clear(); R.setAim(0, -14); R.setDistance(5);
+      const g = R.guns[7], out = { mag: g.magSize, start: R.state().ammo };
+      R.trigger(true); R.step(0.2); R.trigger(false);   // fire a few
+      R.reload(); R.step(g.reloadSeconds + 0.1); out.tactical = R.state().ammo;
+      R.trigger(true); R.step(10); R.trigger(false);    // empty it
+      R.reload(); R.step(g.reloadSeconds + 0.1); out.empty = R.state().ammo;
+      return out;
+    });
+    check('chambered gun: starts ' + ch.start + ', tactical reload ' + ch.tactical + ', empty reload ' + ch.empty + ' (mag ' + ch.mag + ')',
+      ch.start === ch.mag + 1 && ch.tactical === ch.mag + 1 && ch.empty === ch.mag, JSON.stringify(ch));
 
     // b) fixed seed: identical sprays; jitter actually moves holes.
     const s1 = await fireMag(0), s2 = await fireMag(0);
@@ -132,7 +150,7 @@ try {
     // f) hole cap: 11 magazines of 30 rounds -> 300 holes kept.
     const cap = await page.evaluate(() => {
       const R = window.__range;
-      R.manual(true); R.selectGun(5); R.clear(); R.setAim(0, 0);
+      R.manual(true); R.selectGun(0); R.clear(); R.setAim(0, 0); R.setDistance(10);
       for (let m = 0; m < 11; m++) { R.trigger(true); R.step(10); R.trigger(false); R.reload(); R.step(6); }
       return { holes: R.holes().length, shots: R.state().shots };
     });
@@ -157,12 +175,13 @@ try {
       R.toggleGallery(true); out.gallery = R.galleryCount(); R.toggleGallery(false);
       return out;
     });
-    const magFov = 2 * Math.atan(Math.tan(Math.PI / 4) / 2.5) * 180 / Math.PI;
+    const V = 83 * Math.PI / 180;
+    const magFov = 2 * Math.atan(Math.tan(V / 2) / 2.5) * 180 / Math.PI;
     check('defender slot 1 starts on holo_a, attacker slot 2 on mag_a', sc.defaultDef === 'holo_a' && sc.defaultAtt === 'mag_a', sc.defaultDef + ' / ' + sc.defaultAtt);
     check('picker lists 11 sights for a defender slot, 14 for an attacker slot', sc.rowDef === 11 && sc.rowAtt === 14, sc.rowDef + ' / ' + sc.rowAtt);
-    check('mag_a: zoom 2.5, sens key 2.5x, ADS FOV ' + sc.mag.fovH.toFixed(3) + ' = 2*atan(tan(45)/2.5)',
-      sc.mag.zoom === 2.5 && sc.mag.sensKey === '2.5x' && Math.abs(sc.mag.fovH - magFov) < 1e-9, JSON.stringify(sc.mag));
-    check('holo_a: zoom 1, ADS FOV stays 90 (wider than mag_a)', sc.holo.zoom === 1 && Math.abs(sc.holo.fovH - 90) < 1e-9 && sc.holo.fovH > sc.mag.fovH, JSON.stringify(sc.holo));
+    check('mag_a: zoom 2.5, sens key 2.5x, vertical ADS FOV ' + sc.mag.fovV.toFixed(3) + ' = 2*atan(tan(41.5)/2.5)',
+      sc.mag.zoom === 2.5 && sc.mag.sensKey === '2.5x' && Math.abs(sc.mag.fovV - magFov) < 1e-9, JSON.stringify(sc.mag));
+    check('holo_a: zoom 1, vertical ADS FOV stays 83 (wider than mag_a)', sc.holo.zoom === 1 && Math.abs(sc.holo.fovV - 83) < 1e-9 && sc.holo.fovV > sc.mag.fovV, JSON.stringify(sc.holo));
     check('ADS slower with mag_a (' + sc.mag.adsTime.toFixed(4) + ' s) than holo_a (' + sc.holo.adsTime.toFixed(4) + ' s)', sc.mag.adsTime > sc.holo.adsTime, '');
     check('2.5x sens is a placeholder of 1.0x / 2.5 until calibrated', sc.mag.placeholderSens && Math.abs(sc.mag.dpc / sc.holo.dpc - 1 / 2.5) < 1e-12, 'ratio ' + sc.mag.dpc / sc.holo.dpc);
     check('scope overlay hidden at hip, shown when aimed', !sc.overlayHip && sc.overlayAds, sc.overlayHip + ' / ' + sc.overlayAds);
@@ -241,7 +260,7 @@ try {
         sensRows: [...document.querySelectorAll('.optic-table tbody tr td:first-child')].map((td) => td.textContent) };
     });
     check('test sight appears on slot 1 only (12 vs 14), selectable, zoom 4', t.row === 12 && t.other === 14 && t.optic === 'test_x' && t.zoom === 4, JSON.stringify(t));
-    check('gallery shows 16 and the sens table gains a 4.0x row', t.gal === 16 && t.sensRows.join(',') === '1.0x,2.5x,3.5x,4.0x', JSON.stringify(t.sensRows));
+    check('gallery shows 16 and the sens table gains a 4.0x row (rows: 1.0x, 2.5x, 3.5x, 4.0x, 8.0x)', t.gal === 16 && t.sensRows.join(',') === '1.0x,2.5x,3.5x,4.0x,8.0x', JSON.stringify(t.sensRows));
     check('no page errors', errs2.length === 0, errs2.join('\n'));
     await p2.close();
   }

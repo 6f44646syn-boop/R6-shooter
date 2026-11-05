@@ -1,6 +1,18 @@
 {
-  "_comment": "ADS sensitivity multiplier per magnification. ADS deg/count = hip deg/count * ads[sensKey] * the gun's adsMultiplier. Keys are the magnifications used in data/optics.json ('1.0x', '2.5x', '3.5x'). A key missing here gets a placeholder of ads['1.0x'] / zoom until you calibrate it.",
-  "ads": {
-    "1.0x": 1.0
-  }
+  "_source": "in-game control options screen (your own settings)",
+  "horizontal": 7,
+  "vertical": 7,
+  "advancedMouseSensitivity": true,
+  "aimMode": "custom",
+  "globalAim": 16,
+  "globalAimNote": "greyed out in the game while aimMode is custom",
+  "magnifications": [
+    { "key": "1.0x", "slider": 70 },
+    { "key": "2.5x", "slider": 90 },
+    { "key": "3.5x", "slider": 129 },
+    { "key": "8.0x", "slider": 97 }
+  ],
+  "magnificationSliderRangeApprox": [0, 200],
+  "mouseLookInversion": false,
+  "mouseScroll": true
 }

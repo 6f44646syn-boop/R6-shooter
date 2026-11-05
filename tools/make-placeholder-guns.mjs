@@ -3,7 +3,7 @@
 // measurements of any real game. Replace them with your own data (see docs/GUN_DATA.md).
 //
 //   node tools/make-placeholder-guns.mjs
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const r4 = (x) => Math.round(x * 10000) / 10000;
@@ -75,5 +75,13 @@ let json = JSON.stringify({
 json = json.replace(/\[\s+(-?[\d.e-]+),\s+(-?[\d.e-]+)\s+\]/g, '[$1, $2]');
 
 const out = fileURLToPath(new URL('../data/guns.json', import.meta.url));
+// Never overwrite measured data by accident.
+try {
+  const cur = JSON.parse(readFileSync(out, 'utf8'));
+  if (cur.guns.some((g) => g.placeholder === false) && !process.argv.includes('--force')) {
+    console.error('data/guns.json contains measured guns ("placeholder": false). Not overwriting. Use --force to replace everything with placeholders.');
+    process.exit(1);
+  }
+} catch (e) { /* no file yet */ }
 writeFileSync(out, json + '\n');
 console.log('wrote ' + out);

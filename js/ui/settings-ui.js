@@ -1,7 +1,7 @@
 // Settings panel inside the Esc menu. Every change is sanitised, saved to localStorage and
 // handed to main.js through onChange(key) so it takes effect immediately.
 import { sanitize, saveSettings, clearSavedSettings, DEFAULTS, DISTANCES, CROSSHAIR_STYLES, RETICLE_COLOR_NAMES } from '../core/settings.js';
-import { degPerCount, countsPer360, inchesPer360, verticalFovDeg } from '../core/sensitivity.js';
+import { degPerCount, countsPer360, inchesPer360, horizontalFovDeg } from '../core/sensitivity.js';
 import { drawCrosshair } from './crosshair.js';
 
 function el(tag, attrs = {}, ...kids) {
@@ -120,16 +120,20 @@ export class SettingsUI {
       this.opticRows.push({ key, fileVal, input, mark, dpcCell });
       tbody.append(el('tr', {},
         el('td', { text: key }),
-        el('td', { class: 'small', text: fileVal !== undefined ? String(fileVal) : '—' }),
+        el('td', { class: 'small', text: ctx.gameSliders[key] !== undefined ? String(ctx.gameSliders[key]) : '\u2014' }),
         el('td', {}, input, ' ', mark),
         dpcCell));
     }
-    const resetOptics = el('button', { type: 'button', text: 'Use the values from sens.json' });
+    const g0 = ctx.gameSens || {};
+    const gameLine = el('p', { class: 'small', text: 'From your game settings (data/sens.json): horizontal ' + (g0.horizontal ?? '\u2014') + ', vertical ' + (g0.vertical ?? '\u2014') +
+      ', aim mode ' + (g0.aimMode ?? '\u2014') + '. Hipfire here is set by DPI and cm/360 above.' });
+    const resetOptics = el('button', { type: 'button', text: 'Clear my edits' });
     resetOptics.addEventListener('click', () => { this.s.opticOverrides = {}; this.commit('optics'); this.refresh(); });
     const optics = this.group('ADS sensitivity per magnification',
-      el('p', { class: 'small', text: 'ADS deg/count = hip deg/count × multiplier (× the gun’s own ADS factor). 1.0 = same as hipfire. Rows come from the magnifications in data/optics.json. A row with no value in data/sens.json uses the 1.0x value divided by the zoom and is marked placeholder. Edits here are saved in this browser only; copy final values into data/sens.json.' }),
+      el('p', { class: 'small', text: 'ADS deg/count = hip deg/count \u00d7 multiplier (\u00d7 the gun\u2019s own ADS factor). 1.0 = same as hipfire. Rows are the magnifications in data/sens.json plus any a sight uses. \u201cGame slider\u201d is your in-game value, shown for reference: it is not converted, because how the game turns it into degrees per count is not known here. A row with no calibrated multiplier (an "ads" entry in data/sens.json) uses the 1.0x multiplier divided by the zoom and is marked placeholder. Edits here are saved in this browser only.' }),
+      gameLine,
       el('div', { class: 'table-wrap' }, el('table', { class: 'optic-table' },
-        el('thead', {}, el('tr', {}, el('th', { text: 'Magnification' }), el('th', { text: 'File' }), el('th', { text: 'Multiplier' }), el('th', { text: 'deg/count' }))),
+        el('thead', {}, el('tr', {}, el('th', { text: 'Magnification' }), el('th', { text: 'Game slider' }), el('th', { text: 'Multiplier' }), el('th', { text: 'deg/count' }))),
         tbody)),
       el('div', { class: 'row' }, resetOptics));
 
@@ -152,7 +156,7 @@ export class SettingsUI {
     this.fovNote = el('span', { class: 'small' });
     const view = this.group('View',
       el('div', { class: 'set-grid' },
-        this.range('set-fov', 'Horizontal FOV', { min: 60, max: 110, step: 1, fmt: (v) => v + '\u00b0' }, () => this.s.hipFov, (v) => { this.s.hipFov = v; }, 'fov'),
+        this.range('set-fov', 'Vertical FOV', { min: 60, max: 90, step: 1, fmt: (v) => v + '\u00b0' }, () => this.s.fov, (v) => { this.s.fov = v; }, 'fov'),
         this.select('set-scale', 'Render resolution', [['1', '100%'], ['0.85', '85%'], ['0.75', '75%'], ['0.5', '50%']], () => String(this.s.renderScale), (v) => { this.s.renderScale = Number(v); }, 'scale'),
         this.range('set-volume', 'Volume', { min: 0, max: 1, step: 0.05, fmt: (v) => Math.round(v * 100) + '%' }, () => this.s.volume, (v) => { this.s.volume = v; }, 'volume'),
       ),
@@ -237,7 +241,7 @@ export class SettingsUI {
       r.dpcCell.textContent = fmt(dpc * this.ctx.opticMultiplier(r.key), 6);
     }
     const aspect = window.innerWidth / Math.max(1, window.innerHeight);
-    this.fovNote.textContent = 'Vertical FOV at this window size: ' + verticalFovDeg(s.hipFov, aspect).toFixed(2) + '\u00b0. ' +
+    this.fovNote.textContent = 'Vertical, like the game\u2019s FOV slider. Measured recoil assumes 83\u00b0. Horizontal FOV at this window size: ' + horizontalFovDeg(s.fov, aspect).toFixed(2) + '\u00b0. ' +
       'ADS FOV = 2 · atan(tan(hip FOV / 2) / zoom).';
     drawCrosshair(this.preview, s.crosshair);
     this.preview.style.margin = '0';

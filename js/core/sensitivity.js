@@ -31,6 +31,11 @@ export function verticalFovDeg(hFovDeg, aspect) {
   return 2 * Math.atan(Math.tan(hFovDeg * DEG / 2) / aspect) / DEG;
 }
 
+// Horizontal FOV for a given vertical FOV and aspect ratio: tan(h/2) = tan(v/2) * aspect.
+export function horizontalFovDeg(vFovDeg, aspect) {
+  return 2 * Math.atan(Math.tan(vFovDeg * DEG / 2) * aspect) / DEG;
+}
+
 // FOV through an optic of magnification `zoom`. Magnification scales the tangent of the
 // half-angle (everything on screen gets `zoom` times bigger), not the angle itself:
 //   tan(ads/2) = tan(hip/2) / zoom

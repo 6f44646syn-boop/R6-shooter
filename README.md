@@ -6,8 +6,8 @@ Pick a gun, hold the trigger, pull against the recoil, and read the spray on the
 - Static files only: plain HTML, CSS and ES modules. No build step, no backend.
 - No third-party requests at runtime: Three.js (r160) is vendored in `vendor/three/`, no web
   fonts, no analytics. Sounds are synthesised with WebAudio.
-- Gun recoil is data in `data/guns.json`. The 10 guns shipped here are **placeholders** with
-  invented patterns (tagged `PLACEHOLDER RECOIL` in the HUD). See [docs/GUN_DATA.md](docs/GUN_DATA.md)
+- Gun recoil is data in `data/guns.json`. Slots 2-10 use sprays measured in game at 83 deg
+  vertical FOV (tagged MEASURED SPRAY); slot 1 is still a placeholder with an invented pattern. See [docs/GUN_DATA.md](docs/GUN_DATA.md)
   to paste in your own measurements.
 
 ## Controls
@@ -43,11 +43,11 @@ deg per count  = 360 / counts per 360
   smoothing, acceleration, filtering, or frame-rate scaling. Single events over 2000 counts
   are dropped (a known Chrome glitch) and counted in the debug readout.
 - ADS sensitivity = hip deg/count × the multiplier for the sight's magnification
-  (`data/sens.json`, keyed `"1.0x"`, `"2.5x"`, `"3.5x"`, editable in Settings) × the gun's own
+  (`"ads"` in `data/sens.json`, keyed `"1.0x"`, `"2.5x"`, ..., editable in Settings) × the gun's own
   `adsMultiplier`. A magnification with no value yet uses the 1.0x value divided by the zoom
   and is marked placeholder.
-- Horizontal FOV 60-110 (default 90). ADS FOV = 2·atan(tan(hip FOV / 2) / zoom), reached
-  over the gun's ADS time.
+- Vertical FOV 60-90, default 83, like the game's slider. Measured recoil assumes 83.
+  ADS FOV = 2·atan(tan(FOV / 2) / zoom), reached over the gun's ADS time.
 
 **Checking it:** press F3, press Z to zero the counters, then turn. The readout shows total
 counts, the unwrapped yaw, and counts per 360. Turning exactly `counts / 360` counts gives
@@ -138,15 +138,19 @@ js/core/                 sensitivity maths, mouse look, pointer lock, recoil eng
 js/scene/                range, target (shape + hit test), bullet holes, viewmodel
 js/ui/                   HUD, crosshair, magazine plot, debug readout, settings panel
 js/audio/sfx.js          WebAudio sounds
-data/guns.json           gun data (placeholders)
+data/guns.json           gun data (slots 2-10 measured, slot 1 placeholder)
 data/optics.json         sight catalogue (see docs/SCOPES.md)
-data/sens.json           ADS sensitivity per magnification
+data/sens.json           your in-game sensitivity values; ADS rows per magnification
 docs/GUN_DATA.md         gun data schema
 docs/SCOPES.md           sights: recipes and drawing reference
 tools/check-data.mjs     validates the data files (npm run check)
+tools/merge-measured.mjs merges a measurement file into data/guns.json by slot
+tools/check-spray-fit.mjs checks measured sprays against their hole pixels
+tools/refit-fov.mjs      refits a measurement file at another vertical FOV
+reference/               private screenshots and measurement notes (gitignored, never served)
 tools/serve.mjs          local static server
 tools/path-from-points.mjs   traced hole pixels -> sprayPath degrees
-tools/make-placeholder-guns.mjs  regenerates the placeholder guns
+tools/make-placeholder-guns.mjs  regenerates placeholder guns (refuses while any gun is measured)
 tests/                   headless Chrome tests
 test/capability-test.html    browser capability check
 vendor/three/            Three.js r160 (MIT)

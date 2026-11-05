@@ -70,6 +70,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .slot .slot-key { font: 700 11px var(--mono); color: var(--accent); }
 .slot .slot-name { font-weight: 700; }
 .slot .slot-meta { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tag-placeholder.measured, .slot .slot-ph.measured { color: #7fd8a8; border-color: #7fd8a8; }
 .slot .slot-ph { font-size: 10px; letter-spacing: 0.06em; color: var(--accent); }
 
 .sight-head { margin-top: 10px; }

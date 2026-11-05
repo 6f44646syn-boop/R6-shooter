@@ -7,7 +7,7 @@ const KEY = 'recoilRange.settings.v1';
 export const DEFAULTS = Object.freeze({
   dpi: 800,
   cm360: 40,
-  hipFov: 90,            // horizontal degrees
+  fov: 83,               // VERTICAL degrees, like the game's FOV slider (60-90)
   // Per-magnification ADS multiplier overrides, keyed like "2.5x". Anything missing comes from
   // data/sens.json (or a placeholder of the 1.0x value / zoom), so editing that file changes the defaults.
   opticOverrides: {},
@@ -32,7 +32,7 @@ export const CROSSHAIR_STYLES = ['cross', 'dot', 'cross-dot', 'circle', 't'];
 const NUM = {
   dpi: [50, 32000],
   cm360: [1, 1000],
-  hipFov: [60, 110],
+  fov: [60, 90],
   volume: [0, 1],
   holeSizeCm: [0.5, 10],
   renderScale: [0.5, 1],

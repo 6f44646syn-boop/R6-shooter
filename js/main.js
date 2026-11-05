@@ -3,7 +3,7 @@ import * as THREE from '../vendor/three/three.module.min.js';
 import { Look, PITCH_LIMIT } from './core/look.js';
 import { PointerLock } from './core/pointer-lock.js';
 import { loadSettings, saveSettings, DISTANCES } from './core/settings.js';
-import { degPerCount, verticalFovDeg, zoomedFovDeg } from './core/sensitivity.js';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg } from './core/sensitivity.js';
 import { Weapon } from './core/weapon.js';
 import { RecoilEngine } from './core/recoil.js';
 import { loadGameData } from './core/guns.js';
@@ -19,6 +19,12 @@ import { Hud } from './ui/hud.js';
 import { MagPlot } from './ui/plot.js';
 import { SettingsUI } from './ui/settings-ui.js';
 import { sensKeys } from './core/optics.js';
+
+// Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
+function sensRows(catalogue, sens) {
+  const keys = new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)]);
+  return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
+}
 import { ScopeOverlay, RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js';
 
 const DEG = Math.PI / 180;
@@ -89,12 +95,12 @@ function boot(data) {
   }
 
   const state = {
-    ads: false, fovH: settings.hipFov, fovV: 60,
+    ads: false, fovH: 90, fovV: settings.fov,
     shots: 0, hits: 0,
     gun: null, gunIndex: 0, seed: 0,
     optic: null,   // selected sight (resolved catalogue entry)
     adsP: 0,       // ADS blend 0 = hip, 1 = fully aimed
-    adsFov: 90,    // horizontal FOV when fully aimed with this sight
+    adsFov: 83,    // vertical FOV when fully aimed with this sight
   };
   const offset = [0, 0];     // current recoil offset [yaw, pitch] for the camera
   const bulletOff = [0, 0];  // recoil offset of the bullet being fired
@@ -350,7 +356,11 @@ function boot(data) {
     add('slot-key', i < 10 ? String((i + 1) % 10) : '-');
     add('slot-name', g.name);
     add('slot-meta', (g.side ? g.side + ' \u00b7 ' : '') + g.model + ' \u00b7 ' + g.rpm + ' rpm \u00b7 ' + g.magSize + ' rnd \u00b7 ' + g.optics.length + ' sights');
+    if (g.damage !== null) add('slot-meta', 'damage ' + g.damage);
     if (g.placeholder) add('slot-ph', 'PLACEHOLDER RECOIL');
+    else add('slot-ph measured', 'MEASURED SPRAY' + (g.placeholderFields.length ? ' \u00b7 ' + g.placeholderFields.length + ' placeholder values' : ''));
+    b.title = g.placeholder ? 'Invented test pattern' : 'Spray measured at ' + g.measuredAtVFov + '\u00b0 vertical FOV.' +
+      (g.placeholderFields.length ? ' Still placeholders: ' + g.placeholderFields.join(', ') + '.' : '');
     b.addEventListener('click', () => { selectGun(i); settingsUI.refresh(); });
     loadoutEl.append(b);
     return b;
@@ -423,13 +433,15 @@ function boot(data) {
   }
   // FOV blends in tan-space from hip FOV to the sight's ADS FOV as the ADS blend runs:
   //   adsFov = 2 * atan(tan(adsFovBase / 2) / zoom), with adsFovBase = the hip FOV (1x).
+  // The FOV setting is VERTICAL (like the game's slider), so the vertical angle is fixed and
+  // the horizontal one follows the window's aspect ratio. Zoom divides tan() of either one.
   function updateFov() {
     if (!state.gun || !state.optic) return;
-    state.adsFov = zoomedFovDeg(settings.hipFov, state.optic.zoom);
-    const tHip = Math.tan(settings.hipFov * DEG / 2), tAds = Math.tan(state.adsFov * DEG / 2);
+    state.adsFov = zoomedFovDeg(settings.fov, state.optic.zoom);
+    const tHip = Math.tan(settings.fov * DEG / 2), tAds = Math.tan(state.adsFov * DEG / 2);
     const p = state.adsP, e = p * p * (3 - 2 * p); // smoothstep
-    state.fovH = 2 * Math.atan(tHip + (tAds - tHip) * e) / DEG;
-    state.fovV = verticalFovDeg(state.fovH, camera.aspect);
+    state.fovV = 2 * Math.atan(tHip + (tAds - tHip) * e) / DEG;
+    state.fovH = horizontalFovDeg(state.fovV, camera.aspect);
     camera.fov = state.fovV;
     camera.updateProjectionMatrix();
   }
@@ -440,7 +452,8 @@ function boot(data) {
 
   /* ---------- settings panel ---------- */
   settingsUI = new SettingsUI($('settings-root'), {
-    settings, guns: data.guns, sensKeys: sensKeys(catalogue), sensFile: data.sens.ads, opticMultiplier, isPlaceholder,
+    settings, guns: data.guns, sensKeys: sensRows(catalogue, data.sens), sensFile: data.sens.ads,
+    gameSliders: Object.fromEntries(data.sens.magnifications.map((m) => [m.key, m.slider])), gameSens: data.sens.game, opticMultiplier, isPlaceholder,
     getState: () => state,
     onChange(key) {
       const all = key === 'all';
@@ -575,7 +588,7 @@ function boot(data) {
         return out;
       },
       state: () => ({ ammo: weapon.ammo, shots: state.shots, hits: state.hits, seed: state.seed, gun: state.gun.id,
-        shotIndex: recoil.shotIndex, offset: [offset[0], offset[1]], distance: range.distance, fovH: state.fovH,
+        shotIndex: recoil.shotIndex, offset: [offset[0], offset[1]], distance: range.distance, fovH: state.fovH, fovV: state.fovV,
         optic: state.optic.id, zoom: state.optic.zoom, sensKey: state.optic.sensKey, adsP: state.adsP, adsFov: state.adsFov,
         adsTime: adsTime(), dpc: currentDpc(), placeholderSens: isPlaceholder(state.optic.sensKey) }),
       offsetAt(t) { return recoil.offsetAt(t, [0, 0]); },

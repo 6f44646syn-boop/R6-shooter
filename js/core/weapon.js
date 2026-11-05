@@ -15,10 +15,13 @@ export class Weapon {
     this.semiReady = false;   // semi-auto: one shot per press
   }
 
+  // Most rounds the gun can hold: magSize, plus one in the chamber if "chambered" is set.
+  get capacity() { return this.gun.magSize + (this.gun.chambered ? 1 : 0); }
+
   setGun(gun) {
     this.gun = gun;
     this.interval = 60 / gun.rpm;
-    this.ammo = gun.magSize;
+    this.ammo = this.capacity;
     this.reloading = false;
     this.nextShotTime = 0;
   }
@@ -36,7 +39,9 @@ export class Weapon {
 
   // Returns true if a reload started.
   startReload(t) {
-    if (this.reloading || this.ammo === this.gun.magSize) return false;
+    if (this.reloading || this.ammo === this.capacity) return false;
+    // Reloading with a round still chambered gives magSize + 1 (guns with "chambered": true).
+    this.reloadTo = this.gun.magSize + (this.gun.chambered && this.ammo > 0 ? 1 : 0);
     this.reloading = true;
     this.reloadEnd = t + this.gun.reloadSeconds;
     return true;
@@ -53,7 +58,7 @@ export class Weapon {
     let event = null;
     if (this.reloading && t >= this.reloadEnd) {
       this.reloading = false;
-      this.ammo = this.gun.magSize;
+      this.ammo = this.reloadTo;
       if (this.nextShotTime < this.reloadEnd) this.nextShotTime = this.reloadEnd;
       event = 'reloaded';
     }

@@ -8,7 +8,8 @@
 //   1. The bullet leaves through the crosshair centre, i.e. along aim + current recoil offset.
 //   2. The shot then "kicks" the offset by the step to the next bullet:
 //        step(i) = sprayPath[i] - sprayPath[i-1]   (+ Gaussian jitter, sd from the gun data)
-//      Past the end of sprayPath the step is the average of the last TAIL_STEPS steps.
+//      Past the end of sprayPath the step is the average of the last TAIL_STEPS steps, or zero
+//      when the gun has "tail": "hold" (the view stays at the last measured point).
 //   3. The offset eases from where it was to (where it was + step) over EASE_FRACTION of the
 //      shot interval, so the crosshair climbs smoothly and has arrived before the next shot.
 // With zero jitter and no mouse input, bullet i therefore lands exactly at sprayPath[i].
@@ -30,8 +31,9 @@ export function easeOutCubic(x) {
 }
 
 // Step (kick) that takes the spray from bullet i-1 to bullet i, for i >= 1. Writes into out.
-export function sprayStep(path, i, out) {
+export function sprayStep(path, i, out, tail = 'extrapolate') {
   const n = path.length;
+  if (i >= n && tail === 'hold') { out[0] = 0; out[1] = 0; return out; }
   if (i < n) {
     out[0] = path[i][0] - path[i - 1][0];
     out[1] = path[i][1] - path[i - 1][1];
@@ -46,17 +48,17 @@ export function sprayStep(path, i, out) {
 }
 
 // Uncompensated, jitter-free offset of bullet i from bullet 0 (extrapolated past the end).
-export function sprayTarget(path, i, out) {
+export function sprayTarget(path, i, out, tail = 'extrapolate') {
   const n = path.length;
   if (i < n) {
     out[0] = path[i][0] - path[0][0];
     out[1] = path[i][1] - path[0][1];
     return out;
   }
-  const tail = sprayStep(path, n, [0, 0]);
+  const tailStep = sprayStep(path, n, [0, 0], tail);
   const extra = i - (n - 1);
-  out[0] = path[n - 1][0] - path[0][0] + tail[0] * extra;
-  out[1] = path[n - 1][1] - path[0][1] + tail[1] * extra;
+  out[0] = path[n - 1][0] - path[0][0] + tailStep[0] * extra;
+  out[1] = path[n - 1][1] - path[0][1] + tailStep[1] * extra;
   return out;
 }
 
@@ -134,7 +136,7 @@ export class RecoilEngine {
     this.offsetAt(t, out);
 
     const i = this.shotIndex + 1;
-    sprayStep(gun.sprayPath, i, this.step);
+    sprayStep(gun.sprayPath, i, this.step, gun.tail);
     this.step[0] *= this.scale;
     this.step[1] *= this.scale;
     const jy = gun.jitter.yawDeg, jp = gun.jitter.pitchDeg;

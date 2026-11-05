@@ -4,7 +4,7 @@ import { degPerCount, countsPer360, inchesPer360, verticalFovDeg, zoomedFovDeg }
 import { Look, MAX_EVENT_COUNTS } from '../js/core/look.js';
 import { sprayStep, sprayTarget, sampleSpray, easeOutCubic, RecoilEngine, EASE_FRACTION } from '../js/core/recoil.js';
 import { GaussianRng, mulberry32 } from '../js/core/prng.js';
-import { validateGuns } from '../js/core/guns.js';
+import { validateGuns, validateSens } from '../js/core/guns.js';
 import { validateCatalogue, resolveGunOptics, sensKeys } from '../js/core/optics.js';
 import { sanitize } from '../js/core/settings.js';
 import { hitsSilhouette } from '../js/scene/target.js';
@@ -86,6 +86,19 @@ test('sprayStep inside the path is the difference of neighbours', () => {
 test('sprayStep past the end = average of the last steps', () => {
   const o = sprayStep(P, 5, [0, 0]); // k = min(3, 2) = 2 -> ([1,3]-[0,0]) / 2
   near(o[0], 0.5, 1e-12); near(o[1], 1.5, 1e-12);
+});
+test('tail "hold": past the end the step is zero and the target stays on the last point', () => {
+  const o = sprayStep(P, 5, [9, 9], 'hold');
+  eq(o[0], 0); eq(o[1], 0);
+  const t = sprayTarget(P, 7, [0, 0], 'hold');
+  eq(t[0], 1); eq(t[1], 3);
+});
+test('validateSens reads the in-game sensitivity screen format', () => {
+  const r = validateSens({ horizontal: 7, vertical: 7, aimMode: 'custom', magnifications: [{ key: '1.0x', slider: 70 }, { key: '8.0x', slider: 97 }] });
+  eq(r.errors.length, 0, r.errors.join('; '));
+  eq(r.magnifications.map((m) => m.key).join(','), '1.0x,8.0x');
+  eq(r.game.horizontal, 7); eq(Object.keys(r.ads).length, 0, 'no multipliers given');
+  eq(validateSens({ magnifications: [{ key: 'eight' }] }).errors.length, 1, 'bad key');
 });
 test('sprayTarget extrapolates linearly past the end', () => {
   const a = sprayTarget(P, 3, [0, 0]), b = sprayTarget(P, 4, [0, 0]);
@@ -242,8 +255,8 @@ test('RecoilEngine: opticRecoilScale multiplies sprayPath steps', () => {
 
 /* ---------- settings and target ---------- */
 test('settings sanitize clamps and fills defaults', () => {
-  const s = sanitize({ dpi: 99999, cm360: 'abc', hipFov: 200, crosshair: { color: 'red', size: 5 } });
-  eq(s.dpi, 32000); eq(s.cm360, 40); eq(s.hipFov, 110);
+  const s = sanitize({ dpi: 99999, cm360: 'abc', fov: 200, crosshair: { color: 'red', size: 5 } });
+  eq(s.dpi, 32000); eq(s.cm360, 40); eq(s.fov, 90); eq(sanitize({}).fov, 83, 'default vertical FOV'); eq(sanitize({ fov: 40 }).fov, 60);
   eq(s.crosshair.color, '#3dff9a'); eq(s.crosshair.size, 5);
   eq(sanitize(null).dpi, 800);
 });

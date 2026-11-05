@@ -27,7 +27,8 @@ if (errors.length) {
 for (const w of guns.warnings) console.warn('warning: ' + w);
 
 console.log('Data check passed.');
-console.log('  ' + catalogue.optics.length + ' sights in ' + Object.keys(catalogue.groups).length + ' groups; ADS sens keys: ' + sensKeys(catalogue).join(', '));
+console.log('  ' + catalogue.optics.length + ' sights in ' + Object.keys(catalogue.groups).length + ' groups; ADS sens keys used by sights: ' + sensKeys(catalogue).join(', '));
+console.log('  Sens table rows (sens.json + sights): ' + [...new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)])].sort((a, b) => parseFloat(a) - parseFloat(b)).join(', '));
 console.log('  Sights per slot:');
 guns.guns.forEach((g, i) => {
   console.log('    ' + String((i + 1) % 10) + '  ' + g.id.padEnd(10) + String(g.optics.length).padStart(3) + '  default ' + g.defaultOptic +

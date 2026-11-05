@@ -61,9 +61,21 @@ or add a group:
 ```
 
 The Settings page gets a new ADS sensitivity row (`3.0x`, `4.0x`, ...) automatically. Until
-you give it a value in `data/sens.json` (or in Settings), it uses the `1.0x` value divided by
-the zoom and shows a **placeholder** badge. `sensKey` on a sight can point it at a different
-row, e.g. `"sensKey": "2.5x"`.
+it has a calibrated multiplier, it uses the `1.0x` multiplier divided by the zoom and shows a
+**placeholder** badge. `sensKey` on a sight can point it at a different row, e.g.
+`"sensKey": "2.5x"`.
+
+`data/sens.json` is your in-game sensitivity screen:
+
+```json
+{ "horizontal": 7, "vertical": 7, "aimMode": "custom",
+  "magnifications": [ { "key": "1.0x", "slider": 70 }, { "key": "8.0x", "slider": 97 } ] }
+```
+
+The Settings table lists every key in `magnifications` plus any magnification a sight uses,
+and shows each game slider value for reference. Slider values are not converted into
+sensitivity (the game's formula is not known here). Once you have calibrated a multiplier,
+add it under `"ads"`, e.g. `"ads": { "2.5x": 0.42 }`, and the placeholder badge goes away.
 
 ## d. Draw a reticle and housing
 

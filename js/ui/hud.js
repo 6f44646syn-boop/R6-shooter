@@ -18,7 +18,13 @@ export class Hud {
   setGun(gun, index, opticLabel) {
     this.el.slot.textContent = String((index + 1) % 10);
     this.el.name.textContent = gun.name;
-    this.el.tag.hidden = !gun.placeholder;
+    // PLACEHOLDER RECOIL: invented spray. MEASURED: spray from the game, with any values the
+    // measurement file still flags as placeholders listed in the tooltip.
+    this.el.tag.hidden = false;
+    this.el.tag.textContent = gun.placeholder ? 'PLACEHOLDER RECOIL' : 'MEASURED SPRAY';
+    this.el.tag.title = gun.placeholder ? 'Invented test pattern' :
+      'Measured at ' + gun.measuredAtVFov + '\u00b0 vertical FOV' + (gun.placeholderFields.length ? '. Still placeholders: ' + gun.placeholderFields.join(', ') : '');
+    this.el.tag.classList.toggle('measured', !gun.placeholder);
     this.el.info.textContent = gun.rpm + ' rpm · ' + opticLabel + (gun.fireMode === 'semi' ? ' · semi' : '');
   }
 

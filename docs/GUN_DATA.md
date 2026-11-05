@@ -122,6 +122,50 @@ picked for every magazine. To replay the same spray, set **Fixed seed** in Setti
 
 The tool assumes the camera looked straight at the wall and bullet 1 hit the aim point.
 
+## Measured guns
+
+Slots 2-10 use sprays measured in game (hip-fire, mouse held still, 12 m wall, 1920x1080) at
+**83 deg vertical FOV**. Their `sprayPath` values are real view angles in degrees: never rescale
+them. The trainer's FOV setting is vertical and defaults to 83 to match.
+
+Extra fields on a measured gun:
+
+| Field | Meaning |
+|---|---|
+| `placeholder: false` | The spray is measured. The HUD shows MEASURED SPRAY instead of PLACEHOLDER RECOIL. |
+| `placeholderFields` | Values that are still placeholders (jitter, recovery, resetSeconds, adsSeconds, hip/adsMultiplier). Shown as a tooltip in the HUD and loadout. |
+| `measuredAtVFov` | Vertical FOV the spray was measured at (83). |
+| `tail: "hold"` | Past the last measured bullet the view stays on the last point instead of extrapolating. |
+| `chambered: true` | Holds magSize + 1. A reload with rounds left gives magSize + 1; from empty, magSize. |
+| `damage` | Per-bullet damage from the game. Shown in the loadout; not used in the sim. |
+| `measurement` | The bullet-hole pixels (`holesPx`) the spray was computed from, plus notes. |
+
+Tools (the measurement file lives in the gitignored `reference/` folder because it names real
+operators; `data/` is published with the site):
+
+```bash
+node tools/merge-measured.mjs reference/guns.measured.json --write
+```
+
+Merges by slot into `data/guns.json` (never replaces it), keeps each gun's generic id, name,
+model and sights, and leaves slots that are not in the file (slot 1) unchanged.
+
+```bash
+node tools/check-spray-fit.mjs 83
+```
+
+Read-only: confirms every measured `sprayPath` matches its stored hole pixels at 83 deg.
+
+```bash
+node tools/refit-fov.mjs <vFOV> reference/guns.measured.json
+```
+
+Recomputes the measurement file's angles from the pixels at another vertical FOV, if the FOV
+assumption ever turns out wrong. Merge again afterwards.
+
+`tools/make-placeholder-guns.mjs` refuses to run while any gun is measured (use `--force` only
+to throw the measured data away).
+
 ## Sights and ADS sensitivity
 
 Sights moved to their own catalogue. See [SCOPES.md](SCOPES.md) for `data/optics.json`, the

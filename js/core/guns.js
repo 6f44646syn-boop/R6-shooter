@@ -43,6 +43,10 @@ export function validateGuns(data, catalogue) {
     positive('adsMultiplier', 20);
     positive('resetSeconds', 10);
     if (g.adsSeconds !== undefined && (!isNum(g.adsSeconds) || g.adsSeconds <= 0 || g.adsSeconds > 3)) bad('adsSeconds', 'must be a number from 0 to 3 if given');
+    if (g.damage !== undefined && (!isNum(g.damage) || g.damage < 0)) bad('damage', 'must be a number >= 0 if given');
+    if (g.tail !== undefined && g.tail !== 'hold' && g.tail !== 'extrapolate') bad('tail', 'must be "hold" or "extrapolate" if given');
+    if (g.chambered !== undefined && typeof g.chambered !== 'boolean') bad('chambered', 'must be true or false if given');
+    if (g.measuredAtVFov !== undefined && (!isNum(g.measuredAtVFov) || g.measuredAtVFov <= 0 || g.measuredAtVFov >= 180)) bad('measuredAtVFov', 'must be a vertical FOV in degrees if given');
     if (g.side !== undefined && !SIDES.includes(g.side)) bad('side', 'must be "attacker" or "defender" if given');
     const res = resolveGunOptics(g, catalogue);
     for (const e of res.errors) errs.push(where + '.' + e);
@@ -85,6 +89,9 @@ export function validateGuns(data, catalogue) {
       opticsVerified: g.opticsVerified === true, side: g.side || null, adsSeconds: g.adsSeconds || 0.3,
       hipMultiplier: g.hipMultiplier, adsMultiplier: g.adsMultiplier,
       resetSeconds: g.resetSeconds, placeholder: g.placeholder,
+      damage: isNum(g.damage) ? g.damage : null, tail: g.tail || 'extrapolate', chambered: g.chambered === true,
+      measuredAtVFov: g.measuredAtVFov || null,
+      placeholderFields: Array.isArray(g.placeholderFields) ? g.placeholderFields.filter((f) => typeof f === 'string') : [],
       fireMode: g.fireMode || 'auto', model: g.model || guessModel(g.id), tone: g.tone === undefined ? 0.5 : g.tone,
       sprayPath: g.sprayPath.map((p) => [p[0], p[1]]),
       jitter: { yawDeg: g.jitter.yawDeg, pitchDeg: g.jitter.pitchDeg },
@@ -94,17 +101,38 @@ export function validateGuns(data, catalogue) {
   return { guns, errors, warnings };
 }
 
-// data/sens.json: { "ads": { "1.0x": 1.0, ... } }. Returns { ads, errors }.
+// data/sens.json: the player's in-game sensitivity screen, plus optional calibrated multipliers.
+//   "magnifications": [{ "key": "2.5x", "slider": 90 }, ...]   rows for the Settings table
+//   "ads": { "2.5x": 0.4 }                                       optional ADS multipliers
+// The in-game slider values are stored for reference only: how the game turns a slider into
+// degrees per count is not known here, so they do not change sensitivity. A magnification with
+// no "ads" value uses the 1.0x multiplier divided by its zoom (marked placeholder in Settings).
+// Returns { ads, magnifications, game, errors }.
 export function validateSens(data) {
   const ads = {};
+  const magnifications = [];
   const errors = [];
-  if (!data || typeof data.ads !== 'object' || !data.ads) return { ads, errors: ['sens.json: expected { "ads": { "1.0x": 1.0 } }'] };
-  for (const [k, v] of Object.entries(data.ads)) {
-    if (!/^\d+(\.\d+)?x$/.test(k)) errors.push('sens.json ads.' + k + ': key must look like "2.5x"');
-    else if (!isNum(v) || v <= 0) errors.push('sens.json ads.' + k + ': must be a number > 0');
-    else ads[k] = v;
+  const keyOk = (k) => typeof k === 'string' && /^\d+(\.\d+)?x$/.test(k);
+  if (!data || typeof data !== 'object') return { ads, magnifications, game: {}, errors: ['sens.json: expected an object'] };
+  if (data.ads !== undefined) {
+    if (!data.ads || typeof data.ads !== 'object') errors.push('sens.json ads: must be an object like { "1.0x": 1.0 }');
+    else for (const [k, v] of Object.entries(data.ads)) {
+      if (!keyOk(k)) errors.push('sens.json ads.' + k + ': key must look like "2.5x"');
+      else if (!isNum(v) || v <= 0) errors.push('sens.json ads.' + k + ': must be a number > 0');
+      else ads[k] = v;
+    }
   }
-  return { ads, errors };
+  if (data.magnifications !== undefined) {
+    if (!Array.isArray(data.magnifications)) errors.push('sens.json magnifications: must be a list of { "key": "2.5x", "slider": 90 }');
+    else data.magnifications.forEach((m, i) => {
+      if (!m || !keyOk(m.key)) errors.push('sens.json magnifications[' + i + '].key: must look like "2.5x"');
+      else if (m.slider !== undefined && !isNum(m.slider)) errors.push('sens.json magnifications[' + i + '].slider: must be a number');
+      else magnifications.push({ key: m.key, slider: m.slider });
+    });
+  }
+  const game = {};
+  for (const k of ['horizontal', 'vertical', 'aimMode', 'globalAim', 'advancedMouseSensitivity']) if (data[k] !== undefined) game[k] = data[k];
+  return { ads, magnifications, game, errors };
 }
 
 async function fetchJson(url) {
@@ -116,7 +144,7 @@ async function fetchJson(url) {
 
 // Loads both files (relative URLs, so it works under any GitHub Pages sub-path).
 export async function loadGameData() {
-  const out = { guns: [], catalogue: null, sens: { ads: {} }, errors: [], warnings: [] };
+  const out = { guns: [], catalogue: null, sens: { ads: {}, magnifications: [], game: {} }, errors: [], warnings: [] };
   let catalogue = { groups: {}, optics: [], byId: new Map(), errors: [] };
   try {
     catalogue = validateCatalogue(await fetchJson('data/optics.json'));
