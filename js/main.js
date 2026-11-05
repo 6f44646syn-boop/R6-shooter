@@ -752,18 +752,24 @@ function boot(data) {
   let autoLevel = 3, qAcc = 0, qN = 0, qT0 = 0;
   function lensQuality() { return settings.lensQuality === 'auto' ? autoLevel : Number(settings.lensQuality); }
   // Auto quality drop: average frame time over 20 ms for 2 s while aiming -> one level down.
+  // Also steps down when aiming is clearly slower than hip-fire on this machine: the average
+  // aimed frame is over 25% longer than the recent hip-fire average and misses ~58 fps.
+  let hipMs = 0;
+  let noLensDebug = false;   // test hook: aim without the lens pass, to measure its cost
   function watchQuality(nowMs, frameMs) {
+    if (state.adsP <= 0 && frameMs > 0 && frameMs < 200) hipMs = hipMs ? hipMs + (frameMs - hipMs) * 0.05 : frameMs;
     if (settings.lensQuality !== 'auto' || state.adsP <= 0 || autoLevel === 0) { qAcc = qN = 0; qT0 = nowMs; return; }
     if (qN === 0) qT0 = nowMs;   // start a new 2 s window
     qAcc += frameMs; qN++;
     if (nowMs - qT0 >= 2000) {
-      if (qN && qAcc / qN > 20) autoLevel--;
+      const avg = qN ? qAcc / qN : 0;
+      if (avg > 20 || (hipMs > 0 && avg > hipMs * 1.25 && avg > 1000 / 58)) autoLevel--;
       qAcc = qN = 0; qT0 = nowMs;
     }
   }
   function renderFrame() {
     renderer.info.reset();
-    if (state.adsP <= 0) { post.render(scene, camera, rig.scene, rig.camera, null); return; }
+    if (state.adsP <= 0 || noLensDebug) { post.render(scene, camera, rig.scene, rig.camera, null); return; }
     const o = state.optic, hs = o.housing, H = renderH;
     rig.lensOffset(lensOff);
     const k = lensOff.scale;
@@ -836,6 +842,8 @@ function boot(data) {
       overlayVisible: () => state.adsP > 0,
       lensQuality, setAutoLevel(l) { autoLevel = l; }, renderFrame,
       setLensQuality(q) { settings.lensQuality = q; },
+      setHipMs(ms) { hipMs = ms; },
+      noLens(on) { noLensDebug = on; },
       move(keys) { Object.assign(player.keys, keys); },
       crouch(on) { player.crouched = on; },
       setSprint(on) { player.sprint = on; },

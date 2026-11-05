@@ -9,6 +9,10 @@
 //             muzzle-flash light, and the reticle (emissive, additive) fixed at screen centre.
 // Quality levels (auto-stepped down by main.js when frames are slow):
 //   3 everything, 2 no blur, 1 no blur or fringing, 0 no blur, fringing or glare.
+// Levels 1 and 0 take the FAST PATH: no off-screen image at all. The scene is drawn straight
+// to the screen as in hip-fire, then one light full-screen pass is blended on top
+// (result = effect + screen x darkening), which needs no texture reads of the scene. Only
+// blur, fringing and distortion need the scene as a texture, so only levels 3 and 2 pay for it.
 import * as THREE from '../../vendor/three/three.module.min.js';
 
 const VERT = /* glsl */`
@@ -119,6 +123,53 @@ void main() {
   #include <colorspace_fragment>
 }`;
 
+// Fast path: lens look as a blend on top of the already-drawn screen.
+// gl_FragColor.rgb is added, gl_FragColor.a multiplies what is on screen.
+const OVERLAY = /* glsl */`
+uniform sampler2D tRet, tEtch;
+uniform vec2 res, lensC, lensHalf, glareOff, retC;
+uniform float lensCorner, lensRound, mag, strength, glareOn, flash, retHalf, retOn;
+varying vec2 vUv;
+float sdLens(vec2 p) {
+  vec2 q = p - lensC;
+  if (lensRound > 0.5) {
+    float k = lensHalf.y / max(lensHalf.x, 1.0);
+    return length(vec2(q.x * k, q.y)) - lensHalf.y;
+  }
+  vec2 d = abs(q) - lensHalf + lensCorner;
+  return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - lensCorner;
+}
+void main() {
+  vec2 p = vUv * res;
+  float sd = sdLens(p);
+  float soft = mag > 0.5 ? 0.03 * res.y : 0.003 * res.y;
+  float inside = 1.0 - smoothstep(-soft, soft * 0.5, sd);
+  float rn = clamp(1.0 + sd / max(min(lensHalf.x, lensHalf.y), 1.0), 0.0, 2.0);
+  float mul = 1.0;
+  vec3 add = vec3(0.0);
+  if (mag > 0.5) {
+    mul *= 1.0 - 0.72 * (1.0 - inside) * strength;
+    mul *= 1.0 - 0.45 * smoothstep(0.78, 1.0, rn) * inside * strength;
+  } else {
+    vec2 c = vUv - 0.5;
+    mul *= 1.0 - 0.3 * dot(c, c) * strength;
+  }
+  if (glareOn > 0.5) {
+    vec2 q = p - lensC - glareOff;
+    float d = dot(q, normalize(vec2(1.0, -1.0))) / (0.05 * res.y);
+    add += vec3(0.85, 0.92, 1.0) * exp(-d * d) * inside * strength * (mag > 0.5 ? 0.045 : 0.025);
+  }
+  add += vec3(1.0, 0.7, 0.4) * flash * inside * (mag > 0.5 ? 0.16 : 0.09);
+  vec2 r = (p - retC) / (2.0 * retHalf) + 0.5;
+  if (retOn > 0.0 && r.x > 0.0 && r.x < 1.0 && r.y > 0.0 && r.y < 1.0) {
+    float m = mix(1.0, inside, strength);
+    mul *= 1.0 - texture2D(tEtch, r).a * m * retOn;
+    add += texture2D(tRet, r).rgb * m * retOn * 1.4;
+  }
+  gl_FragColor = vec4(add, mul);
+  #include <colorspace_fragment>
+}`;
+
 export class LensPost {
   constructor(renderer, { samples = 0 } = {}) {
     this.renderer = renderer;
@@ -148,6 +199,14 @@ export class LensPost {
       retHalf: { value: 100 }, retOn: { value: 0 }, retC: { value: new THREE.Vector2() }, tint: { value: new THREE.Color(1, 1, 1) },
     };
     this.compMat = mk(COMPOSITE, this.u);
+    this.overlayMat = mk(OVERLAY, this.u);
+    this.overlayMat.transparent = true;
+    this.overlayMat.blending = THREE.CustomBlending;
+    this.overlayMat.blendEquation = THREE.AddEquation;
+    this.overlayMat.blendSrc = THREE.OneFactor;        // + effect
+    this.overlayMat.blendDst = THREE.SrcAlphaFactor;   // + screen x darkening
+    this.overlayMat.blendSrcAlpha = THREE.ZeroFactor;
+    this.overlayMat.blendDstAlpha = THREE.OneFactor;
     this.quad = new THREE.Mesh(tri, this.copyMat);
     this.quad.frustumCulled = false;
     this.quadScene = new THREE.Scene();
@@ -162,6 +221,27 @@ export class LensPost {
     this.halfA.setSize(hw, hh);
     this.halfB.setSize(hw, hh);
     this.u.res.value.set(w, h);
+  }
+
+  _uniforms(p) {
+    const u = this.u;
+    u.caOn.value = p.quality >= 2 ? 1 : 0;
+    u.glareOn.value = p.quality >= 1 ? 1 : 0;
+    u.lensC.value.set(p.cx, p.cy);
+    u.lensHalf.value.set(p.hw, p.hh);
+    u.lensCorner.value = p.corner;
+    u.lensRound.value = p.round ? 1 : 0;
+    u.mag.value = p.mag ? 1 : 0;
+    u.strength.value = p.strength;
+    u.glareOff.value.set(p.glareX, p.glareY);
+    u.gunBand.value.set(p.gunHalfW, 0);
+    u.flash.value = p.flash;
+    u.tint.value.setRGB(p.tint[0], p.tint[1], p.tint[2]);
+    u.tRet.value = p.ret.texture;
+    u.tEtch.value = p.ret.etch;
+    u.retHalf.value = p.retHalf;
+    u.retOn.value = p.retOn;
+    u.retC.value.set(p.retX, p.retY);
   }
 
   _pass(mat, target) {
@@ -181,6 +261,16 @@ export class LensPost {
       if (vm) { r.clearDepth(); r.render(vm, vmCam); }
       return;
     }
+    if (p.quality <= 1) {
+      // Fast path: draw the scene straight to the screen, then blend the lens look on top.
+      r.setRenderTarget(null);
+      r.clear();
+      r.render(world, worldCam);
+      if (vm) { r.clearDepth(); r.render(vm, vmCam); }
+      this._uniforms(p);
+      this._pass(this.overlayMat, null);
+      return;
+    }
     r.setRenderTarget(this.sceneRT);
     r.clear();
     r.render(world, worldCam);
@@ -198,23 +288,7 @@ export class LensPost {
       this._pass(this.blurMat, this.halfA);
     }
     u.blurOn.value = blur ? 1 : 0;
-    u.caOn.value = p.quality >= 2 ? 1 : 0;
-    u.glareOn.value = p.quality >= 1 ? 1 : 0;
-    u.lensC.value.set(p.cx, p.cy);
-    u.lensHalf.value.set(p.hw, p.hh);
-    u.lensCorner.value = p.corner;
-    u.lensRound.value = p.round ? 1 : 0;
-    u.mag.value = p.mag ? 1 : 0;
-    u.strength.value = p.strength;
-    u.glareOff.value.set(p.glareX, p.glareY);
-    u.gunBand.value.set(p.gunHalfW, 0);
-    u.flash.value = p.flash;
-    u.tint.value.setRGB(p.tint[0], p.tint[1], p.tint[2]);
-    u.tRet.value = p.ret.texture;
-    u.tEtch.value = p.ret.etch;
-    u.retHalf.value = p.retHalf;
-    u.retOn.value = p.retOn;
-    u.retC.value.set(p.retX, p.retY);
+    this._uniforms(p);
     this._pass(this.compMat, null);
   }
 }

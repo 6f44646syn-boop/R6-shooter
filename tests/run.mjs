@@ -277,10 +277,14 @@ try {
       for (let k = 0; k < 4; k++) { for (let i = 0; i < 100; i++) { now += 25; R.qualityTick(now, 25); } levels.push(R.lensQuality()); }
       for (let i = 0; i < 200; i++) { now += 10; R.qualityTick(now, 10); }
       levels.push(R.lensQuality());
+      // Hip-relative: 18 ms aimed frames on a machine that does 10 ms at hip (> 25% slower, < 58 fps).
+      R.setAutoLevel(3); R.setHipMs(10);
+      for (let i = 0; i < 120; i++) { now += 18; R.qualityTick(now, 18); }
+      levels.push(R.lensQuality());
       R.setAds(false); R.step(1); R.setAutoLevel(3);
       return levels;
     });
-    check('auto quality: 3 -> 2 (blur off) -> 1 (fringing off) -> 0 (glare off), stays down: ' + aq.join(' > '), aq.join(',') === '3,2,1,0,0,0', aq.join(','));
+    check('auto quality: 3 -> 2 (blur off) -> 1 (fringing off) -> 0 (glare off), stays down; also drops when aiming is >25% slower than hip: ' + aq.join(' > '), aq.join(',') === '3,2,1,0,0,0,2', aq.join(','));
 
     check('ADS slower with mag_a (' + sc.mag.adsTime.toFixed(4) + ' s) than holo_a (' + sc.holo.adsTime.toFixed(4) + ' s)', sc.mag.adsTime > sc.holo.adsTime, '');
     const tanH = (v) => Math.tan(v * Math.PI / 360);
