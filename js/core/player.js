@@ -1,4 +1,5 @@
-// Player movement: WASD inside a small box behind the firing line, Space toggles crouch.
+// Player movement: WASD inside a small box behind the firing line, hold Shift to sprint,
+// hold Space to crouch.
 // Frame-rate independent (velocity eases towards the target with exp(-k dt)).
 //
 // Coordinates: metres, x right, z towards the player. The firing line is z = 0 and you can
@@ -7,9 +8,9 @@
 export const STAND_EYE = 1.6;
 export const CROUCH_EYE = 1.05;
 export const BOX = { halfWidth: 1.5, depth: 2.0 };
-const WALK = 3.0, CROUCH_WALK = 1.5;   // m/s
+const WALK = 3.0, SPRINT = 5.5, CROUCH_WALK = 1.5;   // m/s (no sprinting while crouched or aiming)
 const ACCEL = 14;                      // 1/s, how fast velocity reaches the target
-const CROUCH_RATE = 10;                // 1/s, eye height easing
+const CROUCH_RATE = 16;                // 1/s, eye height easing (snappy: ~95% in 0.2 s)
 
 export class Player {
   constructor() {
@@ -17,6 +18,7 @@ export class Player {
     this.vx = 0; this.vz = 0;
     this.eye = STAND_EYE;
     this.crouched = false;
+    this.sprint = false;     // Shift held
     this.keys = { w: false, a: false, s: false, d: false };
   }
 
@@ -26,10 +28,13 @@ export class Player {
 
   toggleCrouch() { this.crouched = !this.crouched; }
 
-  releaseKeys() { this.keys.w = this.keys.a = this.keys.s = this.keys.d = false; }
+  releaseKeys() { this.keys.w = this.keys.a = this.keys.s = this.keys.d = false; this.sprint = false; }
 
   // yawDeg: where the player faces (positive = right). Moves relative to that heading.
-  update(dt, yawDeg) {
+  get sprinting() { return this.sprint && !this.crouched && !this._aiming && this.speed > 0.1; }
+
+  update(dt, yawDeg, aiming = false) {
+    this._aiming = aiming;
     const fwd = (this.keys.w ? 1 : 0) - (this.keys.s ? 1 : 0);
     const side = (this.keys.d ? 1 : 0) - (this.keys.a ? 1 : 0);
     let tx = 0, tz = 0;
@@ -39,7 +44,7 @@ export class Player {
       tx = fwd * Math.sin(y) + side * Math.cos(y);
       tz = -fwd * Math.cos(y) + side * Math.sin(y);
       const l = Math.hypot(tx, tz);
-      const sp = this.crouched ? CROUCH_WALK : WALK;
+      const sp = this.crouched ? CROUCH_WALK : (this.sprint && !aiming ? SPRINT : WALK);
       tx = tx / l * sp; tz = tz / l * sp;
     }
     const k = 1 - Math.exp(-ACCEL * dt);

@@ -13,9 +13,12 @@ In game: the **Sight** row in the menu's Loadout panel lists the current slot's 
   `data/sens.json` `model.adsVFovMultipliers[magnification]`: 1.0x = 0.9 (74.7 deg),
   2.5x = 0.42 (34.9 deg). Magnifications not listed (3.5x, 8.0x) use
   `2 * atan(tan(hip / 2) / zoom)` until you add a value.
-- **Ease.** One smooth curve (smootherstep: starts and lands at zero speed) drives the zoom,
-  gun raise, lens effects and crosshair fade, both ways, over `model.adsEaseSeconds`
-  (160-240 ms): `gun.adsSeconds x 0.6 / (1 + adsSpeedBonus)`, clamped to that range.
+- **Ease.** Snappy: an ease-out curve (fast start, heavy change on frame one, quick settle)
+  drives the zoom, gun raise, lens effects and crosshair fade, both ways, over
+  `model.adsEaseSeconds` (120-180 ms): `gun.adsSeconds x 0.45 / (1 + adsSpeedBonus)`.
+- **Raw input.** Mouse counts go straight to the camera every event: no smoothing, no
+  acceleration, nothing tied to frame rate. The reticle is drawn in screen space, locked to
+  the exact centre; only the cosmetic gun model sways.
 - **Sensitivity follows the FOV every frame.** Settings > Aimed sensitivity:
   - *Match screen distance (focal length)*, the default: sensitivity = hip x
     tan(current FOV / 2) / tan(hip FOV / 2), computed from the FOV actually on screen each

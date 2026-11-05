@@ -327,7 +327,7 @@ function boot(data) {
     onChange(locked) {
       $('menu').hidden = locked;
       if (locked) $('lock-hint').hidden = true;
-      else { weapon.releaseTrigger(); setAds(false); player.releaseKeys(); settingsUI.refresh(); }
+      else { weapon.releaseTrigger(); setAds(false); player.releaseKeys(); player.crouched = false; settingsUI.refresh(); }
     },
     onRetry() {
       // Usually Chrome refusing a re-lock straight after Esc. Stay quiet; the next click retries.
@@ -382,13 +382,17 @@ function boot(data) {
 
   // Ease-out both ways: aiming in, e = 1 - (1 - p)^3; aiming out, e = p^3 on the way back
   // (fast first, slow landing at hip). Switching direction mid-way remaps p so e is continuous.
-  // One smooth curve (quintic smootherstep: starts and lands with zero speed) drives the zoom,
-  // the gun raise, the lens effects and the crosshair fade, both ways. It is symmetric, so
-  // letting go half way simply runs the same curve back with no jump.
-  function adsEase(p) { return p * p * p * (p * (p * 6 - 15) + 10); }
+  // Snappy: an ease-out curve (fast start, heavy visual change on frame one, quick settle)
+  // drives the zoom, gun raise, lens effects and crosshair fade, in both directions. Going
+  // in e = 1 - (1 - p)^3; going out e = p^3 on the way back. Switching direction half way
+  // remaps p so nothing jumps.
+  const easeOut = (x) => 1 - (1 - x) * (1 - x) * (1 - x);
+  function adsEase(p, aimingIn) { return aimingIn ? easeOut(p) : 1 - easeOut(1 - p); }
   function setAds(on) {
     if (state.ads === on) return;
+    const e = state.adsE;
     state.ads = on;
+    state.adsP = on ? 1 - Math.cbrt(1 - e) : Math.cbrt(e);
     updateFov();
   }
 
@@ -396,8 +400,10 @@ function boot(data) {
   document.addEventListener('keyup', (e) => {
     const c = e.code;
     if (c === 'KeyW' || c === 'KeyA' || c === 'KeyS' || c === 'KeyD') player.keys[c[3].toLowerCase()] = false;
+    else if (c === 'ShiftLeft' || c === 'ShiftRight') player.sprint = false;
+    else if (c === 'Space') { player.crouched = false; hud.setDistance(range.distance, targetLabel()); }
   });
-  window.addEventListener('blur', () => player.releaseKeys());
+  window.addEventListener('blur', () => { player.releaseKeys(); player.crouched = false; });
   document.addEventListener('keydown', (e) => {
     if (e.repeat && e.code !== 'KeyR') return;
     const c = e.code;
@@ -411,9 +417,11 @@ function boot(data) {
       settingsUI.refresh();
       return;
     }
-    if (!lock.locked) return;
+    if (!lock.locked && !testMode) return;
     if (c === 'KeyW' || c === 'KeyA' || c === 'KeyS' || c === 'KeyD') { player.keys[c[3].toLowerCase()] = true; return; }
-    if (c === 'Space') { e.preventDefault(); player.toggleCrouch(); hud.setDistance(range.distance, targetLabel()); return; }
+    if (c === 'ShiftLeft' || c === 'ShiftRight') { player.sprint = true; return; }
+    // Hold Space to crouch (released in keyup).
+    if (c === 'Space') { e.preventDefault(); player.crouched = true; hud.setDistance(range.distance, targetLabel()); return; }
     if (c === 'KeyX') { player.reset(); return; }
     if (c === 'KeyZ' && settings.debugHud) look.reset();
     else if (c === 'KeyR') { if (weapon.startReload(clockNow())) { finishMagazine(); sfx.reload(); } }
@@ -650,7 +658,7 @@ function boot(data) {
     camera.rotation.y = -(look.yaw + offset[0]) * DEG;   // three.js: positive Y rotation turns left
     camera.rotation.x = pitch * DEG;
     // Movement: WASD in a small box behind the firing line, Space crouches.
-    player.update(dt, look.yaw);
+    player.update(dt, look.yaw, state.ads);
     camera.position.set(player.x, player.eye, player.z);
     aimAssist(dt, t);
     dots.update(t);
@@ -660,7 +668,7 @@ function boot(data) {
     if (state.adsP !== target) {
       const step = dt / adsTime();
       state.adsP = target ? Math.min(1, state.adsP + step) : Math.max(0, state.adsP - step);
-      state.adsE = adsEase(state.adsP);
+      state.adsE = adsEase(state.adsP, state.ads);
       updateFov();
     }
     // Weapon raise and springs; hip-fire keeps the crosshair, aiming uses the sight.
@@ -680,11 +688,11 @@ function boot(data) {
     reloadBar(weapon.reloading ? weapon.reloadProgress : -1);
   }
 
-  // ADS ease time: gun.adsSeconds scaled into the model's 160-240 ms range, shortened by the
-  // sight's adsSpeedBonus. (0.35 s guns: 210 ms magnified, 200 ms 1x, 191 ms iron.)
+  // ADS ease time: gun.adsSeconds scaled into the model's 120-180 ms range, shortened by the
+  // sight's adsSpeedBonus. (0.35 s guns: 158 ms magnified, 150 ms 1x, 143 ms iron.)
   function adsTime() {
     const [lo, hi] = data.sens.model.adsEaseSeconds;
-    return Math.min(hi, Math.max(lo, state.gun.adsSeconds * 0.6 / (1 + state.optic.adsSpeedBonus)));
+    return Math.min(hi, Math.max(lo, state.gun.adsSeconds * 0.45 / (1 + state.optic.adsSpeedBonus)));
   }
   const crosshairEl = $('crosshair');
   let crossOpacity = 1;
@@ -829,8 +837,9 @@ function boot(data) {
       lensQuality, setAutoLevel(l) { autoLevel = l; }, renderFrame,
       setLensQuality(q) { settings.lensQuality = q; },
       move(keys) { Object.assign(player.keys, keys); },
-      crouch(on) { if (player.crouched !== on) player.toggleCrouch(); },
-      player: () => ({ x: player.x, z: player.z, eye: player.eye, crouched: player.crouched }),
+      crouch(on) { player.crouched = on; },
+      setSprint(on) { player.sprint = on; },
+      player: () => ({ x: player.x, z: player.z, eye: player.eye, crouched: player.crouched, speed: player.speed }),
       setSetting(k, v) { settings[k] = v; },
       setAimSmooth(on) { settings.aimSmooth = on; recoil.aimSmooth = on; },
       qualityTick(nowMs, frameMs) { watchQuality(nowMs, frameMs); },

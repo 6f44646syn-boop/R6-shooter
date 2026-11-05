@@ -243,8 +243,8 @@ try {
     check('mag_a: zoom 2.5, sens key 2.5x, vertical ADS FOV ' + sc.mag.fovV.toFixed(3) + ' = 83 x 0.42',
       sc.mag.zoom === 2.5 && sc.mag.sensKey === '2.5x' && Math.abs(sc.mag.fovV - magFov) < 1e-9, JSON.stringify(sc.mag));
     check('holo_a: zoom 1, vertical ADS FOV ' + sc.holo.fovV.toFixed(3) + ' = 83 x 0.9 (wider than mag_a)', sc.holo.zoom === 1 && Math.abs(sc.holo.fovV - holoFov) < 1e-9 && sc.holo.fovV > sc.mag.fovV, JSON.stringify(sc.holo));
-    check('ADS ease 160-240 ms (mag ' + (sc.mag.adsTime * 1000).toFixed(0) + ' ms, holo ' + (sc.holo.adsTime * 1000).toFixed(0) + ' ms)',
-      [sc.mag.adsTime, sc.holo.adsTime].every((x) => x >= 0.16 && x <= 0.24), '');
+    check('ADS ease 120-180 ms (mag ' + (sc.mag.adsTime * 1000).toFixed(0) + ' ms, holo ' + (sc.holo.adsTime * 1000).toFixed(0) + ' ms)',
+      [sc.mag.adsTime, sc.holo.adsTime].every((x) => x >= 0.12 && x <= 0.18), '');
 
     // Sensitivity follows the FOV mid-ease, and the ease is ease-out (more than half way at half time).
     const mid = await page.evaluate(() => {
@@ -264,7 +264,7 @@ try {
     const pf = (tH - tC) / (tH - tA);
     // Focal-length scaling (default): sensitivity = hip x tan(current FOV / 2) / tan(83 / 2).
     const want = mid.hip * tC / tH; void pf;
-    check('mid-ease: FOV ' + mid.s.fovV.toFixed(2) + ' deg, eased ' + mid.s.adsE.toFixed(3) + ' at half time (smooth both ends)', Math.abs(mid.s.adsE - 0.5) < 1e-9 && mid.s.fovV < 83 && mid.s.fovV > 83 * 0.42, JSON.stringify(mid.s));
+    check('mid-ease: FOV ' + mid.s.fovV.toFixed(2) + ' deg, eased ' + mid.s.adsE.toFixed(3) + ' at half time (snappy ease-out: 87.5%)', Math.abs(mid.s.adsE - 0.875) < 1e-9 && mid.s.fovV < 83 && mid.s.fovV > 83 * 0.42, JSON.stringify(mid.s));
     check('mid-ease sensitivity matches the FOV (' + (mid.s.dpc / mid.hip).toFixed(4) + ' x hip)', Math.abs(mid.s.dpc - want) < 1e-12, 'want ' + want + ' got ' + mid.s.dpc);
 
     // Auto quality: slow frames (> 20 ms average) for 2 s while aiming step down one level at a time.
@@ -328,8 +328,8 @@ try {
     let maxStep = 0, mono = true;
     for (let i = 1; i < ser.length; i++) { const d = ser[i - 1] - ser[i]; maxStep = Math.max(maxStep, Math.abs(d)); if (d < -1e-15) mono = false; }
     const firstStep = (ser[0] - ser[1]) / range;
-    check('no sensitivity stepping: smooth, monotonic, largest 240 fps step ' + (100 * maxStep / range).toFixed(2) + '% of the change, first ' + (100 * firstStep).toFixed(3) + '%',
-      mono && maxStep / range < 0.05 && firstStep < 0.005 && Math.abs(ser[ser.length - 1] - acc.adsDpc) < 1e-12, JSON.stringify({ maxStep, range, firstStep }));
+    check('sensitivity follows the zoom continuously: monotonic, largest 240 fps step ' + (100 * maxStep / range).toFixed(2) + '% of the change, responds on frame one (' + (100 * firstStep).toFixed(1) + '%)',
+      mono && maxStep / range < 0.12 && firstStep > 0.01 && Math.abs(ser[ser.length - 1] - acc.adsDpc) < 1e-12, JSON.stringify({ maxStep, range, firstStep }));
     check('frame one of aiming (blend ' + acc.f1.adsE.toFixed(4) + '): reticle fully on at the exact screen centre', acc.f1.retOn === 1 && acc.f1.retX === acc.f1.w / 2 && acc.f1.retY === acc.f1.h / 2, JSON.stringify(acc.f1));
     check('zero parallax: camera position unchanged by aiming (zoom is FOV only)', acc.camHip.camX === acc.camAds.camX && acc.camHip.camY === acc.camAds.camY && acc.camHip.camZ === acc.camAds.camZ, JSON.stringify([acc.camHip, acc.camAds]));
     check('lens pass off at hip, on when aimed', !sc.overlayHip && sc.overlayAds, sc.overlayHip + ' / ' + sc.overlayAds);
@@ -346,6 +346,12 @@ try {
       R.move({ d: true }); R.step(0.5); R.move({ d: false }); R.step(0.5);
       R.move({ w: true }); R.step(3); R.move({ w: false }); R.step(0.5); out.home = R.player();
       R.crouch(true); R.step(1); out.crouched = R.player();
+      R.crouch(false); R.step(1);
+      // Sprint: hold Shift while walking back; not while crouched.
+      R.setSprint(true); R.move({ s: true }); R.step(0.15); out.sprintSpeed = R.player().speed; R.move({ s: false }); R.setSprint(false); R.step(0.5);
+      R.move({ s: true }); R.step(0.15); out.walkSpeed = R.player().speed; R.move({ s: false }); R.step(0.5);
+      R.move({ w: true }); R.step(2); R.move({ w: false }); R.step(0.5);
+      R.crouch(true); R.step(1);
       R.clear(); R.setAim(0, 0); R.trigger(true); R.step(0.01, 1000); R.trigger(false); R.step(1);
       out.crouchShot = R.state();
       R.crouch(false); R.step(1); out.stand = R.player();
@@ -355,7 +361,15 @@ try {
     check('S / A stop at the box edge (2 m back, 1.5 m left)', Math.abs(mv.back.z - 2) < 1e-9 && Math.abs(mv.left.x + 1.5) < 1e-9, JSON.stringify([mv.back, mv.left]));
     check('W walks back up to the line and stops there', mv.home.z === 0, JSON.stringify(mv.home));
     check('Space crouch lowers the eye to 1.05 m, standing back to 1.6', Math.abs(mv.crouched.eye - 1.05) < 1e-3 && Math.abs(mv.stand.eye - 1.6) < 1e-3, JSON.stringify([mv.crouched, mv.stand]));
+    check('Shift sprint is faster than walking (' + mv.sprintSpeed.toFixed(2) + ' vs ' + mv.walkSpeed.toFixed(2) + ' m/s after 0.15 s)', mv.sprintSpeed > mv.walkSpeed * 1.4, JSON.stringify(mv));
     check('a level shot while crouched hits the dummy body, not the head', mv.crouchShot.hits === 1 && mv.crouchShot.headshots === 0, JSON.stringify(mv.crouchShot));
+
+    // Space is hold-to-crouch (real key events).
+    await page.keyboard.down('Space');
+    const holdDown = await page.evaluate(() => { window.__range.step(0.5); return window.__range.player(); });
+    await page.keyboard.up('Space');
+    const holdUp = await page.evaluate(() => { window.__range.step(0.5); return window.__range.player(); });
+    check('holding Space crouches, releasing stands', holdDown.crouched && !holdUp.crouched && Math.abs(holdUp.eye - 1.6) < 1e-3, JSON.stringify([holdDown, holdUp]));
 
     // k) Siege-style sensitivity: vertical slider scales pitch only; aim assist pulls gently.
     const sv = await page.evaluate(() => {

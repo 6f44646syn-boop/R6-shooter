@@ -16,7 +16,8 @@ Pick a gun, hold the trigger, pull against the recoil, and read the spray on the
 |---|---|
 | Mouse | Look |
 | W A S D | Move (small area behind the firing line; you cannot step past it) |
-| Space | Crouch / stand |
+| Shift | Sprint (hold) |
+| Space | Crouch (hold) |
 | X | Back to the firing line |
 | Left button | Fire (hold for automatic) |
 | Right button | Aim down sights (hold) |
