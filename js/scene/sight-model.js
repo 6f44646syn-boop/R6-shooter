@@ -8,16 +8,32 @@
 //
 // Local frame of a sight: origin at the centre of its rear opening, -z forward, y up.
 import * as THREE from '../../vendor/three/three.module.min.js';
+import { matcap } from './matcap.js';
 
 export const VM_FOV = 50;      // vertical FOV of the weapon camera, degrees
 export const EYE_Z = 0.14;     // eye to rear of the sight, metres
 // Height of the view at the rear of the sight: one "screen height" in metres there.
 export const VIEW_H = 2 * EYE_Z * Math.tan((VM_FOV * Math.PI) / 360);
 
-// Shared materials (one set, reused by every sight).
-let MATS = null;
+// Shared materials (one set per shading mode, reused by every sight).
+//   fast:     MeshMatcapMaterial (one texture read per pixel). Default; much cheaper on
+//             integrated graphics, which matters when the sight fills the screen while aiming.
+//   detailed: MeshStandardMaterial, metalness 0.8, roughness 0.45, with an environment map.
+let SHADING = 'fast';
+export function setSightShading(mode) { SHADING = mode === 'detailed' ? 'detailed' : 'fast'; }
+export function sightShading() { return SHADING; }
+const MATSETS = {};
 export function sightMaterials(envMap) {
-  if (MATS) return MATS;
+  if (MATSETS[SHADING]) return MATSETS[SHADING];
+  if (SHADING === 'fast') {
+    const mc = (color, kind) => new THREE.MeshMatcapMaterial({ color, matcap: matcap(kind) });
+    MATSETS.fast = {
+      metal: mc(0x5d636b, 'metal'), edge: mc(0x8a9099, 'metal'), inner: mc(0x1a1c1f, 'rubber'),
+      rubber: mc(0x4a4c50, 'rubber'), screw: mc(0x9aa0a8, 'metal'), post: mc(0x3a3e44, 'metal'),
+    };
+    return MATSETS.fast;
+  }
+  let MATS = null;
   const metal = new THREE.MeshStandardMaterial({ color: 0x30343a, metalness: 0.8, roughness: 0.45, envMap, envMapIntensity: 1.6 });
   MATS = {
     metal,
@@ -27,6 +43,7 @@ export function sightMaterials(envMap) {
     screw: new THREE.MeshStandardMaterial({ color: 0x55595f, metalness: 0.9, roughness: 0.3, envMap }),
     post: new THREE.MeshStandardMaterial({ color: 0x15171a, metalness: 0.6, roughness: 0.5, envMap }),
   };
+  MATSETS.detailed = MATS;
   return MATS;
 }
 
@@ -109,10 +126,12 @@ export function buildSight(optic, envMap) {
   // Glass: rear eyepiece (magnified) or the window itself (1x), slightly tinted.
   if (!iron) {
     const tint = mag ? 0x3c6e6a : (hs.shape === 'rect' ? 0x4a6fa0 : 0x8a6a3a);
-    const glassMat = new THREE.MeshStandardMaterial({
-      color: tint, transparent: true, opacity: 0.025 + (hs.tint || 0) * 0.6, metalness: 0.1, roughness: 0.05,
-      envMap, envMapIntensity: 0.6, depthWrite: false,
-    });
+    const glassMat = SHADING === 'fast'
+      ? new THREE.MeshBasicMaterial({ color: tint, transparent: true, opacity: 0.025 + (hs.tint || 0) * 0.6, depthWrite: false })
+      : new THREE.MeshStandardMaterial({
+        color: tint, transparent: true, opacity: 0.025 + (hs.tint || 0) * 0.6, metalness: 0.1, roughness: 0.05,
+        envMap, envMapIntensity: 0.6, depthWrite: false,
+      });
     const gs = outline(hs.shape, w * 1.002, h * 1.002, r);
     const glass = new THREE.Mesh(new THREE.ShapeGeometry(gs, 40), glassMat);
     glass.position.z = mag ? -0.004 : -depth * 0.55;

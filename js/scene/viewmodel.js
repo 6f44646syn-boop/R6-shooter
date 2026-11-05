@@ -2,7 +2,8 @@
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
 import * as THREE from '../../vendor/three/three.module.min.js';
-import { buildSight, makeEnvMap, mergeStatic, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js';
+import { matcap } from './matcap.js';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -12,8 +13,14 @@ const FINISHES = [0x3a3d42, 0x6b5b45, 0x46523b, 0x2f3540, 0x5a5048, 0x4a4f57, 0x
 const mats = new Map();
 let ENV = null;
 function mat(color) {
-  if (!mats.has(color)) mats.set(color, new THREE.MeshStandardMaterial({ color, metalness: 0.55, roughness: 0.55, envMap: ENV, envMapIntensity: 0.8 }));
-  return mats.get(color);
+  const key = sightShading() + color;
+  if (!mats.has(key)) {
+    mats.set(key, sightShading() === 'fast'
+      // Matcap tints multiply a mid-grey sphere, so brighten the finish colour to match.
+      ? new THREE.MeshMatcapMaterial({ color: new THREE.Color(color).multiplyScalar(1.7), matcap: matcap('metal') })
+      : new THREE.MeshStandardMaterial({ color, metalness: 0.55, roughness: 0.55, envMap: ENV, envMapIntensity: 0.8 }));
+  }
+  return mats.get(key);
 }
 const BLACK = 0x1c1e21, STEEL = 0x55595f;
 
@@ -132,6 +139,15 @@ export class WeaponRig {
     this.camera.aspect = a;
     this.camera.updateProjectionMatrix();
     this.H = H;
+  }
+
+  // 'fast' (matcap) or 'detailed' (PBR). Rebuilds the cached models on change.
+  setShading(mode) {
+    if (mode === sightShading()) return;
+    setSightShading(mode);
+    for (const m of this.models.values()) this.root.remove(m);
+    this.models.clear();
+    this.current = null;
   }
 
   // gun: validated gun data; slot: its index (finish colour); optic: chosen sight.

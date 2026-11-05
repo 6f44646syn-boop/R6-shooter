@@ -68,6 +68,7 @@ function boot(data) {
   range.holes.setSize(settings.holeSizeCm / 100);
   renderer.info.autoReset = false; // several passes per frame; reset once per frame
   const rig = new WeaponRig(renderer);
+  rig.setShading(settings.weaponShading);
   const post = new LensPost(renderer, { samples: settings.antialias && renderer.capabilities.isWebGL2 ? 4 : 0 });
   const dots = range.dots;
   const sfx = new Sfx();
@@ -611,6 +612,7 @@ function boot(data) {
       if (all || key === 'crosshair') drawCrosshair($('crosshair'), settings.crosshair);
       if (all || key === 'holes') range.holes.setSize(settings.holeSizeCm / 100);
       if (all || key === 'reload') weapon.reloadSpeed = settings.reloadSpeed;
+      if (all || key === 'shading') { rig.setShading(settings.weaponShading); rig.setGun(state.gun, state.gunIndex, state.optic); }
       if (key === 'sens' || key === 'assist') { /* read live each mouse event */ }
       if (all || key === 'recoil') { recoil.aimScale = settings.aimRecoil; recoil.aimSmooth = settings.aimSmooth; }
       if (all || key === 'volume') sfx.setVolume(settings.volume);
