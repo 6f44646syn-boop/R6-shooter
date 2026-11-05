@@ -101,6 +101,11 @@ export class Range {
     this.wallGroup.add(paper);
 
     this.holes = new BulletHoles(this.wallGroup);
+
+    // Nothing in the room moves except the wall group, so skip per-frame matrix rebuilds.
+    scene.traverse((o) => {
+      if (o !== this.wallGroup && o.isMesh && o.parent === scene) { o.updateMatrix(); o.matrixAutoUpdate = false; }
+    });
     this.distance = 10;
     this.setDistance(10);
   }

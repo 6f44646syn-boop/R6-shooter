@@ -1,0 +1,11 @@
+{
+  "name": "recoil-range",
+  "private": true,
+  "description": "Browser recoil-control trainer. Static site; these scripts are dev-only helpers.",
+  "type": "module",
+  "scripts": {
+    "serve": "node tools/serve.mjs 8080",
+    "test": "node tests/run.mjs",
+    "placeholders": "node tools/make-placeholder-guns.mjs"
+  }
+}

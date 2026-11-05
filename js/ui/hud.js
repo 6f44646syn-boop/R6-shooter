@@ -1,5 +1,5 @@
-// HUD text. Each field is only written to the DOM when its value changes, so a frame where
-// nothing changed costs no layout work.
+// HUD text. Inputs are compared as numbers first and strings are only built when something
+// changed, so a normal frame allocates nothing and touches no DOM.
 
 export class Hud {
   constructor($) {
@@ -8,34 +8,38 @@ export class Hud {
       distance: $('hud-distance'), shots: $('hud-shots'), hits: $('hud-hits'), acc: $('hud-acc'),
       ammo: $('ammo-count'), ammoSub: $('ammo-sub'),
     };
-    this.cache = {};
-  }
-
-  _set(key, value) {
-    if (this.cache[key] === value) return;
-    this.cache[key] = value;
-    this.el[key].textContent = value;
+    this.lastShots = -1;
+    this.lastHits = -1;
+    this.lastAmmo = -1;
+    this.lastMag = -1;
+    this.lastReloading = null;
   }
 
   setGun(gun, index, opticLabel) {
-    this._set('slot', String((index + 1) % 10));
-    this._set('name', gun.name);
+    this.el.slot.textContent = String((index + 1) % 10);
+    this.el.name.textContent = gun.name;
     this.el.tag.hidden = !gun.placeholder;
-    this._set('info', gun.rpm + ' rpm · ' + opticLabel + ' optic' + (gun.fireMode === 'semi' ? ' · semi' : ''));
+    this.el.info.textContent = gun.rpm + ' rpm · ' + opticLabel + ' optic' + (gun.fireMode === 'semi' ? ' · semi' : '');
   }
 
-  setDistance(d) { this._set('distance', d + ' m'); }
+  setDistance(d) { this.el.distance.textContent = d + ' m'; }
 
   setStats(shots, hits) {
-    this._set('shots', String(shots));
-    this._set('hits', String(hits));
-    this._set('acc', shots ? '(' + Math.round(100 * hits / shots) + '%)' : '');
+    if (shots === this.lastShots && hits === this.lastHits) return;
+    this.lastShots = shots;
+    this.lastHits = hits;
+    this.el.shots.textContent = String(shots);
+    this.el.hits.textContent = String(hits);
+    this.el.acc.textContent = shots ? '(' + Math.round(100 * hits / shots) + '%)' : '';
   }
 
   setAmmo(ammo, mag, reloading) {
-    this._set('ammo', reloading ? '--' : String(ammo));
-    this._set('ammoSub', reloading ? 'reloading' : '/ ' + mag + (ammo === 0 ? '  R to reload' : ''));
-    const low = !reloading && ammo <= Math.ceil(mag * 0.2);
-    if (this.cache.low !== low) { this.cache.low = low; this.el.ammo.classList.toggle('low', low); }
+    if (ammo === this.lastAmmo && mag === this.lastMag && reloading === this.lastReloading) return;
+    this.lastAmmo = ammo;
+    this.lastMag = mag;
+    this.lastReloading = reloading;
+    this.el.ammo.textContent = reloading ? '--' : String(ammo);
+    this.el.ammoSub.textContent = reloading ? 'reloading' : '/ ' + mag + (ammo === 0 ? '  R to reload' : '');
+    this.el.ammo.classList.toggle('low', !reloading && ammo <= Math.ceil(mag * 0.2));
   }
 }
