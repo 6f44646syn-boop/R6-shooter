@@ -887,7 +887,7 @@ function boot(data) {
       shadowCasters: () => (range.key.castShadow ? range.key.shadow.map ? 1 : 0 : 0),
       setGraphics(g) { settings.graphics = g; applyGraphics(); rig.setGun(state.gun, state.gunIndex, state.optic); },
       setAnimations(on) { settings.animations = on; },
-      inspectAt(p) { rig.inspectHold = p; },
+      inspectAt(p) { rig.inspectHold = p; if (p < 0) rig.inspectT = -1; },
       setUltraTex(n) { Range.ULTRA_TEX = n; setUltraTexSize(n); },
       rig: () => ({ drawT: rig.drawT, magY: rig.current.userData.mag.position.y, magVisible: rig.current.userData.mag.visible,
         flash: rig.current.userData.flash.visible, brass: rig.brass.filter((b) => b.visible).length, boltZ: rig.boltZ }),
