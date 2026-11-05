@@ -77,6 +77,7 @@ function boot(data) {
   const hud = new Hud($);
   const plot = new MagPlot($('plot'));
   const weapon = new Weapon();
+  weapon.reloadSpeed = settings.reloadSpeed;
   const recoil = new RecoilEngine();
   const params = new URLSearchParams(location.search);
   const testMode = params.has('test');
@@ -452,11 +453,24 @@ function boot(data) {
     hud.setDistance(range.distance, targetLabel());
   }
 
+  // C or the Clear button: every bullet hole and all shot data (counters, score, headshots,
+  // the magazine plot and the recorded shot positions). The spray restarts at bullet 1.
   function clearRange() {
     range.holes.clear();
     state.shots = state.hits = state.headshots = state.score = 0;
     mag.n = mag.shots = mag.hits = 0;
+    shotPtsN = 0;
+    recoil.shotIndex = 0;
     $('hud-plot').hidden = true;
+  }
+  $('clear-btn').addEventListener('click', () => { clearRange(); flashNotice('Cleared all bullet holes and shot data.'); });
+  let noticeTimer = 0;
+  function flashNotice(text) {
+    const n = $('menu-note');
+    n.textContent = text;
+    n.hidden = false;
+    clearTimeout(noticeTimer);
+    noticeTimer = setTimeout(() => { n.hidden = true; }, 2500);
   }
 
   /* ---------- firing ---------- */
@@ -558,6 +572,7 @@ function boot(data) {
       if (all || key === 'fov') updateFov();
       if (all || key === 'crosshair') drawCrosshair($('crosshair'), settings.crosshair);
       if (all || key === 'holes') range.holes.setSize(settings.holeSizeCm / 100);
+      if (all || key === 'reload') weapon.reloadSpeed = settings.reloadSpeed;
       if (all || key === 'volume') sfx.setVolume(settings.volume);
       if (all || key === 'debug') debug.setVisible(settings.debugHud);
       if (all || key === 'gun') selectGun(Math.min(settings.gunIndex, data.guns.length - 1));
@@ -747,7 +762,7 @@ function boot(data) {
         for (let i = 0; i < h.count; i++) { const k = (start + i) % 300; out.push([h.data[k * 6], h.data[k * 6 + 1], h.data[k * 6 + 2]]); }
         return out;
       },
-      state: () => ({ ammo: weapon.ammo, shots: state.shots, hits: state.hits, headshots: state.headshots, score: state.score, seed: state.seed, gun: state.gun.id,
+      state: () => ({ ammo: weapon.ammo, shots: state.shots, hits: state.hits, headshots: state.headshots, score: state.score, reloading: weapon.reloading, seed: state.seed, gun: state.gun.id,
         shotIndex: recoil.shotIndex, offset: [offset[0], offset[1]], distance: range.distance, fovH: state.fovH, fovV: state.fovV,
         optic: state.optic.id, zoom: state.optic.zoom, sensKey: state.optic.sensKey, adsP: state.adsP, adsE: state.adsE, adsFov: state.adsFov, fovV: state.fovV,
         adsTime: adsTime(), dpc: currentDpc(), placeholderSens: isPlaceholder(state.optic.sensKey) }),

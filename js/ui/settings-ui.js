@@ -143,6 +143,7 @@ export class SettingsUI {
       el('div', { class: 'set-grid' },
         this.select('set-gun', 'Gun', gunOpts, () => String(this.s.gunIndex), (v) => { this.s.gunIndex = Number(v); }, 'gun'),
         this.select('set-distance', 'Target distance', DISTANCES.map((d) => [String(d), d + ' m']), () => String(this.s.distance), (v) => { this.s.distance = Number(v); }, 'distance'),
+        this.range('set-reload', 'Reload speed', { min: 1, max: 5, step: 0.25, fmt: (v) => v + 'x' + (v === 1 ? ' (as measured)' : '') }, () => this.s.reloadSpeed, (v) => { this.s.reloadSpeed = v; }, 'reload'),
         this.range('set-hole', 'Bullet hole size', { min: 0.5, max: 10, step: 0.5, fmt: (v) => v + ' cm' }, () => this.s.holeSizeCm, (v) => { this.s.holeSizeCm = v; }, 'holes'),
         this.select('set-target', 'Target (M cycles)', [['dummy', 'Dummy'], ['dots-still', 'Red dots, still'], ['dots-moving', 'Red dots, moving']],
           () => this.s.targetMode === 'dummy' ? 'dummy' : (this.s.dotMoving ? 'dots-moving' : 'dots-still'),

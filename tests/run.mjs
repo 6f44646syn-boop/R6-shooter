@@ -110,6 +110,19 @@ try {
       R.reload(); R.step(g.reloadSeconds + 0.1); out.empty = R.state().ammo;
       return out;
     });
+    const rl = await page.evaluate(() => {
+      const R = window.__range;
+      R.manual(true); R.selectGun(7); R.clear(); R.setAim(0, 0); R.setDistance(10);
+      R.trigger(true); R.step(0.3); R.trigger(false);
+      const g = R.guns[7];
+      R.reload(); R.step(g.reloadSeconds / 2 + 0.02); const done = !R.state().reloading;
+      const holesBefore = R.holes().length, statsBefore = R.state().shots;
+      R.clear();
+      return { done, holesBefore, statsBefore, holes: R.holes().length, pts: R.shotPoints().length, st: R.state() };
+    });
+    check('reload at the default 2x speed finishes in half the gun\'s reloadSeconds', rl.done, JSON.stringify(rl));
+    check('clear removes every hole and all shot data (' + rl.holesBefore + ' holes, ' + rl.statsBefore + ' shots before)',
+      rl.holesBefore > 0 && rl.holes === 0 && rl.pts === 0 && rl.st.shots === 0 && rl.st.hits === 0 && rl.st.headshots === 0 && rl.st.score === 0 && rl.st.shotIndex === 0, JSON.stringify(rl));
     check('chambered gun: starts ' + ch.start + ', tactical reload ' + ch.tactical + ', empty reload ' + ch.empty + ' (mag ' + ch.mag + ')',
       ch.start === ch.mag + 1 && ch.tactical === ch.mag + 1 && ch.empty === ch.mag, JSON.stringify(ch));
 
@@ -132,9 +145,10 @@ try {
       const R = window.__range;
       R.manual(true); R.selectGun(0); R.clear(); R.setAim(0, 0);
       R.trigger(true); R.step(1.0 + 1e-6, 1000); R.trigger(false);
-      return R.state().shots;
+      return { shots: R.state().shots, rpm: R.guns[0].rpm };
     });
-    check('750 rpm for 1 s = 13 shots', rate === 13, 'got ' + rate);
+    const wantShots = Math.floor(1 / (60 / rate.rpm) + 1e-9) + 1;   // shots at t = 0, 1 interval, ... <= 1 s
+    check(rate.rpm + ' rpm for 1 s = ' + wantShots + ' shots', rate.shots === wantShots, 'got ' + rate.shots);
 
     // e) recovery returns the offset to zero; shotIndex resets on the next shot.
     const rec = await page.evaluate(() => {
@@ -148,11 +162,16 @@ try {
     check('recoil offset climbs while firing (' + rec.during.toFixed(3) + ' deg)', rec.during > 0.5, 'offset ' + rec.during);
     check('offset recovers to zero', Math.abs(rec.after[0]) < 1e-9 && Math.abs(rec.after[1]) < 1e-9, JSON.stringify(rec.after));
 
-    // f) hole cap: 11 magazines of 30 rounds -> 300 holes kept.
+    // f) hole cap: 11 magazines of 30 rounds, recoil compensated -> 300 holes kept.
     const cap = await page.evaluate(() => {
       const R = window.__range;
       R.manual(true); R.selectGun(0); R.clear(); R.setAim(0, 0); R.setDistance(10);
-      for (let m = 0; m < 11; m++) { R.trigger(true); R.step(10); R.trigger(false); R.reload(); R.step(6); }
+      // Pull down against the recoil like a player, so every bullet lands on the dummy or wall.
+      for (let m = 0; m < 11; m++) {
+        R.trigger(true);
+        for (let i = 0; i < 100; i++) { R.step(0.05); const o = R.state().offset; R.setAim(-o[0], -o[1]); }
+        R.trigger(false); R.reload(); R.step(6); R.setAim(0, 0);
+      }
       return { holes: R.holes().length, shots: R.state().shots };
     });
     check('hole cap 300 (shots ' + cap.shots + ')', cap.holes === 300 && cap.shots === 330, JSON.stringify(cap));

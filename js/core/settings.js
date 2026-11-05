@@ -15,6 +15,7 @@ export const DEFAULTS = Object.freeze({
   crosshair: { style: 'cross', size: 10, gap: 4, thickness: 2, color: '#3dff9a', outline: true },
   volume: 0.35,
   holeSizeCm: 3,
+  reloadSpeed: 2,        // x faster than each gun's measured reloadSeconds (1 = as measured)
   renderScale: 0,        // 0 = auto (screen's pixel ratio, up to 2x); else 0.5 to 2 (above 1 = supersampling)
   antialias: true,       // MSAA; takes effect after a reload
   lensQuality: 'auto',   // ADS lens pass: 'auto' or 3 (all) / 2 (no blur) / 1 (no blur, fringing) / 0 (no glare either)
@@ -40,6 +41,7 @@ const NUM = {
   fov: [60, 90],
   volume: [0, 1],
   holeSizeCm: [0.5, 10],
+  reloadSpeed: [1, 5],
   renderScale: [0, 2],
   dotSpeed: [0.25, 6],
   dotSizeCm: [5, 50],

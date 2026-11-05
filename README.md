@@ -21,7 +21,7 @@ Pick a gun, hold the trigger, pull against the recoil, and read the spray on the
 | [ / ] | Previous / next sight (while not aiming) |
 | 1-9, 0 | Select gun 1-10 |
 | Q / E | Target closer / further (5, 10, 15, 20 m) |
-| C | Clear bullet holes and shot counters |
+| C | Clear all bullet holes and shot data (also a button in the menu) |
 | M | Moving red dot target on / off |
 | F3 | Debug readout (Z zeroes its counters) |
 | F4 | Sight gallery |

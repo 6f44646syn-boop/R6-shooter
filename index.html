@@ -50,9 +50,13 @@
           <h1>Recoil Range</h1>
           <p class="menu-lead">A one-wall range for practising spray control.</p>
         </div>
-        <button id="start-btn" type="button" class="primary">Click to start</button>
+        <div class="row">
+          <button id="clear-btn" type="button">Clear bullet holes and data (C)</button>
+          <button id="start-btn" type="button" class="primary">Click to start</button>
+        </div>
       </header>
       <p id="lock-hint" class="hint" hidden></p>
+      <p id="menu-note" class="hint" hidden role="status"></p>
       <p id="data-errors" class="errors" hidden></p>
       <section class="set-group">
         <h2>Loadout</h2>
@@ -72,7 +76,7 @@
           <dt>[ / ]</dt><dd>Previous / next sight (while not aiming)</dd>
           <dt>1-9, 0</dt><dd>Select gun 1-10</dd>
           <dt>Q / E</dt><dd>Target closer / further (5, 10, 15, 20 m)</dd>
-          <dt>C</dt><dd>Clear bullet holes and shot counters</dd>
+          <dt>C</dt><dd>Clear all bullet holes and shot data (counters, score, plot)</dd>
           <dt>M</dt><dd>Target: dummy, red dots (still), red dots (moving)</dd>
           <dt>F3</dt><dd>Debug readout (Z zeroes its counters)</dd>
           <dt>F4</dt><dd>Sight gallery (every sight side by side)</dd>

@@ -10,6 +10,8 @@ export class Weapon {
     this.ammo = 0;
     this.reloading = false;
     this.reloadEnd = 0;
+    this.reloadSpeed = 1;     // multiplier from Settings: 2 = reloads take half the gun's reloadSeconds
+    this.reloadDur = 0;
     this.nextShotTime = 0;
     this.triggerHeld = false;
     this.semiReady = false;   // semi-auto: one shot per press
@@ -43,12 +45,13 @@ export class Weapon {
     // Reloading with a round still chambered gives magSize + 1 (guns with "chambered": true).
     this.reloadTo = this.gun.magSize + (this.gun.chambered && this.ammo > 0 ? 1 : 0);
     this.reloading = true;
-    this.reloadEnd = t + this.gun.reloadSeconds;
+    this.reloadDur = this.gun.reloadSeconds / this.reloadSpeed;
+    this.reloadEnd = t + this.reloadDur;
     return true;
   }
 
   get reloadProgress() {
-    return this.reloading ? 1 - Math.max(0, this.reloadEnd - this._t) / this.gun.reloadSeconds : 0;
+    return this.reloading ? 1 - Math.max(0, this.reloadEnd - this._t) / Math.max(1e-6, this.reloadDur) : 0;
   }
 
   // Advance to time t. Calls onShot(shotTime) for each shot fired, in order.
