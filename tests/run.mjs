@@ -48,6 +48,21 @@ try {
     await page.close();
   }
 
+  /* ---------- 1b. measured sprays vs their hole pixels ---------- */
+  console.log('\nMeasured sprays (data/guns.json) vs bullet-hole pixels at the aimed FOV');
+  {
+    const { refit } = await import('../tools/fit-lib.mjs');
+    const { readFileSync } = await import('node:fs');
+    const guns = JSON.parse(readFileSync(new URL('../data/guns.json', import.meta.url), 'utf8')).guns;
+    for (const [i, g] of guns.entries()) {
+      if (!g.measurement) continue;
+      const fit = refit(g.measurement.holesPx, g.measuredAtVFov);
+      const worst = fit.reduce((w, p, k) => Math.max(w, Math.abs(p[0] - g.sprayPath[k][0]), Math.abs(p[1] - g.sprayPath[k][1])), 0);
+      check('slot ' + (i + 1) + ' (' + g.measuredSight + ', vFOV ' + g.measuredAtVFov + '): spray = pixels, ends ' + JSON.stringify(g.sprayPath[g.sprayPath.length - 1]),
+        g.measuredAiming === true && fit.length === g.sprayPath.length && worst <= 0.011, 'worst ' + worst);
+    }
+  }
+
   /* ---------- 2. full-magazine simulation ---------- */
   console.log('\nMagazine simulation (index.html?test&seed=1234)');
   {
@@ -169,19 +184,23 @@ try {
     // Aiming: the spray follows the smoothed path (and the aimed strength); hip-fire stays exact.
     const aimSm = await page.evaluate(() => {
       const R = window.__range;
-      const run = (ads) => {
+      const run = (ads, smooth) => {
+        R.setAimSmooth(smooth);
         R.manual(true); R.selectGun(1); R.setOptic('mag_a'); R.setDistance(10); R.clear(); R.clearShotPoints();
         R.setAim(0, -14); R.setAds(ads); R.step(1);
         R.trigger(true); R.step(3); R.trigger(false); R.setAds(false); R.step(1);
         return R.shotPoints();
       };
       const g = R.guns[1];
-      return { ads: run(true), hip: run(false), smooth: g.sprayPathSmooth, raw: g.sprayPath };
+      const out = { ads: run(true, false), adsSm: run(true, true), hip: run(false, true), smooth: g.sprayPathSmooth, raw: g.sprayPath };
+      R.setAimSmooth(false);
+      return out;
     });
     const toPlane = ([yaw, pitch]) => { const yr = yaw * Math.PI / 180, pr = (pitch - 14) * Math.PI / 180; return [10 * Math.tan(yr), 10 * Math.tan(pr) / Math.cos(yr)]; };
     const worstVs = (pts, path) => pts.slice(0, path.length).reduce((w, [x, y], i) => { const [ex, ey] = toPlane(path[i]); return Math.max(w, Math.hypot(x - ex, y - ey)); }, 0);
-    check('aimed spray follows the smoothed path (worst ' + (worstVs(aimSm.ads, aimSm.smooth) * 1000).toFixed(3) + ' mm)', worstVs(aimSm.ads, aimSm.smooth) < 1e-5, '');
-    check('hip-fire spray still follows the measured path exactly', worstVs(aimSm.hip, aimSm.raw) < 1e-5, '');
+    check('aimed spray follows the measured path exactly by default (sprays were measured aimed)', worstVs(aimSm.ads, aimSm.raw) < 1e-5, '');
+    check('optional smoothing: aimed spray follows the smoothed path', worstVs(aimSm.adsSm, aimSm.smooth) < 1e-5, '');
+    check('hip-fire spray follows the measured path exactly (smoothing never applies)', worstVs(aimSm.hip, aimSm.raw) < 1e-5, '');
     const endS = aimSm.smooth[aimSm.smooth.length - 1], endR = aimSm.raw[aimSm.raw.length - 1];
     check('smoothing keeps the measured end point', Math.abs(endS[0] - endR[0]) < 1e-9 && Math.abs(endS[1] - endR[1]) < 1e-9, JSON.stringify([endS, endR]));
 

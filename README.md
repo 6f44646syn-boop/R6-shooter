@@ -6,8 +6,8 @@ Pick a gun, hold the trigger, pull against the recoil, and read the spray on the
 - Static files only: plain HTML, CSS and ES modules. No build step, no backend.
 - No third-party requests at runtime: Three.js (r160) is vendored in `vendor/three/`, no web
   fonts, no analytics. Sounds are synthesised with WebAudio.
-- Gun recoil is data in `data/guns.json`. Slots 2-10 use sprays measured in game at 83 deg
-  vertical FOV (tagged MEASURED SPRAY); slot 1 is still a placeholder with an invented pattern. See [docs/GUN_DATA.md](docs/GUN_DATA.md)
+- Gun recoil is data in `data/guns.json`. Slots 2-10 use sprays measured in game while aiming
+  (converted at each sight's aimed FOV; tagged MEASURED SPRAY); slot 1 is still a placeholder with an invented pattern. See [docs/GUN_DATA.md](docs/GUN_DATA.md)
   to paste in your own measurements.
 
 ## Controls
@@ -150,6 +150,7 @@ docs/SCOPES.md           sights: recipes and drawing reference
 tools/check-data.mjs     validates the data files (npm run check)
 tools/merge-measured.mjs merges a measurement file into data/guns.json by slot
 tools/check-spray-fit.mjs checks measured sprays against their hole pixels
+tools/refit-aimed.mjs    refits measured sprays at each sight's aimed FOV
 tools/refit-fov.mjs      refits a measurement file at another vertical FOV
 reference/               private screenshots and measurement notes (gitignored, never served)
 tools/serve.mjs          local static server

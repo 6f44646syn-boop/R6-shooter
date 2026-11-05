@@ -23,7 +23,7 @@ export class Hud {
     this.el.tag.hidden = false;
     this.el.tag.textContent = gun.placeholder ? 'PLACEHOLDER RECOIL' : 'MEASURED SPRAY';
     this.el.tag.title = gun.placeholder ? 'Invented test pattern' :
-      'Measured at ' + gun.measuredAtVFov + '\u00b0 vertical FOV' + (gun.placeholderFields.length ? '. Still placeholders: ' + gun.placeholderFields.join(', ') : '');
+      'Measured ' + (gun.measuredAiming ? 'aimed' : 'hip-fire') + ' at ' + gun.measuredAtVFov + '\u00b0 vertical FOV' + (gun.placeholderFields.length ? '. Still placeholders: ' + gun.placeholderFields.join(', ') : '');
     this.el.tag.classList.toggle('measured', !gun.placeholder);
     this.el.info.textContent = gun.rpm + ' rpm · ' + opticLabel + (gun.fireMode === 'semi' ? ' · semi' : '');
   }

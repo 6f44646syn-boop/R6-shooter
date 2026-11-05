@@ -16,7 +16,7 @@ export const DEFAULTS = Object.freeze({
   volume: 0.35,
   holeSizeCm: 3,
   aimRecoil: 1,          // Aimed recoil strength (1 = as measured)
-  aimSmooth: true,       // smooth measured sprays while aiming (hip-fire always exact)
+  aimSmooth: false,      // optional smoothing of measured sprays while aiming (off: the sprays were measured aimed)
   reloadSpeed: 2,        // x faster than each gun's measured reloadSeconds (1 = as measured)
   renderScale: 0,        // 0 = auto (screen's pixel ratio, up to 2x); else 0.5 to 2 (above 1 = supersampling)
   antialias: true,       // MSAA; takes effect after a reload

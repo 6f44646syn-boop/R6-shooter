@@ -124,9 +124,19 @@ The tool assumes the camera looked straight at the wall and bullet 1 hit the aim
 
 ## Measured guns
 
-Slots 2-10 use sprays measured in game (hip-fire, mouse held still, 12 m wall, 1920x1080) at
-**83 deg vertical FOV**. Their `sprayPath` values are real view angles in degrees: never rescale
-them. The trainer's FOV setting is vertical and defaults to 83 to match.
+Slots 2-10 use sprays measured in game, **aimed down sights**, mouse held still, on a 12 m
+wall at 1920x1080. Aiming zooms the camera, so each spray is converted from the hole pixels
+at the aimed FOV of the sight it was shot with (`measuredSight`):
+
+| Sight | Aimed vertical FOV | Slots |
+|---|---|---|
+| Magnified (2.5x) | 83 x 0.42 = 34.86 deg | 2, 3, 5, 6, 8 |
+| Red dot (1x) | 83 x 0.9 = 74.7 deg | 4, 7, 9, 10 |
+
+The resulting `sprayPath` values are real view angles in degrees: never rescale them. (An
+earlier version converted them at the 83 deg hip FOV, which made the magnified sprays about
+2.4x too strong.) The FOV multipliers come from `data/sens.json` `model.adsVFovMultipliers`;
+if those change, run `node tools/refit-aimed.mjs --write`.
 
 Extra fields on a measured gun:
 
@@ -134,7 +144,8 @@ Extra fields on a measured gun:
 |---|---|
 | `placeholder: false` | The spray is measured. The HUD shows MEASURED SPRAY instead of PLACEHOLDER RECOIL. |
 | `placeholderFields` | Values that are still placeholders (jitter, recovery, resetSeconds, adsSeconds, hip/adsMultiplier). Shown as a tooltip in the HUD and loadout. |
-| `measuredAtVFov` | Vertical FOV the spray was measured at (83). |
+| `measuredAtVFov` | Vertical FOV the spray was measured at (the sight's aimed FOV). |
+| `measuredSight`, `measuredAiming` | The sight the spray was shot through, and `true` for an aimed spray. |
 | `tail: "hold"` | Past the last measured bullet the view stays on the last point instead of extrapolating. |
 | `chambered: true` | Holds magSize + 1. A reload with rounds left gives magSize + 1; from empty, magSize. |
 | `damage` | Per-bullet damage from the game. Shown in the loadout; not used in the sim. |
@@ -148,35 +159,34 @@ node tools/merge-measured.mjs reference/guns.measured.json --write
 ```
 
 Merges by slot into `data/guns.json` (never replaces it), keeps each gun's generic id, name,
-model and sights, and leaves slots that are not in the file (slot 1) unchanged.
+model and sights, leaves slots that are not in the file (slot 1) unchanged, refits each spray
+from its hole pixels at the slot sight's aimed FOV (`--hip` keeps the file's angles), and never
+lets values the file flags as placeholders (recovery, jitter, ...) overwrite yours.
 
 ```bash
-node tools/check-spray-fit.mjs 83
+node tools/refit-aimed.mjs --write
 ```
 
-Read-only: confirms every measured `sprayPath` matches its stored hole pixels at 83 deg.
+Refits every measured spray from its pixels at its sight's aimed FOV (after changing the FOV
+multipliers or a slot's `measuredSight`).
 
 ```bash
-node tools/refit-fov.mjs <vFOV> reference/guns.measured.json
+node tools/check-spray-fit.mjs
 ```
 
-Recomputes the measurement file's angles from the pixels at another vertical FOV, if the FOV
-assumption ever turns out wrong. Merge again afterwards.
+Read-only: confirms every measured `sprayPath` matches its hole pixels at its `measuredAtVFov`.
 
 `tools/make-placeholder-guns.mjs` refuses to run while any gun is measured (use `--force` only
 to throw the measured data away).
 
 ## Aiming vs hip-fire
 
-Measured sprays come from hip-fire screenshots, so their small shot-to-shot side steps are
-partly the game's hip-fire spread. Through a 2.5x sight that is magnified into jitter. While
-aiming, the trainer therefore follows a smoothed copy of each `sprayPath` (each shot's step
-averaged over 5 shots in yaw and 3 in pitch, end point kept exactly). Hip-fire always uses the
-path exactly. Settings:
+The sprays were measured aimed, and both aiming and hip-fire use `sprayPath` exactly.
+Settings:
 
-- **Smooth measured spray when aiming** (on by default).
-- **Aimed recoil strength** (100% = as measured) scales the aimed spray, for matching how hard
-  aimed recoil feels in your game.
+- **Aimed recoil strength** (100% = as measured) scales the spray while aiming.
+- **Smooth measured spray when aiming** (off by default) averages each shot's step (yaw over
+  5 shots, pitch over 3, end point kept). Only useful if a measurement turns out noisy.
 
 ## Sights and ADS sensitivity
 

@@ -755,6 +755,7 @@ function boot(data) {
       overlayVisible: () => state.adsP > 0,
       lensQuality, setAutoLevel(l) { autoLevel = l; }, renderFrame,
       setLensQuality(q) { settings.lensQuality = q; },
+      setAimSmooth(on) { settings.aimSmooth = on; recoil.aimSmooth = on; },
       qualityTick(nowMs, frameMs) { watchQuality(nowMs, frameMs); },
       setTarget(mode, o = {}) { settings.targetMode = mode; Object.assign(settings, o); applyTarget(); },
       dots: () => ({ count: dots.count, radius: dots.radius, x: Array.from({ length: dots.count }, (_, i) => dots.xAt(i, manualClock ? manualT : clockNow())), y: Array.from(dots.y.subarray(0, dots.count)) }),
