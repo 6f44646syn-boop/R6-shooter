@@ -7,12 +7,34 @@
   "globalAim": 16,
   "globalAimNote": "greyed out in the game while aimMode is custom",
   "magnifications": [
-    { "key": "1.0x", "slider": 70 },
-    { "key": "2.5x", "slider": 90 },
-    { "key": "3.5x", "slider": 129 },
-    { "key": "8.0x", "slider": 97 }
+    {
+      "key": "1.0x",
+      "slider": 70
+    },
+    {
+      "key": "2.5x",
+      "slider": 90
+    },
+    {
+      "key": "3.5x",
+      "slider": 129
+    },
+    {
+      "key": "8.0x",
+      "slider": 97
+    }
   ],
-  "magnificationSliderRangeApprox": [0, 200],
+  "magnificationSliderRangeApprox": [
+    0,
+    200
+  ],
   "mouseLookInversion": false,
-  "mouseScroll": true
+  "mouseScroll": true,
+  "dpi": 1600,
+  "hipCm360": 14.25,
+  "adsCm360": {
+    "1.0x": 11.8,
+    "2.5x": 22.3
+  },
+  "_cm360Note": "Estimated turn distances at 1600 DPI. The trainer uses ADS multiplier = hipCm360 / adsCm360 for each magnification listed; others stay placeholders (1.0x multiplier / zoom)."
 }

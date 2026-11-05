@@ -1,30 +1,41 @@
-// Bullet holes: one InstancedMesh (one draw call) with a ring buffer of positions.
-// Positions are in the wall's local frame (x right, y up, metres), so moving the wall moves
-// the holes with it. When the cap is reached the oldest hole is recycled.
+// Bullet holes: one InstancedMesh (one draw call) with a ring buffer of positions and normals.
+// Holes live in the target group's frame (dummy + back wall), so moving the target moves
+// them too. Each hole faces along the surface normal it was made on. When the cap is
+// reached the oldest hole is recycled.
 import * as THREE from '../../vendor/three/three.module.min.js';
 
 export const MAX_HOLES = 300;
 
 function holeTexture() {
-  const s = 64, c = s / 2;
+  const s = 128, c = s / 2;
   const cv = document.createElement('canvas');
   cv.width = s; cv.height = s;
   const g = cv.getContext('2d');
-  // Pale torn ring so the hole reads on dark paint and on the paper target.
-  g.fillStyle = '#f4ead0';
+  // Pale torn ring so the hole reads on dark paint and on the dummy.
+  const ring = g.createRadialGradient(c, c, c * 0.55, c, c, c - 1);
+  ring.addColorStop(0, '#f4ead0');
+  ring.addColorStop(1, 'rgba(244,234,208,0.6)');
+  g.fillStyle = ring;
   g.beginPath(); g.arc(c, c, c - 1, 0, Math.PI * 2); g.fill();
   g.fillStyle = '#0a0a0a';
-  g.beginPath(); g.arc(c, c, c * 0.68, 0, Math.PI * 2); g.fill();
-  return new THREE.CanvasTexture(cv);
+  g.beginPath(); g.arc(c, c, c * 0.62, 0, Math.PI * 2); g.fill();
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
 }
 
 export class BulletHoles {
   constructor(parent) {
-    this.xy = new Float32Array(MAX_HOLES * 2);
+    this.data = new Float32Array(MAX_HOLES * 6); // x y z nx ny nz
     this.next = 0;     // ring buffer write index
     this.count = 0;
     this.size = 0.03;  // diameter in metres
     this.m = new THREE.Matrix4();
+    this.q = new THREE.Quaternion();
+    this.v = new THREE.Vector3();
+    this.n = new THREE.Vector3();
+    this.s = new THREE.Vector3();
+    this.z = new THREE.Vector3(0, 0, 1);
 
     const mat = new THREE.MeshBasicMaterial({
       map: holeTexture(), alphaTest: 0.5, transparent: false,
@@ -38,16 +49,20 @@ export class BulletHoles {
   }
 
   _write(i) {
-    const s = this.size;
-    this.m.makeScale(s, s, 1);
-    this.m.setPosition(this.xy[i * 2], this.xy[i * 2 + 1], 0.012);
+    const d = this.data, k = i * 6;
+    this.n.set(d[k + 3], d[k + 4], d[k + 5]);
+    this.q.setFromUnitVectors(this.z, this.n);
+    // Lift the decal a few millimetres off the surface along its normal.
+    this.v.set(d[k] + d[k + 3] * 0.004, d[k + 1] + d[k + 4] * 0.004, d[k + 2] + d[k + 5] * 0.004);
+    this.s.set(this.size, this.size, 1);
+    this.m.compose(this.v, this.q, this.s);
     this.mesh.setMatrixAt(i, this.m);
   }
 
-  add(x, y) {
-    const i = this.next;
-    this.xy[i * 2] = x;
-    this.xy[i * 2 + 1] = y;
+  // Position and unit normal in the target frame.
+  add(x, y, z, nx = 0, ny = 0, nz = 1) {
+    const i = this.next, d = this.data, k = i * 6;
+    d[k] = x; d[k + 1] = y; d[k + 2] = z; d[k + 3] = nx; d[k + 4] = ny; d[k + 5] = nz;
     this._write(i);
     this.next = (i + 1) % MAX_HOLES;
     if (this.count < MAX_HOLES) this.count++;

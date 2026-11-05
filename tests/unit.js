@@ -7,7 +7,7 @@ import { GaussianRng, mulberry32 } from '../js/core/prng.js';
 import { validateGuns, validateSens } from '../js/core/guns.js';
 import { validateCatalogue, resolveGunOptics, sensKeys } from '../js/core/optics.js';
 import { sanitize } from '../js/core/settings.js';
-import { hitsSilhouette } from '../js/scene/target.js';
+import { raycastDummy } from '../js/scene/dummy.js';
 
 const results = [];
 function test(name, fn) {
@@ -92,6 +92,11 @@ test('tail "hold": past the end the step is zero and the target stays on the las
   eq(o[0], 0); eq(o[1], 0);
   const t = sprayTarget(P, 7, [0, 0], 'hold');
   eq(t[0], 1); eq(t[1], 3);
+});
+test('validateSens: ADS multiplier = hip cm/360 / ADS cm/360', () => {
+  const r = validateSens({ hipCm360: 14.25, adsCm360: { '1.0x': 11.8, '2.5x': 22.3 } });
+  eq(r.errors.length, 0, r.errors.join('; '));
+  near(r.ads['1.0x'], 14.25 / 11.8, 1e-12); near(r.ads['2.5x'], 14.25 / 22.3, 1e-12);
 });
 test('validateSens reads the in-game sensitivity screen format', () => {
   const r = validateSens({ horizontal: 7, vertical: 7, aimMode: 'custom', magnifications: [{ key: '1.0x', slider: 70 }, { key: '8.0x', slider: 97 }] });
@@ -256,15 +261,19 @@ test('RecoilEngine: opticRecoilScale multiplies sprayPath steps', () => {
 /* ---------- settings and target ---------- */
 test('settings sanitize clamps and fills defaults', () => {
   const s = sanitize({ dpi: 99999, cm360: 'abc', fov: 200, crosshair: { color: 'red', size: 5 } });
-  eq(s.dpi, 32000); eq(s.cm360, 40); eq(s.fov, 90); eq(sanitize({}).fov, 83, 'default vertical FOV'); eq(sanitize({ fov: 40 }).fov, 60);
+  eq(s.dpi, 32000); eq(s.cm360, 14.25); eq(s.fov, 90); eq(sanitize({}).fov, 83, 'default vertical FOV'); eq(sanitize({ fov: 40 }).fov, 60);
   eq(s.crosshair.color, '#3dff9a'); eq(s.crosshair.size, 5);
-  eq(sanitize(null).dpi, 800);
+  eq(sanitize(null).dpi, 1600, 'default DPI'); eq(sanitize(null).cm360, 14.25, 'default hip cm/360');
 });
-test('silhouette hit test', () => {
-  eq(hitsSilhouette(0, 0), true, 'centre');
-  eq(hitsSilhouette(0, 0.33), true, 'head');
-  eq(hitsSilhouette(0.3, 0), false, 'beside torso');
-  eq(hitsSilhouette(0.235, 0.175), false, 'rounded shoulder corner');
+test('dummy raycast: head, chest, gap between legs, miss beside', () => {
+  const out = { t: 0, p: [0, 0, 0], n: [0, 0, 0], zone: null };
+  const ray = (x, y) => { const o = [0, 1.6, 10], d = [x, y - 1.6, -10], l = Math.hypot(...d); return raycastDummy(o, d.map((v) => v / l), out); };
+  eq(ray(0, 1.6), true, 'head centre'); eq(out.zone, 'head');
+  near(out.p[2], 0.105, 1e-6, 'hits the front of the head sphere');
+  eq(ray(0, 1.15), true, 'chest'); eq(out.zone, 'body');
+  eq(ray(0, 0.3), false, 'between the shins');
+  eq(ray(0.6, 1.2), false, 'beside the arm');
+  eq(ray(0.28, 0.95), true, 'forearm'); eq(out.zone, 'limb');
 });
 
 window.__results = results;

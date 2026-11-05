@@ -5,8 +5,8 @@
 const KEY = 'recoilRange.settings.v1';
 
 export const DEFAULTS = Object.freeze({
-  dpi: 800,
-  cm360: 40,
+  dpi: 1600,             // your mouse (data/sens.json)
+  cm360: 14.25,          // your hipfire turn distance at 1600 DPI (game sens 7 / 7)
   fov: 83,               // VERTICAL degrees, like the game's FOV slider (60-90)
   // Per-magnification ADS multiplier overrides, keyed like "2.5x". Anything missing comes from
   // data/sens.json (or a placeholder of the 1.0x value / zoom), so editing that file changes the defaults.
@@ -15,10 +15,14 @@ export const DEFAULTS = Object.freeze({
   crosshair: { style: 'cross', size: 10, gap: 4, thickness: 2, color: '#3dff9a', outline: true },
   volume: 0.35,
   holeSizeCm: 3,
-  renderScale: 1,
+  renderScale: 0,        // 0 = auto (screen's pixel ratio, up to 2x); else 0.5 to 2 (above 1 = supersampling)
+  antialias: true,       // MSAA; takes effect after a reload
   showViewmodel: true,
-  movingTarget: false,   // red dot sliding left to right instead of the paper target
-  moverSpeed: 1.5,       // metres per second
+  targetMode: 'dummy',   // 'dummy' or 'dots' (M cycles dummy -> still dots -> moving dots)
+  dotCount: 5,
+  dotMoving: false,
+  dotSpeed: 1.5,         // metres per second
+  dotSizeCm: 20,         // dot diameter
   debugHud: false,
   fixedSeed: '',         // empty = new random seed every magazine
   gunIndex: 0,
@@ -35,8 +39,9 @@ const NUM = {
   fov: [60, 90],
   volume: [0, 1],
   holeSizeCm: [0.5, 10],
-  renderScale: [0.5, 1],
-  moverSpeed: [0.25, 6],
+  renderScale: [0, 2],
+  dotSpeed: [0.25, 6],
+  dotSizeCm: [5, 50],
 };
 const XH_NUM = { size: [2, 60], gap: [0, 40], thickness: [1, 8] };
 
@@ -70,7 +75,11 @@ export function sanitize(input) {
   }
 
   out.reticleColor = RETICLE_COLOR_NAMES.includes(s.reticleColor) ? s.reticleColor : DEFAULTS.reticleColor;
-  out.movingTarget = typeof s.movingTarget === 'boolean' ? s.movingTarget : DEFAULTS.movingTarget;
+  out.targetMode = s.targetMode === 'dots' || s.targetMode === 'dummy' ? s.targetMode : (s.movingTarget === true ? 'dots' : DEFAULTS.targetMode);
+  out.dotMoving = typeof s.dotMoving === 'boolean' ? s.dotMoving : (s.movingTarget === true ? true : DEFAULTS.dotMoving);
+  out.dotCount = Number.isInteger(s.dotCount) ? Math.min(12, Math.max(1, s.dotCount)) : DEFAULTS.dotCount;
+  out.antialias = typeof s.antialias === 'boolean' ? s.antialias : DEFAULTS.antialias;
+  if (out.renderScale > 0 && out.renderScale < 0.5) out.renderScale = 0.5;
   out.showViewmodel = typeof s.showViewmodel === 'boolean' ? s.showViewmodel : DEFAULTS.showViewmodel;
   out.debugHud = typeof s.debugHud === 'boolean' ? s.debugHud : DEFAULTS.debugHud;
   out.fixedSeed = (typeof s.fixedSeed === 'string' && /^\d{0,10}$/.test(s.fixedSeed.trim())) ? s.fixedSeed.trim() : '';
@@ -82,6 +91,8 @@ export function sanitize(input) {
 export function loadSettings() {
   let raw = null;
   try { raw = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { raw = null; }
+  // Saved settings still on the old defaults (800 DPI, 40 cm/360) move to the new ones.
+  if (raw && raw.dpi === 800 && raw.cm360 === 40) { raw.dpi = DEFAULTS.dpi; raw.cm360 = DEFAULTS.cm360; }
   return sanitize(raw);
 }
 

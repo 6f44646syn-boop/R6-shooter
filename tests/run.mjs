@@ -60,7 +60,7 @@ try {
       R.manual(true);
       R.selectGun(idx);
       R.setDistance(opts.distance || 10);
-      R.clear();
+      R.clear(); R.clearShotPoints();
       R.setAim(0, opts.pitch || 0);
       if (opts.noJitter) { R.guns[idx]._j = R.guns[idx].jitter; R.guns[idx].jitter = { yawDeg: 0, pitchDeg: 0 }; }
       R.trigger(true);
@@ -68,7 +68,8 @@ try {
       R.step((g.magSize + 1) * 60 / g.rpm + 0.5, opts.fps || 60);
       R.trigger(false);
       if (opts.noJitter) R.guns[idx].jitter = R.guns[idx]._j;
-      return { holes: R.holes(), state: R.state(), gun: { sprayPath: g.sprayPath, magSize: g.magSize, capacity: g.magSize + (g.chambered ? 1 : 0), tail: g.tail, placeholder: g.placeholder, jitter: g.jitter } };
+      // Where each shot crossed the target plane, relative to the aim point.
+      return { holes: R.shotPoints(), state: R.state(), gun: { sprayPath: g.sprayPath, magSize: g.magSize, capacity: g.magSize + (g.chambered ? 1 : 0), tail: g.tail, placeholder: g.placeholder, jitter: g.jitter } };
     }, [idx, opts]);
 
     // a) jitter off: every hole must sit exactly where sprayPath says.
@@ -90,7 +91,7 @@ try {
           yaw = p[n - 1][0] + sy * (i - n + 1); pitch = p[n - 1][1] + sp * (i - n + 1);
         }
         const yr = yaw * Math.PI / 180, pr = (pitch + aimPitch) * Math.PI / 180;
-        const ex = d * Math.tan(yr), ey = EYE + d * Math.tan(pr) / Math.cos(yr);
+        const ex = d * Math.tan(yr), ey = d * Math.tan(pr) / Math.cos(yr);
         worst = Math.max(worst, Math.hypot(x - ex, y - ey));
       });
       const label = 'slot ' + (idx + 1) + (r.gun.placeholder ? ' (placeholder)' : ' (measured, tail ' + r.gun.tail + ')');
@@ -183,33 +184,46 @@ try {
       sc.mag.zoom === 2.5 && sc.mag.sensKey === '2.5x' && Math.abs(sc.mag.fovV - magFov) < 1e-9, JSON.stringify(sc.mag));
     check('holo_a: zoom 1, vertical ADS FOV stays 83 (wider than mag_a)', sc.holo.zoom === 1 && Math.abs(sc.holo.fovV - 83) < 1e-9 && sc.holo.fovV > sc.mag.fovV, JSON.stringify(sc.holo));
     check('ADS slower with mag_a (' + sc.mag.adsTime.toFixed(4) + ' s) than holo_a (' + sc.holo.adsTime.toFixed(4) + ' s)', sc.mag.adsTime > sc.holo.adsTime, '');
-    check('2.5x sens is a placeholder of 1.0x / 2.5 until calibrated', sc.mag.placeholderSens && Math.abs(sc.mag.dpc / sc.holo.dpc - 1 / 2.5) < 1e-12, 'ratio ' + sc.mag.dpc / sc.holo.dpc);
+    check('ADS sens from your turn distances: 2.5x / 1.0x = 11.8 / 22.3 cm', !sc.mag.placeholderSens && Math.abs(sc.mag.dpc / sc.holo.dpc - 11.8 / 22.3) < 1e-12, 'ratio ' + sc.mag.dpc / sc.holo.dpc);
     check('scope overlay hidden at hip, shown when aimed', !sc.overlayHip && sc.overlayAds, sc.overlayHip + ' / ' + sc.overlayAds);
     check('F4 gallery shows 15 sights', sc.gallery === 15, 'got ' + sc.gallery);
 
-    // h) moving dot: slides left to right at the set speed; a shot aimed at it scores a hit.
-    const dot = await page.evaluate(() => {
+    // h) red dots: several at once, still or moving; a hit scores 100 and the dot respawns.
+    const dt = await page.evaluate(() => {
+      const R = window.__range, d = 10;
+      R.manual(true); R.selectGun(9); R.setDistance(d); R.clear();
+      R.setTarget('dots', { dotCount: 6, dotMoving: false, dotSizeCm: 20 });
+      const before = R.dots();
+      const aimAt = (x, y) => {   // y measured from the floor
+        const yaw = Math.atan(x / d);
+        R.setAim(yaw * 180 / Math.PI, Math.atan((y - 1.6) * Math.cos(yaw) / d) * 180 / Math.PI);
+      };
+      const shoot = () => { R.step(1); R.trigger(true); R.step(0.01, 1000); R.trigger(false); };
+      aimAt(before.x[2], before.y[2]); shoot();
+      const afterHit = R.dots();
+      aimAt(0, 3.4); shoot();                             // above every dot: a miss
+      const st = R.state();
+      R.setTarget('dots', { dotCount: 12, dotMoving: true, dotSpeed: 1.5 });
+      const t0 = R.now(), x0 = R.dotX(0, t0), x2 = R.dotX(0, t0 + 2);
+      const n12 = R.dots().count, dummyHidden = !R.dummyVisible();
+      R.setTarget('dummy');
+      return { count: before.count, moved: afterHit.x[2] !== before.x[2] || afterHit.y[2] !== before.y[2],
+        others: afterHit.x.every((x, i) => i === 2 || x === before.x[i]), shots: st.shots, hits: st.hits, score: st.score,
+        step: ((x2 - x0) + 5.6) % 5.6, n12, dummyHidden, dummyBack: R.dummyVisible() };
+    });
+    check('6 still dots; shooting one scores 100 and respawns only that dot', dt.count === 6 && dt.moved && dt.others && dt.score === 100, JSON.stringify(dt));
+    check('a shot away from every dot misses', dt.shots === 2 && dt.hits === 1, JSON.stringify(dt));
+    check('12 moving dots travel 1.5 m/s to the right; dummy hidden in dot mode, back after', dt.n12 === 12 && Math.abs(dt.step - 3) < 1e-9 && dt.dummyHidden && dt.dummyBack, JSON.stringify(dt));
+
+    // i) dummy: a level shot at 10 m is a headshot; a lower one hits the body.
+    const dm = await page.evaluate(() => {
       const R = window.__range;
       R.manual(true); R.selectGun(9); R.setDistance(10); R.clear();
-      R.setMover(true, 1.5);
-      const t0 = R.now();
-      const x0 = R.dotX(t0), x2 = R.dotX(t0 + 2), xWrap = R.dotX(t0 + 4 + 1 / 3);
-      // Aim where the dot will be at the moment of the shot, fire a single round.
-      R.step(1);
-      const x = R.dotX(R.now());
-      R.setAim(Math.atan(x / 10) * 180 / Math.PI, 0);
-      R.trigger(true); R.step(0.01, 1000); R.trigger(false);
-      // And one shot well behind it: a miss.
-      R.step(1);
-      R.setAim(Math.atan((R.dotX(R.now()) - 0.5) / 10) * 180 / Math.PI, 0);
-      R.trigger(true); R.step(0.01, 1000); R.trigger(false);
-      const st = R.state();
-      R.setMover(false);
-      return { x0, x2, xWrap, shots: st.shots, hits: st.hits };
+      const shoot = (pitch) => { R.setAim(0, pitch); R.step(1); R.trigger(true); R.step(0.01, 1000); R.trigger(false); };
+      shoot(0); shoot(Math.atan(-0.45 / 10) * 180 / Math.PI); shoot(Math.atan(0.5 / 10) * 180 / Math.PI);
+      return R.state();
     });
-    check('dot starts at the left (-3 m), is centred after 2 s at 1.5 m/s, wraps back to the left',
-      Math.abs(dot.x0 + 3) < 1e-9 && Math.abs(dot.x2) < 1e-9 && Math.abs(dot.xWrap + 2.5) < 1e-6, JSON.stringify(dot));
-    check('shot on the moving dot hits, shot 50 cm behind misses', dot.shots === 2 && dot.hits === 1, JSON.stringify(dot));
+    check('dummy: head shot, chest shot, shot over the head = 2 hits, 1 headshot', dm.shots === 3 && dm.hits === 2 && dm.headshots === 1, JSON.stringify(dm));
 
     check('no page errors', errors.length === 0, errors.join('\n'));
     check('no third-party requests', external.length === 0, external.join('\n'));

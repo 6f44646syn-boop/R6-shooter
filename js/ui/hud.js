@@ -6,7 +6,7 @@ export class Hud {
     this.el = {
       slot: $('gun-slot'), name: $('gun-name'), tag: $('gun-tag'), info: $('gun-info'),
       distance: $('hud-distance'), shots: $('hud-shots'), hits: $('hud-hits'), acc: $('hud-acc'),
-      ammo: $('ammo-count'), ammoSub: $('ammo-sub'),
+      ammo: $('ammo-count'), ammoSub: $('ammo-sub'), score: $('hud-score'), scoreVal: $('hud-score-val'),
     };
     this.lastShots = -1;
     this.lastHits = -1;
@@ -28,15 +28,20 @@ export class Hud {
     this.el.info.textContent = gun.rpm + ' rpm · ' + opticLabel + (gun.fireMode === 'semi' ? ' · semi' : '');
   }
 
-  setDistance(d, moving) { this.el.distance.textContent = d + ' m' + (moving ? ' \u00b7 moving dot' : ''); }
+  setDistance(d, label) { this.el.distance.textContent = d + ' m' + (label ? ' \u00b7 ' + label : ''); }
 
-  setStats(shots, hits) {
-    if (shots === this.lastShots && hits === this.lastHits) return;
+  // score < 0 hides the score (dummy mode); headshots show only on the dummy.
+  setStats(shots, hits, headshots, score) {
+    if (shots === this.lastShots && hits === this.lastHits && headshots === this.lastHead && score === this.lastScore) return;
     this.lastShots = shots;
     this.lastHits = hits;
+    this.lastHead = headshots;
+    this.lastScore = score;
     this.el.shots.textContent = String(shots);
     this.el.hits.textContent = String(hits);
-    this.el.acc.textContent = shots ? '(' + Math.round(100 * hits / shots) + '%)' : '';
+    this.el.acc.textContent = (shots ? '(' + Math.round(100 * hits / shots) + '%)' : '') + (score < 0 ? ' \u00b7 Head ' + headshots : '');
+    this.el.score.hidden = score < 0;
+    if (score >= 0) this.el.scoreVal.textContent = String(score);
   }
 
   setAmmo(ammo, mag, reloading) {

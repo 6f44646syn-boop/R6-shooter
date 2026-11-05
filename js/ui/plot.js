@@ -1,6 +1,6 @@
-// Magazine plot: where each bullet of the last magazine landed relative to the aim point
-// (the bullseye centre), drawn to scale in centimetres with the target outline behind it.
-import { TARGET } from '../scene/target.js';
+// Magazine plot: where each bullet of the last magazine crossed the target plane, relative to
+// the aim point (the dummy's head centre, or the nearest red dot), to scale in centimetres.
+import { drawDummyOutline } from '../scene/dummy.js';
 
 export class MagPlot {
   constructor(canvas) {
@@ -8,8 +8,8 @@ export class MagPlot {
     this.g = canvas.getContext('2d');
   }
 
-  // xy: Float64Array of [x0, y0, x1, y1, ...] in metres relative to the bullseye centre.
-  // n: number of points. shots: bullets fired (some may have missed the wall). hits: on silhouette.
+  // xy: Float64Array of [x0, y0, x1, y1, ...] in metres relative to the aim point.
+  // n: number of points. shots: bullets fired (some may have missed the wall). hits: on the dummy or a dot.
   // dotRadius > 0: the moving-dot target (points are relative to the dot centre).
   draw(xy, n, shots, hits, gunName, distance, dotRadius = 0) {
     const g = this.g, W = this.cv.width, H = this.cv.height;
@@ -26,19 +26,16 @@ export class MagPlot {
     const cx = W / 2, cy = plotH / 2;
     const X = (x) => cx + x * s, Y = (y) => cy - y * s;
 
-    // Target outline
-    g.strokeStyle = 'rgba(120,150,190,0.55)';
+    // Target outline: the red dot, or the dummy seen from the front.
     g.lineWidth = 1;
-    const t = TARGET.torso, h = TARGET.head;
     if (dotRadius > 0) {
       g.strokeStyle = 'rgba(224,32,27,0.8)';
       g.beginPath(); g.arc(cx, cy, dotRadius * s, 0, Math.PI * 2); g.stroke();
     } else {
-    g.beginPath();
-    g.roundRect(X(t.x0), Y(t.y1), (t.x1 - t.x0) * s, (t.y1 - t.y0) * s, t.r * s);
-    g.stroke();
-    g.beginPath(); g.arc(X(h.cx), Y(h.cy), h.r * s, 0, Math.PI * 2); g.stroke();
-    for (const r of TARGET.rings) { g.beginPath(); g.arc(cx, cy, r * s, 0, Math.PI * 2); g.stroke(); }
+      g.save();
+      g.beginPath(); g.rect(0, 0, W, plotH); g.clip();
+      drawDummyOutline(g, X, Y, s);
+      g.restore();
     }
     // Aim point cross
     g.strokeStyle = 'rgba(255,255,255,0.5)';

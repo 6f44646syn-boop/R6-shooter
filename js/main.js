@@ -9,9 +9,8 @@ import { RecoilEngine } from './core/recoil.js';
 import { loadGameData } from './core/guns.js';
 import { randomSeed } from './core/prng.js';
 import { Range, EYE_HEIGHT } from './scene/range.js';
-import { hitsSilhouette } from './scene/target.js';
 import { Viewmodel } from './scene/viewmodel.js';
-import { MovingDot, DOT_RADIUS } from './scene/mover.js';
+import { DOT_POINTS } from './scene/dots.js';
 import { Sfx } from './audio/sfx.js';
 import { DebugHud } from './ui/debug-hud.js';
 import { drawCrosshair } from './ui/crosshair.js';
@@ -52,7 +51,7 @@ if (embedded) {
 function boot(data) {
   const settings = loadSettings();
   const canvas = $('view');
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: settings.antialias, powerPreference: 'high-performance' });
   renderer.setPixelRatio(1); // devicePixelRatio capped at 1
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(60, 16 / 9, 0.05, 100);
@@ -64,8 +63,7 @@ function boot(data) {
   range.setDistance(settings.distance);
   range.holes.setSize(settings.holeSizeCm / 100);
   const viewmodel = new Viewmodel(camera);
-  const mover = new MovingDot(range.wallGroup);
-  mover.speed = settings.moverSpeed;
+  const dots = range.dots;
   const sfx = new Sfx();
   sfx.setVolume(settings.volume);
 
@@ -96,7 +94,7 @@ function boot(data) {
 
   const state = {
     ads: false, fovH: 90, fovV: settings.fov,
-    shots: 0, hits: 0,
+    shots: 0, hits: 0, headshots: 0, score: 0,
     gun: null, gunIndex: 0, seed: 0,
     optic: null,   // selected sight (resolved catalogue entry)
     adsP: 0,       // ADS blend 0 = hip, 1 = fully aimed
@@ -330,7 +328,13 @@ function boot(data) {
     else if (c === 'KeyR') { if (weapon.startReload(clockNow())) { finishMagazine(); sfx.reload(); } }
     else if (c === 'KeyC') clearRange();
     else if ((c === 'BracketLeft' || c === 'BracketRight') && !state.ads) cycleOptic(c === 'BracketLeft' ? -1 : 1);
-    else if (c === 'KeyM') { settings.movingTarget = !settings.movingTarget; saveSettings(settings); applyMover(); }
+    else if (c === 'KeyM') {
+      // Cycle: dummy -> red dots (still) -> red dots (moving) -> dummy
+      if (settings.targetMode === 'dummy') { settings.targetMode = 'dots'; settings.dotMoving = false; }
+      else if (!settings.dotMoving) settings.dotMoving = true;
+      else settings.targetMode = 'dummy';
+      saveSettings(settings); applyTarget(); settingsUI.refresh();
+    }
     else if (/^Digit[0-9]$/.test(c)) selectGun((Number(c.slice(5)) + 9) % 10); // 1->0 ... 0->9
     else if (c === 'KeyQ' || c === 'KeyE') {
       const i = DISTANCES.indexOf(range.distance) + (c === 'KeyE' ? 1 : -1);
@@ -341,7 +345,7 @@ function boot(data) {
   function setDistance(d) {
     range.setDistance(d);
     settings.distance = d;
-    hud.setDistance(d, settings.movingTarget);
+    hud.setDistance(d, targetLabel());
     saveSettings(settings);
   }
 
@@ -369,25 +373,35 @@ function boot(data) {
     slotButtons.forEach((b, i) => b.setAttribute('aria-pressed', String(i === state.gunIndex)));
   }
 
-  function applyMover() {
-    mover.speed = settings.moverSpeed;
-    if (mover.enabled !== settings.movingTarget) {
-      mover.setEnabled(settings.movingTarget, clockNow());
-      range.paper.visible = !settings.movingTarget;
-      mag.n = mag.shots = mag.hits = 0; // don't mix paper and moving shots in one plot
+  function targetLabel() {
+    return settings.targetMode === 'dummy' ? 'dummy' : settings.dotCount + ' red dot' + (settings.dotCount > 1 ? 's' : '') + (settings.dotMoving ? ', moving' : '');
+  }
+  // Show the dummy or lay out the red dots (new random spots each time, or ?seed= for tests).
+  let dotSeed = 1;
+  function applyTarget() {
+    const dotsMode = settings.targetMode === 'dots';
+    range.dummy.visible = !dotsMode;
+    dots.setVisible(dotsMode);
+    if (dotsMode) {
+      dotSeed = params.get('seed') !== null ? Number(params.get('seed')) >>> 0 : randomSeed();
+      dots.configure({ count: settings.dotCount, radius: settings.dotSizeCm / 200, moving: settings.dotMoving, speed: settings.dotSpeed }, clockNow(), dotSeed);
     }
-    hud.setDistance(range.distance, settings.movingTarget);
+    mag.n = mag.shots = mag.hits = 0; // don't mix target types in one plot
+    hud.setDistance(range.distance, targetLabel());
   }
 
   function clearRange() {
     range.holes.clear();
-    state.shots = state.hits = 0;
+    state.shots = state.hits = state.headshots = state.score = 0;
     mag.n = mag.shots = mag.hits = 0;
     $('hud-plot').hidden = true;
   }
 
   /* ---------- firing ---------- */
-  const hit = { x: 0, y: 0 };
+  const hit = { kind: null, zone: null, planeOk: false, plane: [0, 0], p: [0, 0, 0], n: [0, 0, 1] };
+  // Every shot's crossing of the target plane, relative to the aim point (for tests).
+  const shotPts = new Float64Array(2 * 2000);
+  let shotPtsN = 0;
   function fireShot(t) {
     // The bullet leaves through the crosshair: aim + the recoil offset at the shot time.
     recoil.fire(t, bulletOff);
@@ -395,20 +409,33 @@ function boot(data) {
     const pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, look.pitch + bulletOff[1]));
     state.shots++;
     mag.shots++;
-    if (range.raycastWall(yaw, pitch, hit)) {
-      range.holes.add(hit.x, hit.y);
-      let tx, ty, onTarget;
-      if (mover.enabled) {
-        // Relative to the dot centre at the exact shot time.
-        tx = hit.x - mover.xAt(t); ty = hit.y - EYE_HEIGHT;
-        onTarget = tx * tx + ty * ty <= DOT_RADIUS * DOT_RADIUS;
-      } else {
-        tx = hit.x; ty = hit.y - EYE_HEIGHT; // target coordinates: aim point at the origin
-        onTarget = hitsSilhouette(tx, ty);
+    const kind = range.raycast(yaw, pitch, hit);
+    let onTarget = false, dotHit = -1;
+    if (hit.planeOk) {
+      // Plot coordinates: where the bullet crosses the target plane, relative to the aim
+      // point (the dummy's head centre), or to the nearest red dot in dots mode.
+      let tx = hit.plane[0], ty = hit.plane[1];
+      if (shotPtsN < shotPts.length / 2) { shotPts[shotPtsN * 2] = tx; shotPts[shotPtsN * 2 + 1] = ty; shotPtsN++; }
+      if (dots.visible) {
+        const py = ty + EYE_HEIGHT;
+        dotHit = dots.hitTest(tx, py, t);
+        let best = -1, bd = Infinity;
+        for (let i = 0; i < dots.count; i++) {
+          const d = Math.hypot(tx - dots.xAt(i, t), py - dots.y[i]);
+          if (d < bd) { bd = d; best = i; }
+        }
+        const ref = dotHit >= 0 ? dotHit : best;
+        tx -= dots.xAt(ref, t); ty = py - dots.y[ref];
+        if (dotHit >= 0) { onTarget = true; state.score += DOT_POINTS; dots.pop(dotHit, t); }
+      } else if (kind === 'dummy') {
+        onTarget = true;
+        if (hit.zone === 'head') state.headshots++;
       }
-      if (onTarget) { state.hits++; mag.hits++; }
       if (mag.n < mag.xy.length / 2) { mag.xy[mag.n * 2] = tx; mag.xy[mag.n * 2 + 1] = ty; mag.n++; }
     }
+    if (onTarget) { state.hits++; mag.hits++; }
+    // A popped dot stops the bullet; anything else leaves a hole where it landed.
+    if (kind && dotHit < 0) range.holes.add(hit.p[0], hit.p[1], hit.p[2], hit.n[0], hit.n[1], hit.n[2]);
     if (!testMode) sfx.shot(state.gun.tone);
     viewmodel.shot();
   }
@@ -416,7 +443,7 @@ function boot(data) {
   // Called when a magazine runs dry or a reload starts: draw that magazine's plot.
   function finishMagazine() {
     if (mag.shots === 0) return;
-    plot.draw(mag.xy, mag.n, mag.shots, mag.hits, state.gun.name + ' \u00b7 ' + state.optic.id, range.distance, mover.enabled ? DOT_RADIUS : 0);
+    plot.draw(mag.xy, mag.n, mag.shots, mag.hits, state.gun.name + ' \u00b7 ' + state.optic.id, range.distance, dots.visible ? dots.radius : 0);
     $('hud-plot').hidden = false;
     mag.n = mag.shots = mag.hits = 0;
   }
@@ -424,7 +451,8 @@ function boot(data) {
   /* ---------- resize / FOV ---------- */
   let renderW = 0, renderH = 0;
   function resize() {
-    const s = settings.renderScale;
+    // Auto: the screen's own sharpness (devicePixelRatio, 1x to 2x). Above 1 = supersampling.
+    const s = settings.renderScale || Math.min(2, Math.max(1, window.devicePixelRatio || 1));
     renderW = Math.max(1, Math.round(window.innerWidth * s));
     renderH = Math.max(1, Math.round(window.innerHeight * s));
     renderer.setSize(renderW, renderH, false);
@@ -465,7 +493,7 @@ function boot(data) {
       if (all || key === 'debug') debug.setVisible(settings.debugHud);
       if (all || key === 'gun') selectGun(Math.min(settings.gunIndex, data.guns.length - 1));
       if (all || key === 'distance') setDistance(settings.distance);
-      if (all || key === 'mover') applyMover();
+      if (all || key === 'target') applyTarget();
       if (all || key === 'reticle') renderSightRow(true);
       if (key === 'seed') newMagazine(); // takes effect from the current magazine
     },
@@ -496,7 +524,7 @@ function boot(data) {
     const pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, look.pitch + offset[1]));
     camera.rotation.y = -(look.yaw + offset[0]) * DEG;   // three.js: positive Y rotation turns left
     camera.rotation.x = pitch * DEG;
-    mover.update(t);
+    dots.update(t);
 
     // ADS blend: takes gun.adsSeconds / (1 + the sight's adsSpeedBonus) each way.
     const target = state.ads ? 1 : 0;
@@ -511,7 +539,7 @@ function boot(data) {
     if (crosshairEl.hidden !== aimed) crosshairEl.hidden = aimed;
     viewmodel.update(dt, settings.showViewmodel && !aimed);
     hud.setAmmo(weapon.ammo, state.gun.magSize, weapon.reloading);
-    hud.setStats(state.shots, state.hits);
+    hud.setStats(state.shots, state.hits, state.headshots, dots.visible ? state.score : -1);
     reloadBar(weapon.reloading ? weapon.reloadProgress : -1);
   }
 
@@ -554,7 +582,7 @@ function boot(data) {
     }
   }
   requestAnimationFrame(frame);
-  applyMover();
+  applyTarget();
 
   /* ---------- test hooks (only with ?test in the URL) ---------- */
   if (testMode) {
@@ -572,8 +600,12 @@ function boot(data) {
       galleryCount: () => $('gallery-grid').children.length,
       sightRowCount: () => sightButtons.size,
       overlayVisible: () => !$('scope').hidden,
-      setMover(on, speed) { settings.movingTarget = on; if (speed) settings.moverSpeed = speed; applyMover(); },
-      dotX: (t) => mover.xAt(t),
+      setTarget(mode, o = {}) { settings.targetMode = mode; Object.assign(settings, o); applyTarget(); },
+      dots: () => ({ count: dots.count, radius: dots.radius, x: Array.from({ length: dots.count }, (_, i) => dots.xAt(i, manualClock ? manualT : clockNow())), y: Array.from(dots.y.subarray(0, dots.count)) }),
+      dotX: (i, t) => dots.xAt(i, t),
+      shotPoints() { const o = []; for (let i = 0; i < shotPtsN; i++) o.push([shotPts[i * 2], shotPts[i * 2 + 1]]); return o; },
+      clearShotPoints() { shotPtsN = 0; },
+      dummyVisible: () => range.dummy.visible,
       setAim(yaw, pitch) { look.setAngles(yaw, pitch); },
       applyCounts(dx, dy) { return look.apply(dx, dy, currentDpc()); },
       setAds,
@@ -584,10 +616,10 @@ function boot(data) {
       holes() {
         const h = range.holes, out = [];
         const start = h.count < 300 ? 0 : h.next;
-        for (let i = 0; i < h.count; i++) { const k = (start + i) % 300; out.push([h.xy[k * 2], h.xy[k * 2 + 1]]); }
+        for (let i = 0; i < h.count; i++) { const k = (start + i) % 300; out.push([h.data[k * 6], h.data[k * 6 + 1], h.data[k * 6 + 2]]); }
         return out;
       },
-      state: () => ({ ammo: weapon.ammo, shots: state.shots, hits: state.hits, seed: state.seed, gun: state.gun.id,
+      state: () => ({ ammo: weapon.ammo, shots: state.shots, hits: state.hits, headshots: state.headshots, score: state.score, seed: state.seed, gun: state.gun.id,
         shotIndex: recoil.shotIndex, offset: [offset[0], offset[1]], distance: range.distance, fovH: state.fovH, fovV: state.fovV,
         optic: state.optic.id, zoom: state.optic.zoom, sensKey: state.optic.sensKey, adsP: state.adsP, adsFov: state.adsFov,
         adsTime: adsTime(), dpc: currentDpc(), placeholderSens: isPlaceholder(state.optic.sensKey) }),

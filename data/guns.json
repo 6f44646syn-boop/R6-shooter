@@ -3,7 +3,7 @@
   "guns": [
     {
       "id": "smg-01",
-      "name": "SMG 01",
+      "name": "Scorpion EVO 3 A1",
       "placeholder": true,
       "rpm": 750,
       "magSize": 30,
@@ -66,7 +66,7 @@
     },
     {
       "id": "rifle-01",
-      "name": "Rifle 01",
+      "name": "F2",
       "placeholder": false,
       "rpm": 980,
       "magSize": 25,
@@ -166,7 +166,7 @@
     },
     {
       "id": "rifle-02",
-      "name": "Rifle 02",
+      "name": "R4-C",
       "placeholder": false,
       "rpm": 860,
       "magSize": 25,
@@ -270,7 +270,7 @@
     },
     {
       "id": "mp-01",
-      "name": "Machine Pistol 01",
+      "name": "SMG-11",
       "placeholder": false,
       "rpm": 1270,
       "magSize": 16,
@@ -361,7 +361,7 @@
     },
     {
       "id": "rifle-06",
-      "name": "Rifle 06",
+      "name": "AK-12",
       "placeholder": false,
       "rpm": 850,
       "magSize": 30,
@@ -461,7 +461,7 @@
     },
     {
       "id": "lmg-01",
-      "name": "LMG 01",
+      "name": "G8A1",
       "placeholder": false,
       "rpm": 850,
       "magSize": 50,
@@ -580,7 +580,7 @@
     },
     {
       "id": "smg-05",
-      "name": "SMG 05",
+      "name": "MP5K",
       "placeholder": false,
       "rpm": 800,
       "magSize": 30,
@@ -677,7 +677,7 @@
     },
     {
       "id": "rifle-05",
-      "name": "Rifle 05",
+      "name": "C8-SFW",
       "placeholder": false,
       "rpm": 837,
       "magSize": 30,
@@ -772,7 +772,7 @@
     },
     {
       "id": "smg-03",
-      "name": "SMG 03",
+      "name": "MP7",
       "placeholder": false,
       "rpm": 900,
       "magSize": 30,
@@ -872,7 +872,7 @@
     },
     {
       "id": "smg-04",
-      "name": "SMG 04",
+      "name": "T-5 SMG",
       "placeholder": false,
       "rpm": 900,
       "magSize": 30,

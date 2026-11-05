@@ -1,15 +1,17 @@
-// The range: a single lane with a back wall that slides to the selected distance.
-// Low poly, Lambert/basic materials, no shadows. Roughly 12 draw calls in total.
+// The range: a single lane. A training dummy stands at the selected distance with the back
+// wall 1.5 m behind it; both slide together. Low poly, Lambert/basic materials, no shadows.
 import * as THREE from '../../vendor/three/three.module.min.js';
-import { TARGET, drawTargetCanvas } from './target.js';
 import { BulletHoles } from './holes.js';
+import { buildDummy, raycastDummy } from './dummy.js';
+import { DotField } from './dots.js';
 
 export const EYE_HEIGHT = 1.6;
 export const ROOM = { halfWidth: 4, height: 3.6, near: 3, far: 24 };
+export const WALL_GAP = 1.5; // back wall distance behind the target plane
 
 function floorTexture() {
-  // 8 m wide x 27 m long floor; 32 px per metre. Painted distance lines at 5/10/15/20 m.
-  const ppm = 32, W = ROOM.halfWidth * 2 * ppm, L = (ROOM.far + ROOM.near) * ppm;
+  // 8 m wide x 27 m long floor; 64 px per metre. Painted distance lines at 5/10/15/20 m.
+  const ppm = 64, W = ROOM.halfWidth * 2 * ppm, L = (ROOM.far + ROOM.near) * ppm;
   const cv = document.createElement('canvas');
   cv.width = W; cv.height = L;
   const g = cv.getContext('2d');
@@ -24,10 +26,10 @@ function floorTexture() {
   const rowFor = (dist) => (ROOM.far - dist) * ppm;
   g.fillStyle = '#e0a53a';
   g.textAlign = 'center';
-  g.font = 'bold 22px sans-serif';
+  g.font = 'bold 44px sans-serif';
   for (const d of [5, 10, 15, 20]) {
     g.fillRect(0, rowFor(d) - 2, W, 4);
-    g.fillText(d + ' m', W / 2, rowFor(d) + 26);
+    g.fillText(d + ' m', W / 2, rowFor(d) + 52);
   }
   g.fillStyle = '#d8d8d8';
   g.fillRect(0, rowFor(0) - 3, W, 6); // firing line
@@ -36,7 +38,7 @@ function floorTexture() {
   g.fillRect(ppm * 0.6, 0, 4, L);
   g.fillRect(W - ppm * 0.6 - 4, 0, 4, L);
   const tex = new THREE.CanvasTexture(cv);
-  tex.anisotropy = 4;
+  tex.anisotropy = 8;
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
@@ -83,23 +85,17 @@ export class Range {
       scene.add(m);
     }
 
-    // Back wall group: wall, target paper and bullet holes all live in its local frame.
+    // Target group at the selected distance: dummy (z = 0), red dots (z = 0), back wall
+    // (z = -WALL_GAP) and bullet holes all live in its local frame and move together.
     this.wallGroup = new THREE.Group();
     scene.add(this.wallGroup);
     const wall = new THREE.Mesh(new THREE.PlaneGeometry(ROOM.halfWidth * 2, ROOM.height),
       new THREE.MeshLambertMaterial({ color: 0x6d675d }));
-    wall.position.y = ROOM.height / 2;
+    wall.position.set(0, ROOM.height / 2, -WALL_GAP);
     this.wallGroup.add(wall);
-
-    const b = TARGET.board;
-    const tTex = new THREE.CanvasTexture(drawTargetCanvas());
-    tTex.colorSpace = THREE.SRGBColorSpace;
-    tTex.anisotropy = 4;
-    const paper = new THREE.Mesh(new THREE.PlaneGeometry(b.x1 - b.x0, b.y1 - b.y0),
-      new THREE.MeshLambertMaterial({ map: tTex }));
-    paper.position.set((b.x0 + b.x1) / 2, EYE_HEIGHT + (b.y0 + b.y1) / 2, 0.006);
-    this.wallGroup.add(paper);
-    this.paper = paper; // hidden while the moving dot is the target
+    this.dummy = buildDummy();
+    this.wallGroup.add(this.dummy);
+    this.dots = new DotField(this.wallGroup);
 
     this.holes = new BulletHoles(this.wallGroup);
 
@@ -107,6 +103,8 @@ export class Range {
     scene.traverse((o) => {
       if (o !== this.wallGroup && o.isMesh && o.parent === scene) { o.updateMatrix(); o.matrixAutoUpdate = false; }
     });
+    this._d = [0, 0, 0]; this._o = [0, 0, 0];
+    this._dh = { t: 0, p: [0, 0, 0], n: [0, 0, 0], zone: null };
     this.distance = 10;
     this.setDistance(10);
   }
@@ -116,19 +114,35 @@ export class Range {
     this.wallGroup.position.z = -d;
   }
 
-  // Hitscan from the eye along (yaw, pitch) in degrees against the back wall plane.
-  // Writes the wall-local hit point into out {x, y} (y measured from the floor) and returns
-  // true if the ray reaches the wall inside the room.
-  raycastWall(yawDeg, pitchDeg, out) {
+  // Hitscan from the eye along (yaw, pitch) in degrees, in the target group's frame.
+  // Fills hit: plane = [x, y] where the ray crosses the target plane (y relative to eye
+  // height, i.e. relative to the aim point), and kind = 'dummy' | 'wall' | null with the
+  // surface point p, normal n and dummy zone. Returns hit.kind.
+  raycast(yawDeg, pitchDeg, hit) {
     const yaw = yawDeg * Math.PI / 180, pitch = pitchDeg * Math.PI / 180;
     const cp = Math.cos(pitch);
-    const dx = Math.sin(yaw) * cp, dy = Math.sin(pitch), dz = -Math.cos(yaw) * cp;
-    if (dz >= -1e-9) return false;          // pointing away from the wall
-    const t = this.distance / -dz;           // eye at z = 0, wall at z = -distance
-    const x = t * dx, y = EYE_HEIGHT + t * dy;
-    if (x < -ROOM.halfWidth || x > ROOM.halfWidth || y < 0 || y > ROOM.height) return false;
-    out.x = x;
-    out.y = y;
-    return true;
+    const d = this._d, o = this._o;
+    d[0] = Math.sin(yaw) * cp; d[1] = Math.sin(pitch); d[2] = -Math.cos(yaw) * cp;
+    o[0] = 0; o[1] = EYE_HEIGHT; o[2] = this.distance;   // eye, in the target frame
+    hit.kind = null;
+    hit.planeOk = false;
+    if (d[2] >= -1e-9) return null;                        // pointing away from the target
+    const tp = this.distance / -d[2];
+    hit.plane[0] = tp * d[0];
+    hit.plane[1] = tp * d[1];
+    hit.planeOk = true;
+    if (this.dummy.visible && raycastDummy(o, d, this._dh)) {
+      hit.kind = 'dummy'; hit.zone = this._dh.zone;
+      hit.p[0] = this._dh.p[0]; hit.p[1] = this._dh.p[1]; hit.p[2] = this._dh.p[2];
+      hit.n[0] = this._dh.n[0]; hit.n[1] = this._dh.n[1]; hit.n[2] = this._dh.n[2];
+      return hit.kind;
+    }
+    const tw = (this.distance + WALL_GAP) / -d[2];
+    const x = tw * d[0], y = EYE_HEIGHT + tw * d[1];
+    if (x < -ROOM.halfWidth || x > ROOM.halfWidth || y < 0 || y > ROOM.height) return null;
+    hit.kind = 'wall'; hit.zone = null;
+    hit.p[0] = x; hit.p[1] = y; hit.p[2] = -WALL_GAP;
+    hit.n[0] = 0; hit.n[1] = 0; hit.n[2] = 1;
+    return hit.kind;
   }
 }

@@ -130,8 +130,18 @@ export function validateSens(data) {
       else magnifications.push({ key: m.key, slider: m.slider });
     });
   }
+  // Turn distances measured in game: ADS multiplier = hip cm/360 / ADS cm/360.
+  if (data.adsCm360 !== undefined) {
+    if (!isNum(data.hipCm360) || data.hipCm360 <= 0) errors.push('sens.json hipCm360: must be a number > 0 when adsCm360 is given');
+    else if (!data.adsCm360 || typeof data.adsCm360 !== 'object') errors.push('sens.json adsCm360: must be an object like { "1.0x": 11.8 }');
+    else for (const [k, v] of Object.entries(data.adsCm360)) {
+      if (!keyOk(k)) errors.push('sens.json adsCm360.' + k + ': key must look like "2.5x"');
+      else if (!isNum(v) || v <= 0) errors.push('sens.json adsCm360.' + k + ': must be a number > 0');
+      else if (ads[k] === undefined) ads[k] = data.hipCm360 / v;
+    }
+  }
   const game = {};
-  for (const k of ['horizontal', 'vertical', 'aimMode', 'globalAim', 'advancedMouseSensitivity']) if (data[k] !== undefined) game[k] = data[k];
+  for (const k of ['horizontal', 'vertical', 'aimMode', 'globalAim', 'advancedMouseSensitivity', 'dpi', 'hipCm360']) if (data[k] !== undefined) game[k] = data[k];
   return { ads, magnifications, game, errors };
 }
 
