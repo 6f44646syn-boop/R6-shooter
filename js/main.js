@@ -24,12 +24,19 @@ const $ = (id) => document.getElementById(id);
 
 
 /* ---------- iframe check: Google Sites' sandbox blocks pointer lock and fullscreen ---------- */
+// Inside a frame we lead with "Open in a full tab". Some frames do allow mouse capture, so
+// "Play here" boots the game in place; if capture is refused, the menu says so.
 let embedded = false;
 try { embedded = window.self !== window.top; } catch (e) { embedded = true; }
 if (embedded) {
   $('menu').hidden = true;
   $('embedded').hidden = false;
   $('open-tab').href = location.href;
+  $('play-here').addEventListener('click', () => {
+    $('embedded').hidden = true;
+    $('menu').hidden = false;
+    loadGameData().then(boot);
+  }, { once: true });
 } else {
   loadGameData().then(boot);
 }
@@ -141,7 +148,9 @@ function boot(data) {
     onRetry() {
       // Usually Chrome refusing a re-lock straight after Esc. Stay quiet; the next click retries.
       const h = $('lock-hint');
-      h.textContent = 'Click again to resume.';
+      h.textContent = embedded
+        ? 'Click again to resume. If the mouse never locks, this frame blocks mouse capture: open the page in its own tab.'
+        : 'Click again to resume.';
       h.hidden = false;
     },
     onUnsupported() {
