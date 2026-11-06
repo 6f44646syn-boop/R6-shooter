@@ -2,9 +2,9 @@
 // test. The body is a soldier (soldier.js) in team colours carrying their real gun with its
 // skin; hits are decided on the same shapes the body is built around. Crouching squashes the
 // body to CROUCH_SCALE. y is the height of the feet (floors, stairs, box tops).
-import * as THREE from '../../vendor/three/three.module.min.js?v=15d8d13-mw5jaig6';
-import { soldierGeometry, raycastSoldier, GRIP_HAND } from './soldier.js?v=15d8d13-mw5jaig6';
-import { buildWorldGun } from '../scene/viewmodel.js?v=15d8d13-mw5jaig6';
+import * as THREE from '../../vendor/three/three.module.min.js?v=59437d7-mw5lgnt5';
+import { soldierGeometry, raycastSoldier, GRIP_HAND } from './soldier.js?v=59437d7-mw5lgnt5';
+import { buildWorldGun } from '../scene/viewmodel.js?v=59437d7-mw5lgnt5';
 
 export const STAND_EYE = 1.6, CROUCH_EYE = 1.12;
 export const CROUCH_SCALE = 0.7;
@@ -17,6 +17,24 @@ export function gunDamage(gun) { return gun.damage || DEFAULT_DAMAGE[gun.model] 
 
 const DEG = Math.PI / 180;
 const GUN_SCALE = 1.1;
+
+// Outline: each vertex pushed out along its normal by a few millimetres plus a little more
+// with distance (about the same thickness on screen near and far).
+let OUTLINE = null;
+function outlineMaterial() {
+  return OUTLINE || (OUTLINE = new THREE.ShaderMaterial({
+    side: THREE.BackSide, transparent: true, depthWrite: true, toneMapped: false,
+    uniforms: { color: { value: new THREE.Color(0xff2a2a) } },
+    vertexShader: `
+      void main() {
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vec3 n = normalize(normalMatrix * normal);
+        mv.xyz += n * (0.011 + 0.0024 * -mv.z);
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `uniform vec3 color; void main() { gl_FragColor = vec4(color, 0.9); }`,
+  }));
+}
 
 // The flashlight beam: an open cone from the lens forward (+z), bright at the lens and fading
 // out (vertex colours with additive blending), shared by every fighter.
@@ -72,8 +90,12 @@ export class Fighter {
     const body = new THREE.Mesh(soldierGeometry(this.color), new THREE.MeshLambertMaterial({ vertexColors: true }));
     body.castShadow = true;
     this.body = body;
+    // Thin red outline (an inflated back-facing copy of the body): others stand out by day.
+    this.outline = new THREE.Mesh(body.geometry, outlineMaterial());
+    this.outline.userData.ownMaterial = true;
+    this.outline.visible = false;
     this.scaleG = new THREE.Group();
-    this.scaleG.add(body);
+    this.scaleG.add(body, this.outline);
     this.group.add(this.scaleG);
     this.gunG = new THREE.Group();          // the carried gun (set by setLook)
     this.gunG.position.set(GRIP_HAND[0], GRIP_HAND[1], GRIP_HAND[2]);

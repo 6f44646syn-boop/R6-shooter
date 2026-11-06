@@ -7,12 +7,12 @@
 //
 // Coordinates: metres, x right, y up, z towards the "A" side. Same yaw convention as the
 // range: yaw 0 looks along -z, positive turns right.
-import * as THREE from '../../vendor/three/three.module.min.js?v=15d8d13-mw5jaig6';
-import { MAPS } from './maps.js?v=15d8d13-mw5jaig6';
-import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=15d8d13-mw5jaig6';
-import { flatMaterial } from '../scene/low.js?v=15d8d13-mw5jaig6';
-import { BulletHoles } from '../scene/holes.js?v=15d8d13-mw5jaig6';
-import { mulberry32 } from '../core/prng.js?v=15d8d13-mw5jaig6';
+import * as THREE from '../../vendor/three/three.module.min.js?v=59437d7-mw5lgnt5';
+import { MAPS } from './maps.js?v=59437d7-mw5lgnt5';
+import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=59437d7-mw5lgnt5';
+import { flatMaterial } from '../scene/low.js?v=59437d7-mw5lgnt5';
+import { BulletHoles } from '../scene/holes.js?v=59437d7-mw5lgnt5';
+import { mulberry32 } from '../core/prng.js?v=59437d7-mw5lgnt5';
 
 export const HALF_X = 18, HALF_Z = 14, WALL_H = 4.5;   // the old Container Yard size (tests)
 export const BODY_R = 0.35;       // fighter radius for collision

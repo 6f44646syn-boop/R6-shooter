@@ -893,7 +893,21 @@ try {
       run(0.5);
       res.night = { lights: B.torches.filter((l) => l.visible).length, own: B.torches[0].intensity, beam: B.bots[0].f.torchG.visible, rain: !!(B.arena.rain && B.arena.rain.visible), banks: !!(B.arena.banks && B.arena.banks.visible), hemi: B.arena.hemi.intensity };
       R.battleKey('KeyF', true); R.battleKey('KeyF', false); run(0.1); res.lightOff = B.torches[0].intensity;
+      res.nightOutline = B.bots[0].f.outline.visible;
       [B, h] = setup('yard'); run(0.2);
+      res.dayOutline = B.bots[0].f.outline.visible && !h.f.outline.visible;
+      // kill cam and hit report
+      h.f.protectUntil = 0; B.bots[0].f.protectUntil = 0;
+      const k = B.bots[0].f;
+      B._damage(k, 30, h.f, 'body', B.t);
+      B._damage(h.f, 30, k, 'limb', B.t); B._damage(h.f, 90, k, 'head', B.t);
+      run(0.2);
+      const rep = B.hud.views[0].rep;
+      res.kc = { on: !!B.kc && B.kc.killer === k, panel: !rep.hidden, text: rep.textContent };
+      R.battleKey('Space', true); R.battleKey('Space', false); run(0.1);
+      res.kc.skipped = !B.kc && !h.f.alive;
+      run(3.5);
+      res.kc.respawned = h.f.alive && B.hud.views[0].rep.hidden;
       res.day = { lights: B.torches.filter((l) => l.visible).length, hemi: B.arena.hemi.intensity, rain: !!(B.arena.rain && B.arena.rain.visible) };
       res.look = { gun: B.bots[0].f._gunModel ? B.bots[0].f._gunModel.children.length : 0, skin: B.bots[0].f.skin };
       R.battleLeave();
@@ -905,6 +919,8 @@ try {
     check('school basement: acid kills, shown in the kill feed', mv.acid.dead && /Acid/.test(mv.acid.feed), JSON.stringify(mv.acid));
     check('night: flashlights (yours toggles with F; others light the scene in Standard and up), beams on others; storm rain and fog banks; day has none', mv.night.lights >= 1 && mv.night.own > 0 && mv.night.beam && mv.night.rain && mv.night.banks && mv.lightOff === 0 && mv.day.lights === 0 && !mv.day.rain && mv.day.hemi > mv.night.hemi * 4, JSON.stringify(mv));
     check('others carry their real gun model (with a skin for bots)', mv.look.gun > 0, JSON.stringify(mv.look));
+    check('red outline on other players by day, not at night', mv.dayOutline && !mv.nightOutline, JSON.stringify(mv));
+    check('kill cam on your killer with a hit report (head / body / limbs, damage both ways); Space skips', mv.kc.on && mv.kc.panel && /Head 1 · Body 0 · Arms \/ legs 1/.test(mv.kc.text) && /You hit .* 1 times · 30 damage/.test(mv.kc.text) && mv.kc.skipped && mv.kc.respawned, JSON.stringify(mv.kc));
     check('no page errors', errors.length === 0, errors.join('\n'));
     await page.close();
   }

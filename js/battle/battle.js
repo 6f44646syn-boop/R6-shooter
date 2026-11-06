@@ -3,13 +3,13 @@
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=15d8d13-mw5jaig6';
-import { Arena } from './arena.js?v=15d8d13-mw5jaig6';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=15d8d13-mw5jaig6';
-import { Bot, LEVELS } from './bot.js?v=15d8d13-mw5jaig6';
-import { Human } from './human.js?v=15d8d13-mw5jaig6';
-import { drawCrosshair } from '../ui/crosshair.js?v=15d8d13-mw5jaig6';
-import { CATALOGUE, skinFits } from '../core/skins.js?v=15d8d13-mw5jaig6';
+import * as THREE from '../../vendor/three/three.module.min.js?v=59437d7-mw5lgnt5';
+import { Arena } from './arena.js?v=59437d7-mw5lgnt5';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=59437d7-mw5lgnt5';
+import { Bot, LEVELS } from './bot.js?v=59437d7-mw5lgnt5';
+import { Human } from './human.js?v=59437d7-mw5lgnt5';
+import { drawCrosshair } from '../ui/crosshair.js?v=59437d7-mw5lgnt5';
+import { CATALOGUE, skinFits } from '../core/skins.js?v=59437d7-mw5lgnt5';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -90,7 +90,11 @@ export class Battle {
       l.castShadow = this.night && i === 0 && high;
       if (l.castShadow) { l.shadow.mapSize.set(1024, 1024); l.shadow.camera.near = 0.3; l.shadow.camera.far = 40; l.shadow.bias = -0.0008; }
     });
-    for (const f of this.fighters) { f.night = this.night; f.light = true; }
+    for (const f of this.fighters) {
+      f.night = this.night; f.light = true;
+      // Others stay crisp: no distance haze on them, except in fog weather (that is the point).
+      f.body.material.fog = !!fog; f.body.material.needsUpdate = true;
+    }
     for (const h of this.humans) h.rig.setTorch(this.night);
   }
   _updateTorches() {
@@ -247,7 +251,7 @@ export class Battle {
     f.protectUntil = t + PROTECT_S; f.lastHurt = -10;
     f.yaw = Math.atan2(-p.x, p.z) * 180 / Math.PI; f.pitch = 0;
     const c = this._ctl(f);
-    if (c instanceof Human) c.respawn(p.x, p.z, t, p.y);
+    if (c instanceof Human) { c.respawn(p.x, p.z, t, p.y); if (c === this.humans[0]) this._resetReport(); }
     else if (c instanceof Remote) c.link.send({ k: 'spawn', x: r2(p.x), z: r2(p.z), y: r2(p.y), yaw: r1(f.yaw) });
     else if (c) c.respawned();
   }
@@ -272,6 +276,7 @@ export class Battle {
     }
     for (const h of this.humans) h.update(t, dt, this);
     for (const f of this.fighters) f.updateVisual(t);
+    this._killCam(t);
     this._updateTorches();
     this.arena.update(dt, t, this.humans[0] ? this.humans[0].camera.position : null);
     this._updateTracers(t);
@@ -332,14 +337,16 @@ export class Battle {
     if (this.net) this._broadcast({ k: 'feed', e: entry });
     this._renderFeed();
     this._updateScore();
-    if (hv) hv.killedBy = 'the acid';
+    if (hv) { hv.killedBy = 'the acid'; hv.killerId = null; }
   }
 
   _damage(g, dmg, by, zone, t) {
     if (t < g.protectUntil) dmg = 0;
     if (dmg <= 0) return;
+    const applied = Math.min(dmg, Math.max(0, g.health));
     g.health -= dmg;
     g.lastHurt = t;
+    this._noteHit(g, by, zone, applied);
     const victim = this._ctl(g);
     if (victim instanceof Bot) victim.onHurt(by, t);
     const killer = this.humans.find((h) => h.f === by);
@@ -349,20 +356,20 @@ export class Battle {
     const hv = this.humans.find((h) => h.f === g);
     if (hv) this._hurtFlash(hv, by, t);
     const rk = this.remotes.find((r) => r.f === by), rv = this.remotes.find((r) => r.f === g);
-    if (rk) rk.link.send({ k: 'hm', kind, head: zone === 'head' });
+    if (rk) rk.link.send({ k: 'hm', kind, head: zone === 'head', id: g.id, dmg: r1(applied) });
     if (dead && this.humans[0] && by === this.humans[0].f) this._earn('kill', zone === 'head');
-    if (rv) rv.link.send({ k: 'hurt', from: [r2(by.x), r2(by.z)], by: by.name });
+    if (rv) rv.link.send({ k: 'hurt', from: [r2(by.x), r2(by.z)], by: by.name, id: by.id, zone, dmg: r1(applied) });
     if (!dead) return;
     g.health = 0; g.alive = false; g.deaths++; g.respawnAt = t + RESPAWN_S;
     by.kills++;
     this.teamScore[by.team]++;
-    const entry = { k: by.name, kc: by.team, v: g.name, vc: g.team, vid: g.id, head: zone === 'head', t };
+    const entry = { k: by.name, kc: by.team, kid: by.id, v: g.name, vc: g.team, vid: g.id, head: zone === 'head', t };
     this.feed.unshift(entry);
     this.feed.length = Math.min(this.feed.length, 5);
     if (this.net) this._broadcast({ k: 'feed', e: entry });
     this._renderFeed();
     this._updateScore();
-    if (hv) hv.killedBy = by.name;
+    if (hv) { hv.killedBy = by.name; hv.killerId = by.id; }
     const goal = this.opts.killsToWin;
     if (this.teamScore[by.team] >= goal) this._end(by.team);
   }
@@ -547,6 +554,7 @@ export class Battle {
     } else if (m.k === 'spawn' && me) {
       me.f.alive = true; me.f.health = MAX_HEALTH; me.f.protectUntil = t + PROTECT_S;
       me.respawn(m.x, m.z, t, +m.y || 0);
+      this._resetReport();
       me.look.setAngles(m.yaw, 0);
     } else if (m.k === 'tr') {
       const by = this.fighters.find((g) => g.id === m.by);
@@ -555,17 +563,19 @@ export class Battle {
       if (by) { by.flashUntil = t + 0.05; this._shotSound(by, t); }
     } else if (m.k === 'hurt' && me) {
       this._hurtFlash(me, Array.isArray(m.from) ? { x: m.from[0], z: m.from[1] } : null, t);
+      if (m.id) this._taken(m.id, m.zone, +m.dmg || 0);
     } else if (m.k === 'look') {
       const f = this.fighters.find((g) => g.id === m.id), g = this.deps.guns[m.gun | 0];
       if (f && g && (!me || f !== me.f)) this._look(f, g, skinNum(m.s));
     } else if (m.k === 'hm' && me) {
       this._hitMarker(me, m.kind, t);
+      if (m.id) this._dealt(m.id, +m.dmg || 0);
       if (m.kind === 'kill') this._earn('kill', !!m.head);
     } else if (m.k === 'feed') {
       this.feed.unshift(m.e);
       this.feed.length = Math.min(this.feed.length, 5);
       this._renderFeed();
-      if (me && m.e.vid === me.f.id) me.killedBy = m.e.k;
+      if (me && m.e.vid === me.f.id) { me.killedBy = m.e.k; me.killerId = m.e.kid || null; }
     } else if (m.k === 'end') {
       for (const h of this.humans) h.releaseAll();
       if (me && m.team === me.f.team) this._earn('win');
@@ -599,6 +609,7 @@ export class Battle {
       this.net.link.send({ k: 'st', x: r2(f.x), z: r2(f.z), y: r2(f.y), yaw: r1(f.yaw), pitch: r1(f.pitch), crouch: r2(f.crouch), fl: f.light ? 1 : 0 }, true);
     }
     for (const f of this.fighters) f.updateVisual(t);
+    this._killCam(t);
     this._updateTorches();
     this.arena.update(dt, t, me ? me.camera.position : null);
     this._updateTracers(t);
@@ -650,6 +661,7 @@ export class Battle {
     if (!this.active) return false;
     const p1 = this.humans[0], p2 = this.humans[1];
     if (p2 && p2.controls !== 'mouse' && p2.key(code, down)) return true;
+    if (code === 'Space' && this.kc && !p1.f.alive) { if (down) this.kc = null; return true; }
     const map = { KeyW: 'fwd', KeyS: 'back', KeyA: 'left', KeyD: 'right', ShiftLeft: 'sprint', Space: 'crouch', KeyQ: 'leanL', KeyE: 'leanR', KeyC: 'vault' };
     if (!p2) map.ShiftRight = 'sprint';
     if (map[code]) { p1.in[map[code]] = down; return true; }
@@ -773,11 +785,90 @@ export class Battle {
       const ammo = el('div', 'b-ammo', '');
       const ctl = el('div', 'b-ctl small', '');
       const pts = el('div', 'b-points', '');
-      box.append(hurt, cross, hit, pts, dead, name, hp, hpText, ammo, ctl);
+      const rep = el('div', 'b-report'); rep.hidden = true;
+      box.append(hurt, cross, hit, pts, dead, rep, name, hp, hpText, ammo, ctl);
       this.hud.root.insertBefore(box, this.hud.root.firstChild);
-      return { box, cross, hit, hurt, dead, hpFill, hpText, ammo, ctl, pts, ptsUntil: 0, hitUntil: 0, hurtUntil: 0, last: {} };
+      return { box, cross, hit, hurt, dead, rep, hpFill, hpText, ammo, ctl, pts, ptsUntil: 0, hitUntil: 0, hurtUntil: 0, last: {} };
     });
   }
+  /* ---------- hit report and kill cam ---------- */
+  _resetReport() { this.report = { taken: new Map(), dealt: new Map() }; this._repVer = (this._repVer || 0) + 1; }
+  _taken(id, zone, dmg) {
+    if (!this.report) this._resetReport();
+    const e = this.report.taken.get(id) || { head: 0, body: 0, limb: 0, dmg: 0 };
+    e[zone in e ? zone : 'body']++; e.dmg += dmg;
+    this.report.taken.set(id, e); this._repVer++;
+  }
+  _dealt(id, dmg) {
+    if (!this.report) this._resetReport();
+    const e = this.report.dealt.get(id) || { hits: 0, dmg: 0 };
+    e.hits++; e.dmg += dmg;
+    this.report.dealt.set(id, e); this._repVer++;
+  }
+  _noteHit(g, by, zone, dmg) {
+    const me = this.humans[0] && this.humans[0].f;
+    if (!me || this.humans.length > 1) return;
+    if (g === me) this._taken(by.id, zone, dmg);
+    if (by === me) this._dealt(g.id, dmg);
+  }
+  // You died: watch from over your killer's shoulder for a few seconds (Space skips).
+  _killCam(t) {
+    const h = this.humans[0];
+    if (!h || this.humans.length > 1) return;
+    const f = h.f;
+    if (this._meAlive && !f.alive) {
+      const k = this.fighters.find((g) => g.id === h.killerId && g !== f);
+      this.kc = k ? { killer: k, until: t + 3.2, at: [f.x, f.y + 1.0, f.z] } : null;
+    }
+    this._meAlive = f.alive;
+    if (f.alive || (this.kc && t > this.kc.until)) this.kc = null;
+    // outlines: everyone else by day; your killer always during the kill cam
+    for (const g of this.fighters) g.outline.visible = g !== f && g.alive && (!this.night || (this.kc && this.kc.killer === g));
+    if (!this.kc) return;
+    const k = this.kc.killer, cam = h.camera;
+    const ex = k.x, ey = k.y + k.eyeH, ez = k.z;
+    let dx = this.kc.at[0] - ex, dz = this.kc.at[2] - ez;
+    const L = Math.hypot(dx, dz) || 1; dx /= L; dz /= L;
+    cam.position.set(ex - dx * 2.4 - dz * 0.7, ey + 0.5, ez - dz * 2.4 + dx * 0.7);
+    cam.lookAt(this.kc.at[0], this.kc.at[1], this.kc.at[2]);
+    if (cam.fov !== this.deps.settings.fov) { cam.fov = this.deps.settings.fov; cam.updateProjectionMatrix(); }
+  }
+  // The panel while you are down: who got you, a body showing where you were hit, damage.
+  _renderReport(box, h) {
+    const rep = this.report || { taken: new Map(), dealt: new Map() };
+    const k = this.fighters.find((g) => g.id === h.killerId);
+    const tk = (k && rep.taken.get(k.id)) || { head: 0, body: 0, limb: 0, dmg: 0 };
+    const dl = (k && rep.dealt.get(k.id)) || { hits: 0, dmg: 0 };
+    let other = 0;
+    for (const [id, e] of rep.taken) if (!k || id !== k.id) other += e.dmg;
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 60 120'); svg.setAttribute('class', 'b-body');
+    const fill = (n) => (n ? 'rgba(255,' + Math.max(40, 150 - n * 35) + ',' + Math.max(30, 120 - n * 30) + ',0.95)' : '#3a3f47');
+    const part = (tag, attrs, n) => { const e = document.createElementNS(NS, tag); for (const [a, v] of Object.entries(attrs)) e.setAttribute(a, v); e.setAttribute('fill', fill(n)); svg.append(e); };
+    part('circle', { cx: 30, cy: 13, r: 10 }, tk.head);
+    part('rect', { x: 18, y: 26, width: 24, height: 40, rx: 5 }, tk.body);
+    for (const x of [7, 45]) part('rect', { x, y: 27, width: 8, height: 36, rx: 4 }, tk.limb);
+    for (const x of [19, 31]) part('rect', { x, y: 68, width: 10, height: 48, rx: 4 }, tk.limb);
+    const line = (txt, cls = '') => el('div', cls, txt);
+    const stats = el('div', 'b-rep-stats');
+    if (k) {
+      stats.append(
+        line('Hits on you: ' + (tk.head + tk.body + tk.limb) + ' · ' + Math.round(tk.dmg) + ' damage'),
+        line('Head ' + tk.head + ' · Body ' + tk.body + ' · Arms / legs ' + tk.limb, 'b-rep-zones'),
+        line('You hit ' + k.name + ' ' + dl.hits + ' times · ' + Math.round(dl.dmg) + ' damage', dl.hits ? 'b-rep-dealt' : ''),
+        line(k.name + ' had ' + Math.max(0, Math.ceil(k.health)) + ' HP left'));
+    } else stats.append(line(h.killedBy === 'the acid' ? 'The acid got you.' : 'Eliminated.'));
+    if (other > 0) stats.append(line('From others: ' + Math.round(other) + ' damage'));
+    const title = el('div', 'b-rep-title');
+    if (k) title.append('Killed by ', el('b', 't-' + k.team, k.name), ' · ' + (k.gun ? k.gun.name : ''));
+    else title.textContent = 'Eliminated by ' + (h.killedBy || '?');
+    const body = el('div', 'b-rep-body'); body.append(svg, stats);
+    const back = Math.max(0, Math.ceil(h.f.respawnAt - this.t));
+    const foot = el('div', 'b-rep-skip', 'Back in ' + back + (this.kc ? ' · Space: skip kill cam' : ''));
+    box.replaceChildren(...[this.kc ? el('div', 'b-rep-cam', 'KILL CAM') : null, title, body, foot].filter(Boolean));
+  }
+
   _hitMarker(h, kind, t) {
     const v = this.hud.views[this.humans.indexOf(h)];
     if (!v) return;
@@ -829,7 +920,11 @@ export class Battle {
       if (t > v.hurtUntil && v.hurt.classList.contains('on')) v.hurt.className = 'b-hurt';
       if (t > v.ptsUntil && v.pts.classList.contains('on')) v.pts.className = 'b-points';
       const deadMsg = f.alive ? '' : 'Eliminated by ' + (h.killedBy || '?') + ' · back in ' + Math.max(0, Math.ceil(f.respawnAt - t));
-      if (L.dead !== deadMsg) { L.dead = deadMsg; v.dead.hidden = !deadMsg; v.dead.textContent = deadMsg; }
+      const back = Math.max(0, Math.ceil(f.respawnAt - t));
+      const repKey = i === 0 && !f.alive && this.humans.length === 1 ? (h.killerId || 0) + '|' + (this.kc ? 1 : 0) + '|' + this._repVer + '|' + back : '';
+      const showDead = deadMsg && !repKey ? deadMsg : '';
+      if (L.dead !== showDead) { L.dead = showDead; v.dead.hidden = !showDead; v.dead.textContent = showDead; }
+      if (L.rep !== repKey) { L.rep = repKey; v.rep.hidden = !repKey; if (repKey) this._renderReport(v.rep, h); }
       const ctl = i === 1 ? (h.controls === 'pad' ? 'Gamepad' : 'Keys: I J K L move · arrows look · Enter fire · Right Shift aim · Backspace reload · / crouch') : '';
       if (L.ctl !== ctl) { L.ctl = ctl; v.ctl.textContent = ctl; }
     });
