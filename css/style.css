@@ -260,3 +260,4 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 .arm-slots .slot-meta, .arm-slots .slot-ph { display: none; }
 .arm-slots .slot-name { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 1100px) { .arm-slots { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+.pk-shot { width: min(100%, 384px); aspect-ratio: 16 / 9; border-radius: 6px; background: radial-gradient(circle at 50% 45%, #2e3644, #151a21); }

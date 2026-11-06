@@ -8,7 +8,7 @@
 //   bakeSkin(renderer, index, size): one of SKINS, { albedo, rm } (rm: G roughness, B metalness).
 //   triplanar(material, opts): shader patch that maps a skin and/or detail by the surface's
 //        own 3D position (no UV stretching on long thin parts), with edge wear from UVs.
-import * as THREE from '../../vendor/three/three.module.min.js?v=9022cff-mw4a0ars';
+import * as THREE from '../../vendor/three/three.module.min.js?v=8f61200-mw4abt0b';
 
 const VERT = /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
@@ -283,6 +283,43 @@ void skinAt(vec2 uv, out vec3 col, out float m, out float g) {
     col = mix(col, c2, vein2);
     col = mix(col, c1, vein);
     m = max(vein, vein2); g = vein * 0.5;
+  } else if (pattern == 15) {        // blossom branch: painted branches and five-petal flowers on lacquer
+    float paper = fbm(uv, 6.0, 5);
+    col = mix(c3, c3 * 0.82 + c2 * 0.18, sstep(-0.1, 0.4, paper));
+    vec2 wq = uv + vec2(fbm(uv, 3.0, 5), fbm(uv + 3.3, 3.0, 5)) * 0.06 * W;
+    vec3 v = voronoi(wq, vec2(3.0 * S, 3.0 * S));
+    float thick = 0.02 + 0.045 * sstep(-0.3, 0.4, fbm(uv + 7.0, 4.0, 4));
+    float branch = sstep(thick, thick * 0.4, v.y - v.x);
+    float twig = sstep(0.008, 0.002, abs(fract(dot(wq, vec2(7.0, 3.0)) * S + fbm(uv, 8.0, 3) * 0.6) - 0.5) - 0.47) * sstep(0.3, 0.05, v.y - v.x);
+    col = mix(col, c0, max(branch, twig * 0.8));
+    // flowers: on a fine lattice, only near branches
+    vec2 p = wq * 5.0 * S, ci = floor(p), f = fract(p);
+    float flower = 0.0, centre = 0.0;
+    for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
+      vec2 g = vec2(float(i), float(j));
+      vec2 cc = mod(ci + g, vec2(5.0 * S));
+      vec2 o = 0.5 + 0.35 * hash2(cc);
+      vec2 d = g + o - f;
+      float r = length(d), a = atan(d.y, d.x) + hash1(cc) * 6.28;
+      float petal = 0.22 + 0.08 * cos(5.0 * a);
+      float keep = step(0.45, hash1(cc + 7.0));
+      flower = max(flower, sstep(petal, petal - 0.04, r) * keep);
+      centre = max(centre, sstep(0.07, 0.04, r) * keep);
+    }
+    flower *= sstep(0.5, 0.15, v.y - v.x);
+    col = mix(col, c1 * (0.8 + 0.4 * fbm(uv + 2.0, 32.0, 3)), flower);
+    col = mix(col, c2, centre * flower);
+    m = flower; g = 0.0;
+  } else if (pattern == 16) {        // breaking waves with foam lines
+    float y = uv.y * 4.0 * S;
+    float row = floor(y), fy = fract(y);
+    float crest = 0.55 + 0.25 * sin(6.2831853 * (uv.x * (2.0 + mod(row, 3.0)) * S + row * 0.37) + fbm(uv + row, 4.0, 4) * 3.0 * W);
+    float body = sstep(crest + 0.02, crest - 0.02, fy);
+    float foam = sstep(0.025, 0.0, abs(fy - crest)) + sstep(0.012, 0.0, abs(fy - crest + 0.08)) * 0.7 + sstep(0.01, 0.0, abs(fy - crest + 0.16)) * 0.4;
+    col = mix(c0, c1, body * (0.4 + 0.6 * fy));
+    col = mix(col, c2, sstep(0.3, 0.6, fbm(uv + 4.0, 6.0, 5)) * body * 0.4);
+    col = mix(col, c3, clamp(foam, 0.0, 1.0));
+    m = clamp(foam, 0.0, 1.0); g = 0.0;
   } else {                           // circuit traces
     float N = 12.0 * S;
     vec2 q = uv * N, c = floor(q), f = fract(q);
@@ -324,7 +361,32 @@ export function bakeSkin(renderer, def, size = 4096) {
     uniform vec2 rmA, rmB;
     void main() { vec3 col; float m, g; skinAt(vUv, col, m, g); vec2 r = mix(rmA, rmB, m); gl_FragColor = vec4(g, r.x, r.y, 1.0); }`,
   Math.max(128, size >> 1), rmu);
-  return { albedo, rm, def, wear: def.wear, clearcoat: def.clearcoat, glow: def.glow };
+  // High / ultra: a relief map from the design (accent shapes raised, glow lines cut in),
+  // turned into a normal map on the GPU, so the skin catches light like layered paint.
+  let normal = null;
+  if (size >= 2048) {
+    const hu = skinUniforms(def);
+    const h = bake(renderer, head + /* glsl */`
+      void main() { vec3 col; float m, g; skinAt(vUv, col, m, g); float lum = dot(col, vec3(0.3, 0.5, 0.2));
+        gl_FragColor = vec4(vec3(0.5 + m * 0.35 - g * 0.25 + lum * 0.15 + fbm(vUv, 96.0, 3) * 0.08), 1.0); }`,
+    Math.max(512, size >> 1), hu, { mip: false });
+    normal = bakeNormalFromTexture(renderer, h, h.image.width, 3.0);
+    disposeBaked(h);
+  }
+  return { albedo, rm, normal, def, wear: def.wear, clearcoat: def.clearcoat, glow: def.glow };
+}
+
+// Normal map from a height render target texture (Sobel), tiling.
+export function bakeNormalFromTexture(renderer, heightTex, size, strength = 2) {
+  const frag = /* glsl */`
+    varying vec2 vUv; uniform sampler2D h; uniform float px; uniform float strength;
+    float s(float x, float y) { return texture2D(h, vUv + vec2(x, y) * px).r; }
+    void main() {
+      float dx = (s(1.,-1.) + 2.*s(1.,0.) + s(1.,1.)) - (s(-1.,-1.) + 2.*s(-1.,0.) + s(-1.,1.));
+      float dy = (s(-1.,1.) + 2.*s(0.,1.) + s(1.,1.)) - (s(-1.,-1.) + 2.*s(0.,-1.) + s(1.,-1.));
+      gl_FragColor = vec4(normalize(vec3(-dx * strength, -dy * strength, 1.0)) * 0.5 + 0.5, 1.0);
+    }`;
+  return bake(renderer, frag, size, { h: { value: heightTex }, px: { value: 1 / size }, strength: { value: strength } });
 }
 
 // A small picture of a skin for menus: a canvas (sRGB-ish: the stored sqrt colour).
@@ -354,7 +416,7 @@ export function skinThumb(renderer, def, size = 96) {
 export function triplanar(material, { skin = null, detail = null, scale = 3, detailScale = 2, detailStrength = 1, gain = 1 } = {}) {
   const uniforms = {
     triScale: { value: scale }, detScale: { value: detailScale }, detStrength: { value: detailStrength },
-    skinAlbedo: { value: skin ? skin.albedo : null }, skinRM: { value: skin ? skin.rm : null },
+    skinAlbedo: { value: skin ? skin.albedo : null }, skinRM: { value: skin ? skin.rm : null }, skinNormal: { value: skin ? skin.normal : null },
     skinWear: { value: skin ? skin.wear : 0 }, detailMap: { value: detail }, triGain: { value: gain },
     skinGlow: { value: new THREE.Vector3(...((skin && skin.glow) || [0, 0, 0])) },
     // Look per rarity: a colour fade along the gun, and the inspect-only animations
@@ -373,7 +435,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
     uniforms.sweepCol.value.set(...g.map((v) => Math.min(1, 0.35 + v * 0.6))).multiplyScalar(L[2]);
   }
   material.userData.tri = uniforms;
-  const defs = (skin ? '#define TRI_SKIN\n' : '') + (detail ? '#define TRI_DETAIL\n' : '');
+  const defs = (skin ? '#define TRI_SKIN\n' : '') + (skin && skin.normal ? '#define TRI_SKIN_NORMAL\n' : '') + (detail ? '#define TRI_DETAIL\n' : '');
   material.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, uniforms);
     sh.vertexShader = defs + 'varying vec3 vTriPos; varying vec3 vTriN; varying vec3 vTriAX; varying vec3 vTriAY; varying vec3 vTriAZ;\n' +
@@ -387,7 +449,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       uniform float triScale, detScale, detStrength, skinWear, triGain;
       uniform vec3 skinGlow, fadeA, fadeB, sweepCol;
       uniform float fadeAmt, triTime, triAnim, animFlow;
-      uniform sampler2D skinAlbedo, skinRM, detailMap;
+      uniform sampler2D skinAlbedo, skinRM, skinNormal, detailMap;
       vec3 triW() { vec3 w = pow(abs(normalize(vTriN)), vec3(4.0)); return w / (w.x + w.y + w.z); }
       float sstep(float a, float b, float x) { float t = clamp((x - a) / (b - a), 0.0, 1.0); return t * t * (3.0 - 2.0 * t); }
       vec4 triTex(sampler2D t, vec3 p, vec3 w) { return texture2D(t, p.zy) * w.x + texture2D(t, p.xz) * w.y + texture2D(t, p.xy) * w.z; }
@@ -442,6 +504,16 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         totalEmissiveRadiance += sweepCol * sweep * (1.0 - triWear) * 0.6;
       #endif`);
     f = f.replace('#include <normal_fragment_maps>', /* glsl */`#include <normal_fragment_maps>
+      #ifdef TRI_SKIN_NORMAL
+      {
+        // Relief of the skin's design (paint edges, cracks), mapped like the colour.
+        vec2 sx = texture2D(skinNormal, triP.zy).rg * 2.0 - 1.0;
+        vec2 sy = texture2D(skinNormal, triP.xz).rg * 2.0 - 1.0;
+        vec2 sz = texture2D(skinNormal, triP.xy).rg * 2.0 - 1.0;
+        vec3 sn = (sx.x * vTriAZ + sx.y * vTriAY) * tw.x + (sy.x * vTriAX + sy.y * vTriAZ) * tw.y + (sz.x * vTriAX + sz.y * vTriAY) * tw.z;
+        normal = normalize(normal + sn * (1.0 - triWear) * 0.9);
+      }
+      #endif
       #ifdef TRI_DETAIL
       {
         vec3 p = vTriPos * detScale;

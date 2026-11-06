@@ -6,12 +6,12 @@
 //
 // Coordinates: metres, x right, y up, z towards the "A" side. Same yaw convention as the
 // range: yaw 0 looks along -z, positive turns right.
-import * as THREE from '../../vendor/three/three.module.min.js?v=9022cff-mw4a0ars';
-import { concreteTiles, wallPanels, duskSky, hazardStripes } from '../scene/range-tex.js?v=9022cff-mw4a0ars';
-import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=9022cff-mw4a0ars';
-import { flatMaterial } from '../scene/low.js?v=9022cff-mw4a0ars';
-import { BulletHoles } from '../scene/holes.js?v=9022cff-mw4a0ars';
-import { mulberry32 } from '../core/prng.js?v=9022cff-mw4a0ars';
+import * as THREE from '../../vendor/three/three.module.min.js?v=8f61200-mw4abt0b';
+import { concreteTiles, wallPanels, duskSky, hazardStripes } from '../scene/range-tex.js?v=8f61200-mw4abt0b';
+import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=8f61200-mw4abt0b';
+import { flatMaterial } from '../scene/low.js?v=8f61200-mw4abt0b';
+import { BulletHoles } from '../scene/holes.js?v=8f61200-mw4abt0b';
+import { mulberry32 } from '../core/prng.js?v=8f61200-mw4abt0b';
 
 export const HALF_X = 18, HALF_Z = 14, WALL_H = 4.5;
 const CELL = 0.5;                // nav grid cell (m)

@@ -9,7 +9,7 @@
 //   p        [scale (whole number), warp, threshold shift, spare]
 //   rm       [roughness, metalness] of the base, then of the accent
 //   clearcoat, wear (bare metal at the edges), glow ([r, g, b] light from the accent lines)
-import { mulberry32 } from './prng.js?v=9022cff-mw4a0ars';
+import { mulberry32 } from './prng.js?v=8f61200-mw4abt0b';
 
 export const RARITIES = [
   { key: 'common', name: 'Common', color: '#b4bcc6', odds: 0.70, refund: 20 },
@@ -18,7 +18,7 @@ export const RARITIES = [
   { key: 'blackice', name: 'Black Ice', color: '#7ff3ff', odds: 0.01, refund: 200 },
 ];
 export const RARITY = Object.fromEntries(RARITIES.map((r) => [r.key, r]));
-export const PATTERN_NAMES = ['Contour', 'Pixel', 'Woodland', 'Tiger', 'Veteran', 'Hexcore', 'Damascus', 'Blot', 'Weave', 'Shard', 'Black Ice', 'Fade', 'Line', 'Marble', 'Circuit'];
+export const PATTERN_NAMES = ['Contour', 'Pixel', 'Woodland', 'Tiger', 'Veteran', 'Hexcore', 'Damascus', 'Blot', 'Weave', 'Shard', 'Black Ice', 'Fade', 'Line', 'Marble', 'Circuit', 'Blossom', 'Tide'];
 
 // HSL (0..1) -> linear RGB.
 function hsl(h, s, l) {
@@ -42,7 +42,7 @@ const COMMON_PATTERNS = [1, 2, 3, 4, 7, 9, 11, 12];
 const RARE_WORDS = [['Cobalt', 0.61], ['Crimson', 0.98], ['Viper', 0.3], ['Sunset', 0.06], ['Glacier', 0.53], ['Neon', 0.36], ['Ember', 0.03], ['Toxic', 0.24], ['Royal', 0.7], ['Coral', 0.01], ['Volt', 0.15], ['Jade', 0.42], ['Saffron', 0.11], ['Orchid', 0.83], ['Lagoon', 0.5]];
 const RARE_PATTERNS = [0, 5, 8, 13, 1, 3, 9, 12];
 const EPIC_WORDS = ['Nebula', 'Inferno', 'Aurora', 'Phantom', 'Solar Flare', 'Abyss', 'Prism', 'Overdrive', 'Tempest', 'Eclipse', 'Venom', 'Mirage', 'Paradox', 'Zenith', 'Vortex', 'Spectre'];
-const EPIC_PATTERNS = [0, 5, 6, 13, 14, 8, 9, 3];
+const EPIC_PATTERNS = [0, 5, 6, 13, 14, 15, 9, 16];      // 15 blossom and 16 tide: illustrated
 const ICE = [['Glacier', 0.53], ['Violet', 0.78], ['Teal', 0.47], ['White Out', 0.6, 0], ['Red Shift', 0.0], ['Venom', 0.3], ['Gold', 0.12], ['Rose', 0.92]];
 
 function make(id) {
@@ -72,7 +72,11 @@ function make(id) {
     const word = EPIC_WORDS[k % EPIC_WORDS.length];
     const pat = EPIC_PATTERNS[(k + Math.floor(k / EPIC_WORDS.length) * 3) % EPIC_PATTERNS.length];
     const h = (k * 0.381966) % 1;
-    const c = [hsl(h, 0.85, 0.12), hsl(h + 0.45 + rng() * 0.15, 0.95, 0.5), hsl(h + 0.08, 0.9, 0.35), hsl(h + 0.5, 0.6, 0.75)];
+    let c = [hsl(h, 0.85, 0.12), hsl(h + 0.45 + rng() * 0.15, 0.95, 0.5), hsl(h + 0.08, 0.9, 0.35), hsl(h + 0.5, 0.6, 0.75)];
+    // Illustrated designs get painterly palettes: dark branches, bright flowers, lacquered cream;
+    // deep sea, bright water and white foam.
+    if (pat === 15) c = [hsl(0.05, 0.3, 0.08), hsl(h, 0.85, 0.55), hsl(0.13, 0.9, 0.6), hsl(0.1, 0.25, 0.88)];
+    if (pat === 16) c = [hsl(h, 0.8, 0.1), hsl(h + 0.03, 0.85, 0.42), hsl(h + 0.08, 0.7, 0.6), hsl(h, 0.15, 0.95)];
     const glows = pat === 14 || pat === 0 || pat === 5;
     return { id, rarity: 'epic', name: word + ' ' + PATTERN_NAMES[pat], pattern: pat, c,
       p: [1 + Math.floor(rng() * 2), 0.8 + rng(), (rng() - 0.5) * 0.08, 0], rm: [0.3, 0.75, 0.22, 1], clearcoat: 0.8, wear: 0.3,

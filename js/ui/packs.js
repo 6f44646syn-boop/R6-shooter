@@ -1,8 +1,8 @@
 // Skins & packs: points, the pack opening (a slot-machine reel that slows down and lands on
 // your skin), your collection (click to put a skin on the selected gun), and the save code.
-import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById, skinFits } from '../core/skins.js?v=9022cff-mw4a0ars';
-import { Profile, PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=9022cff-mw4a0ars';
-import { skinThumb } from '../render/gpu-tex.js?v=9022cff-mw4a0ars';
+import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById, skinFits } from '../core/skins.js?v=8f61200-mw4abt0b';
+import { Profile, PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=8f61200-mw4abt0b';
+import { skinThumb } from '../render/gpu-tex.js?v=8f61200-mw4abt0b';
 
 function el(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);
@@ -190,7 +190,7 @@ export class PackUI {
     const slot = this.gunIndex(), gun = this.guns[slot];
     this.reveal.className = 'pk-reveal r-' + skin.rarity;
     this.reveal.replaceChildren(
-      el('img', { class: 'pk-big', src: this.thumb(skin.id, 192), alt: '' }),
+      (() => { const url = this.shot ? this.shot(skin.id) : ''; return url ? el('img', { class: 'pk-shot', src: url, alt: skin.name + ' on a gun' }) : el('img', { class: 'pk-big', src: this.thumb(skin.id, 192), alt: '' }); })(),
       el('div', { class: 'pk-info' },
         el('div', { class: 'pk-rarity', text: rar.name }),
         el('div', { class: 'pk-title', text: skin.name }),
