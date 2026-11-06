@@ -6,14 +6,14 @@
 //
 // Coordinates: metres, x right, y up, z towards the "A" side. Same yaw convention as the
 // range: yaw 0 looks along -z, positive turns right.
-import * as THREE from '../../vendor/three/three.module.min.js?v=0eeeaff-mw4o2ucr';
-import { MAPS } from './maps.js?v=0eeeaff-mw4o2ucr';
+import * as THREE from '../../vendor/three/three.module.min.js?v=2156b86-mw4poxh9';
+import { MAPS } from './maps.js?v=2156b86-mw4poxh9';
 // (textures for each map live in maps.js)
-import { concreteTiles } from '../scene/range-tex.js?v=0eeeaff-mw4o2ucr';
-import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=0eeeaff-mw4o2ucr';
-import { flatMaterial } from '../scene/low.js?v=0eeeaff-mw4o2ucr';
-import { BulletHoles } from '../scene/holes.js?v=0eeeaff-mw4o2ucr';
-import { mulberry32 } from '../core/prng.js?v=0eeeaff-mw4o2ucr';
+import { concreteTiles } from '../scene/range-tex.js?v=2156b86-mw4poxh9';
+import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=2156b86-mw4poxh9';
+import { flatMaterial } from '../scene/low.js?v=2156b86-mw4poxh9';
+import { BulletHoles } from '../scene/holes.js?v=2156b86-mw4poxh9';
+import { mulberry32 } from '../core/prng.js?v=2156b86-mw4poxh9';
 
 export const HALF_X = 18, HALF_Z = 14, WALL_H = 4.5;   // the Container Yard (other maps differ)
 const CELL = 0.5;                // nav grid cell (m)

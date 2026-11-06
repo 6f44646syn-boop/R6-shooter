@@ -8,7 +8,7 @@
 // Messages are bundled and flushed about 20 times a second. For 'fast' messages (position
 // updates) only the newest of each kind is kept in a bundle.
 
-export const DEFAULT_RELAY = '';           // set to the deployed relay, e.g. 'https://recoil-range-relay.NAME.workers.dev'
+export const DEFAULT_RELAY = 'https://recoil-range-relay.recoil-range-relay.workers.dev';
 const FLUSH_MS = 50;
 const CONNECT_TIMEOUT = 10000;
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // no 0/O or 1/I
