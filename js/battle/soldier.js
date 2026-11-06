@@ -4,7 +4,7 @@
 // pouches, pack, boots) sits snugly over those shapes.
 //
 // Coordinates: metres, the soldier's own frame: x right, y up from the feet, z forward.
-import * as THREE from '../../vendor/three/three.module.min.js?v=59437d7-mw5lgnt5';
+import * as THREE from '../../vendor/three/three.module.min.js?v=3265449-mw5lt53t';
 
 const L = -1, R = 1;
 const cap = (a, b, r, zone) => ({ t: 'capsule', a, b, r, zone });

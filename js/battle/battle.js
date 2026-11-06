@@ -3,13 +3,13 @@
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=59437d7-mw5lgnt5';
-import { Arena } from './arena.js?v=59437d7-mw5lgnt5';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=59437d7-mw5lgnt5';
-import { Bot, LEVELS } from './bot.js?v=59437d7-mw5lgnt5';
-import { Human } from './human.js?v=59437d7-mw5lgnt5';
-import { drawCrosshair } from '../ui/crosshair.js?v=59437d7-mw5lgnt5';
-import { CATALOGUE, skinFits } from '../core/skins.js?v=59437d7-mw5lgnt5';
+import * as THREE from '../../vendor/three/three.module.min.js?v=3265449-mw5lt53t';
+import { Arena } from './arena.js?v=3265449-mw5lt53t';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=3265449-mw5lt53t';
+import { Bot, LEVELS } from './bot.js?v=3265449-mw5lt53t';
+import { Human } from './human.js?v=3265449-mw5lt53t';
+import { drawCrosshair } from '../ui/crosshair.js?v=3265449-mw5lt53t';
+import { CATALOGUE, skinFits } from '../core/skins.js?v=3265449-mw5lt53t';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -575,7 +575,10 @@ export class Battle {
       this.feed.unshift(m.e);
       this.feed.length = Math.min(this.feed.length, 5);
       this._renderFeed();
-      if (me && m.e.vid === me.f.id) { me.killedBy = m.e.k; me.killerId = m.e.kid || null; }
+      if (me && m.e.vid === me.f.id) {
+        me.killedBy = m.e.k; me.killerId = m.e.kid || null;
+        if (!this.kc && me.killerId) this._startKillCam(t);
+      }
     } else if (m.k === 'end') {
       for (const h of this.humans) h.releaseAll();
       if (me && m.team === me.f.team) this._earn('win');
@@ -698,9 +701,10 @@ export class Battle {
       r.clear();
       const aspect = v.w / v.h;
       if (h.camera.aspect !== aspect) { h.camera.aspect = aspect; h.camera.updateProjectionMatrix(); }
-      h.f.group.visible = false;                 // not your own body
+      const ownVis = h.f.group.visible;
+      if (!(this.kc && i === 0)) h.f.group.visible = false;      // not your own body (except in the replay)
       r.render(this.arena.scene, h.camera);
-      h.f.group.visible = h.f.alive;
+      h.f.group.visible = ownVis;
       r.clearDepth();
       h.rig.setAspect(aspect, v.h);
       r.render(h.rig.scene, h.rig.camera);
@@ -723,7 +727,12 @@ export class Battle {
     this.trI = 0;
     this.arena.scene.add(this.tracers);
   }
-  _addTracer(a, b, t, team) {
+  _addTracer(a, b, t, team, replaying = false) {
+    if (!replaying) {
+      const sh = (this.rec || (this.rec = { frames: [], shots: [] })).shots;
+      sh.push({ t, a: [a.x, a.y, a.z], b: [b[0], b[1], b[2]], team });
+      while (sh.length && sh[0].t < t - 5) sh.shift();
+    }
     const i = this.trI++ % MAX_TRACERS, p = this.trPos, c = this.trCol;
     p.set([a.x, a.y, a.z, b[0], b[1], b[2]], i * 6);
     const col = team === 'bots' ? [1, 0.55, 0.3] : [1, 0.85, 0.5];
@@ -811,26 +820,71 @@ export class Battle {
     if (g === me) this._taken(by.id, zone, dmg);
     if (by === me) this._dealt(g.id, dmg);
   }
-  // You died: watch from over your killer's shoulder for a few seconds (Space skips).
+  /* Kill cam: a replay of the last seconds before you died, from just behind your killer's
+     shoulder, aiming the way they aimed (bots and real players alike). Every PC records
+     everyone's position, aim, crouch, muzzle flash and tracers for a few seconds; on your
+     death those are played back. Space skips. */
+  _record(t) {
+    const rec = this.rec || (this.rec = { frames: [], shots: [] });
+    rec.frames.push({ t, d: this.fighters.map((f) => [f.id, f.x, f.y, f.z, f.yaw, f.pitch, f.crouch, f.alive ? 1 : 0, t < f.flashUntil ? 1 : 0]) });
+    while (rec.frames.length && rec.frames[0].t < t - 5) rec.frames.shift();
+  }
+  _startKillCam(t) {
+    const h = this.humans[0];
+    const k = this.fighters.find((g) => g.id === h.killerId && g !== h.f);
+    const rec = this.rec;
+    if (!k || !rec || !rec.frames.length) { this.kc = null; return; }
+    const from = Math.max(rec.frames[0].t, t - 2.3);
+    this.kc = { killer: k, start: t, from, until: t + (t - from) + 0.5, shot: rec.shots.findIndex((s) => s.t >= from) };
+    this.lastKillCam = { killer: k.name, frames: rec.frames.length, shots: rec.shots.filter((s) => s.t >= from).length };
+    if (this.kc.shot < 0) this.kc.shot = rec.shots.length;
+  }
   _killCam(t) {
     const h = this.humans[0];
     if (!h || this.humans.length > 1) return;
     const f = h.f;
-    if (this._meAlive && !f.alive) {
-      const k = this.fighters.find((g) => g.id === h.killerId && g !== f);
-      this.kc = k ? { killer: k, until: t + 3.2, at: [f.x, f.y + 1.0, f.z] } : null;
-    }
+    this._record(t);
+    if (this._meAlive && !f.alive) this._startKillCam(t);
     this._meAlive = f.alive;
     if (f.alive || (this.kc && t > this.kc.until)) this.kc = null;
     // outlines: everyone else by day; your killer always during the kill cam
     for (const g of this.fighters) g.outline.visible = g !== f && g.alive && (!this.night || (this.kc && this.kc.killer === g));
     if (!this.kc) return;
-    const k = this.kc.killer, cam = h.camera;
-    const ex = k.x, ey = k.y + k.eyeH, ez = k.z;
-    let dx = this.kc.at[0] - ex, dz = this.kc.at[2] - ez;
-    const L = Math.hypot(dx, dz) || 1; dx /= L; dz /= L;
-    cam.position.set(ex - dx * 2.4 - dz * 0.7, ey + 0.5, ez - dz * 2.4 + dx * 0.7);
-    cam.lookAt(this.kc.at[0], this.kc.at[1], this.kc.at[2]);
+    const kc = this.kc, rec = this.rec, rt = kc.from + (t - kc.start);
+    // the recorded frames around the replay time
+    const fr = rec.frames;
+    let j = 1;
+    while (j < fr.length - 1 && fr[j].t < rt) j++;
+    const A = fr[Math.max(0, j - 1)], B = fr[j];
+    const w = B.t === A.t ? 1 : Math.min(1, Math.max(0, (rt - A.t) / (B.t - A.t)));
+    let kill = null;
+    for (const g of this.fighters) {
+      const a = A.d.find((e) => e[0] === g.id), b = B.d.find((e) => e[0] === g.id) || a;
+      if (!a) { g.group.visible = false; continue; }
+      const L = (i) => a[i] + (b[i] - a[i]) * w;
+      const dy = ((b[4] - a[4] + 540) % 360) - 180, yaw = a[4] + dy * w, crouch = L(6), sy = 1 + (0.7 - 1) * crouch;
+      g.group.visible = !!(w < 0.5 ? a[7] : b[7]);
+      g.group.position.set(L(1), L(2), L(3));
+      g.group.rotation.y = Math.PI - yaw * DEG2RAD;
+      g.scaleG.scale.y = sy;
+      g.gunG.rotation.x = -Math.max(-30, Math.min(30, L(5))) * DEG2RAD * 0.5;
+      g.flash.visible = !!(w < 0.5 ? a[8] : b[8]);
+      g.barBg.visible = g.barFg.visible = false;
+      if (g === kc.killer) kill = { x: L(1), y: L(2), z: L(3), yaw, pitch: L(5), eye: 1.6 + (1.12 - 1.6) * crouch };
+    }
+    // shots fired in the replayed moment
+    while (kc.shot < rec.shots.length && rec.shots[kc.shot].t <= rt) {
+      const s = rec.shots[kc.shot++];
+      if (s.t < kc.from) continue;
+      this._addTracer(this._v.set(s.a[0], s.a[1], s.a[2]), s.b, t, s.team, true);
+    }
+    if (!kill) return;
+    // over the killer's shoulder, along their aim
+    const cam = h.camera, y = kill.yaw * DEG2RAD, p = kill.pitch * DEG2RAD;
+    const fx = Math.sin(y) * Math.cos(p), fy = Math.sin(p), fz = -Math.cos(y) * Math.cos(p);
+    const ex = kill.x, ey = kill.y + kill.eye, ez = kill.z;
+    cam.position.set(ex - fx * 1.6 + Math.cos(y) * 0.75, ey + 0.3 - fy * 1.6, ez - fz * 1.6 + Math.sin(y) * 0.75);
+    cam.lookAt(ex + fx * 12, ey + fy * 12, ez + fz * 12);
     if (cam.fov !== this.deps.settings.fov) { cam.fov = this.deps.settings.fov; cam.updateProjectionMatrix(); }
   }
   // The panel while you are down: who got you, a body showing where you were hit, damage.
@@ -866,7 +920,7 @@ export class Battle {
     const body = el('div', 'b-rep-body'); body.append(svg, stats);
     const back = Math.max(0, Math.ceil(h.f.respawnAt - this.t));
     const foot = el('div', 'b-rep-skip', 'Back in ' + back + (this.kc ? ' · Space: skip kill cam' : ''));
-    box.replaceChildren(...[this.kc ? el('div', 'b-rep-cam', 'KILL CAM') : null, title, body, foot].filter(Boolean));
+    box.replaceChildren(...[this.kc ? el('div', 'b-rep-cam', 'KILL CAM · REPLAY') : null, title, body, foot].filter(Boolean));
   }
 
   _hitMarker(h, kind, t) {

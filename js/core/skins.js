@@ -9,7 +9,7 @@
 //   p        [scale (whole number), warp, threshold shift, spare]
 //   rm       [roughness, metalness] of the base, then of the accent
 //   clearcoat, wear (bare metal at the edges), glow ([r, g, b] light from the accent lines)
-import { mulberry32 } from './prng.js?v=59437d7-mw5lgnt5';
+import { mulberry32 } from './prng.js?v=3265449-mw5lt53t';
 
 export const RARITIES = [
   { key: 'common', name: 'Common', color: '#b4bcc6', odds: 0.70, refund: 20 },

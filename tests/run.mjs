@@ -1003,8 +1003,9 @@ try {
       await B.evaluate(() => { const h = window.__range.battle().humans[0]; h.f.x = 16; h.f.z = 2; h.f.protectUntil = 0; });
       await run(0.3);
       await tap(A, 0);                          // the host shoots back
-      const r2 = await B.evaluate(() => { const Bt = window.__range.battle(); return { myDeaths: Bt.fighters.find((f) => f.id === Bt.net.myId).deaths }; });
+      const r2 = await B.evaluate(() => { const Bt = window.__range.battle(); return { myDeaths: Bt.fighters.find((f) => f.id === Bt.net.myId).deaths, kc: Bt.lastKillCam }; });
       check('the host kills the player; the player\'s PC shows its own death', r2.myDeaths >= 1, JSON.stringify(r2));
+      check('the player\'s PC replays the host shooting them (kill cam with recorded shots)', r2.kc && r2.kc.killer === 'Host' && r2.kc.frames > 20 && r2.kc.shots >= 1, JSON.stringify(r2.kc));
       await A.evaluate(() => window.__range.battleLeave());
       await run(0.3);
       const end = await B.evaluate(() => ({ active: window.__range.battle().active, status: document.getElementById('net-status').textContent }));

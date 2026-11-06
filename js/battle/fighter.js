@@ -2,9 +2,9 @@
 // test. The body is a soldier (soldier.js) in team colours carrying their real gun with its
 // skin; hits are decided on the same shapes the body is built around. Crouching squashes the
 // body to CROUCH_SCALE. y is the height of the feet (floors, stairs, box tops).
-import * as THREE from '../../vendor/three/three.module.min.js?v=59437d7-mw5lgnt5';
-import { soldierGeometry, raycastSoldier, GRIP_HAND } from './soldier.js?v=59437d7-mw5lgnt5';
-import { buildWorldGun } from '../scene/viewmodel.js?v=59437d7-mw5lgnt5';
+import * as THREE from '../../vendor/three/three.module.min.js?v=3265449-mw5lt53t';
+import { soldierGeometry, raycastSoldier, GRIP_HAND } from './soldier.js?v=3265449-mw5lt53t';
+import { buildWorldGun } from '../scene/viewmodel.js?v=3265449-mw5lt53t';
 
 export const STAND_EYE = 1.6, CROUCH_EYE = 1.12;
 export const CROUCH_SCALE = 0.7;
