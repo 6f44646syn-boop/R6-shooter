@@ -9,7 +9,7 @@
 //   p        [scale (whole number), warp, threshold shift, spare]
 //   rm       [roughness, metalness] of the base, then of the accent
 //   clearcoat, wear (bare metal at the edges), glow ([r, g, b] light from the accent lines)
-import { mulberry32 } from './prng.js?v=f8481f4-mw49i1xb';
+import { mulberry32 } from './prng.js?v=9022cff-mw4a0ars';
 
 export const RARITIES = [
   { key: 'common', name: 'Common', color: '#b4bcc6', odds: 0.70, refund: 20 },
@@ -96,6 +96,18 @@ export const CATALOGUE = Array.from({ length: SKIN_COUNT }, (_, i) => make(i));
     if (n > 1) s.name += ' ' + ['', '', 'II', 'III', 'IV', 'V', 'VI'][n];
   }
 }
+
+// Gun-exclusive skins (by loadout slot 0-9): every Black Ice belongs to one gun, every other
+// Epic to one gun, and every fifth Rare to a family (SMGs, or rifles and carbines).
+export const FAMILIES_BY_SLOT = { smg: [0, 3, 6, 8, 9], rifle: [1, 2, 4, 7] };
+const BLACK_ICE_GUN = [4, 1, 0, 7, 2, 8, 5, 6];        // Black Ice i -> one gun
+for (const s of CATALOGUE) {
+  if (s.rarity === 'blackice') s.guns = [BLACK_ICE_GUN[s.id - 192]];
+  else if (s.rarity === 'epic' && (s.id - 160) % 2 === 0) s.guns = [((s.id - 160) / 2 + 3) % 10];
+  else if (s.rarity === 'rare' && (s.id - 100) % 5 === 0) s.guns = ((s.id - 100) / 5) % 2 ? FAMILIES_BY_SLOT.rifle : FAMILIES_BY_SLOT.smg;
+}
+// Can skin id go on the gun in slot? (Factory skins and most others fit any gun.)
+export function skinFits(id, slot) { const s = skinById(id); return !!s && (!s.guns || s.guns.includes(slot)); }
 
 // Factory finishes (Ultra, nothing equipped): the original ten slot skins.
 const L = (r, g, b) => [r, g, b];

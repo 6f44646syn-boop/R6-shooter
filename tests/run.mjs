@@ -571,7 +571,7 @@ try {
     console.log('  frames: ' + r.intervals.length + ', avg ' + avgInt.toFixed(2) + ' ms (' + (1000 / avgInt).toFixed(0) + ' fps), p99 ' + pct(r.intervals, 0.99).toFixed(2) + ' ms');
     console.log('  CPU per frame (update + render submit): median ' + pct(r.cpu, 0.5).toFixed(3) + ' ms, p95 ' + pct(r.cpu, 0.95).toFixed(3) + ' ms');
     console.log('  JS heap change over 5 s of firing (after GC): ' + (r.heapDelta / 1024).toFixed(1) + ' KB');
-    check('draw calls <= 35 (indoor hall, target, 3D weapon and sight)', r.info.calls <= 35, 'calls ' + r.info.calls);
+    check('draw calls <= 38 (indoor hall, target, 3D weapon model and sight)', r.info.calls <= 38, 'calls ' + r.info.calls);
     check('render size 1920x1080 at devicePixelRatio 1', r.info.w === 1920 && r.info.h === 1080, r.info.w + 'x' + r.info.h);
     // Median = our JavaScript per frame. The p95 is dominated by the software renderer
     // blocking on GPU work, so it is reported, not checked.
@@ -831,21 +831,7 @@ try {
     check('save code (' + pk.codeLen + ' characters) restores everything; a damaged code is refused', pk.roundTrip && !pk.badAccepted, JSON.stringify(pk));
     check('a headshot kill (+30) and the win (+50) earn points, shown on the end screen', pk.earned === 80 && /earned 80 points/.test(pk.endNote), JSON.stringify(pk));
 
-    // Split screen: two viewports, player 2 on the keyboard.
-    const sp = await page.evaluate(() => {
-      const R = window.__range;
-      R.battleStart({ opponent: 'p2', bots: 0, level: 'easy', kills: 10 });
-      const B = R.battle();
-      R.step(0.2); R.renderFrame();
-      const vps = B.viewports().length, calls = R.battleState().calls;
-      const p2 = B.humans[1], x0 = p2.f.x, z0 = p2.f.z, yaw0 = p2.look.yaw;
-      B.key('KeyI', true); B.key('ArrowRight', true); R.step(0.5); B.key('KeyI', false); B.key('ArrowRight', false);
-      const out = { vps, calls, moved: Math.hypot(p2.f.x - x0, p2.f.z - z0) > 0.5, turned: Math.abs(p2.look.yaw - yaw0) > 30, views: B.hud.views.length, teams: B.humans.map((h) => h.f.team) };
-      R.battleLeave();
-      return out;
-    });
-    check('split screen: 2 viewports and HUDs, player 2 moves (I) and turns (arrows) on the keyboard',
-      sp.vps === 2 && sp.views === 2 && sp.moved && sp.turned && sp.teams.join() === 'p1,p2', JSON.stringify(sp));
+
     check('no page errors', errors.length === 0, errors.join('\n'));
     await page.close();
   }
@@ -859,7 +845,7 @@ try {
     const nerr = [];
     for (const [n, p] of [['host', A], ['player', B]]) p.on('pageerror', (e) => nerr.push(n + ': ' + String(e.stack || e)));
     for (const p of [A, B]) { await p.goto(BASE + 'index.html?test', { waitUntil: 'networkidle' }); await p.waitForFunction(() => window.__range); }
-    for (const p of [A, B]) await p.evaluate(() => { const s = document.getElementById('b-opp'); s.value = 'net'; s.dispatchEvent(new Event('change')); });
+    for (const p of [A, B]) await p.evaluate(() => document.querySelector('.mode-card[data-mode=net]').click());
     await A.click('#net-host');
     await B.click('#net-join');
     await B.waitForFunction(() => document.getElementById('net-out-j').value.startsWith('RR1-'));

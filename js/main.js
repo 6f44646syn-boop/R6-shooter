@@ -1,39 +1,40 @@
 // Recoil Range entry point: wires input, camera, scene, HUD and the frame loop together.
-import * as THREE from '../vendor/three/three.module.min.js?v=f8481f4-mw49i1xb';
-import { Look, PITCH_LIMIT } from './core/look.js?v=f8481f4-mw49i1xb';
-import { Player } from './core/player.js?v=f8481f4-mw49i1xb';
-import { PointerLock } from './core/pointer-lock.js?v=f8481f4-mw49i1xb';
-import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=f8481f4-mw49i1xb';
-import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=f8481f4-mw49i1xb';
-import { Weapon } from './core/weapon.js?v=f8481f4-mw49i1xb';
-import { RecoilEngine } from './core/recoil.js?v=f8481f4-mw49i1xb';
-import { Spread } from './core/spread.js?v=f8481f4-mw49i1xb';
-import { loadGameData } from './core/guns.js?v=f8481f4-mw49i1xb';
-import { randomSeed } from './core/prng.js?v=f8481f4-mw49i1xb';
-import { Range, EYE_HEIGHT } from './scene/range.js?v=f8481f4-mw49i1xb';
-import { RING_STEP } from './scene/range-tex.js?v=f8481f4-mw49i1xb';
-import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=f8481f4-mw49i1xb';
-import { LensPost } from './render/lens-post.js?v=f8481f4-mw49i1xb';
-import { reticleTextures } from './ui/reticle-tex.js?v=f8481f4-mw49i1xb';
-import { DOT_POINTS } from './scene/dots.js?v=f8481f4-mw49i1xb';
-import { Sfx } from './audio/sfx.js?v=f8481f4-mw49i1xb';
-import { DebugHud } from './ui/debug-hud.js?v=f8481f4-mw49i1xb';
-import { drawCrosshair } from './ui/crosshair.js?v=f8481f4-mw49i1xb';
-import { Hud } from './ui/hud.js?v=f8481f4-mw49i1xb';
-import { MagPlot } from './ui/plot.js?v=f8481f4-mw49i1xb';
-import { SettingsUI } from './ui/settings-ui.js?v=f8481f4-mw49i1xb';
-import { sensKeys, zoomKey } from './core/optics.js?v=f8481f4-mw49i1xb';
+import * as THREE from '../vendor/three/three.module.min.js?v=9022cff-mw4a0ars';
+import { Look, PITCH_LIMIT } from './core/look.js?v=9022cff-mw4a0ars';
+import { Player } from './core/player.js?v=9022cff-mw4a0ars';
+import { PointerLock } from './core/pointer-lock.js?v=9022cff-mw4a0ars';
+import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=9022cff-mw4a0ars';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=9022cff-mw4a0ars';
+import { Weapon } from './core/weapon.js?v=9022cff-mw4a0ars';
+import { RecoilEngine } from './core/recoil.js?v=9022cff-mw4a0ars';
+import { Spread } from './core/spread.js?v=9022cff-mw4a0ars';
+import { loadGameData } from './core/guns.js?v=9022cff-mw4a0ars';
+import { randomSeed } from './core/prng.js?v=9022cff-mw4a0ars';
+import { Range, EYE_HEIGHT } from './scene/range.js?v=9022cff-mw4a0ars';
+import { RING_STEP } from './scene/range-tex.js?v=9022cff-mw4a0ars';
+import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=9022cff-mw4a0ars';
+import { LensPost } from './render/lens-post.js?v=9022cff-mw4a0ars';
+import { reticleTextures } from './ui/reticle-tex.js?v=9022cff-mw4a0ars';
+import { DOT_POINTS } from './scene/dots.js?v=9022cff-mw4a0ars';
+import { Sfx } from './audio/sfx.js?v=9022cff-mw4a0ars';
+import { DebugHud } from './ui/debug-hud.js?v=9022cff-mw4a0ars';
+import { drawCrosshair } from './ui/crosshair.js?v=9022cff-mw4a0ars';
+import { Hud } from './ui/hud.js?v=9022cff-mw4a0ars';
+import { MagPlot } from './ui/plot.js?v=9022cff-mw4a0ars';
+import { SettingsUI } from './ui/settings-ui.js?v=9022cff-mw4a0ars';
+import { sensKeys, zoomKey } from './core/optics.js?v=9022cff-mw4a0ars';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
 function sensRows(catalogue, sens) {
   const keys = new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)]);
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
-import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=f8481f4-mw49i1xb';
-import { Battle } from './battle/battle.js?v=f8481f4-mw49i1xb';
-import { createJoinRequest, acceptJoin } from './net/link.js?v=f8481f4-mw49i1xb';
-import { Profile, WIN_POINTS } from './core/profile.js?v=f8481f4-mw49i1xb';
-import { PackUI } from './ui/packs.js?v=f8481f4-mw49i1xb';
+import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=9022cff-mw4a0ars';
+import { Battle } from './battle/battle.js?v=9022cff-mw4a0ars';
+import { createJoinRequest, acceptJoin } from './net/link.js?v=9022cff-mw4a0ars';
+import { Profile, WIN_POINTS } from './core/profile.js?v=9022cff-mw4a0ars';
+import { skinFits } from './core/skins.js?v=9022cff-mw4a0ars';
+import { PackUI } from './ui/packs.js?v=9022cff-mw4a0ars';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -74,9 +75,10 @@ function boot(data) {
   range.holes.setSize(settings.holeSizeCm / 100);
   renderer.info.autoReset = false; // several passes per frame; reset once per frame
   // Your skins and points (localStorage + save code). The gun model asks it which skin a slot wears.
+  const flow = { page: null, prev: 'mode', mode: 'range', inGame: false, armoryFrom: 'setup', setupFromPause: false };
   const profile = new Profile();
   var packsUi = null;      // the Skins & packs panel (created further down; var: readable before then)
-  setSkinResolver((slot) => profile.equippedFor(slot));
+  setSkinResolver((slot) => { const id = profile.equippedFor(slot); return id !== null && skinFits(id, slot) ? id : null; });
   const rig = new WeaponRig(renderer);
   // Graphics quality: high swaps the range to textured PBR with shadows and tone mapping, and
   // the gun to textured PBR lit by the same sky. Standard is the original fast look.
@@ -208,6 +210,7 @@ function boot(data) {
     mag.n = mag.shots = mag.hits = 0;
     renderLoadout();
     if (packsUi) packsUi.refresh();
+    if (typeof refreshArmory === 'function' && !$('armory').hidden) refreshArmory();
     setOptic(savedOptic(gun), false);
     if (settings.gunIndex !== index) { settings.gunIndex = index; saveSettings(settings); }
   }
@@ -230,6 +233,7 @@ function boot(data) {
     rig.setGun(gun, state.gunIndex, state.optic);
     hud.setGun(gun, state.gunIndex, state.optic.label, skinName(state.gunIndex));
     renderSightRow();
+    if (!$('armory').hidden) refreshArmory();
     updateFov();
     if (settingsUI) settingsUI.refreshDerived();
   }
@@ -354,15 +358,17 @@ function boot(data) {
   const notice = $('notice');
   const lock = new PointerLock(canvas, {
     onChange(locked) {
-      if (battle && battle.active) {
-        if (locked) { battle.resume(clockNow()); $('menu').hidden = true; }
-        else { battle.pause(); $('menu').hidden = battle.over; settingsUI.refresh(); }
-        if (locked) $('lock-hint').hidden = true;
+      if (locked) {
+        $('menu').hidden = true; closeArmory(); $('lock-hint').hidden = true;
+        $('start-btn').textContent = 'Resume';
+        if (battle && battle.active) battle.resume(clockNow());
         return;
       }
-      $('menu').hidden = locked;
-      if (locked) $('lock-hint').hidden = true;
-      else { weapon.releaseTrigger(); setAds(false); player.releaseKeys(); player.crouched = false; settingsUI.refresh(); }
+      // Mouse released (Esc): the pause menu (or the end screen of a battle).
+      if (battle && battle.active) battle.pause();
+      else { weapon.releaseTrigger(); setAds(false); player.releaseKeys(); player.crouched = false; }
+      settingsUI.refresh();
+      if ($('armory').hidden) { showPage(flow.inGame ? 'pause' : 'mode'); $('menu').hidden = !!(battle && battle.active && battle.over); }
     },
     onRetry() {
       // Usually Chrome refusing a re-lock straight after Esc. Stay quiet; the next click retries.
@@ -388,7 +394,8 @@ function boot(data) {
     }
   }
   $('start-btn').addEventListener('click', startLock);
-  canvas.addEventListener('click', () => { if (!lock.locked) startLock(); });
+  // Clicking the game resumes it (not on the mode / weapon screens).
+  canvas.addEventListener('click', () => { if (!lock.locked && flow.inGame && $('armory').hidden) startLock(); });
 
   /* ---------- mouse look: every event, straight to yaw/pitch ---------- */
   document.addEventListener('mousemove', (e) => {
@@ -455,6 +462,7 @@ function boot(data) {
     const c = e.code;
     if (c === 'F4') { e.preventDefault(); toggleGallery(); return; }
     if (c === 'Escape' && !$('gallery').hidden) { toggleGallery(false); return; }
+    if (c === 'Escape' && !$('armory').hidden) { $('arm-back').click(); return; }
     if (c === 'F3') {
       e.preventDefault();
       settings.debugHud = !settings.debugHud;
@@ -698,6 +706,7 @@ function boot(data) {
     gunIndex: () => state.gunIndex,
     onEquip(slot) {
       if (slot === state.gunIndex) { rig.setGun(state.gun, state.gunIndex, state.optic); hud.setGun(state.gun, state.gunIndex, state.optic.label, skinName(state.gunIndex)); }
+      if (!$('armory').hidden) refreshArmory();
     },
   });
 
@@ -709,19 +718,15 @@ function boot(data) {
   let battle = null;
   const bEl = (id) => $(id);
   {
-    const p2 = bEl('b-p2gun');
-    data.guns.forEach((g, i) => { const o = document.createElement('option'); o.value = String(i); o.textContent = (i + 1) % 10 + '  ' + g.name; p2.append(o); });
     const B = settings.battle;
-    bEl('b-opp').value = B.opponent; bEl('b-bots').value = String(B.bots); bEl('b-level').value = B.level;
-    bEl('b-kills').value = String(B.kills); p2.value = String(Math.min(B.p2Gun, data.guns.length - 1));
+    if (B.opponent === 'p2') B.opponent = 'bots';          // split screen was removed
+    bEl('b-bots').value = String(B.bots); bEl('b-level').value = B.level; bEl('b-kills').value = String(B.kills);
     const sync = () => {
-      Object.assign(settings.battle, { opponent: bEl('b-opp').value, bots: Number(bEl('b-bots').value), level: bEl('b-level').value, kills: Number(bEl('b-kills').value), p2Gun: Number(p2.value) });
-      bEl('b-p2gun-field').hidden = settings.battle.opponent !== 'p2';
-      bEl('net-panel').hidden = settings.battle.opponent !== 'net';
+      Object.assign(settings.battle, { bots: Number(bEl('b-bots').value), level: bEl('b-level').value, kills: Number(bEl('b-kills').value) });
       saveSettings(settings);
       if (netInit) netUi();
     };
-    for (const id of ['b-opp', 'b-bots', 'b-level', 'b-kills', 'b-p2gun']) bEl(id).addEventListener('change', sync);
+    for (const id of ['b-bots', 'b-level', 'b-kills']) bEl(id).addEventListener('change', sync);
     sync();
   }
   function battleDeps() {
@@ -757,19 +762,15 @@ function boot(data) {
       return;
     }
     $('hud').hidden = true;
-    $('start-btn').textContent = 'Resume battle';
-    $('battle-leave').hidden = false;
-    $('battle-btn').textContent = 'Restart battle';
+    flow.inGame = true;
+    $('pause-title').textContent = 'Battle paused';
     if (!testMode) startLock();
   }
   function leaveBattle() {
     if (!battle) return;
     battle.stop();
     $('hud').hidden = false;
-    $('start-btn').textContent = 'Click to start';
-    $('battle-leave').hidden = true;
-    $('battle-btn').textContent = 'Start battle';
-    $('menu').hidden = lock.locked;
+    $('pause-title').textContent = 'Paused';
     if (netInit) netUi();
     applyGraphics();
     rig.setGun(state.gun, state.gunIndex, state.optic);
@@ -879,12 +880,143 @@ function boot(data) {
     weapon.releaseTrigger(); setAds(false); player.releaseKeys();
     battle.startClient(m, net.link);
     $('hud').hidden = true;
-    $('start-btn').textContent = 'Join the battle';
-    $('battle-leave').hidden = false;
+    flow.inGame = true;
     netUi();
-    if (!lock.locked) { $('menu').hidden = false; flashNotice('The battle has started: click "Join the battle".', 6000); }
+    $('pause-title').textContent = 'The battle has started';
+    $('start-btn').disabled = false;
+    $('start-btn').textContent = 'Join the battle';
+    if (!lock.locked) { closeArmory(); showPage('pause'); $('menu').hidden = false; }
   }
-  $('battle-leave').addEventListener('click', leaveBattle);
+
+  /* ---------- menu flow: mode -> settings -> weapon -> deploy ---------- */
+  function showPage(name) {
+    if (flow.page !== name && ['mode', 'pause', 'setup'].includes(flow.page)) flow.prev = flow.page;
+    flow.page = name;
+    for (const p of document.querySelectorAll('#menu .page')) p.hidden = p.id !== 'page-' + name;
+    const step = name === 'mode' ? 1 : name === 'setup' && !flow.setupFromPause ? 2 : 0;
+    $('menu').querySelector('.steps').hidden = !step;
+    for (const sp of $('menu').querySelectorAll('.steps span')) sp.classList.toggle('on', Number(sp.dataset.step) === step);
+    const names = { range: 'Shooting range', bots: 'Battle vs bots', net: 'Network battle' };
+    $('menu-crumbs').textContent = name === 'mode' ? 'Choose a mode' : name === 'pause' ? names[flow.mode] + ' (paused)' :
+      name === 'setup' ? names[flow.mode] + ': settings' : name === 'packs' ? 'Skins & packs' : 'Controls';
+    $('mini-points').textContent = '(' + profile.points + ' points)';
+    if (name === 'setup') {
+      $('range-setup').hidden = flow.mode !== 'range';
+      $('battle-setup').hidden = flow.mode === 'range';
+      $('net-panel').hidden = flow.mode !== 'net';
+      $('setup-title').textContent = names[flow.mode];
+      $('setup-next').textContent = flow.setupFromPause ? 'Back to the game' : 'Next: choose your weapon';
+      $('all-settings').open = flow.mode === 'range' && !flow.setupFromPause ? $('all-settings').open : $('all-settings').open;
+      if (netInit) netUi();
+    }
+  }
+  function chooseMode(m) {
+    if (battle && battle.active) leaveBattle();
+    flow.mode = m; flow.inGame = false; flow.setupFromPause = false;
+    if (m !== 'range') settings.battle.opponent = m;
+    saveSettings(settings);
+    showPage('setup');
+  }
+  for (const b of document.querySelectorAll('.mode-card')) b.addEventListener('click', () => chooseMode(b.dataset.mode));
+  $('go-packs').addEventListener('click', () => showPage('packs'));
+  $('go-controls').addEventListener('click', () => showPage('controls'));
+  $('pause-packs').addEventListener('click', () => showPage('packs'));
+  for (const b of document.querySelectorAll('.back-btn')) b.addEventListener('click', () => showPage(b.dataset.back === 'prev' ? (flow.prev || 'mode') : b.dataset.back));
+  $('setup-back').addEventListener('click', () => showPage(flow.setupFromPause ? 'pause' : 'mode'));
+  $('setup-next').addEventListener('click', () => { if (flow.setupFromPause) { flow.setupFromPause = false; showPage('pause'); } else openArmory('setup'); });
+  $('pause-settings').addEventListener('click', () => { flow.setupFromPause = true; showPage('setup'); });
+  $('pause-loadout').addEventListener('click', () => openArmory('pause'));
+  $('pause-quit').addEventListener('click', () => { if (battle && battle.active) leaveBattle(); flow.inGame = false; showPage('mode'); });
+
+  // Weapon select: sights (left), the gun turning slowly in 3D (middle), skins (right).
+  const previewRig = new WeaponRig(renderer);
+  previewRig.noHands = true;
+  previewRig.applyLights();
+  previewRig.scene.background = new THREE.Color(0x232933);
+  // Studio lights for the preview (on top of the rig's own; the cheap matcap shading ignores them).
+  const pvKey = new THREE.DirectionalLight(0xffffff, 2.4); pvKey.position.set(0.6, 1.2, 1.6);
+  const pvRim = new THREE.DirectionalLight(0x9fc4ff, 1.4); pvRim.position.set(-1.2, 0.6, -1);
+  previewRig.scene.add(pvKey, pvRim);
+  const previewPivot = new THREE.Group();
+  previewRig.scene.add(previewPivot);
+  previewPivot.add(previewRig.root);
+  const previewCam = new THREE.PerspectiveCamera(28, 16 / 9, 0.05, 20);
+  previewCam.position.set(0, 0.04, 1.25);
+  function refreshArmory() {
+    const g = state.gun;
+    $('arm-name').textContent = g.name;
+    $('arm-info').textContent = g.rpm + ' rpm · ' + g.magSize + ' rounds · ' + state.optic.label + (skinName(state.gunIndex) ? ' · ' + skinName(state.gunIndex) : '');
+    previewRig.setGun(g, state.gunIndex, state.optic);
+    // Centre the model on the turning pivot (measured with the pivot unrotated) and frame it.
+    previewRig.root.position.set(0, 0, 0);
+    previewRig.root.quaternion.identity();
+    previewPivot.rotation.set(0, 0, 0);
+    previewPivot.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(previewRig.current);
+    const c = box.getCenter(new THREE.Vector3());
+    previewRig.root.position.copy(c).negate();
+    const size = box.getSize(new THREE.Vector3());
+    previewCam.position.set(0, 0.02, Math.max(0.7, Math.max(size.z, size.y * 2.2) * 2.5));
+    previewCam.lookAt(0, 0, 0);
+    packs.renderArmorySkins($('arm-skins'), state.gunIndex);
+    $('arm-skins-note').textContent = 'Skins you own that fit the ' + g.name + '. Get more from packs (Skins & packs).';
+    $('arm-deploy').textContent = flow.armoryFrom === 'pause' ? 'Back to the game' : flow.mode === 'range' ? 'Deploy to the range' : 'Deploy to battle';
+  }
+  function openArmory(from) {
+    flow.armoryFrom = from;
+    $('menu').hidden = true;
+    $('armory').hidden = false;
+    $('hud').hidden = true;
+    if (battle && battle.hud) battle.hud.root.hidden = true;
+    refreshArmory();
+  }
+  function closeArmory() {
+    if ($('armory').hidden) return;
+    $('armory').hidden = true;
+    const inBattle = !!(battle && battle.active);
+    $('hud').hidden = inBattle;
+    if (battle && battle.hud) battle.hud.root.hidden = !inBattle;
+  }
+  $('arm-prev').addEventListener('click', () => selectGun((state.gunIndex + data.guns.length - 1) % data.guns.length));
+  $('arm-next').addEventListener('click', () => selectGun((state.gunIndex + 1) % data.guns.length));
+  $('arm-back').addEventListener('click', () => { closeArmory(); $('menu').hidden = false; showPage(flow.armoryFrom === 'pause' ? 'pause' : 'setup'); });
+  $('arm-deploy').addEventListener('click', deploy);
+  function deploy() {
+    const fromPause = flow.armoryFrom === 'pause';
+    closeArmory();
+    if (fromPause) {
+      // Changed weapon mid-game: in battle you respawn with it right away.
+      if (battle && battle.active) battle.changeGun(state.gun);
+      startLock();
+      return;
+    }
+    if (flow.mode === 'range') {
+      flow.inGame = true;
+      $('pause-title').textContent = 'Paused';
+      startLock();
+    } else if (flow.mode === 'net' && net.role === 'client') {
+      flow.inGame = false;
+      showPage('pause'); $('menu').hidden = false;
+      $('pause-title').textContent = net.link ? 'Waiting for the host to start the battle...' : 'Connect to a host first (Settings).';
+      $('start-btn').disabled = true;
+      $('start-btn').textContent = 'Waiting for the host';
+      if (net.link) net.link.send({ k: 'hello', gun: state.gunIndex });
+    } else {
+      startBattle();
+      if (!(battle && battle.active)) { $('menu').hidden = false; showPage('setup'); }
+    }
+  }
+  function renderPreview(t) {
+    const r = renderer;
+    r.setRenderTarget(null); r.setScissorTest(false); r.setViewport(0, 0, renderW, renderH); r.autoClear = true;
+    const a = renderW / renderH;
+    if (previewCam.aspect !== a) { previewCam.aspect = a; previewCam.updateProjectionMatrix(); }
+    previewPivot.rotation.set(0.12, -Math.PI / 2 + Math.sin(t * 0.45) * 0.55, 0);   // right side towards you, turning slowly
+    previewRig.animateSkins(t, 1);
+    r.render(previewRig.scene, previewCam);
+    r.autoClear = false;
+  }
+  showPage('mode');
 
   /* ---------- frame loop ---------- */
   // In ?test mode the clock is driven by the test script (window.__range.step), so firing and
@@ -1044,6 +1176,7 @@ function boot(data) {
     }
   }
   function renderFrame() {
+    if (!$('armory').hidden) { renderPreview(clockNow()); return; }
     if (battle && battle.active) { battle.render(); return; }
     renderer.info.reset();
     if (state.adsP <= 0 || noLensDebug) { post.render(scene, camera, rig.scene, rig.camera, null); return; }

@@ -101,13 +101,23 @@ Google Sites shows embeds in a sandboxed iframe that blocks pointer lock and ful
 the page detects it is inside a frame, it replaces the start screen with an **Open in a full
 tab** button. Embed the GitHub Pages URL and players click through to a normal tab.
 
+## Menus
+
+Main menu: choose a mode (Shooting range, Battle vs bots, Network battle), then its settings
+(bots, level, kills to win, the network lobby; every other setting folds out below), then
+your weapon: sights on the left, the gun turning in 3D in the middle (‹ › or the slot strip
+switch guns), skins on the right. Deploy starts. Esc pauses: Resume, Change weapon,
+Settings, Skins & packs, Main menu. Every gun has its own model.
+
 ## Skins, packs and save codes
 
 Menu > Skins & packs. Battle kills earn points (20, +10 for a headshot kill; +50 for winning
 a battle; in split screen, player 1's kills count). A pack costs 100 points and spins a
 slot-machine reel that lands on one of 200 skins: Common 70%, Rare 22%, Epic 7%, Black Ice
 1%. A duplicate gives points back (20 / 40 / 80 / 200). Click a skin in your collection to
-put it on the gun selected in Loadout; it shows in every graphics mode.
+put it on the gun selected in Loadout; it shows in every graphics mode. Some skins are
+exclusive: each Black Ice and half the Epics fit one gun only, and some Rares one gun
+family (SMGs, or rifles and carbines).
 
 Skins are generated on the GPU from a pattern (15 styles: contour, pixel, woodland, tiger,
 veteran, hexcore, damascus, blot, weave, shard, black ice, fade, line, marble, circuit), four
@@ -119,8 +129,7 @@ checksummed, so a mistyped code is refused.
 
 ## Battle mode
 
-Menu > Battle. You against 1-6 bots (Easy, Medium or Hard), or two players on one PC in
-split screen (with or without bots as a third side). First side to the kill target (5, 10,
+Main menu > Battle vs bots: you against 1-6 bots (Easy, Medium or Hard). First side to the kill target (5, 10,
 20 or 30) wins; you respawn 3 s after dying, with 1.5 s of spawn protection, and health
 regenerates after 5 s without damage.
 
@@ -135,15 +144,11 @@ regenerates after 5 s without damage.
   retreats to cover when hurt. Hard: quick, accurate, aims for the head, strafes, crouch-peeks
   low cover. They roam the arena on A* paths. (Stationary at 12 m, a single bot kills you in
   about 3 s on Easy, 1.4 s on Medium and 0.5 s on Hard.)
-- Split screen: player 1 on mouse and keyboard (left half), player 2 on a gamepad (left stick
-  move, right stick look, RT fire, LT aim, X reload, B crouch, L3 sprint, LB/RB lean) or the
-  keyboard (I J K L move, arrow keys look, Enter fire, Right Shift aim, Backspace reload,
-  / crouch). In split screen player 1 sprints with Left Shift.
 - Esc pauses and opens the menu (Resume battle / Leave battle).
 
 ### Network battle (other PCs on the same network)
 
-Battle > Opponents > Network. No server and no outside service: the browsers connect directly
+Main menu > Network battle. No server and no outside service: the browsers connect directly
 (WebRTC), introduced by copy-paste codes.
 
 1. Host: press **Host a game**. Each other player: press **Join a game** and send the host

@@ -1,12 +1,12 @@
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=f8481f4-mw49i1xb';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=f8481f4-mw49i1xb';
-import { matcap } from './matcap.js?v=f8481f4-mw49i1xb';
-import { gunMaps } from './range-tex.js?v=f8481f4-mw49i1xb';
-import { skinById, FACTORY } from '../core/skins.js?v=f8481f4-mw49i1xb';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=f8481f4-mw49i1xb';
+import * as THREE from '../../vendor/three/three.module.min.js?v=9022cff-mw4a0ars';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=9022cff-mw4a0ars';
+import { matcap } from './matcap.js?v=9022cff-mw4a0ars';
+import { gunMaps } from './range-tex.js?v=9022cff-mw4a0ars';
+import { skinById, FACTORY } from '../core/skins.js?v=9022cff-mw4a0ars';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=9022cff-mw4a0ars';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -347,6 +347,126 @@ const smooth01 = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b -
 
 const TOP_Y = { rifle: 0.035, carbine: 0.034, smg: 0.0375, lmg: 0.075, marksman: 0.035 };
 
+/* ---------- a model per gun ---------- */
+// Each gun gets its own model (original low-poly shapes that suggest each gun's layout).
+// Guns without an entry use the model of their type.
+export const MODEL_FOR = {
+  'smg-01': 'evo', 'rifle-01': 'bullpup', 'rifle-02': 'carbine', 'mp-01': 'machinepistol', 'rifle-06': 'ak',
+  'lmg-01': 'lmg', 'smg-05': 'compact', 'rifle-05': 'sfw', 'smg-03': 'pdw', 'smg-04': 'smg',
+};
+Object.assign(BUILDERS, {
+  // angular compact SMG, skeleton side-folding stock, long top rail
+  evo(g, c, mg) {
+    box(g, c, 0.046, 0.064, 0.3, 0, 0, 0);
+    box(g, BLACK, 0.044, 0.03, 0.22, 0, -0.045, 0.01);
+    box(g, c, 0.044, 0.05, 0.12, 0, -0.002, -0.2, -0.08);
+    tube(g, BLACK, 0.009, 0.1, 0, 0.008, -0.31);
+    tube(g, BLACK, 0.012, 0.03, 0, 0.008, -0.37);
+    box(g, BLACK, 0.032, 0.1, 0.042, 0, -0.1, 0.07, 0.3);
+    box(g, BLACK, 0.034, 0.008, 0.09, 0, -0.072, 0);
+    box(mg, BLACK, 0.026, 0.14, 0.05, 0, -0.12, -0.05, -0.18);
+    box(mg, BLACK, 0.026, 0.05, 0.05, 0, -0.2, -0.07, -0.35);
+    box(g, STEEL, 0.01, 0.012, 0.2, 0, 0, 0.25);
+    box(g, STEEL, 0.01, 0.012, 0.2, 0, -0.05, 0.25);
+    box(g, BLACK, 0.03, 0.08, 0.02, 0, -0.025, 0.35);
+  },
+  // bullpup: magazine behind the grip, long body, carry rail
+  bullpup(g, c, mg) {
+    box(g, c, 0.05, 0.085, 0.58, 0, -0.01, 0.02);
+    box(g, c, 0.03, 0.03, 0.22, 0, 0.045, -0.05);
+    box(g, c, 0.048, 0.06, 0.14, 0, -0.005, -0.33);
+    tube(g, BLACK, 0.01, 0.12, 0, 0.01, -0.46);
+    tube(g, BLACK, 0.013, 0.04, 0, 0.01, -0.53);
+    box(g, BLACK, 0.034, 0.1, 0.045, 0, -0.1, -0.12, 0.25);
+    box(g, BLACK, 0.03, 0.008, 0.08, 0, -0.06, -0.15);
+    box(mg, BLACK, 0.03, 0.12, 0.055, 0, -0.1, 0.1, -0.1);
+    box(g, BLACK, 0.052, 0.09, 0.03, 0, -0.01, 0.32);
+  },
+  // machine pistol: tiny boxy receiver, magazine in the grip, folded wire stock
+  machinepistol(g, c, mg) {
+    box(g, c, 0.04, 0.07, 0.2, 0, 0, 0);
+    tube(g, BLACK, 0.011, 0.05, 0, 0.01, -0.125);
+    tube(g, BLACK, 0.013, 0.015, 0, 0.01, -0.15);
+    box(g, BLACK, 0.034, 0.1, 0.045, 0, -0.085, 0.03, 0.15);
+    box(mg, BLACK, 0.026, 0.08, 0.034, 0, -0.17, 0.055, 0.15);
+    box(g, BLACK, 0.03, 0.05, 0.03, 0, -0.06, -0.07);
+    for (const x of [-0.022, 0.022]) box(g, STEEL, 0.006, 0.006, 0.16, x, 0, 0.1);
+    box(g, STEEL, 0.045, 0.03, 0.006, 0, -0.02, 0.18);
+  },
+  // AK-style: gas tube over the barrel, curved magazine, slant brake, skeleton stock
+  ak(g, c, mg) {
+    box(g, c, 0.05, 0.07, 0.34, 0, 0, 0);
+    box(g, c, 0.048, 0.012, 0.3, 0, 0.038, 0.02);                // dust cover
+    tube(g, c, 0.012, 0.2, 0, 0.045, -0.27);                      // gas tube
+    box(g, c, 0.05, 0.05, 0.2, 0, 0, -0.26);
+    tube(g, BLACK, 0.011, 0.18, 0, 0.01, -0.46);
+    box(g, BLACK, 0.022, 0.022, 0.05, 0, 0.01, -0.57);
+    box(g, BLACK, 0.034, 0.1, 0.045, 0, -0.08, 0.07, 0.3);
+    box(mg, BLACK, 0.032, 0.09, 0.055, 0, -0.08, -0.06, -0.2);
+    box(mg, BLACK, 0.032, 0.085, 0.055, 0, -0.15, -0.088, -0.5);
+    box(mg, BLACK, 0.032, 0.06, 0.055, 0, -0.2, -0.122, -0.75);
+    box(g, BLACK, 0.012, 0.012, 0.22, 0, 0.01, 0.28);
+    box(g, BLACK, 0.012, 0.012, 0.22, 0, -0.04, 0.28);
+    box(g, c, 0.04, 0.08, 0.025, 0, -0.012, 0.39);
+    box(g, BLACK, 0.03, 0.02, 0.1, 0, 0.03, 0.3);
+  },
+  // compact SMG: no stock, vertical foregrip, cocking tube over the barrel, curved magazine
+  compact(g, c, mg) {
+    box(g, c, 0.044, 0.07, 0.26, 0, 0, 0);
+    tube(g, STEEL, 0.01, 0.12, 0, 0.025, -0.18);
+    tube(g, BLACK, 0.01, 0.07, 0, 0, -0.165);
+    tube(g, BLACK, 0.013, 0.02, 0, 0, -0.2);
+    box(g, BLACK, 0.03, 0.09, 0.035, 0, -0.07, -0.13);
+    box(g, BLACK, 0.032, 0.1, 0.045, 0, -0.085, 0.06, 0.25);
+    box(mg, BLACK, 0.026, 0.1, 0.04, 0, -0.09, -0.04, -0.25);
+    box(mg, BLACK, 0.026, 0.06, 0.04, 0, -0.16, -0.07, -0.45);
+    box(g, BLACK, 0.04, 0.05, 0.02, 0, 0, 0.14);
+  },
+  // special-forces carbine: long rail handguard, heavy barrel, fixed stock
+  sfw(g, c, mg) {
+    box(g, c, 0.05, 0.068, 0.3, 0, 0, 0);
+    box(g, BLACK, 0.044, 0.03, 0.16, 0, -0.045, 0.02);
+    box(g, c, 0.054, 0.056, 0.3, 0, 0.004, -0.3);
+    for (const x of [-0.029, 0.029]) box(g, BLACK, 0.006, 0.012, 0.28, x, 0.004, -0.3);
+    box(g, BLACK, 0.026, 0.006, 0.28, 0, -0.026, -0.3);
+    tube(g, BLACK, 0.014, 0.12, 0, 0.012, -0.51);
+    tube(g, BLACK, 0.016, 0.04, 0, 0.012, -0.59);
+    box(g, BLACK, 0.034, 0.1, 0.045, 0, -0.08, 0.05, 0.25);
+    box(mg, BLACK, 0.03, 0.13, 0.05, 0, -0.1, -0.06, -0.1);
+    box(g, c, 0.042, 0.07, 0.24, 0, -0.02, 0.27, 0.05);
+    box(g, BLACK, 0.044, 0.09, 0.02, 0, -0.025, 0.39);
+  },
+  // PDW: magazine in the grip, folding foregrip, telescoping stock
+  pdw(g, c, mg) {
+    box(g, c, 0.042, 0.07, 0.25, 0, 0, 0);
+    box(g, c, 0.036, 0.03, 0.12, 0, -0.04, -0.07);
+    tube(g, BLACK, 0.009, 0.06, 0, 0.008, -0.155);
+    tube(g, BLACK, 0.012, 0.025, 0, 0.008, -0.195);
+    box(g, BLACK, 0.034, 0.11, 0.045, 0, -0.09, 0.02, 0.12);
+    box(mg, BLACK, 0.028, 0.08, 0.036, 0, -0.18, 0.035, 0.12);
+    box(g, BLACK, 0.028, 0.06, 0.03, 0, -0.08, -0.09, 0.2);
+    for (const x of [-0.016, 0.016]) box(g, STEEL, 0.006, 0.006, 0.14, x, 0, 0.17);
+    box(g, BLACK, 0.044, 0.06, 0.015, 0, -0.01, 0.245);
+  },
+});
+Object.assign(TOP_Y, { evo: 0.032, bullpup: 0.06, machinepistol: 0.035, ak: 0.044, compact: 0.035, sfw: 0.034, pdw: 0.035 });
+Object.assign(RAILS, {
+  evo: [[0.032, 0.14, -0.24]], bullpup: [[0.06, 0.05, -0.15]], machinepistol: [[0.035, 0.08, -0.08]],
+  ak: [[0.044, 0.12, -0.12]], compact: [[0.035, 0.1, -0.1]], sfw: [[0.034, 0.1, -0.14], [0.032, -0.16, -0.44]], pdw: [[0.035, 0.11, -0.12]],
+});
+Object.assign(HAND_Z, { evo: -0.2, bullpup: -0.32, machinepistol: -0.07, ak: -0.26, compact: -0.13, sfw: -0.3, pdw: -0.09 });
+Object.assign(GRIP_Z, { evo: 0.07, bullpup: -0.12, machinepistol: 0.03, ak: 0.07, compact: 0.06, sfw: 0.05, pdw: 0.02 });
+Object.assign(SPEC, {
+  evo: { hw: 0.023, port: 0, muzzle: [0.008, -0.385], trig: 0, hg: [0, -0.15, -0.25] },
+  bullpup: { hw: 0.025, port: 0.12, muzzle: [0.01, -0.55], trig: -0.15, hg: [0, -0.28, -0.38] },
+  machinepistol: { hw: 0.02, port: 0, muzzle: [0.01, -0.158], trig: 0, hg: null },
+  ak: { hw: 0.025, port: 0, muzzle: [0.01, -0.595], trig: 0, hg: [0, -0.18, -0.35] },
+  compact: { hw: 0.022, port: 0.02, muzzle: [0, -0.21], trig: 0.02, hg: null },
+  sfw: { hw: 0.025, port: 0, muzzle: [0.012, -0.61], trig: 0, hg: [0.004, -0.17, -0.43] },
+  pdw: { hw: 0.021, port: 0, muzzle: [0.008, -0.208], trig: 0, hg: null },
+});
+
+
 
 const easeInOut = (x) => x * x * (3 - 2 * x);
 
@@ -518,6 +638,13 @@ export class WeaponRig {
     this.applyLights();
   }
 
+  // Skin animation amount (0..1) and clock for the current gun's skin materials.
+  animateSkins(t, amount) {
+    const u = this.current && this.current.userData;
+    if (!u || !u.skinMats) return;
+    for (const mat of u.skinMats) { const tu = mat.userData.tri; tu.triAnim.value = amount; tu.triTime.value = t; }
+  }
+
   // Light levels for the current shading (also used by a second rig, e.g. battle player 2).
   applyLights() {
     const high = sightShading() === 'high' || sightShading() === 'ultra';
@@ -530,9 +657,9 @@ export class WeaponRig {
 
   // gun: validated gun data; slot: its index (finish colour); optic: chosen sight.
   setGun(gun, slot, optic) {
-    const type = MODEL_TYPES.includes(gun.model) ? gun.model : 'rifle';
+    const type = MODEL_FOR[gun.id] || (MODEL_TYPES.includes(gun.model) ? gun.model : 'rifle');
     const sk = skinFor(slot);
-    const key = gun.id + '|' + optic.id + '|' + (sk ? sk.id : '-');   // a skin change builds a new model
+    const key = gun.id + '|' + optic.id + '|' + (sk ? sk.id : '-') + (this.noHands ? '|nh' : '');   // a skin change builds a new model
     let m = this.models.get(key);
     if (!m) {
       m = new THREE.Group();
@@ -546,7 +673,7 @@ export class WeaponRig {
       BUILDERS[type](gunG, finish, magG);
       for (const [y, from, to] of RAILS[type]) topRail(gunG, y, from, to);
       if (sightShading() === 'ultra') ultraDetails(gunG, type, finish, magG);
-      hands(gunG, type);
+      if (!this.noHands) hands(gunG, type);
       mergeStatic(gunG);
       mergeStatic(magG);
       gunG.add(magG);
@@ -644,12 +771,11 @@ export class WeaponRig {
     const k = e;
     const A = this._animate(Math.min(dt, 0.1), k);
     // Skin animations play only while inspecting (they ease in and out with the pose).
-    const u = this.current && this.current.userData;
-    if (u && u.skinMats && u.skinMats.length) {
+    {
       const target = this.inspectT >= 0 ? 1 : 0;
       this.skinAnim = (this.skinAnim || 0) + (target - (this.skinAnim || 0)) * Math.min(1, dt * 5);
       if (this.skinAnim < 0.002) this.skinAnim = 0;
-      for (const mat of u.skinMats) { const tu = mat.userData.tri; tu.triAnim.value = this.skinAnim; tu.triTime.value = t; }
+      this.animateSkins(t, this.skinAnim);
     }
     const arc = Math.sin(Math.PI * k);
     const br = (1 - 0.6 * k) * 0.0004;

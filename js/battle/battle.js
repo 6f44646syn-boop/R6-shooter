@@ -3,12 +3,12 @@
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=f8481f4-mw49i1xb';
-import { Arena } from './arena.js?v=f8481f4-mw49i1xb';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=f8481f4-mw49i1xb';
-import { Bot, LEVELS } from './bot.js?v=f8481f4-mw49i1xb';
-import { Human } from './human.js?v=f8481f4-mw49i1xb';
-import { drawCrosshair } from '../ui/crosshair.js?v=f8481f4-mw49i1xb';
+import * as THREE from '../../vendor/three/three.module.min.js?v=9022cff-mw4a0ars';
+import { Arena } from './arena.js?v=9022cff-mw4a0ars';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=9022cff-mw4a0ars';
+import { Bot, LEVELS } from './bot.js?v=9022cff-mw4a0ars';
+import { Human } from './human.js?v=9022cff-mw4a0ars';
+import { drawCrosshair } from '../ui/crosshair.js?v=9022cff-mw4a0ars';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -104,6 +104,16 @@ export class Battle {
     this._layoutHud();
     this._updateScore();
     this._renderFeed();
+  }
+
+  // You picked another gun from the pause menu: take it now (full magazine).
+  changeGun(gun) {
+    const h = this.humans[0];
+    if (!h) return;
+    h.setGun(gun);
+    if (this.net && this.net.role === 'client') this.net.link.send({ k: 'gun', i: this.deps.guns.indexOf(gun) });
+    const v = this.hud.views[0];
+    if (v) v.box.querySelector('.b-name').textContent = h.f.name + ' · ' + gun.name;
   }
 
   // Graphics quality, gun shading or reticle colour changed (from the menu, while paused).
@@ -325,6 +335,9 @@ export class Battle {
           this._damage(g, gunDamage(r.gun) * (ZONE_DAMAGE[m.hit.zone] || 1), f, m.hit.zone, t);
         }
       }
+    } else if (m.k === 'gun') {
+      const g = this.deps.guns[m.i | 0];
+      if (g) { r.gun = g; f.gun = g; }
     } else if (m.k === 'left') this.onLinkClosed(link);
   }
   // A player's connection dropped (host) or the host's did (client).

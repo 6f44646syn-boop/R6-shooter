@@ -1,8 +1,8 @@
 // Skins & packs: points, the pack opening (a slot-machine reel that slows down and lands on
 // your skin), your collection (click to put a skin on the selected gun), and the save code.
-import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById } from '../core/skins.js?v=f8481f4-mw49i1xb';
-import { Profile, PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=f8481f4-mw49i1xb';
-import { skinThumb } from '../render/gpu-tex.js?v=f8481f4-mw49i1xb';
+import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById, skinFits } from '../core/skins.js?v=9022cff-mw4a0ars';
+import { Profile, PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=9022cff-mw4a0ars';
+import { skinThumb } from '../render/gpu-tex.js?v=9022cff-mw4a0ars';
 
 function el(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);
@@ -98,14 +98,36 @@ export class PackUI {
     const ids = this.showAll ? CATALOGUE.map((s) => s.id).sort((a, b) => order[CATALOGUE[a].rarity] - order[CATALOGUE[b].rarity] || a - b) : p.ownedIds();
     for (const id of ids) {
       const s = CATALOGUE[id], rar = RARITY[s.rarity], have = p.has(id);
+      const fit = this.fits(id, slot), only = this.onlyFor(id);
       cards.push(el('button', {
-        type: 'button', class: 'pk-card r-' + s.rarity + (eq === id ? ' on' : '') + (have ? '' : ' locked'), title: s.name + ' (' + rar.name + ')' + (have ? '' : ': not unlocked yet'),
-        onclick: have ? () => { p.equip(slot, id); this.onEquip(slot); } : null,
+        type: 'button', class: 'pk-card r-' + s.rarity + (eq === id ? ' on' : '') + (have ? '' : ' locked') + (have && !fit ? ' nofit' : ''),
+        title: s.name + ' (' + rar.name + ')' + (only ? '. ' + only : '') + (have ? '' : ': not unlocked yet'),
+        onclick: have && fit ? () => { p.equip(slot, id); this.onEquip(slot); } : null,
       }, el('img', { class: 'pk-thumb', src: this.thumb(id), alt: '', loading: 'lazy' }), el('span', { class: 'pk-name', text: s.name }),
-      el('span', { class: 'pk-rar', text: have ? rar.name : rar.name + ' · Locked' })));
+      el('span', { class: 'pk-rar', text: have ? rar.name : rar.name + ' · Locked' }),
+      only ? el('span', { class: 'pk-only', text: only }) : null));
     }
     this.grid.replaceChildren(...cards);
   }
+
+  // Weapon select screen: the skins you own for this gun (plus the factory finish).
+  renderArmorySkins(container, slot) {
+    const p = this.profile, eq = p.equippedFor(slot);
+    const pick = (id) => { p.equip(slot, id); this.onEquip(slot); };
+    const cards = [el('button', { type: 'button', class: 'pk-card factory' + (eq === null ? ' on' : ''), onclick: () => pick(null) },
+      el('span', { class: 'pk-thumb plain' }), el('span', { class: 'pk-name', text: 'Factory finish' }))];
+    const order = { blackice: 0, epic: 1, rare: 2, common: 3 };
+    for (const id of p.ownedIds().filter((i) => this.fits(i, slot)).sort((a, b) => order[CATALOGUE[a].rarity] - order[CATALOGUE[b].rarity] || a - b)) {
+      const s = CATALOGUE[id];
+      cards.push(el('button', { type: 'button', class: 'pk-card r-' + s.rarity + (eq === id ? ' on' : ''), title: s.name, onclick: () => pick(id) },
+        el('img', { class: 'pk-thumb', src: this.thumb(id), alt: '' }), el('span', { class: 'pk-name', text: s.name }),
+        el('span', { class: 'pk-rar', text: RARITY[s.rarity].name })));
+    }
+    container.replaceChildren(...cards);
+  }
+  // Can skin id go on the gun in this slot? (Some skins are made for certain guns only.)
+  fits(id, slot) { return skinFits(id, slot); }
+  onlyFor(id) { const s = CATALOGUE[id]; return s.guns ? 'Only for ' + s.guns.map((i) => this.guns[i] ? this.guns[i].name : '?').join(', ') : ''; }
 
   async copyCode() {
     try { await navigator.clipboard.writeText(this.codeOut.value); this.codeMsg.textContent = 'Save code copied.'; }
@@ -172,9 +194,12 @@ export class PackUI {
       el('div', { class: 'pk-info' },
         el('div', { class: 'pk-rarity', text: rar.name }),
         el('div', { class: 'pk-title', text: skin.name }),
+        this.onlyFor(skin.id) ? el('div', { class: 'pk-only', text: 'Exclusive: ' + this.onlyFor(skin.id).replace('Only for ', '') }) : null,
         el('p', { class: 'small', text: duplicate ? 'Duplicate: +' + refund + ' points back.' : 'New skin! (' + this.profile.ownedCount + ' / ' + SKIN_COUNT + ' collected)' }),
         el('div', { class: 'row' },
-          el('button', { type: 'button', class: 'primary', text: 'Put on ' + gun.name, onclick: () => { this.profile.equip(slot, skin.id); this.onEquip(slot); this.close(); } }),
+          this.fits(skin.id, slot)
+            ? el('button', { type: 'button', class: 'primary', text: 'Put on ' + gun.name, onclick: () => { this.profile.equip(slot, skin.id); this.onEquip(slot); this.close(); } })
+            : el('span', { class: 'pk-only', text: this.onlyFor(skin.id) }),
           el('button', { type: 'button', text: 'Open another (' + PACK_COST + ')', disabled: this.profile.canOpen ? null : '', onclick: () => { this.close(); this.open(); } }),
           el('button', { type: 'button', text: 'Close', onclick: () => this.close() }))));
     if (!this.profile.canOpen) this.reveal.querySelectorAll('button')[1].disabled = true;

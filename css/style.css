@@ -211,3 +211,52 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 .b-points.on { opacity: 1; transition: none; }
 .pk-card.locked { opacity: 0.45; cursor: default; } .pk-card.locked img { filter: saturate(0.6); }
 .pk-all { font-size: 12px; padding: 4px 10px; }
+
+/* ---------- menu flow: mode -> settings -> weapon ---------- */
+.steps { display: flex; gap: 6px; font-size: 12px; }
+.steps span { padding: 3px 8px; border-radius: 10px; border: 1px solid var(--panel-edge); color: var(--muted); }
+.steps span.on { border-color: var(--accent); color: var(--accent); }
+.steps[hidden] { display: none; }
+.page { display: grid; gap: 14px; }
+.modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.mode-card { display: grid; gap: 8px; align-content: start; text-align: left; min-height: 150px; padding: 16px; border-radius: 8px;
+  border: 1px solid var(--panel-edge); background: linear-gradient(160deg, #1c222b, #12161b); }
+.mode-card b { font-size: 18px; color: var(--fg); }
+.mode-card span { color: var(--muted); font-size: 13px; }
+.mode-card:hover, .mode-card:focus-visible { border-color: var(--accent); background: linear-gradient(160deg, #262e39, #151a20); }
+.pause-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.pause-grid button { padding: 12px; }
+.nav { justify-content: space-between; }
+.all-settings { border: 1px solid var(--panel-edge); border-radius: 6px; padding: 8px 12px; }
+.all-settings summary { cursor: pointer; color: var(--fg); font-weight: 600; }
+.all-settings[open] summary { margin-bottom: 12px; }
+
+#armory { position: absolute; inset: 0; display: grid; grid-template-columns: minmax(200px, 280px) 1fr minmax(220px, 300px); pointer-events: none; z-index: 4; }
+#armory[hidden] { display: none; }
+.arm-col { pointer-events: auto; background: rgba(10, 12, 15, 0.86); border-color: var(--panel-edge); padding: 16px; overflow-y: auto; display: grid; align-content: start; gap: 10px; }
+.arm-left { border-right: 1px solid var(--panel-edge); } .arm-right { border-left: 1px solid var(--panel-edge); }
+.arm-col h2 { font-size: 15px; letter-spacing: 0.12em; }
+.arm-left .sight-list { flex-direction: column; } .arm-left .sight canvas { width: 100%; height: auto; }
+.arm-left .sight { width: 100%; }
+.arm-mid { display: grid; grid-template-rows: auto 1fr auto; min-width: 0; }
+.arm-gun { pointer-events: auto; display: flex; align-items: center; justify-content: center; gap: 16px; padding: 18px 12px 0; }
+.arm-gun button { font-size: 30px; line-height: 1; width: 48px; height: 48px; border-radius: 50%; padding: 0; }
+.arm-title { text-align: center; min-width: 200px; }
+.arm-title h1 { font-size: 34px; letter-spacing: 0.04em; text-shadow: 0 2px 8px #000; }
+.arm-title p { margin: 2px 0 0; }
+.arm-bottom { pointer-events: auto; display: grid; gap: 10px; padding: 12px 16px 16px; background: linear-gradient(transparent, rgba(8, 10, 13, 0.85) 30%); }
+.arm-slots { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+.arm-actions { justify-content: center; }
+.arm-actions .primary { min-width: 200px; font-size: 16px; }
+.arm-skins { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.arm-skins .pk-thumb { width: 100%; height: auto; aspect-ratio: 1; }
+@media (max-width: 760px) { #armory { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; } .arm-col { max-height: 30vh; } }
+.pk-only { font-size: 10px; color: var(--accent); line-height: 1.2; }
+.pk-card.nofit { opacity: 0.6; cursor: default; }
+.arm-mid { grid-template-rows: auto 1fr; }
+.arm-bottom { align-self: end; }
+.arm-slots { grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 6px; }
+.arm-slots .slot { padding: 6px 6px; gap: 0; }
+.arm-slots .slot-meta, .arm-slots .slot-ph { display: none; }
+.arm-slots .slot-name { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 1100px) { .arm-slots { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
