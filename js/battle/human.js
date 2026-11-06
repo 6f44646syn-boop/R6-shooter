@@ -8,15 +8,16 @@
 //                       B crouch, L3 sprint, LB/RB lean.
 //   keys  (player 2, no gamepad): I J K L move, arrow keys look, Enter fire,
 //                       Right Shift aim, Backspace reload, / crouch.
-import * as THREE from '../../vendor/three/three.module.min.js?v=f81d91e-mw489ovb';
-import { Look, PITCH_LIMIT } from '../core/look.js?v=f81d91e-mw489ovb';
-import { Weapon } from '../core/weapon.js?v=f81d91e-mw489ovb';
-import { RecoilEngine } from '../core/recoil.js?v=f81d91e-mw489ovb';
-import { focalRatio } from '../core/sensitivity.js?v=f81d91e-mw489ovb';
-import { WeaponRig } from '../scene/viewmodel.js?v=f81d91e-mw489ovb';
-import { EYE_Z, VIEW_H } from '../scene/sight-model.js?v=f81d91e-mw489ovb';
-import { reticleTextures } from '../ui/reticle-tex.js?v=f81d91e-mw489ovb';
-import { RETICLE_COLORS } from '../ui/scope.js?v=f81d91e-mw489ovb';
+import * as THREE from '../../vendor/three/three.module.min.js?v=f8481f4-mw49i1xb';
+import { Look, PITCH_LIMIT } from '../core/look.js?v=f8481f4-mw49i1xb';
+import { Weapon } from '../core/weapon.js?v=f8481f4-mw49i1xb';
+import { RecoilEngine } from '../core/recoil.js?v=f8481f4-mw49i1xb';
+import { Spread } from '../core/spread.js?v=f8481f4-mw49i1xb';
+import { focalRatio } from '../core/sensitivity.js?v=f8481f4-mw49i1xb';
+import { WeaponRig } from '../scene/viewmodel.js?v=f8481f4-mw49i1xb';
+import { EYE_Z, VIEW_H } from '../scene/sight-model.js?v=f8481f4-mw49i1xb';
+import { reticleTextures } from '../ui/reticle-tex.js?v=f8481f4-mw49i1xb';
+import { RETICLE_COLORS } from '../ui/scope.js?v=f8481f4-mw49i1xb';
 
 const DEG = Math.PI / 180;
 const WALK = 3.4, SPRINT = 5.6, CROUCH_WALK = 1.6, ADS_WALK = 2.2;
@@ -35,6 +36,8 @@ export class Human {
     this.look = new Look();
     this.weapon = new Weapon();
     this.recoil = new RecoilEngine();
+    this.spread = new Spread();
+    this._spr = [0, 0];
     this.camera = new THREE.PerspectiveCamera(deps.settings.fov, 1, 0.05, 200);
     this.camera.rotation.order = 'YXZ';
     this.rig = new WeaponRig(deps.renderer);
@@ -60,6 +63,7 @@ export class Human {
     this.recoil.setGun(gun);
     this.recoil.setScale(gun.opticRecoilScale[this.optic.id] || 1);
     this.recoil.aimScale = this.deps.settings.aimRecoil;
+    this.recoil.hipScale = this.deps.settings.hipRecoil;
     this.recoil.aimSmooth = this.deps.settings.aimSmooth;
     this.recoil.newMagazine((Math.random() * 4294967296) >>> 0);
     this.rig.setGun(gun, this.slotOf(gun), this.optic);
@@ -142,6 +146,8 @@ export class Human {
       this.in.leanL = b(4); this.in.leanR = b(5);
       if (b(2) && !this._reloadWas) this.reload();
       this._reloadWas = b(2);
+      if (b(3) && !this._inspectWas && !this.ads) this.rig.inspect();   // Y: inspect
+      this._inspectWas = b(3);
       lx = Math.sign(lx) * lx * lx; ly = Math.sign(ly) * ly * ly;      // finer aim near centre
       const rate = PAD_LOOK * focalRatio(this.fovV, this.deps.settings.fov, 0) * dt;
       this._turn(lx * rate, ly * rate);
@@ -196,6 +202,7 @@ export class Human {
     const ev = this.weapon.update(t, (shotT) => battle.fire(this, shotT));
     if (ev === 'reloaded' || (this.weapon.ammo === 0 && ammoBefore > 0)) this.recoil.newMagazine((Math.random() * 4294967296) >>> 0);
     if (ev === 'reloaded') this.deps.sfx.reload();
+    if (s.autoReload && f.alive && this.weapon.ammo === 0 && !this.weapon.reloading && this.weapon.startReload(t)) this.deps.sfx.reload();
 
     // Recoil view offset; leftover recoil folds into the aim after the spray (no recovery).
     this.recoil.offsetAt(t, this.offset);
@@ -266,8 +273,11 @@ export class Human {
   shotDirection(t, out) {
     this.recoil.aimed = this.ads;
     this.recoil.fire(t, this.bulletOff);
-    const yaw = (this.look.yaw + this.bulletOff[0]) * DEG;
-    const pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, this.look.pitch + this.bulletOff[1])) * DEG;
+    const sp = this._spr;
+    if (this.deps.settings.hipSpread && !this.ads) this.spread.shot(t, this.gun, Math.hypot(this.f.vx, this.f.vz) > 0.5, this.f.crouch > 0.5, this.adsE, Math.random, sp);
+    else sp[0] = sp[1] = 0;
+    const yaw = (this.look.yaw + this.bulletOff[0] + sp[0]) * DEG;
+    const pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, this.look.pitch + this.bulletOff[1] + sp[1])) * DEG;
     const cp = Math.cos(pitch);
     out[0] = Math.sin(yaw) * cp; out[1] = Math.sin(pitch); out[2] = -Math.cos(yaw) * cp;
     this.rig.kick();

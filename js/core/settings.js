@@ -2,7 +2,7 @@
 // Storage can be missing or throw (private window, blocked site data), so every access is
 // wrapped and the app always works with the defaults.
 
-import { sensToCm360, cm360ToSens } from './sensitivity.js?v=f81d91e-mw489ovb';
+import { sensToCm360, cm360ToSens } from './sensitivity.js?v=f8481f4-mw49i1xb';
 
 const KEY = 'recoilRange.settings.v1';
 
@@ -18,11 +18,14 @@ export const DEFAULTS = Object.freeze({
   // Per-magnification ADS multiplier overrides, keyed like "2.5x". Anything missing comes from
   // data/sens.json (or a placeholder of the 1.0x value / zoom), so editing that file changes the defaults.
   opticOverrides: {},
-  reticleColor: 'red',   // ADS sight reticle: red, green, cyan, white, yellow
+  reticleColor: 'red',   // ADS sight reticle: red, green, cyan, magenta, white, yellow
   crosshair: { style: 'cross', size: 10, gap: 4, thickness: 2, color: '#3dff9a', outline: true },
   volume: 0.35,
   holeSizeCm: 3,
   aimRecoil: 1,          // Aimed recoil strength (1 = as measured)
+  hipRecoil: 1.8,        // hip-fire recoil strength (x the measured spray)
+  hipSpread: true,       // hip fire: random spread cone that blooms while firing
+  autoReload: true,      // reload by itself when the magazine runs dry
   aimSmooth: false,      // optional smoothing of measured sprays while aiming (off: the sprays were measured aimed)
   reloadSpeed: 2,        // x faster than each gun's measured reloadSeconds (1 = as measured)
   renderScale: 0,        // 0 = auto (screen's pixel ratio, up to 2x); else 0.5 to 2 (above 1 = supersampling)
@@ -44,7 +47,7 @@ export const DEFAULTS = Object.freeze({
   distance: 10,
 });
 
-export const RETICLE_COLOR_NAMES = ['red', 'green', 'cyan', 'white', 'yellow'];
+export const RETICLE_COLOR_NAMES = ['red', 'green', 'cyan', 'magenta', 'white', 'yellow'];
 export const DISTANCES = [5, 10, 15, 20];
 export const CROSSHAIR_STYLES = ['cross', 'dot', 'cross-dot', 'circle', 't'];
 
@@ -60,6 +63,7 @@ const NUM = {
   holeSizeCm: [0.5, 10],
   reloadSpeed: [1, 5],
   aimRecoil: [0.25, 1.5],
+  hipRecoil: [1, 3],
   renderScale: [0, 2],
   dotSpeed: [0.25, 6],
   dotSizeCm: [5, 50],
@@ -105,6 +109,8 @@ export function sanitize(input) {
   out.lensQuality = ['auto', '3', '2', '1', '0'].includes(String(s.lensQuality)) ? String(s.lensQuality) : DEFAULTS.lensQuality;
   out.adsSens = s.adsSens === 'game' ? 'game' : 'focal';
   out.aimSmooth = typeof s.aimSmooth === 'boolean' ? s.aimSmooth : DEFAULTS.aimSmooth;
+  out.hipSpread = typeof s.hipSpread === 'boolean' ? s.hipSpread : DEFAULTS.hipSpread;
+  out.autoReload = typeof s.autoReload === 'boolean' ? s.autoReload : DEFAULTS.autoReload;
   out.antialias = typeof s.antialias === 'boolean' ? s.antialias : DEFAULTS.antialias;
   if (out.renderScale > 0 && out.renderScale < 0.5) out.renderScale = 0.5;
   out.showViewmodel = typeof s.showViewmodel === 'boolean' ? s.showViewmodel : DEFAULTS.showViewmodel;

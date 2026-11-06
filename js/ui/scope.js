@@ -15,7 +15,7 @@
 //   sight, colour or window size changes.
 
 export const RETICLE_COLORS = {
-  red: '#ff3b30', green: '#4dff5e', cyan: '#3fe6ff', white: '#f4f4f4', yellow: '#ffd93a',
+  red: '#ff3b30', green: '#4dff5e', cyan: '#3fe6ff', magenta: '#ff3df2', white: '#f4f4f4', yellow: '#ffd93a',
 };
 const ETCH = '#0d0f12';          // etched (black) reticle lines and iron sight posts
 

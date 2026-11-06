@@ -1,38 +1,39 @@
 // Recoil Range entry point: wires input, camera, scene, HUD and the frame loop together.
-import * as THREE from '../vendor/three/three.module.min.js?v=f81d91e-mw489ovb';
-import { Look, PITCH_LIMIT } from './core/look.js?v=f81d91e-mw489ovb';
-import { Player } from './core/player.js?v=f81d91e-mw489ovb';
-import { PointerLock } from './core/pointer-lock.js?v=f81d91e-mw489ovb';
-import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=f81d91e-mw489ovb';
-import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=f81d91e-mw489ovb';
-import { Weapon } from './core/weapon.js?v=f81d91e-mw489ovb';
-import { RecoilEngine } from './core/recoil.js?v=f81d91e-mw489ovb';
-import { loadGameData } from './core/guns.js?v=f81d91e-mw489ovb';
-import { randomSeed } from './core/prng.js?v=f81d91e-mw489ovb';
-import { Range, EYE_HEIGHT } from './scene/range.js?v=f81d91e-mw489ovb';
-import { RING_STEP } from './scene/range-tex.js?v=f81d91e-mw489ovb';
-import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=f81d91e-mw489ovb';
-import { LensPost } from './render/lens-post.js?v=f81d91e-mw489ovb';
-import { reticleTextures } from './ui/reticle-tex.js?v=f81d91e-mw489ovb';
-import { DOT_POINTS } from './scene/dots.js?v=f81d91e-mw489ovb';
-import { Sfx } from './audio/sfx.js?v=f81d91e-mw489ovb';
-import { DebugHud } from './ui/debug-hud.js?v=f81d91e-mw489ovb';
-import { drawCrosshair } from './ui/crosshair.js?v=f81d91e-mw489ovb';
-import { Hud } from './ui/hud.js?v=f81d91e-mw489ovb';
-import { MagPlot } from './ui/plot.js?v=f81d91e-mw489ovb';
-import { SettingsUI } from './ui/settings-ui.js?v=f81d91e-mw489ovb';
-import { sensKeys, zoomKey } from './core/optics.js?v=f81d91e-mw489ovb';
+import * as THREE from '../vendor/three/three.module.min.js?v=f8481f4-mw49i1xb';
+import { Look, PITCH_LIMIT } from './core/look.js?v=f8481f4-mw49i1xb';
+import { Player } from './core/player.js?v=f8481f4-mw49i1xb';
+import { PointerLock } from './core/pointer-lock.js?v=f8481f4-mw49i1xb';
+import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=f8481f4-mw49i1xb';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=f8481f4-mw49i1xb';
+import { Weapon } from './core/weapon.js?v=f8481f4-mw49i1xb';
+import { RecoilEngine } from './core/recoil.js?v=f8481f4-mw49i1xb';
+import { Spread } from './core/spread.js?v=f8481f4-mw49i1xb';
+import { loadGameData } from './core/guns.js?v=f8481f4-mw49i1xb';
+import { randomSeed } from './core/prng.js?v=f8481f4-mw49i1xb';
+import { Range, EYE_HEIGHT } from './scene/range.js?v=f8481f4-mw49i1xb';
+import { RING_STEP } from './scene/range-tex.js?v=f8481f4-mw49i1xb';
+import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=f8481f4-mw49i1xb';
+import { LensPost } from './render/lens-post.js?v=f8481f4-mw49i1xb';
+import { reticleTextures } from './ui/reticle-tex.js?v=f8481f4-mw49i1xb';
+import { DOT_POINTS } from './scene/dots.js?v=f8481f4-mw49i1xb';
+import { Sfx } from './audio/sfx.js?v=f8481f4-mw49i1xb';
+import { DebugHud } from './ui/debug-hud.js?v=f8481f4-mw49i1xb';
+import { drawCrosshair } from './ui/crosshair.js?v=f8481f4-mw49i1xb';
+import { Hud } from './ui/hud.js?v=f8481f4-mw49i1xb';
+import { MagPlot } from './ui/plot.js?v=f8481f4-mw49i1xb';
+import { SettingsUI } from './ui/settings-ui.js?v=f8481f4-mw49i1xb';
+import { sensKeys, zoomKey } from './core/optics.js?v=f8481f4-mw49i1xb';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
 function sensRows(catalogue, sens) {
   const keys = new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)]);
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
-import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=f81d91e-mw489ovb';
-import { Battle } from './battle/battle.js?v=f81d91e-mw489ovb';
-import { createJoinRequest, acceptJoin } from './net/link.js?v=f81d91e-mw489ovb';
-import { Profile, WIN_POINTS } from './core/profile.js?v=f81d91e-mw489ovb';
-import { PackUI } from './ui/packs.js?v=f81d91e-mw489ovb';
+import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=f8481f4-mw49i1xb';
+import { Battle } from './battle/battle.js?v=f8481f4-mw49i1xb';
+import { createJoinRequest, acceptJoin } from './net/link.js?v=f8481f4-mw49i1xb';
+import { Profile, WIN_POINTS } from './core/profile.js?v=f8481f4-mw49i1xb';
+import { PackUI } from './ui/packs.js?v=f8481f4-mw49i1xb';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -102,6 +103,12 @@ function boot(data) {
   weapon.reloadSpeed = settings.reloadSpeed;
   const recoil = new RecoilEngine();
   recoil.aimScale = settings.aimRecoil;
+  // Tests check the measured spray and exact hit spots: they start with hip spread off and
+  // hip recoil at 1x (setHip turns them back on for the hip-fire tests).
+  if (new URLSearchParams(location.search).has('test')) { settings.hipSpread = false; settings.hipRecoil = 1; settings.autoReload = false; }
+  recoil.hipScale = settings.hipRecoil;
+  const spread = new Spread();
+  const spreadOff = [0, 0];
   recoil.aimSmooth = settings.aimSmooth;
   const params = new URLSearchParams(location.search);
   const testMode = params.has('test');
@@ -566,8 +573,11 @@ function boot(data) {
     // The bullet leaves through the crosshair: aim + the recoil offset at the shot time.
     recoil.aimed = state.ads;
     recoil.fire(t, bulletOff);
-    const yaw = look.yaw + bulletOff[0];
-    const pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, look.pitch + bulletOff[1]));
+    // Hip fire: plus a random spread (fades out as you aim; aimed fire is exactly the spray).
+    if (settings.hipSpread && !state.ads) spread.shot(t, state.gun, player.speed > 0.5, player.crouched, state.adsE, Math.random, spreadOff);
+    else spreadOff[0] = spreadOff[1] = 0;
+    const yaw = look.yaw + bulletOff[0] + spreadOff[0];
+    const pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, look.pitch + bulletOff[1] + spreadOff[1]));
     state.shots++;
     mag.shots++;
     const kind = range.raycast(yaw, pitch, hit, player.ex, player.ey, player.ez);
@@ -664,14 +674,14 @@ function boot(data) {
       const all = key === 'all';
       if (all || key === 'scale') resize();
       if (all || key === 'fov') updateFov();
-      if (all || key === 'crosshair') drawCrosshair($('crosshair'), settings.crosshair);
+      if (all || key === 'crosshair') { drawCrosshair($('crosshair'), settings.crosshair); xhGap = -1; }
       if (all || key === 'holes') range.holes.setSize(settings.holeSizeCm / 100);
       if (all || key === 'reload') weapon.reloadSpeed = settings.reloadSpeed;
       if (all || key === 'shading' || key === 'graphics') { applyGraphics(); rig.setGun(state.gun, state.gunIndex, state.optic); hud.setGun(state.gun, state.gunIndex, state.optic.label, skinName(state.gunIndex)); resize(); }
       // Battle in progress: after the range (which sets the shared gun shading), rebuild its view.
       if (battle && battle.active && (all || key === 'shading' || key === 'graphics' || key === 'reticle')) battle.refreshGraphics();
       if (key === 'sens' || key === 'assist') { /* read live each mouse event */ }
-      if (all || key === 'recoil') { recoil.aimScale = settings.aimRecoil; recoil.aimSmooth = settings.aimSmooth; }
+      if (all || key === 'recoil') { recoil.aimScale = settings.aimRecoil; recoil.hipScale = settings.hipRecoil; recoil.aimSmooth = settings.aimSmooth; }
       if (all || key === 'volume') sfx.setVolume(settings.volume);
       if (all || key === 'debug') debug.setVisible(settings.debugHud);
       if (all || key === 'gun') selectGun(Math.min(settings.gunIndex, data.guns.length - 1));
@@ -896,6 +906,8 @@ function boot(data) {
     const ev = weapon.update(t, fireShot);
     if (weapon.ammo === 0 && ammoBefore > 0) finishMagazine();
     if (ev === 'reloaded') { sfx.reload(); newMagazine(); }
+    // Auto reload: an empty magazine reloads by itself.
+    if (settings.autoReload && weapon.ammo === 0 && !weapon.reloading && weapon.startReload(t)) sfx.reload();
 
     // View = aim + recoil offset (view punch), so the crosshair visibly climbs.
     recoil.offsetAt(t, offset);
@@ -930,6 +942,10 @@ function boot(data) {
     const aimed = state.adsE >= 0.5;
     // Crosshair fades out over the first part of the raise instead of switching off.
     const xo = 1 - smooth(0, 0.45, state.adsE);
+    // The crosshair opens up with the hip-fire spread (so you can see the cone).
+    const cone = settings.hipSpread ? spread.cone(t, state.gun, player.speed > 0.5, player.crouched, state.adsE) : 0;
+    const gapPx = Math.round(cone * (window.innerHeight / state.fovV) * 0.6);
+    if (gapPx !== xhGap) { xhGap = gapPx; drawCrosshair(crosshairEl, { ...settings.crosshair, gap: settings.crosshair.gap + gapPx }); }
     if (xo !== crossOpacity) { crossOpacity = xo; crosshairEl.style.opacity = xo.toFixed(3); }
     // Gentle walking bob on the weapon (none when still or fully aimed).
     walkPhase += dt * 9 * Math.min(1, player.speed / 3);
@@ -954,6 +970,7 @@ function boot(data) {
   }
   const crosshairEl = $('crosshair');
   let crossOpacity = 1;
+  let xhGap = -1;
   let walkPhase = 0;
 
   const reloadEl = $('reload-bar'), reloadFill = reloadEl.firstElementChild;
@@ -1108,6 +1125,7 @@ function boot(data) {
       setGraphics(g) { settings.graphics = g; applyGraphics(); rig.setGun(state.gun, state.gunIndex, state.optic); },
       setAnimations(on) { settings.animations = on; },
       profile: () => profile, packs: () => packs,
+      rigObj: () => rig,
       battleStart(o = {}) { Object.assign(settings.battle, o); startBattle(); return !!(battle && battle.active); },
       battleLeave: () => leaveBattle(),
       battle: () => battle,
@@ -1126,6 +1144,8 @@ function boot(data) {
       lean: () => ({ ex: player.ex, ey: player.ey, ez: player.ez, roll: player.roll, lean: player.lean }),
       player: () => ({ x: player.x, z: player.z, eye: player.eye, crouched: player.crouched, speed: player.speed }),
       setSetting(k, v) { settings[k] = v; },
+      setHip(on, scale) { settings.hipSpread = on; settings.hipRecoil = scale; recoil.hipScale = scale; spread.reset(); },
+      spreadCone: () => spread.cone(manualT, state.gun, player.speed > 0.5, player.crouched, state.adsE),
       setAimSmooth(on) { settings.aimSmooth = on; recoil.aimSmooth = on; },
       qualityTick(nowMs, frameMs) { watchQuality(nowMs, frameMs); },
       setTarget(mode, o = {}) { settings.targetMode = mode; Object.assign(settings, o); applyTarget(); },

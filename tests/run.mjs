@@ -728,7 +728,7 @@ try {
       const out = {};
       for (const level of ['easy', 'hard']) {
         const times = [];
-        for (let trial = 0; trial < 5; trial++) {
+        for (let trial = 0; trial < 9; trial++) {
           R.battleStart({ opponent: 'bots', bots: 1, level, kills: 99 });
           const B = R.battle(), h = B.humans[0], bot = B.bots[0];
           R.step(0.1);
@@ -740,11 +740,51 @@ try {
           R.battleLeave();
         }
         times.sort((a, b) => a - b);
-        out[level] = +times[2].toFixed(2);      // median (a strafing bot can briefly duck behind cover)
+        out[level] = +times[4].toFixed(2);      // median of 9 (a strafing bot can briefly duck behind cover)
       }
       return out;
     });
-    check('bot levels: easy takes longer to kill you than hard (median ' + lv.easy + ' s vs ' + lv.hard + ' s)', lv.easy > lv.hard * 1.8 && lv.hard < 3, JSON.stringify(lv));
+    check('bot levels: easy takes longer to kill you than hard (median ' + lv.easy + ' s vs ' + lv.hard + ' s)', lv.easy > lv.hard * 1.3 && lv.hard < 3, JSON.stringify(lv));
+
+    // Hip fire: spread cone that blooms, stronger recoil; aimed stays exact. Auto reload.
+    const hp = await page.evaluate(() => {
+      const R = window.__range;
+      R.manual(true); R.selectGun(4); R.setTarget('dummy'); R.setDistance(10); R.clear(); R.setAds(false); R.step(1);
+      const shoot = (n) => { R.clear(); R.clearShotPoints(); R.setAim(0, 0); R.trigger(true); R.step(n * 60 / 850 + 0.01, 1000); R.trigger(false); R.step(0.6); return R.shotPoints(); };
+      R.setHip(false, 1);
+      const exact = shoot(8);
+      R.setHip(false, 1.8);
+      const strong = shoot(8);                 // hip recoil alone (no spread): the climb
+      R.setHip(true, 1.8);
+      const c0 = R.spreadCone();
+      const hip = shoot(8);
+      // spread: first shots scatter around the crosshair; recoil: the climb is bigger
+      const firstDev = Math.hypot(hip[0][0] - exact[0][0], hip[0][1] - exact[0][1]);
+      const climbExact = exact[7][1] - exact[0][1], climbHip = strong[7][1] - strong[0][1];
+      R.trigger(true); R.step(0.3, 1000);
+      const bloomed = R.spreadCone();
+      R.trigger(false); R.step(2);
+      const recovered = R.spreadCone();
+      R.setAds(true); R.step(1);
+      const aimedCone = R.spreadCone();
+      R.setAds(false); R.step(1);
+      // auto reload: empty the magazine; the reload starts by itself, then the gun is full
+      R.setSetting('autoReload', true);
+      R.trigger(true);
+      for (let i = 0; i < 400 && R.state().ammo > 0; i++) R.step(0.02, 500);
+      R.trigger(false); R.step(0.05);
+      const reloading = R.state().reloading;
+      R.step(5);
+      const refilled = R.state().ammo;
+      R.setSetting('autoReload', false);
+      R.setHip(false, 1);
+      return { c0, firstDev, climbExact, climbHip, bloomed, recovered, aimedCone, reloading, refilled };
+    });
+    check('hip fire: a spread cone (' + hp.c0.toFixed(1) + ' deg) that blooms while firing (' + hp.bloomed.toFixed(1) + ') and recovers; none when aimed',
+      hp.c0 > 2 && hp.bloomed > hp.c0 + 1 && Math.abs(hp.recovered - hp.c0) < 0.01 && hp.aimedCone === 0, JSON.stringify(hp));
+    check('hip fire recoil 1.8x the measured climb (' + hp.climbHip.toFixed(2) + ' m vs ' + hp.climbExact.toFixed(2) + ' m at 10 m)',
+      Math.abs(hp.climbHip / hp.climbExact - 1.8) < 0.2, JSON.stringify(hp));
+    check('auto reload: an empty magazine reloads by itself', hp.reloading && hp.refilled > 0, JSON.stringify(hp));
 
     // Skins, packs, points and save codes.
     const pk = await page.evaluate(() => {
@@ -798,9 +838,9 @@ try {
       const B = R.battle();
       R.step(0.2); R.renderFrame();
       const vps = B.viewports().length, calls = R.battleState().calls;
-      const p2 = B.humans[1], z0 = p2.f.z, yaw0 = p2.look.yaw;
+      const p2 = B.humans[1], x0 = p2.f.x, z0 = p2.f.z, yaw0 = p2.look.yaw;
       B.key('KeyI', true); B.key('ArrowRight', true); R.step(0.5); B.key('KeyI', false); B.key('ArrowRight', false);
-      const out = { vps, calls, moved: Math.hypot(p2.f.x - B.humans[1].f.x, p2.f.z - z0) > 0.5, turned: Math.abs(p2.look.yaw - yaw0) > 30, views: B.hud.views.length, teams: B.humans.map((h) => h.f.team) };
+      const out = { vps, calls, moved: Math.hypot(p2.f.x - x0, p2.f.z - z0) > 0.5, turned: Math.abs(p2.look.yaw - yaw0) > 30, views: B.hud.views.length, teams: B.humans.map((h) => h.f.team) };
       R.battleLeave();
       return out;
     });

@@ -1,8 +1,8 @@
 // Settings panel inside the Esc menu. Every change is sanitised, saved to localStorage and
 // handed to main.js through onChange(key) so it takes effect immediately.
-import { sanitize, saveSettings, clearSavedSettings, DEFAULTS, DISTANCES, CROSSHAIR_STYLES, RETICLE_COLOR_NAMES } from '../core/settings.js?v=f81d91e-mw489ovb';
-import { degPerCount, countsPer360, inchesPer360, horizontalFovDeg } from '../core/sensitivity.js?v=f81d91e-mw489ovb';
-import { drawCrosshair } from './crosshair.js?v=f81d91e-mw489ovb';
+import { sanitize, saveSettings, clearSavedSettings, DEFAULTS, DISTANCES, CROSSHAIR_STYLES, RETICLE_COLOR_NAMES } from '../core/settings.js?v=f8481f4-mw49i1xb';
+import { degPerCount, countsPer360, inchesPer360, horizontalFovDeg } from '../core/sensitivity.js?v=f8481f4-mw49i1xb';
+import { drawCrosshair } from './crosshair.js?v=f8481f4-mw49i1xb';
 
 function el(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);
@@ -151,6 +151,11 @@ export class SettingsUI {
         el('div', { class: 'field' }, el('span', { text: '\u00a0' }),
           this.check('set-aim-smooth', 'Smooth measured spray when aiming', () => this.s.aimSmooth, (v) => { this.s.aimSmooth = v; }, 'recoil')),
         this.range('set-reload', 'Reload speed', { min: 1, max: 5, step: 0.25, fmt: (v) => v + 'x' + (v === 1 ? ' (as measured)' : '') }, () => this.s.reloadSpeed, (v) => { this.s.reloadSpeed = v; }, 'reload'),
+        this.range('set-hip-recoil', 'Hip-fire recoil strength', { min: 1, max: 3, step: 0.1, fmt: (v) => v.toFixed(1) + 'x' }, () => this.s.hipRecoil, (v) => { this.s.hipRecoil = v; }, 'recoil'),
+        el('div', { class: 'field' }, el('span', { text: '\u00a0' }),
+          this.check('set-hip-spread', 'Hip-fire spread (random, grows while firing)', () => this.s.hipSpread, (v) => { this.s.hipSpread = v; }, 'recoil')),
+        el('div', { class: 'field' }, el('span', { text: '\u00a0' }),
+          this.check('set-auto-reload', 'Auto reload when empty', () => this.s.autoReload, (v) => { this.s.autoReload = v; }, 'reload')),
         this.range('set-hole', 'Bullet hole size', { min: 0.5, max: 10, step: 0.5, fmt: (v) => v + ' cm' }, () => this.s.holeSizeCm, (v) => { this.s.holeSizeCm = v; }, 'holes'),
         this.select('set-target', 'Target (M cycles)', [['dummy', 'Dummy'], ['paper', 'Paper target (ring score)'], ['dots-still', 'Red dots, still'], ['dots-moving', 'Red dots, moving']],
           () => this.s.targetMode === 'dots' ? (this.s.dotMoving ? 'dots-moving' : 'dots-still') : this.s.targetMode,

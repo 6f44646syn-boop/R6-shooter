@@ -8,7 +8,7 @@
 //   bakeSkin(renderer, index, size): one of SKINS, { albedo, rm } (rm: G roughness, B metalness).
 //   triplanar(material, opts): shader patch that maps a skin and/or detail by the surface's
 //        own 3D position (no UV stretching on long thin parts), with edge wear from UVs.
-import * as THREE from '../../vendor/three/three.module.min.js?v=f81d91e-mw489ovb';
+import * as THREE from '../../vendor/three/three.module.min.js?v=f8481f4-mw49i1xb';
 
 const VERT = /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
@@ -357,7 +357,21 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
     skinAlbedo: { value: skin ? skin.albedo : null }, skinRM: { value: skin ? skin.rm : null },
     skinWear: { value: skin ? skin.wear : 0 }, detailMap: { value: detail }, triGain: { value: gain },
     skinGlow: { value: new THREE.Vector3(...((skin && skin.glow) || [0, 0, 0])) },
+    // Look per rarity: a colour fade along the gun, and the inspect-only animations
+    // (triAnim 0..1 is driven by the weapon rig while you inspect; triTime is seconds).
+    fadeA: { value: new THREE.Vector3() }, fadeB: { value: new THREE.Vector3() }, fadeAmt: { value: 0 },
+    triTime: { value: 0 }, triAnim: { value: 0 }, animFlow: { value: 0 }, sweepCol: { value: new THREE.Vector3(1, 1, 1) },
   };
+  const def = skin && skin.def;
+  if (def) {
+    const L = { common: [0.12, 0, 0.35], rare: [0.35, 0.3, 0.6], epic: [0.55, 1, 0.9], blackice: [0.3, 1, 1], factory: [0, 0, 0.4] }[def.rarity] || [0, 0, 0.4];
+    uniforms.fadeA.value.set(...def.c[1]);
+    uniforms.fadeB.value.set(...(def.rarity === 'common' ? def.c[0] : def.c[3]));
+    uniforms.fadeAmt.value = L[0];
+    uniforms.animFlow.value = L[1];
+    const g = def.glow && def.glow.some((v) => v > 0) ? def.glow : def.c[1];
+    uniforms.sweepCol.value.set(...g.map((v) => Math.min(1, 0.35 + v * 0.6))).multiplyScalar(L[2]);
+  }
   material.userData.tri = uniforms;
   const defs = (skin ? '#define TRI_SKIN\n' : '') + (detail ? '#define TRI_DETAIL\n' : '');
   material.onBeforeCompile = (sh) => {
@@ -371,7 +385,8 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
     const head = defs + /* glsl */`
       varying vec3 vTriPos; varying vec3 vTriN; varying vec3 vTriAX; varying vec3 vTriAY; varying vec3 vTriAZ;
       uniform float triScale, detScale, detStrength, skinWear, triGain;
-      uniform vec3 skinGlow;
+      uniform vec3 skinGlow, fadeA, fadeB, sweepCol;
+      uniform float fadeAmt, triTime, triAnim, animFlow;
       uniform sampler2D skinAlbedo, skinRM, detailMap;
       vec3 triW() { vec3 w = pow(abs(normalize(vTriN)), vec3(4.0)); return w / (w.x + w.y + w.z); }
       float sstep(float a, float b, float x) { float t = clamp((x - a) / (b - a), 0.0, 1.0); return t * t * (3.0 - 2.0 * t); }
@@ -382,7 +397,9 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       vec3 tw = triW();
       float triWear = 0.0;
       #ifdef TRI_SKIN
-        vec4 sk = triTex(skinAlbedo, vTriPos * triScale, tw);
+        // While inspecting, Epic and Black Ice patterns flow slowly across the gun.
+        vec3 triP = vTriPos * triScale + vec3(0.0, triTime * 0.05, triTime * 0.035) * triAnim * animFlow;
+        vec4 sk = triTex(skinAlbedo, triP, tw);
         #if defined( USE_NORMALMAP ) || defined( USE_MAP )
           #ifdef USE_NORMALMAP
             vec2 wuv = fract(vNormalMapUv);
@@ -392,7 +409,15 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
           float ed = min(min(wuv.x, 1.0 - wuv.x), min(wuv.y, 1.0 - wuv.y));
           triWear = sstep(0.035 * skinWear, 0.0, ed - (sk.a - 0.5) * 0.03 * skinWear) * step(0.001, skinWear);
         #endif
-        diffuseColor.rgb = mix(sk.rgb * sk.rgb, vec3(0.36, 0.36, 0.38), triWear) * triGain;   // bare steel at the edges
+        vec3 base = sk.rgb * sk.rgb;
+        // Colour fade from the stock to the muzzle (Rare and up).
+        vec3 fc = mix(fadeB, fadeA, sstep(0.35, -0.55, vTriPos.z));
+        base = mix(base, mix(base, fc * (0.6 + 0.8 * dot(base, vec3(0.33))) + fc * 0.25, 0.65), fadeAmt);
+        diffuseColor.rgb = mix(base, vec3(0.36, 0.36, 0.38), triWear) * triGain;   // bare steel at the edges
+        // Inspect: a band of light sweeps along the gun.
+        float sweepX = mod(triTime * 0.55, 1.7) - 0.95;
+        float sweep = exp(-pow(vTriPos.z - sweepX + vTriPos.y * 0.6, 2.0) * 90.0) * triAnim;
+        diffuseColor.rgb += sweepCol * sweep * (1.0 - triWear) * 0.9;
       #endif
       #ifdef TRI_DETAIL
         vec4 dt = triTex(detailMap, vTriPos * detScale, tw);
@@ -400,7 +425,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       #endif`);
     f = f.replace('#include <roughnessmap_fragment>', /* glsl */`#include <roughnessmap_fragment>
       #ifdef TRI_SKIN
-        vec4 skrm = triTex(skinRM, vTriPos * triScale, tw);
+        vec4 skrm = triTex(skinRM, triP, tw);
         roughnessFactor = mix(skrm.g, 0.3, triWear);
       #endif
       #ifdef TRI_DETAIL
@@ -412,7 +437,9 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       #endif`);
     f = f.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
       #ifdef TRI_SKIN
-        totalEmissiveRadiance += skinGlow * triTex(skinRM, vTriPos * triScale, tw).r * (1.0 - triWear);
+        // Glowing lines; they pulse while inspecting.
+        totalEmissiveRadiance += skinGlow * skrm.r * (1.0 - triWear) * (1.0 + triAnim * (0.9 + 0.9 * sin(triTime * 5.0)));
+        totalEmissiveRadiance += sweepCol * sweep * (1.0 - triWear) * 0.6;
       #endif`);
     f = f.replace('#include <normal_fragment_maps>', /* glsl */`#include <normal_fragment_maps>
       #ifdef TRI_DETAIL

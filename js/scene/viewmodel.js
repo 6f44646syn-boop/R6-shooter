@@ -1,12 +1,12 @@
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=f81d91e-mw489ovb';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=f81d91e-mw489ovb';
-import { matcap } from './matcap.js?v=f81d91e-mw489ovb';
-import { gunMaps } from './range-tex.js?v=f81d91e-mw489ovb';
-import { skinById, FACTORY } from '../core/skins.js?v=f81d91e-mw489ovb';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=f81d91e-mw489ovb';
+import * as THREE from '../../vendor/three/three.module.min.js?v=f8481f4-mw49i1xb';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=f8481f4-mw49i1xb';
+import { matcap } from './matcap.js?v=f8481f4-mw49i1xb';
+import { gunMaps } from './range-tex.js?v=f8481f4-mw49i1xb';
+import { skinById, FACTORY } from '../core/skins.js?v=f8481f4-mw49i1xb';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=f8481f4-mw49i1xb';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -65,9 +65,14 @@ function skinMaterial(def) {
     m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 1, envMap: ENV, envMapIntensity: 0.9 });
     triplanar(m, { skin: sk, scale: 2.8 });
   } else {
+    // Shine by rarity: every skin gets some lacquer; Epic and Black Ice also a colour-shifting
+    // (iridescent) sheen.
+    const r = def.rarity;
+    const coat = Math.max(sk.clearcoat || 0, { common: 0.25, rare: 0.55, epic: 0.9, blackice: 1 }[r] || 0);
     m = new THREE.MeshPhysicalMaterial({
       color: 0xffffff, roughness: 1, metalness: 1, normalMap: gunMaps('metal').normal, normalScale: new THREE.Vector2(0.6, 0.6),
-      clearcoat: sk.clearcoat, clearcoatRoughness: 0.12, envMap: highEnv(), envMapIntensity: 1.1,
+      clearcoat: coat, clearcoatRoughness: r === 'epic' || r === 'blackice' ? 0.05 : 0.15, envMap: highEnv(), envMapIntensity: r === 'common' ? 1.1 : 1.4,
+      iridescence: r === 'blackice' ? 0.8 : r === 'epic' ? 0.45 : 0, iridescenceIOR: 1.6, iridescenceThicknessRange: [200, 600],
     });
     triplanar(m, sh === 'ultra' ? { skin: sk, scale: 2.8, detail: ultraDetail('paint'), detailScale: 9, detailStrength: 0.5 } : { skin: sk, scale: 2.8 });
   }
@@ -552,6 +557,9 @@ export class WeaponRig {
       flash.position.set(0, my, mz - 0.035);
       gunG.add(flash);
       m.userData = { mag: magG, bolt, boltZ: bolt.position.z, flash, port: new THREE.Vector3(SPEC[type].hw + 0.01, 0.014, SPEC[type].port), gun: gunG };
+      const skinMats = new Set();
+      gunG.traverse((o) => { if (o.isMesh && o.material.userData.tri && o.material.userData.skinKey) skinMats.add(o.material); });
+      m.userData.skinMats = [...skinMats];
       const s = 0.62;
       gunG.scale.setScalar(s);
       // Rail (top of the receiver) under the sight's mount; receiver centred a little ahead.
@@ -635,6 +643,14 @@ export class WeaponRig {
     // little cant on the way, instead of sliding in a straight line.
     const k = e;
     const A = this._animate(Math.min(dt, 0.1), k);
+    // Skin animations play only while inspecting (they ease in and out with the pose).
+    const u = this.current && this.current.userData;
+    if (u && u.skinMats && u.skinMats.length) {
+      const target = this.inspectT >= 0 ? 1 : 0;
+      this.skinAnim = (this.skinAnim || 0) + (target - (this.skinAnim || 0)) * Math.min(1, dt * 5);
+      if (this.skinAnim < 0.002) this.skinAnim = 0;
+      for (const mat of u.skinMats) { const tu = mat.userData.tri; tu.triAnim.value = this.skinAnim; tu.triTime.value = t; }
+    }
     const arc = Math.sin(Math.PI * k);
     const br = (1 - 0.6 * k) * 0.0004;
     this.root.position.set(

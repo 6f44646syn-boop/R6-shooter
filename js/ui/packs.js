@@ -1,8 +1,8 @@
 // Skins & packs: points, the pack opening (a slot-machine reel that slows down and lands on
 // your skin), your collection (click to put a skin on the selected gun), and the save code.
-import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById } from '../core/skins.js?v=f81d91e-mw489ovb';
-import { Profile, PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=f81d91e-mw489ovb';
-import { skinThumb } from '../render/gpu-tex.js?v=f81d91e-mw489ovb';
+import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById } from '../core/skins.js?v=f8481f4-mw49i1xb';
+import { Profile, PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=f8481f4-mw49i1xb';
+import { skinThumb } from '../render/gpu-tex.js?v=f8481f4-mw49i1xb';
 
 function el(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);
@@ -43,6 +43,8 @@ export class PackUI {
     this.openBtn = el('button', { type: 'button', class: 'primary', text: 'Open pack (' + PACK_COST + ' points)', onclick: () => this.open() });
     this.countEl = el('span', { text: '0' });
     this.grid = el('div', { class: 'pk-grid', role: 'list' });
+    this.showAll = false;
+    this.allBtn = el('button', { type: 'button', class: 'pk-all', text: 'Show all ' + SKIN_COUNT + ' skins', onclick: () => { this.showAll = !this.showAll; this.refresh(); } });
     this.slotNote = el('p', { class: 'small' });
     this.codeOut = el('textarea', { readonly: '', spellcheck: 'false', rows: '2', id: 'pk-code-out' });
     this.codeIn = el('input', { type: 'text', spellcheck: 'false', id: 'pk-code-in', placeholder: 'RRS1-...' });
@@ -54,7 +56,7 @@ export class PackUI {
         this.openBtn),
       el('p', { class: 'small', text: KILL_POINTS + ' points per battle kill (+' + HEADSHOT_BONUS + ' for a headshot), +' + WIN_POINTS + ' for winning a battle. Odds: ' +
         RARITIES.map((x) => x.name + ' ' + Math.round(x.odds * 100) + '%').join(' · ') + '. A duplicate gives points back.' }),
-      el('h3', { class: 'pk-h3' }, el('span', { text: 'Collection ' }), this.countEl, el('span', { text: ' / ' + SKIN_COUNT })),
+      el('div', { class: 'pk-top' }, el('h3', { class: 'pk-h3' }, el('span', { text: 'Collection ' }), this.countEl, el('span', { text: ' / ' + SKIN_COUNT })), this.allBtn),
       this.grid, this.slotNote,
       el('div', { class: 'pk-save' },
         el('label', { class: 'field', for: 'pk-code-out' }, el('span', { text: 'Save code: copy it to keep your progress on another PC or browser' }), this.codeOut),
@@ -90,13 +92,17 @@ export class PackUI {
       type: 'button', class: 'pk-card factory' + (eq === null ? ' on' : ''), title: 'No skin (factory finish)',
       onclick: () => { p.equip(slot, null); this.onEquip(slot); },
     }, el('span', { class: 'pk-thumb plain' }), el('span', { class: 'pk-name', text: 'Factory finish' }))];
-    for (const id of p.ownedIds()) {
-      const s = CATALOGUE[id], rar = RARITY[s.rarity];
+    // Your skins, or (Show all) the whole catalogue rarest first, with the ones you lack locked.
+    this.allBtn.textContent = this.showAll ? 'Show only mine' : 'Show all ' + SKIN_COUNT + ' skins';
+    const order = { blackice: 0, epic: 1, rare: 2, common: 3 };
+    const ids = this.showAll ? CATALOGUE.map((s) => s.id).sort((a, b) => order[CATALOGUE[a].rarity] - order[CATALOGUE[b].rarity] || a - b) : p.ownedIds();
+    for (const id of ids) {
+      const s = CATALOGUE[id], rar = RARITY[s.rarity], have = p.has(id);
       cards.push(el('button', {
-        type: 'button', class: 'pk-card r-' + s.rarity + (eq === id ? ' on' : ''), title: s.name + ' (' + rar.name + ')',
-        onclick: () => { p.equip(slot, id); this.onEquip(slot); },
-      }, el('img', { class: 'pk-thumb', src: this.thumb(id), alt: '' }), el('span', { class: 'pk-name', text: s.name }),
-      el('span', { class: 'pk-rar', text: rar.name })));
+        type: 'button', class: 'pk-card r-' + s.rarity + (eq === id ? ' on' : '') + (have ? '' : ' locked'), title: s.name + ' (' + rar.name + ')' + (have ? '' : ': not unlocked yet'),
+        onclick: have ? () => { p.equip(slot, id); this.onEquip(slot); } : null,
+      }, el('img', { class: 'pk-thumb', src: this.thumb(id), alt: '', loading: 'lazy' }), el('span', { class: 'pk-name', text: s.name }),
+      el('span', { class: 'pk-rar', text: have ? rar.name : rar.name + ' · Locked' })));
     }
     this.grid.replaceChildren(...cards);
   }

@@ -209,3 +209,5 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 @keyframes ice { from { box-shadow: 0 0 6px rgba(127, 243, 255, 0.3); } to { box-shadow: 0 0 26px rgba(127, 243, 255, 0.8); } }
 .b-points { position: absolute; left: 50%; top: calc(50% + 34px); transform: translateX(-50%); color: var(--accent); font-weight: 700; font-size: 16px; text-shadow: 0 1px 2px #000; opacity: 0; transition: opacity 0.4s; }
 .b-points.on { opacity: 1; transition: none; }
+.pk-card.locked { opacity: 0.45; cursor: default; } .pk-card.locked img { filter: saturate(0.6); }
+.pk-all { font-size: 12px; padding: 4px 10px; }

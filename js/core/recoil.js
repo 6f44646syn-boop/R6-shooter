@@ -20,7 +20,7 @@
 // straight line to zero at recovery.degPerSecond. shotIndex goes back to 0 once resetSeconds pass
 // without a shot.
 
-import { GaussianRng } from './prng.js?v=f81d91e-mw489ovb';
+import { GaussianRng } from './prng.js?v=f8481f4-mw49i1xb';
 
 export const TAIL_STEPS = 3;
 export const EASE_FRACTION = 0.4;
@@ -107,6 +107,7 @@ export class RecoilEngine {
     this.scale = 1; // per-sight sprayPath multiplier (gun.opticRecoilScale), 1 = unchanged
     this.aimed = false;      // set per shot by main.js
     this.aimScale = 1;       // Settings > Aimed recoil strength
+    this.hipScale = 1;       // Settings > Hip-fire recoil strength (main.js sets 1.8 by default)
     this.aimSmooth = true;   // Settings > Smooth measured spray when aiming
     this.reset();
   }
@@ -174,7 +175,7 @@ export class RecoilEngine {
     // Aiming: the smoothed path (if enabled) and the aimed strength. Hip-fire: the path exactly.
     const path = this.aimed && this.aimSmooth ? (gun.sprayPathSmooth || gun.sprayPath) : gun.sprayPath;
     sprayStep(path, i, this.step, gun.tail);
-    const k = this.scale * (this.aimed ? this.aimScale : 1);
+    const k = this.scale * (this.aimed ? this.aimScale : this.hipScale);
     this.step[0] *= k;
     this.step[1] *= k;
     const jy = gun.jitter.yawDeg, jp = gun.jitter.pitchDeg;
