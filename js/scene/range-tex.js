@@ -1,6 +1,6 @@
 // Procedural textures for the range (canvas drawing only, no image files).
-import * as THREE from '../../vendor/three/three.module.min.js?v=b1d98d9-mw4elpv0';
-import { mulberry32 } from '../core/prng.js?v=b1d98d9-mw4elpv0';
+import * as THREE from '../../vendor/three/three.module.min.js?v=0eeeaff-mw4o2ucr';
+import { mulberry32 } from '../core/prng.js?v=0eeeaff-mw4o2ucr';
 
 function tex(cv, repeat) {
   const t = new THREE.CanvasTexture(cv);

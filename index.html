@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recoil Range</title>
-<link rel="stylesheet" href="css/style.css?v=b1d98d9-mw4elpv0">
+<link rel="stylesheet" href="css/style.css?v=0eeeaff-mw4o2ucr">
 </head>
 <body>
 <div id="app">
@@ -60,7 +60,7 @@
         <div class="modes">
           <button type="button" class="mode-card" data-mode="range"><b>Shooting range</b><span>Practise spray control on a dummy, a paper target or red dots. Measured sprays, every sight.</span></button>
           <button type="button" class="mode-card" data-mode="bots"><b>Battle vs bots</b><span>An arena with cover against 1-6 bots: Easy, Medium or Hard. Kills earn points for packs.</span></button>
-          <button type="button" class="mode-card" data-mode="net"><b>Network battle</b><span>Play friends on other PCs on the same network, connected with join codes. Bots optional.</span></button>
+          <button type="button" class="mode-card" data-mode="net"><b>Network battle</b><span>Play friends on other PCs: over the internet with a short game code, or on the same network. Bots optional.</span></button>
         </div>
         <div class="row">
           <button type="button" id="go-packs">Skins &amp; packs <span id="mini-points"></span></button>
@@ -97,10 +97,24 @@
               <select id="b-kills"><option>5</option><option selected>10</option><option>20</option><option>30</option></select></label>
           </div>
           <div id="net-panel" class="net-box" hidden>
+            <div class="row seg" role="radiogroup" aria-label="Connection">
+              <button id="net-via-relay" type="button" role="radio" class="seg-btn">Internet (game code)</button>
+              <button id="net-via-lan" type="button" role="radio" class="seg-btn">Same network (copy codes)</button>
+            </div>
             <div class="row">
               <button id="net-host" type="button">Host a game</button>
               <button id="net-join" type="button">Join a game</button>
               <button id="net-reset" type="button" hidden>Disconnect</button>
+            </div>
+            <div id="relay-host-box" class="net-box" hidden>
+              <p class="small">Tell your friends this game code:</p>
+              <p id="relay-code" class="game-code">....</p>
+              <div class="row"><button id="relay-copy" type="button">Copy code</button></div>
+              <p class="small">Players: <span id="relay-players">none yet</span>. When everyone is in, choose your weapon and Deploy. Bots (if any) join as a third side.</p>
+            </div>
+            <div id="relay-join-box" class="net-box" hidden>
+              <label class="field" for="relay-in"><span>Game code from the host</span><input id="relay-in" class="code-in" maxlength="8" autocomplete="off" spellcheck="false" placeholder="K7QD"></label>
+              <div class="row"><button id="relay-connect" type="button">Join</button></div>
             </div>
             <div id="net-host-box" class="net-box" hidden>
               <p class="small">You are hosting. Players: <span id="net-players">none yet</span>. For each player:</p>
@@ -119,7 +133,13 @@
               <div class="row"><button id="net-connect" type="button">Connect</button></div>
             </div>
             <p id="net-status" class="small" role="status"></p>
-            <p class="small">Every PC must be on the same network (some school or public Wi-Fi blocks direct connections between PCs).</p>
+            <p id="net-note-relay" class="small">Games go through the relay server, so friends can be anywhere. The network has to allow the relay's address.</p>
+            <p id="net-note-lan" class="small">Every PC must be on the same network (some school or public Wi-Fi blocks direct connections between PCs).</p>
+            <details id="relay-cfg">
+              <summary>Relay server</summary>
+              <label class="field" for="relay-url"><span>Relay address</span><input id="relay-url" autocomplete="off" spellcheck="false" placeholder="https://recoil-range-relay.NAME.workers.dev"></label>
+              <div class="row"><button id="relay-save" type="button">Save and test</button></div>
+            </details>
           </div>
           <button id="battle-btn" type="button" hidden>Start battle</button>
           <button id="battle-leave" type="button" hidden>Leave battle</button>
@@ -203,6 +223,6 @@
     </div>
   </div>
 </div>
-<script type="module" src="js/main.js?v=b1d98d9-mw4elpv0"></script>
+<script type="module" src="js/main.js?v=0eeeaff-mw4o2ucr"></script>
 </body>
 </html>

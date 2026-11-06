@@ -863,29 +863,55 @@ try {
 
   // Network battle between two separate browser sessions (as two PCs would be): join codes,
   // positions both ways, shots both ways, kill feed, host ending the match.
-  {
-    console.log('\nNetwork battle (two browser sessions, join codes)');
+  // Runs over direct join codes and, when a relay is running (RELAY=url, or wrangler dev on
+  // port 8787 in relay/), over the relay with a game code.
+  const RELAY = process.env.RELAY || 'http://127.0.0.1:8787';
+  let relayUp = false;
+  try { relayUp = /Recoil Range relay/.test(await (await fetch(RELAY + '/')).text()); } catch (e) { /* not running */ }
+  if (!relayUp) console.log('\n(relay not running at ' + RELAY + ': skipping the relay network test; run "npx wrangler dev --port 8787" in relay/)');
+  for (const via of relayUp ? ['lan', 'relay'] : ['lan']) {
+    console.log('\nNetwork battle (two browser sessions, ' + (via === 'lan' ? 'join codes' : 'relay game code') + ')');
     const A = await (await browser.newContext()).newPage({ viewport: { width: 960, height: 540 } });
     const B = await (await browser.newContext()).newPage({ viewport: { width: 960, height: 540 } });
     const nerr = [];
     for (const [n, p] of [['host', A], ['player', B]]) p.on('pageerror', (e) => nerr.push(n + ': ' + String(e.stack || e)));
-    for (const p of [A, B]) { await p.goto(BASE + 'index.html?test', { waitUntil: 'networkidle' }); await p.waitForFunction(() => window.__range); }
+    for (const p of [A, B]) { await p.goto(BASE + 'index.html?test' + (via === 'relay' ? '&relay=' + encodeURIComponent(RELAY) : ''), { waitUntil: 'networkidle' }); await p.waitForFunction(() => window.__range); }
     for (const p of [A, B]) await p.evaluate(() => document.querySelector('.mode-card[data-mode=net]').click());
+    let connected = true, join = '';
+    if (via === 'relay') {
+      for (const p of [A, B]) await p.click('#net-via-relay');
+      await B.click('#net-join');
+      await B.fill('#relay-in', 'zzzz'); await B.click('#relay-connect');
+      let refused = true;
+      try { await B.waitForFunction(() => /No game with that code/.test(document.getElementById('net-status').textContent), null, { timeout: 8000 }); } catch (e) { refused = false; }
+      check('a wrong game code is refused with a clear message', refused, await B.textContent('#net-status'));
+      await A.click('#net-host');
+      await A.waitForFunction(() => /^[A-Z2-9]{4}$/.test(document.getElementById('relay-code').textContent), null, { timeout: 8000 });
+      join = await A.textContent('#relay-code');
+      await B.fill('#relay-in', join.toLowerCase()); await B.click('#relay-connect');
+      try {
+        await B.waitForFunction(() => /Connected/.test(document.getElementById('net-status').textContent), null, { timeout: 8000 });
+        await A.waitForFunction(() => /Player 2/.test(document.getElementById('relay-players').textContent), null, { timeout: 8000 });
+      } catch (e) { connected = false; }
+      check('the game code ' + join + ' connects two sessions through the relay', connected, await B.textContent('#net-status') + ' / ' + await A.textContent('#relay-players'));
+    } else {
+    for (const p of [A, B]) await p.click('#net-via-lan');
     await A.click('#net-host');
     await B.click('#net-join');
     await B.waitForFunction(() => document.getElementById('net-out-j').value.startsWith('RR1-'));
-    const join = await B.inputValue('#net-out-j');
+    join = await B.inputValue('#net-out-j');
     await A.fill('#net-in-h', join); await A.click('#net-accept');
     await A.waitForFunction(() => document.getElementById('net-out-h').value.startsWith('RR1-'));
     await B.fill('#net-in-j', await A.inputValue('#net-out-h')); await B.click('#net-connect');
-    let connected = true;
     try { await B.waitForFunction(() => /Connected/.test(document.getElementById('net-status').textContent), null, { timeout: 25000 }); } catch (e) { connected = false; }
     check('join codes connect two sessions (code ' + join.length + ' characters)', connected, await B.textContent('#net-status'));
+    }
+    const lag = via === 'relay' ? 25 : 5;
     if (connected) {
       await A.evaluate(() => { const R = window.__range; R.manual(true); R.battleStart({ opponent: 'net', bots: 1, level: 'easy', kills: 10 }); });
       await B.waitForFunction(() => window.__range.battle() && window.__range.battle().active, null, { timeout: 5000 });
       await B.evaluate(() => window.__range.manual(true));
-      const run = async (sec) => { for (let i = 0; i < sec * 20; i++) { await A.evaluate(() => window.__range.step(0.05, 60)); await B.evaluate(() => window.__range.step(0.05, 60)); await new Promise((r) => setTimeout(r, 5)); } };
+      const run = async (sec) => { for (let i = 0; i < sec * 20; i++) { await A.evaluate(() => window.__range.step(0.05, 60)); await B.evaluate(() => window.__range.step(0.05, 60)); await new Promise((r) => setTimeout(r, lag)); } };
       await run(1);
       await A.evaluate(() => { const Bt = window.__range.battle(); for (const b of Bt.bots) { b.update = () => {}; b.f.x = -16; b.f.z = -12; } const h = Bt.humans[0]; h.f.x = 16; h.f.z = 12; h.f.protectUntil = 0; });
       await B.evaluate(() => { const h = window.__range.battle().humans[0]; h.f.x = 16; h.f.z = 2; h.f.protectUntil = 0; });
@@ -919,6 +945,12 @@ try {
       await run(0.3);
       const end = await B.evaluate(() => ({ active: window.__range.battle().active, status: document.getElementById('net-status').textContent }));
       check('host ending the match returns the player to the menu, still connected', !end.active && /Still connected/.test(end.status), JSON.stringify(end));
+      if (via === 'relay') {
+        await A.click('#net-reset');
+        let told = true;
+        try { await B.waitForFunction(() => /host left/i.test(document.getElementById('net-status').textContent), null, { timeout: 8000 }); } catch (e) { told = false; }
+        check('when the host disconnects, the player is told', told, await B.textContent('#net-status'));
+      }
     }
     check('no page errors in either session', nerr.length === 0, nerr.join('\n'));
     await A.close(); await B.close();

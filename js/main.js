@@ -1,40 +1,41 @@
 // Recoil Range entry point: wires input, camera, scene, HUD and the frame loop together.
-import * as THREE from '../vendor/three/three.module.min.js?v=b1d98d9-mw4elpv0';
-import { Look, PITCH_LIMIT } from './core/look.js?v=b1d98d9-mw4elpv0';
-import { Player } from './core/player.js?v=b1d98d9-mw4elpv0';
-import { PointerLock } from './core/pointer-lock.js?v=b1d98d9-mw4elpv0';
-import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=b1d98d9-mw4elpv0';
-import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=b1d98d9-mw4elpv0';
-import { Weapon } from './core/weapon.js?v=b1d98d9-mw4elpv0';
-import { RecoilEngine } from './core/recoil.js?v=b1d98d9-mw4elpv0';
-import { Spread } from './core/spread.js?v=b1d98d9-mw4elpv0';
-import { loadGameData } from './core/guns.js?v=b1d98d9-mw4elpv0';
-import { randomSeed } from './core/prng.js?v=b1d98d9-mw4elpv0';
-import { Range, EYE_HEIGHT } from './scene/range.js?v=b1d98d9-mw4elpv0';
-import { RING_STEP } from './scene/range-tex.js?v=b1d98d9-mw4elpv0';
-import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=b1d98d9-mw4elpv0';
-import { LensPost } from './render/lens-post.js?v=b1d98d9-mw4elpv0';
-import { reticleTextures } from './ui/reticle-tex.js?v=b1d98d9-mw4elpv0';
-import { DOT_POINTS } from './scene/dots.js?v=b1d98d9-mw4elpv0';
-import { Sfx } from './audio/sfx.js?v=b1d98d9-mw4elpv0';
-import { DebugHud } from './ui/debug-hud.js?v=b1d98d9-mw4elpv0';
-import { drawCrosshair } from './ui/crosshair.js?v=b1d98d9-mw4elpv0';
-import { Hud } from './ui/hud.js?v=b1d98d9-mw4elpv0';
-import { MagPlot } from './ui/plot.js?v=b1d98d9-mw4elpv0';
-import { SettingsUI } from './ui/settings-ui.js?v=b1d98d9-mw4elpv0';
-import { sensKeys, zoomKey } from './core/optics.js?v=b1d98d9-mw4elpv0';
+import * as THREE from '../vendor/three/three.module.min.js?v=0eeeaff-mw4o2ucr';
+import { Look, PITCH_LIMIT } from './core/look.js?v=0eeeaff-mw4o2ucr';
+import { Player } from './core/player.js?v=0eeeaff-mw4o2ucr';
+import { PointerLock } from './core/pointer-lock.js?v=0eeeaff-mw4o2ucr';
+import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=0eeeaff-mw4o2ucr';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=0eeeaff-mw4o2ucr';
+import { Weapon } from './core/weapon.js?v=0eeeaff-mw4o2ucr';
+import { RecoilEngine } from './core/recoil.js?v=0eeeaff-mw4o2ucr';
+import { Spread } from './core/spread.js?v=0eeeaff-mw4o2ucr';
+import { loadGameData } from './core/guns.js?v=0eeeaff-mw4o2ucr';
+import { randomSeed } from './core/prng.js?v=0eeeaff-mw4o2ucr';
+import { Range, EYE_HEIGHT } from './scene/range.js?v=0eeeaff-mw4o2ucr';
+import { RING_STEP } from './scene/range-tex.js?v=0eeeaff-mw4o2ucr';
+import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=0eeeaff-mw4o2ucr';
+import { LensPost } from './render/lens-post.js?v=0eeeaff-mw4o2ucr';
+import { reticleTextures } from './ui/reticle-tex.js?v=0eeeaff-mw4o2ucr';
+import { DOT_POINTS } from './scene/dots.js?v=0eeeaff-mw4o2ucr';
+import { Sfx } from './audio/sfx.js?v=0eeeaff-mw4o2ucr';
+import { DebugHud } from './ui/debug-hud.js?v=0eeeaff-mw4o2ucr';
+import { drawCrosshair } from './ui/crosshair.js?v=0eeeaff-mw4o2ucr';
+import { Hud } from './ui/hud.js?v=0eeeaff-mw4o2ucr';
+import { MagPlot } from './ui/plot.js?v=0eeeaff-mw4o2ucr';
+import { SettingsUI } from './ui/settings-ui.js?v=0eeeaff-mw4o2ucr';
+import { sensKeys, zoomKey } from './core/optics.js?v=0eeeaff-mw4o2ucr';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
 function sensRows(catalogue, sens) {
   const keys = new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)]);
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
-import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=b1d98d9-mw4elpv0';
-import { Battle } from './battle/battle.js?v=b1d98d9-mw4elpv0';
-import { createJoinRequest, acceptJoin } from './net/link.js?v=b1d98d9-mw4elpv0';
-import { Profile, WIN_POINTS } from './core/profile.js?v=b1d98d9-mw4elpv0';
-import { skinFits, skinById } from './core/skins.js?v=b1d98d9-mw4elpv0';
-import { PackUI } from './ui/packs.js?v=b1d98d9-mw4elpv0';
+import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=0eeeaff-mw4o2ucr';
+import { Battle } from './battle/battle.js?v=0eeeaff-mw4o2ucr';
+import { createJoinRequest, acceptJoin } from './net/link.js?v=0eeeaff-mw4o2ucr';
+import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode } from './net/relay.js?v=0eeeaff-mw4o2ucr';
+import { Profile, WIN_POINTS } from './core/profile.js?v=0eeeaff-mw4o2ucr';
+import { skinFits, skinById } from './core/skins.js?v=0eeeaff-mw4o2ucr';
+import { PackUI } from './ui/packs.js?v=0eeeaff-mw4o2ucr';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -783,23 +784,37 @@ function boot(data) {
   $('battle-btn').addEventListener('click', startBattle);
 
   /* ---------- network lobby (join codes, no server) ---------- */
-  const net = { role: null, peers: [], request: null, link: null };
+  let netVia = 'relay';
+  try { if (localStorage.getItem('recoil-range-net-via') === 'lan') netVia = 'lan'; } catch (e) { /* storage blocked */ }
+  const net = { role: null, peers: [], request: null, link: null, hub: null, busy: false };
   function netStatus(text, kind = '') { const e = $('net-status'); e.textContent = text; e.className = 'small ' + kind; }
   function netUi() {
-    $('net-host-box').hidden = net.role !== 'host';
-    $('net-join-box').hidden = net.role !== 'client';
+    const relay = netVia === 'relay';
+    $('net-via-relay').setAttribute('aria-checked', String(relay));
+    $('net-via-lan').setAttribute('aria-checked', String(!relay));
+    $('net-via-relay').disabled = $('net-via-lan').disabled = !!net.role;
+    $('net-host-box').hidden = relay || net.role !== 'host';
+    $('net-join-box').hidden = relay || net.role !== 'client';
+    $('relay-host-box').hidden = !relay || net.role !== 'host' || !net.hub;
+    $('relay-join-box').hidden = !relay || net.role !== 'client' || !!net.link;
+    $('relay-code').textContent = net.hub ? net.hub.code : '....';
+    $('net-note-relay').hidden = $('relay-cfg').hidden = !relay;
+    $('net-note-lan').hidden = relay;
     $('net-host').hidden = $('net-join').hidden = !!net.role;
     $('net-reset').hidden = !net.role;
-    $('net-players').textContent = net.peers.length ? net.peers.map((e) => e.name + ' (' + data.guns[e.gunIndex].name + ')').join(', ') : 'none yet';
+    const names = net.peers.length ? net.peers.map((e) => e.name + ' (' + data.guns[e.gunIndex].name + ')').join(', ') : 'none yet';
+    $('net-players').textContent = names;
+    $('relay-players').textContent = names;
     const waiting = settings.battle.opponent === 'net' && net.role === 'client';
     $('battle-btn').disabled = waiting && !(battle && battle.active);
     if (waiting && !(battle && battle.active)) $('battle-btn').textContent = net.link ? 'Waiting for the host to start' : 'Only the host starts the battle';
   }
   function netReset() {
+    if (net.hub) net.hub.close();             // first, so players hear "the host left" (not "removed")
     for (const e of net.peers) e.link.close();
     if (net.link) net.link.close();
     if (net.request) net.request.cancel();
-    net.role = null; net.peers = []; net.request = null; net.link = null;
+    net.role = null; net.peers = []; net.request = null; net.link = null; net.hub = null;
     for (const id of ['net-in-h', 'net-out-h', 'net-in-j', 'net-out-j']) $(id).value = '';
     $('net-reply-box').hidden = true;
     $('battle-btn').disabled = false;
@@ -814,8 +829,95 @@ function boot(data) {
   $('net-copy-j').addEventListener('click', () => copy('net-out-j'));
   $('net-reset').addEventListener('click', () => { if (battle && battle.active && battle.net) leaveBattle(); netReset(); netStatus('Disconnected.'); });
 
+  // Host: a player's link is open (direct or through the relay).
+  function addPeer(link) {
+    const entry = { link, name: 'Player ' + (net.peers.length + 2), gunIndex: 0 };
+    net.peers.push(entry);
+    link.onmessage = (m) => {
+      if (m.k === 'hello') { entry.gunIndex = Math.min(data.guns.length - 1, Math.max(0, m.gun | 0)); netUi(); return; }
+      if (battle && battle.active && battle.net) battle.onNet(link, m);
+    };
+    link.onclose = () => {
+      const i = net.peers.indexOf(entry);
+      if (i >= 0) net.peers.splice(i, 1);
+      if (battle && battle.active && battle.net) battle.onLinkClosed(link);
+      netUi(); netStatus(entry.name + ' disconnected.', 'bad');
+    };
+    netUi(); netStatus(entry.name + ' connected.', 'ok');
+  }
+  // Joiner: connected to the host.
+  function joined(link) {
+    net.request = null; net.link = link;
+    link.send({ k: 'hello', gun: state.gunIndex });
+    link.onmessage = (m) => {
+      if (m.k === 'start') { startClientBattle(m); return; }
+      if (m.k === 'stopped') { if (battle && battle.active) { leaveBattle(); netStatus('The host ended the match. Still connected: wait for the next one.', 'ok'); } return; }
+      if (battle && battle.active && battle.net) battle.onNet(link, m);
+    };
+    link.onclose = () => {
+      if (battle && battle.active && battle.net) battle.onLinkClosed(link);
+      else { netReset(); netStatus(link.closeReason || 'Disconnected from the host.', 'bad'); }
+    };
+    netUi(); netStatus('Connected. Waiting for the host to start the battle.', 'ok');
+  }
+  function setVia(v) {
+    if (net.role) return;
+    netVia = v;
+    try { localStorage.setItem('recoil-range-net-via', v); } catch (e) { /* storage blocked */ }
+    netStatus(''); netUi();
+  }
+  $('net-via-relay').addEventListener('click', () => setVia('relay'));
+  $('net-via-lan').addEventListener('click', () => setVia('lan'));
+  $('relay-url').value = relayUrl();
+  $('relay-save').addEventListener('click', async () => {
+    const u = $('relay-url').value.trim();
+    setRelayUrl(u);
+    if (!u) { netStatus('Relay address cleared.'); return; }
+    netStatus('Testing the relay...');
+    try { await pingRelay(u); netStatus('Relay server OK.', 'ok'); }
+    catch (err) { netStatus(err.message && !/fetch/i.test(err.message) ? err.message : 'Could not reach that relay. Check the address, or the network may block it.', 'bad'); }
+  });
+  $('relay-copy').addEventListener('click', async () => {
+    if (!net.hub) return;
+    try { await navigator.clipboard.writeText(net.hub.code); netStatus('Copied.', 'ok'); } catch (e) { netStatus('Code: ' + net.hub.code); }
+  });
+  async function relayHost() {
+    if (net.busy) return;
+    net.busy = true; net.role = 'host'; netUi();
+    netStatus('Opening a game on the relay...');
+    try {
+      const hub = await hostRelay(relayUrl());
+      if (net.role !== 'host') { hub.close(); return; }
+      net.hub = hub;
+      hub.onjoin = (link) => addPeer(link);
+      hub.onlost = (msg) => {
+        if (battle && battle.active && battle.net) leaveBattle();
+        netReset(); netStatus('Lost the relay: ' + msg, 'bad');
+      };
+      netUi(); netStatus('Game open. Players press "Join a game" and type the code.', 'ok');
+    } catch (err) { net.role = null; netUi(); netStatus(err.message, 'bad'); }
+    finally { net.busy = false; }
+  }
+  async function relayJoin() {
+    const code = cleanCode($('relay-in').value);
+    if (net.busy || net.link) return;
+    net.busy = true;
+    netStatus('Joining ' + code + '...');
+    try {
+      const link = await joinRelay(relayUrl(), code);
+      if (net.role !== 'client') { link.close(); return; }
+      joined(link);
+    } catch (err) { netStatus(err.message, 'bad'); }
+    finally { net.busy = false; }
+  }
+  $('relay-connect').addEventListener('click', relayJoin);
+  $('relay-in').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); relayJoin(); } });
+
   // Host
-  $('net-host').addEventListener('click', () => { net.role = 'host'; netUi(); netStatus('Ask each player to press "Join a game" and send you their join code.'); });
+  $('net-host').addEventListener('click', () => {
+    if (netVia === 'relay') { relayHost(); return; }
+    net.role = 'host'; netUi(); netStatus('Ask each player to press "Join a game" and send you their join code.');
+  });
   $('net-accept').addEventListener('click', async () => {
     const code = $('net-in-h').value.trim();
     if (!code) { netStatus('Paste a join code first.', 'bad'); return; }
@@ -827,18 +929,7 @@ function boot(data) {
       $('net-in-h').value = '';
       netStatus('Send the reply code back. Waiting for them to connect...');
       acc.link.then((link) => {
-        const entry = { link, name: 'Player ' + (net.peers.length + 2), gunIndex: 0 };
-        net.peers.push(entry);
-        link.onmessage = (m) => {
-          if (m.k === 'hello') { entry.gunIndex = Math.min(data.guns.length - 1, Math.max(0, m.gun | 0)); netUi(); return; }
-          if (battle && battle.active && battle.net) battle.onNet(link, m);
-        };
-        link.onclose = () => {
-          net.peers.splice(net.peers.indexOf(entry), 1);
-          if (battle && battle.active && battle.net) battle.onLinkClosed(link);
-          netUi(); netStatus(entry.name + ' disconnected.', 'bad');
-        };
-        netUi(); netStatus(entry.name + ' connected.', 'ok');
+        addPeer(link);
         $('net-reply-box').hidden = true;
       }).catch((err) => netStatus(err.message, 'bad'));
     } catch (err) { netStatus(err.message, 'bad'); }
@@ -847,6 +938,7 @@ function boot(data) {
   // Joiner
   $('net-join').addEventListener('click', async () => {
     net.role = 'client'; netUi();
+    if (netVia === 'relay') { netStatus('Type the game code from the host.'); $('relay-in').focus(); return; }
     try {
       netStatus('Making your join code...');
       net.request = await createJoinRequest();
@@ -858,19 +950,7 @@ function boot(data) {
     if (!net.request) return;
     try {
       netStatus('Connecting...');
-      const link = await net.request.finish($('net-in-j').value.trim());
-      net.request = null; net.link = link;
-      link.send({ k: 'hello', gun: state.gunIndex });
-      link.onmessage = (m) => {
-        if (m.k === 'start') { startClientBattle(m); return; }
-        if (m.k === 'stopped') { if (battle && battle.active) { leaveBattle(); netStatus('The host ended the match. Still connected: wait for the next one.', 'ok'); } return; }
-        if (battle && battle.active && battle.net) battle.onNet(link, m);
-      };
-      link.onclose = () => {
-        if (battle && battle.active && battle.net) battle.onLinkClosed(link);
-        else { netReset(); netStatus('Disconnected from the host.', 'bad'); }
-      };
-      netUi(); netStatus('Connected. Waiting for the host to start the battle.', 'ok');
+      joined(await net.request.finish($('net-in-j').value.trim()));
     } catch (err) { netStatus(err.message, 'bad'); }
   });
   netInit = true;

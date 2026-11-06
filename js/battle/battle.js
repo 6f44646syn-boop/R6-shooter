@@ -3,12 +3,12 @@
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=b1d98d9-mw4elpv0';
-import { Arena } from './arena.js?v=b1d98d9-mw4elpv0';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=b1d98d9-mw4elpv0';
-import { Bot, LEVELS } from './bot.js?v=b1d98d9-mw4elpv0';
-import { Human } from './human.js?v=b1d98d9-mw4elpv0';
-import { drawCrosshair } from '../ui/crosshair.js?v=b1d98d9-mw4elpv0';
+import * as THREE from '../../vendor/three/three.module.min.js?v=0eeeaff-mw4o2ucr';
+import { Arena } from './arena.js?v=0eeeaff-mw4o2ucr';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=0eeeaff-mw4o2ucr';
+import { Bot, LEVELS } from './bot.js?v=0eeeaff-mw4o2ucr';
+import { Human } from './human.js?v=0eeeaff-mw4o2ucr';
+import { drawCrosshair } from '../ui/crosshair.js?v=0eeeaff-mw4o2ucr';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second

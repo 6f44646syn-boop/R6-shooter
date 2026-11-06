@@ -1,0 +1,13 @@
+# Recoil Range relay: passes battle messages between players who cannot connect directly
+# (for example on school Wi-Fi). Free Workers plan is enough.
+name = "recoil-range-relay"
+main = "src/index.js"
+compatibility_date = "2025-06-01"
+
+[[durable_objects.bindings]]
+name = "ROOMS"
+class_name = "Room"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Room"]
