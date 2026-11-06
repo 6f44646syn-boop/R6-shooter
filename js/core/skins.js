@@ -9,7 +9,7 @@
 //   p        [scale (whole number), warp, threshold shift, spare]
 //   rm       [roughness, metalness] of the base, then of the accent
 //   clearcoat, wear (bare metal at the edges), glow ([r, g, b] light from the accent lines)
-import { mulberry32 } from './prng.js?v=8f61200-mw4abt0b';
+import { mulberry32 } from './prng.js?v=cd68db2-mw4e6311';
 
 export const RARITIES = [
   { key: 'common', name: 'Common', color: '#b4bcc6', odds: 0.70, refund: 20 },
@@ -43,7 +43,8 @@ const RARE_WORDS = [['Cobalt', 0.61], ['Crimson', 0.98], ['Viper', 0.3], ['Sunse
 const RARE_PATTERNS = [0, 5, 8, 13, 1, 3, 9, 12];
 const EPIC_WORDS = ['Nebula', 'Inferno', 'Aurora', 'Phantom', 'Solar Flare', 'Abyss', 'Prism', 'Overdrive', 'Tempest', 'Eclipse', 'Venom', 'Mirage', 'Paradox', 'Zenith', 'Vortex', 'Spectre'];
 const EPIC_PATTERNS = [0, 5, 6, 13, 14, 15, 9, 16];      // 15 blossom and 16 tide: illustrated
-const ICE = [['Glacier', 0.53], ['Violet', 0.78], ['Teal', 0.47], ['White Out', 0.6, 0], ['Red Shift', 0.0], ['Venom', 0.3], ['Gold', 0.12], ['Rose', 0.92]];
+// Black Ice: [name, hue] in four colours (blue, red, pink, purple), two of each.
+const ICE = [['Glacier', 0.6], ['Deep Blue', 0.63], ['Red Shift', 0.99], ['Crimson Frost', 0.975], ['Rose', 0.93], ['Pink Frost', 0.905], ['Violet', 0.79], ['Purple Haze', 0.76]];
 
 function make(id) {
   const rng = mulberry32((id + 1) * 7919 + 13);
@@ -82,11 +83,14 @@ function make(id) {
       p: [1 + Math.floor(rng() * 2), 0.8 + rng(), (rng() - 0.5) * 0.08, 0], rm: [0.3, 0.75, 0.22, 1], clearcoat: 0.8, wear: 0.3,
       glow: glows ? c[1].map((v) => Math.round(v * 1.5 * 1000) / 1000) : [0, 0, 0] };
   }
-  const [word, hue, sat = 0.9] = ICE[id - 192];         // Black Ice: dark crystal, glowing cracks
-  const glow = hsl(hue, sat, 0.6);
-  return { id, rarity: 'blackice', name: 'Black Ice ' + word, pattern: 10,
-    c: [[0.008, 0.01, 0.016], glow, hsl(hue, sat * 0.4, 0.8), [0.03, 0.035, 0.05]],
-    p: [1, 0.6, 0, 0], rm: [0.12, 0.85, 0.25, 0.4], clearcoat: 1, wear: 0.15, glow: glow.map((v) => Math.round(v * 2.5 * 1000) / 1000) };
+  // Black Ice: a deep glossy colour, shattered pale cracks and sparkles, and 3D ice crystals
+  // growing off the gun's edges (viewmodel.js iceCrystals).
+  const [word, hue] = ICE[id - 192];
+  const two = (id - 192) % 2;                          // the second of each pair is darker with brighter cracks
+  const glow = hsl(hue, 0.9, 0.62);
+  return { id, rarity: 'blackice', name: 'Black Ice ' + word, pattern: 10, ice: hsl(hue, 0.7, 0.78),
+    c: [hsl(hue, 0.8, two ? 0.045 : 0.07), hsl(hue, 0.4, 0.88), [0.95, 0.97, 1], hsl(hue, 0.7, two ? 0.12 : 0.17)],
+    p: [1 + two, 0.6, 0, 0], rm: [0.14, 0.35, 0.3, 0.2], clearcoat: 1, wear: 0.1, glow: glow.map((v) => Math.round(v * 0.9 * 1000) / 1000) };
 }
 
 export const SKIN_COUNT = 200;

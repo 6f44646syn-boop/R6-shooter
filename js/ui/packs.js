@@ -1,8 +1,8 @@
 // Skins & packs: points, the pack opening (a slot-machine reel that slows down and lands on
 // your skin), your collection (click to put a skin on the selected gun), and the save code.
-import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById, skinFits } from '../core/skins.js?v=8f61200-mw4abt0b';
-import { Profile, PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=8f61200-mw4abt0b';
-import { skinThumb } from '../render/gpu-tex.js?v=8f61200-mw4abt0b';
+import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById, skinFits } from '../core/skins.js?v=cd68db2-mw4e6311';
+import { Profile, PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=cd68db2-mw4e6311';
+import { skinThumb } from '../render/gpu-tex.js?v=cd68db2-mw4e6311';
 
 function el(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);

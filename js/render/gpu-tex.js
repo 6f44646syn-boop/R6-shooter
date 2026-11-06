@@ -8,7 +8,7 @@
 //   bakeSkin(renderer, index, size): one of SKINS, { albedo, rm } (rm: G roughness, B metalness).
 //   triplanar(material, opts): shader patch that maps a skin and/or detail by the surface's
 //        own 3D position (no UV stretching on long thin parts), with edge wear from UVs.
-import * as THREE from '../../vendor/three/three.module.min.js?v=8f61200-mw4abt0b';
+import * as THREE from '../../vendor/three/three.module.min.js?v=cd68db2-mw4e6311';
 
 const VERT = /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
@@ -250,18 +250,35 @@ void skinAt(vec2 uv, out vec3 col, out float m, out float g) {
     col = v.z < 0.3 ? c0 : (v.z < 0.55 ? c1 : (v.z < 0.8 ? c2 : c3));
     col *= 1.0 - sstep(0.03, 0.0, v.y - v.x) * 0.5;
     m = v.z >= 0.8 ? 1.0 : 0.0;
-  } else if (pattern == 10) {        // black ice: dark crystal facets, glowing cracks, frost
-    vec2 wq = uv + vec2(fbm(uv, 3.0, 4), fbm(uv + 5.0, 3.0, 4)) * 0.04;
-    vec3 v = voronoi(wq, vec2(7.0, 7.0));
-    vec3 v2 = voronoi(wq + 0.37, vec2(19.0, 19.0));
-    float facet = 0.6 + 0.8 * v.z;
-    float crack = sstep(0.05, 0.0, v.y - v.x);
-    float fine = sstep(0.025, 0.0, v2.y - v2.x) * 0.5;
-    float frost = sstep(0.3, 0.6, fbm(uv + 1.0, 32.0, 4) + 0.3) * sstep(0.25, 0.0, v.y - v.x);
-    col = c0 * facet + c3 * (1.0 - v.x) * 0.6;
-    col = mix(col, c2, frost * 0.5);
-    col = mix(col, c1, max(crack, fine));
-    m = max(crack, fine); g = max(crack, fine * 0.6);
+  } else if (pattern == 10) {        // black ice: deep glossy colour, shattered pale cracks, sparkles
+    float mott = fbm(uv, 4.0, 6);
+    col = mix(c0, c3, sstep(-0.15, 0.35, mott));                           // lighter patches
+    col = mix(col, c3 * 1.4, sstep(0.25, 0.45, fbm(uv + 9.0, 7.0, 5)) * 0.5);
+    // Shattered glass: two crack networks (big and fine), warped so the lines are jagged.
+    vec2 wq = uv + vec2(fbm(uv, 8.0 * S, 4), fbm(uv + 5.0, 8.0 * S, 4)) * 0.025;
+    vec3 v1 = voronoi(wq, vec2(5.0 * S));
+    vec3 v2 = voronoi(wq * 1.0 + 0.31, vec2(13.0 * S));
+    // Only parts of each network are cracked (broken lines, not tiles), thinner further out.
+    float brk1 = sstep(-0.05, 0.12, fbm(uv + 3.7, 6.0 * S, 4));
+    float brk2 = sstep(0.05, 0.2, fbm(uv + 8.1, 10.0 * S, 4));
+    float big = sstep(0.014, 0.002, v1.y - v1.x) * brk1;
+    float fine = sstep(0.008, 0.0015, v2.y - v2.x) * brk2 * sstep(0.35, 0.0, v1.y - v1.x + 0.1 * fbm(uv, 16.0, 3));
+    // Radiating splinters around some crack junctions.
+    float star = 0.0;
+    {
+      vec2 p = wq * 9.0 * S, ci = floor(p), f = fract(p);
+      vec2 o = 0.5 + 0.4 * hash2(mod(ci, vec2(9.0 * S)));
+      vec2 d = f - o; float r = length(d), a = atan(d.y, d.x);
+      float rays = pow(abs(cos(a * 3.0 + hash1(ci) * 6.0)), 40.0);
+      star = rays * sstep(0.5, 0.0, r) * step(0.6, hash1(mod(ci, vec2(9.0 * S)) + 4.0));
+    }
+    float crack = max(big, max(fine * 0.8, star * 0.9));
+    // Sparkles: tiny bright points.
+    vec2 sp = uv * 160.0, sc = floor(sp);
+    float spark = sstep(0.12, 0.0, length(fract(sp) - 0.5 - 0.3 * hash2(mod(sc, vec2(160.0))))) * step(0.93, hash1(mod(sc, vec2(160.0)) + 2.0));
+    col = mix(col, c1, crack);
+    col = mix(col, c2, spark);
+    m = crack; g = max(big * 0.5, spark);
   } else if (pattern == 11) {        // fade
     float t = sstep(0.15, 0.85, uv.y + fbm(uv, 4.0, 5) * 0.3 * W + T);
     float dith = step(hash1(floor(uv * 256.0)), t);

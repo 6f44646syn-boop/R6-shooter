@@ -1,12 +1,13 @@
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=8f61200-mw4abt0b';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=8f61200-mw4abt0b';
-import { matcap } from './matcap.js?v=8f61200-mw4abt0b';
-import { gunMaps } from './range-tex.js?v=8f61200-mw4abt0b';
-import { skinById, FACTORY } from '../core/skins.js?v=8f61200-mw4abt0b';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=8f61200-mw4abt0b';
+import * as THREE from '../../vendor/three/three.module.min.js?v=cd68db2-mw4e6311';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=cd68db2-mw4e6311';
+import { matcap } from './matcap.js?v=cd68db2-mw4e6311';
+import { mulberry32 } from '../core/prng.js?v=cd68db2-mw4e6311';
+import { gunMaps } from './range-tex.js?v=cd68db2-mw4e6311';
+import { skinById, FACTORY } from '../core/skins.js?v=cd68db2-mw4e6311';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=cd68db2-mw4e6311';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -238,6 +239,77 @@ function hands(g, type) {
   capsule(g, SLEEVE, 0.04, [0.06, -0.2, gz + 0.12], [0.13, -0.42, gz + 0.22]);        // forearm
 }
 
+
+/* ---------- Black Ice: 3D ice crystals ---------- */
+// Clusters of faceted shards growing off the top and bottom edges of the gun's parts and the
+// magazine's front edge. Short near the sight rail so they never get in the way of aiming.
+const iceMats = new Map();
+function iceMaterial(def) {
+  const sh = sightShading(), key = sh + def.id;
+  if (iceMats.has(key)) return iceMats.get(key);
+  const c = new THREE.Color(...def.ice);
+  let m;
+  if (sh === 'fast') m = new THREE.MeshMatcapMaterial({ color: c.clone().multiplyScalar(1.6), matcap: matcap('metal'), transparent: true, opacity: 0.86, flatShading: true });
+  else if (sh === 'detailed') m = new THREE.MeshStandardMaterial({ color: c, roughness: 0.08, metalness: 0.1, transparent: true, opacity: 0.84, flatShading: true, envMap: ENV, envMapIntensity: 2, emissive: c.clone().multiplyScalar(0.2) });
+  else m = new THREE.MeshPhysicalMaterial({ color: c, roughness: 0.05, metalness: 0, transparent: true, opacity: 0.8, flatShading: true, clearcoat: 1, clearcoatRoughness: 0.03,
+    iridescence: 0.35, iridescenceIOR: 1.5, envMap: highEnv(), envMapIntensity: 2.4, emissive: c.clone().multiplyScalar(0.22) });
+  iceMats.set(key, m);
+  return m;
+}
+function iceCrystals(g, mg, def, type) {
+  const rng = mulberry32(def.id * 977 + type.length * 31);
+  const rails = RAILS[type] || [];
+  const railFrom = Math.max(...rails.map((r) => r[1]), 0) + 0.03, railTo = Math.min(...rails.map((r) => r[2]), 0) - 0.03;
+  const build = (group) => {
+    const pos = [], nor = [];
+    const tmp = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1);
+    const spike = (part, x, y, z, dir, len, r) => {
+      const geo = new THREE.ConeGeometry(r, len, rng() < 0.5 ? 4 : 5, 1).toNonIndexed();
+      geo.translate(0, len / 2, 0);                                    // base on the surface
+      // dir: 0 up, 1 down, 2 forward (-z); with a random lean.
+      const lean = () => (rng() - 0.5) * 0.9;
+      if (dir === 0) e.set(lean(), rng() * 6.28, lean());
+      else if (dir === 1) e.set(Math.PI + lean(), rng() * 6.28, lean());
+      else e.set(-Math.PI / 2 + lean() * 0.6, 0, lean());
+      q.setFromEuler(e);
+      tmp.compose(v.set(x, y, z), q, one);
+      geo.applyMatrix4(tmp).applyMatrix4(part.matrix);
+      pos.push(...geo.attributes.position.array); nor.push(...geo.attributes.normal.array);
+      geo.dispose();
+    };
+    for (const part of group.children) {
+      if (!part.isMesh || !part.geometry.parameters || part.geometry.type !== 'BoxGeometry') continue;
+      const { width: w, height: h, depth: d } = part.geometry.parameters;
+      if (d < 0.04 || h < 0.02) continue;                              // skip small bits (rail teeth, pins)
+      part.updateMatrix();
+      const isMag = group === mg;
+      for (const top of [true, false]) {
+        const n = Math.round(d / 0.035 * (0.6 + rng() * 0.8));
+        for (let i = 0; i < n; i++) {
+          const z = (rng() - 0.5) * d * 0.9;
+          const zg = z + part.position.z;
+          const nearSight = top && zg < railFrom && zg > railTo;        // under the sight: keep them tiny
+          const k = nearSight ? 0.25 : top ? 1 : 0.8;
+          const cluster = 1 + Math.floor(rng() * 3);
+          for (let c = 0; c < cluster; c++) {
+            spike(part, (rng() - 0.5) * w * 0.85, top ? h / 2 : -h / 2, z + (rng() - 0.5) * 0.012, top ? 0 : 1, (0.012 + rng() * 0.04) * k, 0.003 + rng() * 0.004);
+          }
+        }
+      }
+      if (isMag) for (let i = 0; i < 4; i++) spike(part, (rng() - 0.5) * w * 0.6, (rng() - 0.5) * h * 0.8, -d / 2, 2, 0.015 + rng() * 0.03, 0.003 + rng() * 0.003);
+    }
+    if (!pos.length) return;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    const mesh = new THREE.Mesh(geo, iceMaterial(def));
+    mesh.frustumCulled = false;
+    mesh.renderOrder = 1;
+    group.add(mesh);
+  };
+  build(g);
+  build(mg);
+}
 
 /* ---------- moving parts and ultra detail (gun coordinates) ---------- */
 // half receiver width, ejection port z, muzzle [y, z], trigger z, handguard [y, from, to]
@@ -671,6 +743,7 @@ export class WeaponRig {
       SKIN_SLOT = slot;
       const finish = FINISHES[slot % FINISHES.length];
       BUILDERS[type](gunG, finish, magG);
+      if (sk && sk.rarity === 'blackice' && sk.ice) iceCrystals(gunG, magG, sk, type);
       for (const [y, from, to] of RAILS[type]) topRail(gunG, y, from, to);
       if (sightShading() === 'ultra') ultraDetails(gunG, type, finish, magG);
       if (!this.noHands) hands(gunG, type);

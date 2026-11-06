@@ -3,9 +3,9 @@
 // rate with an aim error that drifts, fire bursts with the gun's real spray (partly
 // controlled), strafe, crouch behind low cover, retreat to cover when hurt, and roam the
 // arena on A* paths when they have no one to fight.
-import { Weapon } from '../core/weapon.js?v=8f61200-mw4abt0b';
-import { RecoilEngine } from '../core/recoil.js?v=8f61200-mw4abt0b';
-import { mulberry32 } from '../core/prng.js?v=8f61200-mw4abt0b';
+import { Weapon } from '../core/weapon.js?v=cd68db2-mw4e6311';
+import { RecoilEngine } from '../core/recoil.js?v=cd68db2-mw4e6311';
+import { mulberry32 } from '../core/prng.js?v=cd68db2-mw4e6311';
 
 // Per level: reaction (s), aim error sd (deg), turn rate (deg/s), recoil control (0..1),
 // burst [min, max] shots, pause between bursts (s), head aim chance, strafes, uses cover,
