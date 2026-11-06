@@ -1,8 +1,8 @@
 // Skins & packs: points, the pack opening (a slot-machine reel that slows down and lands on
 // your skin), your collection (click to put a skin on the selected gun), and the save code.
-import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById, skinFits } from '../core/skins.js?v=1c7d129-mw4umac6';
-import { Profile, PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=1c7d129-mw4umac6';
-import { skinThumb } from '../render/gpu-tex.js?v=1c7d129-mw4umac6';
+import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById, skinFits } from '../core/skins.js?v=15d8d13-mw5jaig6';
+import { Profile, PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=15d8d13-mw5jaig6';
+import { skinThumb } from '../render/gpu-tex.js?v=15d8d13-mw5jaig6';
 
 function el(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);
@@ -35,6 +35,28 @@ export class PackUI {
       this.thumbs.set(key, url);
     }
     return this.thumbs.get(key);
+  }
+  // A thumbnail image that fills in shortly after (a few per frame), so a big collection
+  // never stalls the page.
+  thumbImg(id, attrs = {}) {
+    const key = id + '@96';
+    const img = el('img', { class: 'pk-thumb', alt: '', ...attrs });
+    if (this.thumbs.has(key)) { img.src = this.thumbs.get(key); return img; }
+    img.dataset.thumb = id;
+    this._queue = this._queue || new Set();
+    this._queue.add(id);
+    if (!this._pumping) { this._pumping = true; requestAnimationFrame(() => this._pump()); }
+    return img;
+  }
+  _pump() {
+    const t0 = performance.now();
+    for (const id of this._queue) {
+      this._queue.delete(id);
+      const url = this.thumb(id);
+      for (const img of document.querySelectorAll('img[data-thumb="' + id + '"]')) { img.src = url; delete img.dataset.thumb; }
+      if (performance.now() - t0 > 10) break;
+    }
+    if (this._queue.size) requestAnimationFrame(() => this._pump()); else this._pumping = false;
   }
 
   _build() {
@@ -103,7 +125,7 @@ export class PackUI {
         type: 'button', class: 'pk-card r-' + s.rarity + (eq === id ? ' on' : '') + (have ? '' : ' locked') + (have && !fit ? ' nofit' : ''),
         title: s.name + ' (' + rar.name + ')' + (only ? '. ' + only : '') + (have ? '' : ': not unlocked yet'),
         onclick: have && fit ? () => { p.equip(slot, id); this.onEquip(slot); } : null,
-      }, el('img', { class: 'pk-thumb', src: this.thumb(id), alt: '', loading: 'lazy' }), el('span', { class: 'pk-name', text: s.name }),
+      }, this.thumbImg(id), el('span', { class: 'pk-name', text: s.name }),
       el('span', { class: 'pk-rar', text: have ? rar.name : rar.name + ' · Locked' }),
       only ? el('span', { class: 'pk-only', text: only }) : null));
     }
@@ -120,7 +142,7 @@ export class PackUI {
     for (const id of p.ownedIds().filter((i) => this.fits(i, slot)).sort((a, b) => order[CATALOGUE[a].rarity] - order[CATALOGUE[b].rarity] || a - b)) {
       const s = CATALOGUE[id];
       cards.push(el('button', { type: 'button', class: 'pk-card r-' + s.rarity + (eq === id ? ' on' : ''), title: s.name, onclick: () => pick(id) },
-        el('img', { class: 'pk-thumb', src: this.thumb(id), alt: '' }), el('span', { class: 'pk-name', text: s.name }),
+        this.thumbImg(id), el('span', { class: 'pk-name', text: s.name }),
         el('span', { class: 'pk-rar', text: RARITY[s.rarity].name })));
     }
     container.replaceChildren(...cards);

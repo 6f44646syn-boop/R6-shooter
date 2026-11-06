@@ -10,9 +10,9 @@
 // Each side is laid out differently.
 //
 // Everything is drawn in code (canvas textures); no image files.
-import * as THREE from '../../vendor/three/three.module.min.js?v=1c7d129-mw4umac6';
-import { concreteTiles, wallPanels, duskSky, hazardStripes } from '../scene/range-tex.js?v=1c7d129-mw4umac6';
-import { mulberry32 } from '../core/prng.js?v=1c7d129-mw4umac6';
+import * as THREE from '../../vendor/three/three.module.min.js?v=15d8d13-mw5jaig6';
+import { concreteTiles, wallPanels, duskSky, hazardStripes } from '../scene/range-tex.js?v=15d8d13-mw5jaig6';
+import { mulberry32 } from '../core/prng.js?v=15d8d13-mw5jaig6';
 
 /* ---------- texture helpers ---------- */
 function canvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; }
@@ -183,6 +183,15 @@ function slotScreenTex(seed) {
   for (let i = 0; i < 5; i++) { g.fillStyle = ['#ff5050', '#50ff80', '#5080ff', '#ffe050', '#ff80ff'][i]; g.beginPath(); g.arc(18 + i * 23, 128, 7, 0, 6.3); g.fill(); }
   const t = tex(cv, false); return t;
 }
+// All slot screens on one texture sheet (4 x 4): one material, so every screen in a chunk of
+// the map merges into a single draw.
+const slotAtlas = memo(() => {
+  const W = 128, H = 160, [cv, g] = canvas(W * 4, H * 4);
+  for (let i = 0; i < 16; i++) g.drawImage(slotScreenTex(1000 + i * 37).image, (i % 4) * W, Math.floor(i / 4) * H);
+  return tex(cv, false);
+});
+const slotCell = (seed) => { const i = Math.abs(seed) % 16; return [(i % 4) / 4, 1 - (Math.floor(i / 4) + 1) / 4, (i % 4 + 1) / 4, 1 - Math.floor(i / 4) / 4]; };
+const neonSign = memo(() => neonTex("JESSE'S CASINO", '#ff2fa8'));
 function neonTex(text, color) {
   const W = 1024, H = 192, [cv, g] = canvas(W, H);
   g.fillStyle = '#05030a'; g.fillRect(0, 0, W, H);
@@ -590,8 +599,9 @@ export const MAPS = {
             const f = (i + 0.5) / n, x = alongX ? b.x - b.w / 2 + f * b.w : b.x, z = alongX ? b.z : b.z - b.d / 2 + f * b.d;
             const seed = 1000 + i * 7 + Math.round(b.x * 13 + b.z * 7);
             for (const s of [-1, 1]) {
-              if (alongX) ctx.plane({ emissiveMap: slotScreenTex(seed + (s > 0 ? 3 : 0)) }, b.w / n * 0.8, 1.0, x, 1.25, b.z + s * (b.d / 2 + 0.01), s > 0 ? 0 : Math.PI);
-              else ctx.plane({ emissiveMap: slotScreenTex(seed + (s > 0 ? 3 : 0)) }, b.d / n * 0.8, 1.0, b.x + s * (b.w / 2 + 0.01), 1.25, z, s > 0 ? Math.PI / 2 : -Math.PI / 2);
+              const uv = slotCell(seed + (s > 0 ? 3 : 0));
+              if (alongX) ctx.plane({ emissiveMap: slotAtlas() }, b.w / n * 0.8, 1.0, x, 1.25, b.z + s * (b.d / 2 + 0.01), s > 0 ? 0 : Math.PI, uv);
+              else ctx.plane({ emissiveMap: slotAtlas() }, b.d / n * 0.8, 1.0, b.x + s * (b.w / 2 + 0.01), 1.25, z, s > 0 ? Math.PI / 2 : -Math.PI / 2, uv);
             }
             ctx.cone({ emissive: [0xff3050, 0x30ff80, 0xffd040, 0x40a0ff][i % 4] }, 0.12, 0.25, x, b.h + 0.12, z);
           }
@@ -621,7 +631,7 @@ export const MAPS = {
     spawns: [[-18, 9], [0, 14], [18, 9], [-12, 10, 3.6], [14, 13, 3.6]],
     spawnsB: [[-18, -10], [0, -15.2], [18, -9], [-10, -12, 3.6], [4, -13, 3.6]],
     extra: (ctx, map) => {
-      for (const [z, ry] of [[-map.hz + 0.02, 0], [map.hz - 0.02, Math.PI]]) ctx.plane({ emissiveMap: neonTex("JESSE'S CASINO", '#ff2fa8') }, 9, 1.7, 0, 5.8, z, ry);
+      for (const [z, ry] of [[-map.hz + 0.02, 0], [map.hz - 0.02, Math.PI]]) ctx.plane({ emissiveMap: neonSign() }, 9, 1.7, 0, 5.8, z, ry);
       for (const [x, z] of [[-4, 0], [4, 0], [-14, -10], [14, 10], [-14, 10], [14, -10]]) {
         ctx.cylinder({ color: 0xc9952e, rough: 0.3, metal: 1 }, 0.6, 0.14, x, map.wallH - 0.6, z);
         ctx.cone({ emissive: 0xfff0c0 }, 0.55, 0.6, x, map.wallH - 1.0, z, Math.PI);

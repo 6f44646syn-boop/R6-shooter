@@ -903,7 +903,7 @@ try {
     check('casino: stairs and a ramp up to the second floor; bots can path up there; rails stop falls', Math.abs(mv.stairs - 3.6) < 0.01 && Math.abs(mv.ramp - 3.6) < 0.01 && mv.upPath && Math.abs(mv.upPath[2] - 3.6) < 0.01 && Math.abs(mv.fallBlockedByRail - 3.6) < 0.01, JSON.stringify(mv));
     check('winter: walk into the cabin through its door', mv.cabin < 0, JSON.stringify(mv));
     check('school basement: acid kills, shown in the kill feed', mv.acid.dead && /Acid/.test(mv.acid.feed), JSON.stringify(mv.acid));
-    check('night: flashlights (yours toggles with F), beams on others; storm rain and fog banks; day has none', mv.night.lights === 5 && mv.night.own > 0 && mv.night.beam && mv.night.rain && mv.night.banks && mv.lightOff === 0 && mv.day.lights === 0 && !mv.day.rain && mv.day.hemi > mv.night.hemi * 4, JSON.stringify(mv));
+    check('night: flashlights (yours toggles with F; others light the scene in Standard and up), beams on others; storm rain and fog banks; day has none', mv.night.lights >= 1 && mv.night.own > 0 && mv.night.beam && mv.night.rain && mv.night.banks && mv.lightOff === 0 && mv.day.lights === 0 && !mv.day.rain && mv.day.hemi > mv.night.hemi * 4, JSON.stringify(mv));
     check('others carry their real gun model (with a skin for bots)', mv.look.gun > 0, JSON.stringify(mv.look));
     check('no page errors', errors.length === 0, errors.join('\n'));
     await page.close();

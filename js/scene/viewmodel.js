@@ -1,13 +1,13 @@
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=1c7d129-mw4umac6';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=1c7d129-mw4umac6';
-import { matcap } from './matcap.js?v=1c7d129-mw4umac6';
-import { mulberry32 } from '../core/prng.js?v=1c7d129-mw4umac6';
-import { gunMaps } from './range-tex.js?v=1c7d129-mw4umac6';
-import { skinById, FACTORY } from '../core/skins.js?v=1c7d129-mw4umac6';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=1c7d129-mw4umac6';
+import * as THREE from '../../vendor/three/three.module.min.js?v=15d8d13-mw5jaig6';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=15d8d13-mw5jaig6';
+import { matcap } from './matcap.js?v=15d8d13-mw5jaig6';
+import { mulberry32 } from '../core/prng.js?v=15d8d13-mw5jaig6';
+import { gunMaps } from './range-tex.js?v=15d8d13-mw5jaig6';
+import { skinById, FACTORY } from '../core/skins.js?v=15d8d13-mw5jaig6';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=15d8d13-mw5jaig6';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -64,8 +64,11 @@ function ultraDetail(kind) {
 // The finish parts wear the skin, mapped by 3D position, edges worn to bare metal.
 //   ultra / high: MeshPhysical (lacquer clearcoat, glow), ultra adds paint micro-detail.
 //   detailed: MeshStandard.   fast: matcap (cheap) with the skin as its colour.
+// Guns other people carry use cheaper shading in High / Ultra (no lacquer layers): they are
+// small on screen and there can be a dozen of them.
+function shading() { const s = sightShading(); return WORLD && (s === 'high' || s === 'ultra') ? 'detailed' : s; }
 function skinMaterial(def) {
-  const sh = sightShading(), sk = bakedSkin(def);
+  const sh = shading(), sk = bakedSkin(def);
   let m;
   if (sh === 'fast') {
     m = new THREE.MeshMatcapMaterial({ color: 0xffffff, matcap: matcap('metal') });
@@ -90,7 +93,7 @@ function skinMaterial(def) {
 }
 // kind: 'auto' (black = polymer, else metal) or 'metal' (barrels, tubes).
 function mat(color, kind = 'auto') {
-  const sh = sightShading();
+  const sh = shading();
   const skin = kind === 'auto' && color !== BLACK && color !== STEEL ? currentSkin() : null;
   const key = sh + color + kind + (skin ? '|skin' + skin.id + '@' + skinSize() : '');
   if (!mats.has(key)) {

@@ -8,7 +8,7 @@
 //   bakeSkin(renderer, index, size): one of SKINS, { albedo, rm } (rm: G roughness, B metalness).
 //   triplanar(material, opts): shader patch that maps a skin and/or detail by the surface's
 //        own 3D position (no UV stretching on long thin parts), with edge wear from UVs.
-import * as THREE from '../../vendor/three/three.module.min.js?v=1c7d129-mw4umac6';
+import * as THREE from '../../vendor/three/three.module.min.js?v=15d8d13-mw5jaig6';
 
 const VERT = /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
@@ -67,6 +67,7 @@ vec3 voronoi(vec2 uv, vec2 per) {
 /* ---------- baking plumbing ---------- */
 
 let quad = null;
+const bakeMats = new Map();
 function bake(renderer, frag, size, uniforms = {}, { mip = true } = {}) {
   if (!quad) {
     const g = new THREE.BufferGeometry();
@@ -81,10 +82,18 @@ function bake(renderer, frag, size, uniforms = {}, { mip = true } = {}) {
     generateMipmaps: mip, minFilter: mip ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter, magFilter: THREE.LinearFilter,
   });
   rt.texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-  const mat = new THREE.ShaderMaterial({
-    vertexShader: VERT, fragmentShader: frag, depthTest: false, depthWrite: false, toneMapped: false,
-    uniforms: { texel: { value: 1 / size }, ...uniforms },
-  });
+  // One material (one compiled shader) per fragment program, reused for every bake: building
+  // the big skin shader again for each of 200 thumbnails froze the page.
+  let mat = bakeMats.get(frag);
+  if (!mat) {
+    mat = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: frag, depthTest: false, depthWrite: false, toneMapped: false, uniforms: {} });
+    bakeMats.set(frag, mat);
+    if (bakeMats.size > 24) { const [k, old] = bakeMats.entries().next().value; old.dispose(); bakeMats.delete(k); }
+  }
+  for (const k of Object.keys(mat.uniforms)) if (k !== 'texel' && !(k in uniforms)) mat.uniforms[k].value = null;
+  mat.uniforms.texel = mat.uniforms.texel || { value: 0 };
+  mat.uniforms.texel.value = 1 / size;
+  for (const [k, u] of Object.entries(uniforms)) { if (mat.uniforms[k]) mat.uniforms[k].value = u.value; else mat.uniforms[k] = { value: u.value }; }
   quad.mesh.material = mat;
   const prevTarget = renderer.getRenderTarget(), prevAuto = renderer.autoClear;
   renderer.autoClear = true;
@@ -92,7 +101,6 @@ function bake(renderer, frag, size, uniforms = {}, { mip = true } = {}) {
   renderer.render(quad.scene, quad.cam);
   renderer.setRenderTarget(prevTarget);
   renderer.autoClear = prevAuto;
-  mat.dispose();
   rt.texture.userData.rt = rt;    // dispose the target through the texture
   return rt.texture;
 }

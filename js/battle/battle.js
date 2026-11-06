@@ -3,13 +3,13 @@
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=1c7d129-mw4umac6';
-import { Arena } from './arena.js?v=1c7d129-mw4umac6';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=1c7d129-mw4umac6';
-import { Bot, LEVELS } from './bot.js?v=1c7d129-mw4umac6';
-import { Human } from './human.js?v=1c7d129-mw4umac6';
-import { drawCrosshair } from '../ui/crosshair.js?v=1c7d129-mw4umac6';
-import { CATALOGUE, skinFits } from '../core/skins.js?v=1c7d129-mw4umac6';
+import * as THREE from '../../vendor/three/three.module.min.js?v=15d8d13-mw5jaig6';
+import { Arena } from './arena.js?v=15d8d13-mw5jaig6';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=15d8d13-mw5jaig6';
+import { Bot, LEVELS } from './bot.js?v=15d8d13-mw5jaig6';
+import { Human } from './human.js?v=15d8d13-mw5jaig6';
+import { drawCrosshair } from '../ui/crosshair.js?v=15d8d13-mw5jaig6';
+import { CATALOGUE, skinFits } from '../core/skins.js?v=15d8d13-mw5jaig6';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -81,9 +81,12 @@ export class Battle {
   _setNight(night, weather, fog) {
     this.night = !!night;
     this.arena.setAtmosphere(this.night, weather || 'auto', !!fog);
-    const high = ['high', 'ultra'].includes(this.deps.settings.graphics);
+    const q = this.deps.settings.graphics, high = q === 'high' || q === 'ultra';
+    // Others' flashlights that light the scene: 4 in High / Ultra, 2 in Standard, none in Low
+    // (their beams always show).
+    const others = high ? 4 : q === 'low' ? 0 : 2;
     this.torches.forEach((l, i) => {
-      l.visible = this.night;
+      l.visible = this.night && i <= others;
       l.castShadow = this.night && i === 0 && high;
       if (l.castShadow) { l.shadow.mapSize.set(1024, 1024); l.shadow.camera.near = 0.3; l.shadow.camera.far = 40; l.shadow.bias = -0.0008; }
     });
@@ -106,7 +109,7 @@ export class Battle {
       .sort((a, b) => (me ? Math.hypot(a.x - me.x, a.z - me.z) - Math.hypot(b.x - me.x, b.z - me.z) : 0));
     rest.forEach((l, i) => {
       const f = lit[i];
-      if (!f) { l.intensity = 0; return; }
+      if (!f || !l.visible) { l.intensity = 0; return; }
       l.intensity = 110;
       f.muzzleWorld(l.position);
       const y = f.yaw * DEG2RAD, p = f.pitch * DEG2RAD;
@@ -220,6 +223,8 @@ export class Battle {
     if (this.active && this.net && this.net.role === 'client') this.net.link.send({ k: 'left' });
     this.active = false;
     this.paused = false;
+    this._frameN = 0;
+    if (this.deps.renderer) this.deps.renderer.shadowMap.autoUpdate = true;
     if (this.hud) this.hud.root.hidden = true;
     for (const h of this.humans) h.releaseAll();
   }
@@ -666,6 +671,10 @@ export class Battle {
     if (!this.active) return;
     const r = this.deps.renderer;
     r.info.reset();
+    // Shadows are redrawn every other frame (the map never moves; people move a little).
+    r.shadowMap.autoUpdate = false;
+    this._frameN = (this._frameN || 0) + 1;
+    if (this._frameN % 2 === 0 || this._frameN < 3) r.shadowMap.needsUpdate = true;
     r.autoClear = false;
     r.setRenderTarget(null);
     const vps = this.viewports();

@@ -7,12 +7,12 @@
 //
 // Coordinates: metres, x right, y up, z towards the "A" side. Same yaw convention as the
 // range: yaw 0 looks along -z, positive turns right.
-import * as THREE from '../../vendor/three/three.module.min.js?v=1c7d129-mw4umac6';
-import { MAPS } from './maps.js?v=1c7d129-mw4umac6';
-import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=1c7d129-mw4umac6';
-import { flatMaterial } from '../scene/low.js?v=1c7d129-mw4umac6';
-import { BulletHoles } from '../scene/holes.js?v=1c7d129-mw4umac6';
-import { mulberry32 } from '../core/prng.js?v=1c7d129-mw4umac6';
+import * as THREE from '../../vendor/three/three.module.min.js?v=15d8d13-mw5jaig6';
+import { MAPS } from './maps.js?v=15d8d13-mw5jaig6';
+import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=15d8d13-mw5jaig6';
+import { flatMaterial } from '../scene/low.js?v=15d8d13-mw5jaig6';
+import { BulletHoles } from '../scene/holes.js?v=15d8d13-mw5jaig6';
+import { mulberry32 } from '../core/prng.js?v=15d8d13-mw5jaig6';
 
 export const HALF_X = 18, HALF_Z = 14, WALL_H = 4.5;   // the old Container Yard size (tests)
 export const BODY_R = 0.35;       // fighter radius for collision
@@ -116,14 +116,15 @@ function greySky() {
 
 // Merge static meshes in square chunks (one mesh per material per chunk) and keep frustum
 // culling on, so looking one way does not draw the whole map.
-function mergeChunks(group, size = 14) {
+function mergeChunks(group, size = 22, bounds = null) {
   const chunks = new Map();
   group.updateMatrixWorld(true);
   const tmp = new THREE.Vector3();
   for (const o of [...group.children]) {
     if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
     tmp.copy(o.geometry.boundingSphere.center).applyMatrix4(o.matrixWorld);
-    const key = Math.floor(tmp.x / size) + ',' + Math.floor(tmp.z / size);
+    // Everything outside the walls (scenery) goes in one piece.
+    const key = bounds && (Math.abs(tmp.x) > bounds[0] + 1 || Math.abs(tmp.z) > bounds[1] + 1) ? 'far' : Math.floor(tmp.x / size) + ',' + Math.floor(tmp.z / size);
     if (!chunks.has(key)) chunks.set(key, new THREE.Group());
     chunks.get(key).add(o);
   }
@@ -236,7 +237,12 @@ export class Arena {
     };
     const makeCtx = (yo = 0) => ({
       box: (m, w, h, d, x, y, z) => add(boxGeo(w, h, d, m.tile || 1), m, x, y + yo, z),
-      plane: (m, w, h, x, y, z, ry = 0) => { const p = add(new THREE.PlaneGeometry(w, h), m, x, y + yo, z); p.rotation.y = ry; return p; },
+      // uv: [u0, v0, u1, v1] to show part of a texture sheet.
+      plane: (m, w, h, x, y, z, ry = 0, uv = null) => {
+        const g = new THREE.PlaneGeometry(w, h);
+        if (uv) { const a = g.attributes.uv; for (let i = 0; i < a.count; i++) a.setXY(i, uv[0] + a.getX(i) * (uv[2] - uv[0]), uv[1] + a.getY(i) * (uv[3] - uv[1])); }
+        const p = add(g, m, x, y + yo, z); p.rotation.y = ry; return p;
+      },
       floorPlane: (m, w, d, x, y, z) => { const p = add(new THREE.PlaneGeometry(w, d), m, x, y + yo, z); p.rotation.x = -Math.PI / 2; return p; },
       cone: (m, r, h, x, y, z, rx = 0) => { const c = add(new THREE.ConeGeometry(r, h, 10), m, x, y + yo, z); c.rotation.x = rx; return c; },
       cylinder: (m, r, h, x, y, z, seg = 16) => add(new THREE.CylinderGeometry(r, r, h, seg), m, x, y + yo, z),
@@ -333,7 +339,7 @@ export class Arena {
     mergeChunks(noShadow);
     noShadow.traverse((o) => { if (o.isMesh) o.receiveShadow = true; });
     scene.add(noShadow);
-    mergeChunks(decor);
+    mergeChunks(decor, 22, [HX, HZ]);
     decor.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     scene.add(decor);
     mergeChunks(glowDecor);
