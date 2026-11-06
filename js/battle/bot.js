@@ -3,9 +3,9 @@
 // rate with an aim error that drifts, fire bursts with the gun's real spray (partly
 // controlled), strafe, crouch behind low cover, retreat to cover when hurt, and roam the
 // arena on A* paths when they have no one to fight.
-import { Weapon } from '../core/weapon.js?v=2156b86-mw4poxh9';
-import { RecoilEngine } from '../core/recoil.js?v=2156b86-mw4poxh9';
-import { mulberry32 } from '../core/prng.js?v=2156b86-mw4poxh9';
+import { Weapon } from '../core/weapon.js?v=1c7d129-mw4umac6';
+import { RecoilEngine } from '../core/recoil.js?v=1c7d129-mw4umac6';
+import { mulberry32 } from '../core/prng.js?v=1c7d129-mw4umac6';
 
 // Per level: reaction (s), aim error sd (deg), turn rate (deg/s), recoil control (0..1),
 // burst [min, max] shots, pause between bursts (s), head aim chance, strafes, uses cover,
@@ -72,6 +72,8 @@ export class Bot {
     const ang = Math.atan2(dx, -dz) / DEG;
     const inCone = Math.abs(wrap180(ang - f.yaw)) <= this.L.cone / 2 || (this.attacker === e && t - this.attackedAt < 1.2);
     if (!inCone) return false;
+    // At night someone with their flashlight off is hard to spot beyond a few metres.
+    if (arena.atm && arena.atm.night && !e.light && Math.hypot(dx, dz) > 9 && !(this.attacker === e && t - this.attackedAt < 1.2) && t > e.flashUntil + 0.3) return false;
     return arena.sightLine(this._eye, e.head(this._pt)) || arena.sightLine(this._eye, e.chest(this._pt));
   }
 
@@ -91,8 +93,8 @@ export class Bot {
         if (d < bd) { bd = d; best = e; }
       }
       if (best !== this.target) { this.target = best; this.seenAt = best ? t : -1; this.burstLeft = 0; }
-      if (best) this.lastSeen = { x: best.x, z: best.z, t };
-      else if (this.attacker && this.attacker.alive && t - this.attackedAt < 1.5) this.lastSeen = { x: this.attacker.x, z: this.attacker.z, t };
+      if (best) this.lastSeen = { x: best.x, z: best.z, y: best.y, t };
+      else if (this.attacker && this.attacker.alive && t - this.attackedAt < 1.5) this.lastSeen = { x: this.attacker.x, z: this.attacker.z, y: this.attacker.y, t };
     }
     const tgt = this.target;
 
@@ -104,7 +106,7 @@ export class Bot {
     /* mode */
     if (L.cover && f.health < 45 && this.mode !== 'retreat' && this.mode !== 'hold' && tgt) {
       const spot = this._coverFrom(tgt, arena);
-      if (spot) { this.mode = 'retreat'; this._setGoal(spot.x, spot.z, arena, t); this.crouchWanted = spot.low; }
+      if (spot) { this.mode = 'retreat'; this._setGoal(spot.x, spot.z, arena, t, spot.y); this.crouchWanted = spot.low; }
     }
     if (this.mode === 'hold' && t > this.holdUntil) this.mode = 'roam';
     if (this.mode !== 'retreat' && this.mode !== 'hold') this.mode = tgt ? 'fight' : 'roam';
@@ -122,27 +124,27 @@ export class Bot {
       mx = Math.cos(y) * this.strafeDir; mz = Math.sin(y) * this.strafeDir;
       speed = L.speed * 0.6;
       // Behind low cover: crouch between bursts (peek up to shoot) on hard; medium crouches when hurt.
-      const nearLow = arena.coverSpots.some((s) => s.low && Math.hypot(s.x - f.x, s.z - f.z) < 0.9);
+      const nearLow = arena.coverSpots.some((s) => s.low && Math.abs(s.y - f.y) < 0.3 && Math.hypot(s.x - f.x, s.z - f.z) < 0.9);
       this.crouchWanted = nearLow && (L === LEVELS.hard ? t < this.pauseUntil : f.health < 60);
     } else {
       // roam or retreat: follow the path to the goal.
       if (this.mode === 'roam') {
         this.crouchWanted = false;
-        if (!this.goal || t >= this.nextPath || this.path.length === 0) {
+        if (!this.goal || t >= this.nextPath) {
           const ls = this.lastSeen && t - this.lastSeen.t < 6 ? this.lastSeen : null;
           // Head for where the enemy was, each bot from its own angle (no conga lines).
-          if (ls) { const a = this.rng() * Math.PI * 2, r = 1.5 + this.rng() * 3; this._setGoal(ls.x + Math.cos(a) * r, ls.z + Math.sin(a) * r, arena, t); }
+          if (ls) { const a = this.rng() * Math.PI * 2, r = 1.5 + this.rng() * 3; this._setGoal(ls.x + Math.cos(a) * r, ls.z + Math.sin(a) * r, arena, t, ls.y || 0); }
           else {
             const spots = arena.coverSpots;
             const s = spots[Math.floor(this.rng() * spots.length)];
-            this._setGoal(s.x, s.z, arena, t);
+            this._setGoal(s.x, s.z, arena, t, s.y);
           }
         }
       }
       const wp = this.path[0];
       if (wp) {
         const dx = wp[0] - f.x, dz = wp[1] - f.z, d = Math.hypot(dx, dz);
-        if (d < 0.35) this.path.shift();
+        if (d < 0.35) { this.path.shift(); if (!this.path.length) this.nextPath = Math.min(this.nextPath, t + 0.2); }
         else { mx = dx / d; mz = dz / d; }
       } else if (this.mode === 'retreat') { this.mode = 'hold'; this.holdUntil = t + this._r(1.5, 3); }
       if (this.mode === 'hold') { mx = mz = 0; }
@@ -151,10 +153,16 @@ export class Bot {
     const k = 1 - Math.exp(-10 * dt);
     const sp = this.crouchWanted ? Math.min(speed, 1.5) : speed;
     f.vx += (mx * sp - f.vx) * k; f.vz += (mz * sp - f.vz) * k;
-    const p = { x: f.x + f.vx * dt, z: f.z + f.vz * dt };
+    const p = { x: f.x + f.vx * dt, y: f.y, z: f.z + f.vz * dt };
     arena.resolve(p);
-    if (Math.hypot(p.x - (f.x + f.vx * dt), p.z - (f.z + f.vz * dt)) > 0.01 && this.mode !== 'fight') this.nextPath = 0;  // bumped: re-plan
-    f.x = p.x; f.z = p.z;
+    if (Math.hypot(p.x - (f.x + f.vx * dt), p.z - (f.z + f.vz * dt)) > 0.01 && this.mode !== 'fight') this.nextPath = Math.min(this.nextPath, t + 0.4);  // bumped: re-plan soon
+    // Never walk into acid (strafing included).
+    if (!arena.hazards.length || arena.hazardAt(p.x, arena.groundAt(p.x, p.z, f.y), p.z) === 0 || arena.hazardAt(f.x, f.y, f.z) > 0) { f.x = p.x; f.z = p.z; }
+    else { f.vx = f.vz = 0; this.strafeDir = -this.strafeDir; }
+    // Stand on what is underneath, or fall.
+    const g = arena.groundAt(f.x, f.z, f.y);
+    if (g >= f.y - 1e-4) { f.y = g; f.vy = 0; }
+    else { f.vy -= 22 * dt; f.y = Math.max(g, f.y + f.vy * dt); if (f.y === g) f.vy = 0; }
     f.crouch += ((this.crouchWanted ? 1 : 0) - f.crouch) * (1 - Math.exp(-12 * dt));
 
     /* aim */
@@ -210,10 +218,10 @@ export class Bot {
     return out;
   }
 
-  _setGoal(x, z, arena, t) {
-    this.goal = { x, z };
-    this.path = arena.findPath(this.f.x, this.f.z, x, z);
-    this.nextPath = t + this._r(1.8, 3.2);
+  _setGoal(x, z, arena, t, y = 0) {
+    this.goal = { x, z, y };
+    this.path = arena.findPath(this.f.x, this.f.z, x, z, this.f.y, y);
+    this.nextPath = t + (this.path.length ? this._r(1.8, 3.2) : this._r(0.5, 0.9));   // unreachable: try another goal soon
   }
 
   // A cover spot near me that the threat cannot see (crouched height if it is low cover).
@@ -224,7 +232,7 @@ export class Bot {
       const d = Math.hypot(s.x - f.x, s.z - f.z);
       if (d > 9 || d >= bd) continue;
       const h = s.low ? 0.95 : 1.5;
-      if (arena.sightLine(eye, [s.x, h, s.z])) continue;
+      if (arena.sightLine(eye, [s.x, s.y + h, s.z])) continue;
       best = s; bd = d;
     }
     return best;

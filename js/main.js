@@ -1,41 +1,41 @@
 // Recoil Range entry point: wires input, camera, scene, HUD and the frame loop together.
-import * as THREE from '../vendor/three/three.module.min.js?v=2156b86-mw4poxh9';
-import { Look, PITCH_LIMIT } from './core/look.js?v=2156b86-mw4poxh9';
-import { Player } from './core/player.js?v=2156b86-mw4poxh9';
-import { PointerLock } from './core/pointer-lock.js?v=2156b86-mw4poxh9';
-import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=2156b86-mw4poxh9';
-import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=2156b86-mw4poxh9';
-import { Weapon } from './core/weapon.js?v=2156b86-mw4poxh9';
-import { RecoilEngine } from './core/recoil.js?v=2156b86-mw4poxh9';
-import { Spread } from './core/spread.js?v=2156b86-mw4poxh9';
-import { loadGameData } from './core/guns.js?v=2156b86-mw4poxh9';
-import { randomSeed } from './core/prng.js?v=2156b86-mw4poxh9';
-import { Range, EYE_HEIGHT } from './scene/range.js?v=2156b86-mw4poxh9';
-import { RING_STEP } from './scene/range-tex.js?v=2156b86-mw4poxh9';
-import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=2156b86-mw4poxh9';
-import { LensPost } from './render/lens-post.js?v=2156b86-mw4poxh9';
-import { reticleTextures } from './ui/reticle-tex.js?v=2156b86-mw4poxh9';
-import { DOT_POINTS } from './scene/dots.js?v=2156b86-mw4poxh9';
-import { Sfx } from './audio/sfx.js?v=2156b86-mw4poxh9';
-import { DebugHud } from './ui/debug-hud.js?v=2156b86-mw4poxh9';
-import { drawCrosshair } from './ui/crosshair.js?v=2156b86-mw4poxh9';
-import { Hud } from './ui/hud.js?v=2156b86-mw4poxh9';
-import { MagPlot } from './ui/plot.js?v=2156b86-mw4poxh9';
-import { SettingsUI } from './ui/settings-ui.js?v=2156b86-mw4poxh9';
-import { sensKeys, zoomKey } from './core/optics.js?v=2156b86-mw4poxh9';
+import * as THREE from '../vendor/three/three.module.min.js?v=1c7d129-mw4umac6';
+import { Look, PITCH_LIMIT } from './core/look.js?v=1c7d129-mw4umac6';
+import { Player } from './core/player.js?v=1c7d129-mw4umac6';
+import { PointerLock } from './core/pointer-lock.js?v=1c7d129-mw4umac6';
+import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=1c7d129-mw4umac6';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=1c7d129-mw4umac6';
+import { Weapon } from './core/weapon.js?v=1c7d129-mw4umac6';
+import { RecoilEngine } from './core/recoil.js?v=1c7d129-mw4umac6';
+import { Spread } from './core/spread.js?v=1c7d129-mw4umac6';
+import { loadGameData } from './core/guns.js?v=1c7d129-mw4umac6';
+import { randomSeed } from './core/prng.js?v=1c7d129-mw4umac6';
+import { Range, EYE_HEIGHT } from './scene/range.js?v=1c7d129-mw4umac6';
+import { RING_STEP } from './scene/range-tex.js?v=1c7d129-mw4umac6';
+import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=1c7d129-mw4umac6';
+import { LensPost } from './render/lens-post.js?v=1c7d129-mw4umac6';
+import { reticleTextures } from './ui/reticle-tex.js?v=1c7d129-mw4umac6';
+import { DOT_POINTS } from './scene/dots.js?v=1c7d129-mw4umac6';
+import { Sfx } from './audio/sfx.js?v=1c7d129-mw4umac6';
+import { DebugHud } from './ui/debug-hud.js?v=1c7d129-mw4umac6';
+import { drawCrosshair } from './ui/crosshair.js?v=1c7d129-mw4umac6';
+import { Hud } from './ui/hud.js?v=1c7d129-mw4umac6';
+import { MagPlot } from './ui/plot.js?v=1c7d129-mw4umac6';
+import { SettingsUI } from './ui/settings-ui.js?v=1c7d129-mw4umac6';
+import { sensKeys, zoomKey } from './core/optics.js?v=1c7d129-mw4umac6';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
 function sensRows(catalogue, sens) {
   const keys = new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)]);
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
-import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=2156b86-mw4poxh9';
-import { Battle } from './battle/battle.js?v=2156b86-mw4poxh9';
-import { createJoinRequest, acceptJoin } from './net/link.js?v=2156b86-mw4poxh9';
-import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode } from './net/relay.js?v=2156b86-mw4poxh9';
-import { Profile, WIN_POINTS } from './core/profile.js?v=2156b86-mw4poxh9';
-import { skinFits, skinById } from './core/skins.js?v=2156b86-mw4poxh9';
-import { PackUI } from './ui/packs.js?v=2156b86-mw4poxh9';
+import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=1c7d129-mw4umac6';
+import { Battle } from './battle/battle.js?v=1c7d129-mw4umac6';
+import { createJoinRequest, acceptJoin } from './net/link.js?v=1c7d129-mw4umac6';
+import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode } from './net/relay.js?v=1c7d129-mw4umac6';
+import { Profile, WIN_POINTS } from './core/profile.js?v=1c7d129-mw4umac6';
+import { skinFits, skinById } from './core/skins.js?v=1c7d129-mw4umac6';
+import { PackUI } from './ui/packs.js?v=1c7d129-mw4umac6';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -80,6 +80,8 @@ function boot(data) {
   const profile = new Profile();
   var packsUi = null;      // the Skins & packs panel (created further down; var: readable before then)
   let skinOverride = null;   // { slot, id }: a one-off render of a skin (pack reveal)
+  // Your skin on the gun in a slot (what other players see), or null.
+  const equippedSkin = (slot) => { const id = profile.equippedFor(slot); return id !== null && skinFits(id, slot) ? id : null; };
   setSkinResolver((slot) => {
     if (skinOverride && skinOverride.slot === slot) return skinOverride.id;
     const id = profile.equippedFor(slot); return id !== null && skinFits(id, slot) ? id : null;
@@ -642,11 +644,26 @@ function boot(data) {
 
   /* ---------- resize / FOV ---------- */
   let renderW = 0, renderH = 0;
+  // Dynamic resolution (render resolution on Auto): when frames take too long the picture is
+  // drawn at a lower resolution, and sharpened back up when there is time to spare.
+  let dynScale = 1, dynSum = 0, dynN = 0, dynFast = 0;
+  function watchResolution(dtMs) {
+    if (settings.renderScale || testMode || document.hidden || dtMs > 250) return;
+    dynSum += dtMs; dynN++;
+    if (dynSum < 1500) return;
+    const avg = dynSum / dynN;
+    dynSum = 0; dynN = 0;
+    let next = dynScale;
+    if (avg > 21) { next = Math.max(0.55, dynScale * (avg > 30 ? 0.8 : 0.9)); dynFast = 0; }
+    else if (avg < 15.5 && dynScale < 1) { if (++dynFast >= 2) { next = Math.min(1, dynScale * 1.1); dynFast = 0; } }
+    else dynFast = 0;
+    if (Math.abs(next - dynScale) > 0.01) { dynScale = next; resize(); }
+  }
   function resize() {
     // Auto: the screen's own sharpness (devicePixelRatio, 1x to 2x). Above 1 = supersampling.
     // Ultra (graphics card) supersamples at least 150% on Auto so the fine detail resolves.
     // Low draws at plain 100% even on a high-DPI screen.
-    const s = settings.renderScale || (settings.graphics === 'low' ? 1 : Math.min(2, Math.max(settings.graphics === 'ultra' ? 1.5 : 1, window.devicePixelRatio || 1)));
+    const s = settings.renderScale || dynScale * (settings.graphics === 'low' ? 1 : Math.min(2, Math.max(settings.graphics === 'ultra' ? 1.5 : 1, window.devicePixelRatio || 1)));
     renderW = Math.max(1, Math.round(window.innerWidth * s));
     renderH = Math.max(1, Math.round(window.innerHeight * s));
     renderer.setSize(renderW, renderH, false);
@@ -725,13 +742,13 @@ function boot(data) {
   {
     const B = settings.battle;
     if (B.opponent === 'p2') B.opponent = 'bots';          // split screen was removed
-    bEl('b-bots').value = String(B.bots); bEl('b-level').value = B.level; bEl('b-kills').value = String(B.kills); bEl('b-map').value = B.map;
+    bEl('b-bots').value = String(B.bots); bEl('b-level').value = B.level; bEl('b-kills').value = String(B.kills); bEl('b-map').value = B.map; bEl('b-time').value = B.night ? 'night' : 'day'; bEl('b-weather').value = B.weather; bEl('b-fog').value = B.fog ? 'on' : 'off';
     const sync = () => {
-      Object.assign(settings.battle, { bots: Number(bEl('b-bots').value), level: bEl('b-level').value, kills: Number(bEl('b-kills').value), map: bEl('b-map').value });
+      Object.assign(settings.battle, { bots: Number(bEl('b-bots').value), level: bEl('b-level').value, kills: Number(bEl('b-kills').value), map: bEl('b-map').value, night: bEl('b-time').value === 'night', weather: bEl('b-weather').value, fog: bEl('b-fog').value === 'on' });
       saveSettings(settings);
       if (netInit) netUi();
     };
-    for (const id of ['b-bots', 'b-level', 'b-kills', 'b-map']) bEl(id).addEventListener('change', sync);
+    for (const id of ['b-bots', 'b-level', 'b-kills', 'b-map', 'b-time', 'b-weather', 'b-fog']) bEl(id).addEventListener('change', sync);
     sync();
   }
   function battleDeps() {
@@ -739,6 +756,7 @@ function boot(data) {
       renderer, settings, guns: data.guns, sfx,
       opticFor: (g) => catalogue.byId.get(savedOptic(g)), adsVFov, baseDpc, now: clockNow,
       slotOf: (g) => data.guns.indexOf(g), onEnd: () => lock.exit(), hudRoot: $('app'),
+      skinOf: (g) => equippedSkin(data.guns.indexOf(g)),
       onNetLost: (msg) => { netReset(); leaveBattle(); netStatus(msg, 'bad'); },
       onPoints: (kind, head) => (kind === 'kill' ? profile.addKill(head) : profile.addPoints(WIN_POINTS)),
     };
@@ -757,8 +775,8 @@ function boot(data) {
     }
     weapon.releaseTrigger(); setAds(false); player.releaseKeys();
     try {
-      battle.start({ opponent: B.opponent, bots: B.bots, level: B.level, killsToWin: B.kills, map: B.map, p1Gun: state.gun, p2Gun: data.guns[Math.min(B.p2Gun, data.guns.length - 1)],
-        hostName: 'Host', remotes: B.opponent === 'net' ? net.peers.map((e) => ({ link: e.link, name: e.name, gunIndex: e.gunIndex })) : [] });
+      battle.start({ opponent: B.opponent, bots: B.bots, level: B.level, killsToWin: B.kills, map: B.map, night: B.night, weather: B.weather, fog: B.fog, p1Gun: state.gun, p2Gun: data.guns[Math.min(B.p2Gun, data.guns.length - 1)],
+        hostName: 'Host', remotes: B.opponent === 'net' ? net.peers.map((e) => ({ link: e.link, name: e.name, gunIndex: e.gunIndex, skin: e.skin })) : [] });
     } catch (err) {
       // Usually a half-updated page (old files still cached): say so instead of doing nothing.
       console.error(err);
@@ -831,10 +849,10 @@ function boot(data) {
 
   // Host: a player's link is open (direct or through the relay).
   function addPeer(link) {
-    const entry = { link, name: 'Player ' + (net.peers.length + 2), gunIndex: 0 };
+    const entry = { link, name: 'Player ' + (net.peers.length + 2), gunIndex: 0, skin: null };
     net.peers.push(entry);
     link.onmessage = (m) => {
-      if (m.k === 'hello') { entry.gunIndex = Math.min(data.guns.length - 1, Math.max(0, m.gun | 0)); netUi(); return; }
+      if (m.k === 'hello') { entry.gunIndex = Math.min(data.guns.length - 1, Math.max(0, m.gun | 0)); entry.skin = Number.isInteger(m.skin) ? m.skin : null; netUi(); return; }
       if (battle && battle.active && battle.net) battle.onNet(link, m);
     };
     link.onclose = () => {
@@ -848,7 +866,7 @@ function boot(data) {
   // Joiner: connected to the host.
   function joined(link) {
     net.request = null; net.link = link;
-    link.send({ k: 'hello', gun: state.gunIndex });
+    link.send({ k: 'hello', gun: state.gunIndex, skin: equippedSkin(state.gunIndex) });
     link.onmessage = (m) => {
       if (m.k === 'start') { startClientBattle(m); return; }
       if (m.k === 'stopped') { if (battle && battle.active) { leaveBattle(); netStatus('The host ended the match. Still connected: wait for the next one.', 'ok'); } return; }
@@ -1122,7 +1140,7 @@ function boot(data) {
       $('pause-title').textContent = net.link ? 'Waiting for the host to start the battle...' : 'Connect to a host first (Settings).';
       $('start-btn').disabled = true;
       $('start-btn').textContent = 'Waiting for the host';
-      if (net.link) net.link.send({ k: 'hello', gun: state.gunIndex });
+      if (net.link) net.link.send({ k: 'hello', gun: state.gunIndex, skin: equippedSkin(state.gunIndex) });
     } else {
       startBattle();
       if (!(battle && battle.active)) { $('menu').hidden = false; showPage('setup'); }
@@ -1335,7 +1353,7 @@ function boot(data) {
     const c0 = performance.now();
     if (!manualClock) update(clockNow());
     renderFrame();
-    if (prevFrameMs) watchQuality(nowMs, nowMs - prevFrameMs);
+    if (prevFrameMs) { watchQuality(nowMs, nowMs - prevFrameMs); watchResolution(nowMs - prevFrameMs); }
     cpuMs[cpuIdx++ % cpuMs.length] = performance.now() - c0;
     if (prevFrameMs) debug.recordFrame(nowMs - prevFrameMs);
     prevFrameMs = nowMs;
@@ -1385,6 +1403,7 @@ function boot(data) {
       shotDebug: () => ({ renderW, renderH, cw: canvas.width, ch: canvas.height, cam: previewCam.position.toArray(), fov: previewCam.fov, aspect: previewCam.aspect, root: previewRig.root.position.toArray(), box: (() => { const b = new THREE.Box3().setFromObject(previewRig.current); return [b.min.toArray(), b.max.toArray()]; })() }),
       battleStart(o = {}) { Object.assign(settings.battle, o); startBattle(); return !!(battle && battle.active); },
       battleLeave: () => leaveBattle(),
+      battleKey: (c, d) => !!(battle && battle.key(c, d)),
       battle: () => battle,
       battleState: () => battle && ({ active: battle.active, over: battle.over, score: { ...battle.teamScore },
         fighters: battle.fighters.map((f) => ({ name: f.name, team: f.team, x: f.x, z: f.z, yaw: f.yaw, health: f.health, alive: f.alive, kills: f.kills, deaths: f.deaths, crouch: f.crouch })),

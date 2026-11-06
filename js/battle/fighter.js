@@ -1,8 +1,10 @@
 // A combatant in battle mode (human or bot): body, health, team, score, and the exact hit
-// test. The body is the range's training dummy (sphere head, capsule limbs) in team colours,
-// so what you see is exactly what can be hit. Crouching squashes the body to CROUCH_SCALE.
-import * as THREE from '../../vendor/three/three.module.min.js?v=2156b86-mw4poxh9';
-import { buildDummy, raycastDummy } from '../scene/dummy.js?v=2156b86-mw4poxh9';
+// test. The body is a soldier (soldier.js) in team colours carrying their real gun with its
+// skin; hits are decided on the same shapes the body is built around. Crouching squashes the
+// body to CROUCH_SCALE. y is the height of the feet (floors, stairs, box tops).
+import * as THREE from '../../vendor/three/three.module.min.js?v=1c7d129-mw4umac6';
+import { soldierGeometry, raycastSoldier, GRIP_HAND } from './soldier.js?v=1c7d129-mw4umac6';
+import { buildWorldGun } from '../scene/viewmodel.js?v=1c7d129-mw4umac6';
 
 export const STAND_EYE = 1.6, CROUCH_EYE = 1.12;
 export const CROUCH_SCALE = 0.7;
@@ -14,12 +16,44 @@ const DEFAULT_DAMAGE = { smg: 28, rifle: 36, carbine: 34, lmg: 38, marksman: 48 
 export function gunDamage(gun) { return gun.damage || DEFAULT_DAMAGE[gun.model] || 32; }
 
 const DEG = Math.PI / 180;
+const GUN_SCALE = 1.1;
+
+// The flashlight beam: an open cone from the lens forward (+z), bright at the lens and fading
+// out (vertex colours with additive blending), shared by every fighter.
+let BEAM = null, LENS = null;
+function beamMesh() {
+  if (!BEAM) {
+    const len = 6, g = new THREE.ConeGeometry(0.75, len, 18, 6, true);
+    g.rotateX(-Math.PI / 2); g.translate(0, 0, len / 2);
+    const p = g.attributes.position, col = new Float32Array(p.count * 3);
+    for (let i = 0; i < p.count; i++) { const k = Math.pow(Math.max(0, 1 - p.getZ(i) / len), 2.2); col[i * 3] = k; col[i * 3 + 1] = k * 0.95; col[i * 3 + 2] = k * 0.85; }
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    BEAM = { g, m: new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.08, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }) };
+  }
+  const m = new THREE.Mesh(BEAM.g, BEAM.m);
+  m.userData.ownMaterial = true;
+  m.renderOrder = 3;
+  return m;
+}
+function lensSprite() {
+  if (!LENS) {
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, 'rgba(255,255,240,1)'); gr.addColorStop(0.25, 'rgba(255,240,200,0.7)'); gr.addColorStop(1, 'rgba(255,230,180,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+    LENS = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+  }
+  const s = new THREE.Sprite(LENS);
+  s.scale.set(0.35, 0.35, 1);
+  s.userData.ownMaterial = true;
+  return s;
+}
 
 export class Fighter {
   // opts: { name, team, color (hex), human }
   constructor(opts) {
     Object.assign(this, { name: 'Fighter', team: 'bots', color: 0xffffff, human: false }, opts);
-    this.x = 0; this.z = 0; this.vx = 0; this.vz = 0;
+    this.x = 0; this.y = 0; this.z = 0; this.vx = 0; this.vy = 0; this.vz = 0;
     this.yaw = 0; this.pitch = 0;
     this.crouch = 0;            // 0 standing .. 1 crouched (eased)
     this.health = MAX_HEALTH;
@@ -29,31 +63,36 @@ export class Fighter {
     this.lastHurt = -10;        // time of the last damage (regeneration waits)
     this.kills = 0; this.deaths = 0;
     this.gun = null;
+    this.skin = null;           // skin id on the gun (others see it)
+    this.night = false;         // night battle: the flashlight on the gun
+    this.light = true;          // flashlight switched on
 
     /* body */
     this.group = new THREE.Group();
-    const d = buildDummy();
-    d.children[1].removeFromParent();          // no base plate
-    const body = d.children[0];
-    body.material = new THREE.MeshLambertMaterial({ vertexColors: true, color: new THREE.Color(this.color).multiplyScalar(1.15) });
+    const body = new THREE.Mesh(soldierGeometry(this.color), new THREE.MeshLambertMaterial({ vertexColors: true }));
     body.castShadow = true;
     this.body = body;
     this.scaleG = new THREE.Group();
     this.scaleG.add(body);
     this.group.add(this.scaleG);
-    // A carried gun: a dark block at chest height pointing forward (the body faces +z locally).
-    const gunMat = new THREE.MeshLambertMaterial({ color: 0x1d1f22 });
-    const gun = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.1, 0.62), gunMat);
-    gun.position.set(0.14, 1.22, 0.3);
-    gun.castShadow = true;
-    this.scaleG.add(gun);
-    this.muzzle = new THREE.Vector3(0.14, 1.25, 0.62);   // local, standing
+    this.gunG = new THREE.Group();          // the carried gun (set by setLook)
+    this.gunG.position.set(GRIP_HAND[0], GRIP_HAND[1], GRIP_HAND[2]);
+    this.scaleG.add(this.gunG);
+    this.muzzle = new THREE.Vector3(0.08, 1.27, 0.95);   // local, standing (moved by setLook)
+    this._lookKey = '';
+    this._gunModel = null;
+    // Flashlight: a lit lens and a soft beam (others see where you look at night).
+    this.torchG = new THREE.Group();
+    this.torchG.add(beamMesh(), lensSprite());
+    this.torchG.visible = false;
+    this.gunG.add(this.torchG);
     // Muzzle flash (seen by others): a small additive star.
     this.flash = new THREE.Mesh(new THREE.PlaneGeometry(0.28, 0.28), new THREE.MeshBasicMaterial({
       color: 0xffc070, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
     }));
     this.flash.position.copy(this.muzzle);
     this.flash.visible = false;
+    this.flash.userData.ownMaterial = true;
     this.scaleG.add(this.flash);
     this.flashUntil = 0;
     // Health bar above the head (sprites face every camera).
@@ -68,22 +107,45 @@ export class Fighter {
     this._hit = { t: 0, p: [0, 0, 0], n: [0, 0, 0], zone: null };
   }
 
+  // The gun model others see: gun data, its loadout slot (finish) and skin id (or null).
+  setLook(gun, slot, skin) {
+    this.gun = gun; this.skin = skin ?? null;
+    const key = gun.id + '|' + slot + '|' + this.skin;
+    if (key === this._lookKey) return;
+    this._lookKey = key;
+    if (this._gunModel) this._gunModel.removeFromParent();
+    const g = this._gunModel = buildWorldGun(gun, slot, this.skin);
+    g.traverse((o) => { if (o.isMesh) o.userData.ownMaterial = true; });
+    g.rotation.y = Math.PI;                  // gun -z (muzzle) -> body +z (forward)
+    g.scale.setScalar(GUN_SCALE);
+    // gunG sits at the right hand (and tilts with the aim there); the grip, at
+    // (0, -0.08, gripZ) in gun coordinates, goes into that hand.
+    g.position.set(0, 0.08 * GUN_SCALE, g.userData.gripZ * GUN_SCALE);
+    this.gunG.add(g);
+    this.muzzle.set(GRIP_HAND[0], GRIP_HAND[1] + 0.09 * GUN_SCALE, GRIP_HAND[2] + (g.userData.gripZ - g.userData.front) * GUN_SCALE);
+    this.flash.position.copy(this.muzzle);
+    this.torchG.position.set(0.04, 0.07 * GUN_SCALE, (g.userData.gripZ - g.userData.front) * GUN_SCALE - 0.08);
+  }
+
   get eyeH() { return STAND_EYE + (CROUCH_EYE - STAND_EYE) * this.crouch; }
   get scaleY() { return 1 + (CROUCH_SCALE - 1) * this.crouch; }
-  eye(out = [0, 0, 0]) { out[0] = this.x; out[1] = this.eyeH; out[2] = this.z; return out; }
+  eye(out = [0, 0, 0]) { out[0] = this.x; out[1] = this.y + this.eyeH; out[2] = this.z; return out; }
   // Aim points on this fighter (world): head and chest.
-  head(out = [0, 0, 0]) { out[0] = this.x; out[1] = 1.6 * this.scaleY; out[2] = this.z; return out; }
-  chest(out = [0, 0, 0]) { out[0] = this.x; out[1] = 1.18 * this.scaleY; out[2] = this.z; return out; }
+  head(out = [0, 0, 0]) { out[0] = this.x; out[1] = this.y + 1.62 * this.scaleY; out[2] = this.z; return out; }
+  chest(out = [0, 0, 0]) { out[0] = this.x; out[1] = this.y + 1.18 * this.scaleY; out[2] = this.z; return out; }
 
   // Sync the mesh with the state (call once per frame).
   updateVisual(t) {
     this.group.visible = this.alive;
-    this.group.position.set(this.x, 0, this.z);
-    this.group.rotation.y = Math.PI - this.yaw * DEG;   // dummy faces +z; yaw 0 faces -z
+    this.group.position.set(this.x, this.y, this.z);
+    this.group.rotation.y = Math.PI - this.yaw * DEG;   // the body faces +z; yaw 0 faces -z
     this.scaleG.scale.y = this.scaleY;
+    // The gun tips with the aim a little.
+    this.gunG.rotation.x = -Math.max(-30, Math.min(30, this.pitch)) * DEG * 0.5;
+    this.torchG.visible = this.night && this.light;
     this.flash.visible = t < this.flashUntil;
     if (this.flash.visible) this.flash.rotation.z = Math.random() * Math.PI;
-    const top = 1.6 * this.scaleY + 0.3;
+    const top = 1.62 * this.scaleY + 0.35;
     this.barBg.position.set(0, top, 0);
     this.barFg.position.set(-0.3, top, 0);
     this.barFg.scale.x = 0.6 * Math.max(0, this.health) / MAX_HEALTH;
@@ -95,7 +157,7 @@ export class Fighter {
   muzzleWorld(out = new THREE.Vector3()) {
     const s = this.scaleY, a = Math.PI - this.yaw * DEG;
     const lx = this.muzzle.x, ly = this.muzzle.y * s, lz = this.muzzle.z;
-    out.set(this.x + lx * Math.cos(a) + lz * Math.sin(a), ly, this.z - lx * Math.sin(a) + lz * Math.cos(a));
+    out.set(this.x + lx * Math.cos(a) + lz * Math.sin(a), this.y + ly, this.z - lx * Math.sin(a) + lz * Math.cos(a));
     return out;
   }
 
@@ -108,19 +170,19 @@ export class Fighter {
     if (dd > 1e-12) {
       const tc = -(ox * d[0] + oz * d[2]) / dd;
       const cx = ox + d[0] * tc, cz = oz + d[2] * tc;
-      if (cx * cx + cz * cz > 0.7 * 0.7) return null;
+      if (cx * cx + cz * cz > 0.8 * 0.8) return null;
     }
     // Into the body frame: translate, rotate by -bodyAngle, unsquash y.
     const a = -(Math.PI - this.yaw * DEG), ca = Math.cos(a), sa = Math.sin(a), s = this.scaleY;
     const lo = this._o, ld = this._d;
-    lo[0] = ox * ca + oz * sa; lo[1] = o[1] / s; lo[2] = -ox * sa + oz * ca;
+    lo[0] = ox * ca + oz * sa; lo[1] = (o[1] - this.y) / s; lo[2] = -ox * sa + oz * ca;
     ld[0] = d[0] * ca + d[2] * sa; ld[1] = d[1] / s; ld[2] = -d[0] * sa + d[2] * ca;
     const L = Math.hypot(ld[0], ld[1], ld[2]);
     ld[0] /= L; ld[1] /= L; ld[2] /= L;
-    if (!raycastDummy(lo, ld, this._hit)) return null;
+    if (!raycastSoldier(lo, ld, this._hit)) return null;
     // Back to world.
     const p = this._hit.p, ia = -a, ci = Math.cos(ia), si = Math.sin(ia);
-    const wx = this.x + p[0] * ci + p[2] * si, wy = p[1] * s, wz = this.z - p[0] * si + p[2] * ci;
+    const wx = this.x + p[0] * ci + p[2] * si, wy = this.y + p[1] * s, wz = this.z - p[0] * si + p[2] * ci;
     const t = Math.hypot(wx - o[0], wy - o[1], wz - o[2]);
     return { t, zone: this._hit.zone, p: [wx, wy, wz] };
   }

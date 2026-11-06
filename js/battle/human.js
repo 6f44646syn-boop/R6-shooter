@@ -3,21 +3,21 @@
 //
 // Controls:
 //   mouse (player 1):   mouse look, WASD move, Shift sprint, Space crouch, Q/E lean,
-//                       left button fire, right button aim, R reload.
+//                       C vault / climb, left button fire, right button aim, R reload.
 //   pad   (player 2):   left stick move, right stick look, RT fire, LT aim, X reload,
-//                       B crouch, L3 sprint, LB/RB lean.
+//                       B crouch, A vault, L3 sprint, LB/RB lean.
 //   keys  (player 2, no gamepad): I J K L move, arrow keys look, Enter fire,
 //                       Right Shift aim, Backspace reload, / crouch.
-import * as THREE from '../../vendor/three/three.module.min.js?v=2156b86-mw4poxh9';
-import { Look, PITCH_LIMIT } from '../core/look.js?v=2156b86-mw4poxh9';
-import { Weapon } from '../core/weapon.js?v=2156b86-mw4poxh9';
-import { RecoilEngine } from '../core/recoil.js?v=2156b86-mw4poxh9';
-import { Spread } from '../core/spread.js?v=2156b86-mw4poxh9';
-import { focalRatio } from '../core/sensitivity.js?v=2156b86-mw4poxh9';
-import { WeaponRig } from '../scene/viewmodel.js?v=2156b86-mw4poxh9';
-import { EYE_Z, VIEW_H } from '../scene/sight-model.js?v=2156b86-mw4poxh9';
-import { reticleTextures } from '../ui/reticle-tex.js?v=2156b86-mw4poxh9';
-import { RETICLE_COLORS } from '../ui/scope.js?v=2156b86-mw4poxh9';
+import * as THREE from '../../vendor/three/three.module.min.js?v=1c7d129-mw4umac6';
+import { Look, PITCH_LIMIT } from '../core/look.js?v=1c7d129-mw4umac6';
+import { Weapon } from '../core/weapon.js?v=1c7d129-mw4umac6';
+import { RecoilEngine } from '../core/recoil.js?v=1c7d129-mw4umac6';
+import { Spread } from '../core/spread.js?v=1c7d129-mw4umac6';
+import { focalRatio } from '../core/sensitivity.js?v=1c7d129-mw4umac6';
+import { WeaponRig } from '../scene/viewmodel.js?v=1c7d129-mw4umac6';
+import { EYE_Z, VIEW_H } from '../scene/sight-model.js?v=1c7d129-mw4umac6';
+import { reticleTextures } from '../ui/reticle-tex.js?v=1c7d129-mw4umac6';
+import { RETICLE_COLORS } from '../ui/scope.js?v=1c7d129-mw4umac6';
 
 const DEG = Math.PI / 180;
 const WALK = 3.4, SPRINT = 5.6, CROUCH_WALK = 1.6, ADS_WALK = 2.2;
@@ -42,7 +42,10 @@ export class Human {
     this.camera.rotation.order = 'YXZ';
     this.rig = new WeaponRig(deps.renderer);
     this.rig.applyLights();
-    this.in = { fwd: false, back: false, left: false, right: false, sprint: false, crouch: false, leanL: false, leanR: false, fire: false, ads: false };
+    this.in = { fwd: false, back: false, left: false, right: false, sprint: false, crouch: false, leanL: false, leanR: false, fire: false, ads: false, vault: false };
+    this.vault = null;                 // { t0, dur, from, to, peak } while vaulting
+    this._vaultWas = false;
+    this.camY = 0;                     // smoothed feet height for the camera (stairs)
     this.ads = false; this.adsP = 0; this.adsE = 0;
     this.lean = 0;
     this.offset = [0, 0]; this.bulletOff = [0, 0];
@@ -86,9 +89,10 @@ export class Human {
     this.reticle = m;
   }
 
-  respawn(x, z, t) {
+  respawn(x, z, t, y = 0) {
     const f = this.f;
-    f.x = x; f.z = z; f.vx = f.vz = 0; f.crouch = 0;
+    f.x = x; f.z = z; f.y = y; f.vx = f.vy = f.vz = 0; f.crouch = 0;
+    this.camY = y; this.vault = null;
     // Face the middle of the arena.
     this.look.setAngles(Math.atan2(-x, z) / DEG, 0);
     this.recoil.reset(); this.recoil.clearOffset(); this.offset[0] = this.offset[1] = 0;
@@ -143,7 +147,7 @@ export class Human {
       lx = dz(ax[2] || 0); ly = dz(ax[3] || 0);
       const b = (i) => pad.buttons[i] && (pad.buttons[i].pressed || pad.buttons[i].value > 0.4);
       this.in.fire = b(7); this.in.ads = b(6); this.in.crouch = b(1); this.in.sprint = b(10) || this.in.sprint && Math.hypot(mx, my) > 0.5;
-      this.in.leanL = b(4); this.in.leanR = b(5);
+      this.in.leanL = b(4); this.in.leanR = b(5); this.in.vault = b(0);
       if (b(2) && !this._reloadWas) this.reload();
       this._reloadWas = b(2);
       if (b(3) && !this._inspectWas && !this.ads) this.rig.inspect();   // Y: inspect
@@ -189,7 +193,7 @@ export class Human {
     if (this.controls !== 'mouse') this.pollPad(dt);
     if (!f.alive) { this.weapon.releaseTrigger(); this.setAds(false); }
     // Trigger and aim from the input state.
-    if (f.alive) {
+    if (f.alive && !this.vault) {
       if (this.in.fire && !this._fireWas) {
         if (this.weapon.ammo === 0 && !this.weapon.reloading) this.deps.sfx.click();
         this.weapon.pressTrigger(t);
@@ -226,11 +230,47 @@ export class Human {
       const sp = crouched ? CROUCH_WALK : this.ads ? ADS_WALK : sprinting ? SPRINT : WALK;
       tx = tx / l * sp; tz = tz / l * sp;
     }
-    const k = 1 - Math.exp(-14 * dt);
-    f.vx += (tx - f.vx) * k; f.vz += (tz - f.vz) * k;
-    const p = battle.arena.resolve({ x: f.x + f.vx * dt, z: f.z + f.vz * dt });
-    f.x = p.x; f.z = p.z;
-    f.crouch += ((crouched ? 1 : 0) - f.crouch) * (1 - Math.exp(-16 * dt));
+    const arena = battle.arena;
+    // Vault / climb (C): over low cover, or up onto a ledge up to 1.5 m.
+    if (this.in.vault && !this._vaultWas && f.alive && !this.vault && dt > 0) {
+      const y = this.look.yaw * DEG, dx = Math.sin(y), dz = -Math.cos(y);
+      const to = arena.vaultTarget(f.x, f.y, f.z, dx, dz);
+      if (to) {
+        this.vault = { t: 0, dur: 0.32 + 0.12 * Math.max(0, to.top - f.y), from: { x: f.x, y: f.y, z: f.z }, to, peak: to.top + 0.22 };
+        this.setAds(false); this.weapon.releaseTrigger(); this.rig.cancelInspect();
+        if (this.deps.sfx.vault) this.deps.sfx.vault();
+      }
+    }
+    this._vaultWas = this.in.vault;
+    if (this.vault && f.alive) {
+      const v = this.vault;
+      v.t += dt;
+      const p = Math.min(1, v.t / v.dur), e = (x) => x * x * (3 - 2 * x);
+      f.x = v.from.x + (v.to.x - v.from.x) * e(p);
+      f.z = v.from.z + (v.to.z - v.from.z) * e(p);
+      f.y = p < 0.45 ? v.from.y + (v.peak - v.from.y) * e(p / 0.45) : v.peak + (v.to.y - v.peak) * e((p - 0.45) / 0.55);
+      f.crouch += (0.35 - f.crouch) * (1 - Math.exp(-16 * dt));
+      if (p >= 1) {
+        this.vault = null;
+        f.y = v.to.y; f.vy = 0;
+        const L = Math.hypot(v.to.x - v.from.x, v.to.z - v.from.z) || 1;
+        f.vx = (v.to.x - v.from.x) / L * WALK * 0.8; f.vz = (v.to.z - v.from.z) / L * WALK * 0.8;
+      }
+    } else {
+      if (!f.alive) this.vault = null;
+      const k = 1 - Math.exp(-14 * dt);
+      f.vx += (tx - f.vx) * k; f.vz += (tz - f.vz) * k;
+      const p = arena.resolve({ x: f.x + f.vx * dt, y: f.y, z: f.z + f.vz * dt });
+      f.x = p.x; f.z = p.z;
+      // Stand on what is underneath (steps up stairs at once), or fall.
+      const g = arena.groundAt(f.x, f.z, f.y);
+      if (g >= f.y - 1e-4) { f.y = g; f.vy = 0; }
+      else if (dt > 0) { f.vy -= 22 * dt; f.y = Math.max(g, f.y + f.vy * dt); if (f.y === g) f.vy = 0; }
+      f.crouch += ((crouched ? 1 : 0) - f.crouch) * (1 - Math.exp(-16 * dt));
+    }
+    // The camera follows steps smoothly; falls and vaults directly.
+    if (this.vault || Math.abs(f.y - this.camY) > 1.2 || f.y < this.camY) this.camY = f.y;
+    else this.camY += (f.y - this.camY) * (1 - Math.exp(-20 * dt));
     const lt = (this.in.leanR ? 1 : 0) - (this.in.leanL ? 1 : 0);
     this.lean += (lt - this.lean) * (1 - Math.exp(-14 * dt));
     f.yaw = this.look.yaw; f.pitch = this.look.pitch;
@@ -249,10 +289,10 @@ export class Human {
     const y = this.look.yaw * DEG;
     const cam = this.camera;
     if (f.alive) {
-      cam.position.set(f.x + Math.cos(y) * LEAN_DIST * this.lean, f.eyeH - 0.05 * Math.abs(this.lean), f.z + Math.sin(y) * LEAN_DIST * this.lean);
+      cam.position.set(f.x + Math.cos(y) * LEAN_DIST * this.lean, this.camY + f.eyeH - 0.05 * Math.abs(this.lean), f.z + Math.sin(y) * LEAN_DIST * this.lean);
       cam.rotation.set(Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, this.look.pitch + this.offset[1])) * DEG, -(this.look.yaw + this.offset[0]) * DEG, -LEAN_ROLL * this.lean * DEG);
     } else {
-      cam.position.set(f.x, 0.45, f.z);
+      cam.position.set(f.x, f.y + 0.45, f.z);
       cam.rotation.set(-0.25, -y, 0.5);
     }
     if (cam.fov !== this.fovV) { cam.fov = this.fovV; cam.updateProjectionMatrix(); }
@@ -263,7 +303,7 @@ export class Human {
     rig.bobY = Math.sin(this.walkPhase) * 0.004 * Math.min(1, Math.hypot(f.vx, f.vz) / 3) * (1 - 0.8 * this.adsE);
     rig.animations = s.animations;
     rig.reloadP = this.weapon.reloading ? this.weapon.reloadProgress : -1;
-    rig.sprinting = sprinting;
+    rig.sprinting = sprinting || !!this.vault;
     rig.update(dt, this.adsE, t);
     rig.root.visible = f.alive;
     if (this.reticle) this.reticle.material.opacity = smooth(0.55, 0.9, this.adsE);
@@ -287,7 +327,7 @@ export class Human {
   eye(out) {
     const f = this.f, y = this.look.yaw * DEG;
     out[0] = f.x + Math.cos(y) * LEAN_DIST * this.lean;
-    out[1] = f.eyeH - 0.05 * Math.abs(this.lean);
+    out[1] = this.camY + f.eyeH - 0.05 * Math.abs(this.lean);
     out[2] = f.z + Math.sin(y) * LEAN_DIST * this.lean;
     return out;
   }

@@ -3,12 +3,13 @@
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=2156b86-mw4poxh9';
-import { Arena } from './arena.js?v=2156b86-mw4poxh9';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=2156b86-mw4poxh9';
-import { Bot, LEVELS } from './bot.js?v=2156b86-mw4poxh9';
-import { Human } from './human.js?v=2156b86-mw4poxh9';
-import { drawCrosshair } from '../ui/crosshair.js?v=2156b86-mw4poxh9';
+import * as THREE from '../../vendor/three/three.module.min.js?v=1c7d129-mw4umac6';
+import { Arena } from './arena.js?v=1c7d129-mw4umac6';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=1c7d129-mw4umac6';
+import { Bot, LEVELS } from './bot.js?v=1c7d129-mw4umac6';
+import { Human } from './human.js?v=1c7d129-mw4umac6';
+import { drawCrosshair } from '../ui/crosshair.js?v=1c7d129-mw4umac6';
+import { CATALOGUE, skinFits } from '../core/skins.js?v=1c7d129-mw4umac6';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -20,6 +21,12 @@ const r2 = (v) => Math.round(v * 100) / 100, r1 = (v) => Math.round(v * 10) / 10
 class Remote {
   constructor(f, link, gun) { this.f = f; this.link = link; this.gun = gun; f.gun = gun; this.shotTimes = []; }
 }
+// A random skin that fits the gun in this slot (bots show off a little).
+function botSkin(slot, rng = Math.random) {
+  for (let i = 0; i < 20; i++) { const s = CATALOGUE[Math.floor(rng() * CATALOGUE.length)]; if (skinFits(s.id, slot)) return s.id; }
+  return null;
+}
+const skinNum = (v) => (Number.isInteger(v) && v >= 0 && v < 2000 ? v : null);
 // Client side: anyone else (players and bots), drawn from the host's position updates.
 class Proxy {
   constructor(f) { this.f = f; this.buf = []; }
@@ -27,6 +34,7 @@ class Proxy {
 const BOT_NAMES = ['Rook', 'Vex', 'Mako', 'Quill', 'Brisk', 'Tarn'];
 const RESPAWN_S = 3, PROTECT_S = 1.5, REGEN_DELAY = 5, REGEN_PER_S = 15;
 const MAX_TRACERS = 48;
+const DEG2RAD = Math.PI / 180;
 
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
 
@@ -44,6 +52,7 @@ export class Battle {
     this._v = new THREE.Vector3();
     this._lastBotSound = 0;
     this._buildTracers();
+    this._buildTorches();
     this._buildHud();
     this.humanPool = [];         // reused between matches (each has a weapon rig)
   }
@@ -52,7 +61,58 @@ export class Battle {
     if (!this.arenas[id]) this.arenas[id] = new Arena(id);
     this.arena = this.arenas[id];
     if (this.tracers) this.arena.scene.add(this.tracers);     // moves them to this map's scene
+    if (this.torches) for (const l of this.torches) this.arena.scene.add(l, l.target);
     return this.arena;
+  }
+
+  /* ---------- night: flashlights ---------- */
+  // One spotlight for you (with shadows in High/Ultra) and four for the nearest other
+  // fighters whose lights are on. The count never changes during a match (no shader rebuilds).
+  _buildTorches() {
+    this.torches = [];
+    for (let i = 0; i < 5; i++) {
+      const l = new THREE.SpotLight(0xfff2dc, 0, 42, i ? 0.42 : 0.38, 0.55, 1.3);
+      l.visible = false;
+      this.torches.push(l);
+    }
+    this.night = false;
+    for (const l of this.torches) this.arena.scene.add(l, l.target);
+  }
+  _setNight(night, weather, fog) {
+    this.night = !!night;
+    this.arena.setAtmosphere(this.night, weather || 'auto', !!fog);
+    const high = ['high', 'ultra'].includes(this.deps.settings.graphics);
+    this.torches.forEach((l, i) => {
+      l.visible = this.night;
+      l.castShadow = this.night && i === 0 && high;
+      if (l.castShadow) { l.shadow.mapSize.set(1024, 1024); l.shadow.camera.near = 0.3; l.shadow.camera.far = 40; l.shadow.bias = -0.0008; }
+    });
+    for (const f of this.fighters) { f.night = this.night; f.light = true; }
+    for (const h of this.humans) h.rig.setTorch(this.night);
+  }
+  _updateTorches() {
+    if (!this.night) return;
+    const [own, ...rest] = this.torches, h = this.humans[0];
+    if (h && h.f.alive && h.f.light) {
+      const c = h.camera, fw = this._v.set(0, 0, -1).applyQuaternion(c.quaternion);
+      own.intensity = 140;
+      own.position.copy(c.position).addScaledVector(fw, 0.3);
+      own.position.y -= 0.1;
+      own.target.position.copy(c.position).addScaledVector(fw, 12);
+      own.target.updateMatrixWorld();
+    } else own.intensity = 0;
+    const me = h ? h.f : null;
+    const lit = this.fighters.filter((f) => f !== me && f.alive && f.light)
+      .sort((a, b) => (me ? Math.hypot(a.x - me.x, a.z - me.z) - Math.hypot(b.x - me.x, b.z - me.z) : 0));
+    rest.forEach((l, i) => {
+      const f = lit[i];
+      if (!f) { l.intensity = 0; return; }
+      l.intensity = 110;
+      f.muzzleWorld(l.position);
+      const y = f.yaw * DEG2RAD, p = f.pitch * DEG2RAD;
+      l.target.position.set(l.position.x + Math.sin(y) * Math.cos(p) * 10, l.position.y + Math.sin(p) * 10, l.position.z - Math.cos(y) * Math.cos(p) * 10);
+      l.target.updateMatrixWorld();
+    });
   }
 
   /* ---------- setup ---------- */
@@ -65,6 +125,7 @@ export class Battle {
     this.net = opts.remotes && opts.remotes.length ? { role: 'host' } : null;
     for (const f of this.fighters) f.group.removeFromParent();
     this._useArena(opts.map || 'yard');
+    this.atmo = { night: !!opts.night, weather: opts.weather || 'auto', fog: !!opts.fog };
     this.remotes = []; this.proxies = [];
     this._nextSnap = 0;
     this.arena.setGraphics(d.settings.graphics, d.renderer);
@@ -81,6 +142,7 @@ export class Battle {
       if (!h) { h = this.humanPool[i] = new Human(f, controls, { ...d }, d.slotOf); }
       h.f = f; h.controls = controls; h.padIndex = -1; h.releaseAll();
       h.setGun(gun);
+      this._look(f, gun, d.skinOf ? d.skinOf(gun) : null);
       this.humans.push(h); this.fighters.push(f);
       return h;
     };
@@ -90,7 +152,9 @@ export class Battle {
       const team = 'p' + (i + 2);
       const f = new Fighter({ name: r.name, team, color: TEAM_COLOR[team], human: true });
       f.showBar = false;
-      this.remotes.push(new Remote(f, r.link, d.guns[r.gunIndex] || d.guns[0]));
+      const rm = new Remote(f, r.link, d.guns[r.gunIndex] || d.guns[0]);
+      this._look(f, rm.gun, skinNum(r.skin));
+      this.remotes.push(rm);
       this.fighters.push(f);
     });
     const n = Math.max(0, Math.min(6, opts.bots | 0));
@@ -98,14 +162,17 @@ export class Battle {
       const f = new Fighter({ name: BOT_NAMES[i] + ' (' + LEVELS[opts.level].name + ')', team: 'bots', color: TEAM_COLOR.bots });
       const gun = d.guns[(i * 3 + 1) % d.guns.length];
       const b = new Bot(f, opts.level, gun, 1000 + i * 7919 + Math.floor(Math.random() * 1e6));
+      this._look(f, gun, botSkin(d.guns.indexOf(gun)));
       this.bots.push(b); this.fighters.push(f);
     }
     this.fighters.forEach((f, i) => { f.id = i + 1; this.arena.scene.add(f.group); });
+    this._setNight(this.atmo.night, this.atmo.weather, this.atmo.fog);
+    this.arena.setGraphics(d.settings.graphics, d.renderer);
     const t = d.now();
     this.t = t; this.prevT = t;
     // Network game: tell every remote player who is in the match before the spawns go out.
     for (const r of this.remotes) {
-      r.link.send({ k: 'start', you: r.f.id, killsToWin: opts.killsToWin, map: this.arena.mapId, roster: this._roster() });
+      r.link.send({ k: 'start', you: r.f.id, killsToWin: opts.killsToWin, map: this.arena.mapId, night: this.atmo.night, weather: this.atmo.weather, fog: this.atmo.fog, roster: this._roster() });
     }
     for (const f of this.fighters) this._spawn(f, t);
     this.active = true; this.paused = false; this.over = false;
@@ -121,7 +188,10 @@ export class Battle {
     const h = this.humans[0];
     if (!h) return;
     h.setGun(gun);
-    if (this.net && this.net.role === 'client') this.net.link.send({ k: 'gun', i: this.deps.guns.indexOf(gun) });
+    const skin = this.deps.skinOf ? this.deps.skinOf(gun) : null;
+    this._look(h.f, gun, skin);
+    if (this.net && this.net.role === 'client') this.net.link.send({ k: 'gun', i: this.deps.guns.indexOf(gun), s: skin });
+    if (this.net && this.net.role === 'host') this._broadcast({ k: 'look', id: h.f.id, gun: this.deps.guns.indexOf(gun), s: skin });
     const v = this.hud.views[0];
     if (v) v.box.querySelector('.b-name').textContent = h.f.name + ' · ' + gun.name;
   }
@@ -129,6 +199,7 @@ export class Battle {
   // Graphics quality, gun shading or reticle colour changed (from the menu, while paused).
   refreshGraphics() {
     this.arena.setGraphics(this.deps.settings.graphics, this.deps.renderer);
+    for (const f of this.fighters) if (f.gun) { f._lookKey = ''; this._look(f, f.gun, f.skin); }
     for (const h of this.humans) {
       h.rig.rebuild();
       h.rig.setGun(h.gun, this.deps.slotOf(h.gun), h.optic);
@@ -137,7 +208,11 @@ export class Battle {
   }
 
   _roster() {
-    return this.fighters.map((f) => ({ id: f.id, name: f.name, team: f.team, human: f.human, gun: this.deps.guns.indexOf(f.gun) }));
+    return this.fighters.map((f) => ({ id: f.id, name: f.name, team: f.team, human: f.human, gun: this.deps.guns.indexOf(f.gun), skin: f.skin }));
+  }
+  // The gun (with its skin) others see this fighter carry.
+  _look(f, gun, skin) {
+    try { f.setLook(gun, Math.max(0, this.deps.guns.indexOf(gun)), skin); } catch (e) { console.warn('gun look', e); }
   }
 
   stop() {
@@ -162,13 +237,13 @@ export class Battle {
 
   _spawn(f, t) {
     const p = this.arena.spawnPoint(this._side(f), this.enemiesOf(f).filter((e) => e.alive));
-    f.x = p.x; f.z = p.z; f.vx = f.vz = 0;
+    f.x = p.x; f.z = p.z; f.y = p.y; f.vx = f.vy = f.vz = 0;
     f.health = MAX_HEALTH; f.alive = true; f.crouch = 0;
     f.protectUntil = t + PROTECT_S; f.lastHurt = -10;
     f.yaw = Math.atan2(-p.x, p.z) * 180 / Math.PI; f.pitch = 0;
     const c = this._ctl(f);
-    if (c instanceof Human) c.respawn(p.x, p.z, t);
-    else if (c instanceof Remote) c.link.send({ k: 'spawn', x: r2(p.x), z: r2(p.z), yaw: r1(f.yaw) });
+    if (c instanceof Human) c.respawn(p.x, p.z, t, p.y);
+    else if (c instanceof Remote) c.link.send({ k: 'spawn', x: r2(p.x), z: r2(p.z), y: r2(p.y), yaw: r1(f.yaw) });
     else if (c) c.respawned();
   }
 
@@ -186,11 +261,14 @@ export class Battle {
       for (const f of this.fighters) {
         if (!f.alive && t >= f.respawnAt) this._spawn(f, t);
         if (f.alive && f.health < MAX_HEALTH && t - f.lastHurt > REGEN_DELAY) f.health = Math.min(MAX_HEALTH, f.health + REGEN_PER_S * dt);
+        const acid = f.alive && !this.over ? this.arena.hazardAt(f.x, f.y, f.z) : 0;
+        if (acid) this._acid(f, acid * dt, t);
       }
     }
     for (const h of this.humans) h.update(t, dt, this);
     for (const f of this.fighters) f.updateVisual(t);
-    this.arena.update(dt, t);
+    this._updateTorches();
+    this.arena.update(dt, t, this.humans[0] ? this.humans[0].camera.position : null);
     this._updateTracers(t);
     this._updateHud(t);
     if (this.net && t >= this._nextSnap) { this._nextSnap = t + 1 / SNAP_HZ; this._sendSnapshot(t); }
@@ -213,7 +291,7 @@ export class Battle {
       if (r && r.t < bt) { bt = r.t; best = { g, r }; }
     }
     const end = bt === Infinity ? 60 : bt;
-    const from = shooter instanceof Human ? this._v.set(o[0], o[1] - 0.12, o[2]).addScaledVector(new THREE.Vector3(d[0], d[1], d[2]), 0.6) : f.muzzleWorld(this._v);
+    const from = shooter instanceof Human ? this._v.set(o[0] + d[0] * 0.6, o[1] - 0.12 + d[1] * 0.6, o[2] + d[2] * 0.6) : f.muzzleWorld(this._v);
     this._addTracer(from, [o[0] + d[0] * end, o[1] + d[1] * end, o[2] + d[2] * end], shotT, f.team);
     let hole = null;
     if (best) this._damage(best.g, gunDamage(f.gun) * (ZONE_DAMAGE[best.r.zone] || 1), f, best.r.zone, shotT);
@@ -232,6 +310,24 @@ export class Battle {
       for (const h of this.humans) dist = Math.min(dist, Math.hypot(h.f.x - f.x, h.f.z - f.z));
       sfx.shot(f.gun.tone, Math.max(0.06, Math.min(0.6, 3 / (dist + 2))));
     }
+  }
+
+  // Acid: damage with no shooter (spawn protection does not help; a death scores for no one).
+  _acid(g, dmg, t) {
+    g.health -= dmg;
+    g.lastHurt = t;
+    const hv = this.humans.find((h) => h.f === g), rv = this.remotes.find((r) => r.f === g);
+    if (hv && (!this._acidFlash || t > this._acidFlash)) { this._acidFlash = t + 0.3; this._hurtFlash(hv, null, t); }
+    if (rv && (!rv.acidMsg || t > rv.acidMsg)) { rv.acidMsg = t + 0.3; rv.link.send({ k: 'hurt', from: null, by: 'Acid' }); }
+    if (g.health > 0) return;
+    g.health = 0; g.alive = false; g.deaths++; g.respawnAt = t + RESPAWN_S;
+    const entry = { k: 'Acid', kc: 'env', v: g.name, vc: g.team, vid: g.id, head: false, t };
+    this.feed.unshift(entry);
+    this.feed.length = Math.min(this.feed.length, 5);
+    if (this.net) this._broadcast({ k: 'feed', e: entry });
+    this._renderFeed();
+    this._updateScore();
+    if (hv) hv.killedBy = 'the acid';
   }
 
   _damage(g, dmg, by, zone, t) {
@@ -309,7 +405,7 @@ export class Battle {
   }
   // Positions, health and score of everyone, ~30 times a second (newest wins).
   _sendSnapshot(t) {
-    const f = this.fighters.map((g) => [g.id, r2(g.x), r2(g.z), r1(g.yaw), r1(g.pitch), r2(g.crouch), Math.ceil(Math.max(0, g.health)), g.alive ? 1 : 0, t < g.flashUntil ? 1 : 0, g.kills, g.deaths]);
+    const f = this.fighters.map((g) => [g.id, r2(g.x), r2(g.z), r1(g.yaw), r1(g.pitch), r2(g.crouch), Math.ceil(Math.max(0, g.health)), g.alive ? 1 : 0, t < g.flashUntil ? 1 : 0, g.kills, g.deaths, r2(g.y), g.light ? 1 : 0]);
     this._broadcast({ k: 'snap', f, s: this.teamScore }, true);
   }
   // A message from a player on another PC (host), or from the host (client).
@@ -322,6 +418,8 @@ export class Battle {
     if (m.k === 'st') {
       if (!f.alive) return;
       f.x = +m.x || 0; f.z = +m.z || 0; f.yaw = +m.yaw || 0; f.pitch = +m.pitch || 0; f.crouch = Math.min(1, Math.max(0, +m.crouch || 0));
+      f.y = Math.min(this.arena.wallH, Math.max(0, +m.y || 0));
+      f.light = m.fl !== 0;
       this.arena.resolve(f);                      // never inside cover
     } else if (m.k === 'shot') {
       if (!f.alive || this.over) return;
@@ -341,14 +439,14 @@ export class Battle {
       if (m.hit) {
         const g = this.fighters.find((x) => x.id === m.hit.id);
         const p = m.hit.p;
-        if (g && g.alive && g.team !== f.team && Array.isArray(p) && Math.hypot(p[0] - g.x, p[2] - g.z) < 2.5 &&
-          this.arena.sightLine([f.x, f.eyeH, f.z], [p[0], p[1], p[2]])) {
+        if (g && g.alive && g.team !== f.team && Array.isArray(p) && Math.hypot(p[0] - g.x, p[2] - g.z) < 2.5 && Math.abs(p[1] - g.y - 1) < 2.5 &&
+          this.arena.sightLine([f.x, f.y + f.eyeH, f.z], [p[0], p[1], p[2]])) {
           this._damage(g, gunDamage(r.gun) * (ZONE_DAMAGE[m.hit.zone] || 1), f, m.hit.zone, t);
         }
       }
     } else if (m.k === 'gun') {
       const g = this.deps.guns[m.i | 0];
-      if (g) { r.gun = g; f.gun = g; }
+      if (g) { r.gun = g; f.gun = g; this._look(f, g, skinNum(m.s)); this._broadcast({ k: 'look', id: f.id, gun: m.i | 0, s: skinNum(m.s) }, false, r); }
     } else if (m.k === 'left') this.onLinkClosed(link);
   }
   // A player's connection dropped (host) or the host's did (client).
@@ -394,6 +492,7 @@ export class Battle {
       const f = new Fighter({ name: e.name, team: e.team, color: TEAM_COLOR[e.team] || 0xffffff, human: e.human });
       f.id = e.id;
       f.gun = d.guns[e.gun] || d.guns[0];
+      this._look(f, f.gun, e.id === m.you ? (d.skinOf ? d.skinOf(f.gun) : null) : skinNum(e.skin));
       if (e.human) f.showBar = false;
       this.fighters.push(f);
       this.arena.scene.add(f.group);
@@ -406,6 +505,9 @@ export class Battle {
         this.humans.push(h);
       } else this.proxies.push(new Proxy(f));
     }
+    this.atmo = { night: !!m.night, weather: typeof m.weather === 'string' ? m.weather : 'auto', fog: !!m.fog };
+    this._setNight(this.atmo.night, this.atmo.weather, this.atmo.fog);
+    this.arena.setGraphics(d.settings.graphics, d.renderer);
     const t = d.now();
     this.t = t; this.prevT = t; this._nextSnap = 0;
     this.active = true; this.paused = false; this.over = false;
@@ -420,7 +522,7 @@ export class Battle {
     const t = this.deps.now(), me = this.humans[0];
     if (m.k === 'snap') {
       for (const e of m.f) {
-        const [id, x, z, yaw, pitch, crouch, health, alive, flash, kills, deaths] = e;
+        const [id, x, z, yaw, pitch, crouch, health, alive, flash, kills, deaths, y = 0, light = 1] = e;
         const f = this.fighters.find((g) => g.id === id);
         if (!f) continue;
         f.kills = kills; f.deaths = deaths;
@@ -429,17 +531,17 @@ export class Battle {
           if (f.alive && !alive) { f.alive = false; f.respawnAt = t + RESPAWN_S; }
           continue;
         }
-        f.health = health; f.alive = !!alive;
+        f.health = health; f.alive = !!alive; f.light = !!light;
         if (flash) f.flashUntil = t + 0.05;
         const p = this.proxies.find((q) => q.f === f);
-        if (p) { p.buf.push([t, x, z, yaw, pitch, crouch]); if (p.buf.length > 12) p.buf.shift(); }
+        if (p) { p.buf.push([t, x, z, yaw, pitch, crouch, y]); if (p.buf.length > 12) p.buf.shift(); }
       }
       let changed = false;
       for (const k of Object.keys(m.s)) if (this.teamScore[k] !== m.s[k]) { this.teamScore[k] = m.s[k]; changed = true; }
       if (changed) this._updateScore();
     } else if (m.k === 'spawn' && me) {
       me.f.alive = true; me.f.health = MAX_HEALTH; me.f.protectUntil = t + PROTECT_S;
-      me.respawn(m.x, m.z, t);
+      me.respawn(m.x, m.z, t, +m.y || 0);
       me.look.setAngles(m.yaw, 0);
     } else if (m.k === 'tr') {
       const by = this.fighters.find((g) => g.id === m.by);
@@ -447,7 +549,10 @@ export class Battle {
       if (m.hole) this.arena.holes.add(m.hole[0], m.hole[1], m.hole[2], m.hole[3], m.hole[4], m.hole[5]);
       if (by) { by.flashUntil = t + 0.05; this._shotSound(by, t); }
     } else if (m.k === 'hurt' && me) {
-      this._hurtFlash(me, { x: m.from[0], z: m.from[1] }, t);
+      this._hurtFlash(me, Array.isArray(m.from) ? { x: m.from[0], z: m.from[1] } : null, t);
+    } else if (m.k === 'look') {
+      const f = this.fighters.find((g) => g.id === m.id), g = this.deps.guns[m.gun | 0];
+      if (f && g && (!me || f !== me.f)) this._look(f, g, skinNum(m.s));
     } else if (m.k === 'hm' && me) {
       this._hitMarker(me, m.kind, t);
       if (m.kind === 'kill') this._earn('kill', !!m.head);
@@ -481,14 +586,16 @@ export class Battle {
       f.x = A[1] + (B[1] - A[1]) * k; f.z = A[2] + (B[2] - A[2]) * k;
       let dy = ((B[3] - A[3] + 540) % 360) - 180;
       f.yaw = A[3] + dy * k; f.pitch = A[4] + (B[4] - A[4]) * k; f.crouch = A[5] + (B[5] - A[5]) * k;
+      f.y = Math.abs(B[6] - A[6]) > 1.5 ? B[6] : A[6] + (B[6] - A[6]) * k;
     }
     if (me && me.f.alive && t >= this._nextSnap) {
       this._nextSnap = t + 1 / SNAP_HZ;
       const f = me.f;
-      this.net.link.send({ k: 'st', x: r2(f.x), z: r2(f.z), yaw: r1(f.yaw), pitch: r1(f.pitch), crouch: r2(f.crouch) }, true);
+      this.net.link.send({ k: 'st', x: r2(f.x), z: r2(f.z), y: r2(f.y), yaw: r1(f.yaw), pitch: r1(f.pitch), crouch: r2(f.crouch), fl: f.light ? 1 : 0 }, true);
     }
     for (const f of this.fighters) f.updateVisual(t);
-    this.arena.update(dt, t);
+    this._updateTorches();
+    this.arena.update(dt, t, me ? me.camera.position : null);
     this._updateTracers(t);
     this._updateHud(t);
   }
@@ -509,7 +616,7 @@ export class Battle {
     }
     const end = bt === Infinity ? 60 : bt;
     const b = [r2(o[0] + d[0] * end), r2(o[1] + d[1] * end), r2(o[2] + d[2] * end)];
-    const from = this._v.set(o[0], o[1] - 0.12, o[2]).addScaledVector(new THREE.Vector3(d[0], d[1], d[2]), 0.6);
+    const from = this._v.set(o[0] + d[0] * 0.6, o[1] - 0.12 + d[1] * 0.6, o[2] + d[2] * 0.6);
     this._addTracer(from, b, shotT, f.team);
     let hole = null;
     if (!best && tw !== Infinity) {
@@ -538,11 +645,12 @@ export class Battle {
     if (!this.active) return false;
     const p1 = this.humans[0], p2 = this.humans[1];
     if (p2 && p2.controls !== 'mouse' && p2.key(code, down)) return true;
-    const map = { KeyW: 'fwd', KeyS: 'back', KeyA: 'left', KeyD: 'right', ShiftLeft: 'sprint', Space: 'crouch', KeyQ: 'leanL', KeyE: 'leanR' };
+    const map = { KeyW: 'fwd', KeyS: 'back', KeyA: 'left', KeyD: 'right', ShiftLeft: 'sprint', Space: 'crouch', KeyQ: 'leanL', KeyE: 'leanR', KeyC: 'vault' };
     if (!p2) map.ShiftRight = 'sprint';
     if (map[code]) { p1.in[map[code]] = down; return true; }
     if (code === 'KeyR') { if (down) p1.reload(); return true; }
     if (code === 'KeyI') { if (down && !p1.ads) p1.rig.inspect(); return true; }
+    if (code === 'KeyF') { if (down && this.night) { p1.f.light = !p1.f.light; p1.rig.setTorch(p1.f.light); if (this.deps.sfx.click) this.deps.sfx.click(); } return true; }
     return false;
   }
 
@@ -671,6 +779,7 @@ export class Battle {
     const v = this.hud.views[this.humans.indexOf(h)];
     if (!v) return;
     v.hurtUntil = t + 0.35;
+    if (!by) { v.hurt.className = 'b-hurt on acid'; return; }   // acid: green all round
     // Which side the damage came from (left/right/front/behind) shows as a red edge.
     const ang = Math.atan2(by.x - h.f.x, -(by.z - h.f.z)) * 180 / Math.PI;
     let rel = ((ang - h.look.yaw + 540) % 360) - 180;

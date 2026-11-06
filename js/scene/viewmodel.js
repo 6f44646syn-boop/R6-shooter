@@ -1,13 +1,13 @@
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=2156b86-mw4poxh9';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=2156b86-mw4poxh9';
-import { matcap } from './matcap.js?v=2156b86-mw4poxh9';
-import { mulberry32 } from '../core/prng.js?v=2156b86-mw4poxh9';
-import { gunMaps } from './range-tex.js?v=2156b86-mw4poxh9';
-import { skinById, FACTORY } from '../core/skins.js?v=2156b86-mw4poxh9';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=2156b86-mw4poxh9';
+import * as THREE from '../../vendor/three/three.module.min.js?v=1c7d129-mw4umac6';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=1c7d129-mw4umac6';
+import { matcap } from './matcap.js?v=1c7d129-mw4umac6';
+import { mulberry32 } from '../core/prng.js?v=1c7d129-mw4umac6';
+import { gunMaps } from './range-tex.js?v=1c7d129-mw4umac6';
+import { skinById, FACTORY } from '../core/skins.js?v=1c7d129-mw4umac6';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=1c7d129-mw4umac6';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -32,8 +32,15 @@ export function skinFor(slot) {
 export function skinName(slot) { const d = skinFor(slot); return d ? d.name : ''; }
 // Skin bake size per shading: 4096 ultra, 2048 high, 1024 otherwise.
 function skinSize() {
+  if (WORLD) return 512;                       // guns other people carry: seen from metres away
   const sh = sightShading();
   return Math.min(ULTRA_TEX, sh === 'ultra' ? 4096 : sh === 'high' ? 2048 : 1024);
+}
+let WORLD = false;              // building a third-person gun
+let SKIN_FORCE;                 // undefined: the slot's skin; null: none; id: that skin
+function currentSkin() {
+  if (SKIN_FORCE !== undefined) return SKIN_FORCE === null ? null : skinById(SKIN_FORCE) || null;
+  return skinFor(SKIN_SLOT);
 }
 const skins = new Map();        // skin id + size -> baked skin; the last few are kept
 let detailPaint = null, detailBrushed = null;
@@ -41,8 +48,9 @@ function bakedSkin(def) {
   const size = skinSize(), key = def.id + '@' + size;
   if (!skins.has(key)) {
     skins.set(key, bakeSkin(RENDERER, def, size));
-    if (skins.size > 4) {            // big maps: keep a few guns' worth
-      const [old, sk] = skins.entries().next().value;
+    const big = [...skins.keys()].filter((k) => !k.endsWith('@512'));
+    if (big.length > 4) {            // big maps: keep a few guns' worth (small third-person ones stay)
+      const old = big[0], sk = skins.get(old);
       disposeBaked(sk.albedo); disposeBaked(sk.rm); skins.delete(old);
       for (const [k, m] of mats) if (m.userData.skinKey === old) { m.dispose(); mats.delete(k); }
     }
@@ -83,7 +91,7 @@ function skinMaterial(def) {
 // kind: 'auto' (black = polymer, else metal) or 'metal' (barrels, tubes).
 function mat(color, kind = 'auto') {
   const sh = sightShading();
-  const skin = kind === 'auto' && color !== BLACK && color !== STEEL ? skinFor(SKIN_SLOT) : null;
+  const skin = kind === 'auto' && color !== BLACK && color !== STEEL ? currentSkin() : null;
   const key = sh + color + kind + (skin ? '|skin' + skin.id + '@' + skinSize() : '');
   if (!mats.has(key)) {
     if (skin) { mats.set(key, skinMaterial(skin)); return mats.get(key); }
@@ -569,6 +577,29 @@ Object.assign(SPEC, {
 
 const easeInOut = (x) => x * x * (3 - 2 * x);
 
+// A gun as other players see it (third person, real size): the same model and skin, without
+// rails, hands or moving parts. Cached per gun, finish and skin; returns a new group sharing
+// geometry and materials. Gun coordinates: -z forward, origin at the receiver; grip at gripZ.
+const worldGuns = new Map();
+export function buildWorldGun(gun, slot, skinId) {
+  const type = MODEL_FOR[gun.id] || (MODEL_TYPES.includes(gun.model) ? gun.model : 'rifle');
+  const key = sightShading() + '|' + gun.id + '|' + slot + '|' + (skinId ?? '-');
+  if (!worldGuns.has(key)) {
+    const g = new THREE.Group(), mg = new THREE.Group();
+    SKIN_SLOT = slot; SKIN_FORCE = skinId ?? null; WORLD = true;
+    try { BUILDERS[type](g, FINISHES[slot % FINISHES.length], mg); }
+    finally { SKIN_FORCE = undefined; WORLD = false; }
+    g.add(mg);
+    mergeStatic(g);
+    const box = new THREE.Box3().setFromObject(g);
+    worldGuns.set(key, { g, gripZ: GRIP_Z[type] ?? 0.06, front: box.min.z, top: box.max.y });
+  }
+  const w = worldGuns.get(key), out = new THREE.Group();
+  for (const m of w.g.children) { const c = new THREE.Mesh(m.geometry, m.material); c.castShadow = true; out.add(c); }
+  out.userData = { gripZ: w.gripZ, front: w.front, top: w.top };
+  return out;
+}
+
 export class WeaponRig {
   constructor(renderer) {
     ENV = makeEnvMap(renderer);
@@ -784,9 +815,18 @@ export class WeaponRig {
       gunG.add(bolt);
       const flash = flashGroup();
       const [my, mz] = SPEC[type].muzzle;
+      // Flashlight on the side of the barrel (shown at night).
+      const torch = new THREE.Group();
+      const tb = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.016, 0.085, 12), mat(BLACK));
+      tb.rotation.x = Math.PI / 2; torch.add(tb);
+      const lens = new THREE.Mesh(new THREE.CircleGeometry(0.0125, 14), new THREE.MeshBasicMaterial({ color: 0xfff6d8, toneMapped: false }));
+      lens.position.z = -0.0435; lens.rotation.y = Math.PI; torch.add(lens);
+      torch.position.set(SPEC[type].hw + 0.022, my - 0.012, mz + 0.1);
+      torch.visible = false;
+      gunG.add(torch);
       flash.position.set(0, my, mz - 0.035);
       gunG.add(flash);
-      m.userData = { mag: magG, bolt, boltZ: bolt.position.z, flash, port: new THREE.Vector3(SPEC[type].hw + 0.01, 0.014, SPEC[type].port), gun: gunG };
+      m.userData = { torch, mag: magG, bolt, boltZ: bolt.position.z, flash, port: new THREE.Vector3(SPEC[type].hw + 0.01, 0.014, SPEC[type].port), gun: gunG };
       const skinMats = new Set();
       gunG.traverse((o) => { if (o.isMesh && o.material.userData.tri && o.material.userData.skinKey) skinMats.add(o.material); });
       m.userData.skinMats = [...skinMats];
@@ -804,11 +844,15 @@ export class WeaponRig {
     }
     if (this.current) this.current.visible = false;
     m.visible = true;
+    if (m.userData.torch) m.userData.torch.visible = !!this.torchOn;
     // Draw animation when the gun itself changes (not for a sight change).
     if (this.gunId !== gun.id && this.gunId !== undefined && this.animations) this.drawT = 0;
     this.gunId = gun.id;
     this.current = m;
   }
+
+  // The flashlight on the gun (night battles).
+  setTorch(on) { this.torchOn = !!on; if (this.current && this.current.userData.torch) this.current.userData.torch.visible = this.torchOn; }
 
   // Mouse movement in screen pixels: the sight lags the view by a few pixels.
   nudge(dxPx, dyPx) {

@@ -144,6 +144,8 @@ fieldset, .xh-wrap { min-width: 0; }
 .b-hurt.back { box-shadow: inset 0 -60px 60px -40px rgba(255, 30, 20, 0.6); }
 .b-hurt.left { box-shadow: inset 60px 0 60px -40px rgba(255, 30, 20, 0.6); }
 .b-hurt.right { box-shadow: inset -60px 0 60px -40px rgba(255, 30, 20, 0.6); }
+.b-hurt.acid { box-shadow: inset 0 0 90px 10px rgba(80, 255, 60, 0.45); }
+.battle-hud .t-env { color: #7dff6a; }
 .b-dead { position: absolute; left: 50%; top: 38%; transform: translateX(-50%); padding: 10px 16px; background: rgba(10, 12, 14, 0.8); border-radius: 6px; font-size: 18px; white-space: nowrap; }
 .b-name { position: absolute; left: 16px; top: 16px; font-weight: 600; font-size: 14px; text-shadow: 0 1px 2px #000; }
 .b-hp { position: absolute; left: 16px; bottom: 22px; width: 220px; max-width: 40%; height: 10px; background: rgba(0, 0, 0, 0.55); border-radius: 5px; overflow: hidden; }

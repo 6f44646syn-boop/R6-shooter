@@ -680,14 +680,14 @@ try {
       R.battleStart({ opponent: 'bots', bots: 3, level: 'easy', kills: 30 });
       const B = R.battle(), A = B.arena;
       out.path = A.findPath(-10, 12.5, 10, -12.5).length;
-      out.wallBlocks = !A.sightLine([16, 1.5, 2.5], [11, 1.5, 2.5]);      // tall wall at x = 13.5
-      out.lowWallCrouch = !A.sightLine([0, 0.9, 9], [0, 0.9, 7]);          // low wall at z = 8 hides a crouched head
-      out.lowWallStand = A.sightLine([0, 1.6, 9], [0, 1.6, 7]);            // ...but not a standing one
+      out.wallBlocks = !A.sightLine([12, 1.5, 3.5], [6, 1.5, 3.5]);       // tall wall at x = 9
+      out.lowWallCrouch = !A.sightLine([1, 0.9, 7.5], [1, 0.9, 5.5]);      // low wall at z = 6.5 hides a crouched head
+      out.lowWallStand = A.sightLine([1, 1.6, 7.5], [1, 1.6, 5.5]);        // ...but not a standing one
       const p0 = B.bots.map((b) => [b.f.x, b.f.z]);
       R.step(8, 30);
       out.botsMoved = B.bots.filter((b, i) => Math.hypot(b.f.x - p0[i][0], b.f.z - p0[i][1]) > 1).length;
-      out.inBounds = B.fighters.every((f) => Math.abs(f.x) < 18 && Math.abs(f.z) < 14);
-      out.notInCover = B.fighters.every((f) => !A.boxes.some((b) => f.x > b.minX && f.x < b.maxX && f.z > b.minZ && f.z < b.maxZ));
+      out.inBounds = B.fighters.every((f) => Math.abs(f.x) < A.hx && Math.abs(f.z) < A.hz);
+      out.notInCover = B.fighters.every((f) => !A.boxes.some((b) => b.maxY > f.y + 0.46 && b.minY < f.y + 1.75 && f.x > b.minX && f.x < b.maxX && f.z > b.minZ && f.z < b.maxZ));
       // Your shots: a frozen bot in the open lane, tapped at the chest from 10 m.
       const h = B.humans[0], bot = B.bots[0];
       for (const b of B.bots) b.update = () => {};
@@ -735,13 +735,13 @@ try {
           id: A.mapId, cover: A.boxes.length,
           path: A.findPath(-A.hx + 2, A.hz - 1.5, A.hx - 2, -A.hz + 1.5).length,
           moved: B.bots.filter((b, i) => Math.hypot(b.f.x - p0[i][0], b.f.z - p0[i][1]) > 1).length,
-          inCover: B.fighters.filter((f) => A.boxes.some((b) => f.x > b.minX && f.x < b.maxX && f.z > b.minZ && f.z < b.maxZ)).length,
+          inCover: B.fighters.filter((f) => A.boxes.some((b) => b.maxY > f.y + 0.46 && b.minY < f.y + 1.75 && f.x > b.minX && f.x < b.maxX && f.z > b.minZ && f.z < b.maxZ)).length,
         };
         R.battleLeave();
       }
       return out;
     });
-    check('maps: Container Yard, Winter Cabin, Jesse\'s Casino and School build; bots roam; paths cross; nobody inside cover',
+    check('maps: Container Yard, Winter Cabin, Jesse\'s Casino and School Basement build; bots roam; paths cross; nobody inside cover',
       Object.entries(mp).every(([k, v]) => v.id === k && v.cover > 10 && v.path > 1 && v.moved >= 2 && v.inCover === 0), JSON.stringify(mp));
 
     // Bot levels: time for one bot to kill you standing in the open at 12 m.
@@ -857,6 +857,54 @@ try {
     check('a headshot kill (+30) and the win (+50) earn points, shown on the end screen', pk.earned === 80 && /earned 80 points/.test(pk.endNote), JSON.stringify(pk));
 
 
+    check('no page errors', errors.length === 0, errors.join('\n'));
+    await page.close();
+  }
+
+  // Heights, vaulting, stairs, ramps, acid, night and weather.
+  {
+    console.log('\nBattle movement, hazards, night and weather');
+    const page = await browser.newPage({ viewport: { width: 640, height: 360 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(String(e.stack || e)));
+    await page.goto(BASE + 'index.html?test', { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => window.__range);
+    const mv = await page.evaluate(() => {
+      const R = window.__range; R.manual(true);
+      const res = {};
+      const setup = (map, o = {}) => { R.battleStart({ opponent: 'bots', bots: 1, level: 'easy', kills: 30, map, night: false, weather: 'auto', fog: false, ...o }); const B = R.battle(); B.bots[0].update = () => {}; B.bots[0].f.x = 20; B.bots[0].f.z = -15; const h = B.humans[0]; h.f.protectUntil = 1e9; return [B, h]; };
+      const place = (h, x, y, z, yaw) => { h.f.x = x; h.f.y = y; h.f.z = z; h.camY = y; h.f.vx = h.f.vz = 0; h.look.setAngles(yaw, 0); };
+      const run = (s) => { for (let i = 0; i < s * 20; i++) R.step(0.05, 60); };
+      const vault = (h) => { h.in.vault = true; run(0.1); h.in.vault = false; run(0.8); };
+      let [B, h] = setup('yard');
+      place(h, 3.75, 0, 2.0, 0); run(0.2); vault(h); res.over = [h.f.z, h.f.y];
+      place(h, 3.75, 1.2, 0.5, -90); run(0.2); vault(h); res.climb = h.f.y;
+      place(h, 0, 0, 5, 0); run(0.1); vault(h); res.tall = [h.f.z, h.f.y];
+      [B, h] = setup('casino');
+      place(h, -6.5, 0, -2, 0); h.in.fwd = false; h.look.setAngles(180, 0); h.in.fwd = true; run(3); h.in.fwd = false; res.stairs = h.f.y;
+      res.upPath = B.arena.findPath(12, 0, -10, 12, 0, 3.6).slice(-1)[0];
+      place(h, 20, 0, -13.1, -90); h.in.fwd = true; run(4); h.in.fwd = false; res.ramp = h.f.y;
+      place(h, 1, 3.6, 10, 0); h.in.fwd = true; run(2); h.in.fwd = false; res.fallBlockedByRail = h.f.y;
+      [B, h] = setup('winter');
+      place(h, -2.2, 0, 4, 0); h.in.fwd = true; run(1.5); h.in.fwd = false; res.cabin = h.f.z;
+      [B, h] = setup('school');
+      h.f.protectUntil = 0; place(h, -10, 0, 6, 0); run(4); res.acid = { dead: h.f.deaths > 0, feed: B.hud.feed.textContent };
+      [B, h] = setup('yard', { night: true, weather: 'storm', fog: true });
+      run(0.5);
+      res.night = { lights: B.torches.filter((l) => l.visible).length, own: B.torches[0].intensity, beam: B.bots[0].f.torchG.visible, rain: !!(B.arena.rain && B.arena.rain.visible), banks: !!(B.arena.banks && B.arena.banks.visible), hemi: B.arena.hemi.intensity };
+      R.battleKey('KeyF', true); R.battleKey('KeyF', false); run(0.1); res.lightOff = B.torches[0].intensity;
+      [B, h] = setup('yard'); run(0.2);
+      res.day = { lights: B.torches.filter((l) => l.visible).length, hemi: B.arena.hemi.intensity, rain: !!(B.arena.rain && B.arena.rain.visible) };
+      res.look = { gun: B.bots[0].f._gunModel ? B.bots[0].f._gunModel.children.length : 0, skin: B.bots[0].f.skin };
+      R.battleLeave();
+      return res;
+    });
+    check('vault (C) over low cover, climb onto a 1.4 m ledge, but not over a 2.6 m container', mv.over[0] < 0 && mv.over[1] === 0 && Math.abs(mv.climb - 2.6) < 0.01 && mv.tall[0] > 4.9, JSON.stringify(mv));
+    check('casino: stairs and a ramp up to the second floor; bots can path up there; rails stop falls', Math.abs(mv.stairs - 3.6) < 0.01 && Math.abs(mv.ramp - 3.6) < 0.01 && mv.upPath && Math.abs(mv.upPath[2] - 3.6) < 0.01 && Math.abs(mv.fallBlockedByRail - 3.6) < 0.01, JSON.stringify(mv));
+    check('winter: walk into the cabin through its door', mv.cabin < 0, JSON.stringify(mv));
+    check('school basement: acid kills, shown in the kill feed', mv.acid.dead && /Acid/.test(mv.acid.feed), JSON.stringify(mv.acid));
+    check('night: flashlights (yours toggles with F), beams on others; storm rain and fog banks; day has none', mv.night.lights === 5 && mv.night.own > 0 && mv.night.beam && mv.night.rain && mv.night.banks && mv.lightOff === 0 && mv.day.lights === 0 && !mv.day.rain && mv.day.hemi > mv.night.hemi * 4, JSON.stringify(mv));
+    check('others carry their real gun model (with a skin for bots)', mv.look.gun > 0, JSON.stringify(mv.look));
     check('no page errors', errors.length === 0, errors.join('\n'));
     await page.close();
   }

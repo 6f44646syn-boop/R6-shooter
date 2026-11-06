@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recoil Range</title>
-<link rel="stylesheet" href="css/style.css?v=2156b86-mw4poxh9">
+<link rel="stylesheet" href="css/style.css?v=1c7d129-mw4umac6">
 </head>
 <body>
 <div id="app">
@@ -88,7 +88,13 @@
         <section class="set-group battle-setup" id="battle-setup">
           <div class="set-grid">
             <label class="field" for="b-map"><span>Map</span>
-              <select id="b-map"><option value="yard">Container Yard</option><option value="winter">Winter Cabin</option><option value="casino">Jesse's Casino</option><option value="school">School</option></select></label>
+              <select id="b-map"><option value="yard">Container Yard</option><option value="winter">Winter Cabin</option><option value="casino">Jesse's Casino</option><option value="school">School Basement</option></select></label>
+            <label class="field" for="b-time"><span>Time</span>
+              <select id="b-time"><option value="day">Day</option><option value="night">Night (use your flashlight: F)</option></select></label>
+            <label class="field" for="b-weather"><span>Weather</span>
+              <select id="b-weather"><option value="auto">Map default</option><option value="clear">Clear</option><option value="rain">Rain</option><option value="storm">Storm (rain and lightning)</option><option value="snow">Snow</option></select></label>
+            <label class="field" for="b-fog"><span>Fog</span>
+              <select id="b-fog"><option value="off">Off</option><option value="on">On (thick fog banks in High and Ultra)</option></select></label>
             <label class="field" for="b-bots"><span>Bots</span>
               <select id="b-bots"><option>0</option><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option></select></label>
             <label class="field" for="b-level"><span>Bot level</span>
@@ -166,6 +172,7 @@
           <dt>W A S D</dt><dd>Move (small area behind the firing line)</dd>
           <dt>Shift</dt><dd>Sprint (hold)</dd>
           <dt>Space</dt><dd>Crouch (hold)</dd>
+          <dt>F</dt><dd>Battle at night: flashlight on / off (bots spot a lit flashlight from far away)</dd>
           <dt>X</dt><dd>Back to the firing line</dd>
           <dt>Left button</dt><dd>Fire (hold for automatic)</dd>
           <dt>Right button</dt><dd>Aim down sights (hold)</dd>
@@ -175,7 +182,7 @@
           <dt>Q / E</dt><dd>Lean left / right (hold; also the mouse side buttons)</dd>
           <dt>- / +</dt><dd>Target closer / further (5, 10, 15, 20 m)</dd>
           <dt>I</dt><dd>Inspect the weapon (shows its skin in Ultra)</dd>
-          <dt>C</dt><dd>Clear all bullet holes and shot data (counters, score, plot)</dd>
+          <dt>C</dt><dd>Range: clear all bullet holes and shot data. Battle: vault over low cover or climb onto a ledge (up to 1.5 m)</dd>
           <dt>M</dt><dd>Target: dummy, paper (ring score), red dots (still), red dots (moving)</dd>
           <dt>F3</dt><dd>Debug readout (Z zeroes its counters)</dd>
           <dt>F4</dt><dd>Sight gallery (every sight side by side)</dd>
@@ -223,6 +230,6 @@
     </div>
   </div>
 </div>
-<script type="module" src="js/main.js?v=2156b86-mw4poxh9"></script>
+<script type="module" src="js/main.js?v=1c7d129-mw4umac6"></script>
 </body>
 </html>
