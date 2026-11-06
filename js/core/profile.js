@@ -5,7 +5,7 @@
 // Points: KILL_POINTS per battle kill (+ HEADSHOT_BONUS for a headshot kill), WIN_POINTS for
 // winning a battle. A pack costs PACK_COST and gives one random skin; a duplicate refunds
 // points instead (by rarity).
-import { RARITIES, CATALOGUE, SKIN_COUNT } from './skins.js?v=cd68db2-mw4e6311';
+import { RARITIES, CATALOGUE, SKIN_COUNT } from './skins.js?v=b1d98d9-mw4elpv0';
 
 export const KILL_POINTS = 20, HEADSHOT_BONUS = 10, WIN_POINTS = 50, PACK_COST = 100;
 const KEY = 'recoilRange.profile.v1';
@@ -89,7 +89,7 @@ export class Profile {
     const b = new Uint8Array(1 + 4 + this.owned.length + SLOTS + 4 + 2);
     const dv = new DataView(b.buffer);
     let o = 0;
-    b[o++] = 1;                                   // format version
+    b[o++] = 2;                                   // format version (2: 201 skins)
     dv.setUint32(o, this.points, true); o += 4;
     b.set(this.owned, o); o += this.owned.length;
     for (let i = 0; i < SLOTS; i++) b[o++] = this.equipped[i] === null ? NONE : this.equipped[i];
@@ -115,7 +115,7 @@ export class Profile {
     const body = all.subarray(0, all.length - 2);
     const c = all[all.length - 2] | (all[all.length - 1] << 8);
     if (crc16(body) !== c) throw new Error('The save code does not check out (a character is wrong or missing).');
-    if (body[0] !== 1) throw new Error('This save code is from a newer version. Refresh the page (Ctrl+F5).');
+    if (body[0] !== 1 && body[0] !== 2) throw new Error('This save code is from a newer version. Refresh the page (Ctrl+F5).');
     this._fromBytes(body);
     this._changed();
     return true;
@@ -124,7 +124,10 @@ export class Profile {
     const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
     let o = 1;
     this.points = dv.getUint32(o, true); o += 4;
-    this.owned = b.slice(o, o + this.owned.length); o += this.owned.length;
+    // Version 1 codes hold 200 skins (25 bytes), version 2 holds 201 (26 bytes).
+    const len = b[0] === 1 ? 25 : Math.ceil(SKIN_COUNT / 8);
+    this.owned = new Uint8Array(Math.ceil(SKIN_COUNT / 8));
+    this.owned.set(b.slice(o, o + len)); o += len;
     for (let i = 0; i < SLOTS; i++) { const v = b[o++]; this.equipped[i] = v === NONE || v >= SKIN_COUNT ? null : v; }
     this.kills = dv.getUint32(o, true); o += 4;
     this.packs = dv.getUint16(o, true);

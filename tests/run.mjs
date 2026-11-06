@@ -722,6 +722,28 @@ try {
       bt.killed && bt.kills === 1 && bt.score === 1 && bt.feed === 1 && bt.respawned, JSON.stringify(bt));
     check('battle: first to the kill target wins, end screen shown, leaving returns to the range', bt.over && bt.endShown && /You win/.test(bt.endTitle) && bt.rangeBack, JSON.stringify(bt));
 
+    // Maps: every map builds, bots roam it, nobody stands inside cover, paths cross it.
+    const mp = await page.evaluate(() => {
+      const R = window.__range;
+      const out = {};
+      for (const map of ['yard', 'winter', 'casino', 'school']) {
+        R.battleStart({ opponent: 'bots', bots: 3, level: 'easy', kills: 99, map });
+        const B = R.battle(), A = B.arena;
+        const p0 = B.bots.map((b) => [b.f.x, b.f.z]);
+        R.step(6, 30);
+        out[map] = {
+          id: A.mapId, cover: A.boxes.length,
+          path: A.findPath(-A.hx + 2, A.hz - 1.5, A.hx - 2, -A.hz + 1.5).length,
+          moved: B.bots.filter((b, i) => Math.hypot(b.f.x - p0[i][0], b.f.z - p0[i][1]) > 1).length,
+          inCover: B.fighters.filter((f) => A.boxes.some((b) => f.x > b.minX && f.x < b.maxX && f.z > b.minZ && f.z < b.maxZ)).length,
+        };
+        R.battleLeave();
+      }
+      return out;
+    });
+    check('maps: Container Yard, Winter Cabin, Jesse\'s Casino and School build; bots roam; paths cross; nobody inside cover',
+      Object.entries(mp).every(([k, v]) => v.id === k && v.cover > 10 && v.path > 1 && v.moved >= 2 && v.inCover === 0), JSON.stringify(mp));
+
     // Bot levels: time for one bot to kill you standing in the open at 12 m.
     const lv = await page.evaluate(() => {
       const R = window.__range;
@@ -815,6 +837,9 @@ try {
       P.loadCode(code);
       out.roundTrip = JSON.stringify([P.points, P.ownedIds(), P.equipped]) === snap;
       try { P.loadCode(code.slice(0, -4) + (code.at(-4) === 'A' ? 'B' : 'A') + code.slice(-3)); out.badAccepted = true; } catch (e) { out.badAccepted = false; }
+      // an old version-1 save code (200 skins) still loads
+      const v1 = 'RRS1-AR4AAAAAAAAACAAAAQAQiAJAAAAAgAIAAAAAAEAA____I________wEAAAAKACa0';
+      try { P.loadCode(v1); out.v1 = P.points === 30 && P.ownedCount === 10; } catch (e) { out.v1 = 'ERR ' + e.message; }
       // a battle kill earns points (and a win)
       const before = P.points;
       R.battleStart({ opponent: 'bots', bots: 1, level: 'easy', kills: 1 });
@@ -828,7 +853,7 @@ try {
     });
     check('packs: need ' + 100 + ' points; the reel lands on the won skin; reveal shows it', pk.cantOpen && pk.spinning && pk.winCard && pk.revealed && pk.owned === 1 && pk.points >= 150, JSON.stringify(pk));
     check('equipped skin is on the gun and named in the HUD (' + pk.skinName + ')', pk.hud.includes(pk.skinName), JSON.stringify(pk));
-    check('save code (' + pk.codeLen + ' characters) restores everything; a damaged code is refused', pk.roundTrip && !pk.badAccepted, JSON.stringify(pk));
+    check('save code (' + pk.codeLen + ' characters) restores everything; a damaged code is refused; old codes load', pk.roundTrip && !pk.badAccepted && pk.v1 === true, JSON.stringify(pk));
     check('a headshot kill (+30) and the win (+50) earn points, shown on the end screen', pk.earned === 80 && /earned 80 points/.test(pk.endNote), JSON.stringify(pk));
 
 

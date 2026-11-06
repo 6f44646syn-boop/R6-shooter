@@ -9,7 +9,7 @@
 //   p        [scale (whole number), warp, threshold shift, spare]
 //   rm       [roughness, metalness] of the base, then of the accent
 //   clearcoat, wear (bare metal at the edges), glow ([r, g, b] light from the accent lines)
-import { mulberry32 } from './prng.js?v=cd68db2-mw4e6311';
+import { mulberry32 } from './prng.js?v=b1d98d9-mw4elpv0';
 
 export const RARITIES = [
   { key: 'common', name: 'Common', color: '#b4bcc6', odds: 0.70, refund: 20 },
@@ -44,7 +44,8 @@ const RARE_PATTERNS = [0, 5, 8, 13, 1, 3, 9, 12];
 const EPIC_WORDS = ['Nebula', 'Inferno', 'Aurora', 'Phantom', 'Solar Flare', 'Abyss', 'Prism', 'Overdrive', 'Tempest', 'Eclipse', 'Venom', 'Mirage', 'Paradox', 'Zenith', 'Vortex', 'Spectre'];
 const EPIC_PATTERNS = [0, 5, 6, 13, 14, 15, 9, 16];      // 15 blossom and 16 tide: illustrated
 // Black Ice: [name, hue] in four colours (blue, red, pink, purple), two of each.
-const ICE = [['Glacier', 0.6], ['Deep Blue', 0.63], ['Red Shift', 0.99], ['Crimson Frost', 0.975], ['Rose', 0.93], ['Pink Frost', 0.905], ['Violet', 0.79], ['Purple Haze', 0.76]];
+const ICE = [['Glacier', 0.6], ['Deep Blue', 0.63], ['Red Shift', 0.99], ['Crimson Frost', 0.975], ['Rose', 0.93], ['Pink Frost', 0.905], ['Violet', 0.79], ['Purple Haze', 0.76],
+  ['Venom Green', 0.37]];     // id 200 (added later, so it sits after the original 200)
 
 function make(id) {
   const rng = mulberry32((id + 1) * 7919 + 13);
@@ -93,7 +94,7 @@ function make(id) {
     p: [1 + two, 0.6, 0, 0], rm: [0.14, 0.35, 0.3, 0.2], clearcoat: 1, wear: 0.1, glow: glow.map((v) => Math.round(v * 0.9 * 1000) / 1000) };
 }
 
-export const SKIN_COUNT = 200;
+export const SKIN_COUNT = 201;      // 100 Common, 60 Rare, 32 Epic, 9 Black Ice
 export const CATALOGUE = Array.from({ length: SKIN_COUNT }, (_, i) => make(i));
 // Unique names (the same word + pattern can come up twice).
 {
@@ -108,7 +109,7 @@ export const CATALOGUE = Array.from({ length: SKIN_COUNT }, (_, i) => make(i));
 // Gun-exclusive skins (by loadout slot 0-9): every Black Ice belongs to one gun, every other
 // Epic to one gun, and every fifth Rare to a family (SMGs, or rifles and carbines).
 export const FAMILIES_BY_SLOT = { smg: [0, 3, 6, 8, 9], rifle: [1, 2, 4, 7] };
-const BLACK_ICE_GUN = [4, 1, 0, 7, 2, 8, 5, 6];        // Black Ice i -> one gun
+const BLACK_ICE_GUN = [4, 1, 0, 7, 2, 8, 5, 6, 9];     // Black Ice i -> one gun
 for (const s of CATALOGUE) {
   if (s.rarity === 'blackice') s.guns = [BLACK_ICE_GUN[s.id - 192]];
   else if (s.rarity === 'epic' && (s.id - 160) % 2 === 0) s.guns = [((s.id - 160) / 2 + 3) % 10];

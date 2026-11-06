@@ -1,8 +1,8 @@
 // Settings panel inside the Esc menu. Every change is sanitised, saved to localStorage and
 // handed to main.js through onChange(key) so it takes effect immediately.
-import { sanitize, saveSettings, clearSavedSettings, DEFAULTS, DISTANCES, CROSSHAIR_STYLES, RETICLE_COLOR_NAMES } from '../core/settings.js?v=cd68db2-mw4e6311';
-import { degPerCount, countsPer360, inchesPer360, horizontalFovDeg } from '../core/sensitivity.js?v=cd68db2-mw4e6311';
-import { drawCrosshair } from './crosshair.js?v=cd68db2-mw4e6311';
+import { sanitize, saveSettings, clearSavedSettings, DEFAULTS, DISTANCES, CROSSHAIR_STYLES, RETICLE_COLOR_NAMES } from '../core/settings.js?v=b1d98d9-mw4elpv0';
+import { degPerCount, countsPer360, inchesPer360, horizontalFovDeg } from '../core/sensitivity.js?v=b1d98d9-mw4elpv0';
+import { drawCrosshair } from './crosshair.js?v=b1d98d9-mw4elpv0';
 
 function el(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);

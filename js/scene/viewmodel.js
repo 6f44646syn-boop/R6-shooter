@@ -1,13 +1,13 @@
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=cd68db2-mw4e6311';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=cd68db2-mw4e6311';
-import { matcap } from './matcap.js?v=cd68db2-mw4e6311';
-import { mulberry32 } from '../core/prng.js?v=cd68db2-mw4e6311';
-import { gunMaps } from './range-tex.js?v=cd68db2-mw4e6311';
-import { skinById, FACTORY } from '../core/skins.js?v=cd68db2-mw4e6311';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=cd68db2-mw4e6311';
+import * as THREE from '../../vendor/three/three.module.min.js?v=b1d98d9-mw4elpv0';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=b1d98d9-mw4elpv0';
+import { matcap } from './matcap.js?v=b1d98d9-mw4elpv0';
+import { mulberry32 } from '../core/prng.js?v=b1d98d9-mw4elpv0';
+import { gunMaps } from './range-tex.js?v=b1d98d9-mw4elpv0';
+import { skinById, FACTORY } from '../core/skins.js?v=b1d98d9-mw4elpv0';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=b1d98d9-mw4elpv0';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -253,6 +253,24 @@ function iceMaterial(def) {
   else if (sh === 'detailed') m = new THREE.MeshStandardMaterial({ color: c, roughness: 0.08, metalness: 0.1, transparent: true, opacity: 0.84, flatShading: true, envMap: ENV, envMapIntensity: 2, emissive: c.clone().multiplyScalar(0.2) });
   else m = new THREE.MeshPhysicalMaterial({ color: c, roughness: 0.05, metalness: 0, transparent: true, opacity: 0.8, flatShading: true, clearcoat: 1, clearcoatRoughness: 0.03,
     iridescence: 0.35, iridescenceIOR: 1.5, envMap: highEnv(), envMapIntensity: 2.4, emissive: c.clone().multiplyScalar(0.22) });
+  // Inspect: the shards shoot off along their own direction (and fall), then regrow from
+  // their bases. iceT is the inspect progress 0..1 (1 = resting).
+  const u = { iceT: { value: 1 } };
+  m.userData.ice = u;
+  m.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, u);
+    sh.vertexShader = 'attribute vec3 iceBase; attribute vec3 iceDir; attribute float iceRnd; uniform float iceT;\n' +
+      'float iceS(float a, float b, float x) { float t = clamp((x - a) / (b - a), 0.0, 1.0); return t * t * (3.0 - 2.0 * t); }\n' +
+      sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+        float fly = iceS(0.12 + iceRnd * 0.06, 0.42, iceT);
+        float grow = iceS(0.5 + iceRnd * 0.12, 0.88, iceT);
+        bool flying = iceT < 0.46;
+        float sc = flying ? 1.0 - fly * 0.6 : grow * (1.0 + 0.3 * sin(grow * 3.14159));
+        vec3 off = flying ? iceDir * fly * (0.15 + iceRnd * 0.3) + vec3(0.0, -0.35, 0.0) * fly * fly : vec3(0.0);
+        if (flying && fly > 0.98) sc = 0.0;
+        transformed = iceBase + (transformed - iceBase) * sc + off;`);
+  };
+  m.customProgramCacheKey = () => 'ice' + sh;
   iceMats.set(key, m);
   return m;
 }
@@ -261,8 +279,9 @@ function iceCrystals(g, mg, def, type) {
   const rails = RAILS[type] || [];
   const railFrom = Math.max(...rails.map((r) => r[1]), 0) + 0.03, railTo = Math.min(...rails.map((r) => r[2]), 0) - 0.03;
   const build = (group) => {
-    const pos = [], nor = [];
+    const pos = [], nor = [], base = [], dirs = [], rnds = [];
     const tmp = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1);
+    const b = new THREE.Vector3(), dv = new THREE.Vector3();
     const spike = (part, x, y, z, dir, len, r) => {
       const geo = new THREE.ConeGeometry(r, len, rng() < 0.5 ? 4 : 5, 1).toNonIndexed();
       geo.translate(0, len / 2, 0);                                    // base on the surface
@@ -275,6 +294,11 @@ function iceCrystals(g, mg, def, type) {
       tmp.compose(v.set(x, y, z), q, one);
       geo.applyMatrix4(tmp).applyMatrix4(part.matrix);
       pos.push(...geo.attributes.position.array); nor.push(...geo.attributes.normal.array);
+      // Base point and pointing direction (gun space) for the inspect animation.
+      b.set(x, y, z).applyMatrix4(part.matrix);
+      dv.set(0, 1, 0).applyQuaternion(q).transformDirection(part.matrix);
+      const rr = rng(), n = geo.attributes.position.count;
+      for (let k = 0; k < n; k++) { base.push(b.x, b.y, b.z); dirs.push(dv.x, dv.y, dv.z); rnds.push(rr); }
       geo.dispose();
     };
     for (const part of group.children) {
@@ -302,6 +326,9 @@ function iceCrystals(g, mg, def, type) {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    geo.setAttribute('iceBase', new THREE.Float32BufferAttribute(base, 3));
+    geo.setAttribute('iceDir', new THREE.Float32BufferAttribute(dirs, 3));
+    geo.setAttribute('iceRnd', new THREE.Float32BufferAttribute(rnds, 1));
     const mesh = new THREE.Mesh(geo, iceMaterial(def));
     mesh.frustumCulled = false;
     mesh.renderOrder = 1;
@@ -715,6 +742,9 @@ export class WeaponRig {
     const u = this.current && this.current.userData;
     if (!u || !u.skinMats) return;
     for (const mat of u.skinMats) { const tu = mat.userData.tri; tu.triAnim.value = amount; tu.triTime.value = t; }
+    // Black Ice shards: shoot off and regrow with the inspect (resting otherwise).
+    const iceT = this.inspectT >= 0 && this.inspectHold < 0 ? this.inspectT : this.inspectHold >= 0 ? this.inspectHold : 1;
+    for (const mat of u.iceMats || []) mat.userData.ice.iceT.value = iceT;
   }
 
   // Light levels for the current shading (also used by a second rig, e.g. battle player 2).
@@ -760,6 +790,9 @@ export class WeaponRig {
       const skinMats = new Set();
       gunG.traverse((o) => { if (o.isMesh && o.material.userData.tri && o.material.userData.skinKey) skinMats.add(o.material); });
       m.userData.skinMats = [...skinMats];
+      const iceSet = new Set();
+      m.traverse((o) => { if (o.isMesh && o.material.userData.ice) iceSet.add(o.material); });
+      m.userData.iceMats = [...iceSet];
       const s = 0.62;
       gunG.scale.setScalar(s);
       // Rail (top of the receiver) under the sight's mount; receiver centred a little ahead.

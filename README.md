@@ -113,8 +113,9 @@ Settings, Skins & packs, Main menu. Every gun has its own model.
 
 Menu > Skins & packs. Battle kills earn points (20, +10 for a headshot kill; +50 for winning
 a battle; in split screen, player 1's kills count). A pack costs 100 points and spins a
-slot-machine reel that lands on one of 200 skins: Common 70%, Rare 22%, Epic 7%, Black Ice
-1%. A duplicate gives points back (20 / 40 / 80 / 200). Click a skin in your collection to
+slot-machine reel that lands on one of 201 skins: Common 70%, Rare 22%, Epic 7%, Black Ice
+1% (9 Black Ice: blue, red, pink, purple and green, with deep carved cracks and 3D ice
+shards that shoot off and regrow when you inspect). A duplicate gives points back (20 / 40 / 80 / 200). Click a skin in your collection to
 put it on the gun selected in Loadout; it shows in every graphics mode. Some skins are
 exclusive: each Black Ice and half the Epics fit one gun only, and some Rares one gun
 family (SMGs, or rifles and carbines).
@@ -128,6 +129,13 @@ on another PC or browser to carry your points, skins and equipped skins over. Th
 checksummed, so a mistyped code is refused.
 
 ## Battle mode
+
+Maps (Settings > Map): **Container Yard** (containers, crates, walls, barriers), **Winter
+Cabin** (snowy clearing, log cabin, shed, pines, woodpiles, snowbanks, falling snow),
+**Jesse's Casino** (slot machine rows with lit screens, card tables, roulette, bar, gold
+pillars, chandeliers, neon signs) and **School** (lockers, desks and chairs, cafeteria
+tables, trophy case, vending machine, whiteboards). Each is point-symmetric, drawn in code
+(js/battle/maps.js), and the host's map is used in network games.
 
 Main menu > Battle vs bots: you against 1-6 bots (Easy, Medium or Hard). First side to the kill target (5, 10,
 20 or 30) wins; you respawn 3 s after dying, with 1.5 s of spawn protection, and health

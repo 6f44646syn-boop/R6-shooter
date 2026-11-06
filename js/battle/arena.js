@@ -6,100 +6,18 @@
 //
 // Coordinates: metres, x right, y up, z towards the "A" side. Same yaw convention as the
 // range: yaw 0 looks along -z, positive turns right.
-import * as THREE from '../../vendor/three/three.module.min.js?v=cd68db2-mw4e6311';
-import { concreteTiles, wallPanels, duskSky, hazardStripes } from '../scene/range-tex.js?v=cd68db2-mw4e6311';
-import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=cd68db2-mw4e6311';
-import { flatMaterial } from '../scene/low.js?v=cd68db2-mw4e6311';
-import { BulletHoles } from '../scene/holes.js?v=cd68db2-mw4e6311';
-import { mulberry32 } from '../core/prng.js?v=cd68db2-mw4e6311';
+import * as THREE from '../../vendor/three/three.module.min.js?v=b1d98d9-mw4elpv0';
+import { MAPS } from './maps.js?v=b1d98d9-mw4elpv0';
+// (textures for each map live in maps.js)
+import { concreteTiles } from '../scene/range-tex.js?v=b1d98d9-mw4elpv0';
+import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=b1d98d9-mw4elpv0';
+import { flatMaterial } from '../scene/low.js?v=b1d98d9-mw4elpv0';
+import { BulletHoles } from '../scene/holes.js?v=b1d98d9-mw4elpv0';
+import { mulberry32 } from '../core/prng.js?v=b1d98d9-mw4elpv0';
 
-export const HALF_X = 18, HALF_Z = 14, WALL_H = 4.5;
+export const HALF_X = 18, HALF_Z = 14, WALL_H = 4.5;   // the Container Yard (other maps differ)
 const CELL = 0.5;                // nav grid cell (m)
 const BODY_R = 0.35;             // fighter radius for collision
-
-// Cover on the "A" half (z > 0) and the middle; each is mirrored through the centre
-// (x, z) -> (-x, -z) for the "B" half. kind: container | crate | wall | low | barrier.
-const HALF_LAYOUT = [
-  { x: 0, z: 0, w: 6, d: 2.4, h: 2.6, kind: 'container', color: 0x8a3a2a, mirror: false },
-  { x: -4.5, z: 3.5, w: 1.2, d: 1.2, h: 2.4, kind: 'crate' },
-  { x: -3.3, z: 3.5, w: 1.2, d: 1.2, h: 1.2, kind: 'crate' },
-  { x: 7.5, z: 1.5, w: 0.4, d: 4, h: 2.6, kind: 'wall' },
-  { x: -9, z: 6.5, w: 4, d: 0.4, h: 1.0, kind: 'low' },
-  { x: 9, z: 6.5, w: 4, d: 0.4, h: 1.0, kind: 'low' },
-  { x: 0, z: 8, w: 5, d: 0.4, h: 1.0, kind: 'low' },
-  { x: -12.5, z: 9.5, w: 2.4, d: 6, h: 2.6, kind: 'container', color: 0x2d4f7a },
-  { x: 13.5, z: 2.5, w: 0.4, d: 5, h: 2.6, kind: 'wall' },
-  { x: 14, z: 11, w: 3, d: 0.6, h: 1.1, kind: 'barrier' },
-  { x: 5, z: 11, w: 2, d: 0.6, h: 1.1, kind: 'barrier' },
-  { x: 2.5, z: 11, w: 1.2, d: 1.2, h: 1.2, kind: 'crate' },
-  { x: 9, z: 3, w: 1.2, d: 1.2, h: 1.2, kind: 'crate' },
-  { x: -7, z: 10.5, w: 1.2, d: 1.2, h: 2.4, kind: 'crate' },
-  { x: -15.5, z: 2, w: 1.2, d: 1.2, h: 1.2, kind: 'crate' },
-  { x: 3.5, z: 4.8, w: 2.4, d: 0.6, h: 1.1, kind: 'barrier' },
-];
-
-export const SPAWNS = {
-  A: [[-10, 12.5], [0, 12.8], [10, 12.5], [16, 8], [-16, 6]],
-  B: [[10, -12.5], [0, -12.8], [-10, -12.5], [-16, -8], [16, -6]],
-};
-
-/* ---------- textures (procedural) ---------- */
-function canvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; }
-function tex(cv) {
-  const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  return t;
-}
-// Wooden-framed crate face (one face per 1.2 m tile).
-function crateTexture() {
-  const S = 256, [cv, g] = canvas(S, S), rng = mulberry32(5);
-  g.fillStyle = '#8a6a43'; g.fillRect(0, 0, S, S);
-  for (let y = 0; y < S; y += 32) {                // planks
-    g.fillStyle = 'rgba(0,0,0,' + (0.05 + rng() * 0.1) + ')'; g.fillRect(0, y, S, 32);
-    g.fillStyle = 'rgba(40,25,10,0.6)'; g.fillRect(0, y, S, 2);
-  }
-  for (let i = 0; i < 300; i++) { g.fillStyle = 'rgba(60,40,20,0.15)'; g.fillRect(rng() * S, rng() * S, 1 + rng() * 30, 1); }
-  g.strokeStyle = '#5a4128'; g.lineWidth = 22; g.strokeRect(11, 11, S - 22, S - 22);   // frame
-  g.beginPath(); g.moveTo(16, 16); g.lineTo(S - 16, S - 16); g.stroke();               // brace
-  g.fillStyle = '#2a2a2a';
-  for (const [x, y] of [[11, 11], [S - 11, 11], [11, S - 11], [S - 11, S - 11]]) { g.beginPath(); g.arc(x, y, 5, 0, Math.PI * 2); g.fill(); }
-  return tex(cv);
-}
-// Ribbed container steel, 1 m tile; tinted by the material colour.
-function containerTexture() {
-  const S = 256, [cv, g] = canvas(S, S), rng = mulberry32(9);
-  for (let x = 0; x < S; x++) {
-    const v = Math.sin((x / S) * Math.PI * 2 * 4);
-    const l = 190 + v * 45;
-    g.fillStyle = 'rgb(' + (l | 0) + ',' + (l | 0) + ',' + (l | 0) + ')'; g.fillRect(x, 0, 1, S);
-  }
-  for (let i = 0; i < 40; i++) {
-    const x = rng() * S, y = rng() * S * 0.7, h = 20 + rng() * 80;
-    const gr = g.createLinearGradient(0, y, 0, y + h);
-    gr.addColorStop(0, 'rgba(90,50,20,0.35)'); gr.addColorStop(1, 'rgba(90,50,20,0)');
-    g.fillStyle = gr; g.fillRect(x, y, 2 + rng() * 4, h);
-  }
-  return tex(cv);
-}
-
-// Light poured concrete with formwork seams and stains, 1 m tile.
-function concreteTexture() {
-  const S = 256, [cv, g] = canvas(S, S), rng = mulberry32(13);
-  g.fillStyle = '#b9b5ad'; g.fillRect(0, 0, S, S);
-  for (let i = 0; i < 900; i++) {
-    const v = 150 + rng() * 80;
-    g.fillStyle = 'rgba(' + (v | 0) + ',' + ((v - 4) | 0) + ',' + ((v - 10) | 0) + ',0.25)';
-    g.beginPath(); g.arc(rng() * S, rng() * S, 1 + rng() * 4, 0, Math.PI * 2); g.fill();
-  }
-  for (let i = 0; i < 12; i++) {
-    const x = rng() * S, y = rng() * S, r = 10 + rng() * 40;
-    const gr = g.createRadialGradient(x, y, 0, x, y, r);
-    gr.addColorStop(0, 'rgba(80,70,60,0.18)'); gr.addColorStop(1, 'rgba(80,70,60,0)');
-    g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2);
-  }
-  g.fillStyle = 'rgba(60,58,54,0.5)'; g.fillRect(0, S / 2 - 1, S, 2); g.fillRect(S - 2, 0, 2, S);
-  return tex(cv);
-}
 
 // Box with UVs in world metres / tile, so textures keep their scale on any size.
 function boxGeo(w, h, d, tile = 1) {
@@ -114,103 +32,153 @@ function boxGeo(w, h, d, tile = 1) {
 }
 
 export class Arena {
-  constructor() {
+  // mapId: a key of MAPS (maps.js).
+  constructor(mapId = 'yard') {
+    const map = this.map = MAPS[mapId] || MAPS.yard;
+    this.mapId = MAPS[mapId] ? mapId : 'yard';
+    this.hx = map.hx; this.hz = map.hz; this.wallH = map.wallH;
+    const HX = this.hx, HZ = this.hz, WH = this.wallH;
     const scene = this.scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x241a16);
-    scene.fog = new THREE.Fog(0x5a4038, 40, 110);
+    scene.background = new THREE.Color(map.background);
+    scene.fog = new THREE.Fog(...map.fog);
     this.quality = null;
     this._tiers = { low: new Map(), high: new Map() };
     this._spec = new Map();     // standard material -> () => high material
     const L = (lo, hi) => { if (hi) this._spec.set(lo, hi); return lo; };
     const std = (o) => new THREE.MeshStandardMaterial({ envMapIntensity: 1, ...o });
+    // Material from a spec { map (texture or function), color, rough, metal, emissive, emissiveMap, basic }.
+    const matCache = new Map();
+    const material = (m) => {
+      if (m.emissive !== undefined || m.emissiveMap) return new THREE.MeshBasicMaterial({ color: m.emissive ?? 0xffffff, map: m.emissiveMap || null, toneMapped: false });
+      const map = typeof m.map === 'function' ? m.map() : m.map || null;
+      if (m.basic) return new THREE.MeshBasicMaterial({ map, color: m.color ?? 0xffffff });
+      const key = (map ? map.uuid : '-') + '|' + (m.color ?? 0xffffff) + '|' + (m.rough ?? 0.8) + '|' + (m.metal ?? 0);
+      if (!matCache.has(key)) {
+        matCache.set(key, L(new THREE.MeshLambertMaterial({ map, color: m.color ?? 0xffffff }),
+          () => std({ map, color: m.color ?? 0xffffff, roughness: m.rough ?? 0.8, metalness: m.metal ?? 0 })));
+      }
+      return matCache.get(key);
+    };
 
     /* lights */
-    this.hemi = new THREE.HemisphereLight(0xc0c8dc, 0x4a3a30, 1.8);
+    this.hemi = new THREE.HemisphereLight(map.hemi[0], map.hemi[1], map.hemi[2]);
     scene.add(this.hemi);
-    const key = new THREE.DirectionalLight(0xffd8b0, 1.6);
-    key.position.set(-14, 22, 10);
+    const key = new THREE.DirectionalLight(map.key[0], map.key[1]);
+    key.position.set(...map.key[2]);
     key.target.position.set(0, 0, 0);
     key.shadow.mapSize.set(2048, 2048);
     Object.assign(key.shadow.camera, { left: -24, right: 24, top: 24, bottom: -24, near: 1, far: 70 });
     key.shadow.bias = -0.0005; key.shadow.normalBias = 0.03;
     scene.add(key, key.target);
     this.key = key;
+    this._lights = { hemi: map.hemi[2], key: map.key[1] };
 
     /* sky */
-    const skyTex = duskSky();
-    const sky = new THREE.Mesh(new THREE.SphereGeometry(90, 32, 16), new THREE.MeshBasicMaterial({ map: skyTex, side: THREE.BackSide, fog: false, depthWrite: false }));
-    sky.renderOrder = -1;
-    scene.add(sky);
+    if (map.sky) {
+      const sky = new THREE.Mesh(new THREE.SphereGeometry(90, 32, 16), new THREE.MeshBasicMaterial({ map: map.sky(), side: THREE.BackSide, fog: false, depthWrite: false }));
+      sky.renderOrder = -1;
+      scene.add(sky);
+    }
 
     /* floor */
-    const tiles = concreteTiles();
-    tiles.map.repeat.set(HALF_X, HALF_Z);
-    tiles.normal.repeat.copy(tiles.map.repeat); tiles.rough.repeat.copy(tiles.map.repeat);
-    const floorMat = L(new THREE.MeshLambertMaterial({ map: tiles.map, color: 0xb8b4ae }),
-      () => std({ map: tiles.map, color: 0xb8b4ae, normalMap: tiles.normal, roughnessMap: tiles.rough, roughness: 1, metalness: 0 }));
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(HALF_X * 2, HALF_Z * 2), floorMat);
+    const fl = map.floor();
+    const roughTex = fl.rough && fl.rough.isTexture ? fl.rough : null;
+    for (const t of [fl.map, fl.normal, roughTex]) if (t) t.repeat.set(HX * 2 / (fl.tile || 2), HZ * 2 / (fl.tile || 2));
+    const floorMat = L(new THREE.MeshLambertMaterial({ map: fl.map, color: fl.color ?? 0xffffff }),
+      () => std({ map: fl.map, color: fl.color ?? 0xffffff, normalMap: fl.normal || null, roughnessMap: roughTex, roughness: roughTex ? 1 : (typeof fl.rough === 'number' ? fl.rough : 0.9), metalness: 0 }));
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(HX * 2, HZ * 2), floorMat);
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     scene.add(floor);
 
-    /* perimeter walls */
-    const wp = wallPanels();
-    const wallMat = L(new THREE.MeshLambertMaterial({ map: wp.map }), () => std({ map: wp.map, normalMap: wp.normal, roughness: 0.6, metalness: 0.5 }));
+    /* perimeter walls (and a ceiling indoors) */
+    const wl = map.wall();
+    const wallMat = L(new THREE.MeshLambertMaterial({ map: wl.map }), () => std({ map: wl.map, normalMap: wl.normal || null, roughness: wl.rough ?? 0.7, metalness: wl.metal ?? 0 }));
     const walls = new THREE.Group();
-    for (const [w, x, z, ry] of [[HALF_X * 2, 0, -HALF_Z, 0], [HALF_X * 2, 0, HALF_Z, Math.PI], [HALF_Z * 2, -HALF_X, 0, Math.PI / 2], [HALF_Z * 2, HALF_X, 0, -Math.PI / 2]]) {
-      const g = new THREE.PlaneGeometry(w, WALL_H);
+    for (const [w, x, z, ry] of [[HX * 2, 0, -HZ, 0], [HX * 2, 0, HZ, Math.PI], [HZ * 2, -HX, 0, Math.PI / 2], [HZ * 2, HX, 0, -Math.PI / 2]]) {
+      const g = new THREE.PlaneGeometry(w, WH);
       const uv = g.attributes.uv;
-      for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * w / 1.2, uv.getY(i) * WALL_H / 3.6);
+      for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * w / wl.tileW, uv.getY(i) * WH / wl.tileH);
       const m = new THREE.Mesh(g, wallMat);
-      m.position.set(x, WALL_H / 2, z); m.rotation.y = ry;
+      m.position.set(x, WH / 2, z); m.rotation.y = ry;
       walls.add(m);
     }
     mergeStatic(walls);
     walls.traverse((o) => { if (o.isMesh) o.receiveShadow = true; });
     scene.add(walls);
 
+    /* decoration helpers (nothing here blocks movement or bullets) */
+    const decor = new THREE.Group();
+    const add = (geo, m, x, y, z) => { const mesh = new THREE.Mesh(geo, material(m)); mesh.position.set(x, y, z); decor.add(mesh); return mesh; };
+    const ctx = {
+      box: (m, w, h, d, x, y, z) => add(boxGeo(w, h, d, m.tile || 1), m, x, y, z),
+      plane: (m, w, h, x, y, z, ry = 0) => { const p = add(new THREE.PlaneGeometry(w, h), m, x, y, z); p.rotation.y = ry; return p; },
+      cone: (m, r, h, x, y, z, rx = 0) => { const c = add(new THREE.ConeGeometry(r, h, 10), m, x, y, z); c.rotation.x = rx; return c; },
+      cylinder: (m, r, h, x, y, z) => add(new THREE.CylinderGeometry(r, r, h, 20), m, x, y, z),
+    };
+    if (map.ceiling) {
+      const c = new THREE.Mesh(new THREE.PlaneGeometry(HX * 2, HZ * 2), material({ color: map.ceiling.color, rough: 0.9 }));
+      c.rotation.x = Math.PI / 2; c.position.y = WH;
+      c.receiveShadow = true;                     // never casts: the light comes in from above
+      scene.add(c);
+      if (map.ceiling.lights) for (let x = -HX + 3; x < HX; x += 6) for (let z = -HZ + 3; z < HZ; z += 6) ctx.box({ emissive: map.ceiling.lights }, 1.8, 0.04, 0.5, x, WH - 0.03, z);
+    }
+
     /* cover */
-    const crateMap = crateTexture(), contMap = containerTexture(), conc = concreteTexture(), hz = hazardStripes();
-    const mats = {
-      crate: L(new THREE.MeshLambertMaterial({ map: crateMap }), () => std({ map: crateMap, roughness: 0.85, metalness: 0 })),
-      wall: L(new THREE.MeshLambertMaterial({ map: wp.map, color: 0xc4c8cc }), () => std({ map: wp.map, normalMap: wp.normal, color: 0xd8dce0, roughness: 0.6, metalness: 0.5 })),
-      low: L(new THREE.MeshLambertMaterial({ map: conc }), () => std({ map: conc, roughness: 0.95, metalness: 0 })),
-      barrier: L(new THREE.MeshLambertMaterial({ map: conc, color: 0xe4e0d8 }), () => std({ map: conc, color: 0xe4e0d8, roughness: 0.9, metalness: 0 })),
-      stripe: L(new THREE.MeshLambertMaterial({ map: hz }), () => std({ map: hz, roughness: 0.6, metalness: 0 })),
-    };
-    const contMats = new Map();
-    const contMat = (c) => {
-      if (!contMats.has(c)) contMats.set(c, L(new THREE.MeshLambertMaterial({ map: contMap, color: c }), () => std({ map: contMap, color: c, roughness: 0.55, metalness: 0.6 })));
-      return contMats.get(c);
-    };
     this.boxes = [];
     const cover = new THREE.Group();
-    const add = (b) => {
+    const addCover = (b) => {
       this.boxes.push({ minX: b.x - b.w / 2, maxX: b.x + b.w / 2, minZ: b.z - b.d / 2, maxZ: b.z + b.d / 2, h: b.h, kind: b.kind });
-      const mat = b.kind === 'container' ? contMat(b.color) : mats[b.kind];
-      const m = new THREE.Mesh(boxGeo(b.w, b.h, b.d, b.kind === 'crate' ? 1.2 : 1), mat);
+      const k = map.kinds[b.kind] || {};
+      const m = new THREE.Mesh(boxGeo(b.w, b.h, b.d, k.tile || 1), material({ ...k, color: b.color ?? k.color }));
       m.position.set(b.x, b.h / 2, b.z);
       cover.add(m);
-      if (b.kind === 'barrier') {         // hazard band along the top
-        const s = new THREE.Mesh(boxGeo(b.w + 0.01, 0.12, b.d + 0.01, 0.5), mats.stripe);
-        s.position.set(b.x, b.h - 0.12, b.z);
-        cover.add(s);
-      }
+      if (k.decor) k.decor(ctx, b);
     };
-    for (const b of HALF_LAYOUT) {
-      add(b);
-      if (b.mirror !== false) add({ ...b, x: -b.x, z: -b.z });
+    for (const b of map.layout) {
+      addCover(b);
+      if (b.mirror !== false) addCover({ ...b, x: -b.x, z: -b.z });
     }
+    if (map.extra) map.extra(ctx, map);
+    if (map.outside) map.outside(ctx, map);
     mergeStatic(cover);
     cover.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     scene.add(cover);
+    mergeStatic(decor);
+    decor.traverse((o) => { if (o.isMesh) { o.castShadow = !o.material.isMeshBasicMaterial; o.receiveShadow = true; } });
+    scene.add(decor);
+
+    /* falling snow */
+    this.snow = null;
+    if (map.snow) {
+      const n = 1600, pos = new Float32Array(n * 3), rng = mulberry32(5);
+      for (let i = 0; i < n; i++) { pos[i * 3] = (rng() - 0.5) * HX * 2.4; pos[i * 3 + 1] = rng() * 9; pos[i * 3 + 2] = (rng() - 0.5) * HZ * 2.4; }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(pos, 3).setUsage(THREE.DynamicDrawUsage));
+      this.snow = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffffff, size: 0.05, transparent: true, opacity: 0.9, depthWrite: false }));
+      this.snow.frustumCulled = false;
+      scene.add(this.snow);
+    }
 
     this.holes = new BulletHoles(scene);
     this.holes.setSize(0.03);
 
     scene.traverse((o) => { if (o.isMesh && o.parent === scene) { o.updateMatrix(); o.matrixAutoUpdate = false; } });
+    this.spawns = { A: map.spawns, B: map.spawns.map(([x, z]) => [-x, -z]) };
     this._buildNav();
     this._buildCover();
+  }
+
+  // Per-frame animation (falling snow).
+  update(dt, t) {
+    if (!this.snow) return;
+    const a = this.snow.geometry.attributes.position, p = a.array;
+    for (let i = 0; i < p.length; i += 3) {
+      p[i + 1] -= dt * 0.9;
+      p[i] += Math.sin(t * 0.7 + i) * dt * 0.15;
+      if (p[i + 1] < 0) p[i + 1] += 9;
+    }
+    a.needsUpdate = true;
   }
 
   /* ---------- graphics quality ---------- */
@@ -236,8 +204,8 @@ export class Arena {
     this.key.castShadow = high;
     const ks = q === 'ultra' ? 4096 : 2048;
     if (this.key.shadow.mapSize.x !== ks) { this.key.shadow.mapSize.set(ks, ks); if (this.key.shadow.map) { this.key.shadow.map.dispose(); this.key.shadow.map = null; } }
-    this.hemi.intensity = high ? 1.1 : q === 'low' ? 2.6 : 1.8;
-    this.key.intensity = high ? 2.8 : 1.6;
+    this.hemi.intensity = this._lights.hemi * (high ? 0.6 : q === 'low' ? 1.45 : 1);
+    this.key.intensity = this._lights.key * (high ? 1.75 : 1);
     this.scene.environment = high ? this.env : null;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -265,8 +233,8 @@ export class Arena {
         if (sx) p.x = sx < 0 ? b.minX - r : b.maxX + r; else p.z = sz < 0 ? b.minZ - r : b.maxZ + r;
       }
     }
-    p.x = Math.max(-HALF_X + r, Math.min(HALF_X - r, p.x));
-    p.z = Math.max(-HALF_Z + r, Math.min(HALF_Z - r, p.z));
+    p.x = Math.max(-this.hx + r, Math.min(this.hx - r, p.x));
+    p.z = Math.max(-this.hz + r, Math.min(this.hz - r, p.z));
     return p;
   }
 
@@ -296,7 +264,7 @@ export class Arena {
       if (ax === 0) nx = s; else if (ax === 1) ny = s; else nz = s;
     }
     // perimeter walls and floor
-    const planes = [[0, -HALF_X, 1], [0, HALF_X, -1], [2, -HALF_Z, 1], [2, HALF_Z, -1], [1, 0, 1]];
+    const planes = [[0, -this.hx, 1], [0, this.hx, -1], [2, -this.hz, 1], [2, this.hz, -1], [1, 0, 1]];
     for (const [a, v, s] of planes) {
       if (Math.abs(d[a]) < 1e-12) continue;
       const t = (v - o[a]) / d[a];
@@ -319,12 +287,12 @@ export class Arena {
 
   /* ---------- navigation ---------- */
   _buildNav() {
-    const nx = this.nx = Math.round(HALF_X * 2 / CELL), nz = this.nz = Math.round(HALF_Z * 2 / CELL);
+    const nx = this.nx = Math.round(this.hx * 2 / CELL), nz = this.nz = Math.round(this.hz * 2 / CELL);
     const free = this.free = new Uint8Array(nx * nz);
     const r = BODY_R + 0.1;
     for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
-      const x = -HALF_X + (i + 0.5) * CELL, z = -HALF_Z + (j + 0.5) * CELL;
-      let ok = x > -HALF_X + r && x < HALF_X - r && z > -HALF_Z + r && z < HALF_Z - r;
+      const x = -this.hx + (i + 0.5) * CELL, z = -this.hz + (j + 0.5) * CELL;
+      let ok = x > -this.hx + r && x < this.hx - r && z > -this.hz + r && z < this.hz - r;
       for (const b of this.boxes) {
         if (!ok) break;
         if (x > b.minX - r && x < b.maxX + r && z > b.minZ - r && z < b.maxZ + r) ok = false;
@@ -336,11 +304,11 @@ export class Arena {
     this._closed = new Uint8Array(nx * nz);
   }
   cellOf(x, z) {
-    const i = Math.max(0, Math.min(this.nx - 1, Math.floor((x + HALF_X) / CELL)));
-    const j = Math.max(0, Math.min(this.nz - 1, Math.floor((z + HALF_Z) / CELL)));
+    const i = Math.max(0, Math.min(this.nx - 1, Math.floor((x + this.hx) / CELL)));
+    const j = Math.max(0, Math.min(this.nz - 1, Math.floor((z + this.hz) / CELL)));
     return j * this.nx + i;
   }
-  cellCentre(c) { return [-HALF_X + ((c % this.nx) + 0.5) * CELL, -HALF_Z + (Math.floor(c / this.nx) + 0.5) * CELL]; }
+  cellCentre(c) { return [-this.hx + ((c % this.nx) + 0.5) * CELL, -this.hz + (Math.floor(c / this.nx) + 0.5) * CELL]; }
   walkable(x, z) { return this.free[this.cellOf(x, z)] === 1; }
   _nearestFree(c) {
     if (this.free[c]) return c;
@@ -446,7 +414,10 @@ export class Arena {
 
   // Spawn point farthest from the given enemies (positions {x, z}); side 'A' | 'B' | null (any).
   spawnPoint(side, enemies, rng = Math.random) {
-    const list = side ? SPAWNS[side] : [...SPAWNS.A, ...SPAWNS.B];
+    const list = (side ? this.spawns[side] : [...this.spawns.A, ...this.spawns.B]).map((p) => {
+      if (this.walkable(p[0], p[1])) return p;
+      return this.cellCentre(this._nearestFree(this.cellOf(p[0], p[1])));   // a spawn inside cover moves out
+    });
     let best = list[0], bd = -1;
     for (const p of list) {
       let d = Infinity;

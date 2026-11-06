@@ -1,40 +1,40 @@
 // Recoil Range entry point: wires input, camera, scene, HUD and the frame loop together.
-import * as THREE from '../vendor/three/three.module.min.js?v=cd68db2-mw4e6311';
-import { Look, PITCH_LIMIT } from './core/look.js?v=cd68db2-mw4e6311';
-import { Player } from './core/player.js?v=cd68db2-mw4e6311';
-import { PointerLock } from './core/pointer-lock.js?v=cd68db2-mw4e6311';
-import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=cd68db2-mw4e6311';
-import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=cd68db2-mw4e6311';
-import { Weapon } from './core/weapon.js?v=cd68db2-mw4e6311';
-import { RecoilEngine } from './core/recoil.js?v=cd68db2-mw4e6311';
-import { Spread } from './core/spread.js?v=cd68db2-mw4e6311';
-import { loadGameData } from './core/guns.js?v=cd68db2-mw4e6311';
-import { randomSeed } from './core/prng.js?v=cd68db2-mw4e6311';
-import { Range, EYE_HEIGHT } from './scene/range.js?v=cd68db2-mw4e6311';
-import { RING_STEP } from './scene/range-tex.js?v=cd68db2-mw4e6311';
-import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=cd68db2-mw4e6311';
-import { LensPost } from './render/lens-post.js?v=cd68db2-mw4e6311';
-import { reticleTextures } from './ui/reticle-tex.js?v=cd68db2-mw4e6311';
-import { DOT_POINTS } from './scene/dots.js?v=cd68db2-mw4e6311';
-import { Sfx } from './audio/sfx.js?v=cd68db2-mw4e6311';
-import { DebugHud } from './ui/debug-hud.js?v=cd68db2-mw4e6311';
-import { drawCrosshair } from './ui/crosshair.js?v=cd68db2-mw4e6311';
-import { Hud } from './ui/hud.js?v=cd68db2-mw4e6311';
-import { MagPlot } from './ui/plot.js?v=cd68db2-mw4e6311';
-import { SettingsUI } from './ui/settings-ui.js?v=cd68db2-mw4e6311';
-import { sensKeys, zoomKey } from './core/optics.js?v=cd68db2-mw4e6311';
+import * as THREE from '../vendor/three/three.module.min.js?v=b1d98d9-mw4elpv0';
+import { Look, PITCH_LIMIT } from './core/look.js?v=b1d98d9-mw4elpv0';
+import { Player } from './core/player.js?v=b1d98d9-mw4elpv0';
+import { PointerLock } from './core/pointer-lock.js?v=b1d98d9-mw4elpv0';
+import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=b1d98d9-mw4elpv0';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=b1d98d9-mw4elpv0';
+import { Weapon } from './core/weapon.js?v=b1d98d9-mw4elpv0';
+import { RecoilEngine } from './core/recoil.js?v=b1d98d9-mw4elpv0';
+import { Spread } from './core/spread.js?v=b1d98d9-mw4elpv0';
+import { loadGameData } from './core/guns.js?v=b1d98d9-mw4elpv0';
+import { randomSeed } from './core/prng.js?v=b1d98d9-mw4elpv0';
+import { Range, EYE_HEIGHT } from './scene/range.js?v=b1d98d9-mw4elpv0';
+import { RING_STEP } from './scene/range-tex.js?v=b1d98d9-mw4elpv0';
+import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=b1d98d9-mw4elpv0';
+import { LensPost } from './render/lens-post.js?v=b1d98d9-mw4elpv0';
+import { reticleTextures } from './ui/reticle-tex.js?v=b1d98d9-mw4elpv0';
+import { DOT_POINTS } from './scene/dots.js?v=b1d98d9-mw4elpv0';
+import { Sfx } from './audio/sfx.js?v=b1d98d9-mw4elpv0';
+import { DebugHud } from './ui/debug-hud.js?v=b1d98d9-mw4elpv0';
+import { drawCrosshair } from './ui/crosshair.js?v=b1d98d9-mw4elpv0';
+import { Hud } from './ui/hud.js?v=b1d98d9-mw4elpv0';
+import { MagPlot } from './ui/plot.js?v=b1d98d9-mw4elpv0';
+import { SettingsUI } from './ui/settings-ui.js?v=b1d98d9-mw4elpv0';
+import { sensKeys, zoomKey } from './core/optics.js?v=b1d98d9-mw4elpv0';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
 function sensRows(catalogue, sens) {
   const keys = new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)]);
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
-import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=cd68db2-mw4e6311';
-import { Battle } from './battle/battle.js?v=cd68db2-mw4e6311';
-import { createJoinRequest, acceptJoin } from './net/link.js?v=cd68db2-mw4e6311';
-import { Profile, WIN_POINTS } from './core/profile.js?v=cd68db2-mw4e6311';
-import { skinFits, skinById } from './core/skins.js?v=cd68db2-mw4e6311';
-import { PackUI } from './ui/packs.js?v=cd68db2-mw4e6311';
+import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=b1d98d9-mw4elpv0';
+import { Battle } from './battle/battle.js?v=b1d98d9-mw4elpv0';
+import { createJoinRequest, acceptJoin } from './net/link.js?v=b1d98d9-mw4elpv0';
+import { Profile, WIN_POINTS } from './core/profile.js?v=b1d98d9-mw4elpv0';
+import { skinFits, skinById } from './core/skins.js?v=b1d98d9-mw4elpv0';
+import { PackUI } from './ui/packs.js?v=b1d98d9-mw4elpv0';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -724,13 +724,13 @@ function boot(data) {
   {
     const B = settings.battle;
     if (B.opponent === 'p2') B.opponent = 'bots';          // split screen was removed
-    bEl('b-bots').value = String(B.bots); bEl('b-level').value = B.level; bEl('b-kills').value = String(B.kills);
+    bEl('b-bots').value = String(B.bots); bEl('b-level').value = B.level; bEl('b-kills').value = String(B.kills); bEl('b-map').value = B.map;
     const sync = () => {
-      Object.assign(settings.battle, { bots: Number(bEl('b-bots').value), level: bEl('b-level').value, kills: Number(bEl('b-kills').value) });
+      Object.assign(settings.battle, { bots: Number(bEl('b-bots').value), level: bEl('b-level').value, kills: Number(bEl('b-kills').value), map: bEl('b-map').value });
       saveSettings(settings);
       if (netInit) netUi();
     };
-    for (const id of ['b-bots', 'b-level', 'b-kills']) bEl(id).addEventListener('change', sync);
+    for (const id of ['b-bots', 'b-level', 'b-kills', 'b-map']) bEl(id).addEventListener('change', sync);
     sync();
   }
   function battleDeps() {
@@ -756,7 +756,7 @@ function boot(data) {
     }
     weapon.releaseTrigger(); setAds(false); player.releaseKeys();
     try {
-      battle.start({ opponent: B.opponent, bots: B.bots, level: B.level, killsToWin: B.kills, p1Gun: state.gun, p2Gun: data.guns[Math.min(B.p2Gun, data.guns.length - 1)],
+      battle.start({ opponent: B.opponent, bots: B.bots, level: B.level, killsToWin: B.kills, map: B.map, p1Gun: state.gun, p2Gun: data.guns[Math.min(B.p2Gun, data.guns.length - 1)],
         hostName: 'Host', remotes: B.opponent === 'net' ? net.peers.map((e) => ({ link: e.link, name: e.name, gunIndex: e.gunIndex })) : [] });
     } catch (err) {
       // Usually a half-updated page (old files still cached): say so instead of doing nothing.

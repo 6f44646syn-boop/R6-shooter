@@ -8,7 +8,7 @@
 //   bakeSkin(renderer, index, size): one of SKINS, { albedo, rm } (rm: G roughness, B metalness).
 //   triplanar(material, opts): shader patch that maps a skin and/or detail by the surface's
 //        own 3D position (no UV stretching on long thin parts), with edge wear from UVs.
-import * as THREE from '../../vendor/three/three.module.min.js?v=cd68db2-mw4e6311';
+import * as THREE from '../../vendor/three/three.module.min.js?v=b1d98d9-mw4elpv0';
 
 const VERT = /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
@@ -174,6 +174,23 @@ const SKIN_GLSL = /* glsl */`
 uniform int pattern;
 uniform vec3 c0, c1, c2, c3;
 uniform vec4 prm;          // scale (whole number), warp, threshold shift, spare
+// Black Ice cracks: two broken networks (big, fine) and radiating splinters. 0..1 = in a crack.
+float iceCracks(vec2 uv, float S) {
+  vec2 wq = uv + vec2(fbm(uv, 8.0 * S, 4), fbm(uv + 5.0, 8.0 * S, 4)) * 0.025;
+  vec3 v1 = voronoi(wq, vec2(5.0 * S));
+  vec3 v2 = voronoi(wq + 0.31, vec2(13.0 * S));
+  float brk1 = sstep(-0.05, 0.12, fbm(uv + 3.7, 6.0 * S, 4));
+  float brk2 = sstep(0.05, 0.2, fbm(uv + 8.1, 10.0 * S, 4));
+  float big = sstep(0.02, 0.003, v1.y - v1.x) * brk1;
+  float fine = sstep(0.009, 0.0015, v2.y - v2.x) * brk2 * sstep(0.35, 0.0, v1.y - v1.x + 0.1 * fbm(uv, 16.0, 3));
+  vec2 p = wq * 9.0 * S, ci = floor(p), f = fract(p);
+  vec2 o = 0.5 + 0.4 * hash2(mod(ci, vec2(9.0 * S)));
+  vec2 d = f - o;
+  float a = atan(d.y, d.x);
+  float rays = pow(abs(cos(a * 3.0 + hash1(ci) * 6.0)), 40.0);
+  float star = rays * sstep(0.5, 0.0, length(d)) * step(0.6, hash1(mod(ci, vec2(9.0 * S)) + 4.0));
+  return max(big, max(fine * 0.8, star * 0.9));
+}
 void skinAt(vec2 uv, out vec3 col, out float m, out float g) {
   float S = max(1.0, floor(prm.x + 0.5)), W = prm.y, T = prm.z;
   float grain = fbm(uv, 128.0, 3) * 0.06;
@@ -250,35 +267,23 @@ void skinAt(vec2 uv, out vec3 col, out float m, out float g) {
     col = v.z < 0.3 ? c0 : (v.z < 0.55 ? c1 : (v.z < 0.8 ? c2 : c3));
     col *= 1.0 - sstep(0.03, 0.0, v.y - v.x) * 0.5;
     m = v.z >= 0.8 ? 1.0 : 0.0;
-  } else if (pattern == 10) {        // black ice: deep glossy colour, shattered pale cracks, sparkles
+  } else if (pattern == 10) {        // black ice: deep glossy colour, deep shattered cracks, sparkles
     float mott = fbm(uv, 4.0, 6);
     col = mix(c0, c3, sstep(-0.15, 0.35, mott));                           // lighter patches
     col = mix(col, c3 * 1.4, sstep(0.25, 0.45, fbm(uv + 9.0, 7.0, 5)) * 0.5);
-    // Shattered glass: two crack networks (big and fine), warped so the lines are jagged.
-    vec2 wq = uv + vec2(fbm(uv, 8.0 * S, 4), fbm(uv + 5.0, 8.0 * S, 4)) * 0.025;
-    vec3 v1 = voronoi(wq, vec2(5.0 * S));
-    vec3 v2 = voronoi(wq * 1.0 + 0.31, vec2(13.0 * S));
-    // Only parts of each network are cracked (broken lines, not tiles), thinner further out.
-    float brk1 = sstep(-0.05, 0.12, fbm(uv + 3.7, 6.0 * S, 4));
-    float brk2 = sstep(0.05, 0.2, fbm(uv + 8.1, 10.0 * S, 4));
-    float big = sstep(0.014, 0.002, v1.y - v1.x) * brk1;
-    float fine = sstep(0.008, 0.0015, v2.y - v2.x) * brk2 * sstep(0.35, 0.0, v1.y - v1.x + 0.1 * fbm(uv, 16.0, 3));
-    // Radiating splinters around some crack junctions.
-    float star = 0.0;
-    {
-      vec2 p = wq * 9.0 * S, ci = floor(p), f = fract(p);
-      vec2 o = 0.5 + 0.4 * hash2(mod(ci, vec2(9.0 * S)));
-      vec2 d = f - o; float r = length(d), a = atan(d.y, d.x);
-      float rays = pow(abs(cos(a * 3.0 + hash1(ci) * 6.0)), 40.0);
-      star = rays * sstep(0.5, 0.0, r) * step(0.6, hash1(mod(ci, vec2(9.0 * S)) + 4.0));
-    }
-    float crack = max(big, max(fine * 0.8, star * 0.9));
-    // Sparkles: tiny bright points.
+    // Cracks cut into the finish: a dark core, a lit upper edge and a shadowed lower edge
+    // (so they read as carved even without lighting), and deep grooves in the relief map.
+    float crack = iceCracks(uv, S);
+    float e = 0.0022;
+    float bev = iceCracks(uv + vec2(-e, e), S) - iceCracks(uv + vec2(e, -e), S);
     vec2 sp = uv * 160.0, sc = floor(sp);
     float spark = sstep(0.12, 0.0, length(fract(sp) - 0.5 - 0.3 * hash2(mod(sc, vec2(160.0))))) * step(0.93, hash1(mod(sc, vec2(160.0)) + 2.0));
-    col = mix(col, c1, crack);
+    col = mix(col, c1, crack * 0.9);
+    col = mix(col, c0 * 0.12, pow(crack, 2.5) * 0.9);
+    col += c2 * max(bev, 0.0) * 0.9;
+    col *= 1.0 - max(-bev, 0.0) * 0.7;
     col = mix(col, c2, spark);
-    m = crack; g = max(big * 0.5, spark);
+    m = crack; g = max(crack * 0.35, spark);
   } else if (pattern == 11) {        // fade
     float t = sstep(0.15, 0.85, uv.y + fbm(uv, 4.0, 5) * 0.3 * W + T);
     float dith = step(hash1(floor(uv * 256.0)), t);
@@ -385,9 +390,10 @@ export function bakeSkin(renderer, def, size = 4096) {
     const hu = skinUniforms(def);
     const h = bake(renderer, head + /* glsl */`
       void main() { vec3 col; float m, g; skinAt(vUv, col, m, g); float lum = dot(col, vec3(0.3, 0.5, 0.2));
-        gl_FragColor = vec4(vec3(0.5 + m * 0.35 - g * 0.25 + lum * 0.15 + fbm(vUv, 96.0, 3) * 0.08), 1.0); }`,
+        float h = pattern == 10 ? 0.75 - m * 0.7 + fbm(vUv, 48.0, 4) * 0.06 : 0.5 + m * 0.35 - g * 0.25 + lum * 0.15 + fbm(vUv, 96.0, 3) * 0.08;
+        gl_FragColor = vec4(vec3(h), 1.0); }`,
     Math.max(512, size >> 1), hu, { mip: false });
-    normal = bakeNormalFromTexture(renderer, h, h.image.width, 3.0);
+    normal = bakeNormalFromTexture(renderer, h, h.image.width, def.pattern === 10 ? 9.0 : 3.0);
     disposeBaked(h);
   }
   return { albedo, rm, normal, def, wear: def.wear, clearcoat: def.clearcoat, glow: def.glow };
@@ -440,6 +446,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
     // (triAnim 0..1 is driven by the weapon rig while you inspect; triTime is seconds).
     fadeA: { value: new THREE.Vector3() }, fadeB: { value: new THREE.Vector3() }, fadeAmt: { value: 0 },
     triTime: { value: 0 }, triAnim: { value: 0 }, animFlow: { value: 0 }, sweepCol: { value: new THREE.Vector3(1, 1, 1) },
+    reliefK: { value: skin && skin.def && skin.def.pattern === 10 ? 2.2 : 0.9 },
   };
   const def = skin && skin.def;
   if (def) {
@@ -465,7 +472,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       varying vec3 vTriPos; varying vec3 vTriN; varying vec3 vTriAX; varying vec3 vTriAY; varying vec3 vTriAZ;
       uniform float triScale, detScale, detStrength, skinWear, triGain;
       uniform vec3 skinGlow, fadeA, fadeB, sweepCol;
-      uniform float fadeAmt, triTime, triAnim, animFlow;
+      uniform float fadeAmt, triTime, triAnim, animFlow, reliefK;
       uniform sampler2D skinAlbedo, skinRM, skinNormal, detailMap;
       vec3 triW() { vec3 w = pow(abs(normalize(vTriN)), vec3(4.0)); return w / (w.x + w.y + w.z); }
       float sstep(float a, float b, float x) { float t = clamp((x - a) / (b - a), 0.0, 1.0); return t * t * (3.0 - 2.0 * t); }
@@ -528,7 +535,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         vec2 sy = texture2D(skinNormal, triP.xz).rg * 2.0 - 1.0;
         vec2 sz = texture2D(skinNormal, triP.xy).rg * 2.0 - 1.0;
         vec3 sn = (sx.x * vTriAZ + sx.y * vTriAY) * tw.x + (sy.x * vTriAX + sy.y * vTriAZ) * tw.y + (sz.x * vTriAX + sz.y * vTriAY) * tw.z;
-        normal = normalize(normal + sn * (1.0 - triWear) * 0.9);
+        normal = normalize(normal + sn * (1.0 - triWear) * reliefK);
       }
       #endif
       #ifdef TRI_DETAIL

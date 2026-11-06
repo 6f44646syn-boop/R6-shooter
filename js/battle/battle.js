@@ -3,12 +3,12 @@
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=cd68db2-mw4e6311';
-import { Arena } from './arena.js?v=cd68db2-mw4e6311';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=cd68db2-mw4e6311';
-import { Bot, LEVELS } from './bot.js?v=cd68db2-mw4e6311';
-import { Human } from './human.js?v=cd68db2-mw4e6311';
-import { drawCrosshair } from '../ui/crosshair.js?v=cd68db2-mw4e6311';
+import * as THREE from '../../vendor/three/three.module.min.js?v=b1d98d9-mw4elpv0';
+import { Arena } from './arena.js?v=b1d98d9-mw4elpv0';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=b1d98d9-mw4elpv0';
+import { Bot, LEVELS } from './bot.js?v=b1d98d9-mw4elpv0';
+import { Human } from './human.js?v=b1d98d9-mw4elpv0';
+import { drawCrosshair } from '../ui/crosshair.js?v=b1d98d9-mw4elpv0';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -35,7 +35,8 @@ export class Battle {
   //         slotOf(gun), onEnd() (release the mouse), hudRoot (element) }
   constructor(deps) {
     this.deps = deps;
-    this.arena = new Arena();
+    this.arenas = {};            // one per map, built the first time it is played
+    this.arena = this._useArena('yard');
     this.active = false; this.paused = false; this.over = false;
     this.fighters = []; this.humans = []; this.bots = [];
     this.prevT = 0; this.t = 0;
@@ -47,6 +48,13 @@ export class Battle {
     this.humanPool = [];         // reused between matches (each has a weapon rig)
   }
 
+  _useArena(id) {
+    if (!this.arenas[id]) this.arenas[id] = new Arena(id);
+    this.arena = this.arenas[id];
+    if (this.tracers) this.arena.scene.add(this.tracers);     // moves them to this map's scene
+    return this.arena;
+  }
+
   /* ---------- setup ---------- */
   // opts: { opponent: 'bots' | 'p2' | 'net', bots, level, killsToWin, p1Gun, p2Gun,
   //         remotes: [{ link, name, gunIndex }] (network game: players on other PCs) }
@@ -55,6 +63,8 @@ export class Battle {
     const d = this.deps;
     this.opts = { ...opts, remotes: undefined };
     this.net = opts.remotes && opts.remotes.length ? { role: 'host' } : null;
+    for (const f of this.fighters) f.group.removeFromParent();
+    this._useArena(opts.map || 'yard');
     this.remotes = []; this.proxies = [];
     this._nextSnap = 0;
     this.arena.setGraphics(d.settings.graphics, d.renderer);
@@ -95,7 +105,7 @@ export class Battle {
     this.t = t; this.prevT = t;
     // Network game: tell every remote player who is in the match before the spawns go out.
     for (const r of this.remotes) {
-      r.link.send({ k: 'start', you: r.f.id, killsToWin: opts.killsToWin, roster: this._roster() });
+      r.link.send({ k: 'start', you: r.f.id, killsToWin: opts.killsToWin, map: this.arena.mapId, roster: this._roster() });
     }
     for (const f of this.fighters) this._spawn(f, t);
     this.active = true; this.paused = false; this.over = false;
@@ -180,6 +190,7 @@ export class Battle {
     }
     for (const h of this.humans) h.update(t, dt, this);
     for (const f of this.fighters) f.updateVisual(t);
+    this.arena.update(dt, t);
     this._updateTracers(t);
     this._updateHud(t);
     if (this.net && t >= this._nextSnap) { this._nextSnap = t + 1 / SNAP_HZ; this._sendSnapshot(t); }
@@ -370,6 +381,8 @@ export class Battle {
     const d = this.deps;
     this.opts = { opponent: 'net', killsToWin: m.killsToWin };
     this.net = { role: 'client', link, myId: m.you };
+    for (const f of this.fighters) f.group.removeFromParent();
+    this._useArena(m.map || 'yard');
     this.arena.setGraphics(d.settings.graphics, d.renderer);
     this.arena.holes.clear();
     for (const f of this.fighters) f.group.removeFromParent();
@@ -475,6 +488,7 @@ export class Battle {
       this.net.link.send({ k: 'st', x: r2(f.x), z: r2(f.z), yaw: r1(f.yaw), pitch: r1(f.pitch), crouch: r2(f.crouch) }, true);
     }
     for (const f of this.fighters) f.updateVisual(t);
+    this.arena.update(dt, t);
     this._updateTracers(t);
     this._updateHud(t);
   }
