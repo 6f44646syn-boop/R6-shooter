@@ -1,36 +1,38 @@
 // Recoil Range entry point: wires input, camera, scene, HUD and the frame loop together.
-import * as THREE from '../vendor/three/three.module.min.js?v=c8418c9-mw475w2y';
-import { Look, PITCH_LIMIT } from './core/look.js?v=c8418c9-mw475w2y';
-import { Player } from './core/player.js?v=c8418c9-mw475w2y';
-import { PointerLock } from './core/pointer-lock.js?v=c8418c9-mw475w2y';
-import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=c8418c9-mw475w2y';
-import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=c8418c9-mw475w2y';
-import { Weapon } from './core/weapon.js?v=c8418c9-mw475w2y';
-import { RecoilEngine } from './core/recoil.js?v=c8418c9-mw475w2y';
-import { loadGameData } from './core/guns.js?v=c8418c9-mw475w2y';
-import { randomSeed } from './core/prng.js?v=c8418c9-mw475w2y';
-import { Range, EYE_HEIGHT } from './scene/range.js?v=c8418c9-mw475w2y';
-import { RING_STEP } from './scene/range-tex.js?v=c8418c9-mw475w2y';
-import { WeaponRig, setUltraTexSize, skinName } from './scene/viewmodel.js?v=c8418c9-mw475w2y';
-import { LensPost } from './render/lens-post.js?v=c8418c9-mw475w2y';
-import { reticleTextures } from './ui/reticle-tex.js?v=c8418c9-mw475w2y';
-import { DOT_POINTS } from './scene/dots.js?v=c8418c9-mw475w2y';
-import { Sfx } from './audio/sfx.js?v=c8418c9-mw475w2y';
-import { DebugHud } from './ui/debug-hud.js?v=c8418c9-mw475w2y';
-import { drawCrosshair } from './ui/crosshair.js?v=c8418c9-mw475w2y';
-import { Hud } from './ui/hud.js?v=c8418c9-mw475w2y';
-import { MagPlot } from './ui/plot.js?v=c8418c9-mw475w2y';
-import { SettingsUI } from './ui/settings-ui.js?v=c8418c9-mw475w2y';
-import { sensKeys, zoomKey } from './core/optics.js?v=c8418c9-mw475w2y';
+import * as THREE from '../vendor/three/three.module.min.js?v=f81d91e-mw489ovb';
+import { Look, PITCH_LIMIT } from './core/look.js?v=f81d91e-mw489ovb';
+import { Player } from './core/player.js?v=f81d91e-mw489ovb';
+import { PointerLock } from './core/pointer-lock.js?v=f81d91e-mw489ovb';
+import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=f81d91e-mw489ovb';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=f81d91e-mw489ovb';
+import { Weapon } from './core/weapon.js?v=f81d91e-mw489ovb';
+import { RecoilEngine } from './core/recoil.js?v=f81d91e-mw489ovb';
+import { loadGameData } from './core/guns.js?v=f81d91e-mw489ovb';
+import { randomSeed } from './core/prng.js?v=f81d91e-mw489ovb';
+import { Range, EYE_HEIGHT } from './scene/range.js?v=f81d91e-mw489ovb';
+import { RING_STEP } from './scene/range-tex.js?v=f81d91e-mw489ovb';
+import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=f81d91e-mw489ovb';
+import { LensPost } from './render/lens-post.js?v=f81d91e-mw489ovb';
+import { reticleTextures } from './ui/reticle-tex.js?v=f81d91e-mw489ovb';
+import { DOT_POINTS } from './scene/dots.js?v=f81d91e-mw489ovb';
+import { Sfx } from './audio/sfx.js?v=f81d91e-mw489ovb';
+import { DebugHud } from './ui/debug-hud.js?v=f81d91e-mw489ovb';
+import { drawCrosshair } from './ui/crosshair.js?v=f81d91e-mw489ovb';
+import { Hud } from './ui/hud.js?v=f81d91e-mw489ovb';
+import { MagPlot } from './ui/plot.js?v=f81d91e-mw489ovb';
+import { SettingsUI } from './ui/settings-ui.js?v=f81d91e-mw489ovb';
+import { sensKeys, zoomKey } from './core/optics.js?v=f81d91e-mw489ovb';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
 function sensRows(catalogue, sens) {
   const keys = new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)]);
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
-import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=c8418c9-mw475w2y';
-import { Battle } from './battle/battle.js?v=c8418c9-mw475w2y';
-import { createJoinRequest, acceptJoin } from './net/link.js?v=c8418c9-mw475w2y';
+import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=f81d91e-mw489ovb';
+import { Battle } from './battle/battle.js?v=f81d91e-mw489ovb';
+import { createJoinRequest, acceptJoin } from './net/link.js?v=f81d91e-mw489ovb';
+import { Profile, WIN_POINTS } from './core/profile.js?v=f81d91e-mw489ovb';
+import { PackUI } from './ui/packs.js?v=f81d91e-mw489ovb';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -70,6 +72,10 @@ function boot(data) {
   range.setDistance(settings.distance);
   range.holes.setSize(settings.holeSizeCm / 100);
   renderer.info.autoReset = false; // several passes per frame; reset once per frame
+  // Your skins and points (localStorage + save code). The gun model asks it which skin a slot wears.
+  const profile = new Profile();
+  var packsUi = null;      // the Skins & packs panel (created further down; var: readable before then)
+  setSkinResolver((slot) => profile.equippedFor(slot));
   const rig = new WeaponRig(renderer);
   // Graphics quality: high swaps the range to textured PBR with shadows and tone mapping, and
   // the gun to textured PBR lit by the same sky. Standard is the original fast look.
@@ -194,6 +200,7 @@ function boot(data) {
     newMagazine();
     mag.n = mag.shots = mag.hits = 0;
     renderLoadout();
+    if (packsUi) packsUi.refresh();
     setOptic(savedOptic(gun), false);
     if (settings.gunIndex !== index) { settings.gunIndex = index; saveSettings(settings); }
   }
@@ -214,7 +221,7 @@ function boot(data) {
     if (save) { try { localStorage.setItem('scope:' + gun.id, id); } catch (e) { /* ignore */ } }
     recoil.setScale(gun.opticRecoilScale[id] || 1); // sprayPath is only scaled when the data says so
     rig.setGun(gun, state.gunIndex, state.optic);
-    hud.setGun(gun, state.gunIndex, state.optic.label, settings.graphics === 'ultra' ? skinName(state.gunIndex) : '');
+    hud.setGun(gun, state.gunIndex, state.optic.label, skinName(state.gunIndex));
     renderSightRow();
     updateFov();
     if (settingsUI) settingsUI.refreshDerived();
@@ -660,7 +667,7 @@ function boot(data) {
       if (all || key === 'crosshair') drawCrosshair($('crosshair'), settings.crosshair);
       if (all || key === 'holes') range.holes.setSize(settings.holeSizeCm / 100);
       if (all || key === 'reload') weapon.reloadSpeed = settings.reloadSpeed;
-      if (all || key === 'shading' || key === 'graphics') { applyGraphics(); rig.setGun(state.gun, state.gunIndex, state.optic); hud.setGun(state.gun, state.gunIndex, state.optic.label, settings.graphics === 'ultra' ? skinName(state.gunIndex) : ''); resize(); }
+      if (all || key === 'shading' || key === 'graphics') { applyGraphics(); rig.setGun(state.gun, state.gunIndex, state.optic); hud.setGun(state.gun, state.gunIndex, state.optic.label, skinName(state.gunIndex)); resize(); }
       // Battle in progress: after the range (which sets the shared gun shading), rebuild its view.
       if (battle && battle.active && (all || key === 'shading' || key === 'graphics' || key === 'reticle')) battle.refreshGraphics();
       if (key === 'sens' || key === 'assist') { /* read live each mouse event */ }
@@ -674,6 +681,17 @@ function boot(data) {
       if (key === 'seed') newMagazine(); // takes effect from the current magazine
     },
   });
+
+  /* ---------- skins & packs ---------- */
+  const packs = new PackUI({
+    root: $('packs-root'), app: $('app'), profile, renderer, sfx, guns: data.guns,
+    gunIndex: () => state.gunIndex,
+    onEquip(slot) {
+      if (slot === state.gunIndex) { rig.setGun(state.gun, state.gunIndex, state.optic); hud.setGun(state.gun, state.gunIndex, state.optic.label, skinName(state.gunIndex)); }
+    },
+  });
+
+  packsUi = packs;
 
   /* ---------- battle mode ---------- */
   var netInit = false;   // the network lobby below is ready (var: readable before its line)
@@ -702,6 +720,7 @@ function boot(data) {
       opticFor: (g) => catalogue.byId.get(savedOptic(g)), adsVFov, baseDpc, now: clockNow,
       slotOf: (g) => data.guns.indexOf(g), onEnd: () => lock.exit(), hudRoot: $('app'),
       onNetLost: (msg) => { netReset(); leaveBattle(); netStatus(msg, 'bad'); },
+      onPoints: (kind, head) => (kind === 'kill' ? profile.addKill(head) : profile.addPoints(WIN_POINTS)),
     };
   }
   function startBattle() {
@@ -1088,6 +1107,7 @@ function boot(data) {
       shadowCasters: () => (range.key.castShadow ? range.key.shadow.map ? 1 : 0 : 0),
       setGraphics(g) { settings.graphics = g; applyGraphics(); rig.setGun(state.gun, state.gunIndex, state.optic); },
       setAnimations(on) { settings.animations = on; },
+      profile: () => profile, packs: () => packs,
       battleStart(o = {}) { Object.assign(settings.battle, o); startBattle(); return !!(battle && battle.active); },
       battleLeave: () => leaveBattle(),
       battle: () => battle,

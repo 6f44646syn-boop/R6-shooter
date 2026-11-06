@@ -1,11 +1,12 @@
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=c8418c9-mw475w2y';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=c8418c9-mw475w2y';
-import { matcap } from './matcap.js?v=c8418c9-mw475w2y';
-import { gunMaps } from './range-tex.js?v=c8418c9-mw475w2y';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar, SKINS } from '../render/gpu-tex.js?v=c8418c9-mw475w2y';
+import * as THREE from '../../vendor/three/three.module.min.js?v=f81d91e-mw489ovb';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=f81d91e-mw489ovb';
+import { matcap } from './matcap.js?v=f81d91e-mw489ovb';
+import { gunMaps } from './range-tex.js?v=f81d91e-mw489ovb';
+import { skinById, FACTORY } from '../core/skins.js?v=f81d91e-mw489ovb';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=f81d91e-mw489ovb';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -15,46 +16,71 @@ const FINISHES = [0x3a3d42, 0x6b5b45, 0x46523b, 0x2f3540, 0x5a5048, 0x4a4f57, 0x
 const mats = new Map();
 let ENV = null;
 let RENDERER = null;
-let SKIN_SLOT = 0;              // slot whose skin the finish-coloured parts get (ultra)
-let ULTRA_TEX = 4096;           // skin size (tests use less: software rendering)
+let SKIN_SLOT = 0;              // slot being built (its equipped skin, or its factory skin in ultra)
+let ULTRA_TEX = 4096;           // largest skin size (tests use less: software rendering)
 export function setUltraTexSize(n) { ULTRA_TEX = n; }
-const skins = new Map();        // slot -> baked skin; the last few are kept
+// Which skin a slot wears: (slot) -> skin id or null (set by main.js from your profile).
+let RESOLVE = () => null;
+export function setSkinResolver(fn) { RESOLVE = fn; }
+// The skin a slot shows right now: equipped, else (ultra only) its factory skin, else none.
+export function skinFor(slot) {
+  const id = RESOLVE(slot);
+  if (id !== null && id !== undefined && skinById(id)) return skinById(id);
+  return sightShading() === 'ultra' ? FACTORY[slot % FACTORY.length] : null;
+}
+export function skinName(slot) { const d = skinFor(slot); return d ? d.name : ''; }
+// Skin bake size per shading: 4096 ultra, 2048 high, 1024 otherwise.
+function skinSize() {
+  const sh = sightShading();
+  return Math.min(ULTRA_TEX, sh === 'ultra' ? 4096 : sh === 'high' ? 2048 : 1024);
+}
+const skins = new Map();        // skin id + size -> baked skin; the last few are kept
 let detailPaint = null, detailBrushed = null;
-function skinFor(slot) {
-  if (!skins.has(slot)) {
-    skins.set(slot, bakeSkin(RENDERER, slot % SKINS.length, ULTRA_TEX));
-    if (skins.size > 3) {            // 4096 maps are big: keep three guns' worth
+function bakedSkin(def) {
+  const size = skinSize(), key = def.id + '@' + size;
+  if (!skins.has(key)) {
+    skins.set(key, bakeSkin(RENDERER, def, size));
+    if (skins.size > 4) {            // big maps: keep a few guns' worth
       const [old, sk] = skins.entries().next().value;
       disposeBaked(sk.albedo); disposeBaked(sk.rm); skins.delete(old);
-      for (const [k, m] of mats) if (m.userData.skinSlot === old) { m.dispose(); mats.delete(k); }
+      for (const [k, m] of mats) if (m.userData.skinKey === old) { m.dispose(); mats.delete(k); }
     }
   }
-  return skins.get(slot);
+  return skins.get(key);
 }
 function ultraDetail(kind) {
   if (kind === 'paint') return (detailPaint = detailPaint || bakeDetail(RENDERER, 'paint', Math.min(ULTRA_TEX, 2048)));
   return (detailBrushed = detailBrushed || bakeDetail(RENDERER, 'brushed', Math.min(ULTRA_TEX, 2048)));
 }
-export function skinName(slot) { return SKINS[slot % SKINS.length].name; }
-// Ultra: the finish parts wear the slot's skin (MeshPhysical: optional lacquer clearcoat),
-// mapped by 3D position, with edges worn to bare metal and paint micro-detail on top.
-function skinMaterial(slot) {
-  const sk = skinFor(slot);
-  const m = new THREE.MeshPhysicalMaterial({
-    color: 0xffffff, roughness: 1, metalness: 1, normalMap: gunMaps('metal').normal, normalScale: new THREE.Vector2(0.6, 0.6),
-    clearcoat: sk.clearcoat, clearcoatRoughness: 0.12, envMap: highEnv(), envMapIntensity: 1.1,
-  });
-  triplanar(m, { skin: sk, scale: 2.8, detail: ultraDetail('paint'), detailScale: 9, detailStrength: 0.5 });
-  m.userData.skinSlot = slot;
+// The finish parts wear the skin, mapped by 3D position, edges worn to bare metal.
+//   ultra / high: MeshPhysical (lacquer clearcoat, glow), ultra adds paint micro-detail.
+//   detailed: MeshStandard.   fast: matcap (cheap) with the skin as its colour.
+function skinMaterial(def) {
+  const sh = sightShading(), sk = bakedSkin(def);
+  let m;
+  if (sh === 'fast') {
+    m = new THREE.MeshMatcapMaterial({ color: 0xffffff, matcap: matcap('metal') });
+    triplanar(m, { skin: sk, scale: 2.8, gain: 1.7 });
+  } else if (sh === 'detailed') {
+    m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 1, envMap: ENV, envMapIntensity: 0.9 });
+    triplanar(m, { skin: sk, scale: 2.8 });
+  } else {
+    m = new THREE.MeshPhysicalMaterial({
+      color: 0xffffff, roughness: 1, metalness: 1, normalMap: gunMaps('metal').normal, normalScale: new THREE.Vector2(0.6, 0.6),
+      clearcoat: sk.clearcoat, clearcoatRoughness: 0.12, envMap: highEnv(), envMapIntensity: 1.1,
+    });
+    triplanar(m, sh === 'ultra' ? { skin: sk, scale: 2.8, detail: ultraDetail('paint'), detailScale: 9, detailStrength: 0.5 } : { skin: sk, scale: 2.8 });
+  }
+  m.userData.skinKey = def.id + '@' + skinSize();
   return m;
 }
 // kind: 'auto' (black = polymer, else metal) or 'metal' (barrels, tubes).
 function mat(color, kind = 'auto') {
   const sh = sightShading();
-  const finish = sh === 'ultra' && kind === 'auto' && color !== BLACK && color !== STEEL;
-  const key = sh + color + kind + (finish ? '|skin' + SKIN_SLOT : '');
+  const skin = kind === 'auto' && color !== BLACK && color !== STEEL ? skinFor(SKIN_SLOT) : null;
+  const key = sh + color + kind + (skin ? '|skin' + skin.id + '@' + skinSize() : '');
   if (!mats.has(key)) {
-    if (finish) { mats.set(key, skinMaterial(SKIN_SLOT)); return mats.get(key); }
+    if (skin) { mats.set(key, skinMaterial(skin)); return mats.get(key); }
     if (sh === 'ultra') {
       // Polymer, steel and fabric: the high materials plus micro-detail.
       const m = kind === 'cloth' ? highMaterial(color, 'polymer', { roughness: 0.95, envMapIntensity: 0.35, envMap: highEnv() })
@@ -500,7 +526,8 @@ export class WeaponRig {
   // gun: validated gun data; slot: its index (finish colour); optic: chosen sight.
   setGun(gun, slot, optic) {
     const type = MODEL_TYPES.includes(gun.model) ? gun.model : 'rifle';
-    const key = gun.id + '|' + optic.id;
+    const sk = skinFor(slot);
+    const key = gun.id + '|' + optic.id + '|' + (sk ? sk.id : '-');   // a skin change builds a new model
     let m = this.models.get(key);
     if (!m) {
       m = new THREE.Group();

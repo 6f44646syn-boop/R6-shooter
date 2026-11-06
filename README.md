@@ -101,6 +101,22 @@ Google Sites shows embeds in a sandboxed iframe that blocks pointer lock and ful
 the page detects it is inside a frame, it replaces the start screen with an **Open in a full
 tab** button. Embed the GitHub Pages URL and players click through to a normal tab.
 
+## Skins, packs and save codes
+
+Menu > Skins & packs. Battle kills earn points (20, +10 for a headshot kill; +50 for winning
+a battle; in split screen, player 1's kills count). A pack costs 100 points and spins a
+slot-machine reel that lands on one of 200 skins: Common 70%, Rare 22%, Epic 7%, Black Ice
+1%. A duplicate gives points back (20 / 40 / 80 / 200). Click a skin in your collection to
+put it on the gun selected in Loadout; it shows in every graphics mode.
+
+Skins are generated on the GPU from a pattern (15 styles: contour, pixel, woodland, tiger,
+veteran, hexcore, damascus, blot, weave, shard, black ice, fade, line, marble, circuit), four
+colours and a finish (core/skins.js); the catalogue is the same on every PC.
+
+Progress is kept in this browser and in a save code (Copy save code / Load). Paste the code
+on another PC or browser to carry your points, skins and equipped skins over. The code is
+checksummed, so a mistyped code is refused.
+
 ## Battle mode
 
 Menu > Battle. You against 1-6 bots (Easy, Medium or Hard), or two players on one PC in

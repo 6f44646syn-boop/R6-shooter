@@ -746,6 +746,51 @@ try {
     });
     check('bot levels: easy takes longer to kill you than hard (median ' + lv.easy + ' s vs ' + lv.hard + ' s)', lv.easy > lv.hard * 1.8 && lv.hard < 3, JSON.stringify(lv));
 
+    // Skins, packs, points and save codes.
+    const pk = await page.evaluate(() => {
+      const R = window.__range, P = R.profile(), U = R.packs();
+      const out = {};
+      out.catalogue = document.querySelectorAll('#packs-root').length === 1;
+      P.reset(); P.save();
+      out.cantOpen = U.open() === null;
+      P.addPoints(250);
+      const res = U.open();
+      out.spinning = !U.modal.hidden && U.strip.children.length > 40;
+      out.winCard = U.strip.children[50].textContent === res.skin.name;
+      U._finish();
+      out.revealed = !U.reveal.hidden && U.reveal.textContent.includes(res.skin.name);
+      U.close();
+      out.points = P.points;
+      out.owned = P.ownedCount;
+      // equip on the selected gun: the gun model rebuilds with the skin; HUD names it
+      R.selectGun(2);
+      P.equip(2, res.skin.id); U.onEquip(2);
+      out.hud = document.getElementById('gun-info').textContent;
+      out.skinName = res.skin.name;
+      // save code round trip, and a damaged code is refused
+      const code = P.saveCode();
+      out.codeLen = code.length;
+      const snap = JSON.stringify([P.points, P.ownedIds(), P.equipped]);
+      P.reset();
+      P.loadCode(code);
+      out.roundTrip = JSON.stringify([P.points, P.ownedIds(), P.equipped]) === snap;
+      try { P.loadCode(code.slice(0, -4) + (code.at(-4) === 'A' ? 'B' : 'A') + code.slice(-3)); out.badAccepted = true; } catch (e) { out.badAccepted = false; }
+      // a battle kill earns points (and a win)
+      const before = P.points;
+      R.battleStart({ opponent: 'bots', bots: 1, level: 'easy', kills: 1 });
+      const Bt = R.battle(); Bt.bots[0].update = () => {}; Bt.bots[0].f.protectUntil = 0;
+      Bt._damage(Bt.bots[0].f, 500, Bt.humans[0].f, 'head', R.now());
+      out.earned = P.points - before;
+      out.endNote = Bt.hud.endNote.textContent;
+      R.battleLeave();
+      P.reset(); P.save(); U.refresh(); R.selectGun(0);
+      return out;
+    });
+    check('packs: need ' + 100 + ' points; the reel lands on the won skin; reveal shows it', pk.cantOpen && pk.spinning && pk.winCard && pk.revealed && pk.owned === 1 && pk.points >= 150, JSON.stringify(pk));
+    check('equipped skin is on the gun and named in the HUD (' + pk.skinName + ')', pk.hud.includes(pk.skinName), JSON.stringify(pk));
+    check('save code (' + pk.codeLen + ' characters) restores everything; a damaged code is refused', pk.roundTrip && !pk.badAccepted, JSON.stringify(pk));
+    check('a headshot kill (+30) and the win (+50) earn points, shown on the end screen', pk.earned === 80 && /earned 80 points/.test(pk.endNote), JSON.stringify(pk));
+
     // Split screen: two viewports, player 2 on the keyboard.
     const sp = await page.evaluate(() => {
       const R = window.__range;

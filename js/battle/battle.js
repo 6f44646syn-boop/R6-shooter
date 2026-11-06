@@ -3,12 +3,12 @@
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=c8418c9-mw475w2y';
-import { Arena } from './arena.js?v=c8418c9-mw475w2y';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=c8418c9-mw475w2y';
-import { Bot, LEVELS } from './bot.js?v=c8418c9-mw475w2y';
-import { Human } from './human.js?v=c8418c9-mw475w2y';
-import { drawCrosshair } from '../ui/crosshair.js?v=c8418c9-mw475w2y';
+import * as THREE from '../../vendor/three/three.module.min.js?v=f81d91e-mw489ovb';
+import { Arena } from './arena.js?v=f81d91e-mw489ovb';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=f81d91e-mw489ovb';
+import { Bot, LEVELS } from './bot.js?v=f81d91e-mw489ovb';
+import { Human } from './human.js?v=f81d91e-mw489ovb';
+import { drawCrosshair } from '../ui/crosshair.js?v=f81d91e-mw489ovb';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -63,6 +63,7 @@ export class Battle {
     this.fighters = []; this.humans = []; this.bots = [];
     this.teamScore = { p1: 0, p2: 0, p3: 0, p4: 0, p5: 0, p6: 0, bots: 0 };
     this.feed = [];
+    this.matchPoints = 0;
     const two = opts.opponent === 'p2';
     const mk = (i, name, team, gun, controls) => {
       const f = new Fighter({ name, team, color: TEAM_COLOR[team], human: true });
@@ -226,7 +227,8 @@ export class Battle {
     const hv = this.humans.find((h) => h.f === g);
     if (hv) this._hurtFlash(hv, by, t);
     const rk = this.remotes.find((r) => r.f === by), rv = this.remotes.find((r) => r.f === g);
-    if (rk) rk.link.send({ k: 'hm', kind });
+    if (rk) rk.link.send({ k: 'hm', kind, head: zone === 'head' });
+    if (dead && this.humans[0] && by === this.humans[0].f) this._earn('kill', zone === 'head');
     if (rv) rv.link.send({ k: 'hurt', from: [r2(by.x), r2(by.z)], by: by.name });
     if (!dead) return;
     g.health = 0; g.alive = false; g.deaths++; g.respawnAt = t + RESPAWN_S;
@@ -250,7 +252,8 @@ export class Battle {
     let title = names[team];
     if (this.net) { const w = this.fighters.find((f) => f.team === team); title = team === 'bots' ? 'The bots win' : (w ? w.name : 'Someone') + ' wins'; }
     const rows = this.fighters.slice().sort((a, b) => b.kills - a.kills || a.deaths - b.deaths).map((f) => [f.name, f.team, f.kills, f.deaths]);
-    if (this.net) this._broadcast({ k: 'end', title, rows });
+    if (this.net) this._broadcast({ k: 'end', title, rows, team });
+    if (this.humans[0] && this.humans[0].f.team === team) this._earn('win');
     this._showEnd(title, rows, true);
     for (const h of this.humans) h.releaseAll();
     this.deps.onEnd();
@@ -265,8 +268,18 @@ export class Battle {
       return r;
     }));
     this.hud.again.hidden = !canRestart;
-    this.hud.endNote.textContent = canRestart ? 'Click "Play again" for a rematch with the same settings.' : 'The host can start a rematch; you will join it automatically.';
+    this.hud.endNote.textContent = (this.matchPoints ? 'You earned ' + this.matchPoints + ' points this match. ' : '') +
+      (canRestart ? 'Click "Play again" for a rematch with the same settings.' : 'The host can start a rematch; you will join it automatically.');
     this.hud.end.hidden = false;
+  }
+
+  // Points for you (player 1 on this PC): a kill or a win. Shows "+N" under the crosshair.
+  _earn(kind, head = false) {
+    const n = this.deps.onPoints ? this.deps.onPoints(kind, head) : 0;
+    if (!n) return;
+    this.matchPoints = (this.matchPoints || 0) + n;
+    const v = this.hud.views[0];
+    if (v) { v.pts.textContent = '+' + n + (kind === 'win' ? ' win' : head ? ' headshot' : ''); v.pts.className = 'b-points on'; v.ptsUntil = this.t + 1.2; }
   }
 
   /* ---------- network: host ---------- */
@@ -350,6 +363,7 @@ export class Battle {
     this.fighters = []; this.humans = []; this.bots = []; this.remotes = []; this.proxies = [];
     this.teamScore = { p1: 0, p2: 0, p3: 0, p4: 0, p5: 0, p6: 0, bots: 0 };
     this.feed = [];
+    this.matchPoints = 0;
     for (const e of m.roster) {
       const f = new Fighter({ name: e.name, team: e.team, color: TEAM_COLOR[e.team] || 0xffffff, human: e.human });
       f.id = e.id;
@@ -410,6 +424,7 @@ export class Battle {
       this._hurtFlash(me, { x: m.from[0], z: m.from[1] }, t);
     } else if (m.k === 'hm' && me) {
       this._hitMarker(me, m.kind, t);
+      if (m.kind === 'kill') this._earn('kill', !!m.head);
     } else if (m.k === 'feed') {
       this.feed.unshift(m.e);
       this.feed.length = Math.min(this.feed.length, 5);
@@ -417,6 +432,7 @@ export class Battle {
       if (me && m.e.vid === me.f.id) me.killedBy = m.e.k;
     } else if (m.k === 'end') {
       for (const h of this.humans) h.releaseAll();
+      if (me && m.team === me.f.team) this._earn('win');
       this._showEnd(m.title, m.rows, false);
       this.deps.onEnd();
     }
@@ -611,9 +627,10 @@ export class Battle {
       const hpText = el('div', 'b-hptext', '100');
       const ammo = el('div', 'b-ammo', '');
       const ctl = el('div', 'b-ctl small', '');
-      box.append(hurt, cross, hit, dead, name, hp, hpText, ammo, ctl);
+      const pts = el('div', 'b-points', '');
+      box.append(hurt, cross, hit, pts, dead, name, hp, hpText, ammo, ctl);
       this.hud.root.insertBefore(box, this.hud.root.firstChild);
-      return { box, cross, hit, hurt, dead, hpFill, hpText, ammo, ctl, hitUntil: 0, hurtUntil: 0, last: {} };
+      return { box, cross, hit, hurt, dead, hpFill, hpText, ammo, ctl, pts, ptsUntil: 0, hitUntil: 0, hurtUntil: 0, last: {} };
     });
   }
   _hitMarker(h, kind, t) {
@@ -664,6 +681,7 @@ export class Battle {
       if (L.cross !== showCross) { L.cross = showCross; v.cross.hidden = !showCross; }
       if (t > v.hitUntil && v.hit.classList.contains('on')) v.hit.className = 'b-hit';
       if (t > v.hurtUntil && v.hurt.classList.contains('on')) v.hurt.className = 'b-hurt';
+      if (t > v.ptsUntil && v.pts.classList.contains('on')) v.pts.className = 'b-points';
       const deadMsg = f.alive ? '' : 'Eliminated by ' + (h.killedBy || '?') + ' · back in ' + Math.max(0, Math.ceil(f.respawnAt - t));
       if (L.dead !== deadMsg) { L.dead = deadMsg; v.dead.hidden = !deadMsg; v.dead.textContent = deadMsg; }
       const ctl = i === 1 ? (h.controls === 'pad' ? 'Gamepad' : 'Keys: I J K L move · arrows look · Enter fire · Right Shift aim · Backspace reload · / crouch') : '';

@@ -1,7 +1,7 @@
 // Loads and validates data/guns.json, data/optics.json and data/sens.json.
 // Bad guns are skipped with a clear message naming the gun and the field; the rest still load.
-import { validateCatalogue, resolveGunOptics } from './optics.js?v=c8418c9-mw475w2y';
-import { smoothPath } from './recoil.js?v=c8418c9-mw475w2y';
+import { validateCatalogue, resolveGunOptics } from './optics.js?v=f81d91e-mw489ovb';
+import { smoothPath } from './recoil.js?v=f81d91e-mw489ovb';
 
 const MODELS = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 // Default model when the field is missing: guess from the id ("smg-01" -> smg).
