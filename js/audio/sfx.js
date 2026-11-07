@@ -59,6 +59,23 @@ export class Sfx {
     o.stop(t + 0.15);
   }
 
+  // Radio squelch: a short burst of band-passed noise before a bot speaks.
+  radio() {
+    const c = this.ctx;
+    if (!c || this.volume <= 0) return;
+    const t = c.currentTime;
+    const src = c.createBufferSource();
+    src.buffer = this.noise;
+    const bp = c.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = 2200; bp.Q.value = 1.4;
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.25, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+    src.connect(bp).connect(g).connect(this.master);
+    src.start(t, Math.random() * 0.7, 0.13);
+  }
+
   click() {
     const c = this.ctx;
     if (!c || this.volume <= 0) return;

@@ -3,13 +3,13 @@
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=3e92520-mw5zed8q';
-import { Arena } from './arena.js?v=3e92520-mw5zed8q';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=3e92520-mw5zed8q';
-import { Bot, LEVELS } from './bot.js?v=3e92520-mw5zed8q';
-import { Human } from './human.js?v=3e92520-mw5zed8q';
-import { drawCrosshair } from '../ui/crosshair.js?v=3e92520-mw5zed8q';
-import { CATALOGUE, skinFits } from '../core/skins.js?v=3e92520-mw5zed8q';
+import * as THREE from '../../vendor/three/three.module.min.js?v=9c7c864-mw6000bk';
+import { Arena } from './arena.js?v=9c7c864-mw6000bk';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=9c7c864-mw6000bk';
+import { Bot, LEVELS } from './bot.js?v=9c7c864-mw6000bk';
+import { Human } from './human.js?v=9c7c864-mw6000bk';
+import { drawCrosshair } from '../ui/crosshair.js?v=9c7c864-mw6000bk';
+import { CATALOGUE, skinFits } from '../core/skins.js?v=9c7c864-mw6000bk';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -229,6 +229,7 @@ export class Battle {
     this.active = false;
     this.paused = false;
     this._frameN = 0;
+    if (this.deps.voice) this.deps.voice.stop();
     if (this.deps.renderer) this.deps.renderer.shadowMap.autoUpdate = true;
     if (this.hud) this.hud.root.hidden = true;
     for (const h of this.humans) h.releaseAll();
@@ -278,6 +279,7 @@ export class Battle {
       }
     }
     for (const h of this.humans) h.update(t, dt, this);
+    this._separate();
     for (const f of this.fighters) f.updateVisual(t);
     this._killCam(t);
     this._updateTorches();
@@ -609,6 +611,7 @@ export class Battle {
     this.prevT = t; this.t = t;
     const me = this.humans[0];
     if (me) me.update(t, this.over ? 0 : dt, this);
+    this._separate();
     // Others: drawn INTERP_DELAY behind, between the two updates around that moment.
     const rt = t - INTERP_DELAY;
     for (const p of this.proxies) {
@@ -820,6 +823,35 @@ export class Battle {
       return { box, cross, hit, hurt, dead, rep, hpFill, hpText, ammo, ctl, pts, ptsUntil: 0, hitUntil: 0, hurtUntil: 0, last: {} };
     });
   }
+  /* ---------- bodies do not overlap ---------- */
+  // Push overlapping fighters apart (circles of the body radius, if at about the same height).
+  // Players on other PCs control their own position, so only the others move for them.
+  _separate() {
+    const F = this.fighters.filter((f) => f.alive);
+    if (F.length < 2) return;
+    const fixed = new Set([...(this.remotes || []).map((r) => r.f), ...(this.proxies || []).map((p) => p.f)]);
+    const MIN = 0.66;
+    const moved = new Set();
+    for (let it = 0; it < 2; it++) {
+      for (let i = 0; i < F.length; i++) for (let j = i + 1; j < F.length; j++) {
+        const a = F[i], b = F[j];
+        if (Math.abs(a.y - b.y) > 1.5) continue;
+        let dx = b.x - a.x, dz = b.z - a.z;
+        const d = Math.hypot(dx, dz);
+        if (d >= MIN) continue;
+        if (d < 1e-4) { const r = (i * 7 + j * 13) % 6.283; dx = Math.cos(r); dz = Math.sin(r); } else { dx /= d; dz /= d; }
+        const wa = fixed.has(a) ? 0 : 1, wb = fixed.has(b) ? 0 : 1;
+        if (!wa && !wb) continue;
+        const push = (MIN - d) / (wa + wb);
+        a.x -= dx * push * wa; a.z -= dz * push * wa;
+        b.x += dx * push * wb; b.z += dz * push * wb;
+        if (wa) moved.add(a);
+        if (wb) moved.add(b);
+      }
+    }
+    for (const f of moved) this.arena.resolve(f);
+  }
+
   /* ---------- sounds bots can hear, and the bots' radio ---------- */
   _noise(f, kind, range, t) {
     const n = this.noises || (this.noises = []);
@@ -859,6 +891,12 @@ export class Battle {
   }
   _addComm(who, team, text, t) {
     this.comms.push({ who, team, text, t });
+    // Spoken out loud (setting: Bot voices), after a radio click.
+    const v = this.deps.voice;
+    if (v && this.deps.settings.battle.voices !== false) {
+      v.volume = Math.min(1, this.deps.sfx.volume * 2.4);
+      if (v.say(text, who) && this.deps.sfx.radio) this.deps.sfx.radio();
+    }
     if (this.comms.length > 4) this.comms.shift();
     this._renderComms();
   }

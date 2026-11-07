@@ -2,7 +2,7 @@
 // is replaced by an untextured one in the texture's average colour, lit by one hemisphere
 // light, so every pixel costs one colour and one light. Materials that carry information
 // (the paper target's rings, screens, dots, bullet holes) keep their textures.
-import * as THREE from '../../vendor/three/three.module.min.js?v=3e92520-mw5zed8q';
+import * as THREE from '../../vendor/three/three.module.min.js?v=9c7c864-mw6000bk';
 
 const avgCache = new WeakMap();
 // Average colour of a canvas texture (linear), via a 16 x 16 downsample.

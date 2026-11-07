@@ -2,7 +2,7 @@
 // Storage can be missing or throw (private window, blocked site data), so every access is
 // wrapped and the app always works with the defaults.
 
-import { sensToCm360, cm360ToSens } from './sensitivity.js?v=3e92520-mw5zed8q';
+import { sensToCm360, cm360ToSens } from './sensitivity.js?v=9c7c864-mw6000bk';
 
 const KEY = 'recoilRange.settings.v1';
 
@@ -43,7 +43,7 @@ export const DEFAULTS = Object.freeze({
   debugHud: false,
   fixedSeed: '',         // empty = new random seed every magazine
   gunIndex: 0,
-  battle: { opponent: 'bots', bots: 3, level: 'medium', kills: 10, p2Gun: 1, map: 'yard', night: false, weather: 'auto', fog: false },
+  battle: { opponent: 'bots', bots: 3, level: 'medium', kills: 10, p2Gun: 1, map: 'yard', night: false, weather: 'auto', fog: false, voices: true },
   distance: 10,
 });
 
@@ -127,6 +127,7 @@ export function sanitize(input) {
     night: bi.night === true,
     weather: ['auto', 'clear', 'rain', 'storm', 'snow'].includes(bi.weather) ? bi.weather : 'auto',
     fog: bi.fog === true || bi.weather === 'fog',
+    voices: bi.voices !== false,
   };
   out.gunIndex = Number.isInteger(s.gunIndex) && s.gunIndex >= 0 ? s.gunIndex : DEFAULTS.gunIndex;
   out.distance = DISTANCES.includes(s.distance) ? s.distance : DEFAULTS.distance;

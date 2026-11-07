@@ -924,6 +924,18 @@ try {
       let maxSwing = 0;
       for (let i = 0; i < 20; i++) { B.bots[0].f.x += 0.15; R.step(0.05, 60); maxSwing = Math.max(maxSwing, Math.abs(B.bots[0].f.legs[0].piv.rotation.x)); }
       res.legs = maxSwing;
+      // bodies collide: six bots dropped on one spot spread out
+      R.battleStart({ opponent: 'bots', bots: 6, level: 'easy', kills: 99, map: 'yard', night: false, weather: 'auto', fog: false });
+      B = R.battle();
+      B.bots.forEach((bt) => { bt.update = () => {}; bt.f.x = -12; bt.f.z = 2; bt.f.y = 0; });
+      run(0.5);
+      let closest = 9;
+      for (let i = 0; i < 6; i++) for (let j = i + 1; j < 6; j++) closest = Math.min(closest, Math.hypot(B.bots[i].f.x - B.bots[j].f.x, B.bots[i].f.z - B.bots[j].f.z));
+      res.spread = closest;
+      const sayLog = [];
+      B.deps.voice = { say: (text, who) => { sayLog.push(who + ': ' + text); return true; }, stop() {} };
+      B.radio(B.bots[0].f, 'Contact! by the crates, north.', B.t);
+      res.voice = sayLog;
       R.battleLeave();
       return res;
     });
@@ -935,6 +947,8 @@ try {
     check('others carry their real gun model (with a skin for bots)', mv.look.gun > 0, JSON.stringify(mv.look));
     check('bots hear gunfire through cover and call it out on their radio', mv.hear.heard.every(Boolean) && mv.hear.said.some((s) => /Shots/.test(s)) && mv.hear.comms > 0, JSON.stringify(mv.hear));
     check('legs swing when soldiers walk', mv.legs > 0.2, String(mv.legs));
+    check('soldiers collide: six bots on one spot spread out (closest ' + mv.spread.toFixed(2) + ' m)', mv.spread > 0.6, String(mv.spread));
+    check('radio lines are spoken (Bot voices on)', mv.voice.length === 1 && /Contact/.test(mv.voice[0]), JSON.stringify(mv.voice));
     check('red outline on other players by day, not at night', mv.dayOutline && !mv.nightOutline, JSON.stringify(mv));
     check('kill cam on your killer with a hit report (head / body / limbs, damage both ways); Space skips', mv.kc.on && mv.kc.panel && /Head 1 · Body 0 · Arms \/ legs 1/.test(mv.kc.text) && /You hit .* 1 times · 30 damage/.test(mv.kc.text) && mv.kc.skipped && mv.kc.respawned, JSON.stringify(mv.kc));
     check('no page errors', errors.length === 0, errors.join('\n'));
