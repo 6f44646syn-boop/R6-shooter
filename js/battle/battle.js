@@ -3,13 +3,13 @@
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=6a917d5-mw5z3gm2';
-import { Arena } from './arena.js?v=6a917d5-mw5z3gm2';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=6a917d5-mw5z3gm2';
-import { Bot, LEVELS } from './bot.js?v=6a917d5-mw5z3gm2';
-import { Human } from './human.js?v=6a917d5-mw5z3gm2';
-import { drawCrosshair } from '../ui/crosshair.js?v=6a917d5-mw5z3gm2';
-import { CATALOGUE, skinFits } from '../core/skins.js?v=6a917d5-mw5z3gm2';
+import * as THREE from '../../vendor/three/three.module.min.js?v=3e92520-mw5zed8q';
+import { Arena } from './arena.js?v=3e92520-mw5zed8q';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=3e92520-mw5zed8q';
+import { Bot, LEVELS } from './bot.js?v=3e92520-mw5zed8q';
+import { Human } from './human.js?v=3e92520-mw5zed8q';
+import { drawCrosshair } from '../ui/crosshair.js?v=3e92520-mw5zed8q';
+import { CATALOGUE, skinFits } from '../core/skins.js?v=3e92520-mw5zed8q';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -142,6 +142,7 @@ export class Battle {
     this.teamScore = { p1: 0, p2: 0, p3: 0, p4: 0, p5: 0, p6: 0, bots: 0 };
     this.feed = [];
     this.matchPoints = 0;
+    this.noises = []; this.intelQ = []; this.comms = []; this._renderComms();
     const two = opts.opponent === 'p2';
     const mk = (i, name, team, gun, controls) => {
       const f = new Fighter({ name, team, color: TEAM_COLOR[team], human: true });
@@ -267,11 +268,13 @@ export class Battle {
     this.t = t;
     if (dt > 0) {
       for (const b of this.bots) b.update(t, dt, this);
+      while (this.intelQ.length && this.intelQ[0].at <= t) { const q = this.intelQ.shift(); for (const b of this.bots) if (b.f.team === q.team) b.onCallout(q.intel, t, this); }
       for (const f of this.fighters) {
         if (!f.alive && t >= f.respawnAt) this._spawn(f, t);
         if (f.alive && f.health < MAX_HEALTH && t - f.lastHurt > REGEN_DELAY) f.health = Math.min(MAX_HEALTH, f.health + REGEN_PER_S * dt);
         const acid = f.alive && !this.over ? this.arena.hazardAt(f.x, f.y, f.z) : 0;
         if (acid) this._acid(f, acid * dt, t);
+        this._sounds(f, t, dt);
       }
     }
     for (const h of this.humans) h.update(t, dt, this);
@@ -301,6 +304,11 @@ export class Battle {
       if (r && r.t < bt) { bt = r.t; best = { g, r }; }
     }
     const end = bt === Infinity ? 60 : bt;
+    this._noise(f, 'shot', 48, shotT);
+    for (const b of this.bots) {
+      if (b.f === f || b.f.team === f.team || !b.f.alive || (best && best.g === b.f)) continue;
+      if (this._rayDist(o, d, end, b.f.x, b.f.y + 1.2, b.f.z) < 1.6) b.onShotAt(f, shotT);
+    }
     const from = shooter instanceof Human ? this._v.set(o[0] + d[0] * 0.6, o[1] - 0.12 + d[1] * 0.6, o[2] + d[2] * 0.6) : f.muzzleWorld(this._v);
     this._addTracer(from, [o[0] + d[0] * end, o[1] + d[1] * end, o[2] + d[2] * end], shotT, f.team, false, f.id);
     let hole = null;
@@ -363,6 +371,10 @@ export class Battle {
     g.health = 0; g.alive = false; g.deaths++; g.respawnAt = t + RESPAWN_S;
     by.kills++;
     this.teamScore[by.team]++;
+    const kb = this.bots.find((b) => b.f === by);
+    if (kb) kb.say(this, t, ['Enemy down!', 'Got one!', 'Target down.', 'One less.'][Math.floor(Math.random() * 4)], true);
+    const mates = this.bots.filter((b) => b.f !== g && b.f.team === g.team && b.f.alive);
+    if (this.bots.some((b) => b.f === g) && mates.length && Math.random() < 0.6) mates[0].say(this, t, g.name.split(' ')[0] + ' is down! ' + this.arena.placeName(by.x, by.z, by.y) + '.', true);
     const entry = { k: by.name, kc: by.team, kid: by.id, v: g.name, vc: g.team, vid: g.id, head: zone === 'head', t };
     this.feed.unshift(entry);
     this.feed.length = Math.min(this.feed.length, 5);
@@ -444,6 +456,7 @@ export class Battle {
       f.flashUntil = t + 0.05;
       const a = f.muzzleWorld(this._v);
       this._addTracer(a, m.b, t, f.team, false, f.id);
+      this._noise(f, 'shot', 48, t);
       this._broadcast({ k: 'tr', by: f.id, a: [r2(a.x), r2(a.y), r2(a.z)], b: m.b, team: f.team, tone: r.gun.tone, hole: m.hole || null }, true, r);
       if (m.hole) this.arena.holes.add(m.hole[0], m.hole[1], m.hole[2], m.hole[3], m.hole[4], m.hole[5]);
       this._shotSound(f, t);
@@ -501,6 +514,7 @@ export class Battle {
     this.teamScore = { p1: 0, p2: 0, p3: 0, p4: 0, p5: 0, p6: 0, bots: 0 };
     this.feed = [];
     this.matchPoints = 0;
+    this.noises = []; this.intelQ = []; this.comms = []; this._renderComms();
     for (const e of m.roster) {
       const f = new Fighter({ name: e.name, team: e.team, color: TEAM_COLOR[e.team] || 0xffffff, human: e.human });
       f.id = e.id;
@@ -565,6 +579,8 @@ export class Battle {
     } else if (m.k === 'hurt' && me) {
       this._hurtFlash(me, Array.isArray(m.from) ? { x: m.from[0], z: m.from[1] } : null, t);
       if (m.id) this._taken(m.id, m.zone, +m.dmg || 0);
+    } else if (m.k === 'comm') {
+      this._addComm(String(m.who || '?').slice(0, 40), String(m.team || 'bots'), String(m.text || '').slice(0, 80), t);
     } else if (m.k === 'look') {
       const f = this.fighters.find((g) => g.id === m.id), g = this.deps.guns[m.gun | 0];
       if (f && g && (!me || f !== me.f)) this._look(f, g, skinNum(m.s));
@@ -763,8 +779,9 @@ export class Battle {
     const top = el('div', 'b-top');
     const score = el('div', 'b-score');
     const feed = el('div', 'b-feed');
+    const comms = el('div', 'b-comms');
     top.append(score);
-    root.append(top, feed);
+    root.append(top, feed, comms);
     const end = el('div', 'b-end');
     end.hidden = true;
     const box = el('div', 'b-end-box');
@@ -779,7 +796,7 @@ export class Battle {
     end.append(box);
     root.append(end);
     this.deps.hudRoot.insertBefore(root, this.deps.hudRoot.querySelector('#menu'));   // under the menu
-    this.hud = { root, score, feed, end, endTitle, endTable, endNote, again, leave, views: [] };
+    this.hud = { root, score, feed, comms, end, endTitle, endTable, endNote, again, leave, views: [] };
   }
   _layoutHud() {
     for (const v of this.hud.views) v.box.remove();
@@ -803,6 +820,58 @@ export class Battle {
       return { box, cross, hit, hurt, dead, rep, hpFill, hpText, ammo, ctl, pts, ptsUntil: 0, hitUntil: 0, hurtUntil: 0, last: {} };
     });
   }
+  /* ---------- sounds bots can hear, and the bots' radio ---------- */
+  _noise(f, kind, range, t) {
+    const n = this.noises || (this.noises = []);
+    n.push({ x: f.x, y: f.y, z: f.z, t, kind, range, team: f.team });
+    while (n.length > 64 || (n.length && n[0].t < t - 0.6)) n.shift();
+  }
+  // Footsteps (by speed: sprinting is loud, crouch-walking almost silent), vaults, reloads.
+  _sounds(f, t, dt) {
+    if (!f.alive || dt <= 0) { f._sx = f.x; f._sz = f.z; return; }
+    const sp = Math.hypot(f.x - (f._sx ?? f.x), f.z - (f._sz ?? f.z)) / dt;
+    f._sx = f.x; f._sz = f.z;
+    if (sp < 12 && t >= (f._nextStep || 0)) {
+      const range = sp > 4.2 ? 16 : sp > 2.2 ? 8 : sp > 0.8 ? 3 : 0;
+      if (range) { this._noise(f, 'steps', range, t); f._nextStep = t + 0.32; }
+    }
+    const c = this._ctl(f);
+    const vaulting = !!(c && c.vault);
+    if (vaulting && !f._vaultHeard) this._noise(f, 'vault', 10, t);
+    f._vaultHeard = vaulting;
+    const reloading = !!(c && c.weapon && c.weapon.reloading);
+    if (reloading && !f._reloadHeard) this._noise(f, 'reload', 7, t);
+    f._reloadHeard = reloading;
+  }
+  // Distance from point p to the shot segment o + s d, 0 <= s <= len.
+  _rayDist(o, d, len, px, py, pz) {
+    const wx = px - o[0], wy = py - o[1], wz = pz - o[2];
+    const s = Math.max(0, Math.min(len, wx * d[0] + wy * d[1] + wz * d[2]));
+    return Math.hypot(wx - d[0] * s, wy - d[1] * s, wz - d[2] * s);
+  }
+  // A bot shares what it saw or heard; its teammates get it a moment later.
+  shareIntel(from, intel) { this.intelQ.push({ at: this.t + 0.4, team: from.f.team, intel }); }
+  radio(f, text, t) {
+    // the same line from a teammate a moment ago: no need to repeat it
+    if ((this.comms || []).some((c) => c.text === text && c.team === f.team && t - c.t < 3)) return;
+    this._addComm(f.name, f.team, text, t);
+    if (this.net && this.net.role === 'host') this._broadcast({ k: 'comm', who: f.name, team: f.team, text });
+  }
+  _addComm(who, team, text, t) {
+    this.comms.push({ who, team, text, t });
+    if (this.comms.length > 4) this.comms.shift();
+    this._renderComms();
+  }
+  _renderComms() {
+    if (!this.hud) return;
+    const now = this.t;
+    this.hud.comms.replaceChildren(...(this.comms || []).filter((c) => now - c.t < 6).map((c) => {
+      const r = el('div', 'b-comm');
+      r.append(el('span', 'b-comm-who t-' + c.team, c.who.split(' (')[0] + ':'), ' ' + c.text);
+      return r;
+    }));
+  }
+
   /* ---------- hit report and kill cam ---------- */
   _resetReport() { this.report = { taken: new Map(), dealt: new Map() }; this._repVer = (this._repVer || 0) + 1; }
   _taken(id, zone, dmg) {
@@ -861,7 +930,7 @@ export class Battle {
     this._meAlive = f.alive;
     if (f.alive || (this.kc && t > this.kc.until)) this.kc = null;
     // outlines: everyone else, by day only
-    for (const g of this.fighters) g.outline.visible = g !== f && g.alive && !this.night;
+    for (const g of this.fighters) { const v = g !== f && g.alive && !this.night; g.outline.visible = v; for (const l of g.legs) l.o.visible = v; }
     if (!this.kc) return;
     const kc = this.kc, rec = this.rec, rt = kc.from + (t - kc.start);
     // the recorded frames around the replay time
@@ -991,6 +1060,7 @@ export class Battle {
     }));
   }
   _updateHud(t) {
+    if (this.comms && this.comms.length && t - this.comms[0].t > 6) { this.comms.shift(); this._renderComms(); }
     this.humans.forEach((h, i) => {
       const v = this.hud.views[i];
       if (!v) return;

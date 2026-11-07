@@ -7,14 +7,21 @@
 //
 // Coordinates: metres, x right, y up, z towards the "A" side. Same yaw convention as the
 // range: yaw 0 looks along -z, positive turns right.
-import * as THREE from '../../vendor/three/three.module.min.js?v=6a917d5-mw5z3gm2';
-import { MAPS } from './maps.js?v=6a917d5-mw5z3gm2';
-import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=6a917d5-mw5z3gm2';
-import { flatMaterial } from '../scene/low.js?v=6a917d5-mw5z3gm2';
-import { BulletHoles } from '../scene/holes.js?v=6a917d5-mw5z3gm2';
-import { mulberry32 } from '../core/prng.js?v=6a917d5-mw5z3gm2';
+import * as THREE from '../../vendor/three/three.module.min.js?v=3e92520-mw5zed8q';
+import { MAPS } from './maps.js?v=3e92520-mw5zed8q';
+import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=3e92520-mw5zed8q';
+import { flatMaterial } from '../scene/low.js?v=3e92520-mw5zed8q';
+import { BulletHoles } from '../scene/holes.js?v=3e92520-mw5zed8q';
+import { mulberry32 } from '../core/prng.js?v=3e92520-mw5zed8q';
 
-export const HALF_X = 18, HALF_Z = 14, WALL_H = 4.5;   // the old Container Yard size (tests)
+export const HALF_X = 18, HALF_Z = 14, WALL_H = 4.5;
+// Landmark names for callouts, by kind of cover.
+const PLACE = {
+  container: 'container', crate: 'crates', wall: 'wall', low: 'low wall', barrier: 'barrier', dock: 'loading dock', steel: 'stairs', plank: 'ramp',
+  logwall: 'cabin', shed: 'shed', logs: 'woodpile', snowbank: 'snowbank', hill: 'hill', fence: 'fence', deck: 'lookout', tree: 'trees', sled: 'sled', table: 'table', bed: 'bed', fireplace: 'fireplace',
+  slots: 'slots', cardtable: 'tables', roulette: 'roulette', bar: 'bar', pillar: 'pillar', cage: 'cage', room: 'rooms', partition: 'partition', stairs: 'stairs', ramp: 'ramp', rail: 'railing', couch: 'couches',
+  lockers: 'lockers', shelf: 'shelves', boiler: 'boiler', barrel: 'barrels', platform: 'platform', desk: 'desks',
+};   // the old Container Yard size (tests)
 export const BODY_R = 0.35;       // fighter radius for collision
 export const STEP = 0.45;         // highest ledge you walk up without vaulting
 export const BODY_H = 1.75;       // standing height (what a box must clear to be walked under)
@@ -633,6 +640,19 @@ export class Arena {
     p.x = Math.max(-this.hx + r, Math.min(this.hx - r, p.x));
     p.z = Math.max(-this.hz + r, Math.min(this.hz - r, p.z));
     return p;
+  }
+  // A callout name for a spot: the nearest landmark and the part of the map, e.g.
+  // "by the crates, north-east" or "upstairs by the slots, south".
+  placeName(x, z, y = 0) {
+    let best = null, bd = 3.5;
+    for (const b of this.near(x, z, 3.5, [])) {
+      if (!PLACE[b.kind] || b.maxY < y - 0.5 || b.minY > y + 2) continue;
+      const d = Math.hypot(x - Math.max(b.minX, Math.min(x, b.maxX)), z - Math.max(b.minZ, Math.min(z, b.maxZ)));
+      if (d < bd) { bd = d; best = b; }
+    }
+    const ns = z > this.hz / 3 ? 'north' : z < -this.hz / 3 ? 'south' : '', ew = x > this.hx / 3 ? 'east' : x < -this.hx / 3 ? 'west' : '';
+    const area = ns && ew ? ns + '-' + ew : ns || ew || 'middle';
+    return (y > 1.8 ? 'upstairs ' : '') + (best ? 'by the ' + PLACE[best.kind] + ', ' : '') + area;
   }
   // Damage per second at a fighter's feet (acid), or 0.
   hazardAt(x, y, z) {

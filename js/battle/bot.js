@@ -1,11 +1,15 @@
-// Bot brain for battle mode. Bots see along clear sight lines (within a wide view cone, or
-// anyone who just shot them), react after a delay, turn towards the target at a limited
-// rate with an aim error that drifts, fire bursts with the gun's real spray (partly
-// controlled), strafe, crouch behind low cover, retreat to cover when hurt, and roam the
-// arena on A* paths when they have no one to fight.
-import { Weapon } from '../core/weapon.js?v=6a917d5-mw5z3gm2';
-import { RecoilEngine } from '../core/recoil.js?v=6a917d5-mw5z3gm2';
-import { mulberry32 } from '../core/prng.js?v=6a917d5-mw5z3gm2';
+// Bot brain for battle mode. Bots see along clear sight lines (within a view cone, or anyone
+// who just shot at them), hear gunfire, footsteps, vaults and reloads (less through walls),
+// react after a delay, aim with a human-like hand (_aim), fire bursts with the gun's real
+// spray (partly controlled), strafe, crouch behind low cover, fall back to cover to reload or
+// when hurt, and roam on A* paths. Bots on one team talk: they call out what they see and
+// hear, and teammates go there, some of them round the side (flanking).
+//
+// Levels: Easy, Medium, Hard and Terminator (near-instant, precise, leads moving targets,
+// hears everything, always pushes on a callout).
+import { Weapon } from '../core/weapon.js?v=3e92520-mw5zed8q';
+import { RecoilEngine } from '../core/recoil.js?v=3e92520-mw5zed8q';
+import { mulberry32 } from '../core/prng.js?v=3e92520-mw5zed8q';
 
 // Per level: reaction (s), aim error sd (deg), turn rate when not fighting (deg/s), recoil
 // control (0..1), burst [min, max] shots, pause between bursts (s), head aim chance, strafes,
@@ -16,7 +20,11 @@ export const LEVELS = {
   easy: { name: 'Easy', reaction: 0.7, err: 1.9, turn: 120, control: 0.35, burst: [3, 5], pause: 0.75, head: 0.05, strafe: 0, cover: false, cone: 110, speed: 2.6, motor: 1.5, flick: 3, pursuit: 5, tremor: 0.22 },
   medium: { name: 'Medium', reaction: 0.5, err: 1.3, turn: 220, control: 0.65, burst: [5, 9], pause: 0.45, head: 0.2, strafe: 0.5, cover: true, cone: 140, speed: 3.0, motor: 1.15, flick: 2.2, pursuit: 8, tremor: 0.14 },
   hard: { name: 'Hard', reaction: 0.3, err: 0.6, turn: 400, control: 0.85, burst: [6, 12], pause: 0.3, head: 0.45, strafe: 1, cover: true, cone: 170, speed: 3.4, motor: 0.85, flick: 1.5, pursuit: 12, tremor: 0.09 },
+  terminator: { name: 'Terminator', reaction: 0.17, err: 0.22, turn: 600, control: 0.97, burst: [12, 22], pause: 0.12, head: 0.75, strafe: 1, cover: true, cone: 210, speed: 3.9, motor: 0.55, flick: 0.9, pursuit: 20, tremor: 0.035, lead: true },
 };
+// How far each level hears (x the sound's range) and how often it flanks on a callout.
+const HEARING = { easy: 0.6, medium: 0.85, hard: 1, terminator: 1.35 };
+const FLANK = { easy: 0, medium: 0.3, hard: 0.5, terminator: 0.6 };
 
 const DEG = Math.PI / 180;
 const wrap180 = (a) => { a = ((a + 180) % 360 + 360) % 360 - 180; return a; };
@@ -26,6 +34,9 @@ export class Bot {
   constructor(fighter, level, gun, seed) {
     this.f = fighter;
     this.L = LEVELS[level] || LEVELS.medium;
+    this.level = LEVELS[level] ? level : 'medium';
+    this.heard = null;         // { x, y, z, t, kind } the last thing it heard
+    this.lastSay = -10; this.calledTarget = null;
     this.rng = mulberry32(seed >>> 0);
     this.weapon = new Weapon();
     this.recoil = new RecoilEngine();
@@ -59,12 +70,30 @@ export class Bot {
 
   respawned() {
     this.target = null; this.seenAt = -1; this.path = []; this.goal = null; this.mode = 'roam';
+    this.heard = null; this.calledTarget = null; this.flank = 0; this.lastSeen = null;
     this.ay = this.f.yaw; this.ap = 0; this.mv = null; this.adsE = 0; this.f.ads = 0; this.f.viewDY = this.f.viewDP = 0;
     this.weapon.setGun(this.gun);
     this.weapon.reloadSpeed = 1.5;
   }
 
   onHurt(by, t) { this.attacker = by; this.attackedAt = t; }
+  // A bullet went close past: the shooter gives themselves away.
+  onShotAt(by, t) { if (!this.target) { this.attacker = by; this.attackedAt = t; } }
+  // A teammate's callout: go and look (unless already fighting).
+  onCallout(intel, t, battle) {
+    if (this.target || !this.f.alive || this === intel.from) return;
+    if (this.lastSeen && this.lastSeen.t >= intel.t) return;
+    this.lastSeen = { x: intel.x, z: intel.z, y: intel.y, t: intel.t, shared: true };
+    this.flank = this.rng() < FLANK[this.level] ? (this.rng() < 0.5 ? -1 : 1) : 0;
+    this.nextPath = Math.min(this.nextPath, t + 0.2 + this.rng() * 0.4);
+    if (this.flank && this.rng() < 0.6) this.say(battle, t, 'Flanking ' + (this.flank < 0 ? 'left' : 'right') + '!');
+  }
+  // Say something on the team radio (rate-limited).
+  say(battle, t, text, force = false) {
+    if (!force && t - this.lastSay < 2.5) return;
+    this.lastSay = t;
+    if (battle.radio) battle.radio(this.f, text, t);
+  }
 
   _r(a, b) { return a + (b - a) * this.rng(); }
   _gauss() { let u = 0, v = 0; while (u === 0) u = this.rng(); while (v === 0) v = this.rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
@@ -98,21 +127,52 @@ export class Bot {
         const d = Math.hypot(e.x - f.x, e.z - f.z);
         if (d < bd) { bd = d; best = e; }
       }
-      if (best !== this.target) { this.target = best; this.seenAt = best ? t : -1; this.burstLeft = 0; }
-      if (best) this.lastSeen = { x: best.x, z: best.z, y: best.y, t };
-      else if (this.attacker && this.attacker.alive && t - this.attackedAt < 1.5) this.lastSeen = { x: this.attacker.x, z: this.attacker.z, y: this.attacker.y, t };
+      if (best !== this.target) {
+        if (!best && this.target && this.target.alive) this.say(battle, t, 'Lost them.');
+        this.target = best; this.seenAt = best ? t : -1; this.burstLeft = 0;
+      }
+      if (best) {
+        this.lastSeen = { x: best.x, z: best.z, y: best.y, t };
+        // Call it out to the team (once per sighting, after a moment).
+        if (this.calledTarget !== best && t - this.seenAt > 0.25) {
+          this.calledTarget = best;
+          this.say(battle, t, 'Contact! ' + battle.arena.placeName(best.x, best.z, best.y) + '.', true);
+          if (battle.shareIntel) battle.shareIntel(this, { x: best.x, y: best.y, z: best.z, t, from: this });
+        }
+      } else if (this.attacker && this.attacker.alive && t - this.attackedAt < 1.5) this.lastSeen = { x: this.attacker.x, z: this.attacker.z, y: this.attacker.y, t };
+      else {
+        // Nothing in sight: listen.
+        const h = this._listen(battle, t);
+        if (h && (!this.heard || h.t > this.heard.t + 1.5 || h.loud > this.heard.loud)) {
+          this.heard = h;
+          this.lastSeen = { x: h.x, z: h.z, y: h.y, t, heard: true };
+          this.nextPath = Math.min(this.nextPath, t + 0.25);
+          if (h.kind === 'shot') { this.say(battle, t, 'Shots ' + battle.arena.placeName(h.x, h.z, h.y) + '!'); if (battle.shareIntel) battle.shareIntel(this, { x: h.x, y: h.y, z: h.z, t, from: this }); }
+          else if (h.kind === 'steps' && h.d < 10) this.say(battle, t, 'Footsteps close, ' + battle.arena.placeName(h.x, h.z, h.y) + '.');
+          else if (h.kind === 'reload') this.say(battle, t, 'They are reloading! Push!');
+        }
+      }
     }
     const tgt = this.target;
 
     /* reload */
     if (this.weapon.ammo === 0 || (!tgt && this.weapon.ammo < this.gun.magSize * 0.4)) {
-      if (this.weapon.startReload(t)) this.weapon.releaseTrigger();
+      if (this.weapon.startReload(t)) {
+        this.weapon.releaseTrigger();
+        if (tgt) {
+          this.say(battle, t, 'Reloading, cover me!');
+          if (L.cover && this.mode !== 'retreat' && this.level !== 'terminator') {
+            const spot = this._coverFrom(tgt, arena);
+            if (spot) { this.mode = 'retreat'; this._setGoal(spot.x, spot.z, arena, t, spot.y); this.crouchWanted = spot.low; }
+          }
+        }
+      }
     }
 
     /* mode */
-    if (L.cover && f.health < 45 && this.mode !== 'retreat' && this.mode !== 'hold' && tgt) {
+    if (L.cover && f.health < 45 && this.mode !== 'retreat' && this.mode !== 'hold' && tgt && this.level !== 'terminator') {
       const spot = this._coverFrom(tgt, arena);
-      if (spot) { this.mode = 'retreat'; this._setGoal(spot.x, spot.z, arena, t, spot.y); this.crouchWanted = spot.low; }
+      if (spot) { this.mode = 'retreat'; this._setGoal(spot.x, spot.z, arena, t, spot.y); this.crouchWanted = spot.low; this.say(battle, t, "I'm hit, falling back!"); }
     }
     if (this.mode === 'hold' && t > this.holdUntil) this.mode = 'roam';
     if (this.mode !== 'retreat' && this.mode !== 'hold') this.mode = tgt ? 'fight' : 'roam';
@@ -139,7 +199,12 @@ export class Bot {
         if (!this.goal || t >= this.nextPath) {
           const ls = this.lastSeen && t - this.lastSeen.t < 6 ? this.lastSeen : null;
           // Head for where the enemy was, each bot from its own angle (no conga lines).
-          if (ls) { const a = this.rng() * Math.PI * 2, r = 1.5 + this.rng() * 3; this._setGoal(ls.x + Math.cos(a) * r, ls.z + Math.sin(a) * r, arena, t, ls.y || 0); }
+          if (ls && this.flank && Math.hypot(ls.x - f.x, ls.z - f.z) > 8) {
+            // round the side: a point beside the enemy, square to the direct line
+            const dx = ls.x - f.x, dz = ls.z - f.z, L2 = Math.hypot(dx, dz), side = this.flank * (6 + this.rng() * 3);
+            this._setGoal(ls.x - dz / L2 * side - dx / L2 * 2, ls.z + dx / L2 * side - dz / L2 * 2, arena, t, ls.y || 0);
+            if (!this.path.length) this._setGoal(ls.x, ls.z, arena, t, ls.y || 0);
+          } else if (ls) { const a = this.rng() * Math.PI * 2, r = 1.5 + this.rng() * 3; this._setGoal(ls.x + Math.cos(a) * r, ls.z + Math.sin(a) * r, arena, t, ls.y || 0); }
           else {
             const spots = arena.coverSpots;
             const s = spots[Math.floor(this.rng() * spots.length)];
@@ -183,14 +248,21 @@ export class Bot {
       }
       if (this.burstLeft === 0) this.aimHead = this.rng() < L.head;
       const aimPt = this.aimHead ? tgt.head(this._pt) : tgt.chest(this._pt);
+      if (L.lead) { aimPt[0] += (tgt.vx || 0) * 0.06; aimPt[2] += (tgt.vz || 0) * 0.06; }
       f.eye(this._eye);
       const dx = aimPt[0] - this._eye[0], dy = aimPt[1] - this._eye[1], dz = aimPt[2] - this._eye[2];
       wantYaw = Math.atan2(dx, -dz) / DEG + this.errYaw;
       wantPitch = Math.atan2(dy, Math.hypot(dx, dz)) / DEG + this.errPitch;
+    } else if (this.lastSeen && t - this.lastSeen.t < 5 && Math.hypot(this.lastSeen.x - f.x, this.lastSeen.z - f.z) > 2) {
+      // Pre-aim: crosshair at head height towards where they were seen or heard, even while
+      // walking (Easy only looks where it walks).
+      if (this.level !== 'easy' || Math.hypot(f.vx, f.vz) < 0.3) {
+        const ls = this.lastSeen; f.eye(this._eye);
+        wantYaw = Math.atan2(ls.x - f.x, -(ls.z - f.z)) / DEG;
+        wantPitch = Math.atan2((ls.y || 0) + 1.55 - this._eye[1], Math.hypot(ls.x - f.x, ls.z - f.z)) / DEG;
+      } else wantYaw = Math.atan2(f.vx, -f.vz) / DEG;
     } else if (Math.hypot(f.vx, f.vz) > 0.3) {
       wantYaw = Math.atan2(f.vx, -f.vz) / DEG;
-    } else if (this.lastSeen && t - this.lastSeen.t < 4) {
-      wantYaw = Math.atan2(this.lastSeen.x - f.x, -(this.lastSeen.z - f.z)) / DEG;
     }
     this._aim(t, dt, tgt, wantYaw, wantPitch);
     // Aim down sights while fighting (the third-person pose and replays show it); slower.
@@ -228,6 +300,28 @@ export class Bot {
     const cp = Math.cos(pitch);
     out[0] = Math.sin(yaw) * cp; out[1] = Math.sin(pitch); out[2] = -Math.cos(yaw) * cp;
     return out;
+  }
+
+  // The loudest enemy sound this bot can hear now: { x, y, z, t, kind, loud, d } or null.
+  // Sounds carry less through walls; where it came from is only roughly known.
+  _listen(battle, t) {
+    const f = this.f, arena = battle.arena, mult = HEARING[this.level];
+    let best = null;
+    f.eye(this._eye);
+    for (const n of battle.noises || []) {
+      if (t - n.t > 0.4 || n.team === f.team) continue;
+      const d = Math.hypot(n.x - f.x, n.z - f.z, (n.y - f.y) * 1.5);
+      let range = n.range * mult;
+      if (d > range) continue;
+      if (!arena.sightLine(this._eye, [n.x, n.y + 1.2, n.z])) range *= 0.6;     // through walls
+      if (d > range) continue;
+      const loud = 1 - d / range;
+      if (!best || loud > best.loud) {
+        const err = d * (this.level === 'terminator' ? 0.03 : 0.1);
+        best = { x: n.x + this._gauss() * err, y: n.y, z: n.z + this._gauss() * err, t, kind: n.kind, loud, d };
+      }
+    }
+    return best;
   }
 
   // Aim like a hand on a mouse. A target far from the crosshair gets a flick: a quick

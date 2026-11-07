@@ -4,7 +4,7 @@
 // pouches, pack, boots) sits snugly over those shapes.
 //
 // Coordinates: metres, the soldier's own frame: x right, y up from the feet, z forward.
-import * as THREE from '../../vendor/three/three.module.min.js?v=6a917d5-mw5z3gm2';
+import * as THREE from '../../vendor/three/three.module.min.js?v=3e92520-mw5zed8q';
 
 const L = -1, R = 1;
 const cap = (a, b, r, zone) => ({ t: 'capsule', a, b, r, zone });
@@ -83,7 +83,8 @@ function boxAt(w, h, d, x, y, z, rx = 0, ry = 0) {
 }
 
 const cache = new Map();
-// team: the team colour (hex). Returns a BufferGeometry with colours.
+// team: the team colour (hex). Returns { upper, legL, legR } geometries with colours (legs
+// with the hip at their origin).
 export function soldierGeometry(team) {
   if (cache.has(team)) return cache.get(team);
   const tc = new THREE.Color(team);
@@ -115,14 +116,24 @@ export function soldierGeometry(team) {
   for (const p of arms) add(capsuleGeo(p.a, p.b, p.r * 0.97), cloth);
   add(new THREE.SphereGeometry(0.055, 10, 8).translate(...GRIP_HAND), BLACK);
   add(new THREE.SphereGeometry(0.055, 10, 8).translate(0.0, 1.23, 0.5), BLACK);
-  // legs, knee pads, boots
+  // legs, knee pads, boots: one piece per leg, built around its hip so it can swing
+  const legs = { [L]: [], [R]: [] };
   for (const s of [L, R]) {
-    add(capsuleGeo([s * 0.1, 0.88, 0], [s * 0.11, 0.48, 0.03], 0.082), cloth);
-    add(capsuleGeo([s * 0.11, 0.46, 0.03], [s * 0.11, 0.12, 0], 0.063), cloth);
-    add(boxAt(0.11, 0.12, 0.05, s * 0.11, 0.47, 0.09), BLACK);
-    add(boxAt(0.12, 0.12, 0.27, s * 0.11, 0.06, 0.04), BLACK);
-    add(boxAt(0.05, 0.12, 0.09, s * 0.19, 0.78, 0.0), GEAR);                  // thigh pouch
+    const hip = new THREE.Matrix4().makeTranslation(-s * HIP_X, -HIP_Y, 0);
+    const leg = (g, c) => legs[s].push(colored(g.applyMatrix4(hip), c));
+    leg(capsuleGeo([s * 0.1, 0.88, 0], [s * 0.11, 0.48, 0.03], 0.082), cloth);
+    leg(capsuleGeo([s * 0.11, 0.46, 0.03], [s * 0.11, 0.12, 0], 0.063), cloth);
+    leg(boxAt(0.11, 0.12, 0.05, s * 0.11, 0.47, 0.09), BLACK);
+    leg(boxAt(0.12, 0.12, 0.27, s * 0.11, 0.06, 0.04), BLACK);
+    leg(boxAt(0.05, 0.12, 0.09, s * 0.19, 0.78, 0.0), GEAR);                  // thigh pouch
   }
+  const out = { upper: merge(parts), legL: merge(legs[L]), legR: merge(legs[R]) };
+  cache.set(team, out);
+  return out;
+}
+// Where the legs hinge (soldier frame).
+export const HIP_X = 0.1, HIP_Y = 0.9;
+function merge(parts) {
   let n = 0;
   for (const g of parts) n += g.attributes.position.count;
   const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 3);
@@ -139,6 +150,5 @@ export function soldierGeometry(team) {
   merged.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
   merged.setAttribute('color', new THREE.BufferAttribute(col, 3));
   merged.computeBoundingSphere();
-  cache.set(team, merged);
   return merged;
 }

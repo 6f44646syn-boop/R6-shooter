@@ -748,7 +748,7 @@ try {
     const lv = await page.evaluate(() => {
       const R = window.__range;
       const out = {};
-      for (const level of ['easy', 'hard']) {
+      for (const level of ['easy', 'hard', 'terminator']) {
         const times = [];
         for (let trial = 0; trial < 9; trial++) {
           R.battleStart({ opponent: 'bots', bots: 1, level, kills: 99 });
@@ -767,6 +767,7 @@ try {
       return out;
     });
     check('bot levels: easy takes longer to kill you than hard (median ' + lv.easy + ' s vs ' + lv.hard + ' s)', lv.easy > lv.hard * 1.3 && lv.hard < 3, JSON.stringify(lv));
+    check('Terminator kills faster than Hard (median ' + lv.terminator + ' s)', lv.terminator < lv.hard, JSON.stringify(lv));
 
     // Hip fire: spread cone that blooms, stronger recoil; aimed stays exact. Auto reload.
     const hp = await page.evaluate(() => {
@@ -910,6 +911,19 @@ try {
       res.kc.respawned = h.f.alive && B.hud.views[0].rep.hidden;
       res.day = { lights: B.torches.filter((l) => l.visible).length, hemi: B.arena.hemi.intensity, rain: !!(B.arena.rain && B.arena.rain.visible) };
       res.look = { gun: B.bots[0].f._gunModel ? B.bots[0].f._gunModel.children.length : 0, skin: B.bots[0].f.skin };
+      // hearing and the radio: two bots behind the middle container, you fire on the far side
+      R.battleStart({ opponent: 'bots', bots: 2, level: 'hard', kills: 99, map: 'yard', night: false, weather: 'auto', fog: false });
+      B = R.battle(); h = B.humans[0]; h.f.protectUntil = 1e9;
+      const said = []; const orig = B.radio.bind(B); B.radio = (f, text, tt) => { said.push(text); orig(f, text, tt); };
+      B.bots.forEach((bt, i) => { bt.f.x = -1 + i * 2; bt.f.z = -3; bt.f.y = 0; bt.f.yaw = 180; bt.respawned(); bt.nextPath = 1e9; bt.goal = { x: bt.f.x, z: bt.f.z, y: 0 }; });
+      place(h, 0, 0, 4, 180); run(0.3);
+      h.in.fire = true; run(0.2); h.in.fire = false; run(0.4);
+      res.hear = { heard: B.bots.map((bt) => !!(bt.heard && bt.heard.kind === 'shot')), said: said.slice(0, 4), comms: B.hud.comms.children.length };
+      // walking legs swing
+      B.bots[0].update = () => {}; B.bots[0].f.x = 10; B.bots[0].f.z = 0;
+      let maxSwing = 0;
+      for (let i = 0; i < 20; i++) { B.bots[0].f.x += 0.15; R.step(0.05, 60); maxSwing = Math.max(maxSwing, Math.abs(B.bots[0].f.legs[0].piv.rotation.x)); }
+      res.legs = maxSwing;
       R.battleLeave();
       return res;
     });
@@ -919,6 +933,8 @@ try {
     check('school basement: acid kills, shown in the kill feed', mv.acid.dead && /Acid/.test(mv.acid.feed), JSON.stringify(mv.acid));
     check('night: flashlights (yours toggles with F; others light the scene in Standard and up), beams on others; storm rain and thick plain fog; day has none', mv.night.lights >= 1 && mv.night.own > 0 && mv.night.beam && mv.night.rain && !mv.night.banks && mv.lightOff === 0 && mv.day.lights === 0 && !mv.day.rain && mv.day.hemi > mv.night.hemi * 4, JSON.stringify(mv));
     check('others carry their real gun model (with a skin for bots)', mv.look.gun > 0, JSON.stringify(mv.look));
+    check('bots hear gunfire through cover and call it out on their radio', mv.hear.heard.every(Boolean) && mv.hear.said.some((s) => /Shots/.test(s)) && mv.hear.comms > 0, JSON.stringify(mv.hear));
+    check('legs swing when soldiers walk', mv.legs > 0.2, String(mv.legs));
     check('red outline on other players by day, not at night', mv.dayOutline && !mv.nightOutline, JSON.stringify(mv));
     check('kill cam on your killer with a hit report (head / body / limbs, damage both ways); Space skips', mv.kc.on && mv.kc.panel && /Head 1 · Body 0 · Arms \/ legs 1/.test(mv.kc.text) && /You hit .* 1 times · 30 damage/.test(mv.kc.text) && mv.kc.skipped && mv.kc.respawned, JSON.stringify(mv.kc));
     check('no page errors', errors.length === 0, errors.join('\n'));

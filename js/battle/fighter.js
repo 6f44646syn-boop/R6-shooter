@@ -2,9 +2,9 @@
 // test. The body is a soldier (soldier.js) in team colours carrying their real gun with its
 // skin; hits are decided on the same shapes the body is built around. Crouching squashes the
 // body to CROUCH_SCALE. y is the height of the feet (floors, stairs, box tops).
-import * as THREE from '../../vendor/three/three.module.min.js?v=6a917d5-mw5z3gm2';
-import { soldierGeometry, raycastSoldier, GRIP_HAND } from './soldier.js?v=6a917d5-mw5z3gm2';
-import { buildWorldGun } from '../scene/viewmodel.js?v=6a917d5-mw5z3gm2';
+import * as THREE from '../../vendor/three/three.module.min.js?v=3e92520-mw5zed8q';
+import { soldierGeometry, raycastSoldier, GRIP_HAND, HIP_X, HIP_Y } from './soldier.js?v=3e92520-mw5zed8q';
+import { buildWorldGun } from '../scene/viewmodel.js?v=3e92520-mw5zed8q';
 
 export const STAND_EYE = 1.6, CROUCH_EYE = 1.12;
 export const CROUCH_SCALE = 0.7;
@@ -89,15 +89,28 @@ export class Fighter {
 
     /* body */
     this.group = new THREE.Group();
-    const body = new THREE.Mesh(soldierGeometry(this.color), new THREE.MeshLambertMaterial({ vertexColors: true }));
+    const geo = soldierGeometry(this.color), mat = new THREE.MeshLambertMaterial({ vertexColors: true });
+    const body = new THREE.Mesh(geo.upper, mat);
     body.castShadow = true;
     this.body = body;
     // Thin red outline (an inflated back-facing copy of the body): others stand out by day.
-    this.outline = new THREE.Mesh(body.geometry, outlineMaterial());
-    this.outline.userData.ownMaterial = true;
+    const ol = (g) => { const m = new THREE.Mesh(g, outlineMaterial()); m.userData.ownMaterial = true; return m; };
+    this.outline = new THREE.Group();
+    this.outline.add(ol(geo.upper));
     this.outline.visible = false;
     this.scaleG = new THREE.Group();
     this.scaleG.add(body, this.outline);
+    // Legs swing from the hips when walking (see updateVisual).
+    this.legs = [-1, 1].map((s) => {
+      const g = s < 0 ? geo.legL : geo.legR, piv = new THREE.Group();
+      piv.position.set(s * HIP_X, HIP_Y, 0);
+      const m = new THREE.Mesh(g, mat); m.castShadow = true;
+      const o = ol(g);
+      piv.add(m, o);
+      this.scaleG.add(piv);
+      return { piv, o };
+    });
+    this._ph = 0; this._spd = 0;
     this.group.add(this.scaleG);
     this.gunG = new THREE.Group();          // the carried gun (set by setLook)
     this.gunG.position.set(GRIP_HAND[0], GRIP_HAND[1], GRIP_HAND[2]);
@@ -164,6 +177,18 @@ export class Fighter {
     this.group.position.set(this.x, this.y, this.z);
     this.group.rotation.y = Math.PI - this.yaw * DEG;   // the body faces +z; yaw 0 faces -z
     this.scaleG.scale.y = this.scaleY;
+    // Walking: speed from how far the body moved (works for everyone, bots and other PCs).
+    const dtv = Math.min(0.1, Math.max(0, t - (this._vt ?? t)));
+    this._vt = t;
+    let sp = dtv > 0 ? Math.hypot(this.x - (this._lx ?? this.x), this.z - (this._lz ?? this.z)) / dtv : 0;
+    this._lx = this.x; this._lz = this.z;
+    if (sp > 12) sp = 0;                              // a respawn, not a step
+    this._spd += (sp - this._spd) * Math.min(1, dtv * 10);
+    this._ph += this._spd * dtv * 4.5;
+    const amp = Math.min(0.6, this._spd * 0.14) * (1 - 0.4 * this.crouch), sw = Math.sin(this._ph) * amp;
+    this.legs[0].piv.rotation.x = sw; this.legs[1].piv.rotation.x = -sw;
+    this.scaleG.position.y = Math.abs(Math.sin(this._ph)) * 0.03 * Math.min(1, this._spd / 3);
+    for (const l of this.legs) l.o.visible = this.outline.visible;
     // The gun tips with the aim a little.
     this.gunG.rotation.x = -Math.max(-30, Math.min(30, this.pitch)) * DEG * 0.5;
     this.torchG.visible = this.night && this.light;

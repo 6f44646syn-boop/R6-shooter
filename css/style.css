@@ -286,3 +286,8 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 .b-rep-zones { color: #ff9a8a; }
 .b-rep-dealt { color: #8fd8a0; }
 .b-rep-skip { color: #9aa0a8; font-size: 12px; text-align: right; }
+
+/* Bots' team radio */
+.b-comms { position: absolute; left: 16px; top: 44px; display: grid; gap: 3px; max-width: 46%; pointer-events: none; }
+.b-comm { padding: 3px 8px; background: rgba(10, 12, 16, 0.6); border-left: 2px solid #ff7048; border-radius: 3px; font-size: 12px; color: #e8eaee; text-shadow: 0 1px 2px #000; }
+.b-comm-who { font-weight: 700; }
