@@ -1,0 +1,17 @@
+{
+  "_comment": "Operators for Team Deathmatch, Capture the Flag and Bomb. Each uses one gun from guns.json (by id) and one ability from abilities.json. sight: the default sight in these modes (defenders Holo A, attackers Magnified A).",
+  "attackers": [
+    { "id": "glitch", "name": "Glitch", "gun": "rifle-01", "ability": "spark_drone", "sight": "mag_a" },
+    { "id": "dash", "name": "Dash", "gun": "rifle-02", "ability": "breach_rounds", "sight": "mag_a" },
+    { "id": "pace", "name": "Pace", "gun": "rifle-06", "ability": "wall_charge", "sight": "mag_a" },
+    { "id": "aiko", "name": "Aiko", "gun": "lmg-01", "ability": "pulse_scanner", "sight": "mag_a" },
+    { "id": "huck", "name": "Huck", "gun": "rifle-05", "ability": "underbarrel", "sight": "mag_a" }
+  ],
+  "defenders": [
+    { "id": "ayla", "name": "Ayla", "gun": "smg-01", "ability": "jolt_mines", "sight": "holo_a" },
+    { "id": "muse", "name": "Muse", "gun": "mp-01", "ability": "static_jammer", "sight": "holo_a" },
+    { "id": "kamai", "name": "Kamai", "gun": "smg-05", "ability": "catcher", "sight": "holo_a" },
+    { "id": "fenrik", "name": "Fenrik", "gun": "smg-03", "ability": "dread_mines", "sight": "holo_a" },
+    { "id": "onyx", "name": "Onyx", "gun": "smg-04", "ability": "charge_dash", "sight": "holo_a" }
+  ]
+}

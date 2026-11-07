@@ -1,42 +1,43 @@
 // Recoil Range entry point: wires input, camera, scene, HUD and the frame loop together.
-import * as THREE from '../vendor/three/three.module.min.js?v=9163767-mw60jd0c';
-import { Look, PITCH_LIMIT } from './core/look.js?v=9163767-mw60jd0c';
-import { Player } from './core/player.js?v=9163767-mw60jd0c';
-import { PointerLock } from './core/pointer-lock.js?v=9163767-mw60jd0c';
-import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=9163767-mw60jd0c';
-import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=9163767-mw60jd0c';
-import { Weapon } from './core/weapon.js?v=9163767-mw60jd0c';
-import { RecoilEngine } from './core/recoil.js?v=9163767-mw60jd0c';
-import { Spread } from './core/spread.js?v=9163767-mw60jd0c';
-import { loadGameData } from './core/guns.js?v=9163767-mw60jd0c';
-import { randomSeed } from './core/prng.js?v=9163767-mw60jd0c';
-import { Range, EYE_HEIGHT } from './scene/range.js?v=9163767-mw60jd0c';
-import { RING_STEP } from './scene/range-tex.js?v=9163767-mw60jd0c';
-import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=9163767-mw60jd0c';
-import { LensPost } from './render/lens-post.js?v=9163767-mw60jd0c';
-import { reticleTextures } from './ui/reticle-tex.js?v=9163767-mw60jd0c';
-import { DOT_POINTS } from './scene/dots.js?v=9163767-mw60jd0c';
-import { Voices } from './audio/voice.js?v=9163767-mw60jd0c';
-import { Sfx } from './audio/sfx.js?v=9163767-mw60jd0c';
-import { DebugHud } from './ui/debug-hud.js?v=9163767-mw60jd0c';
-import { drawCrosshair } from './ui/crosshair.js?v=9163767-mw60jd0c';
-import { Hud } from './ui/hud.js?v=9163767-mw60jd0c';
-import { MagPlot } from './ui/plot.js?v=9163767-mw60jd0c';
-import { SettingsUI } from './ui/settings-ui.js?v=9163767-mw60jd0c';
-import { sensKeys, zoomKey } from './core/optics.js?v=9163767-mw60jd0c';
+import * as THREE from '../vendor/three/three.module.min.js?v=646d2f7-mw61ssr2';
+import { Look, PITCH_LIMIT } from './core/look.js?v=646d2f7-mw61ssr2';
+import { Player } from './core/player.js?v=646d2f7-mw61ssr2';
+import { PointerLock } from './core/pointer-lock.js?v=646d2f7-mw61ssr2';
+import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=646d2f7-mw61ssr2';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=646d2f7-mw61ssr2';
+import { Weapon } from './core/weapon.js?v=646d2f7-mw61ssr2';
+import { RecoilEngine } from './core/recoil.js?v=646d2f7-mw61ssr2';
+import { Spread } from './core/spread.js?v=646d2f7-mw61ssr2';
+import { loadGameData } from './core/guns.js?v=646d2f7-mw61ssr2';
+import { randomSeed } from './core/prng.js?v=646d2f7-mw61ssr2';
+import { Range, EYE_HEIGHT } from './scene/range.js?v=646d2f7-mw61ssr2';
+import { RING_STEP } from './scene/range-tex.js?v=646d2f7-mw61ssr2';
+import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=646d2f7-mw61ssr2';
+import { LensPost } from './render/lens-post.js?v=646d2f7-mw61ssr2';
+import { reticleTextures } from './ui/reticle-tex.js?v=646d2f7-mw61ssr2';
+import { DOT_POINTS } from './scene/dots.js?v=646d2f7-mw61ssr2';
+import { Voices } from './audio/voice.js?v=646d2f7-mw61ssr2';
+import { ModeGame } from './modes/game.js?v=646d2f7-mw61ssr2';
+import { Sfx } from './audio/sfx.js?v=646d2f7-mw61ssr2';
+import { DebugHud } from './ui/debug-hud.js?v=646d2f7-mw61ssr2';
+import { drawCrosshair } from './ui/crosshair.js?v=646d2f7-mw61ssr2';
+import { Hud } from './ui/hud.js?v=646d2f7-mw61ssr2';
+import { MagPlot } from './ui/plot.js?v=646d2f7-mw61ssr2';
+import { SettingsUI } from './ui/settings-ui.js?v=646d2f7-mw61ssr2';
+import { sensKeys, zoomKey } from './core/optics.js?v=646d2f7-mw61ssr2';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
 function sensRows(catalogue, sens) {
   const keys = new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)]);
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
-import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=9163767-mw60jd0c';
-import { Battle } from './battle/battle.js?v=9163767-mw60jd0c';
-import { createJoinRequest, acceptJoin } from './net/link.js?v=9163767-mw60jd0c';
-import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode } from './net/relay.js?v=9163767-mw60jd0c';
-import { Profile, WIN_POINTS } from './core/profile.js?v=9163767-mw60jd0c';
-import { skinFits, skinById } from './core/skins.js?v=9163767-mw60jd0c';
-import { PackUI } from './ui/packs.js?v=9163767-mw60jd0c';
+import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=646d2f7-mw61ssr2';
+import { Battle } from './battle/battle.js?v=646d2f7-mw61ssr2';
+import { createJoinRequest, acceptJoin } from './net/link.js?v=646d2f7-mw61ssr2';
+import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode } from './net/relay.js?v=646d2f7-mw61ssr2';
+import { Profile, WIN_POINTS } from './core/profile.js?v=646d2f7-mw61ssr2';
+import { skinFits, skinById } from './core/skins.js?v=646d2f7-mw61ssr2';
+import { PackUI } from './ui/packs.js?v=646d2f7-mw61ssr2';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -370,14 +371,14 @@ function boot(data) {
       if (locked) {
         $('menu').hidden = true; closeArmory(); $('lock-hint').hidden = true;
         $('start-btn').textContent = 'Resume';
-        if (battle && battle.active) battle.resume(clockNow());
+        if (cur() && cur().active) cur().resume(clockNow());
         return;
       }
       // Mouse released (Esc): the pause menu (or the end screen of a battle).
-      if (battle && battle.active) battle.pause();
+      if (cur() && cur().active) cur().pause();
       else { weapon.releaseTrigger(); setAds(false); player.releaseKeys(); player.crouched = false; }
       settingsUI.refresh();
-      if ($('armory').hidden) { showPage(flow.inGame ? 'pause' : 'mode'); $('menu').hidden = !!(battle && battle.active && battle.over); }
+      if ($('armory').hidden) { showPage(flow.inGame ? 'pause' : 'mode'); $('menu').hidden = !!(cur() && cur().active && cur().over); }
     },
     onRetry() {
       // Usually Chrome refusing a re-lock straight after Esc. Stay quiet; the next click retries.
@@ -409,7 +410,7 @@ function boot(data) {
   /* ---------- mouse look: every event, straight to yaw/pitch ---------- */
   document.addEventListener('mousemove', (e) => {
     if (!lock.locked) return;
-    if (battle && battle.active) { battle.mouseMove(e.movementX, e.movementY); return; }
+    if (cur() && cur().active) { cur().mouseMove(e.movementX, e.movementY); return; }
     // Siege-style: vertical sensitivity scales pitch; aim assist may slow the aim near a target.
     const dpc = currentDpc() * assistSlow;
     if (look.apply(e.movementX, e.movementY, dpc, dpc * settings.sensV / settings.sensH) && state.adsP > 0) {
@@ -421,7 +422,7 @@ function boot(data) {
 
   document.addEventListener('mousedown', (e) => {
     if (!lock.locked) return;
-    if (battle && battle.active) { if (e.button >= 3) e.preventDefault(); battle.mouseButton(e.button, true); return; }
+    if (cur() && cur().active) { if (e.button >= 3) e.preventDefault(); cur().mouseButton(e.button, true); return; }
     if (e.button === 0) {
       if (weapon.ammo === 0 && !weapon.reloading) sfx.click();
       weapon.pressTrigger(e.timeStamp / 1000);
@@ -430,7 +431,7 @@ function boot(data) {
     else if (e.button === 4) { e.preventDefault(); player.leanR = true; }   // mouse forward button: lean right
   });
   document.addEventListener('mouseup', (e) => {
-    if (battle && battle.active) { battle.mouseButton(e.button, false); return; }
+    if (cur() && cur().active) { cur().mouseButton(e.button, false); return; }
     if (e.button === 0) weapon.releaseTrigger();
     else if (e.button === 2) setAds(false);
     else if (e.button === 3) { e.preventDefault(); player.leanL = false; }
@@ -458,7 +459,7 @@ function boot(data) {
   /* ---------- keys ---------- */
   document.addEventListener('keyup', (e) => {
     const c = e.code;
-    if (battle && battle.active) { if (battle.key(c, false)) e.preventDefault(); return; }
+    if (cur() && cur().active) { if (cur().key(c, false)) e.preventDefault(); return; }
     if (c === 'KeyW' || c === 'KeyA' || c === 'KeyS' || c === 'KeyD') player.keys[c[3].toLowerCase()] = false;
     else if (c === 'ShiftLeft' || c === 'ShiftRight') player.sprint = false;
     else if (c === 'KeyQ') player.leanL = false;
@@ -481,7 +482,7 @@ function boot(data) {
       return;
     }
     if (!lock.locked && !testMode) return;
-    if (battle && battle.active) { if (battle.key(c, true)) e.preventDefault(); return; }
+    if (cur() && cur().active) { if (cur().key(c, true)) e.preventDefault(); return; }
     if (c === 'KeyW' || c === 'KeyA' || c === 'KeyS' || c === 'KeyD') { player.keys[c[3].toLowerCase()] = true; return; }
     if (c === 'ShiftLeft' || c === 'ShiftRight') { player.sprint = true; return; }
     if (c === 'KeyQ') { player.leanL = true; return; }   // hold to lean left
@@ -711,7 +712,7 @@ function boot(data) {
       if (all || key === 'reload') weapon.reloadSpeed = settings.reloadSpeed;
       if (all || key === 'shading' || key === 'graphics') { applyGraphics(); rig.setGun(state.gun, state.gunIndex, state.optic); hud.setGun(state.gun, state.gunIndex, state.optic.label, skinName(state.gunIndex)); resize(); }
       // Battle in progress: after the range (which sets the shared gun shading), rebuild its view.
-      if (battle && battle.active && (all || key === 'shading' || key === 'graphics' || key === 'reticle')) battle.refreshGraphics();
+      if (cur() && cur().active && (all || key === 'shading' || key === 'graphics' || key === 'reticle')) cur().refreshGraphics();
       if (key === 'sens' || key === 'assist') { /* read live each mouse event */ }
       if (all || key === 'recoil') { recoil.aimScale = settings.aimRecoil; recoil.hipScale = settings.hipRecoil; recoil.aimSmooth = settings.aimSmooth; }
       if (all || key === 'volume') sfx.setVolume(settings.volume);
@@ -792,7 +793,21 @@ function boot(data) {
     $('pause-title').textContent = 'Battle paused';
     if (!testMode) startLock();
   }
+  // The match modes (Team Deathmatch, Capture the Flag, Bomb) run in their own game.
+  let modeGame = null;
+  const MATCH_MODES = ['tdm', 'ctf', 'bomb'];
+  const cur = () => (modeGame && modeGame.active ? modeGame : battle);
+  function leaveMode() {
+    if (!modeGame || !modeGame.active) return;
+    modeGame.stop();
+    $('hud').hidden = false;
+    $('pause-title').textContent = 'Paused';
+    applyGraphics();
+    rig.setGun(state.gun, state.gunIndex, state.optic);
+    resize();
+  }
   function leaveBattle() {
+    if (modeGame && modeGame.active) { leaveMode(); return; }
     if (!battle) return;
     battle.stop();
     $('hud').hidden = false;
@@ -998,19 +1013,22 @@ function boot(data) {
     if (flow.page !== name && ['mode', 'pause', 'setup'].includes(flow.page)) flow.prev = flow.page;
     flow.page = name;
     for (const p of document.querySelectorAll('#menu .page')) p.hidden = p.id !== 'page-' + name;
-    const step = name === 'mode' ? 1 : name === 'setup' && !flow.setupFromPause ? 2 : 0;
+    const step = name === 'mode' ? 1 : name === 'setup' && !flow.setupFromPause ? 2 : name === 'ops' ? 3 : 0;
+    $('pause-loadout').hidden = MATCH_MODES.includes(flow.mode);
     $('menu').querySelector('.steps').hidden = !step;
     for (const sp of $('menu').querySelectorAll('.steps span')) sp.classList.toggle('on', Number(sp.dataset.step) === step);
-    const names = { range: 'Shooting range', bots: 'Battle vs bots', net: 'Network battle' };
+    const names = { range: 'Shooting range', bots: 'Battle vs bots', net: 'Network battle', tdm: 'Team Deathmatch', ctf: 'Capture the Flag', bomb: 'Bomb' };
     $('menu-crumbs').textContent = name === 'mode' ? 'Choose a mode' : name === 'pause' ? names[flow.mode] + ' (paused)' :
-      name === 'setup' ? names[flow.mode] + ': settings' : name === 'packs' ? 'Skins & packs' : 'Controls';
+      name === 'setup' ? names[flow.mode] + ': settings' : name === 'ops' ? names[flow.mode] + ': operator' : name === 'packs' ? 'Skins & packs' : 'Controls';
     $('mini-points').textContent = '(' + profile.points + ' points)';
     if (name === 'setup') {
       $('range-setup').hidden = flow.mode !== 'range';
-      $('battle-setup').hidden = flow.mode === 'range';
+      $('battle-setup').hidden = flow.mode === 'range' || MATCH_MODES.includes(flow.mode);
+      $('modes-setup').hidden = !MATCH_MODES.includes(flow.mode);
+      if (MATCH_MODES.includes(flow.mode)) modesUi();
       $('net-panel').hidden = flow.mode !== 'net';
       $('setup-title').textContent = names[flow.mode];
-      $('setup-next').textContent = flow.setupFromPause ? 'Back to the game' : 'Next: choose your weapon';
+      $('setup-next').textContent = flow.setupFromPause ? 'Back to the game' : MATCH_MODES.includes(flow.mode) ? 'Next: choose your operator' : 'Next: choose your weapon';
       $('all-settings').open = flow.mode === 'range' && !flow.setupFromPause ? $('all-settings').open : $('all-settings').open;
       if (netInit) netUi();
     }
@@ -1018,7 +1036,8 @@ function boot(data) {
   function chooseMode(m) {
     if (battle && battle.active) leaveBattle();
     flow.mode = m; flow.inGame = false; flow.setupFromPause = false;
-    if (m !== 'range') settings.battle.opponent = m;
+    if (modeGame && modeGame.active) leaveMode();
+    if (m !== 'range' && !MATCH_MODES.includes(m)) settings.battle.opponent = m;
     saveSettings(settings);
     showPage('setup');
   }
@@ -1028,10 +1047,98 @@ function boot(data) {
   $('pause-packs').addEventListener('click', () => showPage('packs'));
   for (const b of document.querySelectorAll('.back-btn')) b.addEventListener('click', () => showPage(b.dataset.back === 'prev' ? (flow.prev || 'mode') : b.dataset.back));
   $('setup-back').addEventListener('click', () => showPage(flow.setupFromPause ? 'pause' : 'mode'));
-  $('setup-next').addEventListener('click', () => { if (flow.setupFromPause) { flow.setupFromPause = false; showPage('pause'); } else openArmory('setup'); });
+  $('setup-next').addEventListener('click', () => {
+    if (flow.setupFromPause) { flow.setupFromPause = false; showPage('pause'); }
+    else if (MATCH_MODES.includes(flow.mode)) { showPage('ops'); renderOps(); }
+    else openArmory('setup');
+  });
   $('pause-settings').addEventListener('click', () => { flow.setupFromPause = true; showPage('setup'); });
   $('pause-loadout').addEventListener('click', () => openArmory('pause'));
-  $('pause-quit').addEventListener('click', () => { if (battle && battle.active) leaveBattle(); flow.inGame = false; showPage('mode'); });
+  $('pause-quit').addEventListener('click', () => { if (cur() && cur().active) leaveBattle(); flow.inGame = false; showPage('mode'); });
+
+  /* ---------- match modes: settings and operator select ---------- */
+  const MODE_DEFAULTS = { map: { tdm: 'yard', ctf: 'yard', bomb: 'depot' }, abilities: { tdm: false, ctf: false, bomb: true }, op: { tdm: 'glitch', ctf: 'dash', bomb: 'pace' }, difficulty: 'normal', teamSize: 5, minutes: 10, headshot: 'lethal', side: 'attack' };
+  let modePrefs;
+  try { modePrefs = { ...MODE_DEFAULTS, ...JSON.parse(localStorage.getItem('recoilRange.modes') || '{}') }; } catch (e) { modePrefs = { ...MODE_DEFAULTS }; }
+  for (const k of ['map', 'abilities', 'op']) modePrefs[k] = { ...MODE_DEFAULTS[k], ...(modePrefs[k] || {}) };
+  const saveModePrefs = () => { try { localStorage.setItem('recoilRange.modes', JSON.stringify(modePrefs)); } catch (e) { /* storage blocked */ } };
+  const MAP_NAMES = { yard: 'Yard (60 x 40 m, two flanks and a mid lane)', depot: 'Depot (two bomb sites)' };
+  function modesUi() {
+    const m = flow.mode, P = modePrefs;
+    const maps = m === 'bomb' ? ['depot'] : ['yard', 'depot'];
+    $('md-map').replaceChildren(...maps.map((id) => { const o = document.createElement('option'); o.value = id; o.textContent = MAP_NAMES[id]; return o; }));
+    $('md-map').value = maps.includes(P.map[m]) ? P.map[m] : maps[0];
+    $('md-diff').value = P.difficulty; $('md-size').value = String(P.teamSize); $('md-ab').value = P.abilities[m] ? 'on' : 'off';
+    $('md-len').value = String(P.minutes); $('md-head').value = P.headshot;
+    $('md-len').closest('label').hidden = m === 'bomb';
+    $('md-note').textContent = m === 'tdm' ? 'First team to 40 kills, or the most kills when the time runs out. Respawn after 3 s. Tab: scoreboard.'
+      : m === 'ctf' ? 'Take the enemy flag (walk over it) to your own stand while your flag is home. First to 3 captures; a tie after the time goes to the next capture. Tab: scoreboard.'
+        : 'First to 4 rounds; sides swap after round 3. One life a round: 30 s to prepare, 150 s to plant (hold E for 5 s on a site). The bomb goes off after 40 s unless defused (hold E for 6 s).';
+  }
+  function readModes() {
+    const m = flow.mode, P = modePrefs;
+    P.map[m] = $('md-map').value; P.difficulty = $('md-diff').value; P.teamSize = Number($('md-size').value);
+    P.abilities[m] = $('md-ab').value === 'on'; P.minutes = Number($('md-len').value); P.headshot = $('md-head').value;
+    saveModePrefs();
+  }
+  for (const id of ['md-map', 'md-diff', 'md-size', 'md-ab', 'md-len', 'md-head']) $(id).addEventListener('change', readModes);
+  let opsData = null, abilityData = null;
+  async function renderOps() {
+    if (!opsData) {
+      try { [opsData, abilityData] = await Promise.all([fetch('data/ops.json').then((r) => r.json()), fetch('data/abilities.json').then((r) => r.json())]); }
+      catch (e) { $('ops-note').textContent = 'Could not load the operators (' + e.message + '). Press Ctrl+F5.'; return; }
+    }
+    const m = flow.mode, P = modePrefs, bomb = m === 'bomb';
+    $('ops-side').hidden = !bomb;
+    for (const b of document.querySelectorAll('#ops-side .seg-btn')) b.setAttribute('aria-checked', String(b.dataset.side === P.side));
+    const allowed = bomb ? (P.side === 'attack' ? opsData.attackers : opsData.defenders) : [...opsData.attackers, ...opsData.defenders];
+    if (!allowed.some((o) => o.id === P.op[m])) P.op[m] = allowed[0].id;
+    const card = (op) => {
+      const g = data.guns.find((x) => x.id === op.gun), ab = abilityData[op.ability] || {};
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'op-card' + (P.op[m] === op.id ? ' on' : '');
+      b.disabled = !allowed.includes(op);
+      const nm = document.createElement('b'); nm.textContent = op.name;
+      const gn = document.createElement('span'); gn.className = 'small'; gn.textContent = (g ? g.name : op.gun) + ' · ' + (catalogue.byId.get(op.sight) || { label: op.sight }).label;
+      const an = document.createElement('span'); an.className = 'op-ab'; an.textContent = ab.name || '';
+      b.append(nm, gn, an);
+      b.addEventListener('click', () => { P.op[m] = op.id; saveModePrefs(); renderOps(); });
+      return b;
+    };
+    const group = (title, list) => { const g = document.createElement('div'); g.className = 'ops-group'; const h = document.createElement('h3'); h.textContent = title; const row = document.createElement('div'); row.className = 'ops-row'; row.append(...list.map(card)); g.append(h, row); return g; };
+    $('ops-grid').replaceChildren(group('Attackers', opsData.attackers), group('Defenders', opsData.defenders));
+    $('ops-note').textContent = (bomb ? 'Bomb: pick a side, then an operator from it. ' : 'Pick any operator. ') + 'Bots take the other places with random operators (no repeats in a team).' + (P.abilities[m] ? ' Abilities on: Q uses yours.' : '');
+  }
+  for (const b of document.querySelectorAll('#ops-side .seg-btn')) b.addEventListener('click', () => { modePrefs.side = b.dataset.side; saveModePrefs(); renderOps(); });
+  $('ops-back').addEventListener('click', () => showPage('setup'));
+  $('ops-go').addEventListener('click', () => startMode());
+  async function startMode() {
+    const m = flow.mode, P = modePrefs;
+    if (battle && battle.active) leaveBattle();
+    if (!modeGame) {
+      modeGame = new ModeGame({
+        renderer, settings, guns: data.guns, sfx, adsVFov, baseDpc, now: clockNow, slotOf: (g) => data.guns.indexOf(g), hudRoot: $('app'),
+        onEnd: () => lock.exit(), onPoints: (kind, head) => (kind === 'kill' ? profile.addKill(head) : profile.addPoints(WIN_POINTS)),
+        skinOf: (g) => equippedSkin(data.guns.indexOf(g)),
+        opticById: (id, g) => catalogue.byId.get(g.optics.includes(id) ? id : g.defaultOptic),
+      });
+      modeGame.hud.again.addEventListener('click', () => startMode());
+      modeGame.hud.leave.addEventListener('click', () => { leaveMode(); flow.inGame = false; showPage('mode'); $('menu').hidden = false; });
+    }
+    weapon.releaseTrigger(); setAds(false); player.releaseKeys();
+    try {
+      await modeGame.start({ mode: m, map: P.map[m], difficulty: P.difficulty, teamSize: P.teamSize, abilities: !!P.abilities[m], minutes: P.minutes, headshot: P.headshot, op: P.op[m], side: P.side });
+    } catch (err) {
+      console.error(err);
+      flashNotice('Could not start the match (' + (err && err.message || err) + '). Press Ctrl+F5 to load the latest version.', 9000);
+      return false;
+    }
+    $('hud').hidden = true;
+    flow.inGame = true;
+    $('pause-title').textContent = 'Match paused';
+    if (!testMode) startLock(); else $('menu').hidden = true;
+    return true;
+  }
 
   // Weapon select: sights (left), the gun turning slowly in 3D (middle), skins (right).
   const previewRig = new WeaponRig(renderer);
@@ -1174,7 +1281,7 @@ function boot(data) {
   let prevT = clockNow();
 
   function update(t) {
-    if (battle && battle.active) { prevT = t; battle.update(t); return; }
+    if (cur() && cur().active) { prevT = t; cur().update(t); return; }
     const dt = Math.min(0.1, Math.max(0, t - prevT));
     prevT = t;
     const ammoBefore = weapon.ammo;
@@ -1320,7 +1427,7 @@ function boot(data) {
   }
   function renderFrame() {
     if (!$('armory').hidden) { renderPreview(clockNow()); return; }
-    if (battle && battle.active) { battle.render(); return; }
+    if (cur() && cur().active) { cur().render(); return; }
     renderer.info.reset();
     if (state.adsP <= 0 || noLensDebug) { post.render(scene, camera, rig.scene, rig.camera, null); return; }
     const o = state.optic, hs = o.housing, H = renderH;
@@ -1406,6 +1513,8 @@ function boot(data) {
       shotDebug: () => ({ renderW, renderH, cw: canvas.width, ch: canvas.height, cam: previewCam.position.toArray(), fov: previewCam.fov, aspect: previewCam.aspect, root: previewRig.root.position.toArray(), box: (() => { const b = new THREE.Box3().setFromObject(previewRig.current); return [b.min.toArray(), b.max.toArray()]; })() }),
       battleStart(o = {}) { Object.assign(settings.battle, o); startBattle(); return !!(battle && battle.active); },
       battleLeave: () => leaveBattle(),
+      modeStart: async (mode, o = {}) => { flow.mode = mode; Object.assign(modePrefs, o); return startMode(); },
+      modeGame: () => modeGame,
       battleKey: (c, d) => !!(battle && battle.key(c, d)),
       battle: () => battle,
       battleState: () => battle && ({ active: battle.active, over: battle.over, score: { ...battle.teamScore },

@@ -8,16 +8,16 @@
 //                       B crouch, A vault, L3 sprint, LB/RB lean.
 //   keys  (player 2, no gamepad): I J K L move, arrow keys look, Enter fire,
 //                       Right Shift aim, Backspace reload, / crouch.
-import * as THREE from '../../vendor/three/three.module.min.js?v=9163767-mw60jd0c';
-import { Look, PITCH_LIMIT } from '../core/look.js?v=9163767-mw60jd0c';
-import { Weapon } from '../core/weapon.js?v=9163767-mw60jd0c';
-import { RecoilEngine } from '../core/recoil.js?v=9163767-mw60jd0c';
-import { Spread } from '../core/spread.js?v=9163767-mw60jd0c';
-import { focalRatio } from '../core/sensitivity.js?v=9163767-mw60jd0c';
-import { WeaponRig } from '../scene/viewmodel.js?v=9163767-mw60jd0c';
-import { EYE_Z, VIEW_H } from '../scene/sight-model.js?v=9163767-mw60jd0c';
-import { reticleTextures } from '../ui/reticle-tex.js?v=9163767-mw60jd0c';
-import { RETICLE_COLORS } from '../ui/scope.js?v=9163767-mw60jd0c';
+import * as THREE from '../../vendor/three/three.module.min.js?v=646d2f7-mw61ssr2';
+import { Look, PITCH_LIMIT } from '../core/look.js?v=646d2f7-mw61ssr2';
+import { Weapon } from '../core/weapon.js?v=646d2f7-mw61ssr2';
+import { RecoilEngine } from '../core/recoil.js?v=646d2f7-mw61ssr2';
+import { Spread } from '../core/spread.js?v=646d2f7-mw61ssr2';
+import { focalRatio } from '../core/sensitivity.js?v=646d2f7-mw61ssr2';
+import { WeaponRig } from '../scene/viewmodel.js?v=646d2f7-mw61ssr2';
+import { EYE_Z, VIEW_H } from '../scene/sight-model.js?v=646d2f7-mw61ssr2';
+import { reticleTextures } from '../ui/reticle-tex.js?v=646d2f7-mw61ssr2';
+import { RETICLE_COLORS } from '../ui/scope.js?v=646d2f7-mw61ssr2';
 
 const DEG = Math.PI / 180;
 const WALK = 3.4, SPRINT = 5.6, CROUCH_WALK = 1.6, ADS_WALK = 2.2;
@@ -227,7 +227,7 @@ export class Human {
       tx = fwd * Math.sin(y) + side * Math.cos(y);
       tz = -fwd * Math.cos(y) + side * Math.sin(y);
       const l = Math.max(1, Math.hypot(tx, tz));
-      const sp = crouched ? CROUCH_WALK : this.ads ? ADS_WALK : sprinting ? SPRINT : WALK;
+      const sp = (crouched ? CROUCH_WALK : this.ads ? ADS_WALK : sprinting ? SPRINT : WALK) * (this.speedMult ?? 1);
       tx = tx / l * sp; tz = tz / l * sp;
     }
     const arena = battle.arena;

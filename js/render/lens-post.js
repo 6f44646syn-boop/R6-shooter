@@ -13,7 +13,7 @@
 // to the screen as in hip-fire, then one light full-screen pass is blended on top
 // (result = effect + screen x darkening), which needs no texture reads of the scene. Only
 // blur, fringing and distortion need the scene as a texture, so only levels 3 and 2 pay for it.
-import * as THREE from '../../vendor/three/three.module.min.js?v=9163767-mw60jd0c';
+import * as THREE from '../../vendor/three/three.module.min.js?v=646d2f7-mw61ssr2';
 
 const VERT = /* glsl */`
 varying vec2 vUv;

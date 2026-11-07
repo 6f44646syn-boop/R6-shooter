@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recoil Range</title>
-<link rel="stylesheet" href="css/style.css?v=9163767-mw60jd0c">
+<link rel="stylesheet" href="css/style.css?v=646d2f7-mw61ssr2">
 </head>
 <body>
 <div id="app">
@@ -60,6 +60,9 @@
         <div class="modes">
           <button type="button" class="mode-card" data-mode="range"><b>Shooting range</b><span>Practise spray control on a dummy, a paper target or red dots. Measured sprays, every sight.</span></button>
           <button type="button" class="mode-card" data-mode="bots"><b>Battle vs bots</b><span>An arena with cover against 1-6 bots: Easy, Medium or Hard. Kills earn points for packs.</span></button>
+          <button type="button" class="mode-card mode-new" data-mode="tdm"><b>Team Deathmatch</b><span>Your team against bots, 3v3 or 5v5. First team to 40 kills, or the most kills after the time.</span></button>
+          <button type="button" class="mode-card mode-new" data-mode="ctf"><b>Capture the Flag</b><span>Take the enemy flag to your own stand while yours is home. First to 3 captures.</span></button>
+          <button type="button" class="mode-card mode-new" data-mode="bomb"><b>Bomb</b><span>Attackers plant, defenders stop them. One life a round, abilities on, first to 4 rounds.</span></button>
           <button type="button" class="mode-card" data-mode="net"><b>Network battle</b><span>Play friends on other PCs: over the internet with a short game code, or on the same network. Bots optional.</span></button>
         </div>
         <div class="row">
@@ -152,6 +155,22 @@
           <button id="battle-btn" type="button" hidden>Start battle</button>
           <button id="battle-leave" type="button" hidden>Leave battle</button>
         </section>
+        <section class="set-group" id="modes-setup" hidden>
+          <div class="set-grid">
+            <label class="field" for="md-map"><span>Map</span><select id="md-map"></select></label>
+            <label class="field" for="md-diff"><span>Bot difficulty</span>
+              <select id="md-diff"><option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option><option value="terminator">Terminator</option></select></label>
+            <label class="field" for="md-size"><span>Teams</span>
+              <select id="md-size"><option value="3">3v3</option><option value="5" selected>5v5</option></select></label>
+            <label class="field" for="md-ab"><span>Abilities</span>
+              <select id="md-ab"><option value="on">On (Q)</option><option value="off">Off</option></select></label>
+            <label class="field" for="md-len"><span>Match length</span>
+              <select id="md-len"><option value="5">5 minutes</option><option value="10" selected>10 minutes</option><option value="15">15 minutes</option></select></label>
+            <label class="field" for="md-head"><span>Headshots</span>
+              <select id="md-head"><option value="lethal">Lethal (one hit)</option><option value="x2">Double damage</option></select></label>
+          </div>
+          <p class="small" id="md-note"></p>
+        </section>
         <details class="all-settings" id="all-settings">
           <summary>All settings (sensitivity, graphics, crosshair, recoil, targets...)</summary>
           <div id="settings-root"></div>
@@ -159,6 +178,21 @@
         <div class="row nav">
           <button type="button" id="setup-back">Back</button>
           <button type="button" id="setup-next" class="primary">Next: choose your weapon</button>
+        </div>
+      </section>
+
+      <section class="page" id="page-ops" hidden>
+        <h2 id="ops-title">Choose your operator</h2>
+        <div class="row ops-side" id="ops-side" hidden>
+          <span class="small">Side:</span>
+          <button type="button" class="seg-btn" data-side="attack" role="radio">Attackers</button>
+          <button type="button" class="seg-btn" data-side="defend" role="radio">Defenders</button>
+        </div>
+        <div id="ops-grid" class="ops-grid"></div>
+        <p class="small" id="ops-note"></p>
+        <div class="row nav">
+          <button type="button" id="ops-back">Back</button>
+          <button type="button" id="ops-go" class="primary">Deploy</button>
         </div>
       </section>
 
@@ -232,6 +266,6 @@
     </div>
   </div>
 </div>
-<script type="module" src="js/main.js?v=9163767-mw60jd0c"></script>
+<script type="module" src="js/main.js?v=646d2f7-mw61ssr2"></script>
 </body>
 </html>
