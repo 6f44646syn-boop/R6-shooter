@@ -7,12 +7,12 @@
 //
 // Body for hits (actor frame, standing; crouching squashes y to 0.7): head sphere at 1.62 m
 // (r 0.13), torso capsule 0.95-1.34 m (r 0.24), legs capsule 0.1-0.9 m (r 0.19).
-import { mulberry32 } from '../core/prng.js?v=06a5fe1-mw62lq1z';
-import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=06a5fe1-mw62lq1z';
-import { BODY_R } from './map.js?v=06a5fe1-mw62lq1z';
-import { Brain } from './bots.js?v=06a5fe1-mw62lq1z';
-import { makeRules } from './rules.js?v=06a5fe1-mw62lq1z';
-import { Abilities } from './abilities.js?v=06a5fe1-mw62lq1z';
+import { mulberry32 } from '../core/prng.js?v=9ecf153-mw64d875';
+import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=9ecf153-mw64d875';
+import { BODY_R } from './map.js?v=9ecf153-mw64d875';
+import { Brain } from './bots.js?v=9ecf153-mw64d875';
+import { makeRules } from './rules.js?v=9ecf153-mw64d875';
+import { Abilities } from './abilities.js?v=9ecf153-mw64d875';
 
 export const TICK = 1 / 60;
 export const EYE = 1.6, CROUCH_EYE = 1.1;
@@ -106,11 +106,37 @@ export class Match {
   human() { return this.actors.find((a) => a.human) || null; }
 
   /* ---------- spawning ---------- */
-  // The spawn farthest from enemies and out of their sight.
-  spawn(a, list, protect = 1.5) {
-    let best = list[0], bs = -Infinity;
+  // A random safe spawn (no enemy within 12 m or in sight), from the map's spawns and the
+  // waypoints within `spread` m of them; if none is safe, the best scored one.
+  spawn(a, list, protect = 3, spread = 8) {
     const foes = this.enemiesOf(a).filter((e) => e.alive);
-    for (const s of list) {
+    if (!this._pools) this._pools = new Map();
+    const pk = list.map((s) => s[0] + ',' + s[1]).join(';') + '|' + spread;
+    let pool = this._pools.get(pk);
+    if (!pool) {
+      pool = list.slice();
+      for (const n of this.map.data.nodes || []) {
+        const near = list.find((s) => Math.hypot(n[0] - s[0], n[1] - s[1]) <= spread);
+        if (near && this.map.free(n[0], n[1], 0.5)) pool.push([n[0], n[1], near[2]]);
+      }
+      this._pools.set(pk, pool);
+    }
+    const eyeAt = [0, 0, 0];
+    const ok = (s) => {
+      if (this.actors.some((b) => b !== a && b.alive && Math.hypot(b.x - s[0], b.z - s[1]) < 1)) return false;
+      for (const e of foes) {
+        const d = Math.hypot(e.x - s[0], e.z - s[1]);
+        if (d < 12) return false;
+        if (d < 45 && this.map.sight(this.eye(e, eyeAt), [s[0], 1.2, s[1]])) return false;
+      }
+      return true;
+    };
+    let best = null;
+    for (let i = 0; i < 30 && !best; i++) { const s = pool[Math.floor(this.rng() * pool.length)]; if (ok(s)) best = s; }
+    if (best) return this._place(a, best, protect);
+    best = list[0];
+    let bs = -Infinity;
+    for (const s of pool) {
       let d = 99;
       for (const e of foes) d = Math.min(d, Math.hypot(e.x - s[0], e.z - s[1]));
       let seen = false;
@@ -119,7 +145,9 @@ export class Match {
       const score = d - (seen ? 60 : 0) - (busy ? 30 : 0) + this.rng();
       if (score > bs) { bs = score; best = s; }
     }
-    // spread out if several land on one spawn
+    return this._place(a, best, protect);
+  }
+  _place(a, best, protect) {
     const p = { x: best[0] + this.r(-0.6, 0.6), z: best[1] + this.r(-0.6, 0.6) };
     this.map.resolve(p);
     Object.assign(a, { x: p.x, z: p.z, y: 0, vx: 0, vz: 0, yaw: best[2] || 0, pitch: 0, crouch: 0, hp: 100, alive: true, protectUntil: this.t + protect, lastHurt: -10,

@@ -7,12 +7,12 @@
 //
 // Coordinates: metres, x right, y up, z towards the "A" side. Same yaw convention as the
 // range: yaw 0 looks along -z, positive turns right.
-import * as THREE from '../../vendor/three/three.module.min.js?v=06a5fe1-mw62lq1z';
-import { MAPS } from './maps.js?v=06a5fe1-mw62lq1z';
-import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=06a5fe1-mw62lq1z';
-import { flatMaterial } from '../scene/low.js?v=06a5fe1-mw62lq1z';
-import { BulletHoles } from '../scene/holes.js?v=06a5fe1-mw62lq1z';
-import { mulberry32 } from '../core/prng.js?v=06a5fe1-mw62lq1z';
+import * as THREE from '../../vendor/three/three.module.min.js?v=9ecf153-mw64d875';
+import { MAPS } from './maps.js?v=9ecf153-mw64d875';
+import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=9ecf153-mw64d875';
+import { flatMaterial } from '../scene/low.js?v=9ecf153-mw64d875';
+import { BulletHoles } from '../scene/holes.js?v=9ecf153-mw64d875';
+import { mulberry32 } from '../core/prng.js?v=9ecf153-mw64d875';
 
 export const HALF_X = 18, HALF_Z = 14, WALL_H = 4.5;
 // Landmark names for callouts, by kind of cover.
@@ -979,11 +979,37 @@ export class Arena {
       const n = this._nearestNode(p[0], p[1], y);     // a spawn inside cover moves out
       return [this.nodeX[n], this.nodeZ[n], this.nodeY[n]];
     });
+    // More places than the authored ones: walkable spots within 9 m of each of them.
+    if (!this._spawnPool) this._spawnPool = new Map();
+    const key = side || 'any';
+    if (!this._spawnPool.has(key)) {
+      const pool = list.slice();
+      for (let k = 0; k < this.nodeCount; k++) {
+        if (!list.some((p) => Math.hypot(this.nodeX[k] - p[0], this.nodeZ[k] - p[1]) < 9 && Math.abs(this.nodeY[k] - p[2]) < 1.5)) continue;
+        pool.push([this.nodeX[k], this.nodeZ[k], this.nodeY[k]]);
+      }
+      this._spawnPool.set(key, pool);
+    }
+    const pool = this._spawnPool.get(key);
+    // A random safe place (no enemy within 14 m and none can see it); else the farthest.
+    const eye = [0, 0, 0], at = [0, 0, 0];
+    const safe = (p) => {
+      for (const e of enemies) {
+        const d = Math.hypot(e.x - p[0], e.z - p[1], (e.y || 0) - p[2]);
+        if (d < 14) return false;
+        if (d < 60) { eye[0] = e.x; eye[1] = (e.y || 0) + 1.6; eye[2] = e.z; at[0] = p[0]; at[1] = p[2] + 1.2; at[2] = p[1]; if (this.sightLine(eye, at)) return false; }
+      }
+      return true;
+    };
+    for (let i = 0; i < 40; i++) {
+      const p = pool[Math.floor(rng() * pool.length)];
+      if (safe(p)) return { x: p[0], z: p[1], y: p[2] };
+    }
     let best = list[0], bd = -1;
-    for (const p of list) {
+    for (const p of pool) {
       let d = Infinity;
       for (const e of enemies) d = Math.min(d, Math.hypot(e.x - p[0], e.z - p[1], (e.y || 0) - p[2]));
-      d += rng() * 2;   // a little variety between equal choices
+      d += rng() * 4;
       if (d > bd) { bd = d; best = p; }
     }
     return { x: best[0], z: best[1], y: best[2] };

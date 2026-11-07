@@ -2,9 +2,9 @@
 // test. The body is a soldier (soldier.js) in team colours carrying their real gun with its
 // skin; hits are decided on the same shapes the body is built around. Crouching squashes the
 // body to CROUCH_SCALE. y is the height of the feet (floors, stairs, box tops).
-import * as THREE from '../../vendor/three/three.module.min.js?v=06a5fe1-mw62lq1z';
-import { soldierGeometry, raycastSoldier, GRIP_HAND, HIP_X, HIP_Y } from './soldier.js?v=06a5fe1-mw62lq1z';
-import { buildWorldGun } from '../scene/viewmodel.js?v=06a5fe1-mw62lq1z';
+import * as THREE from '../../vendor/three/three.module.min.js?v=9ecf153-mw64d875';
+import { soldierGeometry, raycastSoldier, GRIP_HAND, HIP_X, HIP_Y } from './soldier.js?v=9ecf153-mw64d875';
+import { buildWorldGun } from '../scene/viewmodel.js?v=9ecf153-mw64d875';
 
 export const STAND_EYE = 1.6, CROUCH_EYE = 1.12;
 export const CROUCH_SCALE = 0.7;
@@ -20,6 +20,14 @@ const GUN_SCALE = 1.1;
 
 // Outline: each vertex pushed out along its normal by a few millimetres plus a little more
 // with distance (about the same thickness on screen near and far).
+let SHIELD = null;
+// Spawn protection: a pale bubble round the body while it lasts.
+function shieldMesh() {
+  if (!SHIELD) SHIELD = { geo: new THREE.SphereGeometry(1, 20, 14), mat: new THREE.MeshBasicMaterial({ color: 0x9fe8ff, transparent: true, opacity: 0.15, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }) };
+  const m = new THREE.Mesh(SHIELD.geo, SHIELD.mat);
+  m.userData.ownMaterial = true; m.scale.set(0.62, 1.05, 0.62); m.position.y = 0.95; m.visible = false; m.renderOrder = 4;
+  return m;
+}
 let OUTLINE = null;
 function outlineMaterial() {
   return OUTLINE || (OUTLINE = new THREE.ShaderMaterial({
@@ -100,6 +108,8 @@ export class Fighter {
     this.outline.visible = false;
     this.scaleG = new THREE.Group();
     this.scaleG.add(body, this.outline);
+    this.shield = shieldMesh();
+    this.group.add(this.shield);
     // Legs swing from the hips when walking (see updateVisual).
     this.legs = [-1, 1].map((s) => {
       const g = s < 0 ? geo.legL : geo.legR, piv = new THREE.Group();
@@ -191,6 +201,9 @@ export class Fighter {
     for (const l of this.legs) l.o.visible = this.outline.visible;
     // The gun tips with the aim a little.
     this.gunG.rotation.x = -Math.max(-30, Math.min(30, this.pitch)) * DEG * 0.5;
+    // spawn protection bubble: blinks in its last half second
+    const pr = this.protectUntil - t;
+    this.shield.visible = this.alive && pr > 0 && (pr > 0.5 || Math.floor(t * 12) % 2 === 0);
     this.torchG.visible = this.night && this.light;
     this.flash.visible = t < this.flashUntil;
     if (this.flash.visible) this.flash.rotation.z = Math.random() * Math.PI;

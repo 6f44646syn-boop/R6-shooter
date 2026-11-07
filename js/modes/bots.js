@@ -7,8 +7,8 @@
 // target and grows with sustained fire (bloom); bursts limited by the gun's rpm and magazine.
 // Navigation: A* on the map's waypoint graph, string-pulled, with a stuck watchdog (no
 // progress for 3 s: re-path; still stuck: walk to the nearest waypoint).
-import { SKILL, EYE, NOISE } from './sim.js?v=06a5fe1-mw62lq1z';
-import { dirFrom, yawTo, wrap180, DEG } from './geom.js?v=06a5fe1-mw62lq1z';
+import { SKILL, EYE, NOISE } from './sim.js?v=9ecf153-mw64d875';
+import { dirFrom, yawTo, wrap180, DEG } from './geom.js?v=9ecf153-mw64d875';
 
 const VIEW = 55, RANGE = 45;
 
@@ -36,7 +36,7 @@ export class Brain {
     // see
     let best = null, bd = Infinity;
     for (const e of m.actors) {
-      if (!e.alive || e.team === a.team) continue;
+      if (!e.alive || e.team === a.team || t < e.protectUntil) continue;
       const dx = e.x - a.x, dz = e.z - a.z, d = Math.hypot(dx, dz);
       if (d > RANGE) { this.vis.delete(e.id); continue; }
       const inCone = Math.abs(wrap180(yawTo(dx, dz) - a.yaw)) <= VIEW || (this.attacker === e && t - this.attackedAt < 1) || t < e.revealedUntil;

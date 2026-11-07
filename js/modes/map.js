@@ -16,7 +16,7 @@
 //
 // Soft and reinforced walls are split into panels 1.5 m wide. The lower 2.2 m of a panel can
 // be destroyed (a hole); the part above stays.
-import { rayBox, pushCircleBox, circleHitsBox, segHitsBox } from './geom.js?v=06a5fe1-mw62lq1z';
+import { rayBox, pushCircleBox, circleHitsBox, segHitsBox } from './geom.js?v=9ecf153-mw64d875';
 
 export const PANEL_W = 1.5, HOLE_H = 2.2, BODY_R = 0.32;
 const GRID = 2;

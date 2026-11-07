@@ -1,43 +1,43 @@
 // Recoil Range entry point: wires input, camera, scene, HUD and the frame loop together.
-import * as THREE from '../vendor/three/three.module.min.js?v=06a5fe1-mw62lq1z';
-import { Look, PITCH_LIMIT } from './core/look.js?v=06a5fe1-mw62lq1z';
-import { Player } from './core/player.js?v=06a5fe1-mw62lq1z';
-import { PointerLock } from './core/pointer-lock.js?v=06a5fe1-mw62lq1z';
-import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=06a5fe1-mw62lq1z';
-import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=06a5fe1-mw62lq1z';
-import { Weapon } from './core/weapon.js?v=06a5fe1-mw62lq1z';
-import { RecoilEngine } from './core/recoil.js?v=06a5fe1-mw62lq1z';
-import { Spread } from './core/spread.js?v=06a5fe1-mw62lq1z';
-import { loadGameData } from './core/guns.js?v=06a5fe1-mw62lq1z';
-import { randomSeed } from './core/prng.js?v=06a5fe1-mw62lq1z';
-import { Range, EYE_HEIGHT } from './scene/range.js?v=06a5fe1-mw62lq1z';
-import { RING_STEP } from './scene/range-tex.js?v=06a5fe1-mw62lq1z';
-import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=06a5fe1-mw62lq1z';
-import { LensPost } from './render/lens-post.js?v=06a5fe1-mw62lq1z';
-import { reticleTextures } from './ui/reticle-tex.js?v=06a5fe1-mw62lq1z';
-import { DOT_POINTS } from './scene/dots.js?v=06a5fe1-mw62lq1z';
-import { Voices } from './audio/voice.js?v=06a5fe1-mw62lq1z';
-import { ModeGame } from './modes/game.js?v=06a5fe1-mw62lq1z';
-import { Sfx } from './audio/sfx.js?v=06a5fe1-mw62lq1z';
-import { DebugHud } from './ui/debug-hud.js?v=06a5fe1-mw62lq1z';
-import { drawCrosshair } from './ui/crosshair.js?v=06a5fe1-mw62lq1z';
-import { Hud } from './ui/hud.js?v=06a5fe1-mw62lq1z';
-import { MagPlot } from './ui/plot.js?v=06a5fe1-mw62lq1z';
-import { SettingsUI } from './ui/settings-ui.js?v=06a5fe1-mw62lq1z';
-import { sensKeys, zoomKey } from './core/optics.js?v=06a5fe1-mw62lq1z';
+import * as THREE from '../vendor/three/three.module.min.js?v=9ecf153-mw64d875';
+import { Look, PITCH_LIMIT } from './core/look.js?v=9ecf153-mw64d875';
+import { Player } from './core/player.js?v=9ecf153-mw64d875';
+import { PointerLock } from './core/pointer-lock.js?v=9ecf153-mw64d875';
+import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=9ecf153-mw64d875';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=9ecf153-mw64d875';
+import { Weapon } from './core/weapon.js?v=9ecf153-mw64d875';
+import { RecoilEngine } from './core/recoil.js?v=9ecf153-mw64d875';
+import { Spread } from './core/spread.js?v=9ecf153-mw64d875';
+import { loadGameData } from './core/guns.js?v=9ecf153-mw64d875';
+import { randomSeed } from './core/prng.js?v=9ecf153-mw64d875';
+import { Range, EYE_HEIGHT } from './scene/range.js?v=9ecf153-mw64d875';
+import { RING_STEP } from './scene/range-tex.js?v=9ecf153-mw64d875';
+import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=9ecf153-mw64d875';
+import { LensPost } from './render/lens-post.js?v=9ecf153-mw64d875';
+import { reticleTextures } from './ui/reticle-tex.js?v=9ecf153-mw64d875';
+import { DOT_POINTS } from './scene/dots.js?v=9ecf153-mw64d875';
+import { Voices } from './audio/voice.js?v=9ecf153-mw64d875';
+import { ModeGame } from './modes/game.js?v=9ecf153-mw64d875';
+import { Sfx } from './audio/sfx.js?v=9ecf153-mw64d875';
+import { DebugHud } from './ui/debug-hud.js?v=9ecf153-mw64d875';
+import { drawCrosshair } from './ui/crosshair.js?v=9ecf153-mw64d875';
+import { Hud } from './ui/hud.js?v=9ecf153-mw64d875';
+import { MagPlot } from './ui/plot.js?v=9ecf153-mw64d875';
+import { SettingsUI } from './ui/settings-ui.js?v=9ecf153-mw64d875';
+import { sensKeys, zoomKey } from './core/optics.js?v=9ecf153-mw64d875';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
 function sensRows(catalogue, sens) {
   const keys = new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)]);
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
-import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=06a5fe1-mw62lq1z';
-import { Battle } from './battle/battle.js?v=06a5fe1-mw62lq1z';
-import { createJoinRequest, acceptJoin } from './net/link.js?v=06a5fe1-mw62lq1z';
-import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode } from './net/relay.js?v=06a5fe1-mw62lq1z';
-import { Profile, WIN_POINTS } from './core/profile.js?v=06a5fe1-mw62lq1z';
-import { skinFits, skinById } from './core/skins.js?v=06a5fe1-mw62lq1z';
-import { PackUI } from './ui/packs.js?v=06a5fe1-mw62lq1z';
+import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=9ecf153-mw64d875';
+import { Battle } from './battle/battle.js?v=9ecf153-mw64d875';
+import { createJoinRequest, acceptJoin } from './net/link.js?v=9ecf153-mw64d875';
+import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode } from './net/relay.js?v=9ecf153-mw64d875';
+import { Profile, WIN_POINTS } from './core/profile.js?v=9ecf153-mw64d875';
+import { skinFits, skinById } from './core/skins.js?v=9ecf153-mw64d875';
+import { PackUI } from './ui/packs.js?v=9ecf153-mw64d875';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);

@@ -268,7 +268,7 @@ export class Bomb extends Rules {
     this.bomb = { state: 'none', x: 0, z: 0, carrier: null, site: null, fuseEnd: 0 };
     m.ab.clearAll(); m.map.resetPanels();
     this.target = this.sites[Math.floor(m.rng() * this.sites.length)];
-    for (const a of m.actors) { m.spawn(a, this.spawnList(a.team), 0); a.respawnAt = 0; m.ab.refill(a); if (a.brain) a.brain.post = null; }
+    for (const a of m.actors) { m.spawn(a, this.spawnList(a.team), 0, 2.5); a.respawnAt = 0; m.ab.refill(a); if (a.brain) a.brain.post = null; }
     // the bomb goes to a random attacker (a bot, unless you are the only one)
     const att = m.actors.filter((a) => this.isAttacker(a));
     const carrier = att.filter((a) => !a.human)[Math.floor(m.rng() * Math.max(1, att.length - 1))] || att[0];

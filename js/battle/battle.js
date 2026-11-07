@@ -3,13 +3,13 @@
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=06a5fe1-mw62lq1z';
-import { Arena } from './arena.js?v=06a5fe1-mw62lq1z';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=06a5fe1-mw62lq1z';
-import { Bot, LEVELS } from './bot.js?v=06a5fe1-mw62lq1z';
-import { Human } from './human.js?v=06a5fe1-mw62lq1z';
-import { drawCrosshair } from '../ui/crosshair.js?v=06a5fe1-mw62lq1z';
-import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=06a5fe1-mw62lq1z';
+import * as THREE from '../../vendor/three/three.module.min.js?v=9ecf153-mw64d875';
+import { Arena } from './arena.js?v=9ecf153-mw64d875';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=9ecf153-mw64d875';
+import { Bot, LEVELS } from './bot.js?v=9ecf153-mw64d875';
+import { Human } from './human.js?v=9ecf153-mw64d875';
+import { drawCrosshair } from '../ui/crosshair.js?v=9ecf153-mw64d875';
+import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=9ecf153-mw64d875';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -32,7 +32,7 @@ class Proxy {
   constructor(f) { this.f = f; this.buf = []; }
 }
 const BOT_NAMES = ['Rook', 'Vex', 'Mako', 'Quill', 'Brisk', 'Tarn'];
-const RESPAWN_S = 3, PROTECT_S = 1.5, REGEN_DELAY = 5, REGEN_PER_S = 15;
+const RESPAWN_S = 3, PROTECT_S = 3, REGEN_DELAY = 5, REGEN_PER_S = 15;
 const MAX_TRACERS = 48;
 const DEG2RAD = Math.PI / 180;
 
@@ -813,6 +813,7 @@ export class Battle {
       const hit = el('div', 'b-hit');
       const hurt = el('div', 'b-hurt');
       const dead = el('div', 'b-dead'); dead.hidden = true;
+      const prot = el('div', 'b-prot'); prot.hidden = true;
       const name = el('div', 'b-name t-' + h.f.team, h.f.name + ' · ' + h.gun.name);
       const hp = el('div', 'b-hp'); const hpFill = el('i'); hp.append(hpFill);
       const hpText = el('div', 'b-hptext', '100');
@@ -820,9 +821,9 @@ export class Battle {
       const ctl = el('div', 'b-ctl small', '');
       const pts = el('div', 'b-points', '');
       const rep = el('div', 'b-report'); rep.hidden = true;
-      box.append(hurt, cross, hit, pts, dead, rep, name, hp, hpText, ammo, ctl);
+      box.append(hurt, cross, hit, pts, dead, prot, rep, name, hp, hpText, ammo, ctl);
       this.hud.root.insertBefore(box, this.hud.root.firstChild);
-      return { box, cross, hit, hurt, dead, rep, hpFill, hpText, ammo, ctl, pts, ptsUntil: 0, hitUntil: 0, hurtUntil: 0, last: {} };
+      return { box, cross, hit, hurt, dead, prot, rep, hpFill, hpText, ammo, ctl, pts, ptsUntil: 0, hitUntil: 0, hurtUntil: 0, last: {} };
     });
   }
   /* ---------- bodies do not overlap ---------- */
@@ -1116,6 +1117,8 @@ export class Battle {
       if (t > v.ptsUntil && v.pts.classList.contains('on')) v.pts.className = 'b-points';
       const deadMsg = f.alive ? '' : 'Eliminated by ' + (h.killedBy || '?') + ' · back in ' + Math.max(0, Math.ceil(f.respawnAt - t));
       const back = Math.max(0, Math.ceil(f.respawnAt - t));
+      const prot = f.alive && t < f.protectUntil ? 'Spawn protection ' + Math.ceil(f.protectUntil - t) + ' · shooting ends it' : '';
+      if (L.prot !== prot) { L.prot = prot; v.prot.hidden = !prot; v.prot.textContent = prot; }
       const repKey = i === 0 && !f.alive && this.humans.length === 1 ? (h.killerId || 0) + '|' + (this.kc ? 1 : 0) + '|' + this._repVer + '|' + back : '';
       const showDead = deadMsg && !repKey ? deadMsg : '';
       if (L.dead !== showDead) { L.dead = showDead; v.dead.hidden = !showDead; v.dead.textContent = showDead; }

@@ -4,13 +4,13 @@
 //
 // Map: flat-shaded low poly from the map file; static walls merged into one mesh, breakable
 // panels in one instanced mesh, one directional light (a 1024 shadow map in High / Ultra).
-import * as THREE from '../../vendor/three/three.module.min.js?v=06a5fe1-mw62lq1z';
-import { MatchMap } from './map.js?v=06a5fe1-mw62lq1z';
-import { Match, TICK } from './sim.js?v=06a5fe1-mw62lq1z';
-import { yawTo, wrap180, DEG } from './geom.js?v=06a5fe1-mw62lq1z';
-import { Fighter } from '../battle/fighter.js?v=06a5fe1-mw62lq1z';
-import { Human } from '../battle/human.js?v=06a5fe1-mw62lq1z';
-import { drawCrosshair } from '../ui/crosshair.js?v=06a5fe1-mw62lq1z';
+import * as THREE from '../../vendor/three/three.module.min.js?v=9ecf153-mw64d875';
+import { MatchMap } from './map.js?v=9ecf153-mw64d875';
+import { Match, TICK } from './sim.js?v=9ecf153-mw64d875';
+import { yawTo, wrap180, DEG } from './geom.js?v=9ecf153-mw64d875';
+import { Fighter } from '../battle/fighter.js?v=9ecf153-mw64d875';
+import { Human } from '../battle/human.js?v=9ecf153-mw64d875';
+import { drawCrosshair } from '../ui/crosshair.js?v=9ecf153-mw64d875';
 
 const TEAM_COLOR = { A: 0x5b8cff, B: 0xff7048 };
 const MAX_TRACERS = 64;
@@ -230,7 +230,7 @@ export class ModeGame {
     for (const a of m.actors) {
       const f = this.fig.get(a.id);
       if (a !== me) { f.x = a.x; f.z = a.z; f.y = 0; f.yaw = a.yaw; f.pitch = a.pitch; f.crouch = a.crouch; f.ads = a.ads; }
-      f.alive = a.alive; f.health = a.hp;
+      f.alive = a.alive; f.health = a.hp; f.protectUntil = t + (a.protectUntil - m.t);
       f.updateVisual(t);
       const enemy = a.team !== me.team;
       const v = a !== me && a.alive && enemy;
@@ -553,6 +553,7 @@ export class ModeGame {
     top.append(score);
     const feed = el('div', 'b-feed');
     const view = el('div', 'b-view');
+    const prot = el('div', 'b-prot'); prot.hidden = true;
     const cross = document.createElement('canvas'); cross.className = 'b-cross';
     const hit = el('div', 'b-hit'), hurt = el('div', 'b-hurt'), dead = el('div', 'b-dead'); dead.hidden = true;
     const name = el('div', 'b-name t-A', '');
@@ -563,7 +564,7 @@ export class ModeGame {
     const flash = el('div', 'mg-flash'); flash.hidden = true;
     const hold = el('div', 'mg-hold'); hold.hidden = true;
     const holdBar = el('i'); hold.append(el('span', '', ''), holdBar);
-    view.append(hurt, dmg, cross, hit, pts, dead, name, hp, hpText, ammo, ability, hold, flash);
+    view.append(hurt, dmg, cross, hit, pts, dead, prot, name, hp, hpText, ammo, ability, hold, flash);
     const board = el('div', 'mg-board'); board.hidden = true;
     const end = el('div', 'b-end'); end.hidden = true;
     const box = el('div', 'b-end-box'), endTitle = el('h1', '', ''), endTable = el('div', 'b-table'), endNote = el('p', 'small', '');
@@ -573,7 +574,7 @@ export class ModeGame {
     box.append(endTitle, endTable, row, endNote); end.append(box);
     root.append(view, top, compass, status, feed, board, end);
     this.deps.hudRoot.insertBefore(root, this.deps.hudRoot.querySelector('#menu'));
-    this.hud = { root, score, compass, status, feed, view, cross, hit, hurt, dead, name, hpFill, hpText, ammo, pts, ability, dmg, flash, hold, holdBar, board, end, endTitle, endTable, endNote, again, leave, last: {} };
+    this.hud = { prot, root, score, compass, status, feed, view, cross, hit, hurt, dead, name, hpFill, hpText, ammo, pts, ability, dmg, flash, hold, holdBar, board, end, endTitle, endTable, endNote, again, leave, last: {} };
     drawCrosshair(cross, this.deps.settings.crosshair);
   }
   _marker(kind, t) { this.hud.hit.className = 'b-hit on ' + kind; this.hitUntil = t + (kind === 'kill' ? 0.35 : 0.15); }
@@ -615,6 +616,8 @@ export class ModeGame {
     const timer = m.rules.timerText ? m.rules.timerText() : fmt(m.rules.timeLeft());
     const sc = score + '  ·  ' + timer;
     if (L.sc !== sc) { L.sc = sc; H.score.textContent = sc; }
+    const pr = me.alive && m.t < me.protectUntil ? 'Spawn protection ' + Math.ceil(me.protectUntil - m.t) + ' · shooting ends it' : '';
+    if (L.pr !== pr) { L.pr = pr; H.prot.hidden = !pr; H.prot.textContent = pr; }
     const st = m.rules.statusText ? m.rules.statusText(me) : '';
     if (L.st !== st) { L.st = st; H.status.textContent = st; H.status.hidden = !st; }
     const hp = Math.max(0, Math.ceil(me.hp));
