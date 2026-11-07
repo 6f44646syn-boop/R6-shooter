@@ -1,13 +1,14 @@
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=9c7c864-mw6000bk';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=9c7c864-mw6000bk';
-import { matcap } from './matcap.js?v=9c7c864-mw6000bk';
-import { mulberry32 } from '../core/prng.js?v=9c7c864-mw6000bk';
-import { gunMaps } from './range-tex.js?v=9c7c864-mw6000bk';
-import { skinById, FACTORY } from '../core/skins.js?v=9c7c864-mw6000bk';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=9c7c864-mw6000bk';
+import * as THREE from '../../vendor/three/three.module.min.js?v=9163767-mw60jd0c';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=9163767-mw60jd0c';
+import { matcap } from './matcap.js?v=9163767-mw60jd0c';
+import { mulberry32 } from '../core/prng.js?v=9163767-mw60jd0c';
+import { gunMaps } from './range-tex.js?v=9163767-mw60jd0c';
+import { skinById, FACTORY } from '../core/skins.js?v=9163767-mw60jd0c';
+import { legendCanvas, onLegendChange } from '../core/legend.js?v=9163767-mw60jd0c';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=9163767-mw60jd0c';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -44,7 +45,23 @@ function currentSkin() {
 }
 const skins = new Map();        // skin id + size -> baked skin; the last few are kept
 let detailPaint = null, detailBrushed = null;
+// The Legendary skin: your photo as the colour (tiled bigger than patterns), a smooth lacquered
+// finish; it updates when you choose another photo.
+let LEGEND_TEX = null;
+function legendSkin(def) {
+  if (!LEGEND_TEX) {
+    const a = new THREE.CanvasTexture(legendCanvas());
+    a.wrapS = a.wrapT = THREE.RepeatWrapping;
+    a.anisotropy = 8;
+    const rm = new THREE.DataTexture(new Uint8Array([0, 80, 50, 255]), 1, 1);
+    rm.wrapS = rm.wrapT = THREE.RepeatWrapping; rm.needsUpdate = true;
+    LEGEND_TEX = { albedo: a, rm, normal: null, def, wear: def.wear, clearcoat: 1, glow: [0, 0, 0], scale: 2.6 };
+    onLegendChange(() => { a.needsUpdate = true; });
+  }
+  return LEGEND_TEX;
+}
 function bakedSkin(def) {
+  if (def.photo) return legendSkin(def);
   const size = skinSize(), key = def.id + '@' + size;
   if (!skins.has(key)) {
     skins.set(key, bakeSkin(RENDERER, def, size));
@@ -72,21 +89,21 @@ function skinMaterial(def) {
   let m;
   if (sh === 'fast') {
     m = new THREE.MeshMatcapMaterial({ color: 0xffffff, matcap: matcap('metal') });
-    triplanar(m, { skin: sk, scale: 2.8, gain: 1.7 });
+    triplanar(m, { skin: sk, scale: sk.scale || 2.8, gain: 1.7 });
   } else if (sh === 'detailed') {
     m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 1, envMap: ENV, envMapIntensity: 0.9 });
-    triplanar(m, { skin: sk, scale: 2.8 });
+    triplanar(m, { skin: sk, scale: sk.scale || 2.8 });
   } else {
     // Shine by rarity: every skin gets some lacquer; Epic and Black Ice also a colour-shifting
     // (iridescent) sheen.
     const r = def.rarity;
-    const coat = Math.max(sk.clearcoat || 0, { common: 0.25, rare: 0.55, epic: 0.9, blackice: 1 }[r] || 0);
+    const coat = Math.max(sk.clearcoat || 0, { common: 0.25, rare: 0.55, epic: 0.9, blackice: 1, legendary: 1 }[r] || 0);
     m = new THREE.MeshPhysicalMaterial({
       color: 0xffffff, roughness: 1, metalness: 1, normalMap: gunMaps('metal').normal, normalScale: new THREE.Vector2(0.6, 0.6),
       clearcoat: coat, clearcoatRoughness: r === 'epic' || r === 'blackice' ? 0.05 : 0.15, envMap: highEnv(), envMapIntensity: r === 'common' ? 1.1 : 1.4,
-      iridescence: r === 'blackice' ? 0.8 : r === 'epic' ? 0.45 : 0, iridescenceIOR: 1.6, iridescenceThicknessRange: [200, 600],
+      iridescence: r === 'blackice' ? 0.8 : r === 'legendary' ? 0.5 : r === 'epic' ? 0.45 : 0, iridescenceIOR: 1.6, iridescenceThicknessRange: [200, 600],
     });
-    triplanar(m, sh === 'ultra' ? { skin: sk, scale: 2.8, detail: ultraDetail('paint'), detailScale: 9, detailStrength: 0.5 } : { skin: sk, scale: 2.8 });
+    triplanar(m, sh === 'ultra' ? { skin: sk, scale: sk.scale || 2.8, detail: ultraDetail('paint'), detailScale: 9, detailStrength: 0.5 } : { skin: sk, scale: sk.scale || 2.8 });
   }
   m.userData.skinKey = def.id + '@' + skinSize();
   return m;

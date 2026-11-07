@@ -862,6 +862,41 @@ try {
     await page.close();
   }
 
+  // Legendary skin: your own photo (a generated test image here), kept in this browser only.
+  {
+    console.log('\nLegendary skin (your photo)');
+    const page = await browser.newPage({ viewport: { width: 960, height: 540 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(String(e.stack || e)));
+    await page.goto(BASE + 'index.html?test', { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => window.__range);
+    const png = await page.evaluate(() => { const c = document.createElement('canvas'); c.width = 300; c.height = 400; const g = c.getContext('2d'); g.fillStyle = '#3a8a3a'; g.fillRect(0, 0, 300, 400); g.fillStyle = '#ffcc00'; g.beginPath(); g.arc(150, 180, 80, 0, 7); g.fill(); return c.toDataURL('image/png').split(',')[1]; });
+    await page.evaluate(() => { document.querySelector('.mode-card') && 0; });
+    await page.setInputFiles('#pk-legend-file', { name: 'me.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') });
+    await page.waitForFunction(() => { try { return !!localStorage.getItem('recoilRange.legendPhoto.v1'); } catch (e) { return false; } }, null, { timeout: 5000 });
+    const lg = await page.evaluate(() => {
+      const R = window.__range, prof = R.profile();
+      const card = [...document.querySelectorAll('#packs-root .pk-card')].find((c) => /Legend/.test(c.textContent));
+      const thumb = card && card.querySelector('img').src.startsWith('data:image/jpeg');
+      card.click();
+      const out = { thumb, rarity: card.textContent.includes('Legendary'), equipped: [0, 3, 7].map((s) => prof.equip(s, 2000) && prof.equippedFor(s)) };
+      const code = prof.saveCode();
+      out.codeHasPhoto = code.length > 200;
+      prof.loadCode(code); out.reloaded = prof.equippedFor(3);
+      // in battle: you see your photo; another player wearing it shows the gold finish
+      R.battleStart({ opponent: 'bots', bots: 1, level: 'easy', kills: 99, map: 'yard' });
+      const B = R.battle();
+      out.mine = B.humans[0].f.skin;
+      B._look(B.bots[0].f, B.bots[0].f.gun, 2000);
+      out.theirs = B.bots[0].f.skin;
+      R.battleLeave();
+      return out;
+    });
+    check('Legendary: your photo becomes a skin for every gun; the save code keeps the choice but not the photo; others see gold', lg.thumb && lg.rarity && lg.equipped.every((v) => v === 2000) && !lg.codeHasPhoto && lg.reloaded === 2000 && lg.mine === 2000 && lg.theirs === 2001, JSON.stringify(lg));
+    check('no page errors', errors.length === 0, errors.join('\n'));
+    await page.close();
+  }
+
   // Heights, vaulting, stairs, ramps, acid, night and weather.
   {
     console.log('\nBattle movement, hazards, night and weather');

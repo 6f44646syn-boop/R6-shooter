@@ -5,13 +5,14 @@
 // Points: KILL_POINTS per battle kill (+ HEADSHOT_BONUS for a headshot kill), WIN_POINTS for
 // winning a battle. A pack costs PACK_COST and gives one random skin; a duplicate refunds
 // points instead (by rarity).
-import { RARITIES, CATALOGUE, SKIN_COUNT } from './skins.js?v=9c7c864-mw6000bk';
+import { RARITIES, CATALOGUE, SKIN_COUNT, LEGEND_ID } from './skins.js?v=9163767-mw60jd0c';
 
 export const KILL_POINTS = 20, HEADSHOT_BONUS = 10, WIN_POINTS = 50, PACK_COST = 100;
 const KEY = 'recoilRange.profile.v1';
 const SLOTS = 10;
 const CODE_PREFIX = 'RRS1-';
 const NONE = 255;
+const LEGEND_BYTE = 254;          // the Legendary skin in a save code (the photo itself is not saved)
 
 function crc16(bytes) {            // CRC-16/CCITT, salted
   let c = 0x5a17;
@@ -45,7 +46,8 @@ export class Profile {
   onChange(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
   _changed() { this.save(); for (const fn of this.listeners) fn(this); }
 
-  has(id) { return id >= 0 && id < SKIN_COUNT && (this.owned[id >> 3] & (1 << (id & 7))) !== 0; }
+  // The Legendary (your photo) is always yours.
+  has(id) { return id === LEGEND_ID || (id >= 0 && id < SKIN_COUNT && (this.owned[id >> 3] & (1 << (id & 7))) !== 0); }
   get ownedCount() { let n = 0; for (let i = 0; i < SKIN_COUNT; i++) if (this.has(i)) n++; return n; }
   ownedIds() { const out = []; for (let i = 0; i < SKIN_COUNT; i++) if (this.has(i)) out.push(i); return out; }
   _own(id) { this.owned[id >> 3] |= 1 << (id & 7); }
@@ -92,7 +94,7 @@ export class Profile {
     b[o++] = 2;                                   // format version (2: 201 skins)
     dv.setUint32(o, this.points, true); o += 4;
     b.set(this.owned, o); o += this.owned.length;
-    for (let i = 0; i < SLOTS; i++) b[o++] = this.equipped[i] === null ? NONE : this.equipped[i];
+    for (let i = 0; i < SLOTS; i++) b[o++] = this.equipped[i] === null ? NONE : this.equipped[i] === LEGEND_ID ? LEGEND_BYTE : this.equipped[i];
     dv.setUint32(o, Math.min(this.kills, 0xffffffff), true); o += 4;
     dv.setUint16(o, Math.min(this.packs, 0xffff), true);
     return b;
@@ -128,7 +130,7 @@ export class Profile {
     const len = b[0] === 1 ? 25 : Math.ceil(SKIN_COUNT / 8);
     this.owned = new Uint8Array(Math.ceil(SKIN_COUNT / 8));
     this.owned.set(b.slice(o, o + len)); o += len;
-    for (let i = 0; i < SLOTS; i++) { const v = b[o++]; this.equipped[i] = v === NONE || v >= SKIN_COUNT ? null : v; }
+    for (let i = 0; i < SLOTS; i++) { const v = b[o++]; this.equipped[i] = v === LEGEND_BYTE ? LEGEND_ID : v === NONE || v >= SKIN_COUNT ? null : v; }
     this.kills = dv.getUint32(o, true); o += 4;
     this.packs = dv.getUint16(o, true);
   }

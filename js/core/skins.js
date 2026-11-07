@@ -9,14 +9,21 @@
 //   p        [scale (whole number), warp, threshold shift, spare]
 //   rm       [roughness, metalness] of the base, then of the accent
 //   clearcoat, wear (bare metal at the edges), glow ([r, g, b] light from the accent lines)
-import { mulberry32 } from './prng.js?v=9c7c864-mw6000bk';
+import { mulberry32 } from './prng.js?v=9163767-mw60jd0c';
 
 export const RARITIES = [
   { key: 'common', name: 'Common', color: '#b4bcc6', odds: 0.70, refund: 20 },
   { key: 'rare', name: 'Rare', color: '#4da3ff', odds: 0.22, refund: 40 },
   { key: 'epic', name: 'Epic', color: '#c26bff', odds: 0.07, refund: 80 },
   { key: 'blackice', name: 'Black Ice', color: '#7ff3ff', odds: 0.01, refund: 200 },
+  { key: 'legendary', name: 'Legendary', color: '#ffc23a', odds: 0, refund: 0 },     // not in packs: your own photo
 ];
+// The Legendary skin (your photo, any gun; see legend.js) and the gold finish other players
+// see on a gun wearing it.
+export const LEGEND_ID = 2000, LEGEND_GOLD_ID = 2001;
+const L3 = (r, g, b) => [r, g, b];
+export const LEGEND = { id: LEGEND_ID, name: 'Legend', rarity: 'legendary', photo: true, pattern: 11, c: [L3(0.5, 0.32, 0.05), L3(1, 0.7, 0.2), L3(1, 0.85, 0.4), L3(0, 0, 0)], p: [1, 1, 0, 0], rm: [0.3, 0.25, 0.3, 0.25], clearcoat: 1, wear: 0.12, glow: [0, 0, 0] };
+export const LEGEND_GOLD = { ...LEGEND, id: LEGEND_GOLD_ID, name: 'Legend', photo: false, rm: [0.25, 1, 0.2, 1], wear: 0.2 };
 export const RARITY = Object.fromEntries(RARITIES.map((r) => [r.key, r]));
 export const PATTERN_NAMES = ['Contour', 'Pixel', 'Woodland', 'Tiger', 'Veteran', 'Hexcore', 'Damascus', 'Blot', 'Weave', 'Shard', 'Black Ice', 'Fade', 'Line', 'Marble', 'Circuit', 'Blossom', 'Tide'];
 
@@ -116,7 +123,7 @@ for (const s of CATALOGUE) {
   else if (s.rarity === 'rare' && (s.id - 100) % 5 === 0) s.guns = ((s.id - 100) / 5) % 2 ? FAMILIES_BY_SLOT.rifle : FAMILIES_BY_SLOT.smg;
 }
 // Can skin id go on the gun in slot? (Factory skins and most others fit any gun.)
-export function skinFits(id, slot) { const s = skinById(id); return !!s && (!s.guns || s.guns.includes(slot)); }
+export function skinFits(id, slot) { const s = skinById(id); return !!s && (!s.guns || s.guns.includes(slot)); }   // Legendary fits every gun
 
 // Factory finishes (Ultra, nothing equipped): the original ten slot skins.
 const L = (r, g, b) => [r, g, b];
@@ -134,6 +141,8 @@ export const FACTORY = [
 ].map((s, i) => ({ id: 1000 + i, rarity: 'factory', p: [1, 1, 0, 0], glow: [0, 0, 0], ...s }));
 
 export function skinById(id) {
+  if (id === LEGEND_ID) return LEGEND;
+  if (id === LEGEND_GOLD_ID) return LEGEND_GOLD;
   if (id >= 1000) return FACTORY[(id - 1000) % FACTORY.length];
   return CATALOGUE[id] || null;
 }

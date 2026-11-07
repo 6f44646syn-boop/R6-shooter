@@ -3,13 +3,13 @@
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=9c7c864-mw6000bk';
-import { Arena } from './arena.js?v=9c7c864-mw6000bk';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=9c7c864-mw6000bk';
-import { Bot, LEVELS } from './bot.js?v=9c7c864-mw6000bk';
-import { Human } from './human.js?v=9c7c864-mw6000bk';
-import { drawCrosshair } from '../ui/crosshair.js?v=9c7c864-mw6000bk';
-import { CATALOGUE, skinFits } from '../core/skins.js?v=9c7c864-mw6000bk';
+import * as THREE from '../../vendor/three/three.module.min.js?v=9163767-mw60jd0c';
+import { Arena } from './arena.js?v=9163767-mw60jd0c';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=9163767-mw60jd0c';
+import { Bot, LEVELS } from './bot.js?v=9163767-mw60jd0c';
+import { Human } from './human.js?v=9163767-mw60jd0c';
+import { drawCrosshair } from '../ui/crosshair.js?v=9163767-mw60jd0c';
+import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=9163767-mw60jd0c';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -150,8 +150,8 @@ export class Battle {
       if (!h) { h = this.humanPool[i] = new Human(f, controls, { ...d }, d.slotOf); }
       h.f = f; h.controls = controls; h.padIndex = -1; h.releaseAll();
       h.setGun(gun);
-      this._look(f, gun, d.skinOf ? d.skinOf(gun) : null);
       this.humans.push(h); this.fighters.push(f);
+      this._look(f, gun, d.skinOf ? d.skinOf(gun) : null);
       return h;
     };
     mk(0, two ? 'Player 1' : this.net ? (opts.hostName || 'Host') : 'You', 'p1', opts.p1Gun, 'mouse');
@@ -219,7 +219,9 @@ export class Battle {
     return this.fighters.map((f) => ({ id: f.id, name: f.name, team: f.team, human: f.human, gun: this.deps.guns.indexOf(f.gun), skin: f.skin }));
   }
   // The gun (with its skin) others see this fighter carry.
-  _look(f, gun, skin) {
+  _look(f, gun, skin, mine = this.humans.some((h) => h.f === f)) {
+    // Someone else's Legendary (their own photo) shows as the gold finish here.
+    if (skin === LEGEND_ID && !mine) skin = LEGEND_GOLD_ID;
     try { f.setLook(gun, Math.max(0, this.deps.guns.indexOf(gun)), skin); } catch (e) { console.warn('gun look', e); }
   }
 
@@ -521,7 +523,7 @@ export class Battle {
       const f = new Fighter({ name: e.name, team: e.team, color: TEAM_COLOR[e.team] || 0xffffff, human: e.human });
       f.id = e.id;
       f.gun = d.guns[e.gun] || d.guns[0];
-      this._look(f, f.gun, e.id === m.you ? (d.skinOf ? d.skinOf(f.gun) : null) : skinNum(e.skin));
+      this._look(f, f.gun, e.id === m.you ? (d.skinOf ? d.skinOf(f.gun) : null) : skinNum(e.skin), e.id === m.you);
       if (e.human) f.showBar = false;
       this.fighters.push(f);
       this.arena.scene.add(f.group);

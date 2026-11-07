@@ -1,8 +1,9 @@
 // Skins & packs: points, the pack opening (a slot-machine reel that slows down and lands on
 // your skin), your collection (click to put a skin on the selected gun), and the save code.
-import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById, skinFits } from '../core/skins.js?v=9c7c864-mw6000bk';
-import { Profile, PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=9c7c864-mw6000bk';
-import { skinThumb } from '../render/gpu-tex.js?v=9c7c864-mw6000bk';
+import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById, skinFits, LEGEND_ID } from '../core/skins.js?v=9163767-mw60jd0c';
+import { Profile, PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=9163767-mw60jd0c';
+import { legendPhotoURL, setLegendPhoto, clearLegendPhoto, onLegendChange } from '../core/legend.js?v=9163767-mw60jd0c';
+import { skinThumb } from '../render/gpu-tex.js?v=9163767-mw60jd0c';
 
 function el(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);
@@ -28,6 +29,7 @@ export class PackUI {
   }
 
   thumb(id, size = 96) {
+    if (id === LEGEND_ID) return legendPhotoURL() || '';
     const key = id + '@' + size;
     if (!this.thumbs.has(key)) {
       let url = '';
@@ -41,6 +43,7 @@ export class PackUI {
   thumbImg(id, attrs = {}) {
     const key = id + '@96';
     const img = el('img', { class: 'pk-thumb', alt: '', ...attrs });
+    if (id === LEGEND_ID) { const u = legendPhotoURL(); if (u) img.src = u; else img.classList.add('pk-legend-empty'); return img; }
     if (this.thumbs.has(key)) { img.src = this.thumbs.get(key); return img; }
     img.dataset.thumb = id;
     this._queue = this._queue || new Set();
@@ -57,6 +60,30 @@ export class PackUI {
       if (performance.now() - t0 > 10) break;
     }
     if (this._queue.size) requestAnimationFrame(() => this._pump()); else this._pumping = false;
+  }
+
+  // Legendary: choose the photo for your own skin (kept in this browser only).
+  _legendBox() {
+    const file = el('input', { type: 'file', accept: 'image/*', id: 'pk-legend-file', class: 'pk-file' });
+    const msg = el('p', { class: 'small', role: 'status' });
+    const prev = el('img', { class: 'pk-thumb pk-legend-prev', alt: '' });
+    const show = () => { const u = legendPhotoURL(); prev.hidden = !u; if (u) prev.src = u; };
+    file.addEventListener('change', async () => {
+      try { await setLegendPhoto(file.files[0]); msg.textContent = 'Photo set. Equip "Legend" on any gun below or on the weapon screen.'; }
+      catch (e) { msg.textContent = e.message; }
+      file.value = ''; show(); this.refresh();
+    });
+    onLegendChange(() => { show(); this.thumbs.delete(LEGEND_ID + '@96'); });
+    show();
+    return el('div', { class: 'pk-legend' },
+      el('div', { class: 'pk-legend-text' },
+        el('h3', { class: 'pk-h3 r-legendary-text', text: 'Legendary: your own photo' }),
+        el('p', { class: 'small', text: 'Turn a photo into a skin for every gun. It stays in this browser only: it is not in the game files or your save code, and other players see a gold Legendary finish instead.' }),
+        el('div', { class: 'row' },
+          el('label', { class: 'pk-file-btn', for: 'pk-legend-file', text: 'Choose photo' }), file,
+          el('button', { type: 'button', text: 'Remove photo', onclick: () => { clearLegendPhoto(); msg.textContent = 'Photo removed.'; show(); this.refresh(); } })),
+        msg),
+      prev);
   }
 
   _build() {
@@ -77,7 +104,8 @@ export class PackUI {
         el('div', { class: 'pk-points' }, this.pointsEl, el('span', { text: ' points' })),
         this.openBtn),
       el('p', { class: 'small', text: KILL_POINTS + ' points per battle kill (+' + HEADSHOT_BONUS + ' for a headshot), +' + WIN_POINTS + ' for winning a battle. Odds: ' +
-        RARITIES.map((x) => x.name + ' ' + Math.round(x.odds * 100) + '%').join(' · ') + '. A duplicate gives points back.' }),
+        RARITIES.filter((x) => x.odds > 0).map((x) => x.name + ' ' + Math.round(x.odds * 100) + '%').join(' · ') + '. A duplicate gives points back.' }),
+      this._legendBox(),
       el('div', { class: 'pk-top' }, el('h3', { class: 'pk-h3' }, el('span', { text: 'Collection ' }), this.countEl, el('span', { text: ' / ' + SKIN_COUNT })), this.allBtn),
       this.grid, this.slotNote,
       el('div', { class: 'pk-save' },
@@ -117,9 +145,9 @@ export class PackUI {
     // Your skins, or (Show all) the whole catalogue rarest first, with the ones you lack locked.
     this.allBtn.textContent = this.showAll ? 'Show only mine' : 'Show all ' + SKIN_COUNT + ' skins';
     const order = { blackice: 0, epic: 1, rare: 2, common: 3 };
-    const ids = this.showAll ? CATALOGUE.map((s) => s.id).sort((a, b) => order[CATALOGUE[a].rarity] - order[CATALOGUE[b].rarity] || a - b) : p.ownedIds();
+    const ids = [LEGEND_ID, ...(this.showAll ? CATALOGUE.map((s) => s.id).sort((a, b) => order[CATALOGUE[a].rarity] - order[CATALOGUE[b].rarity] || a - b) : p.ownedIds())];
     for (const id of ids) {
-      const s = CATALOGUE[id], rar = RARITY[s.rarity], have = p.has(id);
+      const s = skinById(id), rar = RARITY[s.rarity], have = p.has(id);
       const fit = this.fits(id, slot), only = this.onlyFor(id);
       cards.push(el('button', {
         type: 'button', class: 'pk-card r-' + s.rarity + (eq === id ? ' on' : '') + (have ? '' : ' locked') + (have && !fit ? ' nofit' : ''),
@@ -139,8 +167,8 @@ export class PackUI {
     const cards = [el('button', { type: 'button', class: 'pk-card factory' + (eq === null ? ' on' : ''), onclick: () => pick(null) },
       el('span', { class: 'pk-thumb plain' }), el('span', { class: 'pk-name', text: 'Factory finish' }))];
     const order = { blackice: 0, epic: 1, rare: 2, common: 3 };
-    for (const id of p.ownedIds().filter((i) => this.fits(i, slot)).sort((a, b) => order[CATALOGUE[a].rarity] - order[CATALOGUE[b].rarity] || a - b)) {
-      const s = CATALOGUE[id];
+    for (const id of [LEGEND_ID, ...p.ownedIds().filter((i) => this.fits(i, slot)).sort((a, b) => order[CATALOGUE[a].rarity] - order[CATALOGUE[b].rarity] || a - b)]) {
+      const s = skinById(id);
       cards.push(el('button', { type: 'button', class: 'pk-card r-' + s.rarity + (eq === id ? ' on' : ''), title: s.name, onclick: () => pick(id) },
         this.thumbImg(id), el('span', { class: 'pk-name', text: s.name }),
         el('span', { class: 'pk-rar', text: RARITY[s.rarity].name })));
@@ -149,7 +177,7 @@ export class PackUI {
   }
   // Can skin id go on the gun in this slot? (Some skins are made for certain guns only.)
   fits(id, slot) { return skinFits(id, slot); }
-  onlyFor(id) { const s = CATALOGUE[id]; return s.guns ? 'Only for ' + s.guns.map((i) => this.guns[i] ? this.guns[i].name : '?').join(', ') : ''; }
+  onlyFor(id) { const s = skinById(id); return s.guns ? 'Only for ' + s.guns.map((i) => this.guns[i] ? this.guns[i].name : '?').join(', ') : ''; }
 
   async copyCode() {
     try { await navigator.clipboard.writeText(this.codeOut.value); this.codeMsg.textContent = 'Save code copied.'; }
