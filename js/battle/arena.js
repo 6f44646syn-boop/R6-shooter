@@ -7,12 +7,12 @@
 //
 // Coordinates: metres, x right, y up, z towards the "A" side. Same yaw convention as the
 // range: yaw 0 looks along -z, positive turns right.
-import * as THREE from '../../vendor/three/three.module.min.js?v=d80f33c-mw5z27t8';
-import { MAPS } from './maps.js?v=d80f33c-mw5z27t8';
-import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=d80f33c-mw5z27t8';
-import { flatMaterial } from '../scene/low.js?v=d80f33c-mw5z27t8';
-import { BulletHoles } from '../scene/holes.js?v=d80f33c-mw5z27t8';
-import { mulberry32 } from '../core/prng.js?v=d80f33c-mw5z27t8';
+import * as THREE from '../../vendor/three/three.module.min.js?v=6a917d5-mw5z3gm2';
+import { MAPS } from './maps.js?v=6a917d5-mw5z3gm2';
+import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=6a917d5-mw5z3gm2';
+import { flatMaterial } from '../scene/low.js?v=6a917d5-mw5z3gm2';
+import { BulletHoles } from '../scene/holes.js?v=6a917d5-mw5z3gm2';
+import { mulberry32 } from '../core/prng.js?v=6a917d5-mw5z3gm2';
 
 export const HALF_X = 18, HALF_Z = 14, WALL_H = 4.5;   // the old Container Yard size (tests)
 export const BODY_R = 0.35;       // fighter radius for collision
@@ -426,7 +426,7 @@ export class Arena {
     const [fc, fn, ff] = map.fog;
     const col = new THREE.Color(fc);
     let near = fn, far = ff;
-    if (a.fog) { near = 1; far = map.indoor ? 24 : 34; col.lerp(new THREE.Color(0xb8bcc0), map.indoor ? 0.3 : 0.6); }
+    if (a.fog) { near = 0; far = map.indoor ? 16 : 22; col.lerp(new THREE.Color(0xb8bcc0), map.indoor ? 0.3 : 0.6); }
     if (rain) { near = Math.min(near, 12); far = Math.min(far, 60); col.lerp(new THREE.Color(0x6a7078), 0.6); }
     if (a.night) { col.multiplyScalar(map.indoor ? 0.15 : 0.12).lerp(new THREE.Color(0x05070d), 0.5); near = Math.min(near, 4); far = Math.min(far, 45); }
     this.scene.fog.color.copy(col); this.scene.fog.near = near; this.scene.fog.far = far;
@@ -435,8 +435,10 @@ export class Arena {
     if (a.night) bg.copy(col);
     this.scene.background = bg;
     if (this.sky) {
-      this.sky.material.map = a.night ? nightSky() : (rain || a.fog) ? greySky() : this._daySky;
-      this.sky.material.color.set(a.night && rain ? 0x8090a0 : a.fog && !a.night ? 0xd8dce0 : 0xffffff);
+      // In fog the sky is just the fog colour, so everything fades into one grey.
+      this.sky.material.map = a.fog ? null : a.night ? nightSky() : rain ? greySky() : this._daySky;
+      if (a.fog) this.sky.material.color.copy(col);
+      else this.sky.material.color.set(a.night && rain ? 0x8090a0 : 0xffffff);
       this.sky.material.needsUpdate = true;
     }
     // light levels: moonlight outdoors, almost nothing indoors (the lamps and screens still glow)
@@ -451,7 +453,8 @@ export class Arena {
   _fogBanks() {
     const a = this.atm, q = this.quality, w = a.w || 'clear';
     const rain = !this.map.indoor && (w === 'rain' || w === 'storm');
-    const want = q === 'low' ? 0 : (a.fog ? (q === 'high' || q === 'ultra' ? 70 : 30) : rain && (q === 'high' || q === 'ultra') ? 24 : 0);
+    // Off: every quality uses the plain distance fog (it reads better than the banks did).
+    const want = 0;
     if (!this.banks) {
       this.banks = new THREE.Group();
       const rng = mulberry32(91), maxY = this.map.indoor ? this.wallH - 0.6 : 3.2;

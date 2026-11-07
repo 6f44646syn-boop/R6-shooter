@@ -2,8 +2,8 @@
 // still or slide left to right (wrapping round). Shooting one scores points and respawns it
 // somewhere else. Positions are a pure function of time, so hit tests at a shot's exact time
 // are frame-rate independent. Two draw calls (instanced discs + rings) whatever the count.
-import * as THREE from '../../vendor/three/three.module.min.js?v=d80f33c-mw5z27t8';
-import { mulberry32 } from '../core/prng.js?v=d80f33c-mw5z27t8';
+import * as THREE from '../../vendor/three/three.module.min.js?v=6a917d5-mw5z3gm2';
+import { mulberry32 } from '../core/prng.js?v=6a917d5-mw5z3gm2';
 
 export const MAX_DOTS = 12;
 export const DOT_POINTS = 100;

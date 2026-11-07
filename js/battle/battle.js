@@ -3,13 +3,13 @@
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=d80f33c-mw5z27t8';
-import { Arena } from './arena.js?v=d80f33c-mw5z27t8';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=d80f33c-mw5z27t8';
-import { Bot, LEVELS } from './bot.js?v=d80f33c-mw5z27t8';
-import { Human } from './human.js?v=d80f33c-mw5z27t8';
-import { drawCrosshair } from '../ui/crosshair.js?v=d80f33c-mw5z27t8';
-import { CATALOGUE, skinFits } from '../core/skins.js?v=d80f33c-mw5z27t8';
+import * as THREE from '../../vendor/three/three.module.min.js?v=6a917d5-mw5z3gm2';
+import { Arena } from './arena.js?v=6a917d5-mw5z3gm2';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=6a917d5-mw5z3gm2';
+import { Bot, LEVELS } from './bot.js?v=6a917d5-mw5z3gm2';
+import { Human } from './human.js?v=6a917d5-mw5z3gm2';
+import { drawCrosshair } from '../ui/crosshair.js?v=6a917d5-mw5z3gm2';
+import { CATALOGUE, skinFits } from '../core/skins.js?v=6a917d5-mw5z3gm2';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -860,8 +860,8 @@ export class Battle {
     if (this._meAlive && !f.alive) this._startKillCam(t);
     this._meAlive = f.alive;
     if (f.alive || (this.kc && t > this.kc.until)) this.kc = null;
-    // outlines: everyone else by day; your killer always during the kill cam
-    for (const g of this.fighters) g.outline.visible = g !== f && g.alive && (!this.night || (this.kc && this.kc.killer === g));
+    // outlines: everyone else, by day only
+    for (const g of this.fighters) g.outline.visible = g !== f && g.alive && !this.night;
     if (!this.kc) return;
     const kc = this.kc, rec = this.rec, rt = kc.from + (t - kc.start);
     // the recorded frames around the replay time
