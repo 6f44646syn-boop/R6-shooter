@@ -16,7 +16,7 @@
 //
 // Soft and reinforced walls are split into panels 1.5 m wide. The lower 2.2 m of a panel can
 // be destroyed (a hole); the part above stays.
-import { rayBox, pushCircleBox, circleHitsBox, segHitsBox } from './geom.js?v=646d2f7-mw61ssr2';
+import { rayBox, pushCircleBox, circleHitsBox, segHitsBox } from './geom.js?v=06a5fe1-mw62lq1z';
 
 export const PANEL_W = 1.5, HOLE_H = 2.2, BODY_R = 0.32;
 const GRID = 2;
@@ -136,6 +136,8 @@ export class MatchMap {
     if (out.length) this.version++;
     return out;
   }
+  // Every breakable panel whole again (a new Bomb round).
+  resetPanels() { for (const p of this.panels) { p.alive = true; p.box.alive = true; } this.version++; }
   callout(x, z) {
     for (const c of this.data.callouts || []) if (x >= Math.min(c.x0, c.x1) && x <= Math.max(c.x0, c.x1) && z >= Math.min(c.z0, c.z1) && z <= Math.max(c.z0, c.z1)) return c.name;
     return '';

@@ -7,12 +7,12 @@
 //
 // Body for hits (actor frame, standing; crouching squashes y to 0.7): head sphere at 1.62 m
 // (r 0.13), torso capsule 0.95-1.34 m (r 0.24), legs capsule 0.1-0.9 m (r 0.19).
-import { mulberry32 } from '../core/prng.js?v=646d2f7-mw61ssr2';
-import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=646d2f7-mw61ssr2';
-import { BODY_R } from './map.js?v=646d2f7-mw61ssr2';
-import { Brain } from './bots.js?v=646d2f7-mw61ssr2';
-import { makeRules } from './rules.js?v=646d2f7-mw61ssr2';
-import { Abilities } from './abilities.js?v=646d2f7-mw61ssr2';
+import { mulberry32 } from '../core/prng.js?v=06a5fe1-mw62lq1z';
+import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=06a5fe1-mw62lq1z';
+import { BODY_R } from './map.js?v=06a5fe1-mw62lq1z';
+import { Brain } from './bots.js?v=06a5fe1-mw62lq1z';
+import { makeRules } from './rules.js?v=06a5fe1-mw62lq1z';
+import { Abilities } from './abilities.js?v=06a5fe1-mw62lq1z';
 
 export const TICK = 1 / 60;
 export const EYE = 1.6, CROUCH_EYE = 1.1;
@@ -37,6 +37,7 @@ export function gunStats(g) {
 }
 
 export class Match {
+  static gunStatsOf(g) { return gunStats(g); }
   // o: { map (MatchMap), mode, guns (guns.json list), ops (ops.json), abilities (abilities.json),
   //      teamSize, difficulty, abilitiesOn, minutes, headshot ('lethal'|'x2'), seed,
   //      human: { op, side } | null (null: all bots, for the check) }
@@ -168,7 +169,7 @@ export class Match {
     if (g) { best = g.t; hit = null; this.ab.destroy(g.g, a); }
     const end = [o[0] + d[0] * best, o[1] + d[1] * best, o[2] + d[2] * best];
     this.emit({ type: 'shot', id: a.id, from: o.slice(), to: end, team: a.team, kind, wall: !hit && !g && w && w.box && !w.box.ground ? 1 : 0 });
-    if (hit) this.hit(hit.actor, damage, a, hit.zone, kind);
+    if (hit && damage > 0) this.hit(hit.actor, damage, a, hit.zone, kind);
     return { t: best, actor: hit ? hit.actor : null, zone: hit ? hit.zone : null, box: !hit && w ? w.box : null, end };
   }
   rayActor(o, d, e, maxT = Infinity) {
@@ -184,7 +185,7 @@ export class Match {
   }
   // The human's shot (direction from the range's recoil and spread).
   humanShot(a, o, d) {
-    if (!a.alive || this.over || this.rules.frozen(a)) return null;
+    if (!a.alive || this.over || this.rules.frozen(a) || this.rules.noFire(a)) return null;
     if (this.t < a.protectUntil) a.protectUntil = this.t;          // firing ends spawn protection
     this.noise(a, NOISE.shot, 'shot');
     return this.shoot(a, o, d);

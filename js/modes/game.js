@@ -4,19 +4,22 @@
 //
 // Map: flat-shaded low poly from the map file; static walls merged into one mesh, breakable
 // panels in one instanced mesh, one directional light (a 1024 shadow map in High / Ultra).
-import * as THREE from '../../vendor/three/three.module.min.js?v=646d2f7-mw61ssr2';
-import { MatchMap } from './map.js?v=646d2f7-mw61ssr2';
-import { Match, TICK } from './sim.js?v=646d2f7-mw61ssr2';
-import { yawTo, wrap180, DEG } from './geom.js?v=646d2f7-mw61ssr2';
-import { Fighter } from '../battle/fighter.js?v=646d2f7-mw61ssr2';
-import { Human } from '../battle/human.js?v=646d2f7-mw61ssr2';
-import { drawCrosshair } from '../ui/crosshair.js?v=646d2f7-mw61ssr2';
+import * as THREE from '../../vendor/three/three.module.min.js?v=06a5fe1-mw62lq1z';
+import { MatchMap } from './map.js?v=06a5fe1-mw62lq1z';
+import { Match, TICK } from './sim.js?v=06a5fe1-mw62lq1z';
+import { yawTo, wrap180, DEG } from './geom.js?v=06a5fe1-mw62lq1z';
+import { Fighter } from '../battle/fighter.js?v=06a5fe1-mw62lq1z';
+import { Human } from '../battle/human.js?v=06a5fe1-mw62lq1z';
+import { drawCrosshair } from '../ui/crosshair.js?v=06a5fe1-mw62lq1z';
 
 const TEAM_COLOR = { A: 0x5b8cff, B: 0xff7048 };
 const MAX_TRACERS = 64;
 const json = new Map();
 const load = (url) => { if (!json.has(url)) json.set(url, fetch(url, { cache: 'no-cache' }).then((r) => { if (!r.ok) throw new Error(url + ': ' + r.status); return r.json(); })); return json.get(url); };
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
+let XRAY = null;
+const xrayMat = (base) => XRAY || (XRAY = Object.assign(base.clone(), { depthTest: false, depthWrite: false }));
+const GADGET_COLOR = { mine: 0xffc040, jammer: 0x60d0ff, catcher: 0x9cff70, drone: 0xe0e0e0, charge: 0xff5030, breach: 0xffa040 };
 const fmt = (s) => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
 
 // Map looks per map id: floor, walls, cover, sky.
@@ -197,10 +200,21 @@ export class ModeGame {
     if (this.paused || this.over) dt = 0;
     const m = this.m, me = this.me, h = this.h;
     // you (the range's movement, look and weapon), then copy into the simulation
-    const frozen = m.rules.frozen(me) || m.t < me.stunUntil || (me.ab && me.ab.busy);
+    const ab = me.ab, abOn = m.o.abilitiesOn && ab;
+    if (me.forced) { h.f.x = me.x; h.f.z = me.z; h.f.vx = 0; h.f.vz = 0; me.forced = false; }
+    const frozen = m.rules.frozen(me) || m.t < me.stunUntil || (ab && (ab.busy || ab.dash));
+    const droning = abOn && ab.drone && ab.drone.alive;
+    if (droning && !this.paused && !this.over) m.ab.droneInput(me, h.in, dt);
+    // the breacher replaces the rifle while it is switched on; the drone needs your hands
+    const fire = h.in.fire;
+    if (abOn && (droning || ab.shotgun)) { if (ab.shotgun && fire && me.alive && !droning && m.ab.fireShotgun(me)) { this.deps.sfx.shot(0.15, 1); h.rig.kick && h.rig.kick(); } h.in.fire = false; }
     h.speedMult = me.alive && !frozen ? m.speedOf(me) : 0;
     h.f.alive = me.alive;
+    const mv = droning ? [h.in.fwd, h.in.back, h.in.left, h.in.right] : null;
+    if (mv) h.in.fwd = h.in.back = h.in.left = h.in.right = false;
     h.update(t, dt, this.bl);
+    if (mv) [h.in.fwd, h.in.back, h.in.left, h.in.right] = mv;
+    h.in.fire = fire;
     if (me.alive) {
       me.x = h.f.x; me.z = h.f.z; me.yaw = h.look.yaw; me.pitch = h.look.pitch;
       me.crouch = h.f.crouch; me.speed = Math.hypot(h.f.vx, h.f.vz); me.ads = h.adsE;
@@ -220,9 +234,14 @@ export class ModeGame {
       f.updateVisual(t);
       const enemy = a.team !== me.team;
       const v = a !== me && a.alive && enemy;
+      const xr = v && m.t < a.revealedUntil;
+      if (xr !== !!f._xr) { f._xr = xr; this._xray(f, xr); }
       f.outline.visible = v; for (const l of f.legs) l.o.visible = v;
+      if (xr) f.group.visible = true;
     }
     this._objectives(t);
+    this._gadgets(t);
+    this._camera(t);
     this._updateTracers(t);
     this._hud(t);
   }
@@ -255,7 +274,23 @@ export class ModeGame {
         if (won) this._earn('win');
         this._showEnd(e.winner === 'draw' ? 'Draw' : won ? 'Your team wins' : 'Your team loses', e.reason);
       } else if (e.type === 'msg') {
-        this._flash(e.text, t);
+        if (!e.private || e.id === me.id) this._flash(e.text, t);
+      } else if (e.type === 'swap') {
+        for (const a of m.actors) { const f = this.fig.get(a.id); f.name = a.name; f.setLook(a.gunData, Math.max(0, this.deps.guns.indexOf(a.gunData)), a.human && this.deps.skinOf ? this.deps.skinOf(a.gunData) : null); }
+        const op = me.op;
+        this.h.deps = { ...this.deps, opticFor: (g) => this.deps.opticById(op.sight, g) };
+        this.h.setGun(me.gunData);
+        this.hud.name.textContent = 'You · ' + op.name + ' · ' + me.gunData.name;
+      } else if (e.type === 'boom') {
+        const dist = Math.hypot(e.x - me.x, e.z - me.z);
+        sfx.shot(0.05, Math.max(0.1, Math.min(1, 6 / (dist + 3))));
+        this._boom(e.x, e.z, e.small ? 3 : 8, t, 0xffa040);
+      } else if (e.type === 'pulse') {
+        this._boom(e.x, e.z, 2.5, t, e.kind === 'jolt' ? 0x60a0ff : 0x9040ff);
+      } else if (e.type === 'scan') {
+        if (e.id === me.id || m.actors.find((x) => x.id === e.id)?.team === me.team) this._boom(e.x, e.z, e.r, t, 0x60ffd0);
+      } else if (e.type === 'caught') {
+        this._boom(e.x, e.z, 1, t, 0x9cff70);
       }
     }
     m.events.length = 0;
@@ -318,6 +353,107 @@ export class ModeGame {
     return s;
   }
 
+  /* ---------- abilities: x-ray, gadgets, effects, cameras ---------- */
+  _xray(f, on) {
+    const set = (o) => o.traverse((n) => { if (n.isMesh) { if (!n.userData.olMat) n.userData.olMat = n.material; n.material = on ? xrayMat(n.userData.olMat) : n.userData.olMat; n.renderOrder = on ? 6 : 0; } });
+    set(f.outline); for (const l of f.legs) set(l.o);
+  }
+  _gadgetMesh(g) {
+    const c = GADGET_COLOR[g.type] || 0xffffff, grp = new THREE.Group();
+    let geo;
+    if (g.type === 'drone') geo = new THREE.BoxGeometry(0.34, 0.14, 0.34);
+    else if (g.type === 'charge') geo = new THREE.BoxGeometry(0.5, 0.7, 0.08);
+    else if (g.type === 'breach') geo = new THREE.SphereGeometry(0.08, 8, 6);
+    else if (g.type === 'jammer') geo = new THREE.CylinderGeometry(0.14, 0.18, 0.22, 10);
+    else if (g.type === 'catcher') geo = new THREE.CylinderGeometry(0.06, 0.12, 0.5, 8);
+    else geo = new THREE.CylinderGeometry(0.16, 0.2, 0.08, 12);
+    const body = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: 0x2c3036 }));
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), new THREE.MeshBasicMaterial({ color: c }));
+    lamp.position.y = g.type === 'charge' ? 0.2 : g.type === 'catcher' ? 0.28 : 0.1;
+    if (g.type === 'breach') { body.material = new THREE.MeshBasicMaterial({ color: c }); lamp.visible = false; }
+    grp.add(body, lamp);
+    grp.userData = { body, lamp, color: c };
+    return grp;
+  }
+  _gadgets(t) {
+    const ab = this.m.ab, me = this.me, seen = new Set();
+    if (!this.gMeshes) this.gMeshes = new Map();
+    for (const g of [...ab.gadgets, ...ab.projectiles]) {
+      if (!g.alive) continue;
+      const key = g.type + g.id;
+      seen.add(key);
+      let o = this.gMeshes.get(key);
+      if (!o) { o = this._gadgetMesh(g); this.gMeshes.set(key, o); this.markerG.add(o); }
+      o.position.set(g.x, g.y || 0.05, g.z);
+      if (g.type === 'drone') { o.rotation.y = -g.yaw * DEG; o.visible = !(me.ab && me.ab.drone === g); }
+      if (g.type === 'charge') { const pn = this.map.panels[g.panel]; if (pn) { const b = pn.box; o.rotation.y = (b.maxX - b.minX) > (b.maxZ - b.minZ) ? 0 : Math.PI / 2; } }
+      // the lamp: off when zapped or jammed, blinking when armed, team colour otherwise
+      const u = o.userData, off = g.type !== 'breach' && ab.off(g);
+      u.lamp.material.color.setHex(off ? 0x303030 : g.trigAt ? (Math.floor(t * 8) % 2 ? 0xff2020 : 0x401010) : u.color);
+      // gadgets found by a scan show through walls for that team
+      const xr = g.team !== me.team && g.revealedFor === me.team && this.m.t < g.revealedUntil;
+      for (const n of [u.body, u.lamp]) { n.material.depthTest = !xr; n.renderOrder = xr ? 6 : 0; }
+    }
+    for (const [k, o] of this.gMeshes) if (!seen.has(k)) { this.markerG.remove(o); o.traverse((n) => { if (n.isMesh) { n.geometry.dispose(); n.material.dispose(); } }); this.gMeshes.delete(k); }
+  }
+  _boom(x, z, r, t, color) {
+    if (!this.fx) this.fx = [];
+    if (this.fx.length > 12) { const old = this.fx.shift(); this.markerG.remove(old.mesh); old.mesh.material.dispose(); }
+    if (!this._ringGeo) this._ringGeo = new THREE.RingGeometry(0.85, 1, 40);
+    const mesh = new THREE.Mesh(this._ringGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false }));
+    mesh.rotation.x = -Math.PI / 2; mesh.position.set(x, 0.06, z);
+    this.markerG.add(mesh);
+    this.fx.push({ mesh, t, r });
+  }
+  _updateFx(t) {
+    if (!this.fx) return;
+    this.fx = this.fx.filter((f) => {
+      const k = (t - f.t) / 0.6;
+      if (k >= 1) { this.markerG.remove(f.mesh); f.mesh.material.dispose(); return false; }
+      const s = 0.2 + f.r * Math.sqrt(k);
+      f.mesh.scale.set(s, s, s); f.mesh.material.opacity = 0.8 * (1 - k);
+      return true;
+    });
+  }
+  // The camera: your eyes, your drone, or (Bomb, down) a teammate's; jolt wobble, dread shake.
+  _camera(t) {
+    const m = this.m, me = this.me, h = this.h, ab = me.ab;
+    this._updateFx(t);
+    if (!this.dcam) this.dcam = new THREE.PerspectiveCamera(80, 1, 0.03, 300);
+    const cam = this.dcam;
+    let over = null;
+    const d = ab && ab.drone && ab.drone.alive ? ab.drone : null;
+    if (d) {
+      cam.position.set(d.x, (d.y || 0.15) + 0.08, d.z);
+      cam.rotation.set(d.pitch * DEG, -d.yaw * DEG, 0, 'YXZ');
+      over = cam;
+    } else if (!me.alive && m.o.mode === 'bomb') {
+      const mates = m.actors.filter((a) => a.alive && a.team === me.team);
+      if (mates.length) {
+        const a = mates[(this.specIndex || 0) % mates.length];
+        const e = m.eye(a);
+        // a little behind and above the teammate's shoulder
+        const y = a.yaw * DEG;
+        cam.position.set(e[0] - Math.sin(y) * 1.6, e[1] + 0.35, e[2] + Math.cos(y) * 1.6);
+        cam.rotation.set(a.pitch * DEG - 0.12, -y, 0, 'YXZ');
+        over = cam;
+        this.specName = a.name;
+      }
+    }
+    this.camOverride = over;
+    if (!over) this.specName = null;
+    // effects on whatever camera is showing
+    const c = over || h.camera;
+    if (me.alive && m.t < me.wobbleUntil) { c.rotation.z += Math.sin(t * 7) * 0.035; }
+    if (me.alive && m.t < me.shakeUntil) { c.rotation.x += (Math.random() - 0.5) * 0.01; c.rotation.y += (Math.random() - 0.5) * 0.01; }
+    const view = this.hud.view;
+    if (view) {
+      view.classList.toggle('mg-dread', me.alive && m.t < me.shakeUntil);
+      view.classList.toggle('mg-jolt', me.alive && m.t < me.wobbleUntil);
+      view.classList.toggle('mg-drone', !!d);
+    }
+  }
+
   /* ---------- render ---------- */
   render() {
     if (!this.active) return;
@@ -348,12 +484,13 @@ export class ModeGame {
   /* ---------- input ---------- */
   mouseMove(dx, dy) {
     if (!this.active || this.paused || this.over) return;
-    if (this.m.ab.mouse && this.m.ab.mouse(this.me, dx, dy, this)) return;
+    if (this.m.o.abilitiesOn && this.m.ab.mouse(this.me, dx, dy)) return;
     this.h.mouseMove(dx, dy);
   }
   mouseButton(b, down) {
     const h = this.h;
     if (!h) return;
+    if (b === 0 && down && !this.me.alive && this.m.o.mode === 'bomb') { this.specIndex = (this.specIndex || 0) + 1; return; }
     if (b === 0) h.in.fire = down;
     else if (b === 2) h.in.ads = down;
     else if (b === 3) h.in.leanL = down;
@@ -363,7 +500,13 @@ export class ModeGame {
     if (!this.active) return false;
     const h = this.h;
     if (code === 'Tab') { this.hud.board.hidden = !down; if (down) this._renderBoard(); return true; }
-    if (this.m.ab.key && this.m.ab.key(this.me, code, down, this)) return true;
+    const me = this.me, ab = this.m.ab;
+    if (this.m.o.abilitiesOn && me.alive && me.ab) {
+      if (code === 'KeyQ') { if (!this.paused && !this.over) ab.q(me, down); return true; }
+      if (code === 'KeyF' && me.ab.drone) { if (down) ab.f(me); return true; }
+      if (code === 'KeyV' && me.ab.drone) { if (down) ab.recall(me); return true; }
+      if (code === 'KeyB' && me.ab.id === 'underbarrel') { if (down) ab.toggleShotgun(me); return true; }
+    }
     if (this.m.rules.key && this.m.rules.key(this.me, code, down)) return true;
     const map = { KeyW: 'fwd', KeyS: 'back', KeyA: 'left', KeyD: 'right', ShiftLeft: 'sprint', Space: 'crouch', KeyC: 'crouch', KeyQ: 'leanL', KeyE: 'leanR' };
     if (this.m.o.abilitiesOn) delete map.KeyQ;          // Q is the ability

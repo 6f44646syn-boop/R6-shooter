@@ -91,6 +91,62 @@ console.log('\nFlag state machine');
   check('bringing the enemy flag to our stand with our flag home captures', R.score.A === 1 && fB.state === 'home' && !a.carry, 'score ' + R.score.A + ' ' + fB.state);
 }
 
+/* ---------- bomb state machine ---------- */
+console.log('\nBomb state machine');
+{
+  const mk = () => {
+    const m = new Match({ map: new MatchMap(maps.depot), mode: 'bomb', guns, ops, abilities, teamSize: 3, seed: 3, human: null, abilitiesOn: false });
+    for (const a of m.actors) a.brain = null;
+    return m;
+  };
+  const run = (m, s) => { for (let i = 0; i < s * 60; i++) m.step(); };
+  let m = mk(), R = m.rules;
+  const att = () => m.actors.filter((a) => R.isAttacker(a)), def = () => m.actors.filter((a) => !R.isAttacker(a));
+  check('round 1: prep, one attacker carries the bomb', R.phase === 'prep' && R.bomb.state === 'carried' && att().includes(R.bomb.carrier));
+  const c = R.bomb.carrier, site = R.sites[0];
+  c.x = site.x; c.z = site.z;
+  check('no planting during prep', !R.setHold(c, true));
+  run(m, 31);
+  check('the action phase starts after 30 s', R.phase === 'action');
+  check('hold E inside a site starts planting', R.setHold(c, true) && c.hold.type === 'plant');
+  run(m, 2); m.hit(c, 10, def()[0]);
+  check('damage cancels the plant', !c.hold && R.bomb.state === 'carried');
+  R.setHold(c, true); run(m, 5.2);
+  check('a 5 s hold plants the bomb', R.bomb.state === 'planted' && R.phase === 'planted');
+  const d = def()[0]; d.x = R.bomb.x + 0.5; d.z = R.bomb.z;
+  check('hold E beside the bomb starts defusing', R.setHold(d, true) && d.hold.type === 'defuse');
+  run(m, 6.2);
+  check('a 6 s hold defuses: the defenders win the round', R.rounds.length === 1 && R.rounds[0].reason === 'defused' && R.rounds[0].winner === d.team);
+  run(m, 5.5);
+  check('5 s later round 2 starts with everyone alive', R.round === 2 && m.actors.every((a) => a.alive));
+  // detonation
+  m = mk(); R = m.rules; run(m, 31);
+  let c2 = R.bomb.carrier; c2.x = R.sites[1].x; c2.z = R.sites[1].z; R.setHold(c2, true); run(m, 5.2);
+  run(m, 40.5);
+  check('the bomb goes off 40 s after the plant: attackers win', R.rounds[0] && R.rounds[0].reason === 'detonated' && R.rounds[0].winner === R.attackTeam());
+  // the carrier dies: the bomb drops, another attacker picks it up
+  m = mk(); R = m.rules; run(m, 31);
+  c2 = R.bomb.carrier; m.kill(c2, def()[0]); m.step();
+  check('the bomb drops when the carrier dies', R.bomb.state === 'dropped');
+  const other = att().find((a) => a.alive); other.x = R.bomb.x; other.z = R.bomb.z; m.step();
+  check('another attacker picks it up', R.bomb.state === 'carried' && R.bomb.carrier === other);
+  // time out with no plant
+  m = mk(); R = m.rules; run(m, 30 + 151);
+  check('time runs out with no plant: the defenders win', R.rounds[0] && R.rounds[0].reason === 'time' && R.rounds[0].winner !== R.attackTeam());
+  // elimination; planted with all attackers dead goes on until the bomb
+  m = mk(); R = m.rules; run(m, 31);
+  for (const a of def()) m.kill(a, att()[0]); m.step();
+  check('all defenders dead: the attackers win', R.rounds[0] && R.rounds[0].reason === 'eliminated' && R.rounds[0].winner === R.attackTeam());
+  m = mk(); R = m.rules; run(m, 31);
+  c2 = R.bomb.carrier; c2.x = R.sites[0].x; c2.z = R.sites[0].z; R.setHold(c2, true); run(m, 5.2);
+  for (const a of att()) m.kill(a, def()[0]); m.step();
+  check('after a plant, the round goes on with all attackers dead', !R.rounds.length && R.bomb.state === 'planted');
+  // sides swap after round 3
+  m = mk(); R = m.rules; const first = R.attackTeam();
+  for (let r = 0; r < 3; r++) { run(m, 31); for (const a of def()) m.kill(a, att()[0]); run(m, 5.5); }
+  check('sides swap after round 3 (ops change side too)', R.round === 4 && R.attackTeam() !== first && m.actors.filter((a) => R.isAttacker(a)).every((a) => ops.attackers.some((o) => o.id === a.op.id)));
+}
+
 /* ---------- matches ---------- */
 function run(mode, seed, extra = {}) {
   const mapId = mode === 'bomb' ? 'depot' : 'yard';
@@ -134,6 +190,15 @@ for (const mode of modes) {
     const rounds = res.flatMap((r) => r.m.rules.rounds || []);
     const okReasons = ['eliminated', 'detonated', 'defused', 'time'];
     check('every Bomb round ends by one of the four rules (' + rounds.length + ' rounds: ' + okReasons.map((k) => k + ' ' + rounds.filter((x) => x.reason === k).length).join(', ') + ')', rounds.length > 0 && rounds.every((x) => okReasons.includes(x.reason)), JSON.stringify(rounds.filter((x) => !okReasons.includes(x.reason)).slice(0, 3)));
+  }
+}
+// abilities in every mode (on by default only in Bomb): a few matches each with them on
+if (modes.includes('bomb')) {
+  console.log('\nAbilities on in TDM and CTF (6 matches each)');
+  for (const mode of ['tdm', 'ctf']) {
+    const res = [];
+    for (let s = 1; s <= 6; s++) res.push(run(mode, 100 + s, { abilitiesOn: true }));
+    check(mode.toUpperCase() + ' with abilities: matches end, nobody stuck over 5 s, no NaN', res.every((r) => r.ended && r.maxStuck <= 5 && !r.nan), res.map((r) => (r.ended ? 'ok' : 'not ended') + ' ' + r.maxStuck.toFixed(1) + 's ' + r.who).join('; '));
   }
 }
 if (typeof globalThis.__extraChecks === 'function') await globalThis.__extraChecks({ check, json, guns, ops, abilities, maps });

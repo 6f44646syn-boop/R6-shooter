@@ -7,8 +7,8 @@
 // target and grows with sustained fire (bloom); bursts limited by the gun's rpm and magazine.
 // Navigation: A* on the map's waypoint graph, string-pulled, with a stuck watchdog (no
 // progress for 3 s: re-path; still stuck: walk to the nearest waypoint).
-import { SKILL, EYE, NOISE } from './sim.js?v=646d2f7-mw61ssr2';
-import { dirFrom, yawTo, wrap180, DEG } from './geom.js?v=646d2f7-mw61ssr2';
+import { SKILL, EYE, NOISE } from './sim.js?v=06a5fe1-mw62lq1z';
+import { dirFrom, yawTo, wrap180, DEG } from './geom.js?v=06a5fe1-mw62lq1z';
 
 const VIEW = 55, RANGE = 45;
 
@@ -28,7 +28,7 @@ export class Brain {
     this.holding = false; this.wantCrouch = false; this.patrol = null; this.role = null;
   }
   hurtBy(e) { this.attacker = e; this.attackedAt = this.m.t; this.m.report(this.a.team, e); }
-  wantsMove() { return this.path.length > 0 && !this.holding && this.m.t >= this.a.stunUntil && !this.a.hold && !(this.m.rules.frozen(this.a)); }
+  wantsMove() { return this.path.length > 0 && !this.holding && !(this.a.ab && this.a.ab.busy) && this.m.t >= this.a.stunUntil && !this.a.hold && !(this.m.rules.frozen(this.a)); }
 
   /* ---------- think (15 Hz) ---------- */
   think() {
@@ -70,7 +70,7 @@ export class Brain {
     m.ab.botThink(this);
     // committed to reaching cover: do not flip-flop
     if ((this.state === 'cover' || this.state === 'reload') && t < this.commitUntil && this.path.length) return;
-    const obj = m.rules.botGoal(this);
+    const obj = this.abGoal || m.rules.botGoal(this);
     // Objective runs (stealing, carrying, recovering a flag; planting...) keep moving and shoot
     // on the way.
     if (best && obj && obj.push) {
@@ -87,7 +87,8 @@ export class Brain {
       }
       this.state = 'engage';
       // close the distance if far, otherwise strafe (handled in act)
-      if (bd > 22) this.setGoal(best.x, best.z, 'chase'); else { this.path = []; this.goal = null; this.goalKey = ''; }
+      // chase far targets, unless told to hold a position (then hold and shoot)
+      if (bd > 22 && !(obj && obj.hold)) this.setGoal(best.x, best.z, 'chase'); else { this.path = []; this.goal = null; this.goalKey = ''; }
       this.wantCrouch = false;
       return;
     }
@@ -138,8 +139,12 @@ export class Brain {
     const m = this.m, a = this.a;
     const changed = key !== this.goalKey || !this.goal || Math.hypot(x - this.goal[0], z - this.goal[1]) > 2;
     if (!changed && m.t < this.nextPath && this.path.length) return;
+    // do not swap goals back and forth: keep a new goal at least 1.2 s while on the way
+    // (taking cover is always allowed)
+    if (key !== this.goalKey && key !== 'cover' && this.path.length && m.t - (this.goalSetAt || -9) < 1.2) return;
+    if (key !== this.goalKey) this.goalSetAt = m.t;
     this.goal = [x, z]; this.goalKey = key;
-    this.path = Math.hypot(x - a.x, z - a.z) < 1.5 ? [] : m.map.path(a.x, a.z, x, z);   // already there
+    this.path = Math.hypot(x - a.x, z - a.z) < 2 ? [] : m.map.path(a.x, a.z, x, z);   // already there
     this.nextPath = m.t + 3 + m.rng();
     this.progT = m.t; this.progD = Infinity;
   }
@@ -214,7 +219,7 @@ export class Brain {
     a.yaw = ((this.aimYaw % 360) + 360) % 360;
     a.pitch = Math.max(-80, Math.min(80, this.aimPitch));
     // fire
-    if (frozen || !sees || a.reloadUntil || a.ammo <= 0) return;
+    if (frozen || !sees || a.reloadUntil || a.ammo <= 0 || m.rules.noFire(a)) return;
     if (t - this.seenAt < S.reaction || t < this.pauseUntil || t < a.nextShot) return;
     if (Math.abs(wrap180(wantY - a.yaw)) > 4 + S.err || Math.abs(wantP - a.pitch) > 4 + S.err) return;
     if (this.burst === 0) this.burst = Math.round(m.r(S.burst[0], S.burst[1]));

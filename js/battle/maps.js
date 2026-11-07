@@ -10,9 +10,9 @@
 // Each side is laid out differently.
 //
 // Everything is drawn in code (canvas textures); no image files.
-import * as THREE from '../../vendor/three/three.module.min.js?v=646d2f7-mw61ssr2';
-import { concreteTiles, wallPanels, duskSky, hazardStripes } from '../scene/range-tex.js?v=646d2f7-mw61ssr2';
-import { mulberry32 } from '../core/prng.js?v=646d2f7-mw61ssr2';
+import * as THREE from '../../vendor/three/three.module.min.js?v=06a5fe1-mw62lq1z';
+import { concreteTiles, wallPanels, duskSky, hazardStripes } from '../scene/range-tex.js?v=06a5fe1-mw62lq1z';
+import { mulberry32 } from '../core/prng.js?v=06a5fe1-mw62lq1z';
 
 /* ---------- texture helpers ---------- */
 function canvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; }
