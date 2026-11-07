@@ -3,17 +3,19 @@
 // rate with an aim error that drifts, fire bursts with the gun's real spray (partly
 // controlled), strafe, crouch behind low cover, retreat to cover when hurt, and roam the
 // arena on A* paths when they have no one to fight.
-import { Weapon } from '../core/weapon.js?v=3265449-mw5lt53t';
-import { RecoilEngine } from '../core/recoil.js?v=3265449-mw5lt53t';
-import { mulberry32 } from '../core/prng.js?v=3265449-mw5lt53t';
+import { Weapon } from '../core/weapon.js?v=d80f33c-mw5z27t8';
+import { RecoilEngine } from '../core/recoil.js?v=d80f33c-mw5z27t8';
+import { mulberry32 } from '../core/prng.js?v=d80f33c-mw5z27t8';
 
-// Per level: reaction (s), aim error sd (deg), turn rate (deg/s), recoil control (0..1),
-// burst [min, max] shots, pause between bursts (s), head aim chance, strafes, uses cover,
-// view cone (deg), move speed (m/s).
+// Per level: reaction (s), aim error sd (deg), turn rate when not fighting (deg/s), recoil
+// control (0..1), burst [min, max] shots, pause between bursts (s), head aim chance, strafes,
+// uses cover, view cone (deg), move speed (m/s); and the "hand": motor (flick duration
+// factor, 1 = an average player), flick (smallest error worth a flick, deg), pursuit
+// (tracking rate, 1/s), tremor (hand shake, deg).
 export const LEVELS = {
-  easy: { name: 'Easy', reaction: 0.7, err: 1.9, turn: 120, control: 0.35, burst: [3, 5], pause: 0.75, head: 0.05, strafe: 0, cover: false, cone: 110, speed: 2.6 },
-  medium: { name: 'Medium', reaction: 0.5, err: 1.3, turn: 220, control: 0.65, burst: [5, 9], pause: 0.45, head: 0.2, strafe: 0.5, cover: true, cone: 140, speed: 3.0 },
-  hard: { name: 'Hard', reaction: 0.3, err: 0.6, turn: 400, control: 0.85, burst: [6, 12], pause: 0.3, head: 0.45, strafe: 1, cover: true, cone: 170, speed: 3.4 },
+  easy: { name: 'Easy', reaction: 0.7, err: 1.9, turn: 120, control: 0.35, burst: [3, 5], pause: 0.75, head: 0.05, strafe: 0, cover: false, cone: 110, speed: 2.6, motor: 1.5, flick: 3, pursuit: 5, tremor: 0.22 },
+  medium: { name: 'Medium', reaction: 0.5, err: 1.3, turn: 220, control: 0.65, burst: [5, 9], pause: 0.45, head: 0.2, strafe: 0.5, cover: true, cone: 140, speed: 3.0, motor: 1.15, flick: 2.2, pursuit: 8, tremor: 0.14 },
+  hard: { name: 'Hard', reaction: 0.3, err: 0.6, turn: 400, control: 0.85, burst: [6, 12], pause: 0.3, head: 0.45, strafe: 1, cover: true, cone: 170, speed: 3.4, motor: 0.85, flick: 1.5, pursuit: 12, tremor: 0.09 },
 };
 
 const DEG = Math.PI / 180;
@@ -41,6 +43,9 @@ export class Bot {
     this.crouchWanted = false;
     this.attacker = null; this.attackedAt = -10;
     this._eye = [0, 0, 0]; this._pt = [0, 0, 0]; this._off = [0, 0];
+    // The "hand" (see _aim): where the bot means to aim, the current flick, shake phases.
+    this.ay = fighter.yaw; this.ap = 0; this.mv = null; this.settleUntil = 0; this.adsE = 0;
+    this.tr = 0; this.ph = [0, 1, 2, 3].map(() => this.rng() * 6.283);
   }
 
   setGun(gun) {
@@ -54,6 +59,7 @@ export class Bot {
 
   respawned() {
     this.target = null; this.seenAt = -1; this.path = []; this.goal = null; this.mode = 'roam';
+    this.ay = this.f.yaw; this.ap = 0; this.mv = null; this.adsE = 0; this.f.ads = 0; this.f.viewDY = this.f.viewDP = 0;
     this.weapon.setGun(this.gun);
     this.weapon.reloadSpeed = 1.5;
   }
@@ -151,7 +157,7 @@ export class Bot {
     }
     // Ease velocity, move, collide.
     const k = 1 - Math.exp(-10 * dt);
-    const sp = this.crouchWanted ? Math.min(speed, 1.5) : speed;
+    const sp = (this.crouchWanted ? Math.min(speed, 1.5) : speed) * (1 - 0.35 * this.adsE);
     f.vx += (mx * sp - f.vx) * k; f.vz += (mz * sp - f.vz) * k;
     const p = { x: f.x + f.vx * dt, y: f.y, z: f.z + f.vz * dt };
     arena.resolve(p);
@@ -172,7 +178,8 @@ export class Bot {
         this.nextErr = t + this._r(0.35, 0.8);
         // Aim settles the longer the bot tracks you: 1.5x error on first sight, 0.6x after ~2 s.
         const settle = 0.6 + 0.9 * Math.exp(-(t - this.seenAt) / 1.2);
-        this.errYaw = this._gauss() * L.err * settle; this.errPitch = this._gauss() * L.err * 0.6 * settle;
+        // (half of it: the rest of the inaccuracy now comes from the hand: flicks, lag, shake)
+      this.errYaw = this._gauss() * L.err * 0.5 * settle; this.errPitch = this._gauss() * L.err * 0.3 * settle;
       }
       if (this.burstLeft === 0) this.aimHead = this.rng() < L.head;
       const aimPt = this.aimHead ? tgt.head(this._pt) : tgt.chest(this._pt);
@@ -185,15 +192,19 @@ export class Bot {
     } else if (this.lastSeen && t - this.lastSeen.t < 4) {
       wantYaw = Math.atan2(this.lastSeen.x - f.x, -(this.lastSeen.z - f.z)) / DEG;
     }
-    const step = L.turn * dt;
-    const dyaw = wrap180(wantYaw - f.yaw);
-    f.yaw = ((f.yaw + Math.max(-step, Math.min(step, dyaw))) % 360 + 360) % 360;
-    f.pitch += Math.max(-step, Math.min(step, wantPitch - f.pitch));
+    this._aim(t, dt, tgt, wantYaw, wantPitch);
+    // Aim down sights while fighting (the third-person pose and replays show it); slower.
+    const adsWant = tgt && t - this.seenAt > L.reaction * 0.5 && this.mode !== 'retreat' ? 1 : 0;
+    this.adsE += Math.max(-dt / 0.2, Math.min(dt / 0.2, adsWant - this.adsE));
+    f.ads = this.adsE;
+    // The view climbs with the recoil you have not pulled down, and settles after a burst.
+    if (!this.weapon.triggerHeld) { const k = Math.exp(-6 * dt); f.viewDY = (f.viewDY || 0) * k; f.viewDP = (f.viewDP || 0) * k; }
 
     /* fire: after the reaction time, when lined up, in bursts */
     const ready = tgt && t - this.seenAt >= L.reaction && !this.weapon.reloading && t >= this.pauseUntil && t >= f.protectUntil;
     const lined = Math.abs(wrap180(wantYaw - f.yaw)) < 2.5 + L.err && Math.abs(wantPitch - f.pitch) < 2.5 + L.err;
-    if (ready && lined && this.mode !== 'retreat') {
+    const steady = !this.mv || this.mv.t > this.mv.T * 0.8;      // fire as a flick lands, not halfway
+    if (ready && lined && steady && this.mode !== 'retreat') {
       if (!this.weapon.triggerHeld) {
         if (this.burstLeft === 0) this.burstLeft = Math.round(this._r(L.burst[0], L.burst[1]));
         this.weapon.pressTrigger(t);
@@ -212,10 +223,44 @@ export class Bot {
     if (t - this.recoil.lastShot > Math.max(this.gun.resetSeconds, this.recoil.easeDur)) { this.recoil.clearOffset(); this.recoil.shotIndex = 0; }
     this.recoil.fire(t, this._off);
     const k = 1 - this.L.control;
-    const yaw = (f.yaw + this._off[0] * k) * DEG, pitch = (f.pitch + this._off[1] * k) * DEG;
+    f.viewDY = this._off[0] * k; f.viewDP = this._off[1] * k;
+    const yaw = (f.yaw + f.viewDY) * DEG, pitch = (f.pitch + f.viewDP) * DEG;
     const cp = Math.cos(pitch);
     out[0] = Math.sin(yaw) * cp; out[1] = Math.sin(pitch); out[2] = -Math.cos(yaw) * cp;
     return out;
+  }
+
+  // Aim like a hand on a mouse. A target far from the crosshair gets a flick: a quick
+  // movement that starts fast and eases in (minimum-jerk), takes longer for bigger turns
+  // (Fitts' law), and lands a little short or long and to the side; then smaller corrective
+  // flicks. Close to the target the aim tracks it with a lag. A slight shake on top.
+  // Before reacting to a new target the bot does not move its aim towards it.
+  _aim(t, dt, tgt, wantYaw, wantPitch) {
+    const f = this.f, L = this.L;
+    const dY = wrap180(wantYaw - this.ay), dP = wantPitch - this.ap, dist = Math.hypot(dY, dP);
+    const reacted = !tgt || t - this.seenAt >= L.reaction * 0.85;
+    if (this.mv) {
+      const M = this.mv;
+      M.t += dt;
+      const u = Math.min(1, M.t / M.T), s = u * u * u * (10 - 15 * u + 6 * u * u);
+      this.ay = M.y0 + M.dy * s; this.ap = M.p0 + M.dp * s;
+      if (u >= 1) { this.mv = null; this.settleUntil = t + this._r(0.04, 0.12) * L.motor; }
+    } else if (tgt && reacted && dist > L.flick && t >= this.settleUntil) {
+      const gain = 0.95 + this._gauss() * 0.07, side = this._gauss() * 0.035;
+      const T = (0.07 + 0.055 * Math.log2(1 + dist / 1.2)) * L.motor;
+      this.mv = { t: 0, T, y0: this.ay, p0: this.ap, dy: dY * gain - dP * side, dp: dP * gain + dY * side };
+    } else if (reacted) {
+      // tracking (or, with no one to fight, turning where it walks / looks)
+      const k = 1 - Math.exp(-(tgt ? L.pursuit : 5) * dt), cap = (tgt ? 900 : L.turn) * dt;
+      this.ay += Math.max(-cap, Math.min(cap, dY * k));
+      this.ap += Math.max(-cap, Math.min(cap, dP * k));
+    }
+    this.ay = ((this.ay % 360) + 360) % 360;
+    this.ap = Math.max(-80, Math.min(80, this.ap));
+    this.tr += dt;
+    const sh = L.tremor, p = this.ph, tr = this.tr;
+    f.yaw = ((this.ay + sh * (Math.sin(tr * 7.1 + p[0]) + 0.5 * Math.sin(tr * 13.3 + p[1]))) % 360 + 360) % 360;
+    f.pitch = this.ap + sh * 0.8 * (Math.sin(tr * 6.3 + p[2]) + 0.5 * Math.sin(tr * 11.7 + p[3]));
   }
 
   _setGoal(x, z, arena, t, y = 0) {

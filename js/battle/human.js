@@ -8,16 +8,16 @@
 //                       B crouch, A vault, L3 sprint, LB/RB lean.
 //   keys  (player 2, no gamepad): I J K L move, arrow keys look, Enter fire,
 //                       Right Shift aim, Backspace reload, / crouch.
-import * as THREE from '../../vendor/three/three.module.min.js?v=3265449-mw5lt53t';
-import { Look, PITCH_LIMIT } from '../core/look.js?v=3265449-mw5lt53t';
-import { Weapon } from '../core/weapon.js?v=3265449-mw5lt53t';
-import { RecoilEngine } from '../core/recoil.js?v=3265449-mw5lt53t';
-import { Spread } from '../core/spread.js?v=3265449-mw5lt53t';
-import { focalRatio } from '../core/sensitivity.js?v=3265449-mw5lt53t';
-import { WeaponRig } from '../scene/viewmodel.js?v=3265449-mw5lt53t';
-import { EYE_Z, VIEW_H } from '../scene/sight-model.js?v=3265449-mw5lt53t';
-import { reticleTextures } from '../ui/reticle-tex.js?v=3265449-mw5lt53t';
-import { RETICLE_COLORS } from '../ui/scope.js?v=3265449-mw5lt53t';
+import * as THREE from '../../vendor/three/three.module.min.js?v=d80f33c-mw5z27t8';
+import { Look, PITCH_LIMIT } from '../core/look.js?v=d80f33c-mw5z27t8';
+import { Weapon } from '../core/weapon.js?v=d80f33c-mw5z27t8';
+import { RecoilEngine } from '../core/recoil.js?v=d80f33c-mw5z27t8';
+import { Spread } from '../core/spread.js?v=d80f33c-mw5z27t8';
+import { focalRatio } from '../core/sensitivity.js?v=d80f33c-mw5z27t8';
+import { WeaponRig } from '../scene/viewmodel.js?v=d80f33c-mw5z27t8';
+import { EYE_Z, VIEW_H } from '../scene/sight-model.js?v=d80f33c-mw5z27t8';
+import { reticleTextures } from '../ui/reticle-tex.js?v=d80f33c-mw5z27t8';
+import { RETICLE_COLORS } from '../ui/scope.js?v=d80f33c-mw5z27t8';
 
 const DEG = Math.PI / 180;
 const WALK = 3.4, SPRINT = 5.6, CROUCH_WALK = 1.6, ADS_WALK = 2.2;
@@ -274,6 +274,7 @@ export class Human {
     const lt = (this.in.leanR ? 1 : 0) - (this.in.leanL ? 1 : 0);
     this.lean += (lt - this.lean) * (1 - Math.exp(-14 * dt));
     f.yaw = this.look.yaw; f.pitch = this.look.pitch;
+    f.viewDY = this.offset[0]; f.viewDP = this.offset[1];
 
     // Aim-down-sights blend and FOV (vertical FOV setting; sight's aimed FOV).
     const target = this.ads ? 1 : 0;
@@ -282,6 +283,7 @@ export class Human {
       this.adsP = target ? Math.min(1, this.adsP + step) : Math.max(0, this.adsP - step);
     }
     this.adsE = this.ads ? easeOut(this.adsP) : 1 - easeOut(1 - this.adsP);
+    f.ads = this.adsE;
     const tHip = Math.tan(s.fov * DEG / 2), tAds = Math.tan(this.deps.adsVFov(this.optic) * DEG / 2);
     this.fovV = 2 * Math.atan(tHip + (tAds - tHip) * this.adsE) / DEG;
 

@@ -3,13 +3,13 @@
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=3265449-mw5lt53t';
-import { Arena } from './arena.js?v=3265449-mw5lt53t';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=3265449-mw5lt53t';
-import { Bot, LEVELS } from './bot.js?v=3265449-mw5lt53t';
-import { Human } from './human.js?v=3265449-mw5lt53t';
-import { drawCrosshair } from '../ui/crosshair.js?v=3265449-mw5lt53t';
-import { CATALOGUE, skinFits } from '../core/skins.js?v=3265449-mw5lt53t';
+import * as THREE from '../../vendor/three/three.module.min.js?v=d80f33c-mw5z27t8';
+import { Arena } from './arena.js?v=d80f33c-mw5z27t8';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=d80f33c-mw5z27t8';
+import { Bot, LEVELS } from './bot.js?v=d80f33c-mw5z27t8';
+import { Human } from './human.js?v=d80f33c-mw5z27t8';
+import { drawCrosshair } from '../ui/crosshair.js?v=d80f33c-mw5z27t8';
+import { CATALOGUE, skinFits } from '../core/skins.js?v=d80f33c-mw5z27t8';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -302,7 +302,7 @@ export class Battle {
     }
     const end = bt === Infinity ? 60 : bt;
     const from = shooter instanceof Human ? this._v.set(o[0] + d[0] * 0.6, o[1] - 0.12 + d[1] * 0.6, o[2] + d[2] * 0.6) : f.muzzleWorld(this._v);
-    this._addTracer(from, [o[0] + d[0] * end, o[1] + d[1] * end, o[2] + d[2] * end], shotT, f.team);
+    this._addTracer(from, [o[0] + d[0] * end, o[1] + d[1] * end, o[2] + d[2] * end], shotT, f.team, false, f.id);
     let hole = null;
     if (best) this._damage(best.g, gunDamage(f.gun) * (ZONE_DAMAGE[best.r.zone] || 1), f, best.r.zone, shotT);
     else if (tw !== Infinity) {
@@ -417,7 +417,7 @@ export class Battle {
   }
   // Positions, health and score of everyone, ~30 times a second (newest wins).
   _sendSnapshot(t) {
-    const f = this.fighters.map((g) => [g.id, r2(g.x), r2(g.z), r1(g.yaw), r1(g.pitch), r2(g.crouch), Math.ceil(Math.max(0, g.health)), g.alive ? 1 : 0, t < g.flashUntil ? 1 : 0, g.kills, g.deaths, r2(g.y), g.light ? 1 : 0]);
+    const f = this.fighters.map((g) => [g.id, r2(g.x), r2(g.z), r1(g.yaw + (g.viewDY || 0)), r1(g.pitch + (g.viewDP || 0)), r2(g.crouch), Math.ceil(Math.max(0, g.health)), g.alive ? 1 : 0, t < g.flashUntil ? 1 : 0, g.kills, g.deaths, r2(g.y), g.light ? 1 : 0, r2(g.ads || 0)]);
     this._broadcast({ k: 'snap', f, s: this.teamScore }, true);
   }
   // A message from a player on another PC (host), or from the host (client).
@@ -432,6 +432,7 @@ export class Battle {
       f.x = +m.x || 0; f.z = +m.z || 0; f.yaw = +m.yaw || 0; f.pitch = +m.pitch || 0; f.crouch = Math.min(1, Math.max(0, +m.crouch || 0));
       f.y = Math.min(this.arena.wallH, Math.max(0, +m.y || 0));
       f.light = m.fl !== 0;
+      f.ads = Math.min(1, Math.max(0, +m.a || 0));
       this.arena.resolve(f);                      // never inside cover
     } else if (m.k === 'shot') {
       if (!f.alive || this.over) return;
@@ -442,7 +443,7 @@ export class Battle {
       if (t < f.protectUntil) f.protectUntil = t;
       f.flashUntil = t + 0.05;
       const a = f.muzzleWorld(this._v);
-      this._addTracer(a, m.b, t, f.team);
+      this._addTracer(a, m.b, t, f.team, false, f.id);
       this._broadcast({ k: 'tr', by: f.id, a: [r2(a.x), r2(a.y), r2(a.z)], b: m.b, team: f.team, tone: r.gun.tone, hole: m.hole || null }, true, r);
       if (m.hole) this.arena.holes.add(m.hole[0], m.hole[1], m.hole[2], m.hole[3], m.hole[4], m.hole[5]);
       this._shotSound(f, t);
@@ -534,7 +535,7 @@ export class Battle {
     const t = this.deps.now(), me = this.humans[0];
     if (m.k === 'snap') {
       for (const e of m.f) {
-        const [id, x, z, yaw, pitch, crouch, health, alive, flash, kills, deaths, y = 0, light = 1] = e;
+        const [id, x, z, yaw, pitch, crouch, health, alive, flash, kills, deaths, y = 0, light = 1, ads = 0] = e;
         const f = this.fighters.find((g) => g.id === id);
         if (!f) continue;
         f.kills = kills; f.deaths = deaths;
@@ -543,7 +544,7 @@ export class Battle {
           if (f.alive && !alive) { f.alive = false; f.respawnAt = t + RESPAWN_S; }
           continue;
         }
-        f.health = health; f.alive = !!alive; f.light = !!light;
+        f.health = health; f.alive = !!alive; f.light = !!light; f.ads = +ads || 0;
         if (flash) f.flashUntil = t + 0.05;
         const p = this.proxies.find((q) => q.f === f);
         if (p) { p.buf.push([t, x, z, yaw, pitch, crouch, y]); if (p.buf.length > 12) p.buf.shift(); }
@@ -558,7 +559,7 @@ export class Battle {
       me.look.setAngles(m.yaw, 0);
     } else if (m.k === 'tr') {
       const by = this.fighters.find((g) => g.id === m.by);
-      this._addTracer(new THREE.Vector3(m.a[0], m.a[1], m.a[2]), m.b, t, m.team);
+      this._addTracer(new THREE.Vector3(m.a[0], m.a[1], m.a[2]), m.b, t, m.team, false, m.by);
       if (m.hole) this.arena.holes.add(m.hole[0], m.hole[1], m.hole[2], m.hole[3], m.hole[4], m.hole[5]);
       if (by) { by.flashUntil = t + 0.05; this._shotSound(by, t); }
     } else if (m.k === 'hurt' && me) {
@@ -609,7 +610,7 @@ export class Battle {
     if (me && me.f.alive && t >= this._nextSnap) {
       this._nextSnap = t + 1 / SNAP_HZ;
       const f = me.f;
-      this.net.link.send({ k: 'st', x: r2(f.x), z: r2(f.z), y: r2(f.y), yaw: r1(f.yaw), pitch: r1(f.pitch), crouch: r2(f.crouch), fl: f.light ? 1 : 0 }, true);
+      this.net.link.send({ k: 'st', x: r2(f.x), z: r2(f.z), y: r2(f.y), yaw: r1(f.yaw + f.viewDY), pitch: r1(f.pitch + f.viewDP), crouch: r2(f.crouch), fl: f.light ? 1 : 0, a: r2(f.ads) }, true);
     }
     for (const f of this.fighters) f.updateVisual(t);
     this._killCam(t);
@@ -636,7 +637,7 @@ export class Battle {
     const end = bt === Infinity ? 60 : bt;
     const b = [r2(o[0] + d[0] * end), r2(o[1] + d[1] * end), r2(o[2] + d[2] * end)];
     const from = this._v.set(o[0] + d[0] * 0.6, o[1] - 0.12 + d[1] * 0.6, o[2] + d[2] * 0.6);
-    this._addTracer(from, b, shotT, f.team);
+    this._addTracer(from, b, shotT, f.team, false, f.id);
     let hole = null;
     if (!best && tw !== Infinity) {
       const n = this._hit.n;
@@ -665,6 +666,7 @@ export class Battle {
     const p1 = this.humans[0], p2 = this.humans[1];
     if (p2 && p2.controls !== 'mouse' && p2.key(code, down)) return true;
     if (code === 'Space' && this.kc && !p1.f.alive) { if (down) this.kc = null; return true; }
+    if (code === 'KeyV' && this.kc && !p1.f.alive) { if (down) { this.kc.pov = this.kcPov = !this.kc.pov; this._repVer++; } return true; }
     const map = { KeyW: 'fwd', KeyS: 'back', KeyA: 'left', KeyD: 'right', ShiftLeft: 'sprint', Space: 'crouch', KeyQ: 'leanL', KeyE: 'leanR', KeyC: 'vault' };
     if (!p2) map.ShiftRight = 'sprint';
     if (map[code]) { p1.in[map[code]] = down; return true; }
@@ -706,8 +708,9 @@ export class Battle {
       r.render(this.arena.scene, h.camera);
       h.f.group.visible = ownVis;
       r.clearDepth();
-      h.rig.setAspect(aspect, v.h);
-      r.render(h.rig.scene, h.rig.camera);
+      const rig = this.kc && this.kc.pov && i === 0 && this.puppet ? this.puppet.rig : h.rig;
+      rig.setAspect(aspect, v.h);
+      r.render(rig.scene, rig.camera);
     });
     r.setScissorTest(false);
     const sz = r.getSize(new THREE.Vector2());
@@ -727,10 +730,10 @@ export class Battle {
     this.trI = 0;
     this.arena.scene.add(this.tracers);
   }
-  _addTracer(a, b, t, team, replaying = false) {
+  _addTracer(a, b, t, team, replaying = false, by = 0) {
     if (!replaying) {
       const sh = (this.rec || (this.rec = { frames: [], shots: [] })).shots;
-      sh.push({ t, a: [a.x, a.y, a.z], b: [b[0], b[1], b[2]], team });
+      sh.push({ t, a: [a.x, a.y, a.z], b: [b[0], b[1], b[2]], team, by });
       while (sh.length && sh[0].t < t - 5) sh.shift();
     }
     const i = this.trI++ % MAX_TRACERS, p = this.trPos, c = this.trCol;
@@ -826,7 +829,7 @@ export class Battle {
      death those are played back. Space skips. */
   _record(t) {
     const rec = this.rec || (this.rec = { frames: [], shots: [] });
-    rec.frames.push({ t, d: this.fighters.map((f) => [f.id, f.x, f.y, f.z, f.yaw, f.pitch, f.crouch, f.alive ? 1 : 0, t < f.flashUntil ? 1 : 0]) });
+    rec.frames.push({ t, d: this.fighters.map((f) => [f.id, f.x, f.y, f.z, f.yaw + (f.viewDY || 0), f.pitch + (f.viewDP || 0), f.crouch, f.alive ? 1 : 0, t < f.flashUntil ? 1 : 0, f.ads || 0]) });
     while (rec.frames.length && rec.frames[0].t < t - 5) rec.frames.shift();
   }
   _startKillCam(t) {
@@ -835,9 +838,19 @@ export class Battle {
     const rec = this.rec;
     if (!k || !rec || !rec.frames.length) { this.kc = null; return; }
     const from = Math.max(rec.frames[0].t, t - 2.3);
-    this.kc = { killer: k, start: t, from, until: t + (t - from) + 0.5, shot: rec.shots.findIndex((s) => s.t >= from) };
+    this.kc = { killer: k, start: t, from, until: t + (t - from) + 0.5, shot: rec.shots.findIndex((s) => s.t >= from), pov: this.kcPov !== false, prevT: t };
     this.lastKillCam = { killer: k.name, frames: rec.frames.length, shots: rec.shots.filter((s) => s.t >= from).length };
     if (this.kc.shot < 0) this.kc.shot = rec.shots.length;
+  }
+  // A stand-in player that carries your killer's gun (with their skin) for the replay.
+  _puppet(k) {
+    if (!this.puppet) {
+      const pf = new Fighter({ name: 'replay', team: 'bots', color: 0xffffff, human: true });
+      this.puppet = new Human(pf, 'mouse', { ...this.deps }, this.deps.slotOf);
+    }
+    const P = this.puppet, gun = k.gun || this.deps.guns[0], key = gun.id + '|' + k.skin;
+    if (P._key !== key) { P.rig.forceSkin = k.skin ?? null; P.setGun(gun); P._key = key; }
+    return P;
   }
   _killCam(t) {
     const h = this.humans[0];
@@ -858,6 +871,7 @@ export class Battle {
     const A = fr[Math.max(0, j - 1)], B = fr[j];
     const w = B.t === A.t ? 1 : Math.min(1, Math.max(0, (rt - A.t) / (B.t - A.t)));
     let kill = null;
+    const dtR = Math.max(0, Math.min(0.1, t - kc.prevT)); kc.prevT = t;
     for (const g of this.fighters) {
       const a = A.d.find((e) => e[0] === g.id), b = B.d.find((e) => e[0] === g.id) || a;
       if (!a) { g.group.visible = false; continue; }
@@ -870,15 +884,32 @@ export class Battle {
       g.gunG.rotation.x = -Math.max(-30, Math.min(30, L(5))) * DEG2RAD * 0.5;
       g.flash.visible = !!(w < 0.5 ? a[8] : b[8]);
       g.barBg.visible = g.barFg.visible = false;
-      if (g === kc.killer) kill = { x: L(1), y: L(2), z: L(3), yaw, pitch: L(5), eye: 1.6 + (1.12 - 1.6) * crouch };
+      if (g === kc.killer) kill = { x: L(1), y: L(2), z: L(3), yaw, pitch: L(5), eye: 1.6 + (1.12 - 1.6) * crouch, ads: a[9] === undefined ? 0 : L(9) };
     }
     // shots fired in the replayed moment
     while (kc.shot < rec.shots.length && rec.shots[kc.shot].t <= rt) {
       const s = rec.shots[kc.shot++];
       if (s.t < kc.from) continue;
       this._addTracer(this._v.set(s.a[0], s.a[1], s.a[2]), s.b, t, s.team, true);
+      if (kc.pov && s.by === kc.killer.id && this.puppet) this.puppet.rig.kick();
     }
     if (!kill) return;
+    if (kc.pov) {
+      // Their eyes: their aim (with recoil), their gun and sight, aiming in when they did.
+      const P = this._puppet(kc.killer), cam = h.camera, s = this.deps.settings;
+      kc.killer.group.visible = false;
+      cam.position.set(kill.x, kill.y + kill.eye, kill.z);
+      cam.rotation.set(Math.max(-89, Math.min(89, kill.pitch)) * DEG2RAD, -kill.yaw * DEG2RAD, 0);
+      const ads = Math.max(0, Math.min(1, kill.ads));
+      const tH = Math.tan(s.fov * DEG2RAD / 2), tA = Math.tan(this.deps.adsVFov(P.optic) * DEG2RAD / 2);
+      const fov = 2 * Math.atan(tH + (tA - tH) * ads) / DEG2RAD;
+      if (Math.abs(cam.fov - fov) > 0.01) { cam.fov = fov; cam.updateProjectionMatrix(); }
+      P.rig.animations = s.animations; P.rig.reloadP = -1; P.rig.sprinting = false; P.rig.bobY = 0;
+      P.rig.root.visible = true;
+      P.rig.update(dtR, ads, t);
+      if (P.reticle) P.reticle.material.opacity = Math.min(1, Math.max(0, (ads - 0.55) / 0.35));
+      return;
+    }
     // over the killer's shoulder, along their aim
     const cam = h.camera, y = kill.yaw * DEG2RAD, p = kill.pitch * DEG2RAD;
     const fx = Math.sin(y) * Math.cos(p), fy = Math.sin(p), fz = -Math.cos(y) * Math.cos(p);
@@ -919,8 +950,8 @@ export class Battle {
     else title.textContent = 'Eliminated by ' + (h.killedBy || '?');
     const body = el('div', 'b-rep-body'); body.append(svg, stats);
     const back = Math.max(0, Math.ceil(h.f.respawnAt - this.t));
-    const foot = el('div', 'b-rep-skip', 'Back in ' + back + (this.kc ? ' · Space: skip kill cam' : ''));
-    box.replaceChildren(...[this.kc ? el('div', 'b-rep-cam', 'KILL CAM · REPLAY') : null, title, body, foot].filter(Boolean));
+    const foot = el('div', 'b-rep-skip', 'Back in ' + back + (this.kc ? ' · V: ' + (this.kc.pov ? 'shoulder view' : 'their view') + ' · Space: skip' : ''));
+    box.replaceChildren(...[this.kc ? el('div', 'b-rep-cam', 'KILL CAM · ' + (this.kc.pov ? 'THEIR VIEW' : 'REPLAY')) : null, title, body, foot].filter(Boolean));
   }
 
   _hitMarker(h, kind, t) {

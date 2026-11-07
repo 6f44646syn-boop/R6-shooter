@@ -2,9 +2,9 @@
 // test. The body is a soldier (soldier.js) in team colours carrying their real gun with its
 // skin; hits are decided on the same shapes the body is built around. Crouching squashes the
 // body to CROUCH_SCALE. y is the height of the feet (floors, stairs, box tops).
-import * as THREE from '../../vendor/three/three.module.min.js?v=3265449-mw5lt53t';
-import { soldierGeometry, raycastSoldier, GRIP_HAND } from './soldier.js?v=3265449-mw5lt53t';
-import { buildWorldGun } from '../scene/viewmodel.js?v=3265449-mw5lt53t';
+import * as THREE from '../../vendor/three/three.module.min.js?v=d80f33c-mw5z27t8';
+import { soldierGeometry, raycastSoldier, GRIP_HAND } from './soldier.js?v=d80f33c-mw5z27t8';
+import { buildWorldGun } from '../scene/viewmodel.js?v=d80f33c-mw5z27t8';
 
 export const STAND_EYE = 1.6, CROUCH_EYE = 1.12;
 export const CROUCH_SCALE = 0.7;
@@ -73,6 +73,8 @@ export class Fighter {
     Object.assign(this, { name: 'Fighter', team: 'bots', color: 0xffffff, human: false }, opts);
     this.x = 0; this.y = 0; this.z = 0; this.vx = 0; this.vy = 0; this.vz = 0;
     this.yaw = 0; this.pitch = 0;
+    this.viewDY = 0; this.viewDP = 0;   // recoil on top of the aim (what their screen shows)
+    this.ads = 0;               // aim down sights 0..1
     this.crouch = 0;            // 0 standing .. 1 crouched (eased)
     this.health = MAX_HEALTH;
     this.alive = true;

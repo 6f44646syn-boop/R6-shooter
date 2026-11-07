@@ -1,13 +1,13 @@
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=3265449-mw5lt53t';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=3265449-mw5lt53t';
-import { matcap } from './matcap.js?v=3265449-mw5lt53t';
-import { mulberry32 } from '../core/prng.js?v=3265449-mw5lt53t';
-import { gunMaps } from './range-tex.js?v=3265449-mw5lt53t';
-import { skinById, FACTORY } from '../core/skins.js?v=3265449-mw5lt53t';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=3265449-mw5lt53t';
+import * as THREE from '../../vendor/three/three.module.min.js?v=d80f33c-mw5z27t8';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=d80f33c-mw5z27t8';
+import { matcap } from './matcap.js?v=d80f33c-mw5z27t8';
+import { mulberry32 } from '../core/prng.js?v=d80f33c-mw5z27t8';
+import { gunMaps } from './range-tex.js?v=d80f33c-mw5z27t8';
+import { skinById, FACTORY } from '../core/skins.js?v=d80f33c-mw5z27t8';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=d80f33c-mw5z27t8';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -794,7 +794,8 @@ export class WeaponRig {
   // gun: validated gun data; slot: its index (finish colour); optic: chosen sight.
   setGun(gun, slot, optic) {
     const type = MODEL_FOR[gun.id] || (MODEL_TYPES.includes(gun.model) ? gun.model : 'rifle');
-    const sk = skinFor(slot);
+    // forceSkin (replays: someone else's gun): undefined = your skin for the slot, else that id / null.
+    const sk = this.forceSkin !== undefined ? (this.forceSkin === null ? null : skinById(this.forceSkin)) : skinFor(slot);
     const key = gun.id + '|' + optic.id + '|' + (sk ? sk.id : '-') + (this.noHands ? '|nh' : '');   // a skin change builds a new model
     let m = this.models.get(key);
     if (!m) {
@@ -805,12 +806,14 @@ export class WeaponRig {
       const gunG = new THREE.Group();
       const magG = new THREE.Group();
       SKIN_SLOT = slot;
+      if (this.forceSkin !== undefined) SKIN_FORCE = this.forceSkin;
       const finish = FINISHES[slot % FINISHES.length];
       BUILDERS[type](gunG, finish, magG);
       if (sk && sk.rarity === 'blackice' && sk.ice) iceCrystals(gunG, magG, sk, type);
       for (const [y, from, to] of RAILS[type]) topRail(gunG, y, from, to);
       if (sightShading() === 'ultra') ultraDetails(gunG, type, finish, magG);
       if (!this.noHands) hands(gunG, type);
+      SKIN_FORCE = undefined;
       mergeStatic(gunG);
       mergeStatic(magG);
       gunG.add(magG);
