@@ -7,8 +7,8 @@
 // target and grows with sustained fire (bloom); bursts limited by the gun's rpm and magazine.
 // Navigation: A* on the map's waypoint graph, string-pulled, with a stuck watchdog (no
 // progress for 3 s: re-path; still stuck: walk to the nearest waypoint).
-import { SKILL, EYE, NOISE } from './sim.js?v=a1880ea-mw7geivu';
-import { dirFrom, yawTo, wrap180, DEG } from './geom.js?v=a1880ea-mw7geivu';
+import { SKILL, EYE, NOISE } from './sim.js?v=3d9f8db-mw7k0mnu';
+import { dirFrom, yawTo, wrap180, DEG } from './geom.js?v=3d9f8db-mw7k0mnu';
 
 const VIEW = 55, RANGE = 45;
 
@@ -216,7 +216,8 @@ export class Brain {
     }
     if (t >= this.nextErr) {
       this.nextErr = t + 0.25;
-      const base = S.err * (0.35 + 0.65 * Math.exp(-this.onTarget / 1.0)) + this.bloom;
+      // shooting on the move is less accurate
+      const base = (S.err * (0.35 + 0.65 * Math.exp(-this.onTarget / 1.0)) + this.bloom) * (Math.hypot(a.vx, a.vz) > 2.5 ? 1.4 : 1);
       this.errY = m.gauss() * base; this.errP = m.gauss() * base * 0.6;
     }
     this.bloom = Math.max(0, this.bloom - dt * 4);
@@ -231,7 +232,8 @@ export class Brain {
     // close enough to knife (faster than a burst, works while reloading)
     if (Math.hypot(tgt.x - a.x, tgt.z - a.z) < 1.3 && Math.abs(wrap180(yawTo(tgt.x - a.x, tgt.z - a.z) - a.yaw)) < 35 && t - this.seenAt > S.reaction) { m.knife(a); return; }
     if (a.reloadUntil || a.ammo <= 0) return;
-    if (t - this.seenAt < S.reaction || t < this.pauseUntil || t < a.nextShot) return;
+    // holding an angle (standing still, waiting): quicker on the trigger
+    if (t - this.seenAt < S.reaction * (this.holding ? 0.6 : 1) || t < this.pauseUntil || t < a.nextShot) return;
     if (Math.abs(wrap180(wantY - a.yaw)) > 4 + S.err || Math.abs(wantP - a.pitch) > 4 + S.err) return;
     if (this.burst === 0) this.burst = Math.round(m.r(S.burst[0], S.burst[1]));
     const d = dirFrom(a.yaw + this.errY, a.pitch + this.errP, this._d || (this._d = [0, 0, 0]));

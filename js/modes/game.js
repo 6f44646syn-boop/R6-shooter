@@ -4,14 +4,15 @@
 //
 // Map: flat-shaded low poly from the map file; static walls merged into one mesh, breakable
 // panels in one instanced mesh, one directional light (a 1024 shadow map in High / Ultra).
-import * as THREE from '../../vendor/three/three.module.min.js?v=a1880ea-mw7geivu';
-import { MatchMap } from './map.js?v=a1880ea-mw7geivu';
-import { Match, TICK } from './sim.js?v=a1880ea-mw7geivu';
-import { yawTo, wrap180, DEG } from './geom.js?v=a1880ea-mw7geivu';
-import { Fighter } from '../battle/fighter.js?v=a1880ea-mw7geivu';
-import { Arena } from '../battle/arena.js?v=a1880ea-mw7geivu';
-import { Human } from '../battle/human.js?v=a1880ea-mw7geivu';
-import { drawCrosshair } from '../ui/crosshair.js?v=a1880ea-mw7geivu';
+import * as THREE from '../../vendor/three/three.module.min.js?v=3d9f8db-mw7k0mnu';
+import { MatchMap } from './map.js?v=3d9f8db-mw7k0mnu';
+import { Match, TICK } from './sim.js?v=3d9f8db-mw7k0mnu';
+import { yawTo, wrap180, DEG } from './geom.js?v=3d9f8db-mw7k0mnu';
+import { Fighter } from '../battle/fighter.js?v=3d9f8db-mw7k0mnu';
+import { buildMapLook, panelTextures } from './look.js?v=3d9f8db-mw7k0mnu';
+import { Arena } from '../battle/arena.js?v=3d9f8db-mw7k0mnu';
+import { Human } from '../battle/human.js?v=3d9f8db-mw7k0mnu';
+import { drawCrosshair } from '../ui/crosshair.js?v=3d9f8db-mw7k0mnu';
 
 const TEAM_COLOR = { A: 0x5b8cff, B: 0xff7048 };
 const MAX_TRACERS = 64;
@@ -88,51 +89,23 @@ export class ModeGame {
     Object.assign(this.sun.shadow.camera, { left: -S, right: S, top: S, bottom: -S, near: 1, far: 80 });
     this.sun.shadow.mapSize.set(1024, 1024); this.sun.shadow.bias = -0.001;
     scene.add(this.hemi, this.sun, this.sun.target);
-    // floor with a faint grid
-    const cv = document.createElement('canvas'); cv.width = cv.height = 128;
-    const g = cv.getContext('2d'); g.fillStyle = '#' + new THREE.Color(L.floor).getHexString(); g.fillRect(0, 0, 128, 128);
-    g.strokeStyle = 'rgba(0,0,0,0.12)'; g.lineWidth = 2; g.strokeRect(0, 0, 128, 128);
-    const ft = new THREE.CanvasTexture(cv); ft.wrapS = ft.wrapT = THREE.RepeatWrapping; ft.repeat.set(map.hx / 2, map.hz / 2); ft.colorSpace = THREE.SRGBColorSpace;
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(map.hx * 2, map.hz * 2), new THREE.MeshLambertMaterial({ map: ft }));
-    floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true;
-    scene.add(floor);
-    // static boxes: one merged mesh, a colour per kind, a little variation per box
-    const pos = [], nor = [], col = [];
-    const c = new THREE.Color();
-    let seed = 7;
-    const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
-    for (const b of map.solids) {
-      if (b.panel !== undefined) continue;
-      const k = b.kind === 'low' ? L.low : b.kind === 'edge' ? L.edge : b.kind === 'soft-top' ? L.soft : b.kind === 'reinforced-top' ? L.reinf : L.wall;
-      c.setHex(k).multiplyScalar(0.9 + rnd() * 0.2);
-      const geo = new THREE.BoxGeometry(b.maxX - b.minX, b.maxY - b.minY, b.maxZ - b.minZ).toNonIndexed();
-      geo.translate((b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2, (b.minZ + b.maxZ) / 2);
-      const p = geo.attributes.position, n = geo.attributes.normal;
-      for (let i = 0; i < p.count; i++) {
-        pos.push(p.getX(i), p.getY(i), p.getZ(i)); nor.push(n.getX(i), n.getY(i), n.getZ(i));
-        const shade = n.getY(i) > 0.5 ? 1.08 : 1;     // tops a touch lighter
-        col.push(c.r * shade, c.g * shade, c.b * shade);
-      }
-      geo.dispose();
-    }
-    const sg = new THREE.BufferGeometry();
-    sg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    sg.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
-    sg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-    const walls = new THREE.Mesh(sg, new THREE.MeshLambertMaterial({ vertexColors: true }));
-    walls.castShadow = walls.receiveShadow = true;
-    scene.add(walls);
-    // breakable panels (instanced; a broken one is scaled to nothing)
-    const np = map.panels.length;
-    this.panelMesh = null;
-    if (np) {
-      const im = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial(), np);
+    // ground, floors, walls, furniture, trees (look.js)
+    buildMapLook(scene, map, L);
+    // breakable panels: one instanced mesh per kind (a broken one is scaled to nothing)
+    const tex = panelTextures(), c = new THREE.Color();
+    this.panelLook = L;
+    this.panelMeshes = {};
+    this.panelSlot = map.panels.map(() => null);
+    for (const kind of ['soft', 'reinforced', 'door']) {
+      const list = map.panels.filter((pn) => pn.kind === kind);
+      if (!list.length) continue;
+      const im = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial({ map: tex[kind] }), list.length);
       im.castShadow = im.receiveShadow = true;
-      this.panelLook = L;
-      map.panels.forEach((pn, i) => im.setColorAt(i, c.setHex(pn.kind === 'reinforced' ? L.reinf : pn.kind === 'door' ? (L.door || 0x6e4c30) : L.soft).multiplyScalar(0.92 + (i % 3) * 0.05)));
+      list.forEach((pn, k) => { this.panelSlot[pn.i] = [im, k]; im.setColorAt(k, c.setRGB(1, 1, 1)); });
       scene.add(im);
-      this.panelMesh = im;
+      this.panelMeshes[kind] = im;
     }
+    this.panelMesh = map.panels.length ? true : null;
     // objectives (flags, bomb sites): drawn by the rules' markers
     this.markerG = new THREE.Group();
     scene.add(this.markerG);
@@ -148,7 +121,7 @@ export class ModeGame {
     this.scene = ar.scene;
     ar.setAtmosphere(false, 'auto', !!this.deps.settings.fog);
     ar.setGraphics(this.deps.settings.graphics, this.deps.renderer);
-    this.panelMesh = null;
+    this.panelMesh = null; this.panelMeshes = {};
     if (this.markerG) this.markerG.removeFromParent();
     this.markerG = new THREE.Group();
     this.scene.add(this.markerG, this.tracers);
@@ -159,16 +132,18 @@ export class ModeGame {
     if (!this.panelMesh || this.mapVersion === this.map.version) return;
     this.mapVersion = this.map.version;
     const mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3();
+    const c = this._pc || (this._pc = new THREE.Color());
     this.map.panels.forEach((pn, i) => {
-      const b = pn.box;
+      const slot = this.panelSlot[i];
+      if (!slot) return;
+      const [im, k] = slot, b = pn.box;
       if (pn.alive) { p.set((b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2, (b.minZ + b.maxZ) / 2); s.set(b.maxX - b.minX - 0.02, b.maxY - b.minY, b.maxZ - b.minZ); }
       else s.set(0, 0, 0);
+      im.setMatrixAt(k, mtx.compose(p, q, s));
       // doors darken as they splinter
-      if (pn.kind === 'door' && this.panelLook) { this._pc = this._pc || new THREE.Color(); this.panelMesh.setColorAt(i, this._pc.setHex(this.panelLook.door || 0x6e4c30).multiplyScalar(0.45 + 0.55 * Math.max(0, pn.hp) / 100)); }
-      this.panelMesh.setMatrixAt(i, mtx.compose(p, q, s));
+      if (pn.kind === 'door') im.setColorAt(k, c.setScalar(0.45 + 0.55 * Math.max(0, pn.hp) / 100));
     });
-    this.panelMesh.instanceMatrix.needsUpdate = true;
-    if (this.panelMesh.instanceColor) this.panelMesh.instanceColor.needsUpdate = true;
+    for (const im of Object.values(this.panelMeshes)) { im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; }
   }
   _applyGraphics() {
     if (!this.scene) return;
@@ -265,6 +240,9 @@ export class ModeGame {
       const xr = v && m.t < a.revealedUntil;
       if (xr !== !!f._xr) { f._xr = xr; this._xray(f, xr); }
       f.outline.visible = v; for (const l of f.legs) l.o.visible = v;
+      // teammates: a silhouette through walls (only while a wall is in the way)
+      if (a !== me && a.alive && !enemy) { if ((this._fr + a.id) % 6 === 0 || f._ghost === undefined) f.setGhost(!m.map.sight(this.camOverride ? [this.camOverride.position.x, this.camOverride.position.y, this.camOverride.position.z] : [me.x, 1.6, me.z], [a.x, 1.2, a.z])); }
+      else f.setGhost(false);
       if (xr) f.group.visible = true;
     }
     this._objectives(t);
@@ -667,7 +645,7 @@ export class ModeGame {
       rows.push(el('div', 'mg-board-h t-' + team, team === this.me.team ? 'Your team' : 'Enemy team'));
       for (const a of m.actors.filter((x) => x.team === team).sort((p, q) => q.kills - p.kills)) {
         const r = el('div', 'mg-board-row' + (a.alive ? '' : ' dead'));
-        r.append(el('span', '', a.name), el('span', 'small', a.op.name + ' · ' + a.gun.name), el('span', '', a.kills + ' K'), el('span', '', a.deaths + ' D'));
+        r.append(el('span', '', a.name), el('span', 'small', a.op.name + ' · ' + a.gun.name + (a.role && team === this.me.team ? ' · ' + a.role : '')), el('span', '', a.kills + ' K'), el('span', '', a.deaths + ' D'));
         rows.push(r);
       }
     }

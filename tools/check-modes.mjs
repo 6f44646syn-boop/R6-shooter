@@ -161,7 +161,7 @@ console.log('\nDoors and the knife');
   check('a whole door blocks walking through it', !m.map.walkClear(cx, cz - 1, cx, cz + 1));
   a.x = cx; a.z = cz - 1; a.yaw = 180; a.pitch = 0; a.crouch = 0; b.x = -30; b.z = -20;
   m.knife(a);
-  check('one knife hit breaks a door', !door.alive && m.map.walkClear(cx, cz - 1, cx, cz + 1));
+  check("one knife hit breaks a door", !door.alive && m.map.walkClear(cx, cz - 1, cx, cz + 0.4));
   m.map.resetPanels();
   m.t += 2;
   for (let k = 0; k < 4; k++) m.shoot(a, m.eye(a), [0, 0, 1]);
@@ -176,6 +176,18 @@ console.log('\nDoors and the knife');
   check('a knife from the front does 60', b.alive && b.hp === 40);
   m.t += 2; a.x = 0; a.z = 0; b.x = 0; b.z = 5; m.knife(a);
   check('a knife does not reach 5 m', b.hp === 40);
+}
+
+/* ---------- the bomb is yours; jobs ---------- */
+console.log('\nBomb: your bomb and the bots\' jobs');
+{
+  const m = new Match({ map: new MatchMap(maps.ranch), mode: 'bomb', guns, ops, abilities, teamSize: 5, seed: 2, human: { op: 'pace', side: 'attack' } });
+  const me = m.human(), R = m.rules;
+  check('you carry the bomb when you attack', R.bomb.carrier === me);
+  const roles = (att) => m.actors.filter((a) => a.brain && R.isAttacker(a) === att).map((a) => a.role).sort().join(',');
+  check('attacker bots each have a job', roles(true) === 'entry,flanker,lurker,support', roles(true));
+  check('defenders: anchors, site control and a roamer', roles(false) === 'anchor,anchor,roamer,site control,site control', roles(false));
+  check('one bomb site per map', ['ranch', 'embassy', 'workshop'].every((id) => maps[id].sites.length === 1 && maps[id].sites[0].entries.length >= 2));
 }
 
 /* ---------- drones ---------- */

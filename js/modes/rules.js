@@ -269,13 +269,21 @@ export class Bomb extends Rules {
     m.ab.clearAll(); m.map.resetPanels();
     this.target = this.sites[Math.floor(m.rng() * this.sites.length)];
     for (const a of m.actors) { m.spawn(a, this.spawnList(a.team), 0, 2.5); a.respawnAt = 0; m.ab.refill(a); if (a.brain) a.brain.post = null; }
-    // the bomb goes to a random attacker (a bot, unless you are the only one)
+    // the bomb: always yours when you attack, else a random attacker bot
     const att = m.actors.filter((a) => this.isAttacker(a));
-    const carrier = att.filter((a) => !a.human)[Math.floor(m.rng() * Math.max(1, att.length - 1))] || att[0];
+    const carrier = att.find((a) => a.human) || att[Math.floor(m.rng() * att.length)];
     this.give(carrier);
-    // defenders split between the sites
-    const def = m.actors.filter((a) => !this.isAttacker(a) && a.brain);
-    def.forEach((a, i) => { a.brain.site = this.sites[i % this.sites.length]; });
+    // jobs (the same bot keeps its job while on a side)
+    const ATT = ['entry', 'flanker', 'support', 'lurker'], DEF = ['anchor', 'site control', 'roamer', 'site control', 'anchor'];
+    let ai = 0, di = 0;
+    for (const a of m.actors) {
+      a.role = null;
+      if (!a.brain) continue;
+      const b = a.brain;
+      b.site = this.sites[0]; b.roam = null; b.flank = null; b.flankDone = false; b.fellBack = false;
+      if (this.isAttacker(a)) a.role = a === carrier ? 'carrier' : ATT[ai++ % ATT.length];
+      else { a.role = DEF[di % DEF.length]; b.slot = di++; }
+    }
     m.emit({ type: 'round', round: this.round, attack: this.attackTeam() });
     m.emit({ type: 'msg', text: 'Round ' + this.round + ': ' + (this.attackTeam() === (m.human() ? m.human().team : 'A') ? 'attack' : 'defend') });
   }
@@ -409,10 +417,31 @@ export class Bomb extends Rules {
         // guard the bomb from cover nearby
         return this.post(brain, b.x, b.z, 4, 11, 'guard');
       }
-      // escorts: go to the site, a little behind the carrier
-      const c = b.carrier;
-      if (c && c !== a && !(c.brain && c.brain.staging) && Math.hypot(c.x - site.x, c.z - site.z) > 6) return { x: c.x + (a.id % 3 - 1) * 2, z: c.z + (a.id % 2 ? -2 : 2), key: 'escort' + Math.round(c.x / 4) + ',' + Math.round(c.z / 4), push: true };
-      return { x: site.x + (a.id % 3 - 1) * 2.5, z: site.z + (a.id % 2 ? -2.5 : 2.5), key: 'site' + site.name + a.id, push: true };
+      const c = b.carrier, late = this.phaseEnd - t < 70;
+      const onSite = { x: site.x + (a.id % 3 - 1) * 2.5, z: site.z + (a.id % 2 ? -2.5 : 2.5), key: 'site' + site.name + a.id, push: true };
+      // support: stays with the carrier (you, or a bot), then on to the site
+      if (a.role === 'support' && c && c !== a && !(c.brain && c.brain.staging) && Math.hypot(c.x - site.x, c.z - site.z) > 6) return { x: c.x + (a.id % 3 - 1) * 2, z: c.z + (a.id % 2 ? -2 : 2), key: 'escort' + Math.round(c.x / 4) + ',' + Math.round(c.z / 4), push: true };
+      // flanker: round to the site's entry farthest from the team, then in through it
+      if (a.role === 'flanker' && !brain.flankDone && !late) {
+        if (!brain.flank) {
+          const E = site.entries || [];
+          const tx = m.actors.filter((x) => x.alive && this.isAttacker(x)).reduce((s, x) => s + x.x, 0), tz = m.actors.filter((x) => x.alive && this.isAttacker(x)).reduce((s, x) => s + x.z, 0), n = Math.max(1, m.actors.filter((x) => x.alive && this.isAttacker(x)).length);
+          const e = E.slice().sort((p, q) => Math.hypot(q[0] - tx / n, q[1] - tz / n) - Math.hypot(p[0] - tx / n, p[1] - tz / n))[0];
+          if (e) { const dx = e[0] - site.x, dz = e[1] - site.z, L = Math.hypot(dx, dz) || 1; brain.flank = [e[0] + dx / L * 2.5, e[1] + dz / L * 2.5]; }
+          else brain.flankDone = true;
+        }
+        if (brain.flank) {
+          if (Math.hypot(brain.flank[0] - a.x, brain.flank[1] - a.z) < 2) brain.flankDone = true;
+          else return { x: brain.flank[0], z: brain.flank[1], key: 'flank', push: t - brain.visAt > 3 };
+        }
+      }
+      // lurker: hunts roamers away from the site until late in the round
+      if (a.role === 'lurker' && !late) {
+        const away = [...m.bb[a.team].seen.values()].filter((s) => t - s.t < 8 && Math.hypot(s.x - site.x, s.z - site.z) > 9).sort((p, q) => q.t - p.t)[0];
+        if (away) return { x: away.x, z: away.z, key: 'lurk' + Math.round(away.x / 3) + ',' + Math.round(away.z / 3) };
+        return this.roamGoal(brain, site, 'lurk');
+      }
+      return onSite;
     }
     // defenders
     if (b.state === 'planted') {
@@ -424,24 +453,42 @@ export class Bomb extends Rules {
       }
       return { x: b.x, z: b.z, key: 'tobomb', push: clear };
     }
-    // rotate on noise: heard or seen attackers near the other site
-    const site = brain.site || this.sites[0];
-    const seen = [...m.bb[a.team].seen.values()].filter((s) => t - s.t < 5);
-    // (slowly, and one site is never left empty)
-    for (const s of seen) {
-      const other = this.sites.find((q) => q !== site && Math.hypot(q.x - s.x, q.z - s.z) < 10);
-      if (!other || m.rng() > 0.02) continue;
-      const left = m.actors.filter((x) => x.alive && x !== a && !this.isAttacker(x) && x.brain && x.brain.site === site).length;
-      if (left >= 1) { brain.site = other; brain.post = null; }
-      break;
+    const site = brain.site || this.sites[0], late = this.phaseEnd - t < 55;
+    // roamer: works the rooms away from the site, holding each spot a while; falls back late
+    // (falls back when hurt or when two or more attackers have been seen near it)
+    const crowd = [...m.bb[a.team].seen.values()].filter((s) => t - s.t < 6 && Math.hypot(s.x - a.x, s.z - a.z) < 14).length;
+    if (a.role === 'roamer' && (a.hp < 60 || crowd >= 2)) brain.fellBack = true;
+    if (a.role === 'roamer' && !late && !brain.fellBack) return this.roamGoal(brain, site, 'roam');
+    // site control: holds one of the ways into the site
+    if ((a.role === 'site control' || a.role === 'roamer') && site.entries && site.entries.length) {
+      const e = site.entries[(brain.slot || 0) % site.entries.length], de = Math.hypot(e[0] - site.x, e[1] - site.z);
+      // a spot on the site's side of the doorway, watching it
+      return this.post(brain, e[0], e[1], 1.5, 6, 'ctrl', true, (c) => Math.hypot(c[0] - site.x, c[1] - site.z) < de);
     }
-    return this.post(brain, site.x, site.z, 1, 7, 'hold', true);
+    // anchor: on the site itself, watching the nearest way in
+    const g = this.post(brain, site.x, site.z, 1, 6, 'hold', true);
+    const E = site.entries || [];
+    if (E.length) { const e = E.slice().sort((p, q) => Math.hypot(p[0] - g.x, p[1] - g.z) - Math.hypot(q[0] - g.x, q[1] - g.z))[0]; g.face = [e[0], e[1]]; }
+    return g;
+  }
+  // A spot away from the site (inside the building), held for a while, then the next.
+  roamGoal(brain, site, key) {
+    const m = this.m, a = brain.a;
+    if (!brain.roam || m.t > brain.roamUntil) {
+      const bb = m.map.data.building;
+      const spots = m.map.data.cover.filter((c) => Math.hypot(c[0] - site.x, c[1] - site.z) > 11 && (!bb || (c[0] > bb[0] && c[0] < bb[2] && c[1] > bb[1] && c[1] < bb[3])));
+      brain.roam = spots.length ? spots[Math.floor(m.rng() * spots.length)] : [site.x, site.z];
+      brain.roamUntil = m.t + 14 + m.rng() * 10;
+    }
+    const r = brain.roam;
+    // face away from the site (where attackers come from)
+    return { x: r[0], z: r[1], key: key + r[0] + ',' + r[1], hold: true, r: 1.5, crouch: key === 'roam', face: [r[0] * 2 - site.x, r[1] * 2 - site.z] };
   }
   // A cover spot (authored in the map) between rmin and rmax of a point, held crouched.
-  post(brain, x, z, rmin, rmax, key, crouch = false) {
+  post(brain, x, z, rmin, rmax, key, crouch = false, ok = null) {
     const m = this.m;
     if (!brain.post || brain.postFor !== key + x + z || brain.postT < m.t) {
-      const spots = m.map.data.cover.filter((c) => { const d = Math.hypot(c[0] - x, c[1] - z); return d >= rmin && d <= rmax && m.map.sight([c[0], 1.2, c[1]], [x, 1.2, z]); });
+      const spots = m.map.data.cover.filter((c) => { const d = Math.hypot(c[0] - x, c[1] - z); return d >= rmin && d <= rmax && (!ok || ok(c)) && m.map.sight([c[0], 1.2, c[1]], [x, 1.2, z]); });
       brain.post = spots.length ? spots[Math.floor(m.rng() * spots.length)] : [x, z];
       brain.postFor = key + x + z; brain.postT = m.t + 25;
     }

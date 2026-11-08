@@ -5,8 +5,8 @@ import { MatchMap } from '../js/modes/map.js';
 import { MAPS as BATTLE } from '../js/battle/maps.js';
 
 const H = 3.2;
-const wall = (x0, z0, x1, z1, h = H) => ({ x0, z0, x1, z1, h });
-const box = (x, z, w, d, h) => wall(x - w / 2, z - d / 2, x + w / 2, z + d / 2, h);
+const wall = (x0, z0, x1, z1, h = H, look) => (look ? { x0, z0, x1, z1, h, look } : { x0, z0, x1, z1, h });
+const box = (x, z, w, d, h, look) => wall(x - w / 2, z - d / 2, x + w / 2, z + d / 2, h, look);
 // A wall along x (at z) or along z (at x) with open gaps [[from, to]].
 function line(axis, a, b, at, gaps = [], t = 0.4, h = H) {
   const cuts = [a, ...gaps.flat(), b], out = [];
@@ -94,7 +94,7 @@ function building(spec) {
   const walls = [], doors = [], soft = [], reinforced = [], openings = [];
   const wl = (axis, a, b, at, open = []) => {
     const sorted = open.slice().sort((p, q) => p[0] - q[0]);
-    walls.push(...line(axis, a, b, at, sorted.map((o) => [o[0], o[1]])));
+    walls.push(...line(axis, a, b, at, sorted.map((o) => [o[0], o[1]])).map((w) => ({ ...w, look: 'house' })));
     for (const [f, t, type] of sorted) {
       const seg = axis === 'x' ? { x0: f, z0: at, x1: t, z1: at } : { x0: at, z0: f, x1: at, z1: t };
       if (type === 'door') doors.push(seg); else if (type === 'soft') soft.push(seg); else if (type === 'reinf') reinforced.push(seg);
@@ -102,7 +102,12 @@ function building(spec) {
     }
   };
   spec.lines(wl);
-  return { ...spec.data, wallH: H, walls: [...walls, ...spec.data.walls], doors, soft, reinforced, openings };
+  // the ways into each site: doorways and openings near it
+  const sites = spec.data.sites.map((st) => ({ ...st, entries: openings.map((o) => (o.axis === 'x' ? [o.c, o.at] : [o.at, o.c])).filter((e) => {
+    const room = (spec.data.callouts || []).find((c) => c.floor && st.x > c.x0 && st.x < c.x1 && st.z > c.z0 && st.z < c.z1);
+    return room ? e[0] >= room.x0 - 0.6 && e[0] <= room.x1 + 0.6 && e[1] >= room.z0 - 0.6 && e[1] <= room.z1 + 0.6 : Math.hypot(e[0] - st.x, e[1] - st.z) < 11;
+  }) }));
+  return { ...spec.data, sites, wallH: H, walls: [...walls, ...spec.data.walls], doors, soft, reinforced, openings };
 }
 
 // Ranch: one long house; a hallway runs east-west between the south rooms (kitchen, lobby,
@@ -121,26 +126,26 @@ const ranch = building({
     wl('z', -12, -2, 4, [[-7, -5.6, 'gap']]);
   },
   data: {
-    id: 'ranch', name: 'Ranch', hx: 34, hz: 24,
+    id: 'ranch', name: 'Ranch', hx: 34, hz: 24, building: [-24, -12, 20, 12], ground: 'grass',
     walls: [
-      box(-18, -7, 4, 0.8, 1.1), box(-4, -8, 3, 1, 1.1), box(12, -7, 2.2, 4.4, 1.5), box(17.5, -10, 1.2, 1.2, 1.2),
-      box(-19, 8, 2.2, 3, 0.8), box(-10, 10.8, 2, 0.8, 1.8), box(12, 9.5, 2, 1, 1.1), box(16.5, 4.5, 1.2, 1.2, 1.2),
-      box(1, 7, 4, 1, 0.9), box(1, 11.5, 3, 0.6, 2), box(-20, 0, 1.2, 1.2, 1.2), box(14, 0, 1, 1, 1.1),
-      box(-14, -18, 4.5, 2, 1.5), box(6, -19, 2, 4.5, 1.5), box(-2, -16, 1.2, 1.2, 1.2), box(18, -17, 3, 0.8, 1.1),
-      box(-15, 17, 3, 1, 1.1), box(4, 18, 4.5, 2, 1.5), box(16, 16, 1.2, 1.2, 1.2),
-      box(-29, -6, 2, 4, 1.5), box(-28, 8, 1.2, 1.2, 1.2), box(26, -8, 1.2, 3, 1.1), box(27, 9, 2, 4.5, 1.5),
+      box(-18, -10.3, 4, 0.8, 1.1, 'counter'), box(-23.3, -7, 0.8, 4, 1.1, 'counter'), box(-4, -8, 3, 1, 1.1, 'desk'), box(12, -7, 2.2, 4.4, 1.5, 'car'), box(17.5, -10, 1.2, 1.2, 1.2, 'crate'),
+      box(-19, 8, 2.2, 3, 0.8, 'bed'), box(-10, 11.3, 2, 0.8, 1.8, 'shelf'), box(12, 9.5, 2, 1, 1.1, 'desk'), box(16.5, 4.5, 1.2, 1.2, 1.2, 'crate'),
+      box(1, 7, 4, 1, 0.9, 'sofa'), box(1, 11.5, 3, 0.6, 2, 'shelf'), box(-20, 0, 1.2, 1.2, 1.2, 'crate'), box(14, 0, 1, 1, 1.1, 'crate'), box(-15, 4.5, 1.6, 1, 0.8, 'table'),
+      box(-14, -18, 4.5, 2, 1.5, 'car'), box(6, -19, 2, 4.5, 1.5, 'car'), box(-2, -16, 1.2, 1.2, 1.2, 'crate'), box(18, -17, 3, 0.8, 1.1, 'barrier'),
+      box(-15, 17, 3, 1, 1.1, 'barrier'), box(4, 18, 4.5, 2, 1.5, 'car'), box(16, 16, 1.2, 1.2, 1.2, 'crate'),
+      box(-29, -6, 2, 4, 1.5, 'car'), box(-28, 8, 1.2, 1.2, 1.2, 'crate'), box(26, -8, 1.2, 3, 1.1, 'barrier'), box(27, 9, 2, 4.5, 1.5, 'car'),
     ],
     spawns: { A: [[-20, -21, 180], [0, -22, 180], [16, -21, 180], [-31, -10, 90], [31, 12, -90]], B: [[-1, 6, 0], [3, 9.5, 0], [-15, -9, 0], [8, -9, 0], [0, -6, 0]] },
     flags: {},
-    sites: [{ name: 'A', x: -15, z: 7, r: 3.2 }, { name: 'B', x: 14, z: 7, r: 3.2 }],
+    sites: [{ name: 'A', x: -15, z: 7.5, r: 3.5 }],
     gadgets: {
-      mine: [[-13.3, 3.2, 'A'], [-7, 6.7, 'A'], [-20, 10.5, 'A'], [10.7, 3.2, 'B'], [9.2, 5.7, 'B'], [17, 10.5, 'B']],
-      jammer: [[-15, 10.5, 'A'], [14, 10.8, 'B']],
-      catcher: [[-22.5, 4.5, 'A'], [18.5, 3.5, 'B']],
+      mine: [[-13.3, 3.2, 'A'], [-7, 6.7, 'A'], [-10.3, 10.6, 'A'], [-20, 10.8, 'A'], [-17.5, 3.2, 'A']],
+      jammer: [[-15, 10.8, 'A'], [-8.5, 3.5, 'A']],
+      catcher: [[-22.5, 4.5, 'A'], [-7.5, 10.8, 'A']],
     },
     callouts: [
-      { name: 'Bedroom (A)', x0: -24, z0: 2, x1: -6, z1: 12 }, { name: 'Lounge', x0: -6, z0: 2, x1: 8, z1: 12 }, { name: 'Office (B)', x0: 8, z0: 2, x1: 20, z1: 12 },
-      { name: 'Hallway', x0: -24, z0: -2, x1: 20, z1: 2 }, { name: 'Kitchen', x0: -24, z0: -12, x1: -12, z1: -2 }, { name: 'Lobby', x0: -12, z0: -12, x1: 4, z1: -2 }, { name: 'Garage', x0: 4, z0: -12, x1: 20, z1: -2 },
+      { name: 'Bedroom (site)', x0: -24, z0: 2, x1: -6, z1: 12, floor: 'wood' }, { name: 'Lounge', x0: -6, z0: 2, x1: 8, z1: 12, floor: 'carpet' }, { name: 'Office', x0: 8, z0: 2, x1: 20, z1: 12, floor: 'carpet2' },
+      { name: 'Hallway', x0: -24, z0: -2, x1: 20, z1: 2, floor: 'tiles' }, { name: 'Kitchen', x0: -24, z0: -12, x1: -12, z1: -2, floor: 'tiles2' }, { name: 'Lobby', x0: -12, z0: -12, x1: 4, z1: -2, floor: 'wood' }, { name: 'Garage', x0: 4, z0: -12, x1: 20, z1: -2, floor: 'concrete' },
       { name: 'Front yard', x0: -34, z0: -24, x1: 34, z1: -12 }, { name: 'Back yard', x0: -34, z0: 12, x1: 34, z1: 24 }, { name: 'West side', x0: -34, z0: -12, x1: -24, z1: 12 }, { name: 'East side', x0: 20, z0: -12, x1: 34, z1: 12 },
     ],
   },
@@ -167,25 +172,25 @@ const embassy = building({
     wl('z', -14, -5, 6, [[-9, -7.6, 'door']]);
   },
   data: {
-    id: 'embassy', name: 'Embassy', hx: 33, hz: 25,
+    id: 'embassy', name: 'Embassy', hx: 33, hz: 25, building: [-22, -14, 22, 14], ground: 'lawn',
     walls: [
-      box(-18, 11.5, 2, 1, 1.1), box(-10, 8, 1, 2.4, 1.8), box(10, -12, 2.4, 1, 1.1), box(18, -7.5, 1.2, 1.2, 1.2),
-      box(0, 0, 2.4, 2.4, 1.0), box(-3.5, 3, 1, 1, 0.9), box(3.5, -3, 1, 1, 0.9),
-      box(0, -9, 3, 0.8, 1.1), box(0, 9.5, 2.4, 1.2, 0.9), box(-14, -9, 4, 0.6, 2), box(14, 10, 3, 0.8, 1.1), box(19, 7, 1.2, 1.2, 1.2),
-      box(-10, -19, 4.5, 2, 1.5), box(8, -20, 2, 4.5, 1.5), box(-27, 0, 2, 4.5, 1.5), box(27, -2, 1.2, 3, 1.1), box(-12, 19, 3, 0.8, 1.1),
-      box(10, 19, 4.5, 2, 1.5), box(0, -18, 1.2, 1.2, 1.2), box(26, 15, 1.2, 1.2, 1.2), box(-27, -16, 1.2, 1.2, 1.2),
+      box(-18, 11.5, 2, 1, 1.1, 'desk'), box(-10, 8, 1, 2.4, 1.8, 'shelf'), box(-14, 13.4, 4, 0.6, 2, 'shelf'), box(10, -12, 2.4, 1, 1.1, 'desk'), box(18, -7.5, 1.2, 1.2, 1.2, 'crate'),
+      box(0, 0, 2.4, 2.4, 1.0, 'fountain'), box(-3.5, 3, 1, 1, 0.9, 'planter'), box(3.5, -3, 1, 1, 0.9, 'planter'),
+      box(0, -9, 3, 0.8, 1.1, 'counter'), box(0, 9.5, 2.4, 1.2, 0.9, 'table'), box(-14, -9, 4, 0.6, 2, 'shelf'), box(14, 10, 3, 0.8, 1.1, 'desk'), box(19, 7, 1.2, 1.2, 1.2, 'crate'),
+      box(-10, -19, 4.5, 2, 1.5, 'car'), box(8, -20, 2, 4.5, 1.5, 'car'), box(-27, 0, 2, 4.5, 1.5, 'car'), box(27, -2, 1.2, 3, 1.1, 'barrier'), box(-12, 19, 3, 0.8, 1.1, 'barrier'),
+      box(10, 19, 4.5, 2, 1.5, 'car'), box(0, -18, 1.2, 1.2, 1.2, 'planter'), box(26, 15, 1.2, 1.2, 1.2, 'planter'), box(-27, -16, 1.2, 1.2, 1.2, 'planter'),
     ],
     spawns: { A: [[-12, -22, 180], [6, -22.5, 180], [-30, -4, 90], [30, 4, -90], [0, 22, 0]], B: [[-3, 0, 0], [3, 0, 0], [-14, -11.5, 0], [14, 11.5, 0], [0, -11, 0]] },
     flags: {},
-    sites: [{ name: 'A', x: -14, z: 9.5, r: 3 }, { name: 'B', x: 14, z: -9.5, r: 3 }],
+    sites: [{ name: 'A', x: -14, z: 9.5, r: 3.4 }],
     gadgets: {
-      mine: [[-11.3, 6.3, 'A'], [-6.8, 9.7, 'A'], [-13.5, 12.8, 'A'], [11.7, -5.8, 'B'], [6.8, -8.3, 'B'], [10.5, -12.8, 'B']],
-      jammer: [[-16, 7.5, 'A'], [16, -11, 'B']],
-      catcher: [[-20.5, 6.5, 'A'], [20.5, -12.5, 'B']],
+      mine: [[-11.3, 6.3, 'A'], [-6.8, 9.7, 'A'], [-13.5, 12.4, 'A'], [-17.5, 6.3, 'A'], [-20.5, 11, 'A']],
+      jammer: [[-16, 7.5, 'A'], [-9, 12.5, 'A']],
+      catcher: [[-20.5, 6.5, 'A'], [-8, 6.5, 'A']],
     },
     callouts: [
-      { name: 'Archive (A)', x0: -22, z0: 5, x1: -6, z1: 14 }, { name: 'Vault (B)', x0: 6, z0: -14, x1: 22, z1: -5 }, { name: 'Courtyard', x0: -6, z0: -5, x1: 6, z1: 5 },
-      { name: 'Reception', x0: -6, z0: -14, x1: 6, z1: -5 }, { name: 'Dining', x0: -6, z0: 5, x1: 6, z1: 14 }, { name: 'West wing', x0: -22, z0: -14, x1: -6, z1: 5 }, { name: 'East wing', x0: 6, z0: -5, x1: 22, z1: 14 },
+      { name: 'Archive (site)', x0: -22, z0: 5, x1: -6, z1: 14, floor: 'wood' }, { name: 'Vault', x0: 6, z0: -14, x1: 22, z1: -5, floor: 'concrete' }, { name: 'Courtyard', x0: -6, z0: -5, x1: 6, z1: 5, floor: 'stone' },
+      { name: 'Reception', x0: -6, z0: -14, x1: 6, z1: -5, floor: 'marble' }, { name: 'Dining', x0: -6, z0: 5, x1: 6, z1: 14, floor: 'carpet' }, { name: 'West wing', x0: -22, z0: -14, x1: -6, z1: 5, floor: 'carpet2' }, { name: 'East wing', x0: 6, z0: -5, x1: 22, z1: 14, floor: 'tiles' },
       { name: 'Front', x0: -33, z0: -25, x1: 33, z1: -14 }, { name: 'Back', x0: -33, z0: 14, x1: 33, z1: 25 }, { name: 'West lawn', x0: -33, z0: -14, x1: -22, z1: 14 }, { name: 'East lawn', x0: 22, z0: -14, x1: 33, z1: 14 },
     ],
   },
@@ -211,25 +216,25 @@ const workshop = building({
     wl('z', -2, 12, 8, [[1, 2.4, 'door'], [9.5, 10.9, 'door']]);
   },
   data: {
-    id: 'workshop', name: 'Workshop', hx: 34, hz: 24,
+    id: 'workshop', name: 'Workshop', hx: 34, hz: 24, building: [-24, -16, 18, 12], ground: 'dirt',
     walls: [
-      box(9, -9, 2.2, 4.4, 1.5), box(-0.5, -12, 1.2, 1.2, 1.2), box(12.5, -14, 2.4, 0.8, 2),
-      box(-20, 10, 2.4, 1, 1.1), box(-13, 7, 1, 2, 1.8), box(-2, 8.5, 2.4, 1, 1.1), box(4, 8.5, 2.4, 1, 1.1),
-      box(-16, 1, 3, 0.8, 1.1), box(13, 3, 2, 2, 1.2), box(0, 1.5, 1.2, 1.2, 1.2),
-      box(-14, -10, 4.5, 2, 1.5), box(-18, -19, 1.2, 1.2, 1.2), box(4, -20, 3, 0.8, 1.1), box(21, -14, 2, 4.5, 1.5),
-      box(-10, 17, 4.5, 2, 1.5), box(4, 17, 1.2, 1.2, 1.2), box(16, 15, 3, 0.8, 1.1), box(-29, 4, 2, 4, 1.5), box(25, 2, 1.2, 3, 1.1), box(24, -8, 1.2, 1.2, 1.2),
+      box(9, -9, 2.2, 4.4, 1.5, 'car'), box(-0.5, -12, 1.2, 1.2, 1.2, 'crate'), box(12.5, -14, 2.4, 0.8, 2, 'shelf'), box(3, -4.5, 3, 0.8, 1, 'bench'),
+      box(-20, 10, 2.4, 1, 1.1, 'desk'), box(-13, 7, 1, 2, 1.8, 'shelf'), box(-2, 8.5, 2.4, 1, 1.1, 'desk'), box(4, 8.5, 2.4, 1, 1.1, 'desk'),
+      box(-16, 1, 3, 0.8, 1.1, 'crate'), box(13, 3, 2, 2, 1.2, 'crate'), box(0, 1.5, 1.2, 1.2, 1.2, 'crate'),
+      box(-14, -10, 4.5, 2, 1.5, 'car'), box(-18, -19, 1.2, 1.2, 1.2, 'crate'), box(4, -20, 3, 0.8, 1.1, 'barrier'), box(21, -14, 2, 4.5, 1.5, 'car'),
+      box(-10, 17, 4.5, 2, 1.5, 'car'), box(4, 17, 1.2, 1.2, 1.2, 'crate'), box(16, 15, 3, 0.8, 1.1, 'barrier'), box(-29, 4, 2, 4, 1.5, 'car'), box(25, 2, 1.2, 3, 1.1, 'barrier'), box(24, -8, 1.2, 1.2, 1.2, 'crate'),
     ],
     spawns: { A: [[-16, -21, 180], [4, -22, 180], [28, -12, -90], [-30, -8, 90], [-4, 20, 0]], B: [[-2, 10.5, 0], [2, 6.5, 0], [-16, -0.5, 0], [12, 0, 0], [6, -6, 0]] },
     flags: {},
-    sites: [{ name: 'A', x: -16, z: 8, r: 3 }, { name: 'B', x: 4, z: -10, r: 3.2 }],
+    sites: [{ name: 'A', x: 4, z: -10, r: 3.6 }],
     gadgets: {
-      mine: [[-13.3, 4.8, 'A'], [-8.8, 8.5, 'A'], [-10.5, 11.2, 'A'], [-1.8, -2.8, 'B'], [1.2, -15.2, 'B'], [-3.2, -4.3, 'B']],
-      jammer: [[-18, 6, 'A'], [3, -7, 'B']],
-      catcher: [[-22.5, 9, 'A'], [12, -5.5, 'B']],
+      mine: [[-1.8, -2.8, 'A'], [1.2, -15.2, 'A'], [-3.2, -4.3, 'A'], [13.2, -12.3, 'A'], [10.7, -2.8, 'A']],
+      jammer: [[3, -7.5, 'A'], [7, -14.5, 'A']],
+      catcher: [[12, -5.5, 'A'], [-2.5, -14.5, 'A']],
     },
     callouts: [
-      { name: 'Drafting (A)', x0: -24, z0: 4, x1: -8, z1: 12 }, { name: 'Garage (B)', x0: -4, z0: -16, x1: 14, z1: -2 }, { name: 'Offices', x0: -8, z0: -2, x1: 8, z1: 12 },
-      { name: 'Storeroom', x0: -24, z0: -2, x1: -8, z1: 4 }, { name: 'Annex', x0: 8, z0: -2, x1: 18, z1: 12 },
+      { name: 'Drafting', x0: -24, z0: 4, x1: -8, z1: 12, floor: 'wood' }, { name: 'Garage (site)', x0: -4, z0: -16, x1: 14, z1: -2, floor: 'concrete' }, { name: 'Offices', x0: -8, z0: -2, x1: 8, z1: 12, floor: 'carpet2' },
+      { name: 'Storeroom', x0: -24, z0: -2, x1: -8, z1: 4, floor: 'concrete' }, { name: 'Annex', x0: 8, z0: -2, x1: 18, z1: 12, floor: 'tiles' },
       { name: 'Front lot', x0: -34, z0: -24, x1: 34, z1: -16 }, { name: 'Back lot', x0: -34, z0: 12, x1: 34, z1: 24 }, { name: 'West lot', x0: -34, z0: -16, x1: -24, z1: 12 }, { name: 'East lot', x0: 14, z0: -16, x1: 34, z1: 12 },
     ],
   },
@@ -360,6 +365,8 @@ function finish(data) {
     data.links = data.links.filter(([a, b]) => remap[a] >= 0 && remap[b] >= 0).map(([a, b]) => [remap[a], remap[b]]);
   }
   console.log(data.id + ': ' + data.nodes.length + ' nodes, ' + data.links.length + ' links, ' + cover.length + ' cover spots, components ' + JSON.stringify(sizes.slice(0, 5)));
+  // cover only where a body can walk to it from the kept waypoints
+  data.cover = data.cover.filter((c) => data.nodes.some((n) => Math.hypot(n[0] - c[0], n[1] - c[1]) < 2.9 && m.walkClear(c[0], c[1], n[0], n[1], 0.36)));
   if (data.rawSpawns) placeBattle(data);
   // every authored spot must be on reachable ground
   const full = new MatchMap({ ...data, nodes: [], links: [] });

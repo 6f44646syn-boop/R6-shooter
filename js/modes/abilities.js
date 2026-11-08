@@ -21,7 +21,7 @@
 //   Onyx   Charge Dash    hold Q 0.6 s, then dash 6 m: through soft walls, the first enemy hit
 //                         is stunned and knocked back for 1.5 s. 2 charges, 12 s each.
 // Gadgets die to one bullet. Bots use abilities too (see botThink).
-import { raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=a1880ea-mw7geivu';
+import { raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=3d9f8db-mw7k0mnu';
 
 export class Abilities {
   constructor(m, cfg) {
@@ -323,12 +323,13 @@ export class Abilities {
     m.map.resolve(p);
     a.x = p.x; a.z = p.z; if (a.human) a.forced = true;
     D.left -= step; D.t += dt;
-    if (!D.hit) {
+    if (!D.hit && !m.rules.noFire(a)) {
       const e = m.actors.find((q) => q.alive && q.team !== a.team && Math.hypot(q.x - a.x, q.z - a.z) < 1.0);
       if (e) {
         D.hit = true;
         e.stunUntil = m.t + (c.stun || 1.5);
         const k = { x: e.x + D.dx * (c.knockback || 2), z: e.z + D.dz * (c.knockback || 2) };
+        k.x = Math.max(-m.map.hx + 0.5, Math.min(m.map.hx - 0.5, k.x)); k.z = Math.max(-m.map.hz + 0.5, Math.min(m.map.hz - 0.5, k.z));
         m.map.resolve(k); e.x = k.x; e.z = k.z; if (e.human) e.forced = true;
         m.hit(e, 15, a, 'torso', 'ability');
         D.left = 0;

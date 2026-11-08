@@ -2,9 +2,9 @@
 // test. The body is a soldier (soldier.js) in team colours carrying their real gun with its
 // skin; hits are decided on the same shapes the body is built around. Crouching squashes the
 // body to CROUCH_SCALE. y is the height of the feet (floors, stairs, box tops).
-import * as THREE from '../../vendor/three/three.module.min.js?v=a1880ea-mw7geivu';
-import { soldierGeometry, raycastSoldier, GRIP_HAND, HIP_X, HIP_Y } from './soldier.js?v=a1880ea-mw7geivu';
-import { buildWorldGun } from '../scene/viewmodel.js?v=a1880ea-mw7geivu';
+import * as THREE from '../../vendor/three/three.module.min.js?v=3d9f8db-mw7k0mnu';
+import { soldierGeometry, raycastSoldier, GRIP_HAND, HIP_X, HIP_Y } from './soldier.js?v=3d9f8db-mw7k0mnu';
+import { buildWorldGun } from '../scene/viewmodel.js?v=3d9f8db-mw7k0mnu';
 
 export const STAND_EYE = 1.6, CROUCH_EYE = 1.12;
 export const CROUCH_SCALE = 0.7;
@@ -27,6 +27,12 @@ function shieldMesh() {
   const m = new THREE.Mesh(SHIELD.geo, SHIELD.mat);
   m.userData.ownMaterial = true; m.scale.set(0.62, 1.05, 0.62); m.position.y = 0.95; m.visible = false; m.renderOrder = 4;
   return m;
+}
+// Teammates through walls: a blue silhouette drawn only where something is in front of them
+// (depth "greater" test), so in the open they look normal.
+let GHOST = null;
+function ghostMaterial() {
+  return GHOST || (GHOST = new THREE.MeshBasicMaterial({ color: 0x4aa8ff, transparent: true, opacity: 0.5, depthWrite: false, depthFunc: THREE.GreaterDepth, toneMapped: false, fog: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }));
 }
 let OUTLINE = null;
 function outlineMaterial() {
@@ -106,8 +112,10 @@ export class Fighter {
     this.outline = new THREE.Group();
     this.outline.add(ol(geo.upper));
     this.outline.visible = false;
+    const gh = (g) => { const m = new THREE.Mesh(g, ghostMaterial()); m.userData.ownMaterial = true; m.renderOrder = 7; m.visible = false; return m; };
+    this.ghosts = [gh(geo.upper)];
     this.scaleG = new THREE.Group();
-    this.scaleG.add(body, this.outline);
+    this.scaleG.add(body, this.outline, this.ghosts[0]);
     this.shield = shieldMesh();
     this.group.add(this.shield);
     // Legs swing from the hips when walking (see updateVisual).
@@ -115,8 +123,9 @@ export class Fighter {
       const g = s < 0 ? geo.legL : geo.legR, piv = new THREE.Group();
       piv.position.set(s * HIP_X, HIP_Y, 0);
       const m = new THREE.Mesh(g, mat); m.castShadow = true;
-      const o = ol(g);
-      piv.add(m, o);
+      const o = ol(g), gl = gh(g);
+      this.ghosts.push(gl);
+      piv.add(m, o, gl);
       this.scaleG.add(piv);
       return { piv, o };
     });
@@ -182,6 +191,8 @@ export class Fighter {
   chest(out = [0, 0, 0]) { out[0] = this.x; out[1] = this.y + 1.18 * this.scaleY; out[2] = this.z; return out; }
 
   // Sync the mesh with the state (call once per frame).
+  // A teammate's silhouette through walls (match modes).
+  setGhost(on) { if (this._ghost === on) return; this._ghost = on; for (const g of this.ghosts) g.visible = on; }
   updateVisual(t) {
     this.group.visible = this.alive;
     this.group.position.set(this.x, this.y, this.z);

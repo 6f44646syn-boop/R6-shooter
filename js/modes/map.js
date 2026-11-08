@@ -18,7 +18,7 @@
 //
 // Soft and reinforced walls are split into panels 1.5 m wide. The lower 2.2 m of a panel can
 // be destroyed (a hole); the part above stays.
-import { rayBox, pushCircleBox, circleHitsBox, segHitsBox } from './geom.js?v=a1880ea-mw7geivu';
+import { rayBox, pushCircleBox, circleHitsBox, segHitsBox } from './geom.js?v=3d9f8db-mw7k0mnu';
 
 export const PANEL_W = 1.5, HOLE_H = 2.2, BODY_R = 0.32, DOOR_HP = 100, STEP = 0.35, DOOR_GAP = 0.3;
 // Blocks a body at floor level (not a box overhead, not a tiny ledge you step over).
@@ -180,10 +180,11 @@ export class MatchMap {
 
   /* ---------- waypoint navigation ---------- */
   nearestNode(x, z, needSight = true) {
+    // with needSight: the nearest one within 8 m it can walk straight to; else the nearest
     let best = -1, bd = Infinity;
     for (let k = 0; k < this.nodes.length; k++) {
       const n = this.nodes[k], d = (n[0] - x) ** 2 + (n[1] - z) ** 2;
-      if (d < bd && (!needSight || d > 64 || this.walkClear(x, z, n[0], n[1], BODY_R * 0.9))) { bd = d; best = k; }
+      if (d < bd && (!needSight || (d <= 64 && this.walkClear(x, z, n[0], n[1], BODY_R * 0.8)))) { bd = d; best = k; }
     }
     if (best < 0 && needSight) return this.nearestNode(x, z, false);
     return best;

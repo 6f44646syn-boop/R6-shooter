@@ -7,12 +7,12 @@
 //
 // Body for hits (actor frame, standing; crouching squashes y to 0.7): head sphere at 1.62 m
 // (r 0.13), torso capsule 0.95-1.34 m (r 0.24), legs capsule 0.1-0.9 m (r 0.19).
-import { mulberry32 } from '../core/prng.js?v=a1880ea-mw7geivu';
-import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=a1880ea-mw7geivu';
-import { BODY_R } from './map.js?v=a1880ea-mw7geivu';
-import { Brain } from './bots.js?v=a1880ea-mw7geivu';
-import { makeRules } from './rules.js?v=a1880ea-mw7geivu';
-import { Abilities } from './abilities.js?v=a1880ea-mw7geivu';
+import { mulberry32 } from '../core/prng.js?v=3d9f8db-mw7k0mnu';
+import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=3d9f8db-mw7k0mnu';
+import { BODY_R } from './map.js?v=3d9f8db-mw7k0mnu';
+import { Brain } from './bots.js?v=3d9f8db-mw7k0mnu';
+import { makeRules } from './rules.js?v=3d9f8db-mw7k0mnu';
+import { Abilities } from './abilities.js?v=3d9f8db-mw7k0mnu';
 
 export const TICK = 1 / 60;
 export const EYE = 1.6, CROUCH_EYE = 1.1;
@@ -293,6 +293,11 @@ export class Match {
         const moved = Math.hypot(a.x - a._sx, a.z - a._sz);
         a.stuckFor = a.brain && a.brain.wantsMove() && moved < 0.3 ? a.stuckFor + (this.t - a._st) : 0;
         a._sx = a.x; a._sz = a.z; a._st = this.t;
+        // wedged into a gap too thin for a body (pushed there): back onto the nearest waypoint
+        if (a.stuckFor >= 2 && !a.human && !this.map.free(a.x, a.z, BODY_R * 0.9)) {
+          const k = this.map.nearestNode(a.x, a.z, false), n = k >= 0 && this.map.nodes[k];
+          if (n && Math.hypot(n[0] - a.x, n[1] - a.z) < 3) { a.x = n[0]; a.z = n[1]; a.stuckFor = 0; if (a.brain) a.brain.path = []; }
+        }
       }
       if (!Number.isFinite(a.x) || !Number.isFinite(a.z)) { this.nan = true; a.x = 0; a.z = 0; }
     }
