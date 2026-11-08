@@ -4,14 +4,14 @@
 //
 // Map: flat-shaded low poly from the map file; static walls merged into one mesh, breakable
 // panels in one instanced mesh, one directional light (a 1024 shadow map in High / Ultra).
-import * as THREE from '../../vendor/three/three.module.min.js?v=2748475-mw7fwt03';
-import { MatchMap } from './map.js?v=2748475-mw7fwt03';
-import { Match, TICK } from './sim.js?v=2748475-mw7fwt03';
-import { yawTo, wrap180, DEG } from './geom.js?v=2748475-mw7fwt03';
-import { Fighter } from '../battle/fighter.js?v=2748475-mw7fwt03';
-import { Arena } from '../battle/arena.js?v=2748475-mw7fwt03';
-import { Human } from '../battle/human.js?v=2748475-mw7fwt03';
-import { drawCrosshair } from '../ui/crosshair.js?v=2748475-mw7fwt03';
+import * as THREE from '../../vendor/three/three.module.min.js?v=a1880ea-mw7geivu';
+import { MatchMap } from './map.js?v=a1880ea-mw7geivu';
+import { Match, TICK } from './sim.js?v=a1880ea-mw7geivu';
+import { yawTo, wrap180, DEG } from './geom.js?v=a1880ea-mw7geivu';
+import { Fighter } from '../battle/fighter.js?v=a1880ea-mw7geivu';
+import { Arena } from '../battle/arena.js?v=a1880ea-mw7geivu';
+import { Human } from '../battle/human.js?v=a1880ea-mw7geivu';
+import { drawCrosshair } from '../ui/crosshair.js?v=a1880ea-mw7geivu';
 
 const TEAM_COLOR = { A: 0x5b8cff, B: 0xff7048 };
 const MAX_TRACERS = 64;
@@ -230,11 +230,11 @@ export class ModeGame {
     const ab = me.ab, abOn = m.o.abilitiesOn && ab;
     if (me.forced) { h.f.x = me.x; h.f.z = me.z; h.f.vx = 0; h.f.vz = 0; me.forced = false; }
     const frozen = m.rules.frozen(me) || m.t < me.stunUntil || (ab && (ab.busy || ab.dash));
-    const droning = abOn && ab.drone && ab.drone.alive;
+    const droning = !!(ab && ab.drone && ab.drone.alive);
     if (droning && !this.paused && !this.over) m.ab.droneInput(me, h.in, dt);
     // the breacher replaces the rifle while it is switched on; the drone needs your hands
     const fire = h.in.fire;
-    if (abOn && (droning || ab.shotgun)) { if (ab.shotgun && fire && me.alive && !droning && m.ab.fireShotgun(me)) { this.deps.sfx.shot(0.15, 1); h.rig.kick && h.rig.kick(); } h.in.fire = false; }
+    if (ab && (droning || (abOn && ab.shotgun))) { if (ab.shotgun && fire && me.alive && !droning && m.ab.fireShotgun(me)) { this.deps.sfx.shot(0.15, 1); h.rig.kick && h.rig.kick(); } h.in.fire = false; }
     h.speedMult = me.alive && !frozen ? m.speedOf(me) : 0;
     h.f.alive = me.alive;
     const mv = droning ? [h.in.fwd, h.in.back, h.in.left, h.in.right] : null;
@@ -545,7 +545,7 @@ export class ModeGame {
   /* ---------- input ---------- */
   mouseMove(dx, dy) {
     if (!this.active || this.paused || this.over) return;
-    if (this.m.o.abilitiesOn && this.m.ab.mouse(this.me, dx, dy)) return;
+    if (this.m.ab.mouse(this.me, dx, dy)) return;
     this.h.mouseMove(dx, dy);
   }
   mouseButton(b, down) {
@@ -562,7 +562,8 @@ export class ModeGame {
     const h = this.h;
     if (code === 'Tab') { this.hud.board.hidden = !down; if (down) this._renderBoard(); return true; }
     const me = this.me, ab = this.m.ab;
-    if (this.m.o.abilitiesOn && me.alive && me.ab) {
+    const qUsed = this.m.o.abilitiesOn || this.m.o.mode === 'bomb';     // Bomb: Q is also the prep drone
+    if (qUsed && me.alive && me.ab) {
       if (code === 'KeyQ') { if (!this.paused && !this.over) ab.q(me, down); return true; }
       if (code === 'KeyF' && me.ab.drone) { if (down) ab.f(me); return true; }
       if (code === 'KeyV' && me.ab.drone) { if (down) ab.recall(me); return true; }
@@ -570,7 +571,7 @@ export class ModeGame {
     }
     if (this.m.rules.key && this.m.rules.key(this.me, code, down)) return true;
     const map = { KeyW: 'fwd', KeyS: 'back', KeyA: 'left', KeyD: 'right', ShiftLeft: 'sprint', Space: 'crouch', KeyC: 'crouch', KeyQ: 'leanL', KeyE: 'leanR' };
-    if (this.m.o.abilitiesOn) delete map.KeyQ;          // Q is the ability
+    if (qUsed) delete map.KeyQ;                          // Q is the ability / drone
     if (this.m.rules.usesE) delete map.KeyE;            // E: pick up / plant / defuse
     if (map[code]) { h.in[map[code]] = down; return true; }
     if (code === 'KeyR') { if (down && this.me.alive) h.reload(); return true; }

@@ -178,6 +178,35 @@ console.log('\nDoors and the knife');
   check('a knife does not reach 5 m', b.hp === 40);
 }
 
+/* ---------- drones ---------- */
+console.log('\nDrones');
+{
+  const mk = (abilitiesOn) => new Match({ map: new MatchMap(maps.ranch), mode: 'bomb', guns, ops, abilities, teamSize: 5, seed: 9, human: null, abilitiesOn });
+  let m = mk(true);
+  const att = m.actors.filter((a) => m.rules.isAttacker(a)), plain = att.find((a) => a.ab.id !== 'spark_drone'), glitch = att.find((a) => a.ab.id === 'spark_drone');
+  m.step();
+  check('every attacker has one prep drone', att.every((a) => a.ab.prepDrones === 1));
+  m.ab.q(plain, true);
+  const d = plain.ab.drone;
+  check('Q in prep sends out the prep drone (any attacker)', !!d && d.basic);
+  // under a door: the drone rolls through, a person does not
+  const door = m.map.panels.find((p) => p.kind === 'door'), b = door.box, cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
+  d.x = cx; d.z = cz - 0.6; d.yaw = 180;
+  for (let i = 0; i < 30; i++) m.ab.droneInput(plain, { fwd: true }, 1 / 60);
+  check('a drone rolls under a whole door', door.alive && d.z > cz + 0.5, d.z.toFixed(2));
+  const p = { x: cx, z: cz - 0.6 }; for (let i = 0; i < 30; i++) { p.z += 0.05; m.map.resolve(p); }
+  check('a person cannot walk under it', p.z < cz);
+  while (m.rules.phase === 'prep') { m.step(); m.events.length = 0; }
+  m.step();
+  check('prep drones shut down when the action phase starts', !plain.ab.drone && !m.ab.gadgets.some((g) => g.type === 'drone' && g.basic));
+  check('after prep, Q is not a drone for other attackers', !m.ab.q(plain, true) || !plain.ab.drone || !plain.ab.drone.basic);
+  if (glitch) { glitch.ab.drone = null; m.ab.q(glitch, true); check('Glitch can still send his drone mid-round', !!glitch.ab.drone && !glitch.ab.drone.basic); }
+  m = mk(false); m.step();
+  const a2 = m.actors.find((a) => m.rules.isAttacker(a));
+  m.ab.q(a2, true);
+  check('prep drones work with abilities off too', !!a2.ab.drone && a2.ab.drone.basic);
+}
+
 /* ---------- matches ---------- */
 function run(mode, seed, extra = {}) {
   const list = extra.maps || MAPS_OF[mode], mapId = list[seed % list.length];

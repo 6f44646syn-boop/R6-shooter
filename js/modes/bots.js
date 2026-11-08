@@ -7,8 +7,8 @@
 // target and grows with sustained fire (bloom); bursts limited by the gun's rpm and magazine.
 // Navigation: A* on the map's waypoint graph, string-pulled, with a stuck watchdog (no
 // progress for 3 s: re-path; still stuck: walk to the nearest waypoint).
-import { SKILL, EYE, NOISE } from './sim.js?v=2748475-mw7fwt03';
-import { dirFrom, yawTo, wrap180, DEG } from './geom.js?v=2748475-mw7fwt03';
+import { SKILL, EYE, NOISE } from './sim.js?v=a1880ea-mw7geivu';
+import { dirFrom, yawTo, wrap180, DEG } from './geom.js?v=a1880ea-mw7geivu';
 
 const VIEW = 55, RANGE = 45;
 
@@ -186,7 +186,7 @@ export class Brain {
               // still stuck: give this goal up for a while and step onto the nearest waypoint
               this.stuckStage = 0;
               if (this.goal) this.avoid = { x: this.goal[0], z: this.goal[1], until: t + 15 };
-              const k = m.map.nearestNode(a.x, a.z, false);
+              const k = m.map.nearestNode(a.x, a.z, true);
               this.path = k >= 0 ? [m.map.nodes[k].slice()] : [];
               this.goal = null; this.goalKey = ''; this.patrol = null;
             }

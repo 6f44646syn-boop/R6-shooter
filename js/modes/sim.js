@@ -7,12 +7,12 @@
 //
 // Body for hits (actor frame, standing; crouching squashes y to 0.7): head sphere at 1.62 m
 // (r 0.13), torso capsule 0.95-1.34 m (r 0.24), legs capsule 0.1-0.9 m (r 0.19).
-import { mulberry32 } from '../core/prng.js?v=2748475-mw7fwt03';
-import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=2748475-mw7fwt03';
-import { BODY_R } from './map.js?v=2748475-mw7fwt03';
-import { Brain } from './bots.js?v=2748475-mw7fwt03';
-import { makeRules } from './rules.js?v=2748475-mw7fwt03';
-import { Abilities } from './abilities.js?v=2748475-mw7fwt03';
+import { mulberry32 } from '../core/prng.js?v=a1880ea-mw7geivu';
+import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=a1880ea-mw7geivu';
+import { BODY_R } from './map.js?v=a1880ea-mw7geivu';
+import { Brain } from './bots.js?v=a1880ea-mw7geivu';
+import { makeRules } from './rules.js?v=a1880ea-mw7geivu';
+import { Abilities } from './abilities.js?v=a1880ea-mw7geivu';
 
 export const TICK = 1 / 60;
 export const EYE = 1.6, CROUCH_EYE = 1.1;

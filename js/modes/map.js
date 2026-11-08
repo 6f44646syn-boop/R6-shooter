@@ -18,9 +18,9 @@
 //
 // Soft and reinforced walls are split into panels 1.5 m wide. The lower 2.2 m of a panel can
 // be destroyed (a hole); the part above stays.
-import { rayBox, pushCircleBox, circleHitsBox, segHitsBox } from './geom.js?v=2748475-mw7fwt03';
+import { rayBox, pushCircleBox, circleHitsBox, segHitsBox } from './geom.js?v=a1880ea-mw7geivu';
 
-export const PANEL_W = 1.5, HOLE_H = 2.2, BODY_R = 0.32, DOOR_HP = 100, STEP = 0.35;
+export const PANEL_W = 1.5, HOLE_H = 2.2, BODY_R = 0.32, DOOR_HP = 100, STEP = 0.35, DOOR_GAP = 0.3;
 // Blocks a body at floor level (not a box overhead, not a tiny ledge you step over).
 const blocks = (b) => b.minY < 1.7 && b.maxY > STEP;
 const GRID = 2;
@@ -57,7 +57,8 @@ export class MatchMap {
     for (const w of data.doors || []) {
       const alongX = Math.abs(w.x1 - w.x0) >= Math.abs(w.z1 - w.z0), c = alongX ? (w.z0 + w.z1) / 2 : (w.x0 + w.x1) / 2, t = 0.16;
       const box = alongX ? { minX: Math.min(w.x0, w.x1), maxX: Math.max(w.x0, w.x1), minZ: c - t / 2, maxZ: c + t / 2 } : { minX: c - t / 2, maxX: c + t / 2, minZ: Math.min(w.z0, w.z1), maxZ: Math.max(w.z0, w.z1) };
-      const low = add({ ...box, minY: 0, maxY: HOLE_H, kind: 'door' });
+      // a gap under the boards: drones roll through, people cannot
+      const low = add({ ...box, minY: DOOR_GAP, maxY: HOLE_H, kind: 'door' });
       if (H > HOLE_H + 0.05) add({ ...box, minZ: box.minZ - (alongX ? 0.08 : 0), maxZ: box.maxZ + (alongX ? 0.08 : 0), minX: box.minX - (alongX ? 0 : 0.08), maxX: box.maxX + (alongX ? 0 : 0.08), minY: HOLE_H, maxY: H, kind: 'wall' });
       low.panel = this.panels.length;
       this.panels.push({ box: low, kind: 'door', alive: true, i: this.panels.length, alongX, hp: DOOR_HP });
@@ -88,9 +89,10 @@ export class MatchMap {
   }
 
   // Keep a body (circle) out of walls. Low cover blocks movement too (vault not in modes).
-  resolve(p, r = BODY_R) {
+  // flyer: a drone, low enough to pass under anything that starts above DOOR_GAP.
+  resolve(p, r = BODY_R, flyer = false) {
     const list = this.near(p.x, p.z, r + 0.1, this._rl || (this._rl = []));
-    for (let k = 0; k < 2; k++) for (const b of list) if (blocks(b)) pushCircleBox(p, r, b);
+    for (let k = 0; k < 2; k++) for (const b of list) if (flyer ? b.minY < DOOR_GAP - 0.05 && b.maxY > 0.05 : blocks(b)) pushCircleBox(p, r, b);
     return p;
   }
   free(x, z, r = BODY_R) {

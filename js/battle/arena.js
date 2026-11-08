@@ -7,12 +7,12 @@
 //
 // Coordinates: metres, x right, y up, z towards the "A" side. Same yaw convention as the
 // range: yaw 0 looks along -z, positive turns right.
-import * as THREE from '../../vendor/three/three.module.min.js?v=2748475-mw7fwt03';
-import { MAPS } from './maps.js?v=2748475-mw7fwt03';
-import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=2748475-mw7fwt03';
-import { flatMaterial } from '../scene/low.js?v=2748475-mw7fwt03';
-import { BulletHoles } from '../scene/holes.js?v=2748475-mw7fwt03';
-import { mulberry32 } from '../core/prng.js?v=2748475-mw7fwt03';
+import * as THREE from '../../vendor/three/three.module.min.js?v=a1880ea-mw7geivu';
+import { MAPS } from './maps.js?v=a1880ea-mw7geivu';
+import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=a1880ea-mw7geivu';
+import { flatMaterial } from '../scene/low.js?v=a1880ea-mw7geivu';
+import { BulletHoles } from '../scene/holes.js?v=a1880ea-mw7geivu';
+import { mulberry32 } from '../core/prng.js?v=a1880ea-mw7geivu';
 
 export const HALF_X = 18, HALF_Z = 14, WALL_H = 4.5;
 // Landmark names for callouts, by kind of cover.

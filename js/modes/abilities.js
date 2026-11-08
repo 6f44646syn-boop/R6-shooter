@@ -21,7 +21,7 @@
 //   Onyx   Charge Dash    hold Q 0.6 s, then dash 6 m: through soft walls, the first enemy hit
 //                         is stunned and knocked back for 1.5 s. 2 charges, 12 s each.
 // Gadgets die to one bullet. Bots use abilities too (see botThink).
-import { raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=2748475-mw7fwt03';
+import { raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=a1880ea-mw7geivu';
 
 export class Abilities {
   constructor(m, cfg) {
@@ -31,6 +31,7 @@ export class Abilities {
   init(a) {
     const id = a.op.ability, c = this.cfg[id] || {};
     a.ab = { id, c, name: c.name || '', charges: c.charges ?? 0, busy: false, cdUntil: 0, nextAt: 0, holdQ: 0, dash: null, drone: null, shotgun: false, shells: c.shells || 0, nextShell: 0, ready: [] };
+    a.ab.prepDrones = 1;                        // every attacker: one drone for the Bomb prep phase
     if (id === 'charge_dash') a.ab.ready = Array.from({ length: c.charges || 2 }, () => 0);
   }
   refill(a) {
@@ -78,8 +79,23 @@ export class Abilities {
     return { x: p.x, y: 0.05, z: p.z, wall: false };
   }
   // Q pressed (down) or released (up). Returns true if something happened.
+  // Bomb prep: every attacker has a plain drone (scan only). Glitch's Spark Drone is his
+  // ability and also works in the action phase.
+  prepOK(a) { const R = this.m.rules; return R.name === 'Bomb' && R.phase === 'prep' && R.isAttacker(a); }
+  plainDrone(a) { return a.ab && a.ab.prepDrones > 0 && !a.ab.drone && this.prepOK(a); }
+  launchDrone(a, plain) {
+    const m = this.m, ab = a.ab, c = this.cfg.spark_drone || {};
+    const g = this.add({ type: 'drone', basic: plain, team: a.team, owner: a.id, x: a.x + Math.sin(a.yaw * DEG) * 0.6, y: 0.15, z: a.z - Math.cos(a.yaw * DEG) * 0.6, yaw: a.yaw, pitch: 0, r: 0.22, end: plain ? m.rules.phaseEnd : m.t + (c.battery || 20), scanAt: 0 });
+    m.map.resolve(g, 0.15, true);
+    ab.drone = g; ab.busy = true;
+    if (plain) ab.prepDrones--; else ab.charges--;
+    return g;
+  }
   q(a, down) {
     const m = this.m, t = m.t, ab = a.ab, c = ab.c;
+    if (!a.alive || !ab) return false;
+    if (down && ab.drone && ab.drone.basic) { this.scan(a); return true; }
+    if (down && this.plainDrone(a)) { this.launchDrone(a, true); return true; }
     if (!this.on || !a.alive || (m.rules.frozen(a) && !(ab.id === 'spark_drone' || ab.drone))) return false;
     if (!down) { if (ab.id === 'charge_dash') ab.holdQ = 0; return false; }
     if (this.jammed(a.x, a.z, a.team) && !['jolt_mines', 'dread_mines', 'static_jammer', 'catcher'].includes(ab.id)) { m.emit({ type: 'msg', text: 'Jammed', id: a.id, private: true }); return false; }
@@ -106,9 +122,7 @@ export class Abilities {
       case 'spark_drone': {
         if (ab.drone) { this.scan(a); return true; }
         if (ab.charges <= 0) return false;
-        const g = this.add({ type: 'drone', team: a.team, owner: a.id, x: a.x + Math.sin(a.yaw * DEG) * 0.6, y: 0.15, z: a.z - Math.cos(a.yaw * DEG) * 0.6, yaw: a.yaw, pitch: 0, r: 0.22, end: t + (c.battery || 20), scanAt: 0 });
-        m.map.resolve(g, 0.15);
-        ab.drone = g; ab.busy = true; ab.charges--; return true;
+        this.launchDrone(a, false); return true;
       }
       case 'breach_rounds': {
         if (ab.charges <= 0 || t < ab.nextAt) return false;
@@ -157,7 +171,7 @@ export class Abilities {
   // F: the drone zaps a gadget off.
   f(a) {
     const ab = a.ab, d = ab.drone, m = this.m;
-    if (!this.on || !d || !d.alive || this.jammed(d.x, d.z, d.team)) return false;
+    if (!this.on || !d || !d.alive || d.basic || this.jammed(d.x, d.z, d.team)) return false;
     const R = ab.c.zapRange || 2;
     const g = this.gadgets.filter((x) => x.alive && x.team !== a.team && x.type !== 'drone').sort((p, q) => Math.hypot(p.x - d.x, p.z - d.z) - Math.hypot(q.x - d.x, q.z - d.z))[0];
     if (!g || Math.hypot(g.x - d.x, g.z - d.z) > R) { m.emit({ type: 'msg', text: 'No gadget in reach', id: a.id, private: true }); return false; }
@@ -187,7 +201,7 @@ export class Abilities {
     const y = d.yaw * DEG, L = Math.hypot(f, s);
     d.x += (Math.sin(y) * f + Math.cos(y) * s) / L * sp * dt;
     d.z += (-Math.cos(y) * f + Math.sin(y) * s) / L * sp * dt;
-    this.m.map.resolve(d, 0.15);
+    this.m.map.resolve(d, 0.15, true);
   }
   mouse(a, dx, dy) {
     const d = a.ab && a.ab.drone;
@@ -237,8 +251,10 @@ export class Abilities {
 
   /* ---------- every step ---------- */
   update(dt) {
-    if (!this.on) return;
     const m = this.m, t = m.t;
+    // drones: flat battery, and the plain prep drones stop when the action phase starts
+    for (const g of this.gadgets) if (g.alive && g.type === 'drone' && (t >= g.end || (g.basic && m.rules.phase !== 'prep'))) this.destroy(g);
+    if (!this.on) { this.gadgets = this.gadgets.filter((g) => g.alive); return; }
     // projectiles (Kamai's catchers take them first)
     for (const p of this.projectiles) {
       if (!p.alive) continue;
@@ -324,8 +340,11 @@ export class Abilities {
   /* ---------- bots ---------- */
   botThink(brain) {
     brain.abGoal = null;
-    if (!this.on) return;
     const m = this.m, a = brain.a, ab = a.ab, t = m.t, R = m.rules;
+    // attackers scout with their prep drone (staggered starts)
+    if (ab && a.alive && ab.drone && ab.drone.basic) { this.botDrone(brain); return; }
+    if (ab && a.alive && this.plainDrone(a) && t > R.phaseEnd - 27 + (a.id % 4) * 1.5) { this.launchDrone(a, true).path = null; return; }
+    if (!this.on) return;
     if (!ab || !a.alive) return;
     const tgt = brain.target && brain.target.alive && t - brain.visAt < 0.3 ? brain.target : null;
     const dist = tgt ? Math.hypot(tgt.x - a.x, tgt.z - a.z) : Infinity;
@@ -363,7 +382,8 @@ export class Abilities {
     switch (ab.id) {
       case 'spark_drone': {
         if (ab.drone) { this.botDrone(brain); return; }
-        const scout = bomb && attacking && R.phase === 'prep' && t > (brain.droneAfter || 0);
+        // Bomb: everyone scouted with prep drones; Glitch's own drone goes out mid-round
+        const scout = bomb && attacking && R.phase === 'action' && !tgt && t > (brain.droneAfter || 0) && R.phaseEnd - t < 135 && m.rng() < 0.02;
         if (ab.charges > 0 && (scout || (!tgt && !bomb && m.rng() < 0.01))) {
           if (this.q(a, true) && ab.drone) { ab.drone.path = null; if (!bomb) ab.drone.end = Math.min(ab.drone.end, t + 8); }
         }
@@ -462,7 +482,7 @@ export class Abilities {
     if (wp) {
       const dx = wp[0] - d.x, dz = wp[1] - d.z, L = Math.hypot(dx, dz);
       if (L < 0.6) d.path.shift();
-      else { const st = Math.min(L, (a.ab.c.speed || 6) / 15); d.x += dx / L * st; d.z += dz / L * st; d.yaw = yawTo(dx, dz); m.map.resolve(d, 0.15); }
+      else { const st = Math.min(L, (a.ab.c.speed || 6) / 15); d.x += dx / L * st; d.z += dz / L * st; d.yaw = yawTo(dx, dz); m.map.resolve(d, 0.15, true); }
     }
     if (m.t >= d.scanAt) this.scan(a);
     if (!wp && Math.hypot(goal.x - d.x, goal.z - d.z) < 3 && m.rng() < 0.1) { this.destroy(d); brain.droneAfter = m.t + 60; }
@@ -470,9 +490,11 @@ export class Abilities {
 
   /* ---------- HUD ---------- */
   hudText(a) {
-    if (!this.on || !a.ab || !a.ab.name) return '';
+    if (!a.ab) return '';
     const ab = a.ab, t = this.m.t;
-    if (ab.drone) return 'Drone ' + Math.ceil(ab.drone.end - t) + ' s · Q scan · F zap · V back' + (this.jammed(ab.drone.x, ab.drone.z, a.team) ? ' · JAMMED' : '');
+    if (ab.drone) return 'Drone ' + Math.ceil(ab.drone.end - t) + ' s · Q scan' + (ab.drone.basic ? '' : ' · F zap') + ' · V back' + (this.jammed(ab.drone.x, ab.drone.z, a.team) ? ' · JAMMED' : '');
+    if (this.plainDrone(a)) return 'Q Drone (prep only) · rolls under doors';
+    if (!this.on || !ab.name) return '';
     switch (ab.id) {
       case 'pulse_scanner': return 'Q ' + ab.name + (t < ab.cdUntil ? ' · ' + Math.ceil(ab.cdUntil - t) + ' s' : ' · ready');
       case 'underbarrel': return 'B ' + ab.name + ' · ' + ab.shells + ' shells' + (ab.shotgun ? ' · ON' : '');
