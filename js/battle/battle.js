@@ -3,13 +3,13 @@
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=3d9f8db-mw7k0mnu';
-import { Arena } from './arena.js?v=3d9f8db-mw7k0mnu';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=3d9f8db-mw7k0mnu';
-import { Bot, LEVELS } from './bot.js?v=3d9f8db-mw7k0mnu';
-import { Human } from './human.js?v=3d9f8db-mw7k0mnu';
-import { drawCrosshair } from '../ui/crosshair.js?v=3d9f8db-mw7k0mnu';
-import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=3d9f8db-mw7k0mnu';
+import * as THREE from '../../vendor/three/three.module.min.js?v=d55b29e-mw7pek9y';
+import { Arena } from './arena.js?v=d55b29e-mw7pek9y';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=d55b29e-mw7pek9y';
+import { Bot, LEVELS } from './bot.js?v=d55b29e-mw7pek9y';
+import { Human } from './human.js?v=d55b29e-mw7pek9y';
+import { drawCrosshair } from '../ui/crosshair.js?v=d55b29e-mw7pek9y';
+import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=d55b29e-mw7pek9y';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -815,6 +815,7 @@ export class Battle {
       const hurt = el('div', 'b-hurt');
       const dead = el('div', 'b-dead'); dead.hidden = true;
       const prot = el('div', 'b-prot'); prot.hidden = true;
+      const vig = el('div', 'dmg-vig'), lowhp = el('div', 'low-hp'); lowhp.append(el('span', '', 'LOW HEALTH'));
       const name = el('div', 'b-name t-' + h.f.team, h.f.name + ' · ' + h.gun.name);
       const hp = el('div', 'b-hp'); const hpFill = el('i'); hp.append(hpFill);
       const hpText = el('div', 'b-hptext', '100');
@@ -822,9 +823,9 @@ export class Battle {
       const ctl = el('div', 'b-ctl small', '');
       const pts = el('div', 'b-points', '');
       const rep = el('div', 'b-report'); rep.hidden = true;
-      box.append(hurt, cross, hit, pts, dead, prot, rep, name, hp, hpText, ammo, ctl);
+      box.append(vig, lowhp, hurt, cross, hit, pts, dead, prot, rep, name, hp, hpText, ammo, ctl);
       this.hud.root.insertBefore(box, this.hud.root.firstChild);
-      return { box, cross, hit, hurt, dead, prot, rep, hpFill, hpText, ammo, ctl, pts, ptsUntil: 0, hitUntil: 0, hurtUntil: 0, last: {} };
+      return { vig, lowhp, vigT: -9, box, cross, hit, hurt, dead, prot, rep, hpFill, hpText, ammo, ctl, pts, ptsUntil: 0, hitUntil: 0, hurtUntil: 0, last: {} };
     });
   }
   /* ---------- bodies do not overlap ---------- */
@@ -1092,6 +1093,7 @@ export class Battle {
     const v = this.hud.views[this.humans.indexOf(h)];
     if (!v) return;
     v.hurtUntil = t + 0.35;
+    v.vigT = t;                                    // red vignette on every hit
     if (!by) { v.hurt.className = 'b-hurt on acid'; return; }   // acid: green all round
     // Which side the damage came from (left/right/front/behind) shows as a red edge.
     const ang = Math.atan2(by.x - h.f.x, -(by.z - h.f.z)) * 180 / Math.PI;
@@ -1132,6 +1134,10 @@ export class Battle {
       if (L.cross !== showCross) { L.cross = showCross; v.cross.hidden = !showCross; }
       if (t > v.hitUntil && v.hit.classList.contains('on')) v.hit.className = 'b-hit';
       if (t > v.hurtUntil && v.hurt.classList.contains('on')) v.hurt.className = 'b-hurt';
+      const vk = Math.max(0, 1 - (t - v.vigT) / 0.7);
+      if (Math.abs((L.vk || 0) - vk) > 0.02 || (vk === 0 && L.vk)) { L.vk = vk; v.vig.style.opacity = vk.toFixed(2); }
+      const low = f.alive && f.health <= 35;
+      if (L.low !== low) { L.low = low; v.lowhp.classList.toggle('on', low); }
       if (t > v.ptsUntil && v.pts.classList.contains('on')) v.pts.className = 'b-points';
       const deadMsg = f.alive ? '' : 'Eliminated by ' + (h.killedBy || '?') + ' · back in ' + Math.max(0, Math.ceil(f.respawnAt - t));
       const back = Math.max(0, Math.ceil(f.respawnAt - t));

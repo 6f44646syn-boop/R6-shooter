@@ -21,7 +21,7 @@
 //   Onyx   Charge Dash    hold Q 0.6 s, then dash 6 m: through soft walls, the first enemy hit
 //                         is stunned and knocked back for 1.5 s. 2 charges, 12 s each.
 // Gadgets die to one bullet. Bots use abilities too (see botThink).
-import { raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=3d9f8db-mw7k0mnu';
+import { raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=d55b29e-mw7pek9y';
 
 export class Abilities {
   constructor(m, cfg) {
@@ -39,7 +39,7 @@ export class Abilities {
     this.init(a);
     if (keep && keep.drone) this.destroy(keep.drone);
   }
-  clearAll() { this.gadgets = []; this.projectiles = []; for (const a of this.m.actors) if (a.ab) { a.ab.drone = null; a.ab.busy = false; } }
+  clearAll() { this.gadgets = []; this.projectiles = []; this.clouds = []; for (const a of this.m.actors) if (a.ab) { a.ab.drone = null; a.ab.busy = false; } }
   onDeath(a) {
     if (a.ab && a.ab.drone) this.destroy(a.ab.drone);
     if (a.ab) { a.ab.holdQ = 0; a.ab.dash = null; a.ab.busy = false; a.ab.shotgun = false; }
@@ -249,6 +249,17 @@ export class Abilities {
     m.emit({ type: 'boom', x, z, small: true });
   }
 
+  // Dread: the screen shakes and darkens, the defenders see you through walls, and a bot
+  // panics (runs for cover, slower to react).
+  dread(e, team, c) {
+    const m = this.m, t = m.t;
+    const fresh = t >= (e.shakeUntil || 0);
+    e.shakeUntil = Math.max(e.shakeUntil || 0, t + (c.shakeTime || 6));
+    e.revealedUntil = Math.max(e.revealedUntil || 0, t + (c.revealTime || 6));
+    m.report(team, e);
+    if (fresh && e.brain) e.brain.panic(t + 3);
+  }
+
   /* ---------- every step ---------- */
   update(dt) {
     const m = this.m, t = m.t;
@@ -260,8 +271,8 @@ export class Abilities {
       if (!p.alive) continue;
       p.life -= dt;
       const C = this.cfg.catcher || {};
-      const cat = this.gadgets.find((g) => g.type === 'catcher' && g.team !== p.team && !this.off(g) && t >= g.readyAt && Math.hypot(g.x - p.x, g.y - p.y, g.z - p.z) < (C.radius || 4));
-      if (cat) { p.alive = false; cat.readyAt = t + (C.recharge || 20); m.emit({ type: 'caught', x: p.x, y: p.y, z: p.z }); continue; }
+      const cat = this.gadgets.find((g) => g.type === 'catcher' && g.team !== p.team && !this.off(g) && t >= g.readyAt && Math.hypot(g.x - p.x, g.y - p.y, g.z - p.z) < (C.radius || 5));
+      if (cat) { p.alive = false; cat.readyAt = t + (C.recharge || 10); m.emit({ type: 'caught', x: p.x, y: p.y, z: p.z, cx: cat.x, cy: cat.y, cz: cat.z }); continue; }
       const step = Math.hypot(p.vx, p.vy, p.vz) * dt, d = [p.vx * dt / step, p.vy * dt / step, p.vz * dt / step], o = [p.x, p.y, p.z];
       let hitT = Infinity;
       const w = m.map.raycast(o, d, step);
@@ -286,12 +297,23 @@ export class Abilities {
             if (!e.alive || e.team === g.team || Math.hypot(e.x - g.x, e.z - g.z) > (c.radius || 4)) continue;
             m.hit(e, c.damage || 10, owner, 'torso', 'ability');
             if (g.kind === 'jolt') { e.slowUntil = t + (c.slowTime || 3); e.wobbleUntil = t + (c.wobbleTime || 3); }
-            else e.shakeUntil = t + (c.shakeTime || 6);
+            else this.dread(e, g.team, c);
           }
-          m.emit({ type: 'pulse', x: g.x, z: g.z, kind: g.kind });
+          if (g.kind === 'dread') this.clouds.push({ x: g.x, z: g.z, r: c.cloudRadius || 3, until: t + (c.cloudTime || 5), team: g.team, c });
+          m.emit({ type: 'pulse', x: g.x, z: g.z, kind: g.kind, r: g.kind === 'dread' ? c.cloudRadius || 3 : c.radius || 4, dur: g.kind === 'dread' ? c.cloudTime || 5 : 0 });
           this.destroy(g);
         }
       } else if (g.type === 'drone' && t >= g.end) this.destroy(g);
+    }
+    // dread gas: anyone inside keeps shaking and stays revealed
+    this.clouds = (this.clouds || []).filter((cl) => t < cl.until);
+    for (const cl of this.clouds) for (const e of m.actors) if (e.alive && e.team !== cl.team && Math.hypot(e.x - cl.x, e.z - cl.z) < cl.r) this.dread(e, cl.team, { ...cl.c, shakeTime: 1.5, revealTime: 2 });
+    // catchers also zap enemy drones and wall charges that come in range
+    const C = this.cfg.catcher || {};
+    for (const cat of this.gadgets) {
+      if (cat.type !== 'catcher' || this.off(cat) || t < cat.readyAt) continue;
+      const g = this.gadgets.find((x) => x.alive && x.team !== cat.team && (x.type === 'drone' || x.type === 'charge') && Math.hypot(x.x - cat.x, x.z - cat.z) < (C.radius || 5));
+      if (g) { cat.readyAt = t + (C.recharge || 10); m.emit({ type: 'caught', x: g.x, y: g.y || 0.3, z: g.z, cx: cat.x, cy: cat.y, cz: cat.z }); this.destroy(g); }
     }
     this.gadgets = this.gadgets.filter((g) => g.alive);
     // per actor: shells, dash charges, the charge dash itself
@@ -327,11 +349,12 @@ export class Abilities {
       const e = m.actors.find((q) => q.alive && q.team !== a.team && Math.hypot(q.x - a.x, q.z - a.z) < 1.0);
       if (e) {
         D.hit = true;
-        e.stunUntil = m.t + (c.stun || 1.5);
+        e.stunUntil = m.t + (c.stun || 2);
+        m.emit({ type: 'stun', id: e.id, by: a.id });
         const k = { x: e.x + D.dx * (c.knockback || 2), z: e.z + D.dz * (c.knockback || 2) };
         k.x = Math.max(-m.map.hx + 0.5, Math.min(m.map.hx - 0.5, k.x)); k.z = Math.max(-m.map.hz + 0.5, Math.min(m.map.hz - 0.5, k.z));
         m.map.resolve(k); e.x = k.x; e.z = k.z; if (e.human) e.forced = true;
-        m.hit(e, 15, a, 'torso', 'ability');
+        m.hit(e, c.damage || 35, a, 'torso', 'ability');
         D.left = 0;
       }
     }
@@ -354,7 +377,7 @@ export class Abilities {
     if (!tgt && t >= (brain.gadgetAt || 0) && !R.frozen(a)) {
       brain.gadgetAt = t + 0.5;
       const eye = m.eye(a);
-      const g = this.gadgets.find((x) => x.alive && x.team !== a.team && Math.hypot(x.x - a.x, x.z - a.z) < 12 && ((t < x.revealedUntil && x.revealedFor === a.team) || Math.hypot(x.x - a.x, x.z - a.z) < 7) && m.map.sight(eye, [x.x, x.y, x.z]));
+      const g = this.gadgets.find((x) => x.alive && x.team !== a.team && Math.hypot(x.x - a.x, x.z - a.z) < 12 && ((t < x.revealedUntil && x.revealedFor === a.team) || Math.hypot(x.x - a.x, x.z - a.z) < (x.type === 'mine' ? 3.5 : 7)) && m.map.sight(eye, [x.x, x.y, x.z]));
       if (g && a.ammo > 0 && !a.reloadUntil) {
         const d = [g.x - eye[0], g.y - eye[1], g.z - eye[2]], L = Math.hypot(d[0], d[1], d[2]);
         a.yaw = yawTo(d[0], d[2]); brain.aimYaw = a.yaw;

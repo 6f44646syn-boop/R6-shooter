@@ -18,7 +18,7 @@
 //
 // Soft and reinforced walls are split into panels 1.5 m wide. The lower 2.2 m of a panel can
 // be destroyed (a hole); the part above stays.
-import { rayBox, pushCircleBox, circleHitsBox, segHitsBox } from './geom.js?v=3d9f8db-mw7k0mnu';
+import { rayBox, pushCircleBox, circleHitsBox, segHitsBox } from './geom.js?v=d55b29e-mw7pek9y';
 
 export const PANEL_W = 1.5, HOLE_H = 2.2, BODY_R = 0.32, DOOR_HP = 100, STEP = 0.35, DOOR_GAP = 0.3;
 // Blocks a body at floor level (not a box overhead, not a tiny ledge you step over).

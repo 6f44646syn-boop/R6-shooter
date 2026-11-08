@@ -4,15 +4,16 @@
 //
 // Map: flat-shaded low poly from the map file; static walls merged into one mesh, breakable
 // panels in one instanced mesh, one directional light (a 1024 shadow map in High / Ultra).
-import * as THREE from '../../vendor/three/three.module.min.js?v=3d9f8db-mw7k0mnu';
-import { MatchMap } from './map.js?v=3d9f8db-mw7k0mnu';
-import { Match, TICK } from './sim.js?v=3d9f8db-mw7k0mnu';
-import { yawTo, wrap180, DEG } from './geom.js?v=3d9f8db-mw7k0mnu';
-import { Fighter } from '../battle/fighter.js?v=3d9f8db-mw7k0mnu';
-import { buildMapLook, panelTextures } from './look.js?v=3d9f8db-mw7k0mnu';
-import { Arena } from '../battle/arena.js?v=3d9f8db-mw7k0mnu';
-import { Human } from '../battle/human.js?v=3d9f8db-mw7k0mnu';
-import { drawCrosshair } from '../ui/crosshair.js?v=3d9f8db-mw7k0mnu';
+import * as THREE from '../../vendor/three/three.module.min.js?v=d55b29e-mw7pek9y';
+import { MatchMap } from './map.js?v=d55b29e-mw7pek9y';
+import { Match, TICK } from './sim.js?v=d55b29e-mw7pek9y';
+import { yawTo, wrap180, DEG } from './geom.js?v=d55b29e-mw7pek9y';
+import { Fighter } from '../battle/fighter.js?v=d55b29e-mw7pek9y';
+import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=d55b29e-mw7pek9y';
+import { buildMapLook, panelTextures } from './look.js?v=d55b29e-mw7pek9y';
+import { Arena } from '../battle/arena.js?v=d55b29e-mw7pek9y';
+import { Human } from '../battle/human.js?v=d55b29e-mw7pek9y';
+import { drawCrosshair } from '../ui/crosshair.js?v=d55b29e-mw7pek9y';
 
 const TEAM_COLOR = { A: 0x5b8cff, B: 0xff7048 };
 const MAX_TRACERS = 64;
@@ -57,7 +58,8 @@ export class ModeGame {
     this._buildScene();
     this._buildActors();
     this.prevT = d.now(); this.acc = 0; this.mapVersion = -1;
-    this.feed = []; this.points = 0; this._stepT = 0;
+    this.rec = { frames: [], shots: [], hits: [] }; this.kc = null;
+    this.feed = []; this.points = 0; this._stepT = 0; this.fx = []; this.fx2 = []; this.vigT = -9; this.wasJammed = false;
     this.active = true; this.paused = false; this.over = false;
     this.hud.root.hidden = false; this.hud.end.hidden = true;
     this._refreshPanels();
@@ -210,6 +212,7 @@ export class ModeGame {
     // the breacher replaces the rifle while it is switched on; the drone needs your hands
     const fire = h.in.fire;
     if (ab && (droning || (abOn && ab.shotgun))) { if (ab.shotgun && fire && me.alive && !droning && m.ab.fireShotgun(me)) { this.deps.sfx.shot(0.15, 1); h.rig.kick && h.rig.kick(); } h.in.fire = false; }
+    if (m.t < me.stunUntil) h.in.fire = false;           // stunned (Charge Dash): no shooting
     h.speedMult = me.alive && !frozen ? m.speedOf(me) : 0;
     h.f.alive = me.alive;
     const mv = droning ? [h.in.fwd, h.in.back, h.in.left, h.in.right] : null;
@@ -227,6 +230,7 @@ export class ModeGame {
     while (this.acc >= TICK && n < 8) { m.step(); this.acc -= TICK; n++; }
     if (n === 8) this.acc = 0;
     this._events(t);
+    this._record();
     if (!this.paused && !this.over) this._steps();
     this._refreshPanels();
     // draw everyone where the simulation has them
@@ -234,6 +238,13 @@ export class ModeGame {
       const f = this.fig.get(a.id);
       if (a !== me) { f.x = a.x; f.z = a.z; f.y = 0; f.yaw = a.yaw; f.pitch = a.pitch; f.crouch = a.crouch; f.ads = a.ads; }
       f.alive = a.alive; f.health = a.hp; f.protectUntil = t + (a.protectUntil - m.t);
+      // stunned: stars round the head; charging (Onyx): a blue streak
+      const stun = a.alive && m.t < a.stunUntil && a !== me;
+      if (stun && !f.stars) { f.stars = stunStars(); f.group.add(f.stars); }
+      if (f.stars) { f.stars.visible = stun; if (stun) { f.stars.position.y = 1.95 - 0.4 * a.crouch; f.stars.rotation.y = t * 5; } }
+      const dash = a.alive && a.ab && a.ab.dash;
+      if (dash && !f.trail) { f.trail = dashTrail(); this.markerG.add(f.trail); }
+      if (f.trail) { f.trail.visible = !!dash && a !== me; if (dash) { f.trail.position.set(a.x, 0, a.z); f.trail.rotation.y = Math.atan2(-dash.dx, -dash.dz); f.trail.scale.z = 2.5; } }
       f.updateVisual(t);
       const enemy = a.team !== me.team;
       const v = a !== me && a.alive && enemy;
@@ -247,6 +258,7 @@ export class ModeGame {
     }
     this._objectives(t);
     this._gadgets(t);
+    if (this.kc) this._replay(t);
     this._camera(t);
     this._updateTracers(t);
     if (this.arena) this.arena.update(dt, t, h.camera.position);
@@ -256,6 +268,8 @@ export class ModeGame {
   _events(t) {
     const m = this.m, me = this.me, sfx = this.deps.sfx;
     for (const e of m.events) {
+      if (e.type === 'shot') this._recShot(e);
+      if (e.type === 'hit' && e.id === me.id) this.rec.hits.push({ t: m.t, by: e.by, zone: e.zone, dmg: e.dmg, kind: e.kind });
       if (e.type === 'shot' && e.id !== me.id) {
         const f = this.fig.get(e.id);
         if (f) { f.flashUntil = t + 0.05; this._tracer(f.muzzleWorld(this._v || (this._v = new THREE.Vector3())), e.to, t, e.team); }
@@ -263,7 +277,7 @@ export class ModeGame {
         const dist = a ? Math.hypot(a.x - me.x, a.z - me.z) : 20;
         if (t - (this._lastShotSnd || 0) > 0.04) { this._lastShotSnd = t; const w = this._where(e.from[0], e.from[2]); sfx.shot(a ? a.gun.tone : 0.5, Math.max(0.05, Math.min(0.6, 3 / (w.dist + 2))), w.pan, w.muffle); }
       } else if (e.type === 'hit') {
-        if (e.id === me.id) this._hurt(e.by, t);
+        if (e.id === me.id) this._hurt(e.by, t, e.dmg);
         if (e.by === me.id) this._marker(e.zone === 'head' ? 'head' : 'hit', t);
       } else if (e.type === 'kill') {
         const v = m.actors.find((x) => x.id === e.id), k = m.actors.find((x) => x.id === e.by);
@@ -271,7 +285,7 @@ export class ModeGame {
         this.feed.length = Math.min(this.feed.length, 5);
         this._renderFeed();
         if (k === me) { this._marker('kill', t); this._earn('kill', e.head); }
-        if (v === me) this.killedBy = k ? k.name : 'the world';
+        if (v === me) { this.killedBy = k ? k.name : 'the world'; if (k && k !== me) this._startKc(k, e, t); }
       } else if (e.type === 'spawn' && e.id === me.id) {
         this.h.respawn(me.x, me.z, t, 0);
         this.h.look.setAngles(me.yaw, 0);
@@ -299,11 +313,17 @@ export class ModeGame {
         if (e.id === me.id) { sfx.knife(1); if (this.h.rig.melee) this.h.rig.melee(); }
         else { const a = m.actors.find((x) => x.id === e.id), w = a && this._where(a.x, a.z); if (w && w.dist < 15) sfx.knife(Math.min(0.8, 3 / (w.dist + 2)), w.pan, w.muffle); }
       } else if (e.type === 'pulse') {
-        this._boom(e.x, e.z, 2.5, t, e.kind === 'jolt' ? 0x60a0ff : 0x9040ff);
+        const w = this._where(e.x, e.z);
+        if (e.kind === 'dread') { this._fxAdd(gasCloud(e.x, e.z, e.r || 3), t, e.dur || 5, 'cloud'); this._boom(e.x, e.z, e.r || 3, t, 0x9040ff); sfx.shot(0.02, Math.min(0.6, 4 / (w.dist + 3)), w.pan, w.muffle); }
+        else { this._boom(e.x, e.z, e.r || 4, t, 0x60b0ff); this._boom(e.x, e.z, (e.r || 4) * 0.5, t, 0xe0f4ff); sfx.zap(Math.min(1, 5 / (w.dist + 3)), w.pan, w.muffle); }
       } else if (e.type === 'scan') {
         if (e.id === me.id || m.actors.find((x) => x.id === e.id)?.team === me.team) this._boom(e.x, e.z, e.r, t, 0x60ffd0);
       } else if (e.type === 'caught') {
         this._boom(e.x, e.z, 1, t, 0x9cff70);
+        if (e.cx !== undefined) this._fxAdd(beam([e.cx, (e.cy || 0.4) + 0.12, e.cz], [e.x, e.y, e.z], 0x9cff70), t, 0.3, 'beam');
+        const w = this._where(e.x, e.z); sfx.zap(Math.min(0.8, 4 / (w.dist + 3)), w.pan, w.muffle);
+      } else if (e.type === 'stun') {
+        if (e.id === me.id) { this._flash('Stunned', t); sfx.shot(0.02, 0.6); }
       }
     }
     m.events.length = 0;
@@ -333,6 +353,76 @@ export class ModeGame {
       sfx.step(vol, w.pan, w.muffle);
     }
     for (const n of m.noises) this._stepT = Math.max(this._stepT || 0, n.t);
+  }
+  /* ---------- death replay ---------- */
+  // The last few seconds, every frame (sim time): positions and aim of everyone; shots;
+  // hits you took.
+  _record() {
+    const m = this.m, R = this.rec;
+    if (this.kc) return;
+    const s = new Float32Array(m.actors.length * 6);
+    m.actors.forEach((a, i) => { s.set([a.x, a.z, a.yaw, a.pitch, a.crouch, a.alive ? 1 : 0], i * 6); });
+    R.frames.push({ t: m.t, s });
+    while (R.frames.length && R.frames[0].t < m.t - 5) R.frames.shift();
+    while (R.shots.length && R.shots[0].t < m.t - 5) R.shots.shift();
+    while (R.hits.length && R.hits[0].t < m.t - 10) R.hits.shift();
+  }
+  _recShot(e) { this.rec.shots.push({ t: this.m.t, id: e.id, to: e.to.slice(), team: e.team }); }
+  _startKc(k, e, t) {
+    const m = this.m, me = this.me;
+    const hits = this.rec.hits.filter((h) => m.t - h.t < 8);
+    const by = new Map();
+    for (const h of hits) { const a = m.actors.find((x) => x.id === h.by); const key = a ? a.name : 'the world'; const r = by.get(key) || { n: 0, head: 0, dmg: 0 }; r.n++; if (h.zone === 'head') r.head++; r.dmg += h.dmg; by.set(key, r); }
+    const report = [...by.entries()].map(([n, r]) => n + ': ' + r.n + ' hit' + (r.n > 1 ? 's' : '') + (r.head ? ' (' + r.head + ' head)' : '') + ', ' + Math.round(r.dmg)).join(' · ');
+    const dist = Math.hypot(k.x - me.x, k.z - me.z);
+    this.kc = { by: k.id, deathT: m.t, start: t + 0.35, from: m.t - 2.6, si: 0, fi: 0 };
+    this.kc.si = this.rec.shots.findIndex((s) => s.t >= this.kc.from); if (this.kc.si < 0) this.kc.si = this.rec.shots.length;
+    if (!this.kcCam) this.kcCam = new THREE.PerspectiveCamera(70, 1, 0.03, 300);
+    const H = this.hud;
+    H.kcBox.replaceChildren(el('b', '', 'KILL CAM'), el('div', '', 'Killed by ' + k.name + ' (' + k.op.name + ' · ' + k.gun.name + (e.kind === 'knife' ? ' · knife' : e.head ? ' · headshot' : '') + ') from ' + dist.toFixed(0) + ' m'), el('div', 'small', 'Damage you took: ' + (report || 'none recorded')), el('div', 'small', 'Space: skip'));
+    H.kcBox.hidden = false;
+  }
+  _endKc() {
+    this.kc = null; this.hud.kcBox.hidden = true;
+    this.rec.frames.length = 0; this.rec.shots.length = 0;
+  }
+  _replay(t) {
+    const kc = this.kc, m = this.m, R = this.rec;
+    if (this.me.alive) { this._endKc(); return; }        // respawned
+    if (t < kc.start) return;
+    const rt = kc.from + (t - kc.start);
+    if (rt > kc.deathT + 0.5 || !R.frames.length) { this._endKc(); return; }
+    // the recorded frames around the replay time
+    let i = Math.min(kc.fi, R.frames.length - 1);
+    while (i < R.frames.length - 1 && R.frames[i + 1].t <= rt) i++;
+    kc.fi = i;
+    const A = R.frames[i], B = R.frames[Math.min(i + 1, R.frames.length - 1)];
+    const f = B.t > A.t ? Math.max(0, Math.min(1, (rt - A.t) / (B.t - A.t))) : 0;
+    const lerpYaw = (a, b) => a + wrap180(b - a) * f;
+    m.actors.forEach((a, k) => {
+      const fig = this.fig.get(a.id), o = k * 6;
+      if (o + 5 >= A.s.length) return;
+      fig.x = A.s[o] + (B.s[o] - A.s[o]) * f; fig.z = A.s[o + 1] + (B.s[o + 1] - A.s[o + 1]) * f;
+      fig.yaw = lerpYaw(A.s[o + 2], B.s[o + 2]); fig.pitch = A.s[o + 3] + (B.s[o + 3] - A.s[o + 3]) * f; fig.crouch = A.s[o + 4];
+      fig.alive = A.s[o + 5] > 0.5; fig.y = 0;
+      fig.updateVisual(t);
+      fig.outline.visible = false; for (const l of fig.legs) l.o.visible = false; fig.setGhost(false);
+      if (a.id === kc.by) {
+        // the killer's eyes
+        fig.group.visible = false;
+        this.kcCam.position.set(fig.x, 1.6 - 0.45 * fig.crouch, fig.z);
+        this.kcCam.rotation.set(fig.pitch * DEG, -fig.yaw * DEG, 0, 'YXZ');
+      }
+      if (a === this.me) { fig.outline.visible = true; for (const l of fig.legs) l.o.visible = true; }   // you, in red
+    });
+    // their shots, as they happened
+    while (kc.si < R.shots.length && R.shots[kc.si].t <= rt) {
+      const s = R.shots[kc.si++];
+      if (s.id !== kc.by) continue;
+      const c = this.kcCam.position, d = new THREE.Vector3(0, -0.12, -0.6).applyQuaternion(this.kcCam.quaternion);
+      this._tracer(new THREE.Vector3(c.x + d.x, c.y + d.y, c.z + d.z), s.to, t, s.team);
+      this.deps.sfx.shot(this.m.actors.find((x) => x.id === s.id)?.gun.tone ?? 0.5, 0.5);
+    }
   }
   _earn(kind, head = false) {
     const n = this.deps.onPoints ? this.deps.onPoints(kind, head) : 0;
@@ -397,23 +487,7 @@ export class ModeGame {
     const set = (o) => o.traverse((n) => { if (n.isMesh) { if (!n.userData.olMat) n.userData.olMat = n.material; n.material = on ? xrayMat(n.userData.olMat) : n.userData.olMat; n.renderOrder = on ? 6 : 0; } });
     set(f.outline); for (const l of f.legs) set(l.o);
   }
-  _gadgetMesh(g) {
-    const c = GADGET_COLOR[g.type] || 0xffffff, grp = new THREE.Group();
-    let geo;
-    if (g.type === 'drone') geo = new THREE.BoxGeometry(0.34, 0.14, 0.34);
-    else if (g.type === 'charge') geo = new THREE.BoxGeometry(0.5, 0.7, 0.08);
-    else if (g.type === 'breach') geo = new THREE.SphereGeometry(0.08, 8, 6);
-    else if (g.type === 'jammer') geo = new THREE.CylinderGeometry(0.14, 0.18, 0.22, 10);
-    else if (g.type === 'catcher') geo = new THREE.CylinderGeometry(0.06, 0.12, 0.5, 8);
-    else geo = new THREE.CylinderGeometry(0.16, 0.2, 0.08, 12);
-    const body = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: 0x2c3036 }));
-    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), new THREE.MeshBasicMaterial({ color: c }));
-    lamp.position.y = g.type === 'charge' ? 0.2 : g.type === 'catcher' ? 0.28 : 0.1;
-    if (g.type === 'breach') { body.material = new THREE.MeshBasicMaterial({ color: c }); lamp.visible = false; }
-    grp.add(body, lamp);
-    grp.userData = { body, lamp, color: c };
-    return grp;
-  }
+  _gadgetMesh(g) { return makeGadget(g, this.m.ab.cfg); }
   _gadgets(t) {
     const ab = this.m.ab, me = this.me, seen = new Set();
     if (!this.gMeshes) this.gMeshes = new Map();
@@ -426,14 +500,15 @@ export class ModeGame {
       o.position.set(g.x, g.y || 0.05, g.z);
       if (g.type === 'drone') { o.rotation.y = -g.yaw * DEG; o.visible = !(me.ab && me.ab.drone === g); }
       if (g.type === 'charge') { const pn = this.map.panels[g.panel]; if (pn) { const b = pn.box; o.rotation.y = (b.maxX - b.minX) > (b.maxZ - b.minZ) ? 0 : Math.PI / 2; } }
-      // the lamp: off when zapped or jammed, blinking when armed, team colour otherwise
+      // spin, spark, pulse; dark when zapped or jammed; the jammer's reach shows to its team and up close
       const u = o.userData, off = g.type !== 'breach' && ab.off(g);
-      u.lamp.material.color.setHex(off ? 0x303030 : g.trigAt ? (Math.floor(t * 8) % 2 ? 0xff2020 : 0x401010) : u.color);
+      const R = (ab.cfg.static_jammer && ab.cfg.static_jammer.radius) || 8;
+      animateGadget(o, g, t, { off, armed: !!g.trigAt, ready: g.type !== 'catcher' || this.m.t >= g.readyAt, showRing: g.team === me.team || Math.hypot(g.x - me.x, g.z - me.z) < R + 5 });
       // gadgets found by a scan show through walls for that team
       const xr = g.team !== me.team && g.revealedFor === me.team && this.m.t < g.revealedUntil;
-      for (const n of [u.body, u.lamp]) { n.material.depthTest = !xr; n.renderOrder = xr ? 6 : 0; }
+      if (xr !== !!u.xr) { u.xr = xr; for (const n of u.parts) { n.material.depthTest = !xr; n.renderOrder = xr ? 6 : 0; } }
     }
-    for (const [k, o] of this.gMeshes) if (!seen.has(k)) { this.markerG.remove(o); o.traverse((n) => { if (n.isMesh) { n.geometry.dispose(); n.material.dispose(); } }); this.gMeshes.delete(k); }
+    for (const [k, o] of this.gMeshes) if (!seen.has(k)) { this.markerG.remove(o); o.traverse((n) => { if (n.geometry) n.geometry.dispose(); if (n.material) for (const mm of [].concat(n.material)) mm.dispose(); }); this.gMeshes.delete(k); }
   }
   _boom(x, z, r, t, color) {
     if (!this.fx) this.fx = [];
@@ -444,7 +519,19 @@ export class ModeGame {
     this.markerG.add(mesh);
     this.fx.push({ mesh, t, r });
   }
+  _fxAdd(obj, t, dur, kind) {
+    if (!this.fx2) this.fx2 = [];
+    this.markerG.add(obj);
+    this.fx2.push({ obj, t, dur, kind });
+  }
   _updateFx(t) {
+    if (this.fx2) this.fx2 = this.fx2.filter((f) => {
+      const k = (t - f.t) / f.dur;
+      if (k >= 1) { this.markerG.remove(f.obj); f.obj.traverse((n) => { if (n.material) n.material.dispose(); if (n.geometry && f.kind === 'beam') n.geometry.dispose(); }); return false; }
+      if (f.kind === 'cloud') updateCloud(f.obj, k, 1 / 60);
+      else f.obj.material.opacity = 1 - k;
+      return true;
+    });
     if (!this.fx) return;
     this.fx = this.fx.filter((f) => {
       const k = (t - f.t) / 0.6;
@@ -462,7 +549,8 @@ export class ModeGame {
     const cam = this.dcam;
     let over = null;
     const d = ab && ab.drone && ab.drone.alive ? ab.drone : null;
-    if (d) {
+    if (this.kc && this.kcCam && t >= this.kc.start) over = this.kcCam;
+    else if (d) {
       cam.position.set(d.x, (d.y || 0.15) + 0.08, d.z);
       cam.rotation.set(d.pitch * DEG, -d.yaw * DEG, 0, 'YXZ');
       over = cam;
@@ -510,7 +598,7 @@ export class ModeGame {
     const cam = this.camOverride || h.camera;
     if (cam.aspect !== aspect) { cam.aspect = aspect; cam.updateProjectionMatrix(); }
     const ownVis = h.f.group.visible;
-    h.f.group.visible = false;
+    if (!(this.kc && this.camOverride === this.kcCam)) h.f.group.visible = false;   // your body shows in your death replay
     r.render(this.scene, cam);
     h.f.group.visible = ownVis;
     if (!this.camOverride) {
@@ -538,6 +626,7 @@ export class ModeGame {
   key(code, down) {
     if (!this.active) return false;
     const h = this.h;
+    if (code === 'Space' && this.kc) { if (down) this._endKc(); return true; }
     if (code === 'Tab') { this.hud.board.hidden = !down; if (down) this._renderBoard(); return true; }
     const me = this.me, ab = this.m.ab;
     const qUsed = this.m.o.abilitiesOn || this.m.o.mode === 'bomb';     // Bomb: Q is also the prep drone
@@ -605,7 +694,10 @@ export class ModeGame {
     const flash = el('div', 'mg-flash'); flash.hidden = true;
     const hold = el('div', 'mg-hold'); hold.hidden = true;
     const holdBar = el('i'); hold.append(el('span', '', ''), holdBar);
-    view.append(hurt, dmg, cross, hit, pts, dead, prot, name, hp, hpText, ammo, ability, hold, flash);
+    const kcBox = el('div', 'mg-kc'); kcBox.hidden = true;
+    const vig = el('div', 'dmg-vig'), lowhp = el('div', 'low-hp'), jam = el('div', 'mg-jam'), banner = el('div', 'mg-banner'); banner.hidden = true;
+    lowhp.append(el('span', '', 'LOW HEALTH'));
+    view.append(kcBox, jam, vig, lowhp, hurt, dmg, cross, hit, pts, dead, prot, name, hp, hpText, ammo, ability, hold, flash, banner);
     const board = el('div', 'mg-board'); board.hidden = true;
     const end = el('div', 'b-end'); end.hidden = true;
     const box = el('div', 'b-end-box'), endTitle = el('h1', '', ''), endTable = el('div', 'b-table'), endNote = el('p', 'small', '');
@@ -615,11 +707,13 @@ export class ModeGame {
     box.append(endTitle, endTable, row, endNote); end.append(box);
     root.append(view, top, compass, status, feed, board, end);
     this.deps.hudRoot.insertBefore(root, this.deps.hudRoot.querySelector('#menu'));
-    this.hud = { prot, root, score, compass, status, feed, view, cross, hit, hurt, dead, name, hpFill, hpText, ammo, pts, ability, dmg, flash, hold, holdBar, board, end, endTitle, endTable, endNote, again, leave, last: {} };
+    this.hud = { kcBox, vig, lowhp, jam, banner, prot, root, score, compass, status, feed, view, cross, hit, hurt, dead, name, hpFill, hpText, ammo, pts, ability, dmg, flash, hold, holdBar, board, end, endTitle, endTable, endNote, again, leave, last: {} };
     drawCrosshair(cross, this.deps.settings.crosshair);
   }
   _marker(kind, t) { this.hud.hit.className = 'b-hit on ' + kind; this.hitUntil = t + (kind === 'kill' ? 0.35 : 0.15); }
-  _hurt(byId, t) {
+  _hurt(byId, t, dmg = 20) {
+    // a red vignette every time you are hit (stronger for bigger hits)
+    this.vigT = t; this.vigK = Math.min(1, 0.45 + dmg / 45);
     const a = this.m.actors.find((x) => x.id === byId);
     this.hurtUntil = t + 0.35;
     if (!a) { this.hud.hurt.className = 'b-hurt on front'; return; }
@@ -657,6 +751,19 @@ export class ModeGame {
     const timer = m.rules.timerText ? m.rules.timerText() : fmt(m.rules.timeLeft());
     const sc = score + '  ·  ' + timer;
     if (L.sc !== sc) { L.sc = sc; H.score.textContent = sc; }
+    // damage vignette, low health, jammed, stunned
+    const vk = Math.max(0, 1 - (t - this.vigT) / 0.7) * (this.vigK || 1);
+    if (Math.abs((L.vk || 0) - vk) > 0.02 || (vk === 0 && L.vk)) { L.vk = vk; H.vig.style.opacity = vk.toFixed(2); }
+    const low = me.alive && me.hp <= 35;
+    if (L.low !== low) { L.low = low; H.lowhp.classList.toggle('on', low); }
+    const d = me.ab && me.ab.drone && me.ab.drone.alive ? me.ab.drone : null;
+    const jammed = me.alive && (m.ab.jammed(me.x, me.z, me.team) || (d && m.ab.jammed(d.x, d.z, me.team)));
+    if (jammed && !this.wasJammed) { this.deps.sfx.jam(0.7); this._jamSnd = t; }
+    else if (jammed && t - (this._jamSnd || 0) > 0.9) { this.deps.sfx.jam(0.25); this._jamSnd = t; }
+    this.wasJammed = jammed;
+    const stunned = me.alive && m.t < me.stunUntil;
+    const ban = stunned ? 'STUNNED' : jammed ? 'JAMMED · abilities, drone and team radio offline' : '';
+    if (L.ban !== ban) { L.ban = ban; H.banner.hidden = !ban; H.banner.textContent = ban; H.banner.className = 'mg-banner' + (stunned ? ' stun' : ''); H.jam.classList.toggle('on', jammed); H.view.classList.toggle('mg-stun', stunned); H.compass.classList.toggle('jammed', jammed); }
     const pr = me.alive && m.t < me.protectUntil ? 'Spawn protection ' + Math.ceil(me.protectUntil - m.t) + ' · shooting ends it' : '';
     if (L.pr !== pr) { L.pr = pr; H.prot.hidden = !pr; H.prot.textContent = pr; }
     const st = m.rules.statusText ? m.rules.statusText(me) : '';
@@ -672,7 +779,7 @@ export class ModeGame {
     if (t > (this.dmgUntil || 0) && H.dmg.classList.contains('on')) H.dmg.className = 'mg-dmgdir';
     if (t > (this.ptsUntil || 0) && H.pts.classList.contains('on')) H.pts.className = 'b-points';
     if (t > (this.flashUntil || 0) && !H.flash.hidden) H.flash.hidden = true;
-    const dmsg = me.alive ? '' : (m.rules.deadText ? m.rules.deadText(me) : 'Eliminated by ' + (this.killedBy || '?') + (me.respawnAt ? ' · back in ' + Math.max(0, Math.ceil(me.respawnAt - m.t)) : ''));
+    const dmsg = me.alive || this.kc ? '' : (m.rules.deadText ? m.rules.deadText(me) : 'Eliminated by ' + (this.killedBy || '?') + (me.respawnAt ? ' · back in ' + Math.max(0, Math.ceil(me.respawnAt - m.t)) : ''));
     if (L.dead !== dmsg) { L.dead = dmsg; H.dead.hidden = !dmsg; H.dead.textContent = dmsg; }
     // hold bar (plant / defuse)
     const hold = me.hold;

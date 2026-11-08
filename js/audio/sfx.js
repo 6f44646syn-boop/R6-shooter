@@ -94,6 +94,33 @@ export class Sfx {
     src.connect(bp).connect(g).connect(out);
     src.start(t, Math.random() * 0.7, 0.16);
   }
+  // Electric zap (jolt mines, catchers): a buzzing square wave over crackle.
+  zap(vol = 1, pan = 0, muffle = 0) {
+    const c = this.ctx;
+    if (!c || this.volume <= 0) return;
+    const t = c.currentTime, out = this._out(pan, muffle);
+    const o = c.createOscillator(); o.type = 'square';
+    o.frequency.setValueAtTime(220, t); o.frequency.linearRampToValueAtTime(90, t + 0.25);
+    const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.25 * vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+    o.connect(g).connect(out); o.start(t); o.stop(t + 0.32);
+    const src = c.createBufferSource(); src.buffer = this.noise;
+    const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 3000;
+    const g2 = c.createGain(); g2.gain.setValueAtTime(0.4 * vol, t); g2.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+    src.connect(hp).connect(g2).connect(out); src.start(t, Math.random() * 0.6, 0.26);
+  }
+  // Radio static (you are jammed).
+  jam(vol = 0.5) {
+    const c = this.ctx;
+    if (!c || this.volume <= 0) return;
+    const t = c.currentTime;
+    for (let i = 0; i < 5; i++) {
+      const s = t + i * 0.06 + Math.random() * 0.04;
+      const src = c.createBufferSource(); src.buffer = this.noise;
+      const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1500 + Math.random() * 2500; bp.Q.value = 0.8;
+      const g = c.createGain(); g.gain.setValueAtTime(0.0001, s); g.gain.exponentialRampToValueAtTime(0.3 * vol, s + 0.005); g.gain.exponentialRampToValueAtTime(0.001, s + 0.05 + Math.random() * 0.05);
+      src.connect(bp).connect(g).connect(this.master); src.start(s, Math.random() * 0.8, 0.1);
+    }
+  }
   // Wood splintering (a door breaking).
   crack(vol = 1, pan = 0, muffle = 0) {
     const c = this.ctx;

@@ -1,13 +1,13 @@
 {
   "_comment": "Ability numbers (seconds, metres, damage). Key Q uses the ability; F and B where noted.",
-  "jolt_mines": { "name": "Jolt Mines", "charges": 3, "placeRange": 3, "trigger": 2, "delay": 1, "radius": 4, "damage": 20, "slow": 0.4, "slowTime": 3, "wobbleTime": 3 },
-  "dread_mines": { "name": "Dread Mines", "charges": 3, "placeRange": 3, "trigger": 2, "delay": 1, "radius": 4, "damage": 10, "shakeTime": 6 },
-  "spark_drone": { "name": "Spark Drone", "charges": 1, "battery": 20, "speed": 6, "scanRadius": 8, "revealTime": 3, "zapRange": 2, "zapTime": 8 },
-  "breach_rounds": { "name": "Breach Rounds", "charges": 3, "speed": 40, "radius": 3, "damage": 60, "wallRadius": 1.6, "interval": 1.2 },
-  "static_jammer": { "name": "Static Jammer", "charges": 2, "placeRange": 3, "radius": 8 },
-  "wall_charge": { "name": "Wall Charge", "charges": 2, "placeRange": 2, "arm": 2, "damage": 30, "radius": 2 },
-  "pulse_scanner": { "name": "Pulse Scanner", "range": 20, "cone": 60, "time": 1.2, "revealTime": 6, "cooldown": 10 },
-  "catcher": { "name": "Catcher", "charges": 2, "placeRange": 3, "radius": 4, "recharge": 20 },
-  "underbarrel": { "name": "Underbarrel Breacher", "shells": 6, "pellets": 8, "damage": 70, "fullRange": 3, "maxRange": 14, "spread": 4, "reload": 0.6, "interval": 0.8, "wallRange": 5 },
-  "charge_dash": { "name": "Charge Dash", "charges": 2, "hold": 0.6, "distance": 6, "time": 0.35, "stun": 1.5, "knockback": 2, "recharge": 12 }
+  "jolt_mines": {"name": "Jolt Mines", "charges": 3, "placeRange": 3, "trigger": 2.2, "delay": 0.5, "radius": 4, "damage": 25, "slow": 0.55, "slowTime": 4, "wobbleTime": 4},
+  "dread_mines": {"name": "Dread Mines", "charges": 3, "placeRange": 3, "trigger": 2.2, "delay": 0.6, "radius": 4, "damage": 10, "shakeTime": 6, "revealTime": 6, "cloudTime": 5, "cloudRadius": 3},
+  "spark_drone": {"name": "Spark Drone", "charges": 1, "battery": 20, "speed": 6, "scanRadius": 8, "revealTime": 3, "zapRange": 2, "zapTime": 8},
+  "breach_rounds": {"name": "Breach Rounds", "charges": 3, "speed": 40, "radius": 3, "damage": 60, "wallRadius": 1.6, "interval": 1.2},
+  "static_jammer": {"name": "Static Jammer", "charges": 2, "placeRange": 3, "radius": 8},
+  "wall_charge": {"name": "Wall Charge", "charges": 2, "placeRange": 2, "arm": 2, "damage": 30, "radius": 2},
+  "pulse_scanner": {"name": "Pulse Scanner", "range": 20, "cone": 60, "time": 1.2, "revealTime": 6, "cooldown": 10},
+  "catcher": {"name": "Catcher", "charges": 2, "placeRange": 3, "radius": 5, "recharge": 10},
+  "underbarrel": {"name": "Underbarrel Breacher", "shells": 6, "pellets": 8, "damage": 70, "fullRange": 3, "maxRange": 14, "spread": 4, "reload": 0.6, "interval": 0.8, "wallRange": 5},
+  "charge_dash": {"name": "Charge Dash", "charges": 2, "hold": 0.6, "distance": 6, "time": 0.35, "stun": 2, "knockback": 2.5, "recharge": 10, "damage": 35}
 }

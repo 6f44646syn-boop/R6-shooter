@@ -7,12 +7,12 @@
 //
 // Body for hits (actor frame, standing; crouching squashes y to 0.7): head sphere at 1.62 m
 // (r 0.13), torso capsule 0.95-1.34 m (r 0.24), legs capsule 0.1-0.9 m (r 0.19).
-import { mulberry32 } from '../core/prng.js?v=3d9f8db-mw7k0mnu';
-import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=3d9f8db-mw7k0mnu';
-import { BODY_R } from './map.js?v=3d9f8db-mw7k0mnu';
-import { Brain } from './bots.js?v=3d9f8db-mw7k0mnu';
-import { makeRules } from './rules.js?v=3d9f8db-mw7k0mnu';
-import { Abilities } from './abilities.js?v=3d9f8db-mw7k0mnu';
+import { mulberry32 } from '../core/prng.js?v=d55b29e-mw7pek9y';
+import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=d55b29e-mw7pek9y';
+import { BODY_R } from './map.js?v=d55b29e-mw7pek9y';
+import { Brain } from './bots.js?v=d55b29e-mw7pek9y';
+import { makeRules } from './rules.js?v=d55b29e-mw7pek9y';
+import { Abilities } from './abilities.js?v=d55b29e-mw7pek9y';
 
 export const TICK = 1 / 60;
 export const EYE = 1.6, CROUCH_EYE = 1.1;
@@ -342,6 +342,7 @@ export class Match {
     this.emit({ type: 'end', winner, reason });
   }
   // Team blackboard: an enemy seen or heard.
-  report(team, e, x = e.x, z = e.z) { this.bb[team].seen.set(e.id, { x, z, t: this.t, id: e.id }); }
+  // by: the one who saw it; inside an enemy jammer the radio is down (nobody else hears it)
+  report(team, e, x = e.x, z = e.z, by = null) { if (by && this.ab.jammed(by.x, by.z, by.team)) return; this.bb[team].seen.set(e.id, { x, z, t: this.t, id: e.id }); }
 }
 export { dirFrom, yawTo, wrap180, DEG };

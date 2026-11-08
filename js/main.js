@@ -1,43 +1,43 @@
 // Recoil Range entry point: wires input, camera, scene, HUD and the frame loop together.
-import * as THREE from '../vendor/three/three.module.min.js?v=3d9f8db-mw7k0mnu';
-import { Look, PITCH_LIMIT } from './core/look.js?v=3d9f8db-mw7k0mnu';
-import { Player } from './core/player.js?v=3d9f8db-mw7k0mnu';
-import { PointerLock } from './core/pointer-lock.js?v=3d9f8db-mw7k0mnu';
-import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=3d9f8db-mw7k0mnu';
-import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=3d9f8db-mw7k0mnu';
-import { Weapon } from './core/weapon.js?v=3d9f8db-mw7k0mnu';
-import { RecoilEngine } from './core/recoil.js?v=3d9f8db-mw7k0mnu';
-import { Spread } from './core/spread.js?v=3d9f8db-mw7k0mnu';
-import { loadGameData } from './core/guns.js?v=3d9f8db-mw7k0mnu';
-import { randomSeed } from './core/prng.js?v=3d9f8db-mw7k0mnu';
-import { Range, EYE_HEIGHT } from './scene/range.js?v=3d9f8db-mw7k0mnu';
-import { RING_STEP } from './scene/range-tex.js?v=3d9f8db-mw7k0mnu';
-import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=3d9f8db-mw7k0mnu';
-import { LensPost } from './render/lens-post.js?v=3d9f8db-mw7k0mnu';
-import { reticleTextures } from './ui/reticle-tex.js?v=3d9f8db-mw7k0mnu';
-import { DOT_POINTS } from './scene/dots.js?v=3d9f8db-mw7k0mnu';
-import { Voices } from './audio/voice.js?v=3d9f8db-mw7k0mnu';
-import { ModeGame } from './modes/game.js?v=3d9f8db-mw7k0mnu';
-import { Sfx } from './audio/sfx.js?v=3d9f8db-mw7k0mnu';
-import { DebugHud } from './ui/debug-hud.js?v=3d9f8db-mw7k0mnu';
-import { drawCrosshair } from './ui/crosshair.js?v=3d9f8db-mw7k0mnu';
-import { Hud } from './ui/hud.js?v=3d9f8db-mw7k0mnu';
-import { MagPlot } from './ui/plot.js?v=3d9f8db-mw7k0mnu';
-import { SettingsUI } from './ui/settings-ui.js?v=3d9f8db-mw7k0mnu';
-import { sensKeys, zoomKey } from './core/optics.js?v=3d9f8db-mw7k0mnu';
+import * as THREE from '../vendor/three/three.module.min.js?v=d55b29e-mw7pek9y';
+import { Look, PITCH_LIMIT } from './core/look.js?v=d55b29e-mw7pek9y';
+import { Player } from './core/player.js?v=d55b29e-mw7pek9y';
+import { PointerLock } from './core/pointer-lock.js?v=d55b29e-mw7pek9y';
+import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=d55b29e-mw7pek9y';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=d55b29e-mw7pek9y';
+import { Weapon } from './core/weapon.js?v=d55b29e-mw7pek9y';
+import { RecoilEngine } from './core/recoil.js?v=d55b29e-mw7pek9y';
+import { Spread } from './core/spread.js?v=d55b29e-mw7pek9y';
+import { loadGameData } from './core/guns.js?v=d55b29e-mw7pek9y';
+import { randomSeed } from './core/prng.js?v=d55b29e-mw7pek9y';
+import { Range, EYE_HEIGHT } from './scene/range.js?v=d55b29e-mw7pek9y';
+import { RING_STEP } from './scene/range-tex.js?v=d55b29e-mw7pek9y';
+import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=d55b29e-mw7pek9y';
+import { LensPost } from './render/lens-post.js?v=d55b29e-mw7pek9y';
+import { reticleTextures } from './ui/reticle-tex.js?v=d55b29e-mw7pek9y';
+import { DOT_POINTS } from './scene/dots.js?v=d55b29e-mw7pek9y';
+import { Voices } from './audio/voice.js?v=d55b29e-mw7pek9y';
+import { ModeGame } from './modes/game.js?v=d55b29e-mw7pek9y';
+import { Sfx } from './audio/sfx.js?v=d55b29e-mw7pek9y';
+import { DebugHud } from './ui/debug-hud.js?v=d55b29e-mw7pek9y';
+import { drawCrosshair } from './ui/crosshair.js?v=d55b29e-mw7pek9y';
+import { Hud } from './ui/hud.js?v=d55b29e-mw7pek9y';
+import { MagPlot } from './ui/plot.js?v=d55b29e-mw7pek9y';
+import { SettingsUI } from './ui/settings-ui.js?v=d55b29e-mw7pek9y';
+import { sensKeys, zoomKey } from './core/optics.js?v=d55b29e-mw7pek9y';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
 function sensRows(catalogue, sens) {
   const keys = new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)]);
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
-import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=3d9f8db-mw7k0mnu';
-import { Battle } from './battle/battle.js?v=3d9f8db-mw7k0mnu';
-import { createJoinRequest, acceptJoin } from './net/link.js?v=3d9f8db-mw7k0mnu';
-import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode } from './net/relay.js?v=3d9f8db-mw7k0mnu';
-import { Profile, WIN_POINTS } from './core/profile.js?v=3d9f8db-mw7k0mnu';
-import { skinFits, skinById } from './core/skins.js?v=3d9f8db-mw7k0mnu';
-import { PackUI } from './ui/packs.js?v=3d9f8db-mw7k0mnu';
+import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=d55b29e-mw7pek9y';
+import { Battle } from './battle/battle.js?v=d55b29e-mw7pek9y';
+import { createJoinRequest, acceptJoin } from './net/link.js?v=d55b29e-mw7pek9y';
+import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode } from './net/relay.js?v=d55b29e-mw7pek9y';
+import { Profile, WIN_POINTS } from './core/profile.js?v=d55b29e-mw7pek9y';
+import { skinFits, skinById } from './core/skins.js?v=d55b29e-mw7pek9y';
+import { PackUI } from './ui/packs.js?v=d55b29e-mw7pek9y';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -1101,17 +1101,18 @@ function boot(data) {
       const g = data.guns.find((x) => x.id === op.gun), ab = abilityData[op.ability] || {};
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'op-card' + (P.op[m] === op.id ? ' on' : '');
-      b.disabled = !allowed.includes(op);
+      if (bomb && !allowed.includes(op)) b.classList.add('other-side');
       const nm = document.createElement('b'); nm.textContent = op.name;
       const gn = document.createElement('span'); gn.className = 'small'; gn.textContent = (g ? g.name : op.gun) + ' · ' + (catalogue.byId.get(op.sight) || { label: op.sight }).label;
       const an = document.createElement('span'); an.className = 'op-ab'; an.textContent = ab.name || '';
       b.append(nm, gn, an);
-      b.addEventListener('click', () => { P.op[m] = op.id; saveModePrefs(); renderOps(); });
+      // in Bomb, picking an operator also picks that side
+      b.addEventListener('click', () => { if (bomb) P.side = opsData.defenders.includes(op) ? 'defend' : 'attack'; P.op[m] = op.id; saveModePrefs(); renderOps(); });
       return b;
     };
     const group = (title, list) => { const g = document.createElement('div'); g.className = 'ops-group'; const h = document.createElement('h3'); h.textContent = title; const row = document.createElement('div'); row.className = 'ops-row'; row.append(...list.map(card)); g.append(h, row); return g; };
     $('ops-grid').replaceChildren(group('Attackers', opsData.attackers), group('Defenders', opsData.defenders));
-    $('ops-note').textContent = (bomb ? 'Bomb: pick a side, then an operator from it. ' : 'Pick any operator. ') + 'Bots take the other places with random operators (no repeats in a team).' + (P.abilities[m] ? ' Abilities on: Q uses yours.' : '');
+    $('ops-note').textContent = (bomb ? 'Bomb: pick any operator; a defender puts you on defence, an attacker on attack. You are ' + (P.side === 'attack' ? 'attacking' : 'defending') + '. ' : 'Pick any operator. ') + 'Bots take the other places with random operators (no repeats in a team).' + (P.abilities[m] ? ' Abilities on: Q uses yours.' : '');
   }
   for (const b of document.querySelectorAll('#ops-side .seg-btn')) b.addEventListener('click', () => { modePrefs.side = b.dataset.side; saveModePrefs(); renderOps(); });
   $('ops-back').addEventListener('click', () => showPage('setup'));
