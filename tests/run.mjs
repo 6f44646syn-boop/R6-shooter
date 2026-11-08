@@ -691,6 +691,8 @@ try {
       // Your shots: a frozen bot in the open lane, tapped at the chest from 10 m.
       const h = B.humans[0], bot = B.bots[0];
       for (const b of B.bots) b.update = () => {};
+      // (bots may have shot you while roaming above: start the feed and score clean)
+      B.feed.length = 0; B._renderFeed(); h.f.kills = 0; B.teamScore.p1 = 0;
       for (const b of B.bots.slice(1)) { b.f.x = -16; b.f.z = -12; }
       h.f.x = 16; h.f.z = 12; h.f.protectUntil = 0; h.f.health = 100; h.f.alive = true;
       bot.f.x = 16; bot.f.z = 2; bot.f.protectUntil = 0; bot.f.health = 100; bot.f.alive = true; bot.f.crouch = 0;
