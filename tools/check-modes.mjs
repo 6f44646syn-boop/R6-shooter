@@ -12,7 +12,9 @@ import { rayBox, rayCapsule, raySphere } from '../js/modes/geom.js';
 const root = new URL('../', import.meta.url);
 const json = (p) => JSON.parse(readFileSync(new URL(p, root), 'utf8'));
 const guns = json('data/guns.json').guns, ops = json('data/ops.json'), abilities = json('data/abilities.json');
-const maps = { yard: json('data/maps/yard.json'), depot: json('data/maps/depot.json') };
+const MAPS_OF = { tdm: ['containers', 'winter', 'casino', 'school', 'yard'], ctf: ['containers', 'winter', 'casino', 'school', 'yard'], bomb: ['ranch', 'embassy', 'workshop'] };
+const maps = {};
+for (const id of ['yard', 'depot', ...new Set(Object.values(MAPS_OF).flat())]) maps[id] = json('data/maps/' + id + '.json');
 
 const modes = (process.argv[2] || 'tdm,ctf,bomb').split(',');
 const N = +(process.argv[3] || 20);
@@ -147,17 +149,47 @@ console.log('\nBomb state machine');
   check('sides swap after round 3 (ops change side too)', R.round === 4 && R.attackTeam() !== first && m.actors.filter((a) => R.isAttacker(a)).every((a) => ops.attackers.some((o) => o.id === a.op.id)));
 }
 
+/* ---------- doors and the knife ---------- */
+console.log('\nDoors and the knife');
+{
+  const m = new Match({ map: new MatchMap(maps.ranch), mode: 'tdm', guns, ops, abilities, teamSize: 3, seed: 4, human: null });
+  const [a, b] = [m.actors.find((x) => x.team === 'A'), m.actors.find((x) => x.team === 'B')];
+  for (const x of m.actors) if (x !== a && x !== b) { x.x = 30; x.z = 20 + x.id; }
+  a.protectUntil = b.protectUntil = 0;
+  const door = m.map.panels.find((p) => p.kind === 'door');
+  const db = door.box, cx = (db.minX + db.maxX) / 2, cz = (db.minZ + db.maxZ) / 2;
+  check('a whole door blocks walking through it', !m.map.walkClear(cx, cz - 1, cx, cz + 1));
+  a.x = cx; a.z = cz - 1; a.yaw = 180; a.pitch = 0; a.crouch = 0; b.x = -30; b.z = -20;
+  m.knife(a);
+  check('one knife hit breaks a door', !door.alive && m.map.walkClear(cx, cz - 1, cx, cz + 1));
+  m.map.resetPanels();
+  m.t += 2;
+  for (let k = 0; k < 4; k++) m.shoot(a, m.eye(a), [0, 0, 1]);
+  const after4 = door.alive;
+  m.shoot(a, m.eye(a), [0, 0, 1]);
+  check('bullets break a door after 5 hits', after4 && !door.alive);
+  m.map.resetPanels(); m.t += 2;
+  b.x = cx + 0.3; b.z = cz - 3; b.yaw = 180; b.hp = 100; b.alive = true; a.x = cx + 0.3; a.z = cz - 4.2; a.yaw = 180;
+  m.knife(a);
+  check('a knife from behind is lethal', !b.alive);
+  b.alive = true; b.hp = 100; b.yaw = 0; m.t += 2; m.knife(a);
+  check('a knife from the front does 60', b.alive && b.hp === 40);
+  m.t += 2; a.x = 0; a.z = 0; b.x = 0; b.z = 5; m.knife(a);
+  check('a knife does not reach 5 m', b.hp === 40);
+}
+
 /* ---------- matches ---------- */
 function run(mode, seed, extra = {}) {
-  const mapId = mode === 'bomb' ? 'depot' : 'yard';
+  const list = extra.maps || MAPS_OF[mode], mapId = list[seed % list.length];
   const map = new MatchMap(maps[mapId]);
   const diffs = ['easy', 'normal', 'hard'];
-  const m = new Match({ map, mode, guns, ops, abilities, seed, human: null, teamSize: seed % 2 ? 5 : 3, difficulty: diffs[seed % 3], abilitiesOn: mode === 'bomb', minutes: 10, ...extra });
+  const { maps: _ignore, ...opts } = extra;
+  const m = new Match({ map, mode, guns, ops, abilities, seed, human: null, teamSize: seed % 2 ? 5 : 3, difficulty: diffs[seed % 3], abilitiesOn: mode === 'bomb', minutes: 10, ...opts });
   let maxStuck = 0, who = '';
   const cap = (mode === 'bomb' ? 7 * 260 : m.o.minutes * 60 + 660) / TICK;
   while (!m.over && m.tick < cap) {
     m.step();
-    if (m.tick % 30 === 0) for (const a of m.actors) if (a.stuckFor > maxStuck) { maxStuck = a.stuckFor; who = a.name + ' ' + (a.brain ? a.brain.state : '') + ' at ' + a.x.toFixed(1) + ',' + a.z.toFixed(1); }
+    if (m.tick % 30 === 0) for (const a of m.actors) if (a.stuckFor > maxStuck) { maxStuck = a.stuckFor; who = mapId + ' ' + a.name + ' ' + (a.brain ? a.brain.state : '') + ' at ' + a.x.toFixed(1) + ',' + a.z.toFixed(1); }
     m.events.length = 0;
   }
   const hash = m.actors.map((a) => a.x.toFixed(3) + ',' + a.z.toFixed(3) + ',' + a.kills).join('|');

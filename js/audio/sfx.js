@@ -28,12 +28,22 @@ export class Sfx {
     if (this.master) this.master.gain.value = v;
   }
 
+  // Where a sound goes: pan -1 (left) .. 1 (right); muffle 0..1 (behind you or through walls:
+  // a low-pass filter takes the top off).
+  _out(pan = 0, muffle = 0) {
+    const c = this.ctx;
+    let node = this.master;
+    if (pan && c.createStereoPanner) { const p = c.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); p.connect(node); node = p; }
+    if (muffle > 0.01) { const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 9000 * Math.pow(0.12, muffle); f.connect(node); node = f; }
+    return node;
+  }
+
   // tone 0..1 shifts the pitch a little so guns sound different.
-  // vol 0..1: quieter for distant shooters (battle mode).
-  shot(tone = 0.5, vol = 1) {
+  // vol 0..1: quieter for distant shooters; pan / muffle: where it came from (see _out).
+  shot(tone = 0.5, vol = 1, pan = 0, muffle = 0) {
     const c = this.ctx;
     if (!c || this.volume <= 0) return;
-    const t = c.currentTime;
+    const t = c.currentTime, out = this._out(pan, muffle);
     const src = c.createBufferSource();
     src.buffer = this.noise;
     const lp = c.createBiquadFilter();
@@ -44,7 +54,7 @@ export class Sfx {
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(Math.max(0.0002, 0.9 * vol), t + 0.002);
     g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
-    src.connect(lp).connect(g).connect(this.master);
+    src.connect(lp).connect(g).connect(out);
     src.start(t, Math.random() * 0.7, 0.2);
 
     const o = c.createOscillator();
@@ -54,9 +64,50 @@ export class Sfx {
     const og = c.createGain();
     og.gain.setValueAtTime(Math.max(0.0002, 0.7 * vol), t);
     og.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
-    o.connect(og).connect(this.master);
+    o.connect(og).connect(out);
     o.start(t);
     o.stop(t + 0.15);
+  }
+
+  // A footstep: a soft thud and a scuff.
+  step(vol = 0.5, pan = 0, muffle = 0) {
+    const c = this.ctx;
+    if (!c || this.volume <= 0 || vol < 0.01) return;
+    const t = c.currentTime, out = this._out(pan, muffle);
+    const src = c.createBufferSource(); src.buffer = this.noise;
+    const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 500 + Math.random() * 300; bp.Q.value = 0.9;
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, 0.55 * vol), t + 0.01); g.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+    src.connect(bp).connect(g).connect(out);
+    src.start(t, Math.random() * 0.8, 0.1);
+  }
+  // The knife: a quick swish.
+  knife(vol = 1, pan = 0, muffle = 0) {
+    const c = this.ctx;
+    if (!c || this.volume <= 0) return;
+    const t = c.currentTime, out = this._out(pan, muffle);
+    const src = c.createBufferSource(); src.buffer = this.noise;
+    const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 2;
+    bp.frequency.setValueAtTime(1500, t); bp.frequency.exponentialRampToValueAtTime(5000, t + 0.12);
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.35 * vol, t + 0.05); g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+    src.connect(bp).connect(g).connect(out);
+    src.start(t, Math.random() * 0.7, 0.16);
+  }
+  // Wood splintering (a door breaking).
+  crack(vol = 1, pan = 0, muffle = 0) {
+    const c = this.ctx;
+    if (!c || this.volume <= 0) return;
+    const t = c.currentTime, out = this._out(pan, muffle);
+    for (let i = 0; i < 4; i++) {
+      const s = t + i * 0.035 + Math.random() * 0.02;
+      const src = c.createBufferSource(); src.buffer = this.noise;
+      const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 700 + Math.random() * 1600; bp.Q.value = 3;
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, s); g.gain.exponentialRampToValueAtTime(0.5 * vol, s + 0.004); g.gain.exponentialRampToValueAtTime(0.001, s + 0.12);
+      src.connect(bp).connect(g).connect(out);
+      src.start(s, Math.random() * 0.7, 0.13);
+    }
   }
 
   // Radio squelch: a short burst of band-passed noise before a bot speaks.

@@ -7,19 +7,20 @@
 //
 // Body for hits (actor frame, standing; crouching squashes y to 0.7): head sphere at 1.62 m
 // (r 0.13), torso capsule 0.95-1.34 m (r 0.24), legs capsule 0.1-0.9 m (r 0.19).
-import { mulberry32 } from '../core/prng.js?v=9ecf153-mw64d875';
-import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=9ecf153-mw64d875';
-import { BODY_R } from './map.js?v=9ecf153-mw64d875';
-import { Brain } from './bots.js?v=9ecf153-mw64d875';
-import { makeRules } from './rules.js?v=9ecf153-mw64d875';
-import { Abilities } from './abilities.js?v=9ecf153-mw64d875';
+import { mulberry32 } from '../core/prng.js?v=2748475-mw7fwt03';
+import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=2748475-mw7fwt03';
+import { BODY_R } from './map.js?v=2748475-mw7fwt03';
+import { Brain } from './bots.js?v=2748475-mw7fwt03';
+import { makeRules } from './rules.js?v=2748475-mw7fwt03';
+import { Abilities } from './abilities.js?v=2748475-mw7fwt03';
 
 export const TICK = 1 / 60;
 export const EYE = 1.6, CROUCH_EYE = 1.1;
 const MODEL_DAMAGE = { smg: 28, rifle: 36, carbine: 34, lmg: 38, marksman: 48 };
 const MODEL_SPEED = { smg: 1.05, rifle: 0.95, carbine: 0.97, lmg: 0.88, marksman: 0.92 };
 export const ZONE_MULT = { head: 2, torso: 1, limbs: 0.8 };
-export const NOISE = { shot: 35, run: 12, walk: 4, crouch: 0 };
+export const NOISE = { shot: 35, run: 12, walk: 4, crouch: 0, knife: 10, door: 25 };
+export const KNIFE = { range: 1.7, cone: 50, damage: 60, back: 200, door: 100, every: 0.75 };
 
 // Bot skill by difficulty.
 export const SKILL = {
@@ -123,7 +124,7 @@ export class Match {
     }
     const eyeAt = [0, 0, 0];
     const ok = (s) => {
-      if (this.actors.some((b) => b !== a && b.alive && Math.hypot(b.x - s[0], b.z - s[1]) < 1)) return false;
+      if (this.actors.some((b) => b !== a && b.alive && Math.hypot(b.x - s[0], b.z - s[1]) < 1.8)) return false;
       for (const e of foes) {
         const d = Math.hypot(e.x - s[0], e.z - s[1]);
         if (d < 12) return false;
@@ -198,6 +199,8 @@ export class Match {
     const end = [o[0] + d[0] * best, o[1] + d[1] * best, o[2] + d[2] * best];
     this.emit({ type: 'shot', id: a.id, from: o.slice(), to: end, team: a.team, kind, wall: !hit && !g && w && w.box && !w.box.ground ? 1 : 0 });
     if (hit && damage > 0) this.hit(hit.actor, damage, a, hit.zone, kind);
+    // bullets splinter doors: a few shots break one
+    if (!hit && !g && w && w.box && w.box.kind === 'door' && damage > 0) this.doorHit(this.map.panels[w.box.panel], 22, a);
     return { t: best, actor: hit ? hit.actor : null, zone: hit ? hit.zone : null, box: !hit && w ? w.box : null, end };
   }
   rayActor(o, d, e, maxT = Infinity) {
@@ -210,6 +213,42 @@ export class Match {
     const tl = rayCapsule(o, d, [x, y + 0.1, z], [x, y + 0.9 * s, z], 0.19);
     if (tl < t) { t = tl; zone = 'limbs'; }
     return t < maxT ? { t, zone, actor: e } : null;
+  }
+  doorHit(pn, dmg, a) {
+    if (this.map.hurtDoor(pn, dmg)) {
+      const b = pn.box, x = (b.minX + b.maxX) / 2, z = (b.minZ + b.maxZ) / 2;
+      this.noises.push({ x, z, t: this.t, range: NOISE.door, kind: 'door', team: a ? a.team : '', id: a ? a.id : 0 });
+      this.emit({ type: 'door', x, z, by: a ? a.id : 0 });
+    }
+  }
+  // K: the knife. Hits the closest enemy in front within reach (lethal from behind), else a
+  // door in front. Returns what it hit: 'actor', 'door', or '' (a miss).
+  knife(a) {
+    if (!a.alive || this.over || this.t < (a.knifeAt || 0) || this.rules.frozen(a)) return null;
+    const peace = this.rules.noFire(a);          // prep: doors only
+    a.knifeAt = this.t + KNIFE.every;
+    if (this.t < a.protectUntil) a.protectUntil = this.t;
+    this.noise(a, NOISE.knife, 'knife');
+    this.emit({ type: 'knife', id: a.id });
+    let best = null, bd = KNIFE.range;
+    for (const e of this.actors) {
+      if (peace || !e.alive || e === a || e.team === a.team) continue;
+      const d = Math.hypot(e.x - a.x, e.z - a.z);
+      if (d >= bd || Math.abs(wrap180(yawTo(e.x - a.x, e.z - a.z) - a.yaw)) > KNIFE.cone) continue;
+      if (!this.map.sight(this.eye(a), [e.x, 1.1, e.z])) continue;
+      best = e; bd = d;
+    }
+    if (best) {
+      const behind = Math.abs(wrap180(best.yaw - a.yaw)) < 70;
+      this.hit(best, behind ? KNIFE.back : KNIFE.damage, a, 'torso', 'knife');
+      return 'actor';
+    }
+    const o = this.eye(a), d = dirFrom(a.yaw, Math.max(-35, Math.min(20, a.pitch)));
+    const w = this.map.raycast(o, d, KNIFE.range + 0.2);
+    if (w && w.box && w.box.kind === 'door') { this.doorHit(this.map.panels[w.box.panel], KNIFE.door, a); return 'door'; }
+    const g = this.ab.rayGadgets(o, d, KNIFE.range, a);
+    if (g) { this.ab.destroy(g.g, a); return 'gadget'; }
+    return '';
   }
   // The human's shot (direction from the range's recoil and spread).
   humanShot(a, o, d) {

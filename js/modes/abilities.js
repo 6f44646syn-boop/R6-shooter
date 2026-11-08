@@ -21,7 +21,7 @@
 //   Onyx   Charge Dash    hold Q 0.6 s, then dash 6 m: through soft walls, the first enemy hit
 //                         is stunned and knocked back for 1.5 s. 2 charges, 12 s each.
 // Gadgets die to one bullet. Bots use abilities too (see botThink).
-import { raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=9ecf153-mw64d875';
+import { raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=2748475-mw7fwt03';
 
 export class Abilities {
   constructor(m, cfg) {
@@ -346,7 +346,9 @@ export class Abilities {
       if (ab.charges <= 0 || (bomb && attacking)) return;
       const type = ab.id === 'static_jammer' ? 'jammer' : ab.id === 'catcher' ? 'catcher' : 'mine';
       const spots = (m.map.data.gadgets[type] || []).filter((s) => (!bomb || !s[2] || (brain.site && s[2] === brain.site.name)) && !this.gadgets.some((g) => g.alive && Math.hypot(g.x - s[0], g.z - s[1]) < 1));
-      const s = spots.sort((p, q) => Math.hypot(p[0] - a.x, p[1] - a.z) - Math.hypot(q[0] - a.x, q[1] - a.z))[0];
+      // Bomb: the map's planned spots for this site, in order (the same set-up every round);
+      // other modes: the nearest free spot
+      const s = bomb ? spots[0] : spots.sort((p, q) => Math.hypot(p[0] - a.x, p[1] - a.z) - Math.hypot(q[0] - a.x, q[1] - a.z))[0];
       if (s && !tgt) {
         const d = Math.hypot(s[0] - a.x, s[1] - a.z);
         if (d < 2.2) {
@@ -354,7 +356,7 @@ export class Abilities {
             : type === 'jammer' ? { type: 'jammer', team: a.team, owner: a.id, x: s[0], y: 0.05, z: s[1], r: 0.22 }
               : { type: 'catcher', team: a.team, owner: a.id, x: s[0], y: 0.4, z: s[1], r: 0.2, readyAt: 0 });
           ab.charges--;
-        } else if ((bomb && R.phase === 'prep') || d < 8) brain.abGoal = { x: s[0], z: s[1], key: 'gadget' + s[0] + ',' + s[1] };
+        } else if ((bomb && (R.phase === 'prep' || d < 14)) || d < 8) brain.abGoal = { x: s[0], z: s[1], key: 'gadget' + s[0] + ',' + s[1] };
       }
       return;
     }

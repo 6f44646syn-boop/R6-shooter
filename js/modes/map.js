@@ -6,6 +6,8 @@
 //   walls:      [{ x0, z0, x1, z1, h }]          solid boxes (h: height; low cover < 1.3)
 //   soft:       [{ x0, z0, x1, z1 }]             breakable walls (thin, axis aligned)
 //   reinforced: [{ x0, z0, x1, z1 }]             only a Wall Charge opens these
+//   doors:      [{ x0, z0, x1, z1 }]             boarded doorways: a knife or a few bullets break them
+//   (walls may have y0: a box that starts above the floor, such as an upper floor)
 //   spawns:     { A: [[x, z, yaw]], B: [...] }   (Bomb maps: attack / defend)
 //   flags:      { A: [x, z], B: [x, z] }         flag stands (CTF)
 //   sites:      [{ name, x, z, r }]              bomb sites
@@ -16,9 +18,11 @@
 //
 // Soft and reinforced walls are split into panels 1.5 m wide. The lower 2.2 m of a panel can
 // be destroyed (a hole); the part above stays.
-import { rayBox, pushCircleBox, circleHitsBox, segHitsBox } from './geom.js?v=9ecf153-mw64d875';
+import { rayBox, pushCircleBox, circleHitsBox, segHitsBox } from './geom.js?v=2748475-mw7fwt03';
 
-export const PANEL_W = 1.5, HOLE_H = 2.2, BODY_R = 0.32;
+export const PANEL_W = 1.5, HOLE_H = 2.2, BODY_R = 0.32, DOOR_HP = 100, STEP = 0.35;
+// Blocks a body at floor level (not a box overhead, not a tiny ledge you step over).
+const blocks = (b) => b.minY < 1.7 && b.maxY > STEP;
 const GRID = 2;
 
 export class MatchMap {
@@ -31,7 +35,7 @@ export class MatchMap {
     this.panels = [];               // breakable parts: { box, kind: 'soft'|'reinforced', alive, i }
     const add = (b) => { b.i = this.solids.length; b.alive = true; this.solids.push(b); return b; };
     const T = 0.25;
-    for (const w of data.walls) add({ minX: Math.min(w.x0, w.x1), maxX: Math.max(w.x0, w.x1), minZ: Math.min(w.z0, w.z1), maxZ: Math.max(w.z0, w.z1), minY: 0, maxY: w.h ?? H, kind: (w.h ?? H) < 1.4 ? 'low' : 'wall' });
+    for (const w of data.walls) { const y0 = w.y0 || 0, y1 = y0 + (w.h ?? H); add({ minX: Math.min(w.x0, w.x1), maxX: Math.max(w.x0, w.x1), minZ: Math.min(w.z0, w.z1), maxZ: Math.max(w.z0, w.z1), minY: y0, maxY: y1, kind: w.kind || (y0 > 0 ? 'upper' : y1 < 1.4 ? 'low' : 'wall'), look: w.look }); }
     // perimeter
     for (const [x0, z0, x1, z1] of [[-this.hx - 1, -this.hz - 1, this.hx + 1, -this.hz], [-this.hx - 1, this.hz, this.hx + 1, this.hz + 1], [-this.hx - 1, -this.hz, -this.hx, this.hz], [this.hx, -this.hz, this.hx + 1, this.hz]]) {
       add({ minX: x0, maxX: x1, minZ: z0, maxZ: z1, minY: 0, maxY: H + 2, kind: 'edge' });
@@ -48,6 +52,15 @@ export class MatchMap {
         low.panel = this.panels.length;
         this.panels.push({ box: low, kind, alive: true, i: this.panels.length, alongX });
       }
+    }
+    // doors: one panel each, the doorway above stays wall
+    for (const w of data.doors || []) {
+      const alongX = Math.abs(w.x1 - w.x0) >= Math.abs(w.z1 - w.z0), c = alongX ? (w.z0 + w.z1) / 2 : (w.x0 + w.x1) / 2, t = 0.16;
+      const box = alongX ? { minX: Math.min(w.x0, w.x1), maxX: Math.max(w.x0, w.x1), minZ: c - t / 2, maxZ: c + t / 2 } : { minX: c - t / 2, maxX: c + t / 2, minZ: Math.min(w.z0, w.z1), maxZ: Math.max(w.z0, w.z1) };
+      const low = add({ ...box, minY: 0, maxY: HOLE_H, kind: 'door' });
+      if (H > HOLE_H + 0.05) add({ ...box, minZ: box.minZ - (alongX ? 0.08 : 0), maxZ: box.maxZ + (alongX ? 0.08 : 0), minX: box.minX - (alongX ? 0 : 0.08), maxX: box.maxX + (alongX ? 0 : 0.08), minY: HOLE_H, maxY: H, kind: 'wall' });
+      low.panel = this.panels.length;
+      this.panels.push({ box: low, kind: 'door', alive: true, i: this.panels.length, alongX, hp: DOOR_HP });
     }
     this._grid();
     this.nodes = data.nodes || []; this.links = data.links || [];
@@ -77,18 +90,18 @@ export class MatchMap {
   // Keep a body (circle) out of walls. Low cover blocks movement too (vault not in modes).
   resolve(p, r = BODY_R) {
     const list = this.near(p.x, p.z, r + 0.1, this._rl || (this._rl = []));
-    for (let k = 0; k < 2; k++) for (const b of list) if (b.minY < 1.7) pushCircleBox(p, r, b);
+    for (let k = 0; k < 2; k++) for (const b of list) if (blocks(b)) pushCircleBox(p, r, b);
     return p;
   }
   free(x, z, r = BODY_R) {
-    for (const b of this.near(x, z, r + 0.1, this._fl || (this._fl = []))) if (b.minY < 1.7 && circleHitsBox(x, z, r, b)) return false;
+    for (const b of this.near(x, z, r + 0.1, this._fl || (this._fl = []))) if (blocks(b) && circleHitsBox(x, z, r, b)) return false;
     return Math.abs(x) < this.hx - r && Math.abs(z) < this.hz - r;
   }
   // Can a body walk straight from a to b?
   walkClear(ax, az, bx, bz, r = BODY_R + 0.08) {
     const minX = Math.min(ax, bx) - r, maxX = Math.max(ax, bx) + r, minZ = Math.min(az, bz) - r, maxZ = Math.max(az, bz) + r;
     const list = this.near((minX + maxX) / 2, (minZ + maxZ) / 2, Math.max(maxX - minX, maxZ - minZ) / 2 + 0.1, this._wl || (this._wl = []));
-    for (const b of list) if (b.minY < 1.7 && segHitsBox(ax, az, bx, bz, b, r - 0.02)) return false;
+    for (const b of list) if (blocks(b) && segHitsBox(ax, az, bx, bz, b, r - 0.02)) return false;
     return true;
   }
 
@@ -137,7 +150,27 @@ export class MatchMap {
     return out;
   }
   // Every breakable panel whole again (a new Bomb round).
-  resetPanels() { for (const p of this.panels) { p.alive = true; p.box.alive = true; } this.version++; }
+  resetPanels() { for (const p of this.panels) { p.alive = true; p.box.alive = true; if (p.kind === 'door') p.hp = DOOR_HP; } this.version++; }
+  // Damage a door (bullets, a knife). Returns true if it broke.
+  hurtDoor(pn, dmg) {
+    if (!pn || pn.kind !== 'door' || !pn.alive) return false;
+    pn.hp -= dmg;
+    if (pn.hp > 0) return false;
+    pn.alive = false; pn.box.alive = false; this.version++;
+    return true;
+  }
+  // The first whole door a body walking from a to b would bump into (or null).
+  doorOn(ax, az, bx, bz, r = BODY_R) {
+    let best = null, bd = Infinity;
+    for (const pn of this.panels) {
+      if (pn.kind !== 'door' || !pn.alive) continue;
+      const b = pn.box;
+      if (!segHitsBox(ax, az, bx, bz, b, r)) continue;
+      const d = Math.hypot((b.minX + b.maxX) / 2 - ax, (b.minZ + b.maxZ) / 2 - az);
+      if (d < bd) { bd = d; best = pn; }
+    }
+    return best;
+  }
   callout(x, z) {
     for (const c of this.data.callouts || []) if (x >= Math.min(c.x0, c.x1) && x <= Math.max(c.x0, c.x1) && z >= Math.min(c.z0, c.z1) && z <= Math.max(c.z0, c.z1)) return c.name;
     return '';

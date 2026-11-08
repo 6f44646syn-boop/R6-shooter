@@ -7,8 +7,8 @@
 // target and grows with sustained fire (bloom); bursts limited by the gun's rpm and magazine.
 // Navigation: A* on the map's waypoint graph, string-pulled, with a stuck watchdog (no
 // progress for 3 s: re-path; still stuck: walk to the nearest waypoint).
-import { SKILL, EYE, NOISE } from './sim.js?v=9ecf153-mw64d875';
-import { dirFrom, yawTo, wrap180, DEG } from './geom.js?v=9ecf153-mw64d875';
+import { SKILL, EYE, NOISE } from './sim.js?v=2748475-mw7fwt03';
+import { dirFrom, yawTo, wrap180, DEG } from './geom.js?v=2748475-mw7fwt03';
 
 const VIEW = 55, RANGE = 45;
 
@@ -25,7 +25,7 @@ export class Brain {
     this.burst = 0; this.pauseUntil = 0; this.strafe = 0; this.nextStrafe = 0; this.head = false;
     this.attacker = null; this.attackedAt = -10; this.heard = null;
     this.progT = this.m.t; this.progD = Infinity; this.stuckStage = 0;
-    this.holding = false; this.wantCrouch = false; this.patrol = null; this.role = null;
+    this.holding = false; this.wantCrouch = false; this.patrol = null; this.role = null; this.doorFace = null;
   }
   hurtBy(e) { this.attacker = e; this.attackedAt = this.m.t; this.m.report(this.a.team, e); }
   wantsMove() { return this.path.length > 0 && !this.holding && !(this.a.ab && this.a.ab.busy) && this.m.t >= this.a.stunUntil && !this.a.hold && !(this.m.rules.frozen(this.a)); }
@@ -165,8 +165,15 @@ export class Brain {
         wx = Math.cos(y) * this.strafe; wz = Math.sin(y) * this.strafe; speed = 2.6;
       } else if (this.path.length && !this.holding) {
         const wp = this.path[0], dx = wp[0] - a.x, dz = wp[1] - a.z, d = Math.hypot(dx, dz);
-        if (d < (this.path.length === 1 ? 1.0 : 0.5)) { this.path.shift(); this.progD = Infinity; }
+        // a boarded door on the way: walk up to it and knife it open
+        const door = d > 0.3 ? m.map.doorOn(a.x, a.z, wp[0], wp[1], 0.2) : null;
+        const db = door && door.box, ddx = db ? (db.minX + db.maxX) / 2 - a.x : 0, ddz = db ? (db.minZ + db.maxZ) / 2 - a.z : 0;
+        if (door && Math.hypot(ddx, ddz) < 1.25) {
+          this.doorFace = [a.x + ddx, a.z + ddz]; this.progT = t;
+          if (t >= (a.knifeAt || 0)) { a.yaw = yawTo(ddx, ddz); this.aimYaw = a.yaw; m.knife(a); }
+        } else if (d < (this.path.length === 1 ? 1.0 : 0.5)) { this.path.shift(); this.progD = Infinity; }
         else {
+          this.doorFace = null;
           wx = dx / d; wz = dz / d;
           speed = (this.state === 'route' && !tgt) || this.push ? 5.2 : this.state === 'cover' || this.state === 'reload' ? 4.6 : 4.2;
           // stuck watchdog
@@ -202,7 +209,8 @@ export class Brain {
       this.onTarget += dt;
     } else {
       this.onTarget = 0;
-      if (this.face) wantY = yawTo(this.face[0] - a.x, this.face[1] - a.z);
+      if (this.doorFace && this.path.length) wantY = yawTo(this.doorFace[0] - a.x, this.doorFace[1] - a.z);
+      else if (this.face) wantY = yawTo(this.face[0] - a.x, this.face[1] - a.z);
       else if (Math.hypot(a.vx, a.vz) > 0.5) wantY = yawTo(a.vx, a.vz);
       else if (this.heard && t - this.heard.t < 3) wantY = yawTo(this.heard.x - a.x, this.heard.z - a.z);
     }
@@ -219,7 +227,10 @@ export class Brain {
     a.yaw = ((this.aimYaw % 360) + 360) % 360;
     a.pitch = Math.max(-80, Math.min(80, this.aimPitch));
     // fire
-    if (frozen || !sees || a.reloadUntil || a.ammo <= 0 || m.rules.noFire(a)) return;
+    if (frozen || !sees || m.rules.noFire(a)) return;
+    // close enough to knife (faster than a burst, works while reloading)
+    if (Math.hypot(tgt.x - a.x, tgt.z - a.z) < 1.3 && Math.abs(wrap180(yawTo(tgt.x - a.x, tgt.z - a.z) - a.yaw)) < 35 && t - this.seenAt > S.reaction) { m.knife(a); return; }
+    if (a.reloadUntil || a.ammo <= 0) return;
     if (t - this.seenAt < S.reaction || t < this.pauseUntil || t < a.nextShot) return;
     if (Math.abs(wrap180(wantY - a.yaw)) > 4 + S.err || Math.abs(wantP - a.pitch) > 4 + S.err) return;
     if (this.burst === 0) this.burst = Math.round(m.r(S.burst[0], S.burst[1]));

@@ -3,13 +3,13 @@
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=9ecf153-mw64d875';
-import { Arena } from './arena.js?v=9ecf153-mw64d875';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=9ecf153-mw64d875';
-import { Bot, LEVELS } from './bot.js?v=9ecf153-mw64d875';
-import { Human } from './human.js?v=9ecf153-mw64d875';
-import { drawCrosshair } from '../ui/crosshair.js?v=9ecf153-mw64d875';
-import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=9ecf153-mw64d875';
+import * as THREE from '../../vendor/three/three.module.min.js?v=2748475-mw7fwt03';
+import { Arena } from './arena.js?v=2748475-mw7fwt03';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=2748475-mw7fwt03';
+import { Bot, LEVELS } from './bot.js?v=2748475-mw7fwt03';
+import { Human } from './human.js?v=2748475-mw7fwt03';
+import { drawCrosshair } from '../ui/crosshair.js?v=2748475-mw7fwt03';
+import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=2748475-mw7fwt03';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -330,7 +330,8 @@ export class Battle {
       this._lastBotSound = shotT;
       let dist = Infinity;
       for (const h of this.humans) dist = Math.min(dist, Math.hypot(h.f.x - f.x, h.f.z - f.z));
-      sfx.shot(f.gun.tone, Math.max(0.06, Math.min(0.6, 3 / (dist + 2))));
+      const w = this._where(f.x, f.y, f.z);
+      sfx.shot(f.gun.tone, Math.max(0.06, Math.min(0.6, 3 / (dist + 2))), w.pan, w.muffle);
     }
   }
 
@@ -860,6 +861,23 @@ export class Battle {
     const n = this.noises || (this.noises = []);
     n.push({ x: f.x, y: f.y, z: f.z, t, kind, range, team: f.team });
     while (n.length > 64 || (n.length && n[0].t < t - 0.6)) n.shift();
+    // you hear other people's footsteps from where they are (one player on this screen)
+    if (kind === 'steps' && this.humans.length === 1 && this.humans[0].f !== f) {
+      const w = this._where(f.x, f.y, f.z), reach = range * 1.6 + 2;
+      if (w.dist < reach) this.deps.sfx.step((1 - w.dist / reach) * (range > 8 ? 0.9 : 0.5), w.pan, w.muffle);
+    }
+  }
+  // A sound at (x, y, z) for your ears: distance, left/right pan, muffled behind you or
+  // through walls. Split screen: no panning (two players share the speakers).
+  _where(x, y, z) {
+    const h = this.humans[0];
+    if (!h || this.humans.length > 1) return { dist: 0, pan: 0, muffle: 0 };
+    const dx = x - h.f.x, dz = z - h.f.z, dist = Math.hypot(dx, dz);
+    if (dist < 0.5) return { dist, pan: 0, muffle: 0 };
+    const rel = (Math.atan2(dx, -dz) * 180 / Math.PI - h.look.yaw) * Math.PI / 180;
+    let muffle = Math.max(0, -Math.cos(rel)) * 0.35;
+    if (!this.arena.sightLine([h.f.x, h.f.y + 1.6, h.f.z], [x, y + 1.2, z])) muffle += 0.45;
+    return { dist, pan: Math.sin(rel) * 0.85, muffle };
   }
   // Footsteps (by speed: sprinting is loud, crouch-walking almost silent), vaults, reloads.
   _sounds(f, t, dt) {

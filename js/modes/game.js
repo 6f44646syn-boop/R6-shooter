@@ -4,13 +4,14 @@
 //
 // Map: flat-shaded low poly from the map file; static walls merged into one mesh, breakable
 // panels in one instanced mesh, one directional light (a 1024 shadow map in High / Ultra).
-import * as THREE from '../../vendor/three/three.module.min.js?v=9ecf153-mw64d875';
-import { MatchMap } from './map.js?v=9ecf153-mw64d875';
-import { Match, TICK } from './sim.js?v=9ecf153-mw64d875';
-import { yawTo, wrap180, DEG } from './geom.js?v=9ecf153-mw64d875';
-import { Fighter } from '../battle/fighter.js?v=9ecf153-mw64d875';
-import { Human } from '../battle/human.js?v=9ecf153-mw64d875';
-import { drawCrosshair } from '../ui/crosshair.js?v=9ecf153-mw64d875';
+import * as THREE from '../../vendor/three/three.module.min.js?v=2748475-mw7fwt03';
+import { MatchMap } from './map.js?v=2748475-mw7fwt03';
+import { Match, TICK } from './sim.js?v=2748475-mw7fwt03';
+import { yawTo, wrap180, DEG } from './geom.js?v=2748475-mw7fwt03';
+import { Fighter } from '../battle/fighter.js?v=2748475-mw7fwt03';
+import { Arena } from '../battle/arena.js?v=2748475-mw7fwt03';
+import { Human } from '../battle/human.js?v=2748475-mw7fwt03';
+import { drawCrosshair } from '../ui/crosshair.js?v=2748475-mw7fwt03';
 
 const TEAM_COLOR = { A: 0x5b8cff, B: 0xff7048 };
 const MAX_TRACERS = 64;
@@ -25,6 +26,9 @@ const fmt = (s) => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStar
 // Map looks per map id: floor, walls, cover, sky.
 const LOOK = {
   yard: { floor: 0x8d877c, wall: 0xb9b2a4, low: 0x7f6a4e, edge: 0x6f6b66, soft: 0xa47a52, reinf: 0x5b6672, sky: 0xaec4d8, fog: [0xc0ccd6, 40, 140] },
+  ranch: { floor: 0x9a8a70, wall: 0xd8d0c0, low: 0x6a5a44, edge: 0x6f6b66, soft: 0xb48a62, reinf: 0x56606c, door: 0x7a5434, sky: 0xb8cce0, fog: [0xc8d2dc, 50, 160] },
+  embassy: { floor: 0x8e8a80, wall: 0xe4dccc, low: 0x5e5244, edge: 0x6f6b66, soft: 0xb08860, reinf: 0x56606c, door: 0x6a4a30, sky: 0xa8c0d8, fog: [0xbcc8d4, 50, 160] },
+  workshop: { floor: 0x75706a, wall: 0xa8a49c, low: 0x5a5048, edge: 0x5f5b56, soft: 0xa47a52, reinf: 0x4e5864, door: 0x6e4c30, sky: 0x9fb2c4, fog: [0xa8b2bc, 45, 150] },
   depot: { floor: 0x6f6a62, wall: 0xa9a196, low: 0x6a5a44, edge: 0x5f5b56, soft: 0xa47a52, reinf: 0x56606c, sky: 0x9fb0c2, fog: [0xaab4be, 35, 120] },
 };
 
@@ -52,7 +56,7 @@ export class ModeGame {
     this._buildScene();
     this._buildActors();
     this.prevT = d.now(); this.acc = 0; this.mapVersion = -1;
-    this.feed = []; this.points = 0;
+    this.feed = []; this.points = 0; this._stepT = 0;
     this.active = true; this.paused = false; this.over = false;
     this.hud.root.hidden = false; this.hud.end.hidden = true;
     this._refreshPanels();
@@ -72,6 +76,8 @@ export class ModeGame {
   /* ---------- scene ---------- */
   _buildScene() {
     const map = this.map, L = LOOK[map.id] || LOOK.yard;
+    if (map.data.arena) return this._buildArenaScene();
+    this.arena = null;
     const scene = this.scene = new THREE.Scene();
     scene.background = new THREE.Color(L.sky);
     scene.fog = new THREE.Fog(...L.fog);
@@ -122,7 +128,8 @@ export class ModeGame {
     if (np) {
       const im = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial(), np);
       im.castShadow = im.receiveShadow = true;
-      map.panels.forEach((pn, i) => im.setColorAt(i, c.setHex(pn.kind === 'reinforced' ? L.reinf : L.soft).multiplyScalar(0.92 + (i % 3) * 0.05)));
+      this.panelLook = L;
+      map.panels.forEach((pn, i) => im.setColorAt(i, c.setHex(pn.kind === 'reinforced' ? L.reinf : pn.kind === 'door' ? (L.door || 0x6e4c30) : L.soft).multiplyScalar(0.92 + (i % 3) * 0.05)));
       scene.add(im);
       this.panelMesh = im;
     }
@@ -133,6 +140,21 @@ export class ModeGame {
     scene.add(this.tracers);
     this._applyGraphics();
   }
+  // The Battle maps: the same scenery as Battle (the arena's own scene, lights and weather).
+  _buildArenaScene() {
+    if (!ModeGame.arenas) ModeGame.arenas = {};
+    const id = this.map.data.arena;
+    const ar = this.arena = ModeGame.arenas[id] || (ModeGame.arenas[id] = new Arena(id));
+    this.scene = ar.scene;
+    ar.setAtmosphere(false, 'auto', !!this.deps.settings.fog);
+    ar.setGraphics(this.deps.settings.graphics, this.deps.renderer);
+    this.panelMesh = null;
+    if (this.markerG) this.markerG.removeFromParent();
+    this.markerG = new THREE.Group();
+    this.scene.add(this.markerG, this.tracers);
+    this.objMeshes = new Map();
+    if (this.gMeshes) this.gMeshes.clear();
+  }
   _refreshPanels() {
     if (!this.panelMesh || this.mapVersion === this.map.version) return;
     this.mapVersion = this.map.version;
@@ -141,12 +163,16 @@ export class ModeGame {
       const b = pn.box;
       if (pn.alive) { p.set((b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2, (b.minZ + b.maxZ) / 2); s.set(b.maxX - b.minX - 0.02, b.maxY - b.minY, b.maxZ - b.minZ); }
       else s.set(0, 0, 0);
+      // doors darken as they splinter
+      if (pn.kind === 'door' && this.panelLook) { this._pc = this._pc || new THREE.Color(); this.panelMesh.setColorAt(i, this._pc.setHex(this.panelLook.door || 0x6e4c30).multiplyScalar(0.45 + 0.55 * Math.max(0, pn.hp) / 100)); }
       this.panelMesh.setMatrixAt(i, mtx.compose(p, q, s));
     });
     this.panelMesh.instanceMatrix.needsUpdate = true;
+    if (this.panelMesh.instanceColor) this.panelMesh.instanceColor.needsUpdate = true;
   }
   _applyGraphics() {
     if (!this.scene) return;
+    if (this.arena) { this.arena.setGraphics(this.deps.settings.graphics, this.deps.renderer); return; }
     const q = this.deps.settings.graphics, high = q === 'high' || q === 'ultra', r = this.deps.renderer;
     this.sun.castShadow = high;
     r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -157,6 +183,7 @@ export class ModeGame {
   /* ---------- actors ---------- */
   _buildActors() {
     const d = this.deps, m = this.m;
+    if (this.fig) for (const f of this.fig.values()) f.group.removeFromParent();   // a Battle map's scene is reused
     this.fig = new Map();
     for (const a of m.actors) {
       const f = new Fighter({ name: a.name, team: a.team, color: TEAM_COLOR[a.team], human: a.human });
@@ -225,6 +252,7 @@ export class ModeGame {
     while (this.acc >= TICK && n < 8) { m.step(); this.acc -= TICK; n++; }
     if (n === 8) this.acc = 0;
     this._events(t);
+    if (!this.paused && !this.over) this._steps();
     this._refreshPanels();
     // draw everyone where the simulation has them
     for (const a of m.actors) {
@@ -243,6 +271,7 @@ export class ModeGame {
     this._gadgets(t);
     this._camera(t);
     this._updateTracers(t);
+    if (this.arena) this.arena.update(dt, t, h.camera.position);
     this._hud(t);
   }
 
@@ -254,13 +283,13 @@ export class ModeGame {
         if (f) { f.flashUntil = t + 0.05; this._tracer(f.muzzleWorld(this._v || (this._v = new THREE.Vector3())), e.to, t, e.team); }
         const a = m.actors.find((x) => x.id === e.id);
         const dist = a ? Math.hypot(a.x - me.x, a.z - me.z) : 20;
-        if (t - (this._lastShotSnd || 0) > 0.04) { this._lastShotSnd = t; sfx.shot(a ? a.gun.tone : 0.5, Math.max(0.05, Math.min(0.6, 3 / (dist + 2)))); }
+        if (t - (this._lastShotSnd || 0) > 0.04) { this._lastShotSnd = t; const w = this._where(e.from[0], e.from[2]); sfx.shot(a ? a.gun.tone : 0.5, Math.max(0.05, Math.min(0.6, 3 / (w.dist + 2))), w.pan, w.muffle); }
       } else if (e.type === 'hit') {
         if (e.id === me.id) this._hurt(e.by, t);
         if (e.by === me.id) this._marker(e.zone === 'head' ? 'head' : 'hit', t);
       } else if (e.type === 'kill') {
         const v = m.actors.find((x) => x.id === e.id), k = m.actors.find((x) => x.id === e.by);
-        this.feed.unshift({ k: k ? (k.human ? 'You' : k.name) : '', kc: k ? k.team : '', v: v.human ? 'You' : v.name, vc: v.team, head: e.head, t });
+        this.feed.unshift({ k: k ? (k.human ? 'You' : k.name) : '', kc: k ? k.team : '', v: v.human ? 'You' : v.name, vc: v.team, head: e.head, knife: e.kind === 'knife', t });
         this.feed.length = Math.min(this.feed.length, 5);
         this._renderFeed();
         if (k === me) { this._marker('kill', t); this._earn('kill', e.head); }
@@ -282,9 +311,15 @@ export class ModeGame {
         this.h.setGun(me.gunData);
         this.hud.name.textContent = 'You · ' + op.name + ' · ' + me.gunData.name;
       } else if (e.type === 'boom') {
-        const dist = Math.hypot(e.x - me.x, e.z - me.z);
-        sfx.shot(0.05, Math.max(0.1, Math.min(1, 6 / (dist + 3))));
+        const w = this._where(e.x, e.z);
+        sfx.shot(0.05, Math.max(0.1, Math.min(1, 6 / (w.dist + 3))), w.pan, w.muffle * 0.6);
         this._boom(e.x, e.z, e.small ? 3 : 8, t, 0xffa040);
+      } else if (e.type === 'door') {
+        const w = this._where(e.x, e.z);
+        if (w.dist < 40) sfx.crack(Math.min(1, 5 / (w.dist + 3)), w.pan, w.muffle);
+      } else if (e.type === 'knife') {
+        if (e.id === me.id) { sfx.knife(1); if (this.h.rig.melee) this.h.rig.melee(); }
+        else { const a = m.actors.find((x) => x.id === e.id), w = a && this._where(a.x, a.z); if (w && w.dist < 15) sfx.knife(Math.min(0.8, 3 / (w.dist + 2)), w.pan, w.muffle); }
       } else if (e.type === 'pulse') {
         this._boom(e.x, e.z, 2.5, t, e.kind === 'jolt' ? 0x60a0ff : 0x9040ff);
       } else if (e.type === 'scan') {
@@ -294,6 +329,32 @@ export class ModeGame {
       }
     }
     m.events.length = 0;
+  }
+  // Where a sound at (x, z) is for your ears: distance, left/right, and muffled when behind
+  // you or with a wall in between. Your ears are the drone's or spectated camera when one is on.
+  _where(x, z) {
+    const cam = this.camOverride, me = this.me;
+    const lx = cam ? cam.position.x : me.x, lz = cam ? cam.position.z : me.z;
+    const yaw = cam ? -cam.rotation.y / DEG : this.h.look.yaw;
+    const dx = x - lx, dz = z - lz, dist = Math.hypot(dx, dz);
+    if (dist < 0.5) return { dist, pan: 0, muffle: 0 };
+    const rel = wrap180(yawTo(dx, dz) - yaw) * DEG;
+    let muffle = Math.max(0, -Math.cos(rel)) * 0.35;
+    if (!this.map.sight([lx, 1.6, lz], [x, 1.2, z])) muffle += 0.45;
+    return { dist, pan: Math.sin(rel) * 0.85, muffle };
+  }
+  // Footsteps you can hear: everyone else's, louder when running, from their direction.
+  _steps() {
+    const m = this.m, me = this.me, sfx = this.deps.sfx;
+    for (const n of m.noises) {
+      if (n.kind !== 'steps' || n.id === me.id || n.t <= (this._stepT || 0)) continue;
+      const w = this._where(n.x, n.z);
+      const reach = n.range * 1.6 + 2;           // you hear a bit further than the bots do
+      if (w.dist > reach) continue;
+      const vol = (1 - w.dist / reach) * (n.range > 8 ? 0.9 : 0.5) * (n.team === me.team ? 0.45 : 1);
+      sfx.step(vol, w.pan, w.muffle);
+    }
+    for (const n of m.noises) this._stepT = Math.max(this._stepT || 0, n.t);
   }
   _earn(kind, head = false) {
     const n = this.deps.onPoints ? this.deps.onPoints(kind, head) : 0;
@@ -514,6 +575,7 @@ export class ModeGame {
     if (map[code]) { h.in[map[code]] = down; return true; }
     if (code === 'KeyR') { if (down && this.me.alive) h.reload(); return true; }
     if (code === 'KeyI') { if (down && !h.ads) h.rig.inspect(); return true; }
+    if (code === 'KeyK') { if (down && this.me.alive && !this.paused && !this.over) this.m.knife(this.me); return true; }
     return false;
   }
 
@@ -593,7 +655,7 @@ export class ModeGame {
   _renderFeed() {
     this.hud.feed.replaceChildren(...this.feed.map((e) => {
       const r = el('div', 'b-feedrow');
-      if (e.k) r.append(el('span', 't-' + e.kc, e.k), el('span', 'b-icon', e.head ? ' ✦ ' : ' › '), el('span', 't-' + e.vc, e.v));
+      if (e.k) r.append(el('span', 't-' + e.kc, e.k), el('span', 'b-icon', e.knife ? ' 🗡 ' : e.head ? ' ✦ ' : ' › '), el('span', 't-' + e.vc, e.v));
       else r.append(el('span', 't-' + e.vc, e.v), el('span', 'b-icon', ' died'));
       return r;
     }));

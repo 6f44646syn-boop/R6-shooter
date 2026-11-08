@@ -1,14 +1,14 @@
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=9ecf153-mw64d875';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=9ecf153-mw64d875';
-import { matcap } from './matcap.js?v=9ecf153-mw64d875';
-import { mulberry32 } from '../core/prng.js?v=9ecf153-mw64d875';
-import { gunMaps } from './range-tex.js?v=9ecf153-mw64d875';
-import { skinById, FACTORY } from '../core/skins.js?v=9ecf153-mw64d875';
-import { legendCanvas, onLegendChange } from '../core/legend.js?v=9ecf153-mw64d875';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=9ecf153-mw64d875';
+import * as THREE from '../../vendor/three/three.module.min.js?v=2748475-mw7fwt03';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=2748475-mw7fwt03';
+import { matcap } from './matcap.js?v=2748475-mw7fwt03';
+import { mulberry32 } from '../core/prng.js?v=2748475-mw7fwt03';
+import { gunMaps } from './range-tex.js?v=2748475-mw7fwt03';
+import { skinById, FACTORY } from '../core/skins.js?v=2748475-mw7fwt03';
+import { legendCanvas, onLegendChange } from '../core/legend.js?v=2748475-mw7fwt03';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=2748475-mw7fwt03';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -665,6 +665,7 @@ export class WeaponRig {
     this._lastP = -1;
     this.sprinting = false;  // set by main.js
     this.inspectT = -1;      // 0..1 while inspecting (I), -1 otherwise
+    this.meleeT = -1;        // 0..1 during a melee jab (K)
     this.inspectHold = -1;   // tests: hold the inspect pose at this progress
     this.sprintE = 0;
     this.boltZ = 0; this.flashT = 0; this.flashRot = 0; this.flashS = 1;
@@ -899,6 +900,9 @@ export class WeaponRig {
     this._ejectBrass();
   }
 
+  // K: a quick melee jab (the gun swings across and forward, then back).
+  melee() { this.meleeT = 0; this.cancelInspect(); }
+
   // I: inspect the weapon (ignored while aiming or reloading).
   inspect() { if (this.animations && this.reloadP < 0) this.inspectT = 0; }
   cancelInspect() { if (this.inspectHold < 0) this.inspectT = -1; }
@@ -969,6 +973,15 @@ export class WeaponRig {
       this.root.quaternion.multiply(this._aq.setFromEuler(this._ae.set(A.p, A.yw, A.r)));
       pv.applyQuaternion(this.root.quaternion);
       this.root.position.add(before.sub(pv));
+    }
+    if (this.meleeT >= 0) {
+      this.meleeT += Math.min(dt, 0.1) / 0.38;
+      if (this.meleeT >= 1) this.meleeT = -1;
+      else {
+        const p = Math.sin(Math.PI * Math.min(1, this.meleeT * 1.4)) * (this.meleeT < 0.7 ? 1 : (1 - this.meleeT) / 0.3);
+        this.root.position.x -= 0.07 * p; this.root.position.y -= 0.04 * p; this.root.position.z -= 0.09 * p;
+        this.root.quaternion.multiply(this._aq.setFromEuler(this._ae.set(-0.25 * p, 0.6 * p, 0.5 * p)));
+      }
     }
   }
 
