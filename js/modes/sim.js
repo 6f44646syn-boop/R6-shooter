@@ -7,12 +7,13 @@
 //
 // Body for hits (actor frame, standing; crouching squashes y to 0.7): head sphere at 1.62 m
 // (r 0.13), torso capsule 0.95-1.34 m (r 0.24), legs capsule 0.1-0.9 m (r 0.19).
-import { mulberry32 } from '../core/prng.js?v=d55b29e-mw7pek9y';
-import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=d55b29e-mw7pek9y';
-import { BODY_R } from './map.js?v=d55b29e-mw7pek9y';
-import { Brain } from './bots.js?v=d55b29e-mw7pek9y';
-import { makeRules } from './rules.js?v=d55b29e-mw7pek9y';
-import { Abilities } from './abilities.js?v=d55b29e-mw7pek9y';
+import { mulberry32 } from '../core/prng.js?v=97ee87f-mw7pvirk';
+import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=97ee87f-mw7pvirk';
+import { BODY_R } from './map.js?v=97ee87f-mw7pvirk';
+import { Brain } from './bots.js?v=97ee87f-mw7pvirk';
+import { makeRules } from './rules.js?v=97ee87f-mw7pvirk';
+import { Nades } from './nades.js?v=97ee87f-mw7pvirk';
+import { Abilities } from './abilities.js?v=97ee87f-mw7pvirk';
 
 export const TICK = 1 / 60;
 export const EYE = 1.6, CROUCH_EYE = 1.1;
@@ -54,6 +55,7 @@ export class Match {
     this.gunsById = new Map(o.guns.map((g) => [g.id, g]));
     this.losBudget = 0;
     this.ab = new Abilities(this, o.abilities || {});
+    this.nades = new Nades(this);
     this.rules = makeRules(this);
     this._makeTeams();
     this.rules.start();
@@ -153,6 +155,7 @@ export class Match {
     this.map.resolve(p);
     Object.assign(a, { x: p.x, z: p.z, y: 0, vx: 0, vz: 0, yaw: best[2] || 0, pitch: 0, crouch: 0, hp: 100, alive: true, protectUntil: this.t + protect, lastHurt: -10,
       ammo: a.gun.magSize, reloadUntil: 0, nextShot: 0, stunUntil: 0, slowUntil: 0, shakeUntil: 0, wobbleUntil: 0, carry: null, hold: null, stuckFor: 0, _sx: p.x, _sz: p.z, _st: this.t });
+    this.nades.refill(a);
     if (a.brain) a.brain.spawned();
     this.emit({ type: 'spawn', id: a.id });
   }
@@ -279,6 +282,7 @@ export class Match {
       a.brain.act(dt);
     }
     this.ab.update(dt);
+    this.nades.update(dt);
     this._separate();
     for (const a of this.actors) {
       if (!a.alive) continue;

@@ -266,7 +266,7 @@ export class Bomb extends Rules {
     }
     this.phase = 'prep'; this.phaseEnd = m.t + BOMB.prep;
     this.bomb = { state: 'none', x: 0, z: 0, carrier: null, site: null, fuseEnd: 0 };
-    m.ab.clearAll(); m.map.resetPanels();
+    m.ab.clearAll(); m.nades.clear(); m.map.resetPanels();
     this.target = this.sites[Math.floor(m.rng() * this.sites.length)];
     for (const a of m.actors) { m.spawn(a, this.spawnList(a.team), 0, 2.5); a.respawnAt = 0; m.ab.refill(a); if (a.brain) a.brain.post = null; }
     // the bomb: always yours when you attack, else a random attacker bot

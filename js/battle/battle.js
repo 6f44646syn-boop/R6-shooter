@@ -3,13 +3,14 @@
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=d55b29e-mw7pek9y';
-import { Arena } from './arena.js?v=d55b29e-mw7pek9y';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=d55b29e-mw7pek9y';
-import { Bot, LEVELS } from './bot.js?v=d55b29e-mw7pek9y';
-import { Human } from './human.js?v=d55b29e-mw7pek9y';
-import { drawCrosshair } from '../ui/crosshair.js?v=d55b29e-mw7pek9y';
-import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=d55b29e-mw7pek9y';
+import * as THREE from '../../vendor/three/three.module.min.js?v=97ee87f-mw7pvirk';
+import { Arena } from './arena.js?v=97ee87f-mw7pvirk';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=97ee87f-mw7pvirk';
+import { Bot, LEVELS } from './bot.js?v=97ee87f-mw7pvirk';
+import { Human } from './human.js?v=97ee87f-mw7pvirk';
+import { BattleNades } from './nades.js?v=97ee87f-mw7pvirk';
+import { drawCrosshair } from '../ui/crosshair.js?v=97ee87f-mw7pvirk';
+import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=97ee87f-mw7pvirk';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -130,6 +131,8 @@ export class Battle {
     const d = this.deps;
     this.opts = { ...opts, remotes: undefined };
     this.net = opts.remotes && opts.remotes.length ? { role: 'host' } : null;
+    if (!this.nadesB) this.nadesB = new BattleNades(this);
+    this.nadesB.reset();
     for (const f of this.fighters) f.group.removeFromParent();
     this._useArena(opts.map || 'yard');
     this.atmo = { night: !!opts.night, weather: opts.weather || 'auto', fog: !!opts.fog };
@@ -253,6 +256,7 @@ export class Battle {
     f.x = p.x; f.z = p.z; f.y = p.y; f.vx = f.vy = f.vz = 0;
     f.health = MAX_HEALTH; f.alive = true; f.crouch = 0;
     f.protectUntil = t + PROTECT_S; f.lastHurt = -10;
+    if (this.nadesB) this.nadesB.refill(f);
     f.yaw = Math.atan2(-p.x, p.z) * 180 / Math.PI; f.pitch = 0;
     const c = this._ctl(f);
     if (c instanceof Human) { c.respawn(p.x, p.z, t, p.y); if (c === this.humans[0]) this._resetReport(); }
@@ -270,7 +274,7 @@ export class Battle {
     if ((this.paused && !this.net) || this.over) dt = 0;
     this.t = t;
     if (dt > 0) {
-      for (const b of this.bots) b.update(t, dt, this);
+      for (const b of this.bots) { b.update(t, dt, this); if (!this.net && !this.over) this.nadesB.botThink(b, t); }
       while (this.intelQ.length && this.intelQ[0].at <= t) { const q = this.intelQ.shift(); for (const b of this.bots) if (b.f.team === q.team) b.onCallout(q.intel, t, this); }
       for (const f of this.fighters) {
         if (!f.alive && t >= f.respawnAt) this._spawn(f, t);
@@ -283,12 +287,35 @@ export class Battle {
     for (const h of this.humans) h.update(t, dt, this);
     this._separate();
     for (const f of this.fighters) f.updateVisual(t);
+    this.nadesB.update(this.over ? 0 : dt, t);
+    this._updateBlasts(t);
     this._killCam(t);
     this._updateTorches();
     this.arena.update(dt, t, this.humans[0] ? this.humans[0].camera.position : null);
     this._updateTracers(t);
     this._updateHud(t);
     if (this.net && t >= this._nextSnap) { this._nextSnap = t + 1 / SNAP_HZ; this._sendSnapshot(t); }
+  }
+
+  // A grenade going off: a flash ring, a bang from its direction, a jolt if you are close.
+  _blast(x, y, z, t) {
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 40), new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false, toneMapped: false }));
+    ring.rotation.x = -Math.PI / 2; ring.position.set(x, y + 0.05, z);
+    this.arena.scene.add(ring);
+    (this.blasts || (this.blasts = [])).push({ ring, t });
+    const w = this._where(x, y, z);
+    this.deps.sfx.shot(0.05, Math.max(0.15, Math.min(1, 6 / (w.dist + 3))), w.pan, w.muffle * 0.6);
+    const h = this.humans[0];
+    if (h && Math.hypot(h.f.x - x, h.f.z - z) < 9) { const v = this.hud.views[0]; if (v) v.vigT = Math.max(v.vigT, t - 0.2); }
+  }
+  _updateBlasts(t) {
+    if (!this.blasts) return;
+    this.blasts = this.blasts.filter((b) => {
+      const k = (t - b.t) / 0.6;
+      if (k >= 1) { b.ring.removeFromParent(); b.ring.geometry.dispose(); b.ring.material.dispose(); return false; }
+      const s = 0.3 + 6 * Math.sqrt(k); b.ring.scale.set(s, s, s); b.ring.material.opacity = 0.85 * (1 - k);
+      return true;
+    });
   }
 
   // A bullet from shooter (Human or Bot) at time shotT.
@@ -693,6 +720,15 @@ export class Battle {
     if (!p2) map.ShiftRight = 'sprint';
     if (map[code]) { p1.in[map[code]] = down; return true; }
     if (code === 'KeyR') { if (down) p1.reload(); return true; }
+    // Caps Lock (or G): a grenade (games against bots). On a Mac Caps Lock sends only key-up every other press.
+    if (code === 'CapsLock' || code === 'KeyG') {
+      if (this.net || this.paused || this.over) return true;
+      if (down || (code === 'CapsLock' && this.t - (this._capsDown || -9) > 0.6)) {
+        if (down) this._capsDown = this.t;
+        if (this.nadesB.throw(p1.f, p1.look.yaw, p1.look.pitch, this.t)) { if (p1.rig.melee) p1.rig.melee(); this.deps.sfx.knife(0.6); }
+      }
+      return true;
+    }
     if (code === 'KeyI') { if (down && !p1.ads) p1.rig.inspect(); return true; }
     if (code === 'KeyF') { if (down && this.night) { p1.f.light = !p1.f.light; p1.rig.setTorch(p1.f.light); if (this.deps.sfx.click) this.deps.sfx.click(); } return true; }
     return false;
@@ -815,7 +851,7 @@ export class Battle {
       const hurt = el('div', 'b-hurt');
       const dead = el('div', 'b-dead'); dead.hidden = true;
       const prot = el('div', 'b-prot'); prot.hidden = true;
-      const vig = el('div', 'dmg-vig'), lowhp = el('div', 'low-hp'); lowhp.append(el('span', '', 'LOW HEALTH'));
+      const nades = el('div', 'mg-nades', ''), vig = el('div', 'dmg-vig'), lowhp = el('div', 'low-hp'); lowhp.append(el('span', '', 'LOW HEALTH'));
       const name = el('div', 'b-name t-' + h.f.team, h.f.name + ' · ' + h.gun.name);
       const hp = el('div', 'b-hp'); const hpFill = el('i'); hp.append(hpFill);
       const hpText = el('div', 'b-hptext', '100');
@@ -823,9 +859,9 @@ export class Battle {
       const ctl = el('div', 'b-ctl small', '');
       const pts = el('div', 'b-points', '');
       const rep = el('div', 'b-report'); rep.hidden = true;
-      box.append(vig, lowhp, hurt, cross, hit, pts, dead, prot, rep, name, hp, hpText, ammo, ctl);
+      box.append(nades, vig, lowhp, hurt, cross, hit, pts, dead, prot, rep, name, hp, hpText, ammo, ctl);
       this.hud.root.insertBefore(box, this.hud.root.firstChild);
-      return { vig, lowhp, vigT: -9, box, cross, hit, hurt, dead, prot, rep, hpFill, hpText, ammo, ctl, pts, ptsUntil: 0, hitUntil: 0, hurtUntil: 0, last: {} };
+      return { nades, vig, lowhp, vigT: -9, box, cross, hit, hurt, dead, prot, rep, hpFill, hpText, ammo, ctl, pts, ptsUntil: 0, hitUntil: 0, hurtUntil: 0, last: {} };
     });
   }
   /* ---------- bodies do not overlap ---------- */
@@ -1138,6 +1174,8 @@ export class Battle {
       if (Math.abs((L.vk || 0) - vk) > 0.02 || (vk === 0 && L.vk)) { L.vk = vk; v.vig.style.opacity = vk.toFixed(2); }
       const low = f.alive && f.health <= 35;
       if (L.low !== low) { L.low = low; v.lowhp.classList.toggle('on', low); }
+      const nt = f.alive && !this.net && i === 0 ? ('● '.repeat(f.nades ?? 2).trim() || 'no grenades') + ' · Caps Lock' : '';
+      if (L.nt !== nt) { L.nt = nt; v.nades.textContent = nt; }
       if (t > v.ptsUntil && v.pts.classList.contains('on')) v.pts.className = 'b-points';
       const deadMsg = f.alive ? '' : 'Eliminated by ' + (h.killedBy || '?') + ' · back in ' + Math.max(0, Math.ceil(f.respawnAt - t));
       const back = Math.max(0, Math.ceil(f.respawnAt - t));

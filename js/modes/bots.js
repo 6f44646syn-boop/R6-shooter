@@ -7,8 +7,8 @@
 // target and grows with sustained fire (bloom); bursts limited by the gun's rpm and magazine.
 // Navigation: A* on the map's waypoint graph, string-pulled, with a stuck watchdog (no
 // progress for 3 s: re-path; still stuck: walk to the nearest waypoint).
-import { SKILL, EYE, NOISE } from './sim.js?v=d55b29e-mw7pek9y';
-import { dirFrom, yawTo, wrap180, DEG } from './geom.js?v=d55b29e-mw7pek9y';
+import { SKILL, EYE, NOISE } from './sim.js?v=97ee87f-mw7pvirk';
+import { dirFrom, yawTo, wrap180, DEG } from './geom.js?v=97ee87f-mw7pvirk';
 
 const VIEW = 55, RANGE = 45;
 
@@ -70,6 +70,17 @@ export class Brain {
     if (a.ammo === 0 && !a.reloadUntil) a.reloadUntil = t + a.gun.reload;
     if (!best && a.ammo < a.gun.magSize * 0.4 && !a.reloadUntil && t - this.visAt > 2) a.reloadUntil = t + a.gun.reload;
     m.ab.botThink(this);
+    m.nades.botThink(this);
+    // a live grenade close by: get away from it (behind cover if there is some)
+    const nade = m.nades.near(a, 5.5);
+    if (nade && this.state !== 'flee' && !a.hold) {
+      const c = this.coverFrom({ x: nade.x, z: nade.z });
+      const dx = a.x - nade.x, dz = a.z - nade.z, L = Math.hypot(dx, dz) || 1;
+      const g = c || [a.x + dx / L * 7, a.z + dz / L * 7];
+      this.state = 'flee'; this.goalKey = ''; this.setGoal(g[0], g[1], 'cover'); this.commitUntil = t + 2; this.holding = false; this.push = true;
+      return;
+    }
+    if (this.state === 'flee' && t < this.commitUntil && this.path.length) return;
     if (t < (this.panicUntil || 0) && this.state !== 'cover') {
       const near = best || [...m.bb[a.team].seen.values()].sort((p, q) => q.t - p.t)[0];
       const c = near && this.coverFrom(near);

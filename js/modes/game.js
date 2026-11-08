@@ -4,16 +4,16 @@
 //
 // Map: flat-shaded low poly from the map file; static walls merged into one mesh, breakable
 // panels in one instanced mesh, one directional light (a 1024 shadow map in High / Ultra).
-import * as THREE from '../../vendor/three/three.module.min.js?v=d55b29e-mw7pek9y';
-import { MatchMap } from './map.js?v=d55b29e-mw7pek9y';
-import { Match, TICK } from './sim.js?v=d55b29e-mw7pek9y';
-import { yawTo, wrap180, DEG } from './geom.js?v=d55b29e-mw7pek9y';
-import { Fighter } from '../battle/fighter.js?v=d55b29e-mw7pek9y';
-import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=d55b29e-mw7pek9y';
-import { buildMapLook, panelTextures } from './look.js?v=d55b29e-mw7pek9y';
-import { Arena } from '../battle/arena.js?v=d55b29e-mw7pek9y';
-import { Human } from '../battle/human.js?v=d55b29e-mw7pek9y';
-import { drawCrosshair } from '../ui/crosshair.js?v=d55b29e-mw7pek9y';
+import * as THREE from '../../vendor/three/three.module.min.js?v=97ee87f-mw7pvirk';
+import { MatchMap } from './map.js?v=97ee87f-mw7pvirk';
+import { Match, TICK } from './sim.js?v=97ee87f-mw7pvirk';
+import { yawTo, wrap180, DEG } from './geom.js?v=97ee87f-mw7pvirk';
+import { Fighter } from '../battle/fighter.js?v=97ee87f-mw7pvirk';
+import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=97ee87f-mw7pvirk';
+import { buildMapLook, panelTextures } from './look.js?v=97ee87f-mw7pvirk';
+import { Arena } from '../battle/arena.js?v=97ee87f-mw7pvirk';
+import { Human } from '../battle/human.js?v=97ee87f-mw7pvirk';
+import { drawCrosshair } from '../ui/crosshair.js?v=97ee87f-mw7pvirk';
 
 const TEAM_COLOR = { A: 0x5b8cff, B: 0xff7048 };
 const MAX_TRACERS = 64;
@@ -281,7 +281,7 @@ export class ModeGame {
         if (e.by === me.id) this._marker(e.zone === 'head' ? 'head' : 'hit', t);
       } else if (e.type === 'kill') {
         const v = m.actors.find((x) => x.id === e.id), k = m.actors.find((x) => x.id === e.by);
-        this.feed.unshift({ k: k ? (k.human ? 'You' : k.name) : '', kc: k ? k.team : '', v: v.human ? 'You' : v.name, vc: v.team, head: e.head, knife: e.kind === 'knife', t });
+        this.feed.unshift({ k: k ? (k.human ? 'You' : k.name) : '', kc: k ? k.team : '', v: v.human ? 'You' : v.name, vc: v.team, head: e.head, knife: e.kind === 'knife', nade: e.kind === 'nade', t });
         this.feed.length = Math.min(this.feed.length, 5);
         this._renderFeed();
         if (k === me) { this._marker('kill', t); this._earn('kill', e.head); }
@@ -305,7 +305,10 @@ export class ModeGame {
       } else if (e.type === 'boom') {
         const w = this._where(e.x, e.z);
         sfx.shot(0.05, Math.max(0.1, Math.min(1, 6 / (w.dist + 3))), w.pan, w.muffle * 0.6);
-        this._boom(e.x, e.z, e.small ? 3 : 8, t, 0xffa040);
+        this._boom(e.x, e.z, e.nade ? 6 : e.small ? 3 : 8, t, 0xffa040);
+        if (e.nade) { this._boom(e.x, e.z, 2.5, t, 0xfff0c0); if (w.dist < 9) this.vigT = Math.max(this.vigT, t - 0.2); }
+      } else if (e.type === 'nadeThrow') {
+        if (e.id === me.id) { if (this.h.rig.melee) this.h.rig.melee(); sfx.knife(0.6); }
       } else if (e.type === 'door') {
         const w = this._where(e.x, e.z);
         if (w.dist < 40) sfx.crack(Math.min(1, 5 / (w.dist + 3)), w.pan, w.muffle);
@@ -508,6 +511,24 @@ export class ModeGame {
       const xr = g.team !== me.team && g.revealedFor === me.team && this.m.t < g.revealedUntil;
       if (xr !== !!u.xr) { u.xr = xr; for (const n of u.parts) { n.material.depthTest = !xr; n.renderOrder = xr ? 6 : 0; } }
     }
+    for (const n of this.m.nades.live) {
+      const key = 'nade' + n.id;
+      seen.add(key);
+      let o = this.gMeshes.get(key);
+      if (!o) {
+        o = new THREE.Group();
+        const body = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), new THREE.MeshLambertMaterial({ color: 0x3a4a2a }));
+        body.scale.y = 1.25;
+        const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.04, 6), new THREE.MeshLambertMaterial({ color: 0x888888 }));
+        cap.position.y = 0.08;
+        const led = new THREE.Mesh(new THREE.SphereGeometry(0.018, 6, 5), new THREE.MeshBasicMaterial({ color: 0xff3020, toneMapped: false }));
+        led.position.set(0.05, 0.03, 0);
+        o.add(body, cap, led); o.userData.led = led;
+        this.gMeshes.set(key, o); this.markerG.add(o);
+      }
+      o.position.set(n.x, n.y, n.z); o.rotation.set(t * 9, t * 5, 0);
+      o.userData.led.visible = Math.floor(t * (n.end - this.m.t < 1 ? 12 : 4)) % 2 === 0;
+    }
     for (const [k, o] of this.gMeshes) if (!seen.has(k)) { this.markerG.remove(o); o.traverse((n) => { if (n.geometry) n.geometry.dispose(); if (n.material) for (const mm of [].concat(n.material)) mm.dispose(); }); this.gMeshes.delete(k); }
   }
   _boom(x, z, r, t, color) {
@@ -643,6 +664,12 @@ export class ModeGame {
     if (map[code]) { h.in[map[code]] = down; return true; }
     if (code === 'KeyR') { if (down && this.me.alive) h.reload(); return true; }
     if (code === 'KeyI') { if (down && !h.ads) h.rig.inspect(); return true; }
+    // Caps Lock (or G): a grenade. (On a Mac, Caps Lock sends only key-up every other press.)
+    if (code === 'CapsLock' || code === 'KeyG') {
+      const now = this.prevT;
+      if (down || (code === 'CapsLock' && now - (this._capsDown || -9) > 0.6)) { if (down) this._capsDown = now; if (this.me.alive && !this.paused && !this.over) this.m.nades.throw(this.me, this.h.look.yaw, this.h.look.pitch); }
+      return true;
+    }
     if (code === 'KeyK') { if (down && this.me.alive && !this.paused && !this.over) this.m.knife(this.me); return true; }
     return false;
   }
@@ -695,9 +722,10 @@ export class ModeGame {
     const hold = el('div', 'mg-hold'); hold.hidden = true;
     const holdBar = el('i'); hold.append(el('span', '', ''), holdBar);
     const kcBox = el('div', 'mg-kc'); kcBox.hidden = true;
+    const nades = el('div', 'mg-nades', ''), nadeWarn = el('div', 'mg-nadewarn'); nadeWarn.hidden = true;
     const vig = el('div', 'dmg-vig'), lowhp = el('div', 'low-hp'), jam = el('div', 'mg-jam'), banner = el('div', 'mg-banner'); banner.hidden = true;
     lowhp.append(el('span', '', 'LOW HEALTH'));
-    view.append(kcBox, jam, vig, lowhp, hurt, dmg, cross, hit, pts, dead, prot, name, hp, hpText, ammo, ability, hold, flash, banner);
+    view.append(kcBox, nades, nadeWarn, jam, vig, lowhp, hurt, dmg, cross, hit, pts, dead, prot, name, hp, hpText, ammo, ability, hold, flash, banner);
     const board = el('div', 'mg-board'); board.hidden = true;
     const end = el('div', 'b-end'); end.hidden = true;
     const box = el('div', 'b-end-box'), endTitle = el('h1', '', ''), endTable = el('div', 'b-table'), endNote = el('p', 'small', '');
@@ -707,7 +735,7 @@ export class ModeGame {
     box.append(endTitle, endTable, row, endNote); end.append(box);
     root.append(view, top, compass, status, feed, board, end);
     this.deps.hudRoot.insertBefore(root, this.deps.hudRoot.querySelector('#menu'));
-    this.hud = { kcBox, vig, lowhp, jam, banner, prot, root, score, compass, status, feed, view, cross, hit, hurt, dead, name, hpFill, hpText, ammo, pts, ability, dmg, flash, hold, holdBar, board, end, endTitle, endTable, endNote, again, leave, last: {} };
+    this.hud = { nades, nadeWarn, kcBox, vig, lowhp, jam, banner, prot, root, score, compass, status, feed, view, cross, hit, hurt, dead, name, hpFill, hpText, ammo, pts, ability, dmg, flash, hold, holdBar, board, end, endTitle, endTable, endNote, again, leave, last: {} };
     drawCrosshair(cross, this.deps.settings.crosshair);
   }
   _marker(kind, t) { this.hud.hit.className = 'b-hit on ' + kind; this.hitUntil = t + (kind === 'kill' ? 0.35 : 0.15); }
@@ -728,7 +756,7 @@ export class ModeGame {
   _renderFeed() {
     this.hud.feed.replaceChildren(...this.feed.map((e) => {
       const r = el('div', 'b-feedrow');
-      if (e.k) r.append(el('span', 't-' + e.kc, e.k), el('span', 'b-icon', e.knife ? ' 🗡 ' : e.head ? ' ✦ ' : ' › '), el('span', 't-' + e.vc, e.v));
+      if (e.k) r.append(el('span', 't-' + e.kc, e.k), el('span', 'b-icon', e.knife ? ' 🗡 ' : e.nade ? ' 💥 ' : e.head ? ' ✦ ' : ' › '), el('span', 't-' + e.vc, e.v));
       else r.append(el('span', 't-' + e.vc, e.v), el('span', 'b-icon', ' died'));
       return r;
     }));
@@ -772,6 +800,12 @@ export class ModeGame {
     if (L.hp !== hp) { L.hp = hp; H.hpFill.style.width = hp + '%'; H.hpFill.className = hp > 60 ? '' : hp > 30 ? 'mid' : 'low'; H.hpText.textContent = String(hp); }
     const ammo = m.ab.ammoText ? m.ab.ammoText(me) || (h.weapon.reloading ? 'reloading' : h.weapon.ammo + ' / ' + h.gun.magSize) : (h.weapon.reloading ? 'reloading' : h.weapon.ammo + ' / ' + h.gun.magSize);
     if (L.ammo !== ammo) { L.ammo = ammo; H.ammo.textContent = ammo; }
+    const nt = me.alive ? '● '.repeat(me.nades || 0).trim() + (me.nades ? '' : 'no grenades') + ' · Caps Lock' : '';
+    if (L.nt !== nt) { L.nt = nt; H.nades.textContent = nt; }
+    // a live enemy grenade (or yours) within 7 m: an arrow pointing at it
+    const ln = me.alive ? m.nades.live.find((n) => Math.hypot(n.x - me.x, n.z - me.z) < 7) : null;
+    H.nadeWarn.hidden = !ln;
+    if (ln) { const rel = wrap180(yawTo(ln.x - me.x, ln.z - me.z) - this.h.look.yaw); H.nadeWarn.style.transform = 'translate(-50%, -50%) rotate(' + rel.toFixed(0) + 'deg)'; }
     const cross = me.alive && h.adsE < 0.4 && !this.camOverride;
     if (L.cross !== cross) { L.cross = cross; H.cross.hidden = !cross; }
     if (t > (this.hitUntil || 0) && H.hit.classList.contains('on')) H.hit.className = 'b-hit';

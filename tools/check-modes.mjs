@@ -190,6 +190,39 @@ console.log('\nBomb: your bomb and the bots\' jobs');
   check('one bomb site per map', ['ranch', 'embassy', 'workshop'].every((id) => maps[id].sites.length === 1 && maps[id].sites[0].entries.length >= 2));
 }
 
+/* ---------- grenades ---------- */
+console.log('\nGrenades');
+{
+  const mk = () => new Match({ map: new MatchMap(maps.yard), mode: 'tdm', guns, ops, abilities, teamSize: 3, seed: 6, human: null });
+  let m = mk();
+  const [a, b] = [m.actors.find((x) => x.team === 'A'), m.actors.find((x) => x.team === 'B')];
+  const park = () => { for (const x of m.actors) if (x !== a && x !== b) { x.x = 28; x.z = 18 - x.id; x.brain = null; } a.brain = null; b.brain = null; a.protectUntil = b.protectUntil = 0; };
+  park();
+  check('everyone starts with 2 grenades', m.actors.every((x) => x.nades === 2));
+  // open ground: thrown 8 m in front of b
+  a.x = -10; a.z = 15; a.yaw = 90; a.pitch = 10; b.x = -2; b.z = 15; b.hp = 100;
+  const n = m.nades.throw(a);
+  check('a throw uses one grenade', !!n && a.nades === 1);
+  let maxY = 0; while (m.nades.live.length) { if (n.end - m.t < 0.03 && b.z === 15) { b.x = n.x - 2.5; b.z = n.z + 0.01; } m.step(); maxY = Math.max(maxY, n.y); m.events.length = 0; }
+  check('it flies in an arc and goes off after 2.5 s', maxY > 1.8 && Math.abs(m.t - 2.5) < 0.2, 'maxY ' + maxY.toFixed(2) + ' t ' + m.t.toFixed(2));
+  check('it hurts someone 2.5 m from where it lands (' + Math.round(100 - b.hp) + ')', b.hp < 100 || !b.alive, 'hp ' + b.hp + ' nade at ' + n.x.toFixed(1) + ',' + n.z.toFixed(1));
+  // behind a wall: no damage
+  m = mk(); const a2 = m.actors.find((x) => x.team === 'A'), b2 = m.actors.find((x) => x.team === 'B');
+  for (const x of m.actors) x.brain = null;
+  a2.protectUntil = b2.protectUntil = 0;
+  const w = m.map.solids.find((s) => s.kind === 'wall' && s.maxY >= 3 && s.maxX - s.minX > 3);
+  const wx = (w.minX + w.maxX) / 2, wz = w.maxZ;
+  b2.x = wx; b2.z = w.minZ - 1.2; b2.hp = 100;
+  m.nades.explode({ x: wx, y: 0.1, z: wz + 1.0, owner: a2.id, team: a2.team });
+  check('a wall between you and the blast keeps you safe', b2.hp === 100);
+  b2.x = wx; b2.z = wz + 1.6; m.nades.explode({ x: wx, y: 0.1, z: wz + 1.0, owner: a2.id, team: a2.team });
+  check('a blast at your feet is lethal', !b2.alive);
+  // bots use them
+  let thrown = 0;
+  for (let s = 1; s <= 4; s++) { const mm = new Match({ map: new MatchMap(maps.ranch), mode: 'bomb', guns, ops, abilities, teamSize: 5, seed: s, human: null }); while (!mm.over && mm.tick < 60 * 600) { mm.step(); for (const e of mm.events) if (e.type === 'nadeThrow') thrown++; mm.events.length = 0; } }
+  check('bots throw grenades, but not all the time (' + thrown + ' in 4 matches)', thrown >= 8 && thrown < 160);
+}
+
 /* ---------- drones ---------- */
 console.log('\nDrones');
 {
