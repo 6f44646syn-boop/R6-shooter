@@ -5,8 +5,11 @@
 //! body and no hazard. Neighbouring nodes link when you can step up (`STEP`) or drop down
 //! (`DROP`) between them. A* runs over the nodes, then the path is smoothed.
 //!
-//! Boarded doors count as open (bots break them on the way). A breakable wall panel closes
-//! the nodes it covers while it stands, and opens them the moment it is destroyed.
+//! Boarded doors count as open (attackers break them on the way), unless a path asks for
+//! closed doors (`PATH_DOORS`: a defender, who should not break its own team's barricades).
+//! A breakable wall panel closes the nodes it covers while it stands, and opens them the
+//! moment it is destroyed. Low obstacles a body can vault (sills, rails, crates) are links
+//! between the nodes on either side; a path marks where to vault.
 //!
 //! The arithmetic follows the JavaScript it replaced (js/battle/arena.js, kept under
 //! tools/ref-js) operation for operation: node positions and path costs are 32-bit floats
@@ -14,6 +17,12 @@
 
 use crate::geom::len2;
 use crate::world::{blocks, World, KIND_DOOR, KIND_PANEL, STEP};
+
+/// `find_path_in` flags: only through the zone; with closed doors.
+pub const PATH_ZONE: u32 = 1;
+pub const PATH_DOORS: u32 = 2;
+/// Extra cost of a vault (metres of walking it is worth).
+const VAULT_COST: f64 = 1.5;
 use std::collections::HashMap;
 
 /// Nav cell size in metres.
@@ -42,13 +51,25 @@ pub struct CellNav {
     /// stay in). While `zone_on`, every other node is closed.
     zone: Vec<u8>,
     pub zone_on: bool,
+    /// Doors (barricades) covering each node, (door solid, node) pairs sorted by solid, and
+    /// whether paths treat standing doors as closed right now.
+    dblocked: Vec<u16>,
+    dcovers: Vec<(u32, u32)>,
+    pub doors_on: bool,
+    /// Vault links: node k can vault to vlinks[vfirst[k]..vfirst[k + 1]].
+    vfirst: Vec<u32>,
+    vlinks: Vec<u32>,
+    /// Build vault links (off for the parity check against code that had none).
+    pub vaults: bool,
+    /// 1 when the best way found to a node was a vault (path search scratch).
+    via: Vec<u8>,
     drop_ok: HashMap<i64, bool>,
     g: Vec<f32>,
     from: Vec<i32>,
     closed: Vec<u8>,
     heap: Vec<(f64, u32)>,
     ids: Vec<u32>,
-    pts: Vec<[f64; 3]>,
+    pts: Vec<[f64; 4]>,
 }
 
 impl CellNav {
@@ -68,6 +89,13 @@ impl CellNav {
             careful: true,
             zone: Vec::new(),
             zone_on: false,
+            dblocked: Vec::new(),
+            dcovers: Vec::new(),
+            doors_on: false,
+            vfirst: Vec::new(),
+            vlinks: Vec::new(),
+            vaults: true,
+            via: Vec::new(),
             drop_ok: HashMap::new(),
             g: Vec::new(),
             from: Vec::new(),
@@ -82,7 +110,7 @@ impl CellNav {
     }
     #[inline]
     pub fn open(&self, k: usize) -> bool {
-        self.blocked[k] == 0 && (!self.zone_on || self.zone[k] != 0)
+        self.blocked[k] == 0 && (!self.zone_on || self.zone[k] != 0) && (!self.doors_on || self.dblocked[k] == 0)
     }
     /// Mark the nodes inside any of the rectangles [x0, z0, x1, z1] as the zone.
     pub fn set_zone(&mut self, rects: &[[f64; 4]]) {
@@ -143,14 +171,22 @@ impl World {
         let r = body_r + 0.1;
         let mut nav = CellNav::new();
         nav.careful = self.nav.careful;
+        nav.vaults = self.nav.vaults;
         nav.nx = nx;
         nav.nz = nz;
         nav.r = r;
         nav.first = vec![0; (nx * nz) as usize];
         nav.count = vec![0; (nx * nz) as usize];
+        // every door counts while the nodes are made (so each node knows which barricades
+        // cover it, open or not); put back as they were afterwards
+        let was: Vec<(usize, bool)> = (0..self.solids.len()).filter(|&k| self.solids[k].kind == KIND_DOOR).map(|k| (k, self.solids[k].alive)).collect();
+        for &(k, _) in was.iter() {
+            self.solids[k].alive = true;
+        }
         let mut raw: Vec<f64> = Vec::new();
         let mut levels: Vec<f64> = Vec::new();
         let mut panels: Vec<u32> = Vec::new();
+        let mut doors: Vec<u32> = Vec::new();
         for j in 0..nz {
             for i in 0..nx {
                 let c = (j * nx + i) as usize;
@@ -199,13 +235,16 @@ impl World {
                     }
                     let mut ok = true;
                     panels.clear();
+                    doors.clear();
                     for &k in near.iter() {
                         let b = &self.solids[k as usize];
-                        if !blocks(b, y) || b.kind == KIND_DOOR {
+                        if !blocks(b, y) {
                             continue;
                         }
                         if x > b.min_x - r && x < b.max_x + r && z > b.min_z - r && z < b.max_z + r {
-                            if b.kind == KIND_PANEL {
+                            if b.kind == KIND_DOOR {
+                                doors.push(k);
+                            } else if b.kind == KIND_PANEL {
                                 panels.push(k);
                             } else {
                                 ok = false;
@@ -220,7 +259,11 @@ impl World {
                     for &p in panels.iter() {
                         nav.covers.push((p, id));
                     }
+                    for &d in doors.iter() {
+                        nav.dcovers.push((d, id));
+                    }
                     nav.blocked.push(panels.len() as u16);
+                    nav.dblocked.push(doors.len() as u16);
                     nav.x.push(x as f32);
                     nav.z.push(z as f32);
                     nav.y.push(y as f32);
@@ -231,12 +274,69 @@ impl World {
             }
         }
         nav.covers.sort();
+        nav.dcovers.sort();
         let n = nav.x.len();
         nav.zone = vec![1; n];
         nav.g = vec![0.0; n];
         nav.from = vec![-1; n];
         nav.closed = vec![0; n];
+        nav.via = vec![0; n];
+        nav.vfirst = vec![0; n + 1];
+        let vaults = nav.vaults;
         self.nav = nav;
+        // vault links with every barricade down (a window with its barricade up is crossed
+        // by breaking the barricade first, as a door is)
+        for &(k, _) in was.iter() {
+            self.solids[k].alive = false;
+        }
+        if vaults {
+            self.nav_vaults(body_r);
+        }
+        for &(k, alive) in was.iter() {
+            self.solids[k].alive = alive;
+        }
+        // doors already open
+        let nav = &mut self.nav;
+        for &(d, node) in nav.dcovers.iter() {
+            if !self.solids[d as usize].alive && nav.dblocked[node as usize] > 0 {
+                nav.dblocked[node as usize] -= 1;
+            }
+        }
+    }
+
+    /// Vault links: from each node, in the four directions along the grid, where a vault
+    /// lands on another node that cannot be reached by walking straight there.
+    fn nav_vaults(&mut self, body_r: f64) {
+        let n = self.nav.len();
+        let mut first = vec![0_u32; n + 1];
+        let mut links: Vec<u32> = Vec::new();
+        for k in 0..n {
+            first[k] = links.len() as u32;
+            let (x, z, y) = (self.nav.x[k] as f64, self.nav.z[k] as f64, self.nav.y[k] as f64);
+            for &(dx, dz) in [(1.0, 0.0), (-1.0, 0.0), (0.0, 1.0), (0.0, -1.0)].iter() {
+                let v = match self.vault_target(x, y, z, dx, dz, body_r) {
+                    Some(v) => v,
+                    None => continue,
+                };
+                let t = self.node_at(v.0, v.2, v.1);
+                if t < 0 || t as usize == k || links[first[k] as usize..].contains(&(t as u32)) {
+                    continue;
+                }
+                let (tx, tz, ty) = (self.nav.x[t as usize] as f64, self.nav.z[t as usize] as f64, self.nav.y[t as usize] as f64);
+                if self.clear_walk(&[x, z, y], &[tx, tz, ty]) {
+                    continue;
+                }
+                links.push(t as u32);
+            }
+        }
+        first[n] = links.len() as u32;
+        self.nav.vfirst = first;
+        self.nav.vlinks = links;
+        self.nav.drop_ok.clear();
+    }
+    /// How many vault links there are (tests, diagnostics).
+    pub fn nav_vault_count(&self) -> usize {
+        self.nav.vlinks.len()
     }
 
     /// A panel broke or was rebuilt: open or close the nodes it covers.
@@ -245,15 +345,16 @@ impl World {
         if was == alive {
             return;
         }
+        let door = self.solids.get(solid as usize).map_or(false, |b| b.kind == KIND_DOOR);
         let nav = &mut self.nav;
-        let start = nav.covers.partition_point(|p| p.0 < solid);
-        let mut k = start;
-        while k < nav.covers.len() && nav.covers[k].0 == solid {
-            let node = nav.covers[k].1 as usize;
+        let (covers, count) = if door { (&nav.dcovers, &mut nav.dblocked) } else { (&nav.covers, &mut nav.blocked) };
+        let mut k = covers.partition_point(|p| p.0 < solid);
+        while k < covers.len() && covers[k].0 == solid {
+            let node = covers[k].1 as usize;
             if alive {
-                nav.blocked[node] += 1;
-            } else if nav.blocked[node] > 0 {
-                nav.blocked[node] -= 1;
+                count[node] += 1;
+            } else if count[node] > 0 {
+                count[node] -= 1;
             }
             k += 1;
         }
@@ -435,9 +536,11 @@ impl World {
             let ok = match self.nav.drop_ok.get(&key) {
                 Some(&v) => v,
                 None => {
+                    // room to step off at the starting height, and nothing to land on before
+                    // that level (a floor in between: you would land on it, not fall through)
                     let (x, z) = self.cell_centre(cell);
                     let r = self.nav.r - 0.05;
-                    let v = self.free_at(x, z, y, r);
+                    let v = self.free_at(x, z, y, r) && (self.ground_at(x, z, y) - by).abs() < 0.13;
                     self.nav.drop_ok.insert(key, v);
                     v
                 }
@@ -492,23 +595,28 @@ impl World {
     /// A* over the nodes (8 neighbours, no corner cutting), then smoothed. The points to
     /// walk through (x, z, y), ending at the goal, are written to `out` (empty if there is
     /// no way).
-    pub fn find_path(&mut self, ax: f64, az: f64, ay: f64, bx: f64, bz: f64, by: f64, out: &mut Vec<[f64; 3]>) {
-        self.find_path_in(ax, az, ay, bx, bz, by, false, out)
+    pub fn find_path(&mut self, ax: f64, az: f64, ay: f64, bx: f64, bz: f64, by: f64, out: &mut Vec<[f64; 4]>) {
+        self.find_path_in(ax, az, ay, bx, bz, by, 0, out)
     }
-    /// The same; with `zone`, only through nodes inside the zone (see CellNav::set_zone).
-    pub fn find_path_in(&mut self, ax: f64, az: f64, ay: f64, bx: f64, bz: f64, by: f64, zone: bool, out: &mut Vec<[f64; 3]>) {
-        let was = self.nav.zone_on;
-        if zone != was {
-            self.nav.zone_on = zone;
+    /// The same, with PATH_ZONE: only through nodes inside the zone (see CellNav::set_zone);
+    /// with PATH_DOORS: standing doors are closed.
+    pub fn find_path_in(&mut self, ax: f64, az: f64, ay: f64, bx: f64, bz: f64, by: f64, flags: u32, out: &mut Vec<[f64; 4]>) {
+        let (zw, dw) = (self.nav.zone_on, self.nav.doors_on);
+        let (zn, dn) = (flags & PATH_ZONE != 0, flags & PATH_DOORS != 0);
+        let changed = zn != zw || dn != dw;
+        if changed {
+            self.nav.zone_on = zn;
+            self.nav.doors_on = dn;
             self.nav.drop_ok.clear();
         }
         self.path_now(ax, az, ay, bx, bz, by, out);
-        if zone != was {
-            self.nav.zone_on = was;
+        if changed {
+            self.nav.zone_on = zw;
+            self.nav.doors_on = dw;
             self.nav.drop_ok.clear();
         }
     }
-    fn path_now(&mut self, ax: f64, az: f64, ay: f64, bx: f64, bz: f64, by: f64, out: &mut Vec<[f64; 3]>) {
+    fn path_now(&mut self, ax: f64, az: f64, ay: f64, bx: f64, bz: f64, by: f64, out: &mut Vec<[f64; 4]>) {
         out.clear();
         if self.nav.nx == 0 {
             return;
@@ -578,6 +686,29 @@ impl World {
                     if ng < self.nav.g[k] as f64 {
                         self.nav.g[k] = ng as f32;
                         self.nav.from[k] = c as i32;
+                        self.nav.via[k] = 0;
+                        let hk = h(&self.nav, k);
+                        self.nav.push(ng + hk, k as u32);
+                    }
+                }
+            }
+            // vaults
+            if !self.nav.vlinks.is_empty() {
+                for idx in self.nav.vfirst[c] as usize..self.nav.vfirst[c + 1] as usize {
+                    let k = self.nav.vlinks[idx] as usize;
+                    if self.nav.closed[k] != 0 || !self.nav.open(k) {
+                        continue;
+                    }
+                    if self.nav.doors_on && self.door_on(self.nav.x[c] as f64, self.nav.z[c] as f64, self.nav.x[k] as f64, self.nav.z[k] as f64, 0.2, cy) >= 0 {
+                        continue;
+                    }
+                    let d = len2(self.nav.x[k] as f64 - self.nav.x[c] as f64, self.nav.z[k] as f64 - self.nav.z[c] as f64);
+                    let up = self.nav.y[k] as f64 - cy;
+                    let ng = self.nav.g[c] as f64 + d + VAULT_COST + (if up > 0.0 { up } else { 0.0 }) * 0.5;
+                    if ng < self.nav.g[k] as f64 {
+                        self.nav.g[k] = ng as f32;
+                        self.nav.from[k] = c as i32;
+                        self.nav.via[k] = 1;
                         let hk = h(&self.nav, k);
                         self.nav.push(ng + hk, k as u32);
                     }
@@ -597,31 +728,40 @@ impl World {
         ids.reverse();
         let mut pts = core::mem::take(&mut self.nav.pts);
         pts.clear();
-        for &k in ids.iter() {
+        for (i, &k) in ids.iter().enumerate() {
             let k = k as usize;
-            pts.push([self.nav.x[k] as f64, self.nav.z[k] as f64, self.nav.y[k] as f64]);
+            // flag 1: vault from here to the next point
+            let vault = i + 1 < ids.len() && self.nav.via[ids[i + 1] as usize] == 1;
+            pts.push([self.nav.x[k] as f64, self.nav.z[k] as f64, self.nav.y[k] as f64, if vault { 1.0 } else { 0.0 }]);
         }
         self.nav.ids = ids;
         if self.node_at(bx, bz, by) == goal as i32 {
             let n = pts.len();
-            pts[n - 1] = [bx, bz, self.nav.y[goal] as f64];
+            pts[n - 1] = [bx, bz, self.nav.y[goal] as f64, 0.0];
         }
-        // string pulling: skip waypoints while the straight line stays walkable
+        // string pulling: skip waypoints while the straight line stays walkable; never past
+        // the start of a vault, and always on to its landing
         let mut cur = [ax, az, self.nav.y[start] as f64];
         let mut k = 0usize;
         while k < pts.len() {
+            let stop = (k..pts.len()).find(|&j| pts[j][3] != 0.0).unwrap_or(pts.len() - 1);
             let mut far = k;
-            let mut m = if pts.len() - 1 < k + 40 { pts.len() - 1 } else { k + 40 };
+            let mut m = if stop < k + 40 { stop } else { k + 40 };
             while m > k {
-                if self.clear_walk(&cur, &pts[m]) {
+                if self.clear_walk(&cur, &[pts[m][0], pts[m][1], pts[m][2]]) {
                     far = m;
                     break;
                 }
                 m -= 1;
             }
             out.push(pts[far]);
-            cur = pts[far];
+            cur = [pts[far][0], pts[far][1], pts[far][2]];
             k = far + 1;
+            if pts[far][3] != 0.0 && k < pts.len() {
+                out.push(pts[k]);
+                cur = [pts[k][0], pts[k][1], pts[k][2]];
+                k += 1;
+            }
         }
         self.nav.pts = pts;
     }
@@ -667,8 +807,9 @@ mod tests {
         assert!((last[0] - 8.0).abs() < 1e-9 && (last[2] - 3.0).abs() < 1e-6, "ends on the platform: {last:?}");
         let mut cur = [-8.0, 0.0, 0.0];
         for p in out.iter() {
-            assert!(w.clear_walk(&cur, p), "leg {cur:?} -> {p:?}");
-            cur = *p;
+            let q = [p[0], p[1], p[2]];
+            assert!(w.clear_walk(&cur, &q), "leg {cur:?} -> {p:?}");
+            cur = q;
         }
     }
 
@@ -681,7 +822,14 @@ mod tests {
         assert!((out[out.len() - 1][2]).abs() < 1e-6);
         w.find_path(7.0, 6.0, 0.0, 7.0, 2.5, 3.0, &mut out);
         assert!(!out.is_empty(), "a way up");
-        assert!(out.iter().any(|p| p[0] < 0.0), "round by the foot of the stairs");
+        // by the stairs (from their foot, or climbing onto a low tread from the side)
+        assert!(out.iter().any(|p| p[0] < 4.0 && p[1].abs() < 1.6), "by the stairs: {out:?}");
+        let mut cur = [7.0, 6.0, 0.0];
+        for p in out.iter() {
+            let q = [p[0], p[1], p[2]];
+            assert!(w.clear_walk(&cur, &q) || w.vault_target(cur[0], cur[2], cur[1], (q[0] - cur[0]).signum() * ((q[0] - cur[0]).abs() > (q[1] - cur[1]).abs()) as i32 as f64, (q[1] - cur[1]).signum() * ((q[1] - cur[1]).abs() >= (q[0] - cur[0]).abs()) as i32 as f64, BODY_R).is_some(), "leg {cur:?} -> {q:?}");
+            cur = q;
+        }
         // no walking straight up a 3 m wall
         assert!(!w.clear_walk(&[7.0, 6.0, 0.0], &[7.0, 2.5, 3.0]));
         // every node is somewhere a body fits
@@ -716,6 +864,53 @@ mod tests {
     }
 
     #[test]
+    fn a_path_vaults_a_window_sill_when_that_is_the_way() {
+        // a wall across z = 0 (x -10..10) with a window: a 1 m sill from x -1 to 1, the wall
+        // above it from 2.3 m; the only way across is over the sill
+        let mut w = World::new(10.0, 10.0, 6.0, 0.0);
+        edges(&mut w);
+        w.solids.push(bx(-10.0, -1.0, 0.0, 3.2, -0.2, 0.2, 0));
+        w.solids.push(bx(1.0, 10.0, 0.0, 3.2, -0.2, 0.2, 0));
+        w.solids.push(bx(-1.0, 1.0, 0.0, 1.0, -0.2, 0.2, 0));
+        w.solids.push(bx(-1.0, 1.0, 2.3, 3.2, -0.2, 0.2, 0));
+        w.build();
+        w.nav_build(BODY_R);
+        assert!(w.nav_vault_count() > 0);
+        let mut out = Vec::new();
+        w.find_path(0.0, -5.0, 0.0, 0.0, 5.0, 0.0, &mut out);
+        assert!(!out.is_empty(), "over the sill");
+        let i = out.iter().position(|p| p[3] != 0.0).expect("a vault is marked");
+        assert!(out[i][1] < -0.2 && out[i + 1][1] > 0.2, "from one side to the other: {out:?}");
+        // without vault links there is no way
+        w.nav.vaults = false;
+        w.nav_build(BODY_R);
+        w.find_path(0.0, -5.0, 0.0, 0.0, 5.0, 0.0, &mut out);
+        assert!(out.is_empty());
+    }
+
+    #[test]
+    fn closed_doors_are_closed_only_when_asked() {
+        use crate::world::KIND_DOOR;
+        let mut w = World::new(10.0, 10.0, 3.2, 0.0);
+        edges(&mut w);
+        w.solids.push(bx(-0.125, 0.125, 0.0, 3.2, -10.0, -0.75, 0));
+        w.solids.push(bx(-0.125, 0.125, 0.0, 3.2, 0.75, 10.0, 0));
+        let door = w.solids.len() as u32;
+        w.solids.push(bx(-0.08, 0.08, 0.3, 2.2, -0.75, 0.75, KIND_DOOR));
+        w.build();
+        w.nav_build(BODY_R);
+        let mut out = Vec::new();
+        w.find_path(-5.0, 0.0, 0.0, 5.0, 0.0, 0.0, &mut out);
+        assert!(!out.is_empty(), "attackers path through a boarded door (and break it)");
+        w.find_path_in(-5.0, 0.0, 0.0, 5.0, 0.0, 0.0, super::PATH_DOORS, &mut out);
+        assert!(out.is_empty(), "a defender's path does not");
+        w.solids[door as usize].alive = false;
+        w.nav_set_alive(door, true, false);
+        w.find_path_in(-5.0, 0.0, 0.0, 5.0, 0.0, 0.0, super::PATH_DOORS, &mut out);
+        assert!(!out.is_empty(), "an open doorway is open to everyone");
+    }
+
+    #[test]
     fn a_zone_keeps_paths_inside_it() {
         // a house (x -6..6, z -4..4, walls 0.4 thick) with a door in the west and east walls
         // and a wall across the middle (x = 0) with no door: the short way from the west
@@ -731,7 +926,7 @@ mod tests {
         let mut out = Vec::new();
         w.find_path(-3.0, -3.0, 0.0, 3.0, -3.0, 0.0, &mut out);
         assert!(!out.is_empty());
-        w.find_path_in(-3.0, -3.0, 0.0, 3.0, -3.0, 0.0, true, &mut out);
+        w.find_path_in(-3.0, -3.0, 0.0, 3.0, -3.0, 0.0, super::PATH_ZONE, &mut out);
         assert!(!out.is_empty(), "there is a way inside (round the end of the middle wall)");
         assert!(out.iter().all(|p| p[0].abs() <= 6.0 && p[1].abs() <= 4.0), "and it stays inside: {out:?}");
         assert!(out.iter().any(|p| p[1] > 2.0));
@@ -740,7 +935,7 @@ mod tests {
         w.build();
         w.nav_build(BODY_R);
         w.nav.set_zone(&[[-6.0, -4.0, 6.0, 4.0]]);
-        w.find_path_in(-3.0, -3.0, 0.0, 3.0, -3.0, 0.0, true, &mut out);
+        w.find_path_in(-3.0, -3.0, 0.0, 3.0, -3.0, 0.0, super::PATH_ZONE, &mut out);
         assert!(out.is_empty(), "no way inside: {out:?}");
         w.find_path(-3.0, -3.0, 0.0, 3.0, -3.0, 0.0, &mut out);
         assert!(!out.is_empty() && out.iter().any(|p| p[0].abs() > 6.5));

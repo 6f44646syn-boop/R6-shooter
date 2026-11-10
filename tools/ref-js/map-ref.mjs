@@ -34,7 +34,9 @@ const GRID = 2;
 
 const hyp = (x, z) => Math.sqrt(x * x + z * z);
 export class RefMap {
-  constructor(data) {
+  // solids: use these (a MatchMap's, copied) instead of building them from data: the map
+  // format changed after milestone 1 (soft walls are grids of cells now); the kernel did not.
+  constructor(data, solids = null) {
     this.data = data;
     this.id = data.id; this.name = data.name;
     this.hx = data.hx; this.hz = data.hz; this.wallH = data.wallH || 3.2;
@@ -70,6 +72,11 @@ export class RefMap {
       if (H > HOLE_H + 0.05) add({ ...box, minZ: box.minZ - (alongX ? 0.08 : 0), maxZ: box.maxZ + (alongX ? 0.08 : 0), minX: box.minX - (alongX ? 0 : 0.08), maxX: box.maxX + (alongX ? 0 : 0.08), minY: HOLE_H, maxY: H, kind: 'wall' });
       low.panel = this.panels.length;
       this.panels.push({ box: low, kind: 'door', alive: true, i: this.panels.length, alongX, hp: DOOR_HP });
+    }
+    if (solids) {
+      this.solids = solids.map((b, i) => ({ minX: b.minX, maxX: b.maxX, minY: b.minY, maxY: b.maxY, minZ: b.minZ, maxZ: b.maxZ, kind: b.kind, alive: b.alive, i }));
+      // doors: one panel each (same order as the game's panels list keeps them)
+      this.panels = this.solids.filter((b) => b.kind === 'door').map((b) => ({ box: b, kind: 'door', get alive() { return b.alive; }, i: solids[b.i].panel }));
     }
     this._grid();
     this.nodes = data.nodes || []; this.links = data.links || [];
@@ -108,11 +115,24 @@ export class RefMap {
   // was the "drone through the wall" bug (a step is speed x frame time, so it showed at low
   // frame rates). Here the move is cut into steps shorter than half the radius, each followed
   // by the push-out, so the centre can never cross a face.
+  // (milestone 4, as the core: a step that ends still overlapping something, when the move
+  // started clear, stops the move there)
   moveCircle(p, dx, dz, r = BODY_R, flyer = false) {
     const n = Math.min(400, Math.max(1, Math.ceil(hyp(dx, dz) / (r * 0.5))));
     const sx = dx / n, sz = dz / n;
-    for (let i = 0; i < n; i++) { p.x += sx; p.z += sz; this.resolve(p, r, flyer); }
+    let guard = this._clear(this.resolve({ x: p.x, z: p.z }, r, flyer), r, flyer, p.x, p.z);
+    for (let i = 0; i < n; i++) {
+      const q = this.resolve({ x: p.x + sx, z: p.z + sz }, r, flyer), ok = this._clear(q, r, flyer, p.x + sx, p.z + sz);
+      if (guard && !ok) break;
+      if (ok) guard = true;
+      p.x = q.x; p.z = q.z;
+    }
     return p;
+  }
+  // (the boxes looked at are those near where the push-out started, as in the core)
+  _clear(p, r, flyer, qx, qz) {
+    for (const b of this.near(qx, qz, r + 0.1, this._cl || (this._cl = []))) if ((flyer ? b.minY < DOOR_GAP - 0.05 && b.maxY > 0.12 + 1e-4 : blocks(b)) && circleHitsBox(p.x, p.z, r - 1e-6, b)) return false;
+    return true;
   }
   free(x, z, r = BODY_R) {
     for (const b of this.near(x, z, r + 0.1, this._fl || (this._fl = []))) if (blocks(b) && circleHitsBox(x, z, r, b)) return false;
@@ -184,7 +204,7 @@ export class RefMap {
   doorOn(ax, az, bx, bz, r = BODY_R) {
     let best = null, bd = Infinity;
     for (const pn of this.panels) {
-      if (pn.kind !== 'door' || !pn.alive) continue;
+      if (pn.kind !== 'door' || !pn.alive || !blocks(pn.box)) continue;      // (an upstairs door is not in the way on the ground floor)
       const b = pn.box;
       if (!segHitsBox(ax, az, bx, bz, b, r)) continue;
       const d = hyp((b.minX + b.maxX) / 2 - ax, (b.minZ + b.maxZ) / 2 - az);

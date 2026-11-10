@@ -7,14 +7,14 @@
 //
 // Coordinates: metres, x right, y up, z towards the "A" side. Same yaw convention as the
 // range: yaw 0 looks along -z, positive turns right.
-import * as THREE from '../../vendor/three/three.module.min.js?v=e1f5a8d-mwah3s7c';
-import { MAPS } from './maps.js?v=e1f5a8d-mwah3s7c';
-import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=e1f5a8d-mwah3s7c';
-import { flatMaterial } from '../scene/low.js?v=e1f5a8d-mwah3s7c';
-import { BulletHoles } from '../scene/holes.js?v=e1f5a8d-mwah3s7c';
-import { mulberry32 } from '../core/prng.js?v=e1f5a8d-mwah3s7c';
-import { layoutSolids, layoutPieces, edgeSolids, span, piece, stairCount, rampCount } from './solids.js?v=e1f5a8d-mwah3s7c';
-import { CoreWorld, BODY_R, STEP, BODY_H, VAULT_MAX } from '../wasm/world.js?v=e1f5a8d-mwah3s7c';
+import * as THREE from '../../vendor/three/three.module.min.js?v=651d04c-mwak4e9y';
+import { MAPS } from './maps.js?v=651d04c-mwak4e9y';
+import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=651d04c-mwak4e9y';
+import { flatMaterial } from '../scene/low.js?v=651d04c-mwak4e9y';
+import { BulletHoles } from '../scene/holes.js?v=651d04c-mwak4e9y';
+import { mulberry32 } from '../core/prng.js?v=651d04c-mwak4e9y';
+import { layoutSolids, layoutPieces, edgeSolids, span, piece, stairCount, rampCount } from './solids.js?v=651d04c-mwak4e9y';
+import { CoreWorld, BODY_R, STEP, BODY_H, VAULT_MAX } from '../wasm/world.js?v=651d04c-mwak4e9y';
 
 export const HALF_X = 18, HALF_Z = 14, WALL_H = 4.5;
 // Landmark names for callouts, by kind of cover.

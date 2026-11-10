@@ -38,6 +38,13 @@ The engine reads plain input state. It does not care which key or button produce
   `h.in.vault` directly.
 - **Battle** (`Battle.key(code, down)`): `KeyC` vault, `Interact` / `KeyF` flashlight at
   night, `CapsLock` / `KeyG` grenade.
+- **Bomb, milestone 4:** the interact hold (E before milestone 7, `Interact` after) also
+  reinforces a soft wall or barricades an open doorway or window for a defender facing it
+  (in prep and in the action phase); the grenade input lays barbed wire for a defender
+  (2 rolls a round, no grenades). No new input actions were needed.
+- **Match option `prepTime`** (seconds, 10 to 120, default 30): passed to
+  `ModeGame.start({ ..., prepTime })`. The current menu has a "Preparation" select; the new
+  menus should offer the same values for Bomb.
 - Releasing everything (`h.releaseAll()`, `controls.release()`) on respawn, mode change
   and pointer-lock loss is the controls' job; the engine never holds input across those.
 
@@ -54,21 +61,27 @@ are both a `CoreWorld`. Heights are feet heights (y); the ground floor is 0.
 | `resolve(p, r)`, `free(x, z, r, y)`, `walkClear(...)` | push-out and clearance |
 | `vaultTarget(x, y, z, dx, dz)` | `{ x, y, z, top }` to vault to, or null |
 | `raycast(o, d, maxT)`, `sight(a, b)` | `t` or -1; `world.hit` (solid index, -2 floor, -3 ceiling), `world.axis` |
-| `path(ax, az, ay, bx, bz, by, inZone)` | `[[x, z, y], ...]` on every level, or `[]` |
+| `path(ax, az, ay, bx, bz, by, flags)` | `[[x, z, y, vault], ...]` on every level, or `[]`; vault 1 = vault from this point to the next; flags `PATH.zone`, `PATH.doors` (barricades closed) |
 | `nearestNode`, `nodeAt`, `clearWalk`, `navNodes()` | path-node queries |
 | `setAlive(i, alive)` | a breakable panel or door changed (paths open and close with it) |
 | `dispose()` | free the core's copy (when a match or arena is done) |
 
-`wasm/recoil_core.wasm` interface version is 3 (`rc_abi()`); the loader refuses a stale file.
+`wasm/recoil_core.wasm` interface version is 4 (`rc_abi()`); the loader refuses a stale file.
+Solid codes: 0 a floor you can stand on, 1 a barricade, 2 a breakable wall cell, 3 solid but
+not a floor (wall tops, sills, rails: you slide off).
 The controls module (`wasm/m7_controls.wasm`, `mc_*`) is separate and stays separate.
 
 ## Match state other code may read (read only)
 
 `ModeGame.m` is the `Match`. Per actor: `x, y, z, vx, vy, vz, yaw, pitch, crouch, ads, hp,
-alive, team, op, gun, kills, deaths, ab` (ability state), `carry`. `m.rules` has `name`,
+alive, team, op, gun, kills, deaths, ab` (ability state), `carry`, `reinf`, `wire` (Bomb
+defenders: reinforcements and wire rolls left), `hold` (`{ type: 'plant' | 'defuse' |
+'reinforce' | 'barricade', t0, need, label }`). `m.rules` has `name`,
 `phase` (Bomb), `score`, `keepIn(a, x, z)` (Bomb: the nearest spot a defender may stand),
 `edgeAhead(a)`. `m.events` is the step's event list (`shot`, `hit`, `kill`, `spawn`,
-`boom`, `msg`, ...), cleared by `ModeGame` every frame. Only the engine writes to these.
+`boom`, `msg`, `splinter`, `debris`, `reinforce`, `barricade`, `wire`, `gadget`, ...),
+cleared by `ModeGame` every frame. Map state: `m.map.panels` (soft walls with their `cells`,
+reinforced walls, barricades with `hp`, `slot`, `win`). Only the engine writes to these.
 
 ## Replays (milestone 10)
 
@@ -83,4 +96,12 @@ Battle's host is the authority: clients send input, the host simulates and sends
 Fighters carry `y` already (stairs and upper floors work online through the same arena
 physics). Battle grenades are still off in network games (bug B11 in `BASELINE.md`). The
 match modes (TDM, CTF, Bomb) are offline only; their simulation is seeded and fixed-step
-(60 Hz), so it can be run by a host later without changes to the rules.
+(60 Hz), so it can be run by a host later without changes to the rules. If Bomb goes
+online, the destruction state to send is which wall cells and barricades stand, which panels
+are reinforced (`m.map.panels`), and the gadgets (`m.ab.gadgets`, wire included).
+
+## Audio
+
+Audio is the UI side's (milestone 8, including any downloadable sound files). The engine
+only calls `sfx` functions on its events; milestone 4 added one, `sfx.wire()` (the barbed
+wire rattle), which a new audio system should keep a sound for.

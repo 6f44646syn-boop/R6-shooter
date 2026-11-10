@@ -236,11 +236,16 @@ export class CTF extends Rules {
 // A round ends when one team is all dead (after a plant, the defenders must still defuse),
 // the bomb goes off (attackers win), it is defused (defenders win), or the time runs out with
 // no plant (defenders win). If the carrier dies the bomb drops; any attacker can pick it up.
-export const BOMB = { prep: 30, action: 150, plant: 5, fuse: 40, defuse: 6, summary: 5, wins: 4, swapAfter: 3, pickup: 1.2, defuseR: 1.6 };
+// Prep (30 s by default; prepTime in the match options): defenders hold E at a soft wall to
+// reinforce it (two each a round) or in an open doorway or window to barricade it, lay
+// barbed wire (their throwable in Bomb) and place gadgets; attackers drone.
+export const BOMB = { prep: 30, action: 150, plant: 5, fuse: 40, defuse: 6, summary: 5, wins: 4, swapAfter: 3, pickup: 1.2, defuseR: 1.6, reinforce: 2.5, barricade: 1.5, reinforcements: 2, wires: 2 };
 export class Bomb extends Rules {
   constructor(m) {
     super(m);
     this.name = 'Bomb'; this.usesE = true;
+    this.prep = Math.max(10, Math.min(120, +m.o.prepTime || BOMB.prep));
+    this.claimed = new Set();     // panels a defender bot is working on
     this.round = 0; this.rounds = []; this.phase = 'prep'; this.phaseEnd = 0;
     this.firstAttack = (m.o.human && m.o.human.side === 'defend') ? 'B' : 'A';   // your team is A
     this.bomb = { state: 'none', x: 0, z: 0, carrier: null, site: null, fuseEnd: 0 };
@@ -272,11 +277,17 @@ export class Bomb extends Rules {
       m.emit({ type: 'swap' });
       m.emit({ type: 'msg', text: 'Sides swapped' });
     }
-    this.phase = 'prep'; this.phaseEnd = m.t + BOMB.prep;
+    this.phase = 'prep'; this.phaseEnd = m.t + this.prep; this.claimed.clear();
     this.bomb = { state: 'none', x: 0, z: 0, carrier: null, site: null, fuseEnd: 0 };
     m.ab.clearAll(); m.nades.clear(); m.map.resetPanels();
     this.target = this.sites[Math.floor(m.rng() * this.sites.length)];
-    for (const a of m.actors) { m.spawn(a, this.spawnList(a.team), 0, 2.5); a.respawnAt = 0; m.ab.refill(a); if (a.brain) a.brain.post = null; }
+    for (const a of m.actors) {
+      m.spawn(a, this.spawnList(a.team), 0, 2.5); a.respawnAt = 0; m.ab.refill(a); if (a.brain) { a.brain.post = null; a.brain.job = null; a.brain.jobsDone = 0; a.brain.wired = false; }
+      // defenders: reinforcements and barbed wire instead of grenades
+      const def = !this.isAttacker(a);
+      a.reinf = def ? BOMB.reinforcements : 0; a.wire = def ? BOMB.wires : 0;
+      if (def) a.nades = 0;
+    }
     // the bomb: always yours when you attack, else a random attacker bot
     const att = m.actors.filter((a) => this.isAttacker(a));
     const carrier = att.find((a) => a.human) || att[Math.floor(m.rng() * att.length)];
@@ -339,19 +350,35 @@ export class Bomb extends Rules {
   // nobody shoots in the prep phase (defenders set up, attackers wait) or between rounds
   noFire() { return this.phase === 'prep' || this.phase === 'post'; }
   inSite(x, z) { return this.sites.find((s) => Math.hypot(s.x - x, s.z - z) <= s.r) || null; }
-  // Start or stop holding E (plant or defuse). Returns true if a hold started.
-  setHold(a, on) {
+  // What a defender facing this way could work on: a soft wall to reinforce (if it has
+  // reinforcements left), else an open doorway or window to barricade.
+  workAt(a) {
+    const y = a.yaw * Math.PI / 180, dx = Math.sin(y), dz = -Math.cos(y), map = this.m.map;
+    return (a.reinf > 0 && map.panelInFront(a.x, a.z, a.y, dx, dz, 'soft')) || map.panelInFront(a.x, a.z, a.y, dx, dz, 'slot') || null;
+  }
+  // Start or stop holding E: defuse, reinforce, barricade, plant. Returns true if a hold
+  // started. target: the panel a bot means (people use what they face).
+  setHold(a, on, target = null) {
     const m = this.m, b = this.bomb;
     if (!on) { if (a.hold) { a.hold = null; } return false; }
-    if (!a.alive || a.hold || this.phase === 'post' || this.phase === 'prep') return false;
-    if (this.isAttacker(a) && b.state === 'carried' && b.carrier === a && this.inSite(a.x, a.z)) {
-      a.hold = { type: 'plant', t0: m.t, need: BOMB.plant, label: 'Planting' }; return true;
-    }
-    if (!this.isAttacker(a) && b.state === 'planted' && Math.hypot(b.x - a.x, b.z - a.z) < BOMB.defuseR) {
+    if (!a.alive || a.hold || this.phase === 'post') return false;
+    const def = !this.isAttacker(a);
+    if (def && b.state === 'planted' && Math.hypot(b.x - a.x, b.z - a.z) < BOMB.defuseR) {
       a.hold = { type: 'defuse', t0: m.t, need: BOMB.defuse, label: 'Defusing' }; return true;
+    }
+    if (def) {
+      const pn = target || this.workAt(a);
+      if (pn && pn.kind === 'soft' && a.reinf > 0) { a.hold = { type: 'reinforce', panel: pn, t0: m.t, need: BOMB.reinforce, label: 'Reinforcing' }; return true; }
+      if (pn && pn.kind === 'door' && !pn.alive) { a.hold = { type: 'barricade', panel: pn, t0: m.t, need: BOMB.barricade, label: 'Barricading' }; return true; }
+    }
+    if (this.phase === 'prep') return false;
+    if (!def && b.state === 'carried' && b.carrier === a && this.inSite(a.x, a.z)) {
+      a.hold = { type: 'plant', t0: m.t, need: BOMB.plant, label: 'Planting' }; return true;
     }
     return false;
   }
+  // The panel is still there to work on, within reach of a.
+  _reach(a, pn) { const c = pn.box; return Math.hypot(Math.max(c.minX - a.x, 0, a.x - c.maxX), Math.max(c.minZ - a.z, 0, a.z - c.maxZ)) < 2 && Math.abs((pn.y0 || 0) - a.y) < 0.6; }
   key(me, code, down) { if (code !== 'KeyE') return false; this.setHold(me, down); return true; }
   update() {
     const m = this.m, t = m.t, b = this.bomb;
@@ -372,8 +399,21 @@ export class Bomb extends Rules {
       if (!a.alive) { a.hold = null; continue; }
       if (h.type === 'plant' && !(b.state === 'carried' && b.carrier === a && this.inSite(a.x, a.z))) { a.hold = null; continue; }
       if (h.type === 'defuse' && !(b.state === 'planted' && Math.hypot(b.x - a.x, b.z - a.z) < BOMB.defuseR)) { a.hold = null; continue; }
+      if (h.type === 'reinforce' && !(h.panel.kind === 'soft' && this._reach(a, h.panel))) { a.hold = null; continue; }
+      if (h.type === 'barricade' && !(h.panel.kind === 'door' && !h.panel.alive && this._reach(a, h.panel))) { a.hold = null; continue; }
       if (t - h.t0 >= h.need) {
         a.hold = null;
+        const pb = h.panel && h.panel.box;
+        if (h.type === 'reinforce') {
+          m.map.reinforce(h.panel, a.id); a.reinf--;
+          m.noise(a, 20, 'reinforce');
+          m.emit({ type: 'reinforce', id: a.id, x: (pb.minX + pb.maxX) / 2, y: (pb.minY + pb.maxY) / 2, z: (pb.minZ + pb.maxZ) / 2 });
+          continue;
+        }
+        if (h.type === 'barricade') {
+          if (m.map.barricade(h.panel)) { m.noise(a, 15, 'barricade'); m.emit({ type: 'barricade', id: a.id, x: (pb.minX + pb.maxX) / 2, y: (pb.minY + pb.maxY) / 2, z: (pb.minZ + pb.maxZ) / 2 }); }
+          continue;
+        }
         if (h.type === 'plant') {
           b.state = 'planted'; b.carrier = null; a.carry = null; b.x = a.x; b.z = a.z; b.site = this.inSite(a.x, a.z); b.fuseEnd = t + BOMB.fuse;
           this.phase = 'planted';
@@ -497,6 +537,8 @@ export class Bomb extends Rules {
       return { x: b.x, z: b.z, key: 'tobomb', push: clear };
     }
     const site = brain.site || this.sites[0], late = this.phaseEnd - t < 55;
+    const job = this.prepJob(brain, site);
+    if (job) return job;
     // roamer: works the rooms away from the site, holding each spot a while; falls back late
     // (falls back when hurt or when two or more attackers have been seen near it)
     const crowd = [...m.bb[a.team].seen.values()].filter((s) => t - s.t < 6 && Math.hypot(s.x - a.x, s.z - a.z) < 14).length;
@@ -513,6 +555,63 @@ export class Bomb extends Rules {
     const E = site.entries || [];
     if (E.length) { const e = E.slice().sort((p, q) => Math.hypot(p[0] - g.x, p[1] - g.z) - Math.hypot(q[0] - g.x, q[1] - g.z))[0]; g.face = [e[0], e[1]]; }
     return g;
+  }
+  // Defender bots in prep (and the first seconds of the action): anchors and site control
+  // reinforce the site room's soft walls and barricade its open doorways and windows (each
+  // panel by one bot), then lay their wire just inside a way in. Returns a goal or null.
+  prepJob(brain, site) {
+    const m = this.m, a = brain.a, t = m.t;
+    if (a.role === 'roamer' || a.hold || this.phase !== 'prep') return null;
+    const room = (m.map.data.callouts || []).find((c) => c.floor && !c.y && site.x > c.x0 && site.x < c.x1 && site.z > c.z0 && site.z < c.z1);
+    const inRoom = (b) => room ? (b.minX + b.maxX) / 2 > room.x0 - 0.7 && (b.minX + b.maxX) / 2 < room.x1 + 0.7 && (b.minZ + b.maxZ) / 2 > room.z0 - 0.7 && (b.minZ + b.maxZ) / 2 < room.z1 + 0.7 : Math.hypot((b.minX + b.maxX) / 2 - site.x, (b.minZ + b.maxZ) / 2 - site.z) < 9;
+    if (brain.job && (t > brain.job.until || (brain.job.kind === 'soft' ? brain.job.pn.kind !== 'soft' || a.reinf <= 0 : brain.job.pn.alive))) { brain.jobsDone++; brain.job = null; }
+    if (!brain.job && brain.jobsDone < 3) {
+      // the nearest unclaimed panel of the site room that needs work, with a free spot on the room's side
+      let best = null, bd = Infinity;
+      for (const pn of m.map.panels) {
+        const kind = pn.kind === 'soft' ? 'soft' : pn.kind === 'door' && !pn.alive ? 'slot' : null;
+        if (!kind || (kind === 'soft' && a.reinf <= 0) || (pn.y0 || 0) > 0.5 || this.claimed.has(pn.i) || !inRoom(pn.box)) continue;
+        const b = pn.box, cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2, n = pn.alongX ? [0, 1] : [1, 0];
+        let spot = null;
+        for (const s of [1, -1]) for (const k of [0.85, 1.15]) {
+          const x = cx + n[0] * s * k, z = cz + n[1] * s * k;
+          if (spot || !m.map.free(x, z, 0.33, 0) || (room && !(x > room.x0 && x < room.x1 && z > room.z0 && z < room.z1))) continue;
+          const kp = this.keepIn(a, x, z);
+          if (kp && kp[2]) continue;
+          spot = [x, z];
+        }
+        if (!spot) continue;
+        const d = Math.hypot(spot[0] - a.x, spot[1] - a.z) + (kind === 'slot' ? 3 : 0);
+        if (d < bd) { bd = d; best = { pn, kind, spot, face: [cx, cz] }; }
+      }
+      if (best) { this.claimed.add(best.pn.i); best.until = t + 14; brain.job = best; }
+    }
+    const j = brain.job;
+    if (j) {
+      if (Math.hypot(j.spot[0] - a.x, j.spot[1] - a.z) < 0.45) {
+        a.yaw = Math.atan2(j.face[0] - a.x, -(j.face[1] - a.z)) * 180 / Math.PI;
+        if (!this.setHold(a, true, j.pn)) { brain.jobsDone++; brain.job = null; return null; }
+      }
+      return { x: j.spot[0], z: j.spot[1], key: 'job' + j.pn.i, hold: true, r: 0.4, face: j.face, ignoreEnemies: this.phase === 'prep' };
+    }
+    // then the wire: just inside one of the site's ways in, across it
+    if (a.wire > 0 && !brain.wired && site.entries && site.entries.length) {
+      // one of the site's ways in (a different one per bot) with a free spot just inside it
+      const E = site.entries, n = E.length;
+      let e = null, sx = 0, sz = 0;
+      for (let i = 0; i < n && !e; i++) {
+        const c = E[(a.id + (brain.slot || 0) + i) % n], dx = site.x - c[0], dz = site.z - c[1], L = Math.hypot(dx, dz) || 1;
+        for (const k of [2.4, 1.8, 3.0]) { const x = c[0] + dx / L * k, z = c[1] + dz / L * k; if (m.map.free(x, z, 0.4, 0) && !m.ab.gadgets.some((g) => g.alive && g.type === 'wire' && Math.hypot(g.x - x, g.z - z) < 2.5)) { e = c; sx = x; sz = z; break; } }
+      }
+      if (!e) { brain.wired = true; return null; }
+      if (Math.hypot(sx - a.x, sz - a.z) < 0.6) {
+        a.yaw = Math.atan2(e[0] - a.x, -(e[1] - a.z)) * 180 / Math.PI; a.pitch = -35;
+        m.ab.placeWire(a); brain.wired = true;
+        return null;
+      }
+      return { x: sx, z: sz, key: 'wire' + e[0] + ',' + e[1], r: 0.5, face: [e[0], e[1]], ignoreEnemies: this.phase === 'prep' };
+    }
+    return null;
   }
   // A spot away from the site (inside the building), held for a while, then the next.
   roamGoal(brain, site, key) {
@@ -558,6 +657,7 @@ export class Bomb extends Rules {
     if (b.state === 'carried' && me.team === at) st += ' · bomb: ' + (b.carrier === me ? 'YOU (hold E on a site)' : b.carrier.name);
     if (b.state === 'dropped') st += ' · bomb dropped';
     if (b.state === 'planted') st += ' · bomb planted at ' + b.site.name + (me.team !== at ? ' (hold E beside it)' : '');
+    if (me.team !== at && me.alive && b.state !== 'planted' && this.phase !== 'post') st += ' · hold E at a soft wall to reinforce (' + (me.reinf || 0) + ' left), in an open doorway to barricade';
     if (this.phase === 'prep') st += me.team === at ? ' · preparation: scout with drones' : ' · preparation: set your gadgets';
     return st;
   }

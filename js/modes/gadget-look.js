@@ -5,7 +5,7 @@
 //   Jammer       box with three antennas and a spinning dish; a cyan ring shows its reach
 //   Catcher      tripod with a green dome and a turning ring; a green beam when it zaps
 //   Drone        small wheeled box;  Wall charge: red slab;  Breach round: orange glow
-import * as THREE from '../../vendor/three/three.module.min.js?v=e1f5a8d-mwah3s7c';
+import * as THREE from '../../vendor/three/three.module.min.js?v=651d04c-mwak4e9y';
 
 const mat = (o) => new THREE.MeshLambertMaterial(o);
 const glow = (color, opacity = 1) => new THREE.MeshBasicMaterial({ color, transparent: opacity < 1, opacity, toneMapped: false });
@@ -69,6 +69,13 @@ export function makeGadget(g, cfg = {}) {
     add(new THREE.BoxGeometry(0.26, 0.1, 0.3), mat({ color: g.basic ? 0x6a7078 : 0x30343a }), 0, 0, 0);
     for (const x of [-0.16, 0.16]) { const w = add(new THREE.CylinderGeometry(0.075, 0.075, 0.05, 12), mat({ color: 0x151515 }), x, 0, 0); w.rotation.z = Math.PI / 2; }
     u.lamp = add(new THREE.SphereGeometry(0.025, 8, 6), glow(0xffffff), 0, 0.03, -0.16); u.color = g.basic ? 0xffffff : 0xffc040;
+  } else if (g.type === 'wire') {
+    // a 2.4 m roll of barbed wire on the floor across the way it was laid, with two stakes
+    const wm = mat({ color: 0x9aa0a6, metalness: 0.6, roughness: 0.4 });
+    for (let i = 0; i < 8; i++) { const c = add(new THREE.TorusGeometry(0.2, 0.012, 4, 14), wm, -1.05 + i * 0.3, -0.05, 0); c.rotation.y = Math.PI / 2 + (i % 2 ? 0.35 : -0.35); }
+    const spine = add(new THREE.CylinderGeometry(0.01, 0.01, 2.3, 4), wm, 0, -0.05, 0); spine.rotation.z = Math.PI / 2;
+    for (const x of [-1.15, 1.15]) add(new THREE.BoxGeometry(0.04, 0.5, 0.04), mat({ color: 0x4a3a28 }), x, -0.05, 0);
+    u.color = 0x9aa0a6;
   } else if (g.type === 'charge') {
     add(new THREE.BoxGeometry(0.5, 0.7, 0.08), mat({ color: 0x7a2018 }), 0, 0, 0);
     u.lamp = add(new THREE.SphereGeometry(0.035, 8, 6), glow(0xff5030), 0, 0.22, 0.05); u.color = 0xff5030;

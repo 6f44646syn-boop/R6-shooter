@@ -80,7 +80,7 @@ the match maps alike.
 | Path | Does |
 |---|---|
 | `data/guns.json`, `optics.json`, `sens.json`, `ops.json`, `abilities.json`, `maps/*.json` | Game data |
-| `tools/build-maps.mjs` | Builds the match maps (layout → places on every level, cover; checks every spot is reachable) |
+| `tools/build-maps.mjs` | Builds the match maps: the Bomb buildings (rooms, windows, doorways, upper floors, stairs) and the Battle maps' solids → places on every level, cover; checks every spot and doorway is reachable |
 | `tools/build-wasm.sh` | Compiles the Rust core to WebAssembly |
 | `tools/stamp.mjs` | Cache-busting version stamp before publishing |
 | `tools/check-modes.mjs` | Unit tests and 20 seeded bot matches per mode |

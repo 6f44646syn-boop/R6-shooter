@@ -1,44 +1,44 @@
 // Recoil Range entry point: wires input, camera, scene, HUD and the frame loop together.
-import * as THREE from '../vendor/three/three.module.min.js?v=e1f5a8d-mwah3s7c';
-import { Look, PITCH_LIMIT } from './core/look.js?v=e1f5a8d-mwah3s7c';
-import { Player } from './core/player.js?v=e1f5a8d-mwah3s7c';
-import { PointerLock } from './core/pointer-lock.js?v=e1f5a8d-mwah3s7c';
-import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=e1f5a8d-mwah3s7c';
-import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=e1f5a8d-mwah3s7c';
-import { Weapon } from './core/weapon.js?v=e1f5a8d-mwah3s7c';
-import { RecoilEngine } from './core/recoil.js?v=e1f5a8d-mwah3s7c';
-import { Spread } from './core/spread.js?v=e1f5a8d-mwah3s7c';
-import { loadGameData } from './core/guns.js?v=e1f5a8d-mwah3s7c';
-import { randomSeed } from './core/prng.js?v=e1f5a8d-mwah3s7c';
-import { Range, EYE_HEIGHT } from './scene/range.js?v=e1f5a8d-mwah3s7c';
-import { RING_STEP } from './scene/range-tex.js?v=e1f5a8d-mwah3s7c';
-import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=e1f5a8d-mwah3s7c';
-import { LensPost } from './render/lens-post.js?v=e1f5a8d-mwah3s7c';
-import { reticleTextures } from './ui/reticle-tex.js?v=e1f5a8d-mwah3s7c';
-import { DOT_POINTS } from './scene/dots.js?v=e1f5a8d-mwah3s7c';
-import { Voices } from './audio/voice.js?v=e1f5a8d-mwah3s7c';
-import { ModeGame } from './modes/game.js?v=e1f5a8d-mwah3s7c';
-import { Sfx } from './audio/sfx.js?v=e1f5a8d-mwah3s7c';
-import { DebugHud } from './ui/debug-hud.js?v=e1f5a8d-mwah3s7c';
-import { drawCrosshair } from './ui/crosshair.js?v=e1f5a8d-mwah3s7c';
-import { Hud } from './ui/hud.js?v=e1f5a8d-mwah3s7c';
-import { MagPlot } from './ui/plot.js?v=e1f5a8d-mwah3s7c';
-import { SettingsUI } from './ui/settings-ui.js?v=e1f5a8d-mwah3s7c';
-import { sensKeys, zoomKey } from './core/optics.js?v=e1f5a8d-mwah3s7c';
+import * as THREE from '../vendor/three/three.module.min.js?v=651d04c-mwak4e9y';
+import { Look, PITCH_LIMIT } from './core/look.js?v=651d04c-mwak4e9y';
+import { Player } from './core/player.js?v=651d04c-mwak4e9y';
+import { PointerLock } from './core/pointer-lock.js?v=651d04c-mwak4e9y';
+import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=651d04c-mwak4e9y';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=651d04c-mwak4e9y';
+import { Weapon } from './core/weapon.js?v=651d04c-mwak4e9y';
+import { RecoilEngine } from './core/recoil.js?v=651d04c-mwak4e9y';
+import { Spread } from './core/spread.js?v=651d04c-mwak4e9y';
+import { loadGameData } from './core/guns.js?v=651d04c-mwak4e9y';
+import { randomSeed } from './core/prng.js?v=651d04c-mwak4e9y';
+import { Range, EYE_HEIGHT } from './scene/range.js?v=651d04c-mwak4e9y';
+import { RING_STEP } from './scene/range-tex.js?v=651d04c-mwak4e9y';
+import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=651d04c-mwak4e9y';
+import { LensPost } from './render/lens-post.js?v=651d04c-mwak4e9y';
+import { reticleTextures } from './ui/reticle-tex.js?v=651d04c-mwak4e9y';
+import { DOT_POINTS } from './scene/dots.js?v=651d04c-mwak4e9y';
+import { Voices } from './audio/voice.js?v=651d04c-mwak4e9y';
+import { ModeGame } from './modes/game.js?v=651d04c-mwak4e9y';
+import { Sfx } from './audio/sfx.js?v=651d04c-mwak4e9y';
+import { DebugHud } from './ui/debug-hud.js?v=651d04c-mwak4e9y';
+import { drawCrosshair } from './ui/crosshair.js?v=651d04c-mwak4e9y';
+import { Hud } from './ui/hud.js?v=651d04c-mwak4e9y';
+import { MagPlot } from './ui/plot.js?v=651d04c-mwak4e9y';
+import { SettingsUI } from './ui/settings-ui.js?v=651d04c-mwak4e9y';
+import { sensKeys, zoomKey } from './core/optics.js?v=651d04c-mwak4e9y';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
 function sensRows(catalogue, sens) {
   const keys = new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)]);
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
-import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=e1f5a8d-mwah3s7c';
-import { Battle } from './battle/battle.js?v=e1f5a8d-mwah3s7c';
-import { initCore, coreLoaded } from './wasm/core.js?v=e1f5a8d-mwah3s7c';
-import { createJoinRequest, acceptJoin } from './net/link.js?v=e1f5a8d-mwah3s7c';
-import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode } from './net/relay.js?v=e1f5a8d-mwah3s7c';
-import { Profile, WIN_POINTS } from './core/profile.js?v=e1f5a8d-mwah3s7c';
-import { skinFits, skinById } from './core/skins.js?v=e1f5a8d-mwah3s7c';
-import { PackUI } from './ui/packs.js?v=e1f5a8d-mwah3s7c';
+import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=651d04c-mwak4e9y';
+import { Battle } from './battle/battle.js?v=651d04c-mwak4e9y';
+import { initCore, coreLoaded } from './wasm/core.js?v=651d04c-mwak4e9y';
+import { createJoinRequest, acceptJoin } from './net/link.js?v=651d04c-mwak4e9y';
+import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode } from './net/relay.js?v=651d04c-mwak4e9y';
+import { Profile, WIN_POINTS } from './core/profile.js?v=651d04c-mwak4e9y';
+import { skinFits, skinById } from './core/skins.js?v=651d04c-mwak4e9y';
+import { PackUI } from './ui/packs.js?v=651d04c-mwak4e9y';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -1070,15 +1070,15 @@ function boot(data) {
   $('pause-quit').addEventListener('click', () => { if (cur() && cur().active) leaveBattle(); flow.inGame = false; showPage('mode'); });
 
   /* ---------- match modes: settings and operator select ---------- */
-  const MODE_DEFAULTS = { map: { tdm: 'containers', ctf: 'yard', bomb: 'ranch' }, abilities: { tdm: false, ctf: false, bomb: true }, op: { tdm: 'glitch', ctf: 'dash', bomb: 'pace' }, difficulty: 'normal', teamSize: 5, minutes: 10, headshot: 'lethal', side: 'attack' };
+  const MODE_DEFAULTS = { map: { tdm: 'containers', ctf: 'yard', bomb: 'ranch' }, abilities: { tdm: false, ctf: false, bomb: true }, op: { tdm: 'glitch', ctf: 'dash', bomb: 'pace' }, difficulty: 'normal', teamSize: 5, minutes: 10, prepTime: 30, headshot: 'lethal', side: 'attack' };
   let modePrefs;
   try { modePrefs = { ...MODE_DEFAULTS, ...JSON.parse(localStorage.getItem('recoilRange.modes') || '{}') }; } catch (e) { modePrefs = { ...MODE_DEFAULTS }; }
   for (const k of ['map', 'abilities', 'op']) modePrefs[k] = { ...MODE_DEFAULTS[k], ...(modePrefs[k] || {}) };
   const saveModePrefs = () => { try { localStorage.setItem('recoilRange.modes', JSON.stringify(modePrefs)); } catch (e) { /* storage blocked */ } };
   const MAP_NAMES = {
     yard: 'Yard (60 x 40 m, two flanks and a mid lane)', containers: 'Container Yard (Battle map)', winter: 'Winter Cabin (Battle map)',
-    casino: "Jesse's Casino (Battle map, ground floor)", school: 'School Basement (Battle map)',
-    ranch: 'Ranch (a long house: Bedroom A, Office B)', embassy: 'Embassy (rooms round a courtyard: Archive A, Vault B)', workshop: 'Workshop (offices and a garage: Drafting A, Garage B)',
+    casino: "Jesse's Casino (Battle map, two floors)", school: 'School Basement (Battle map)',
+    ranch: 'Ranch (a house with a loft; site: master bedroom)', embassy: 'Embassy (two storeys round a courtyard; site: archives)', workshop: 'Workshop (offices, catwalk, corridor; site: garage)',
   };
   function modesUi() {
     const m = flow.mode, P = modePrefs;
@@ -1088,14 +1088,15 @@ function boot(data) {
     $('md-diff').value = P.difficulty; $('md-size').value = String(P.teamSize); $('md-ab').value = P.abilities[m] ? 'on' : 'off';
     $('md-len').value = String(P.minutes); $('md-head').value = P.headshot;
     $('md-len').closest('label').hidden = m === 'bomb';
+    $('md-prep').value = String(P.prepTime || 30); $('md-prep').closest('label').hidden = m !== 'bomb';
     $('md-note').textContent = m === 'tdm' ? 'First team to 40 kills, or the most kills when the time runs out. Respawn after 3 s. Tab: scoreboard.'
       : m === 'ctf' ? 'Take the enemy flag (walk over it) to your own stand while your flag is home. First to 3 captures; a tie after the time goes to the next capture. Tab: scoreboard.'
-        : 'First to 4 rounds; sides swap after round 3. One life a round: 30 s to prepare, 150 s to plant (hold E for 5 s on a site). The bomb goes off after 40 s unless defused (hold E for 6 s).';
+        : 'First to 4 rounds; sides swap after round 3. One life a round: ' + (P.prepTime || 30) + ' s to prepare (defenders reinforce walls, barricade doorways and lay barbed wire with E and Caps Lock; attackers drone), 150 s to plant (hold E for 5 s on the site). The bomb goes off after 40 s unless defused (hold E for 6 s).';
   }
   function readModes() {
     const m = flow.mode, P = modePrefs;
     P.map[m] = $('md-map').value; P.difficulty = $('md-diff').value; P.teamSize = Number($('md-size').value);
-    P.abilities[m] = $('md-ab').value === 'on'; P.minutes = Number($('md-len').value); P.headshot = $('md-head').value;
+    P.abilities[m] = $('md-ab').value === 'on'; P.minutes = Number($('md-len').value); P.prepTime = Number($('md-prep').value) || 30; P.headshot = $('md-head').value;
     saveModePrefs();
   }
   for (const id of ['md-map', 'md-diff', 'md-size', 'md-ab', 'md-len', 'md-head']) $(id).addEventListener('change', readModes);
@@ -1145,7 +1146,7 @@ function boot(data) {
     }
     weapon.releaseTrigger(); setAds(false); player.releaseKeys();
     try {
-      await modeGame.start({ mode: m, map: P.map[m], difficulty: P.difficulty, teamSize: P.teamSize, abilities: !!P.abilities[m], minutes: P.minutes, headshot: P.headshot, op: P.op[m], side: P.side, seed: testMode ? P.seed : undefined });
+      await modeGame.start({ mode: m, map: P.map[m], difficulty: P.difficulty, teamSize: P.teamSize, abilities: !!P.abilities[m], minutes: P.minutes, prepTime: P.prepTime, headshot: P.headshot, op: P.op[m], side: P.side, seed: testMode ? P.seed : undefined });
     } catch (err) {
       console.error(err);
       flashNotice('Could not start the match (' + (err && err.message || err) + '). Press Ctrl+F5 to load the latest version.', 9000);

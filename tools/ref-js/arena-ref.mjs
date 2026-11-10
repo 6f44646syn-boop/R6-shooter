@@ -4,7 +4,8 @@
 //
 // Changes from the original, so both sides do the same arithmetic: Math.hypot(a, b) is
 // written sqrt(a*a + b*b) (two places) and x ** 2 is written x * x (one place). The body
-// radius is a parameter (it was 0.35).
+// radius is a parameter (it was 0.35). Milestone 4 fixed a bug in both: a drop must land on
+// the floor actually underneath (it could fall through an upper floor beside furniture).
 import { layoutSolids } from '../../js/battle/solids.js';
 
 export const STEP = 0.45, BODY_H = 1.75, VAULT_MAX = 1.5;
@@ -273,7 +274,7 @@ export class RefArena {
       if (!this._dropOk) this._dropOk = new Map();
       const key = cell * 64 + Math.round(y * 4);
       let ok = this._dropOk.get(key);
-      if (ok === undefined) { const [x, z] = this.cellCentre(cell); ok = this._freeAt(x, z, y); this._dropOk.set(key, ok); }
+      if (ok === undefined) { const [x, z] = this.cellCentre(cell); ok = this._freeAt(x, z, y) && Math.abs(this.groundAt(x, z, y) - by) < 0.13; this._dropOk.set(key, ok); }
       if (!ok) return -1;
     }
     return best;

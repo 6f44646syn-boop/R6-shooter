@@ -122,6 +122,21 @@ export class Sfx {
     }
   }
   // Wood splintering (a door breaking).
+  // Barbed wire being pushed through: a dry metallic rattle (a few high, ringing ticks).
+  wire(vol = 0.5, pan = 0, muffle = 0) {
+    const c = this.ctx;
+    if (!c || this.volume <= 0) return;
+    const t = c.currentTime, out = this._out(pan, muffle);
+    for (let i = 0; i < 6; i++) {
+      const s = t + i * 0.025 + Math.random() * 0.02;
+      const src = c.createBufferSource(); src.buffer = this.noise;
+      const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 3200 + Math.random() * 2600; bp.Q.value = 12;
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, s); g.gain.exponentialRampToValueAtTime(0.35 * vol, s + 0.002); g.gain.exponentialRampToValueAtTime(0.001, s + 0.06);
+      src.connect(bp).connect(g).connect(out);
+      src.start(s, Math.random() * 0.7, 0.07);
+    }
+  }
   crack(vol = 1, pan = 0, muffle = 0) {
     const c = this.ctx;
     if (!c || this.volume <= 0) return;

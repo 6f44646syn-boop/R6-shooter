@@ -3,20 +3,23 @@
 // collision, stairs, falling, vaulting, raycasts and pathfinding are the same code everywhere.
 //
 // Heights: y is the height of the feet. Paths are lists of [x, z, y].
-import { core } from './core.js?v=e1f5a8d-mwah3s7c';
+import { core } from './core.js?v=651d04c-mwak4e9y';
 
 export const BODY_R = 0.32;      // a body's collision radius
 export const STEP = 0.45;        // highest ledge you walk up without vaulting
 export const BODY_H = 1.75;      // standing height
 export const VAULT_MAX = 1.5;    // highest ledge you can vault or climb onto
 export const DOOR_GAP = 0.3;     // the gap under a boarded door (drones roll through)
-export const KIND = { solid: 0, door: 1, panel: 2 };
+export const KIND = { solid: 0, door: 1, panel: 2, nostand: 3 };
+// path() flags: only through the zone (setZone); standing doors closed (a defender's path).
+export const PATH = { zone: 1, doors: 2 };
 
 export class CoreWorld {
   // o: { hx, hz, wallH (nothing is stood on within 1.6 m of it; Infinity outdoors),
   //      ceil (ceiling height, 0 for open sky), solids: [{ minX, maxX, minY, maxY, minZ, maxZ,
   //      code (KIND), alive }], hazards: [{ minX, maxX, minZ, maxZ }], bodyR, nav (build
-  //      the path nodes, default true), careful (see rc_nav_careful, default true) }
+  //      the path nodes, default true), careful (see rc_nav_careful, default true),
+  //      vaults (vault links in paths, default true) }
   constructor(o) {
     const c = this._c = core(), e = this.e = c.e;
     this.r = o.bodyR ?? BODY_R;
@@ -34,6 +37,7 @@ export class CoreWorld {
     chunk(o.hazards || [], 4, (f, i, h) => { f[i] = h.minX; f[i + 1] = h.maxX; f[i + 2] = h.minZ; f[i + 3] = h.maxZ; }, (n) => e.rc_world_add_hazards(this.id, n));
     e.rc_world_build(this.id);
     if (o.careful === false) e.rc_nav_careful(this.id, 0);
+    if (o.vaults === false) e.rc_nav_vaults(this.id, 0);
     this.nodeCount = o.nav === false ? 0 : e.rc_nav_build(this.id, this.r);
     this.hit = -1; this.axis = 1;
   }
@@ -121,11 +125,12 @@ export class CoreWorld {
   nearestNode(x, z, y = 0) { return this.e.rc_nearest_node(this.id, x, z, y); }
   // Can a body walk straight from a to b (each [x, z, y]), stepping and dropping as it goes?
   clearWalk(a, b) { return this.e.rc_clear_walk(this.id, a[0], a[1], a[2] || 0, b[0], b[1], b[2] || 0) === 1; }
-  // Waypoints [[x, z, y], ...] from a to b ending at b, or [] if there is no way.
-  // inZone: only through the zone (setZone).
-  path(ax, az, ay, bx, bz, by, inZone = false) {
-    const n = this.e.rc_path(this.id, ax, az, ay, bx, bz, by, inZone ? 1 : 0), f = this._c.f, out = new Array(n);
-    for (let k = 0; k < n; k++) out[k] = [f[k * 3], f[k * 3 + 1], f[k * 3 + 2]];
+  // Waypoints [[x, z, y, vault], ...] from a to b ending at b, or [] if there is no way.
+  // vault 1: vault over what is between this point and the next. flags: PATH.
+  path(ax, az, ay, bx, bz, by, flags = 0) {
+    const n = this.e.rc_path(this.id, ax, az, ay, bx, bz, by, flags === true ? 1 : flags || 0), f = this._c.f, out = new Array(n);
+    for (let k = 0; k < n; k++) out[k] = [f[k * 4], f[k * 4 + 1], f[k * 4 + 2], f[k * 4 + 3]];
     return out;
   }
+  vaultLinks() { return this.e.rc_nav_vault_count(this.id); }
 }
