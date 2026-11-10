@@ -1,3 +1,4 @@
+import { applyMapArt } from '../render/pack-art.js?v=m6-integration';
 import { sensoryFor } from '../balance/bomb-utility.js?v=m6-integration';
 // Team Deathmatch, Capture the Flag and Bomb in the browser: draws the match simulation
 // (sim.js) and runs your player with the range's own systems (look, sensitivity, recoil,
@@ -193,6 +194,9 @@ export class ModeGame {
   }
   _applyGraphics() {
     if (!this.scene) return;
+    const artQuality = effectiveGraphics(this.deps.settings);
+    applyMapArt(this.lookGroup, artQuality, this.deps.renderer);
+    if (this.fig) for (const f of this.fig.values()) f.setDetail(artQuality);
     if (this.arena) { this.arena.setGraphics(effectiveGraphics(this.deps.settings), this.deps.renderer); return; }
     const q = effectiveGraphics(this.deps.settings), high = q === 'high' || q === 'ultra', r = this.deps.renderer;
     this.sun.castShadow = high;
@@ -207,6 +211,7 @@ export class ModeGame {
     this.fig = new Map();
     for (const a of m.actors) {
       const f = new Fighter({ name: a.name, team: a.team, color: TEAM_COLOR[a.team], human: a.human });
+      f.setDetail(effectiveGraphics(d.settings));
       f.setLook(a.gunData, Math.max(0, d.guns.indexOf(a.gunData)), a.human && d.skinOf ? d.skinOf(a.gunData) : null);
       f.showBar = !a.human && a.team === this.me.team;
       f.id = a.id;

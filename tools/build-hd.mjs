@@ -19,7 +19,9 @@ export const PACK_VERSION = 2;
 const ROOT = new URL('../hd/', import.meta.url);
 mkdirSync(new URL('guns/', ROOT), { recursive: true });
 
-const only = process.argv.includes('--manifest') ? ['--none--'] : process.argv.slice(2);
+if (process.argv.includes('--surfaces')) { await import('./hd/soldier.mjs'); await import('./build-pack-surfaces.mjs'); }
+
+const only = (process.argv.includes('--manifest') || process.argv.includes('--surfaces')) ? ['--none--'] : process.argv.slice(2);
 const LODS = [
   { L: 0.012, R: 0.003, rays: 40, maxD: 0.06 },     // first person
   { L: 0.05, R: 0.006, rays: 20, maxD: 0.06 },      // carried by other players

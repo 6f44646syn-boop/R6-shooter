@@ -1,3 +1,4 @@
+import { packArt } from '../render/pack-art.js?v=m6-integration';
 // The battle soldier: a helmeted figure in a plate carrier holding a rifle at the ready.
 // Hits are decided on simple shapes (a sphere head and capsules: SOLDIER_PARTS) laid out in
 // the same pose as the model, so what you see is what can be hit. The gear (helmet, vest,
@@ -85,8 +86,9 @@ function boxAt(w, h, d, x, y, z, rx = 0, ry = 0) {
 const cache = new Map();
 // team: the team colour (hex). Returns { upper, legL, legR } geometries with colours (legs
 // with the hip at their origin).
-export function soldierGeometry(team) {
-  if (cache.has(team)) return cache.get(team);
+export function soldierGeometry(team, enhanced = false) {
+  const key = team + ':' + (enhanced && packArt.soldier ? packArt.revision : 0);
+  if (cache.has(key)) return cache.get(key);
   const tc = new THREE.Color(team);
   const mix = (c, k, grey = 0x3a3d3a) => '#' + new THREE.Color(grey).lerp(tc, k).multiplyScalar(c).getHexString();
   const cloth = mix(0.85, 0.42), clothDark = mix(0.6, 0.35), patch = '#' + tc.clone().multiplyScalar(1.1).getHexString();
@@ -127,8 +129,18 @@ export function soldierGeometry(team) {
     leg(boxAt(0.12, 0.12, 0.27, s * 0.11, 0.06, 0.04), BLACK);
     leg(boxAt(0.05, 0.12, 0.09, s * 0.19, 0.78, 0.0), GEAR);                  // thigh pouch
   }
+  if (enhanced && packArt.soldier) for (const p of packArt.soldier) {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(p.position.slice(), 3));
+    g.setAttribute('normal', new THREE.BufferAttribute(p.normal.slice(), 3));
+    g.setIndex(new THREE.BufferAttribute(p.index.slice(), 1));
+    add(g, { webbing: 0x454b3f, stitch: 0x74745d, gear: GEAR, black: BLACK, glass: 0x445b62 }[p.role] || GEAR);
+  }
   const out = { upper: merge(parts), legL: merge(legs[L]), legR: merge(legs[R]) };
-  cache.set(team, out);
+  for (const [old, g] of cache) if (old.startsWith(team + ':') && old !== key && !old.endsWith(':0')) {
+    for (const geometry of Object.values(g)) geometry.dispose(); cache.delete(old);
+  }
+  cache.set(key, out);
   return out;
 }
 // Where the legs hinge (soldier frame).

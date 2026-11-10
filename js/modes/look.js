@@ -5,10 +5,11 @@ import * as THREE from '../../vendor/three/three.module.min.js?v=m6-integration'
 
 /* ---------- textures ---------- */
 const cache = new Map();
+let bakeScale = 1;
 function canvasTex(key, w, h, draw, repeat = true) {
-  if (cache.has(key)) return cache.get(key);
-  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
-  const g = cv.getContext('2d');
+  if (bakeScale === 1 && cache.has(key)) return cache.get(key);
+  const cv = document.createElement('canvas'); cv.width = w * bakeScale; cv.height = h * bakeScale;
+  const g = cv.getContext('2d'); g.scale(bakeScale, bakeScale);
   let seed = 0;
   for (const ch of key) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
   const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
@@ -16,7 +17,8 @@ function canvasTex(key, w, h, draw, repeat = true) {
   const t = new THREE.CanvasTexture(cv);
   t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
   if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  cache.set(key, t);
+  t.userData.surface = key;
+  if (bakeScale === 1) cache.set(key, t);
   return t;
 }
 const noise = (g, w, h, rnd, n, cols, size = 2, alpha = 0.15) => {
@@ -240,3 +242,6 @@ export function buildMapLook(scene, map, L) {
 
 // Textures for the breakable panels (soft walls, reinforced walls, boarded doors).
 export function panelTextures() { return { soft: TEX.softWall(), reinforced: TEX.metal(), door: TEX.boards() }; }
+
+// Offline authoring: rerun the original vector patterns at higher resolution.
+export function bakeMapSurface(name, scale = 4) { bakeScale = scale; try { return TEX[name](); } finally { bakeScale = 1; } }

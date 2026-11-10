@@ -1,3 +1,4 @@
+import { packArt } from '../render/pack-art.js?v=m6-integration';
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
@@ -63,13 +64,13 @@ function legendSkin(def) {
 }
 function bakedSkin(def) {
   if (def.photo) return legendSkin(def);
-  const size = skinSize(), key = def.id + '@' + size;
+  const size = skinSize(), key = def.id + ':' + (packArt.finish ? packArt.revision : 0) + '@' + size;
   if (!skins.has(key)) {
     skins.set(key, bakeSkin(RENDERER, def, size));
     const big = [...skins.keys()].filter((k) => !k.endsWith('@512'));
     if (big.length > 4) {            // big maps: keep a few guns' worth (small third-person ones stay)
       const old = big[0], sk = skins.get(old);
-      disposeBaked(sk.albedo); disposeBaked(sk.rm); skins.delete(old);
+      disposeBaked(sk.albedo); disposeBaked(sk.rm); disposeBaked(sk.normal); skins.delete(old);
       for (const [k, m] of mats) if (m.userData.skinKey === old) { m.dispose(); mats.delete(k); }
     }
   }
@@ -109,14 +110,14 @@ function skinMaterial(def) {
     triplanar(m, sh === 'ultra' ? { skin: sk, scale: sk.scale || 2.8, detail: ultraDetail('paint'), detailScale: 9, detailStrength: hd ? 0.35 : 0.5, hd, depth }
       : { skin: sk, scale: sk.scale || 2.8, hd, depth, detail: hd ? ultraDetail('paint') : null, detailScale: 9, detailStrength: 0.3 });
   }
-  m.userData.skinKey = def.id + '@' + skinSize();
+  m.userData.skinKey = def.id + ':' + (packArt.finish ? packArt.revision : 0) + '@' + skinSize();
   return m;
 }
 // kind: 'auto' (black = polymer, else metal) or 'metal' (barrels, tubes).
 function mat(color, kind = 'auto') {
   const sh = shading();
   const skin = kind === 'auto' && color !== BLACK && color !== STEEL ? currentSkin() : null;
-  const key = sh + color + kind + (skin ? '|skin' + skin.id + '@' + skinSize() : '') + (HD ? '|hd' : '');
+  const key = sh + color + kind + (skin ? '|skin' + skin.id + ':' + (packArt.finish ? packArt.revision : 0) + '@' + skinSize() : '') + (HD ? '|hd' : '');
   if (!mats.has(key)) {
     if (skin) { mats.set(key, skinMaterial(skin)); return mats.get(key); }
     if (HD) { mats.set(key, hdMaterial(color, kind, sh)); return mats.get(key); }

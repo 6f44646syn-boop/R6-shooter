@@ -1,3 +1,4 @@
+import { loadPackArt } from './render/pack-art.js?v=m6-integration';
 import { connectAudioPack } from './audio/pack-bridge.js?v=m6-integration';
 import { initBombUtility, utilityFor } from './balance/bomb-utility.js?v=m6-integration';
 import { createAcoustics } from './audio/acoustics.js?v=m6-integration';
@@ -1626,7 +1627,7 @@ async function boot(data) {
   // Pack models into memory (only when High / Ultra is on), then rebuild what shows them.
   async function loadHD() {
     if (!HDPack.ready) return;
-    await HDPack.loadGuns();
+    await Promise.all([HDPack.loadGuns(), loadPackArt()]);
     hdLoaded = true;
     graphicsChanged();
     if (cur() && cur().active) cur().refreshGraphics();

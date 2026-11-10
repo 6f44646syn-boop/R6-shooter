@@ -224,6 +224,7 @@ export class Battle {
   }
   // The gun (with its skin) others see this fighter carry.
   _look(f, gun, skin, mine = this.humans.some((h) => h.f === f)) {
+    f.setDetail(effectiveGraphics(this.deps.settings));
     // Someone else's Legendary (their own photo) shows as the gold finish here.
     if (skin === LEGEND_ID && !mine) skin = LEGEND_GOLD_ID;
     try { f.setLook(gun, Math.max(0, this.deps.guns.indexOf(gun)), skin); } catch (e) { console.warn('gun look', e); }

@@ -183,6 +183,13 @@ export class Fighter {
     this.torchG.position.set(0.04, 0.07 * GUN_SCALE, (g.userData.gripZ - g.userData.front) * GUN_SCALE - 0.08);
   }
 
+  setDetail(quality) {
+    const geo = soldierGeometry(this.color, quality === 'high' || quality === 'ultra');
+    this.body.geometry = geo.upper;
+    this.legs[0].piv.children[0].geometry = geo.legL;
+    this.legs[1].piv.children[0].geometry = geo.legR;
+  }
+
   get eyeH() { return STAND_EYE + (CROUCH_EYE - STAND_EYE) * this.crouch; }
   get scaleY() { return 1 + (CROUCH_SCALE - 1) * this.crouch; }
   eye(out = [0, 0, 0]) { out[0] = this.x; out[1] = this.y + this.eyeH; out[2] = this.z; return out; }

@@ -64,7 +64,7 @@ export class GraphicsUI {
     this.rm = el('button', { type: 'button', id: 'gx-remove', onclick: () => HDPack.remove() }, 'Remove pack');
     this.pack = el('section', { class: 'gx-pack' },
       el('h3', { text: 'Enhanced Graphics pack' }),
-      el('p', { class: 'small', text: 'Detailed gun models, deeper weapon skins and 83 sound clips. Visual enhancements use High and Ultra; audio works at every quality. It downloads from this site only when you choose to, every file is checked, and it stays in this browser so it works offline. Updates arrive separately from the game. Remove it at any time to free the space.' }),
+      el('p', { class: 'small', text: 'Detailed gun models, deeper weapon skins, map materials, soldier detail and 83 sound clips. Visual enhancements use High and Ultra; audio works at every quality. It downloads from this site only when you choose to, every file is checked, and it stays in this browser so it works offline. Updates arrive separately from the game. Remove it at any time to free the space.' }),
       this.status, this.bar,
       el('div', { class: 'row' }, this.dl, this.rm));
     this.profBtns = new Map();
