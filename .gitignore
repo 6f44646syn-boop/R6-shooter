@@ -4,3 +4,5 @@ tests/output/
 reference/
 rust/core/target/
 rust/core/Cargo.lock
+rust/m7_controls/target/
+rust/m7_controls/Cargo.lock
