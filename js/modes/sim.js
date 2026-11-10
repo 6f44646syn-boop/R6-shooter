@@ -7,13 +7,13 @@
 //
 // Body for hits (actor frame, standing; crouching squashes y to 0.7): head sphere at 1.62 m
 // (r 0.13), torso capsule 0.95-1.34 m (r 0.24), legs capsule 0.1-0.9 m (r 0.19).
-import { mulberry32 } from '../core/prng.js?v=7fcbf5a-mwalxv1w';
-import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=7fcbf5a-mwalxv1w';
-import { BODY_R } from './map.js?v=7fcbf5a-mwalxv1w';
-import { Brain } from './bots.js?v=7fcbf5a-mwalxv1w';
-import { makeRules } from './rules.js?v=7fcbf5a-mwalxv1w';
-import { Nades } from './nades.js?v=7fcbf5a-mwalxv1w';
-import { Abilities } from './abilities.js?v=7fcbf5a-mwalxv1w';
+import { mulberry32 } from '../core/prng.js?v=5cafaa1-mwb62ceu';
+import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=5cafaa1-mwb62ceu';
+import { BODY_R } from './map.js?v=5cafaa1-mwb62ceu';
+import { Brain } from './bots.js?v=5cafaa1-mwb62ceu';
+import { makeRules } from './rules.js?v=5cafaa1-mwb62ceu';
+import { Nades } from './nades.js?v=5cafaa1-mwb62ceu';
+import { Abilities } from './abilities.js?v=5cafaa1-mwb62ceu';
 
 export const TICK = 1 / 60;
 export const EYE = 1.6, CROUCH_EYE = 1.1;
@@ -54,7 +54,7 @@ export class Match {
     this.actors = [];
     this.bb = { A: { seen: new Map(), deaths: [] }, B: { seen: new Map(), deaths: [] } };
     this.gunsById = new Map(o.guns.map((g) => [g.id, g]));
-    this.losBudget = 0;
+    this.losBudget = 0; this.pathBudget = 2;
     this.ab = new Abilities(this, o.abilities || {});
     this.nades = new Nades(this);
     this.rules = makeRules(this);
@@ -235,9 +235,9 @@ export class Match {
   doorHit(pn, dmg, a, at = null) {
     if (pn && pn.alive) { const b = pn.box, c = at || [(b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2, (b.minZ + b.maxZ) / 2]; this.emit({ type: 'splinter', x: c[0], y: c[1], z: c[2], kind: 'door' }); }
     if (this.map.hurtDoor(pn, dmg)) {
-      const b = pn.box, x = (b.minX + b.maxX) / 2, z = (b.minZ + b.maxZ) / 2;
-      this.noises.push({ x, z, t: this.t, range: NOISE.door, kind: 'door', team: a ? a.team : '', id: a ? a.id : 0 });
-      this.emit({ type: 'door', x, z, by: a ? a.id : 0 });
+      const b = pn.box, x = (b.minX + b.maxX) / 2, z = (b.minZ + b.maxZ) / 2, y = (b.minY + b.maxY) / 2;
+      this.noises.push({ x, y, z, t: this.t, range: NOISE.door, kind: 'door', team: a ? a.team : '', id: a ? a.id : 0 });
+      this.emit({ type: 'door', x, y, z, by: a ? a.id : 0 });
     }
   }
   // K: the knife. Hits the closest enemy in front within reach (lethal from behind), else a
@@ -292,6 +292,10 @@ export class Match {
     const dt = TICK;
     this.t += dt; this.tick++;
     this.losBudget = 18;
+    // Path planning budget: at most this many new routes a step (a bot over budget plans at
+    // its next think, 1/15 s later). Long routes for several bots in one step were the
+    // worst steps (10 ms on Winter Cabin). A count, not a time, so matches stay deterministic.
+    this.pathBudget = 2;
     this.rules.update(dt);
     // bots: think at 15 Hz (staggered), act every step
     for (let i = 0; i < this.actors.length; i++) {

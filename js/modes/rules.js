@@ -263,6 +263,7 @@ export class Bomb extends Rules {
   newRound() {
     const m = this.m;
     this.round++;
+    this.stack = null; this.stackGo = false;     // the attackers' gathering point this round
     // after round 3 the sides swap: everyone takes the matching op of the other side
     if (this.round === BOMB.swapAfter + 1) {
       const O = m.o.ops;
@@ -387,8 +388,8 @@ export class Bomb extends Rules {
     // the bomb
     if (b.state === 'carried') {
       const c = b.carrier;
-      if (!c || !c.alive) { b.state = 'dropped'; b.carrier = null; if (c) { b.x = c.x; b.z = c.z; c.carry = null; } m.emit({ type: 'msg', text: 'The bomb was dropped' }); }
-      else { b.x = c.x; b.z = c.z; }
+      if (!c || !c.alive) { b.state = 'dropped'; b.carrier = null; if (c) { b.x = c.x; b.y = c.y; b.z = c.z; c.carry = null; } m.emit({ type: 'msg', text: 'The bomb was dropped' }); }
+      else { b.x = c.x; b.y = c.y; b.z = c.z; }
     } else if (b.state === 'dropped') {
       for (const a of m.actors) if (a.alive && this.isAttacker(a) && !a.carry && Math.hypot(a.x - b.x, a.z - b.z) < BOMB.pickup) { this.give(a); m.emit({ type: 'msg', text: (a.human ? 'You have' : a.name + ' has') + ' the bomb' }); break; }
     }
@@ -415,7 +416,7 @@ export class Bomb extends Rules {
           continue;
         }
         if (h.type === 'plant') {
-          b.state = 'planted'; b.carrier = null; a.carry = null; b.x = a.x; b.z = a.z; b.site = this.inSite(a.x, a.z); b.fuseEnd = t + BOMB.fuse;
+          b.state = 'planted'; b.carrier = null; a.carry = null; b.x = a.x; b.y = a.y; b.z = a.z; b.site = this.inSite(a.x, a.z); b.fuseEnd = t + BOMB.fuse;
           this.phase = 'planted';
           m.noise(a, 35, 'plant');
           m.emit({ type: 'msg', text: 'Bomb planted at ' + b.site.name + '!' });
@@ -431,7 +432,7 @@ export class Bomb extends Rules {
   explode() {
     const m = this.m, b = this.bomb;
     for (const a of m.actors) if (a.alive && Math.hypot(a.x - b.x, a.z - b.z) < 8) m.hit(a, 300, null, 'torso', 'bomb');
-    m.emit({ type: 'boom', x: b.x, z: b.z });
+    m.emit({ type: 'boom', x: b.x, y: b.y || 0, z: b.z });
   }
   onKill(v) { v.respawnAt = 0; }               // one life a round
   check() {
@@ -501,6 +502,18 @@ export class Bomb extends Rules {
         return this.post(brain, b.x, b.z, 4, 11, 'guard');
       }
       const c = b.carrier, late = this.phaseEnd - t < 70;
+      // Coordinated entry: the entry and support gather with the team out of the site's sight,
+      // then go in together (when three are there, the carrier is close, or after 25 s).
+      if ((a.role === 'entry' || a.role === 'support') && !late && this.phase === 'action' && !this.stackGo) {
+        const st = this.stackPoint(site);
+        if (st) {
+          const att = m.actors.filter((x) => x.alive && this.isAttacker(x));
+          const there = att.filter((x) => Math.hypot(x.x - st[0], x.z - st[1]) < 5).length;
+          const since = t - (this.phaseEnd - BOMB.action);
+          if (there >= Math.min(3, att.length) || since > 25 || (c && Math.hypot(c.x - st[0], c.z - st[1]) < 5 && there >= 2)) this.stackGo = true;
+          else return { x: st[0] + (a.id % 3 - 1) * 1.2, z: st[1] + (a.id % 2 ? -1.2 : 1.2), key: 'stack' + site.name, crouch: Math.hypot(st[0] - a.x, st[1] - a.z) < 4 };
+        }
+      }
       const onSite = { x: site.x + (a.id % 3 - 1) * 2.5, z: site.z + (a.id % 2 ? -2.5 : 2.5), key: 'site' + site.name + a.id, push: true };
       // support: stays with the carrier (you, or a bot), then on to the site
       if (a.role === 'support' && c && c !== a && !(c.brain && c.brain.staging) && Math.hypot(c.x - site.x, c.z - site.z) > 6) return { x: c.x + (a.id % 3 - 1) * 2, z: c.z + (a.id % 2 ? -2 : 2), key: 'escort' + Math.round(c.x / 4) + ',' + Math.round(c.z / 4), push: true };
@@ -548,7 +561,8 @@ export class Bomb extends Rules {
     if ((a.role === 'site control' || a.role === 'roamer') && site.entries && site.entries.length) {
       const e = site.entries[(brain.slot || 0) % site.entries.length], de = Math.hypot(e[0] - site.x, e[1] - site.z);
       // a spot on the site's side of the doorway, watching it
-      return this.post(brain, e[0], e[1], 1.5, 6, 'ctrl', true, (c) => Math.hypot(c[0] - site.x, c[1] - site.z) < de);
+      // (back from the doorway: whoever comes through is seen alone, not a whole team outside)
+      return this.post(brain, e[0], e[1], 3, 9, 'ctrl', true, (c) => Math.hypot(c[0] - site.x, c[1] - site.z) < de);
     }
     // anchor: on the site itself, watching the nearest way in
     const g = this.post(brain, site.x, site.z, 1, 6, 'hold', true);
@@ -612,6 +626,18 @@ export class Bomb extends Rules {
       return { x: sx, z: sz, key: 'wire' + e[0] + ',' + e[1], r: 0.5, face: [e[0], e[1]], ignoreEnemies: this.phase === 'prep' };
     }
     return null;
+  }
+  // The attackers' gathering point for a site: a cover spot 8-18 m from it, out of its sight,
+  // nearest to where the attackers are when the action starts. Once a round.
+  stackPoint(site) {
+    if (this.stack && this.stack.site === site) return this.stack.p;
+    const m = this.m, att = m.actors.filter((x) => x.alive && this.isAttacker(x));
+    if (!att.length) return null;
+    const cx = att.reduce((s, x) => s + x.x, 0) / att.length, cz = att.reduce((s, x) => s + x.z, 0) / att.length;
+    const ok = m.map.data.cover.filter((q) => { const d = Math.hypot(q[0] - site.x, q[1] - site.z); return !(q[2] > 0.5) && d >= 8 && d <= 18 && !m.map.sight([q[0], 1.2, q[1]], [site.x, 1.2, site.z]); });
+    ok.sort((p, q) => Math.hypot(p[0] - cx, p[1] - cz) - Math.hypot(q[0] - cx, q[1] - cz));
+    this.stack = { site, p: ok[0] || null };
+    return this.stack.p;
   }
   // A spot away from the site (inside the building), held for a while, then the next.
   roamGoal(brain, site, key) {

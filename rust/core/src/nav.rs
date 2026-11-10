@@ -341,9 +341,22 @@ impl World {
 
     /// A panel broke or was rebuilt: open or close the nodes it covers.
     pub fn nav_set_alive(&mut self, solid: u32, was: bool, alive: bool) {
-        self.nav.drop_ok.clear();
         if was == alive {
             return;
+        }
+        // Drop checks near the panel may change (room to step off, something to land on);
+        // the rest of the map's stay valid.
+        if let Some(b) = self.solids.get(solid as usize) {
+            let m = self.nav.r + CELL;
+            let (x0, x1, z0, z1) = (b.min_x - m, b.max_x + m, b.min_z - m, b.max_z + m);
+            let (nx, hx, hz) = (self.nav.nx.max(1), self.hx, self.hz);
+            self.nav.drop_ok.retain(|&key, _| {
+                let c = key / 64;
+                let (x, z) = (-hx + ((c % nx) as f64 + 0.5) * CELL, -hz + ((c / nx) as f64 + 0.5) * CELL);
+                x < x0 || x > x1 || z < z0 || z > z1
+            });
+        } else {
+            self.nav.drop_ok.clear();
         }
         let door = self.solids.get(solid as usize).map_or(false, |b| b.kind == KIND_DOOR);
         let nav = &mut self.nav;
@@ -449,26 +462,32 @@ impl World {
             if best >= 0 {
                 return best;
             }
-            // farther away (a long dead-end gap): the same, over the whole map; then the
-            // nearest on a level you could step or hop down to, whatever is in between
-            for pass in (if buried { 1 } else { 0 })..2 {
-                for k in 0..self.nav.len() {
-                    if !self.nav.open(k) {
-                        continue;
-                    }
-                    let (nx, nz, ny) = (self.nav.x[k] as f64, self.nav.z[k] as f64, self.nav.y[k] as f64);
-                    if ny > y + STEP + 1e-3 || ny < y - 1.0 {
-                        continue;
-                    }
-                    let d = (nx - x) * (nx - x) + (nz - z) * (nz - z) + 4.0 * (ny - y) * (ny - y);
-                    if d < bd && (pass == 1 || self.walk_clear(x, z, nx, nz, 0.1, if ny < y { ny } else { y })) {
-                        bd = d;
-                        best = k as i32;
+            // farther away (a long dead-end gap): the nearest few over the whole map, tried
+            // in order of distance until one can be walked to in a straight line (testing every
+            // node took 35 ms on a big map); then the nearest on a level you could step or hop
+            // down to, whatever is in between
+            let mut cand: Vec<(f64, u32)> = Vec::new();
+            for k in 0..self.nav.len() {
+                if !self.nav.open(k) {
+                    continue;
+                }
+                let (nx, nz, ny) = (self.nav.x[k] as f64, self.nav.z[k] as f64, self.nav.y[k] as f64);
+                if ny > y + STEP + 1e-3 || ny < y - 1.0 {
+                    continue;
+                }
+                cand.push(((nx - x) * (nx - x) + (nz - z) * (nz - z) + 4.0 * (ny - y) * (ny - y), k as u32));
+            }
+            cand.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(core::cmp::Ordering::Equal));
+            if !buried {
+                for &(_, k) in cand.iter().take(48) {
+                    let (nx, nz, ny) = (self.nav.x[k as usize] as f64, self.nav.z[k as usize] as f64, self.nav.y[k as usize] as f64);
+                    if self.walk_clear(x, z, nx, nz, 0.1, if ny < y { ny } else { y }) {
+                        return k as i32;
                     }
                 }
-                if best >= 0 {
-                    return best;
-                }
+            }
+            if let Some(&(_, k)) = cand.first() {
+                return k as i32;
             }
         }
         let nav = &self.nav;
@@ -603,18 +622,12 @@ impl World {
     pub fn find_path_in(&mut self, ax: f64, az: f64, ay: f64, bx: f64, bz: f64, by: f64, flags: u32, out: &mut Vec<[f64; 4]>) {
         let (zw, dw) = (self.nav.zone_on, self.nav.doors_on);
         let (zn, dn) = (flags & PATH_ZONE != 0, flags & PATH_DOORS != 0);
-        let changed = zn != zw || dn != dw;
-        if changed {
-            self.nav.zone_on = zn;
-            self.nav.doors_on = dn;
-            self.nav.drop_ok.clear();
-        }
+        // (drop checks depend only on the solids, not on these flags: their cache stays)
+        self.nav.zone_on = zn;
+        self.nav.doors_on = dn;
         self.path_now(ax, az, ay, bx, bz, by, out);
-        if changed {
-            self.nav.zone_on = zw;
-            self.nav.doors_on = dw;
-            self.nav.drop_ok.clear();
-        }
+        self.nav.zone_on = zw;
+        self.nav.doors_on = dw;
     }
     fn path_now(&mut self, ax: f64, az: f64, ay: f64, bx: f64, bz: f64, by: f64, out: &mut Vec<[f64; 4]>) {
         out.clear();

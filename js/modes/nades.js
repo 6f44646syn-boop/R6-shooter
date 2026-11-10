@@ -3,7 +3,7 @@
 // damage, lethal within 1.8 m, nothing behind solid cover. They break soft walls and boarded
 // doors close by and destroy gadgets. A Catcher zaps them out of the air.
 // Bots throw at enemies they know are behind cover, using a lob that lands on the spot.
-import { dirFrom } from './geom.js?v=7fcbf5a-mwalxv1w';
+import { dirFrom } from './geom.js?v=5cafaa1-mwb62ceu';
 
 export const NADE = { count: 2, fuse: 2.5, speed: 15, radius: 6, lethal: 1.8, damage: 130, gravity: 9.8, wallBreak: 1.4, every: 1.0 };
 
@@ -84,7 +84,7 @@ export class Nades {
     m.map.breakAt(p, NADE.wallBreak);
     for (const g of m.ab.gadgets) if (g.alive && Math.hypot(g.x - p[0], g.z - p[2], g.y - p[1]) < 3) m.ab.destroy(g, owner);
     if (owner) m.noise(owner, 40, 'blast');
-    m.emit({ type: 'boom', x: p[0], z: p[2], nade: true });
+    m.emit({ type: 'boom', x: p[0], y: p[1], z: p[2], nade: true });
   }
 
   /* ---------- bots ---------- */

@@ -102,6 +102,16 @@ match modes (TDM, CTF, Bomb) are offline only; their simulation is seeded and fi
 online, the destruction state to send is which wall cells and barricades stand, which panels
 are reinforced (`m.map.panels`), and the gadgets (`m.ab.gadgets`, wire included).
 
+## Events and bots (milestone 5)
+
+- **Events with a height:** `boom`, `door`, `pulse`, `wire`, `splinter`, `debris`, shots and
+  noises carry `y` (feet or centre height). The bomb (`m.rules.bomb`) has `x, y, z`.
+- **Path budget:** `m.pathBudget` is the number of new bot routes per simulation step (2). A
+  bot over budget keeps its route and asks again at its next think. Anything that plans
+  routes for many actors at once should go through `Brain.setGoal`.
+- **Bomb bot report** (dev): `node tools/bomb-ai-report.mjs [matches per map] [maps]
+  [difficulty]`.
+
 ## Graphics (milestone 6; details in [GRAPHICS.md](GRAPHICS.md))
 
 - **Quality**: read `effectiveGraphics(settings)` (`js/render/quality.js`), never

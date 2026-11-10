@@ -1,15 +1,15 @@
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=7fcbf5a-mwalxv1w';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=7fcbf5a-mwalxv1w';
-import { matcap } from './matcap.js?v=7fcbf5a-mwalxv1w';
-import { mulberry32 } from '../core/prng.js?v=7fcbf5a-mwalxv1w';
-import { gunMaps } from './range-tex.js?v=7fcbf5a-mwalxv1w';
-import { skinById, FACTORY } from '../core/skins.js?v=7fcbf5a-mwalxv1w';
-import { legendCanvas, onLegendChange } from '../core/legend.js?v=7fcbf5a-mwalxv1w';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=7fcbf5a-mwalxv1w';
-import { HDPack } from '../render/hd-pack.js?v=7fcbf5a-mwalxv1w';
+import * as THREE from '../../vendor/three/three.module.min.js?v=5cafaa1-mwb62ceu';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=5cafaa1-mwb62ceu';
+import { matcap } from './matcap.js?v=5cafaa1-mwb62ceu';
+import { mulberry32 } from '../core/prng.js?v=5cafaa1-mwb62ceu';
+import { gunMaps } from './range-tex.js?v=5cafaa1-mwb62ceu';
+import { skinById, FACTORY } from '../core/skins.js?v=5cafaa1-mwb62ceu';
+import { legendCanvas, onLegendChange } from '../core/legend.js?v=5cafaa1-mwb62ceu';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=5cafaa1-mwb62ceu';
+import { HDPack } from '../render/hd-pack.js?v=5cafaa1-mwb62ceu';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 

@@ -487,3 +487,78 @@ Done before milestone 5 at the user's request. Details: [GRAPHICS.md](GRAPHICS.m
 - after a reload the pack loads with no network; removing it frees the space.
 
 No page errors and no third-party requests.
+
+## Milestone 5: bot AI
+
+Measured with `node tools/bomb-ai-report.mjs 10 <map>` (new). Each run is 10 bot-only Bomb
+matches per map at Normal, about 55-60 rounds per map. The report shows:
+- how rounds end;
+- every kill, with each side's role and state (holding, moving, crouched);
+- whether the victim was looking at the killer, its distance from the site, and the time in
+  the round;
+- the worst simulation step.
+
+### What was wrong
+Before (milestone 4), defenders won 16% on Embassy, 30% on Ranch and 8% on Workshop.
+- Most defenders died in the first 15 seconds of the action phase, while holding a spot.
+- The attacker who killed them had seen them for about 0.9 s; they had seen the attacker
+  for 0.36 s.
+- Holders faced one doorway, ignored footsteps and teammates' callouts, and were flanked.
+- Attackers shot almost as well running as standing.
+
+### What changed (`js/modes/bots.js`, `rules.js`)
+- **Awareness**: a bot holding a spot, or moving, turns to the freshest footstep it heard
+  (2.5 s) or an enemy a teammate called out within 20 m (2 s). This is only pre-aiming: it
+  still needs line of sight to shoot, so there are no wallhacks.
+- **Shooting on the move**: aim error ×1.5 walking, ×2.1 running (was ×1.4 for both).
+- **Clearing rooms**: with a known threat within 15 m, bots walk instead of running, so they
+  can shoot straight.
+- **Outnumbered**: a bot with two or more enemies in sight falls back to cover out of their
+  sight, then re-peeks, unless it is on a must-do objective.
+- **Coordinated entry**: attacking entry and support bots gather with the carrier at a
+  stacking point (8-18 m from the site, out of its sight) and go in together (three there,
+  or the carrier with two, or after 25 s). The flanker and lurker still work alone.
+- **Site guards** hold 3-9 m back from the doorway they watch (was 1.5-6 m). Whoever comes
+  through is met alone, not a whole team firing in from outside.
+
+### Result (bot-only Bomb, Normal, defender round wins)
+| Map | Milestone 4 | Milestone 5 | With Codex's Bomb utility candidate as well |
+|---|---|---|---|
+| Ranch | 30% | 63% | 63% |
+| Embassy | 16% | 59% | 64% |
+| Workshop | 8% | 42% | 46% |
+| **All three** | **~18%** | **55% (90 / 165)** | **58% (105 / 182)** |
+
+The user's target is a slight defender edge, about 55%. Each map's figure is about ±6-7
+points (55-60 rounds); the overall figure is the reliable one. Workshop still leans to the
+attackers and Ranch to the defenders. Plants are rare on Ranch: rounds there end in
+eliminations.
+
+### Speed
+- **Unreachable goals:** the slowest steps (36 ms on Workshop, every few seconds) came from
+  a goal with no walkable spot near it: finding the nearest spot tested a straight walk to
+  almost every node on the map. Now the 48 nearest are tried in order (`nearest_node`,
+  Rust): 36 ms → 0.7-1.8 ms, same answer.
+- **Drop-check cache:** it is no longer emptied on every defender path request, nor
+  entirely when one panel breaks (only the checks near that panel).
+- **Path budget:** at most 2 new routes are planned per simulation step (`m.pathBudget`). A
+  bot over budget plans at its next think, 1/15 s later. It is a count, not a time, so
+  matches stay deterministic.
+- Path planning per Workshop match: 241 ms → 35 ms in total. The worst steps of a Bomb match
+  run alone are now under 10 ms (the very first step, while the code warms up) and under
+  5 ms after that.
+
+### Maps
+The Winter Cabin windows (1.85 → 2.25 m) and the Casino cage windows (2.0 → 2.3 m) were too
+low to vault through; they now match the Bomb windows. 268 of 273 low obstacles are
+vaultable. The other five have no room on any side: a counter against a wall, a container
+stack, school and Winter furniture.
+
+### Events for the audio side (Codex's request)
+`boom` (grenades, the bomb, Wall Charge, Breach Rounds), `door`, `pulse` and `wire` events
+carry `y`, and so does the door noise. The bomb keeps its `y` when carried, dropped and
+planted.
+
+### Not done
+Battle bots (`js/battle/bot.js`) already hear, pre-aim and are penalised for moving. They
+were left as they were. Attacker droning and breaching use the existing ability logic.
