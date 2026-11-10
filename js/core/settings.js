@@ -2,7 +2,7 @@
 // Storage can be missing or throw (private window, blocked site data), so every access is
 // wrapped and the app always works with the defaults.
 
-import { sensToCm360, cm360ToSens } from './sensitivity.js?v=651d04c-mwak4e9y';
+import { sensToCm360, cm360ToSens } from './sensitivity.js?v=7fcbf5a-mwalxv1w';
 
 const KEY = 'recoilRange.settings.v1';
 
@@ -41,6 +41,11 @@ export const DEFAULTS = Object.freeze({
   dotSpeed: 1.5,         // metres per second
   dotSizeCm: 20,         // dot diameter
   debugHud: false,
+  fpsCounter: false,     // small FPS / frame-time / CPU / GPU readout
+  fpsTarget: 60,         // dynamic resolution aims for this (capped at the screen's refresh rate)
+  ao: true,              // screen-space ambient occlusion (High / Ultra)
+  taa: false,            // temporal anti-aliasing (High / Ultra)
+  sharpen: 0.25,         // sharpening after upscaling / TAA (0 = off)
   fixedSeed: '',         // empty = new random seed every magazine
   gunIndex: 0,
   battle: { opponent: 'bots', bots: 3, level: 'medium', kills: 10, p2Gun: 1, map: 'yard', night: false, weather: 'auto', fog: false, voices: true },
@@ -115,6 +120,11 @@ export function sanitize(input) {
   if (out.renderScale > 0 && out.renderScale < 0.5) out.renderScale = 0.5;
   out.showViewmodel = typeof s.showViewmodel === 'boolean' ? s.showViewmodel : DEFAULTS.showViewmodel;
   out.debugHud = typeof s.debugHud === 'boolean' ? s.debugHud : DEFAULTS.debugHud;
+  out.fpsCounter = s.fpsCounter === true;
+  out.fpsTarget = [60, 120, 144, 240].includes(s.fpsTarget) ? s.fpsTarget : DEFAULTS.fpsTarget;
+  out.ao = typeof s.ao === 'boolean' ? s.ao : DEFAULTS.ao;
+  out.taa = s.taa === true;
+  out.sharpen = [0, 0.25, 0.4, 0.6].includes(s.sharpen) ? s.sharpen : DEFAULTS.sharpen;
   out.fixedSeed = (typeof s.fixedSeed === 'string' && /^\d{0,10}$/.test(s.fixedSeed.trim())) ? s.fixedSeed.trim() : '';
   const bi = (s.battle && typeof s.battle === 'object') ? s.battle : {};
   out.battle = {

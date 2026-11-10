@@ -610,6 +610,9 @@ try {
     check('aiming adds at most 4 draw calls (no second scene render)', cmp.ads.calls - cmp.hip.calls <= 4 && cmp.adsLow.calls - cmp.hip.calls <= 1, JSON.stringify(cmp));
     // Graphics quality: high swaps to PBR + shadows + tone mapping and back without errors,
     // and the hip frame keeps the same draw calls plus the shadow pass.
+    // High and Ultra need the Enhanced Graphics pack: install it from the test server.
+    const inst = await page.evaluate(() => window.__range.hdInstall());
+    check('Enhanced Graphics pack installs (for High / Ultra)', inst.ok && inst.guns, JSON.stringify(inst));
     const gq = await page.evaluate(() => {
       const R = window.__range;
       R.setAds(false); R.step(0.5); R.renderFrame();
@@ -861,6 +864,84 @@ try {
 
 
     check('no page errors', errors.length === 0, errors.join('\n'));
+    await page.close();
+  }
+
+  // Enhanced Graphics pack: nothing downloaded until asked; High / Ultra prompt for it; the
+  // download is checked file by file, kept in the browser (offline) and removable; detailed
+  // guns; world post-processing (ambient occlusion, TAA, upscaling); the FPS counter.
+  {
+    console.log('\nEnhanced Graphics pack, graphics screen, world post-processing, FPS counter');
+    const { page, errors, external } = await openPage('index.html?test');
+    await page.waitForFunction(() => window.__range && window.__range.ready, null, { timeout: 10000 });
+    const hdReq = () => page.evaluate(() => performance.getEntriesByType('resource').filter((e) => /\/hd\/guns\//.test(e.name)).length);
+    const p0 = await page.evaluate(() => {
+      const R = window.__range, G = R.graphicsUI();
+      R.manual(true); R.selectGun(2); R.step(0.5);
+      G.open(); G.choose('high'); R.step(0.1); R.renderFrame();
+      const pr = document.querySelector('.gx-prompt');
+      return { st: R.hdState(), prompt: !pr.hidden, text: pr.textContent, tone: R.toneMapping(), hd: R.rigHD(), btn: document.getElementById('gx-download').textContent };
+    });
+    check('no pack: nothing downloaded; High runs as Standard and the screen offers the download (' + p0.btn + ')',
+      (await hdReq()) === 0 && p0.st.state === 'none' && p0.st.effective === 'standard' && p0.prompt && /needs the Enhanced Graphics pack/.test(p0.text) && p0.tone === 0 && !p0.hd, JSON.stringify(p0));
+    // A damaged file is refused (one byte flipped on the way).
+    await page.route('**/hd/guns/ak.rrmz', async (route) => { const r = await route.fetch(); const b = Buffer.from(await r.body()); b[200] ^= 0xff; await route.fulfill({ response: r, body: b }); });
+    await page.click('#gx-download');
+    await page.waitForFunction(() => window.__range.hdState().state !== 'downloading' && window.__range.hdState().state !== 'none', null, { timeout: 60000 });
+    const bad = await page.evaluate(() => ({ st: window.__range.hdState(), status: document.querySelector('.gx-status').textContent }));
+    check('a damaged download is refused (checked against the pack list)', bad.st.state === 'error' && !bad.st.ready && /damaged/.test(bad.status), JSON.stringify(bad));
+    await page.unroute('**/hd/guns/ak.rrmz');
+    await page.click('#gx-download');
+    await page.waitForFunction(() => window.__range.hdState().loaded, null, { timeout: 60000 });
+    const p1 = await page.evaluate(async () => {
+      const R = window.__range;
+      R.step(0.2); R.renderFrame();
+      const tris = () => { let t = 0; R.rigObj().current.traverse((o) => { if (o.isMesh) t += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; }); return t; };
+      const man = await (await fetch('hd/manifest.json')).json();
+      const cached = (await (await caches.open('recoil-range-hd')).keys()).length;
+      const hiTris = tris(), hd = R.rigHD(), tone = R.toneMapping();
+      R.setGraphics('standard'); R.step(0.1);
+      const lowTris = tris();
+      R.setGraphics('high'); R.step(0.1); R.renderFrame();
+      return { st: R.hdState(), files: man.files.length, cached, hd, tone, hiTris, lowTris, status: document.querySelector('.gx-status').textContent, prompt: !document.querySelector('.gx-prompt').hidden };
+    });
+    check('download with the button: every file checked and kept in the browser (' + p1.cached + ' files); High switches on', p1.st.state === 'installed' && p1.cached === p1.files && p1.hd && p1.tone !== 0 && !p1.prompt && /Installed/.test(p1.status), JSON.stringify(p1));
+    check('the pack\'s gun is far more detailed (' + Math.round(p1.hiTris / 1000) + 'k triangles vs ' + Math.round(p1.lowTris / 1000) + 'k)', p1.hiTris > p1.lowTris * 4, JSON.stringify(p1));
+    // World post-processing on High: ambient occlusion + TAA, then upscaling at 60%.
+    const wp = await page.evaluate(() => {
+      const R = window.__range;
+      document.getElementById('menu').hidden = true;
+      const a = R.setPost({ ao: true, taa: true, sharpen: 0.25, renderScale: 0 });
+      for (let i = 0; i < 4; i++) { R.step(1 / 60); R.renderFrame(); }
+      R.setAds(true); R.step(0.6); R.renderFrame(); R.setAds(false); R.step(0.6); R.renderFrame();
+      const b = R.setPost({ ao: true, taa: false, renderScale: 0.6 }); R.renderFrame();
+      const info = R.renderInfo();
+      R.setGraphics('standard');
+      const c = R.setPost({ renderScale: 0 });
+      R.setGraphics('high');
+      return { a, b, c, info };
+    });
+    check('High: ambient occlusion and TAA run; at 60% the world is upscaled and the screen stays full size (' + wp.info.w + 'x' + wp.info.h + ')',
+      wp.a.on && wp.a.ao && wp.a.taa && wp.b.on && wp.b.scale === 0.6 && wp.info.w === 1280 && !wp.c.on, JSON.stringify(wp));
+    // FPS counter.
+    await page.evaluate(() => { const R = window.__range; R.graphicsUI().open(); if (!document.getElementById('gx-counter').checked) document.getElementById('gx-counter').click(); });
+    await page.evaluate(() => { const R = window.__range; R.manual(false); });
+    await page.waitForTimeout(800);
+    const fps = await page.evaluate(() => ({ shown: !document.getElementById('perf').hidden, text: document.querySelector('#perf pre').textContent }));
+    check('FPS counter: frame rate, frame time, 1% low, CPU / GPU time, resolution and draw calls', fps.shown && /fps/.test(fps.text) && /CPU/.test(fps.text) && /draws/.test(fps.text), JSON.stringify(fps));
+    // After a reload the pack is still there and nothing is downloaded again.
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForFunction(() => window.__range && window.__range.ready && window.__range.hdState().loaded, null, { timeout: 30000 });
+    const p2 = await page.evaluate(() => { const R = window.__range; R.manual(true); R.step(0.2); R.renderFrame(); return { st: R.hdState(), hd: R.rigHD() }; });
+    check('after a reload the pack loads from the browser (no download) and High is on', p2.st.state === 'installed' && p2.hd && (await hdReq()) === 0, JSON.stringify(p2));
+    const p3 = await page.evaluate(async () => {
+      const R = window.__range;
+      await R.hdRemove(); R.step(0.1); R.renderFrame();
+      return { st: R.hdState(), hd: R.rigHD(), cached: (await caches.keys()).includes('recoil-range-hd'), tone: R.toneMapping() };
+    });
+    check('remove: space freed, High back to needing the pack (Standard look)', p3.st.state === 'none' && !p3.hd && !p3.cached && p3.st.effective === 'standard' && p3.tone === 0, JSON.stringify(p3));
+    check('no page errors', errors.length === 0, errors.join('\n'));
+    check('no third-party requests', external.length === 0, external.join('\n'));
     await page.close();
   }
 

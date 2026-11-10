@@ -3,14 +3,15 @@
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=651d04c-mwak4e9y';
-import { Arena } from './arena.js?v=651d04c-mwak4e9y';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=651d04c-mwak4e9y';
-import { Bot, LEVELS } from './bot.js?v=651d04c-mwak4e9y';
-import { Human } from './human.js?v=651d04c-mwak4e9y';
-import { BattleNades } from './nades.js?v=651d04c-mwak4e9y';
-import { drawCrosshair } from '../ui/crosshair.js?v=651d04c-mwak4e9y';
-import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=651d04c-mwak4e9y';
+import * as THREE from '../../vendor/three/three.module.min.js?v=7fcbf5a-mwalxv1w';
+import { Arena } from './arena.js?v=7fcbf5a-mwalxv1w';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=7fcbf5a-mwalxv1w';
+import { Bot, LEVELS } from './bot.js?v=7fcbf5a-mwalxv1w';
+import { Human } from './human.js?v=7fcbf5a-mwalxv1w';
+import { BattleNades } from './nades.js?v=7fcbf5a-mwalxv1w';
+import { drawCrosshair } from '../ui/crosshair.js?v=7fcbf5a-mwalxv1w';
+import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=7fcbf5a-mwalxv1w';
+import { effectiveGraphics } from '../render/quality.js?v=7fcbf5a-mwalxv1w';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -82,7 +83,7 @@ export class Battle {
   _setNight(night, weather, fog) {
     this.night = !!night;
     this.arena.setAtmosphere(this.night, weather || 'auto', !!fog);
-    const q = this.deps.settings.graphics, high = q === 'high' || q === 'ultra';
+    const q = effectiveGraphics(this.deps.settings), high = q === 'high' || q === 'ultra';
     // Others' flashlights that light the scene: 4 in High / Ultra, 2 in Standard, none in Low
     // (their beams always show).
     const others = high ? 4 : q === 'low' ? 0 : 2;
@@ -138,7 +139,7 @@ export class Battle {
     this.atmo = { night: !!opts.night, weather: opts.weather || 'auto', fog: !!opts.fog };
     this.remotes = []; this.proxies = [];
     this._nextSnap = 0;
-    this.arena.setGraphics(d.settings.graphics, d.renderer);
+    this.arena.setGraphics(effectiveGraphics(d.settings), d.renderer);
     this.arena.holes.clear();
     for (const f of this.fighters) f.group.removeFromParent();
     this.fighters = []; this.humans = []; this.bots = [];
@@ -178,7 +179,7 @@ export class Battle {
     }
     this.fighters.forEach((f, i) => { f.id = i + 1; this.arena.scene.add(f.group); });
     this._setNight(this.atmo.night, this.atmo.weather, this.atmo.fog);
-    this.arena.setGraphics(d.settings.graphics, d.renderer);
+    this.arena.setGraphics(effectiveGraphics(d.settings), d.renderer);
     const t = d.now();
     this.t = t; this.prevT = t;
     // Network game: tell every remote player who is in the match before the spawns go out.
@@ -209,7 +210,7 @@ export class Battle {
 
   // Graphics quality, gun shading or reticle colour changed (from the menu, while paused).
   refreshGraphics() {
-    this.arena.setGraphics(this.deps.settings.graphics, this.deps.renderer);
+    this.arena.setGraphics(effectiveGraphics(this.deps.settings), this.deps.renderer);
     for (const f of this.fighters) if (f.gun) { f._lookKey = ''; this._look(f, f.gun, f.skin); }
     for (const h of this.humans) {
       h.rig.rebuild();
@@ -539,7 +540,7 @@ export class Battle {
     this.net = { role: 'client', link, myId: m.you };
     for (const f of this.fighters) f.group.removeFromParent();
     this._useArena(m.map || 'yard');
-    this.arena.setGraphics(d.settings.graphics, d.renderer);
+    this.arena.setGraphics(effectiveGraphics(d.settings), d.renderer);
     this.arena.holes.clear();
     for (const f of this.fighters) f.group.removeFromParent();
     this.fighters = []; this.humans = []; this.bots = []; this.remotes = []; this.proxies = [];
@@ -566,7 +567,7 @@ export class Battle {
     }
     this.atmo = { night: !!m.night, weather: typeof m.weather === 'string' ? m.weather : 'auto', fog: !!m.fog };
     this._setNight(this.atmo.night, this.atmo.weather, this.atmo.fog);
-    this.arena.setGraphics(d.settings.graphics, d.renderer);
+    this.arena.setGraphics(effectiveGraphics(d.settings), d.renderer);
     const t = d.now();
     this.t = t; this.prevT = t; this._nextSnap = 0;
     this.active = true; this.paused = false; this.over = false;
@@ -763,7 +764,8 @@ export class Battle {
       if (h.camera.aspect !== aspect) { h.camera.aspect = aspect; h.camera.updateProjectionMatrix(); }
       const ownVis = h.f.group.visible;
       if (!(this.kc && i === 0)) h.f.group.visible = false;      // not your own body (except in the replay)
-      r.render(this.arena.scene, h.camera);
+      const wp = this.deps.worldPost;
+      if (wp && wp.active) wp.draw(this.arena.scene, h.camera); else r.render(this.arena.scene, h.camera);
       h.f.group.visible = ownVis;
       r.clearDepth();
       const rig = this.kc && this.kc.pov && i === 0 && this.puppet ? this.puppet.rig : h.rig;

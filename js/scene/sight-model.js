@@ -7,9 +7,9 @@
 // screen as the numbers in optics.json say.
 //
 // Local frame of a sight: origin at the centre of its rear opening, -z forward, y up.
-import * as THREE from '../../vendor/three/three.module.min.js?v=651d04c-mwak4e9y';
-import { matcap } from './matcap.js?v=651d04c-mwak4e9y';
-import { gunMaps } from './range-tex.js?v=651d04c-mwak4e9y';
+import * as THREE from '../../vendor/three/three.module.min.js?v=7fcbf5a-mwalxv1w';
+import { matcap } from './matcap.js?v=7fcbf5a-mwalxv1w';
+import { gunMaps } from './range-tex.js?v=7fcbf5a-mwalxv1w';
 
 export const VM_FOV = 50;      // vertical FOV of the weapon camera, degrees
 export const EYE_Z = 0.14;     // eye to rear of the sight, metres
@@ -246,7 +246,7 @@ export function mergeStatic(group) {
   const byMat = new Map(), keep = [], rel = new THREE.Matrix4();
   group.traverse((o) => {
     if (!o.isMesh) return;
-    if (o.material.transparent) { keep.push(o); return; }
+    if (o.material.transparent || o.userData.hd) { keep.push(o); return; }   // pack models are merged already (and carry extra data)
     rel.multiplyMatrices(inv, o.matrixWorld);
     const geo = (o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone()).applyMatrix4(rel);
     if (!byMat.has(o.material)) byMat.set(o.material, []);

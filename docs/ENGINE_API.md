@@ -2,7 +2,7 @@
 
 Milestones 1-6 (engine: Rust core, physics, maps, bots, rendering) and milestones 7-12 (UI,
 controls, audio, network, replays, spectating, ranked, training) are built in parallel.
-This page is the contract between them, as of milestone 3. Change it in the same commit
+This page is the contract between them, as of milestone 6. Change it in the same commit
 as the code it describes.
 
 ## Who owns what
@@ -13,6 +13,8 @@ as the code it describes.
 | Physics, collision, paths, maps | `js/battle/arena.js`, `solids.js`, `maps.js`, `js/modes/map.js`, `tools/build-maps.mjs`, `data/maps/` | engine |
 | Match simulation, rules, abilities, grenades, bots | `js/modes/sim.js`, `rules.js`, `abilities.js`, `nades.js`, `bots.js`, `js/battle/bot.js` | engine |
 | Drawing performance, graphics quality | `js/scene/`, `js/render/`, `js/modes/look.js`, `gadget-look.js` | engine |
+| Enhanced Graphics pack (models, build tools, download) | `hd/`, `tools/hd/`, `tools/build-hd.mjs`, `js/render/hd-pack.js`, `hd-mesh.js`, `quality.js`, `world-post.js` | engine |
+| Graphics screen, FPS counter | `js/ui/graphics-ui.js`, `js/ui/perf-hud.js` | engine for now (milestone 6); the UI side may restyle or move them, keeping the ids and hooks below |
 | Controls, menus, settings screens, HUD wording | `rust/m7_controls/`, `js/ui/`, `index.html`, `css/` | UI |
 | Network play | `js/net/`, `relay/`, the network parts of `js/battle/battle.js` | UI (milestone 9) |
 | Replays, spectator, ranked, training | new files | UI (milestones 10-12) |
@@ -99,6 +101,36 @@ match modes (TDM, CTF, Bomb) are offline only; their simulation is seeded and fi
 (60 Hz), so it can be run by a host later without changes to the rules. If Bomb goes
 online, the destruction state to send is which wall cells and barricades stand, which panels
 are reinforced (`m.map.panels`), and the gadgets (`m.ab.gadgets`, wire included).
+
+## Graphics (milestone 6; details in [GRAPHICS.md](GRAPHICS.md))
+
+- **Quality**: read `effectiveGraphics(settings)` (`js/render/quality.js`), never
+  `settings.graphics` directly. High and Ultra need the Enhanced Graphics pack and run as
+  Standard until it is installed; `needsPack(level)` says which levels do.
+- **Pack**: `HDPack` (`js/render/hd-pack.js`).
+  - `state` is `'none' | 'downloading' | 'installed' | 'update' | 'unsupported' | 'error'`;
+    `ready` says whether it can be used.
+  - `progress`, `size`, `error`, `onChange(fn)`.
+  - `check()` reads the manifest; call it only when showing the pack.
+  - `install()` is started by the player only. `remove()` frees the space.
+- **Settings** (in `settings`): `fpsCounter`, `fpsTarget` (60 / 120 / 144 / 240), `ao`,
+  `taa`, `sharpen`, plus the existing `graphics` and `renderScale`.
+  - Commit `'post'` after changing `ao`, `taa` or `sharpen`.
+  - Commit `'perf'` after changing `fpsCounter` or `fpsTarget`.
+  - Commit `'graphics'` after changing the level.
+- **Element ids** the tests use:
+  - `#gfx` (the Graphics screen) and `#gx-download`, `#gx-remove`;
+  - `.gx-prompt`, `.gx-status`;
+  - `#gx-counter` (FPS counter checkbox);
+  - `#perf` (the counter);
+  - `#set-open-graphics` (button in Settings).
+
+  Keep them if the screens are redesigned.
+- **Drawing the world** in a new view (replays, spectating): call
+  `deps.worldPost.draw(scene, camera)` when `deps.worldPost.active`, else
+  `renderer.render(scene, camera)`. Then draw any first-person weapon on top after
+  `renderer.clearDepth()`. This applies ambient occlusion, TAA and upscaling the same way
+  everywhere.
 
 ## Audio
 

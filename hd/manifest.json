@@ -1,0 +1,57 @@
+{
+ "name": "Recoil Range Enhanced Graphics",
+ "version": 1,
+ "files": [
+  {
+   "path": "guns/ak.rrmz",
+   "size": 738978,
+   "sha256": "c77e86e2b4b372667638c1d1e3db90e8ae76af26b499c49c46f959e4c91eb96e"
+  },
+  {
+   "path": "guns/bullpup.rrmz",
+   "size": 602219,
+   "sha256": "67cb0ad672f400ea98fcba32e670f10d3a76b8a3e1d3cb8e29ea3cad88e4fc09"
+  },
+  {
+   "path": "guns/carbine.rrmz",
+   "size": 850901,
+   "sha256": "99cab7dc2364679a38f89d9fb1cb68290e47a9172e520a6c590ad4cd61f5134b"
+  },
+  {
+   "path": "guns/compact.rrmz",
+   "size": 370959,
+   "sha256": "13ac13ad9b8db0975a5ba2ca2bfd4c363aaa1020ccc38ea068768563c5bc4f7b"
+  },
+  {
+   "path": "guns/evo.rrmz",
+   "size": 529746,
+   "sha256": "eab70d7e988180e18da46841f2679010fb13f18a0a3ff94ba1bfcd44e151b32a"
+  },
+  {
+   "path": "guns/lmg.rrmz",
+   "size": 872407,
+   "sha256": "6313a774031010579b07ffd67ca221cb8417f3755525f42c9efdbd7cde83cfe6"
+  },
+  {
+   "path": "guns/machinepistol.rrmz",
+   "size": 285531,
+   "sha256": "4233f88e08ce16b746b9bdbd07844b9e53f9cf76cbb93b1aca9656f532e8c8a8"
+  },
+  {
+   "path": "guns/pdw.rrmz",
+   "size": 307958,
+   "sha256": "3434b1dd6989b4a885cdd6613b308fd4d83f442eff69c1197cb5c5335c8f7242"
+  },
+  {
+   "path": "guns/sfw.rrmz",
+   "size": 928737,
+   "sha256": "f288ce6bbdb39ea03d1b9161cd04a03425e0d173f6260c6c7d62229e8bb4bf78"
+  },
+  {
+   "path": "guns/smg.rrmz",
+   "size": 538211,
+   "sha256": "d4e4900f9f7023e6b0bda3060186c8a800eb4bd2cf8ea1e15cf3738d7c27f134"
+  }
+ ],
+ "total": 6025647
+}

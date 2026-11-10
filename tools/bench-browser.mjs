@@ -40,6 +40,8 @@ try {
   }
   for (const [kind, map] of SCENES) {
     const { page, errors } = await open();
+    // High and Ultra need the Enhanced Graphics pack (installed from the local server).
+    if (TIERS.some((t) => t === 'high' || t === 'ultra')) await page.evaluate(() => window.__range.hdInstall());
     for (const tier of TIERS) {
       const row = await page.evaluate(async ([kind, map, tier]) => {
         const R = window.__range; R.manual(true);

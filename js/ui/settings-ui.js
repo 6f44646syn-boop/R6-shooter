@@ -1,8 +1,8 @@
 // Settings panel inside the Esc menu. Every change is sanitised, saved to localStorage and
 // handed to main.js through onChange(key) so it takes effect immediately.
-import { sanitize, saveSettings, clearSavedSettings, DEFAULTS, DISTANCES, CROSSHAIR_STYLES, RETICLE_COLOR_NAMES } from '../core/settings.js?v=651d04c-mwak4e9y';
-import { degPerCount, countsPer360, inchesPer360, horizontalFovDeg } from '../core/sensitivity.js?v=651d04c-mwak4e9y';
-import { drawCrosshair } from './crosshair.js?v=651d04c-mwak4e9y';
+import { sanitize, saveSettings, clearSavedSettings, DEFAULTS, DISTANCES, CROSSHAIR_STYLES, RETICLE_COLOR_NAMES } from '../core/settings.js?v=7fcbf5a-mwalxv1w';
+import { degPerCount, countsPer360, inchesPer360, horizontalFovDeg } from '../core/sensitivity.js?v=7fcbf5a-mwalxv1w';
+import { drawCrosshair } from './crosshair.js?v=7fcbf5a-mwalxv1w';
 
 function el(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);
@@ -174,13 +174,14 @@ export class SettingsUI {
       el('div', { class: 'set-grid' },
         this.range('set-fov', 'Vertical FOV', { min: 60, max: 90, step: 1, fmt: (v) => v + '\u00b0' }, () => this.s.fov, (v) => { this.s.fov = v; }, 'fov'),
         this.select('set-scale', 'Render resolution', [['0', 'Auto (screen sharpness)'], ['2', '200% (supersampled)'], ['1.5', '150% (supersampled)'], ['1', '100%'], ['0.85', '85%'], ['0.75', '75%'], ['0.5', '50%']], () => String(this.s.renderScale), (v) => { this.s.renderScale = Number(v); }, 'scale'),
-        this.select('set-graphics', 'Graphics quality', [['low', 'Low: flat colours (slowest PCs)'], ['standard', 'Standard (fast, for school PCs)'], ['high', 'High: realistic lighting, shadows, textures'], ['ultra', 'Ultra (graphics card): 4K textures, weapon skins, detail']], () => this.s.graphics, (v) => { this.s.graphics = v; }, 'graphics'),
+        this.select('set-graphics', 'Graphics quality', [['low', 'Low: flat colours (slowest PCs)'], ['standard', 'Standard (fast, no download)'], ['high', 'High: detailed guns, lighting (Enhanced pack)'], ['ultra', 'Ultra: 4K skins with depth (Enhanced pack)']], () => this.s.graphics, (v) => { this.s.graphics = v; }, 'graphics'),
         this.select('set-shading', 'Gun and sight shading (Standard graphics)', [['fast', 'Fast (recommended)'], ['detailed', 'Detailed metal (slower)']], () => this.s.weaponShading, (v) => { this.s.weaponShading = v; }, 'shading'),
         this.select('set-lens', 'Lens effects when aiming', [['auto', 'Auto (drops if aiming is slow)'], ['3', 'High: blur, fringing, glare'], ['2', 'Medium: no blur'], ['1', 'Low (fast): glare, darkening, reticle'], ['0', 'Off (fast): darkening and reticle']], () => this.s.lensQuality, (v) => { this.s.lensQuality = v; }, 'lens'),
         this.range('set-volume', 'Volume', { min: 0, max: 1, step: 0.05, fmt: (v) => Math.round(v * 100) + '%' }, () => this.s.volume, (v) => { this.s.volume = v; }, 'volume'),
       ),
       this.fovNote,
       el('div', { class: 'row' },
+        this.ctx.openGraphics ? (() => { const b = el('button', { type: 'button', id: 'set-open-graphics', text: 'Graphics & performance\u2026' }); b.addEventListener('click', () => this.ctx.openGraphics()); return b; })() : null,
         this.check('set-aa', 'Antialiasing (after reload)', () => this.s.antialias, (v) => { this.s.antialias = v; }, 'aa'),
         this.check('set-anim', 'Weapon animations', () => this.s.animations, (v) => { this.s.animations = v; }, 'anim'),
         this.check('set-viewmodel', 'Show gun model', () => this.s.showViewmodel, (v) => { this.s.showViewmodel = v; }, 'viewmodel'),

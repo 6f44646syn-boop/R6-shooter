@@ -4,17 +4,18 @@
 //
 // Map: flat-shaded low poly from the map file; static walls merged into one mesh, breakable
 // panels in one instanced mesh, one directional light (a 1024 shadow map in High / Ultra).
-import * as THREE from '../../vendor/three/three.module.min.js?v=651d04c-mwak4e9y';
-import { MatchMap } from './map.js?v=651d04c-mwak4e9y';
-import { initCore } from '../wasm/core.js?v=651d04c-mwak4e9y';
-import { Match, TICK } from './sim.js?v=651d04c-mwak4e9y';
-import { yawTo, wrap180, DEG } from './geom.js?v=651d04c-mwak4e9y';
-import { Fighter } from '../battle/fighter.js?v=651d04c-mwak4e9y';
-import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=651d04c-mwak4e9y';
-import { buildMapLook, panelTextures } from './look.js?v=651d04c-mwak4e9y';
-import { Arena } from '../battle/arena.js?v=651d04c-mwak4e9y';
-import { Human } from '../battle/human.js?v=651d04c-mwak4e9y';
-import { drawCrosshair } from '../ui/crosshair.js?v=651d04c-mwak4e9y';
+import * as THREE from '../../vendor/three/three.module.min.js?v=7fcbf5a-mwalxv1w';
+import { MatchMap } from './map.js?v=7fcbf5a-mwalxv1w';
+import { initCore } from '../wasm/core.js?v=7fcbf5a-mwalxv1w';
+import { Match, TICK } from './sim.js?v=7fcbf5a-mwalxv1w';
+import { yawTo, wrap180, DEG } from './geom.js?v=7fcbf5a-mwalxv1w';
+import { Fighter } from '../battle/fighter.js?v=7fcbf5a-mwalxv1w';
+import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=7fcbf5a-mwalxv1w';
+import { buildMapLook, panelTextures } from './look.js?v=7fcbf5a-mwalxv1w';
+import { Arena } from '../battle/arena.js?v=7fcbf5a-mwalxv1w';
+import { Human } from '../battle/human.js?v=7fcbf5a-mwalxv1w';
+import { drawCrosshair } from '../ui/crosshair.js?v=7fcbf5a-mwalxv1w';
+import { effectiveGraphics } from '../render/quality.js?v=7fcbf5a-mwalxv1w';
 
 const TEAM_COLOR = { A: 0x5b8cff, B: 0xff7048 };
 const MAX_TRACERS = 64;
@@ -151,7 +152,7 @@ export class ModeGame {
     const ar = this.arena = ModeGame.arenas[id] || (ModeGame.arenas[id] = new Arena(id));
     this.scene = ar.scene;
     ar.setAtmosphere(false, 'auto', !!this.deps.settings.fog);
-    ar.setGraphics(this.deps.settings.graphics, this.deps.renderer);
+    ar.setGraphics(effectiveGraphics(this.deps.settings), this.deps.renderer);
     this.panelMesh = null; this.panelMeshes = {};
     if (this.markerG) this.markerG.removeFromParent();
     this.markerG = new THREE.Group();
@@ -189,8 +190,8 @@ export class ModeGame {
   }
   _applyGraphics() {
     if (!this.scene) return;
-    if (this.arena) { this.arena.setGraphics(this.deps.settings.graphics, this.deps.renderer); return; }
-    const q = this.deps.settings.graphics, high = q === 'high' || q === 'ultra', r = this.deps.renderer;
+    if (this.arena) { this.arena.setGraphics(effectiveGraphics(this.deps.settings), this.deps.renderer); return; }
+    const q = effectiveGraphics(this.deps.settings), high = q === 'high' || q === 'ultra', r = this.deps.renderer;
     this.sun.castShadow = high;
     r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
     r.toneMapping = THREE.NoToneMapping;
@@ -700,7 +701,8 @@ export class ModeGame {
     if (cam.aspect !== aspect) { cam.aspect = aspect; cam.updateProjectionMatrix(); }
     const ownVis = h.f.group.visible;
     if (!(this.kc && this.camOverride === this.kcCam)) h.f.group.visible = false;   // your body shows in your death replay
-    r.render(this.scene, cam);
+    const wp = this.deps.worldPost;
+    if (wp && wp.active) wp.draw(this.scene, cam); else r.render(this.scene, cam);
     h.f.group.visible = ownVis;
     if (!this.camOverride) {
       r.clearDepth();

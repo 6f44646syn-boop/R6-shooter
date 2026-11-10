@@ -13,7 +13,7 @@
 // to the screen as in hip-fire, then one light full-screen pass is blended on top
 // (result = effect + screen x darkening), which needs no texture reads of the scene. Only
 // blur, fringing and distortion need the scene as a texture, so only levels 3 and 2 pay for it.
-import * as THREE from '../../vendor/three/three.module.min.js?v=651d04c-mwak4e9y';
+import * as THREE from '../../vendor/three/three.module.min.js?v=7fcbf5a-mwalxv1w';
 
 const VERT = /* glsl */`
 varying vec2 vUv;
@@ -256,6 +256,13 @@ export class LensPost {
     this.renderer.render(this.quadScene, this.cam);
   }
 
+  // The world: plain, or through the world post-processing (ambient occlusion, TAA,
+  // upscaling and sharpening: render/world-post.js) when it is on.
+  _world(world, worldCam, target) {
+    if (this.world && this.world.active) this.world.draw(world, worldCam, target, target === null);
+    else this.renderer.render(world, worldCam);
+  }
+
   // Draw world + weapon, with or without the lens pass. p: lens parameters (see main.js).
   render(world, worldCam, vm, vmCam, p) {
     const r = this.renderer;
@@ -263,7 +270,7 @@ export class LensPost {
     if (!p) {
       r.setRenderTarget(null);
       r.clear();
-      r.render(world, worldCam);
+      this._world(world, worldCam, null);
       if (vm) { r.clearDepth(); r.render(vm, vmCam); }
       return;
     }
@@ -271,7 +278,7 @@ export class LensPost {
       // Fast path: draw the scene straight to the screen, then blend the lens look on top.
       r.setRenderTarget(null);
       r.clear();
-      r.render(world, worldCam);
+      this._world(world, worldCam, null);
       if (vm) { r.clearDepth(); r.render(vm, vmCam); }
       this._uniforms(p);
       this._pass(this.overlayMat, null);
@@ -279,7 +286,8 @@ export class LensPost {
     }
     r.setRenderTarget(this.sceneRT);
     r.clear();
-    r.render(world, worldCam);
+    this._world(world, worldCam, this.sceneRT);
+    r.setRenderTarget(this.sceneRT);
     if (vm) { r.clearDepth(); r.render(vm, vmCam); }
     const u = this.u;
     const blur = p.quality >= 3;
