@@ -6,3 +6,5 @@ rust/core/target/
 rust/core/Cargo.lock
 rust/m7_controls/target/
 rust/m7_controls/Cargo.lock
+rust/m8_audio/target/
+rust/m8_audio/Cargo.lock
