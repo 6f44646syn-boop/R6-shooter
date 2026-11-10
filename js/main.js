@@ -1132,7 +1132,7 @@ function boot(data) {
     }
     weapon.releaseTrigger(); setAds(false); player.releaseKeys();
     try {
-      await modeGame.start({ mode: m, map: P.map[m], difficulty: P.difficulty, teamSize: P.teamSize, abilities: !!P.abilities[m], minutes: P.minutes, headshot: P.headshot, op: P.op[m], side: P.side });
+      await modeGame.start({ mode: m, map: P.map[m], difficulty: P.difficulty, teamSize: P.teamSize, abilities: !!P.abilities[m], minutes: P.minutes, headshot: P.headshot, op: P.op[m], side: P.side, seed: testMode ? P.seed : undefined });
     } catch (err) {
       console.error(err);
       flashNotice('Could not start the match (' + (err && err.message || err) + '). Press Ctrl+F5 to load the latest version.', 9000);
@@ -1518,6 +1518,7 @@ function boot(data) {
       shotDebug: () => ({ renderW, renderH, cw: canvas.width, ch: canvas.height, cam: previewCam.position.toArray(), fov: previewCam.fov, aspect: previewCam.aspect, root: previewRig.root.position.toArray(), box: (() => { const b = new THREE.Box3().setFromObject(previewRig.current); return [b.min.toArray(), b.max.toArray()]; })() }),
       battleStart(o = {}) { Object.assign(settings.battle, o); startBattle(); return !!(battle && battle.active); },
       battleLeave: () => leaveBattle(),
+      renderer: () => renderer,
       modeStart: async (mode, o = {}) => { flow.mode = mode; Object.assign(modePrefs, o); return startMode(); },
       modeGame: () => modeGame,
       battleKey: (c, d) => !!(battle && battle.key(c, d)),
