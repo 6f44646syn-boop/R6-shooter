@@ -4,18 +4,18 @@
 //
 // Map: flat-shaded low poly from the map file; static walls merged into one mesh, breakable
 // panels in one instanced mesh, one directional light (a 1024 shadow map in High / Ultra).
-import * as THREE from '../../vendor/three/three.module.min.js?v=5cafaa1-mwb62ceu';
-import { MatchMap } from './map.js?v=5cafaa1-mwb62ceu';
-import { initCore } from '../wasm/core.js?v=5cafaa1-mwb62ceu';
-import { Match, TICK } from './sim.js?v=5cafaa1-mwb62ceu';
-import { yawTo, wrap180, DEG } from './geom.js?v=5cafaa1-mwb62ceu';
-import { Fighter } from '../battle/fighter.js?v=5cafaa1-mwb62ceu';
-import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=5cafaa1-mwb62ceu';
-import { buildMapLook, panelTextures } from './look.js?v=5cafaa1-mwb62ceu';
-import { Arena } from '../battle/arena.js?v=5cafaa1-mwb62ceu';
-import { Human } from '../battle/human.js?v=5cafaa1-mwb62ceu';
-import { drawCrosshair } from '../ui/crosshair.js?v=5cafaa1-mwb62ceu';
-import { effectiveGraphics } from '../render/quality.js?v=5cafaa1-mwb62ceu';
+import * as THREE from '../../vendor/three/three.module.min.js?v=dfb4071-mwb6dpx4';
+import { MatchMap } from './map.js?v=dfb4071-mwb6dpx4';
+import { initCore } from '../wasm/core.js?v=dfb4071-mwb6dpx4';
+import { Match, TICK } from './sim.js?v=dfb4071-mwb6dpx4';
+import { yawTo, wrap180, DEG } from './geom.js?v=dfb4071-mwb6dpx4';
+import { Fighter } from '../battle/fighter.js?v=dfb4071-mwb6dpx4';
+import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=dfb4071-mwb6dpx4';
+import { buildMapLook, panelTextures } from './look.js?v=dfb4071-mwb6dpx4';
+import { Arena } from '../battle/arena.js?v=dfb4071-mwb6dpx4';
+import { Human } from '../battle/human.js?v=dfb4071-mwb6dpx4';
+import { drawCrosshair } from '../ui/crosshair.js?v=dfb4071-mwb6dpx4';
+import { effectiveGraphics } from '../render/quality.js?v=dfb4071-mwb6dpx4';
 
 const TEAM_COLOR = { A: 0x5b8cff, B: 0xff7048 };
 const MAX_TRACERS = 64;

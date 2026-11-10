@@ -4,7 +4,9 @@
 // pouches, pack, boots) sits snugly over those shapes.
 //
 // Coordinates: metres, the soldier's own frame: x right, y up from the feet, z forward.
-import * as THREE from '../../vendor/three/three.module.min.js?v=5cafaa1-mwb62ceu';
+import * as THREE from '../../vendor/three/three.module.min.js?v=dfb4071-mwb6dpx4';
+import { HDPack } from '../render/hd-pack.js?v=dfb4071-mwb6dpx4';
+import { sightShading } from '../scene/sight-model.js?v=dfb4071-mwb6dpx4';
 
 const L = -1, R = 1;
 const cap = (a, b, r, zone) => ({ t: 'capsule', a, b, r, zone });
@@ -86,11 +88,19 @@ const cache = new Map();
 // team: the team colour (hex). Returns { upper, legL, legR } geometries with colours (legs
 // with the hip at their origin).
 export function soldierGeometry(team) {
-  if (cache.has(team)) return cache.get(team);
+  // High / Ultra with the Enhanced Graphics pack: its detailed soldier (same pose and hit shapes)
+  const hd = (sightShading() === 'high' || sightShading() === 'ultra') && HDPack.loadedGun('soldier');
+  const key = team + (hd ? '|hd' : '');
+  if (cache.has(key)) return cache.get(key);
   const tc = new THREE.Color(team);
   const mix = (c, k, grey = 0x3a3d3a) => '#' + new THREE.Color(grey).lerp(tc, k).multiplyScalar(c).getHexString();
   const cloth = mix(0.85, 0.42), clothDark = mix(0.6, 0.35), patch = '#' + tc.clone().multiplyScalar(1.1).getHexString();
   const VEST = 0x2b302b, GEAR = 0x4a4636, BLACK = 0x161718, SKIN = 0xc89a78, HELMET = 0x343a34;
+  if (hd) {
+    const out = hdSoldier(hd, { cloth, clothDark, patch, vest: VEST, gear: GEAR, black: BLACK, skin: SKIN, helmet: HELMET });
+    cache.set(key, out);
+    return out;
+  }
   const parts = [];
   const add = (g, c) => parts.push(colored(g, c));
   // head, face, helmet (with a team band), goggles, ears/headset
@@ -128,8 +138,34 @@ export function soldierGeometry(team) {
     leg(boxAt(0.05, 0.12, 0.09, s * 0.19, 0.78, 0.0), GEAR);                  // thigh pouch
   }
   const out = { upper: merge(parts), legL: merge(legs[L]), legR: merge(legs[R]) };
-  cache.set(team, out);
+  cache.set(key, out);
   return out;
+}
+// The pack's soldier: colours per part (team colours where the cloth is), with its baked
+// ambient occlusion and cavity darkening multiplied in (the body material is plain
+// vertex-coloured Lambert). Legs move to their hip hinge like the simple soldier's.
+function hdSoldier(model, colors) {
+  const C = {};
+  for (const [k, v] of Object.entries(colors)) C[k] = new THREE.Color(v);
+  const parts = { upper: [], legL: [], legR: [] };
+  for (const p of model.lods[0]) {
+    const n = p.position.length / 3, col = new Float32Array(n * 3), c = C[p.role] || C.gear;
+    for (let i = 0; i < n; i++) {
+      const ao = p.detail[i * 4] / 255, edge = p.detail[i * 4 + 1] / 255, cav = p.detail[i * 4 + 2] / 255;
+      const k = (0.3 + 0.7 * Math.pow(ao, 1.3)) * (1 - 0.35 * cav) * (1 + 0.12 * edge);
+      col[i * 3] = c.r * k; col[i * 3 + 1] = c.g * k; col[i * 3 + 2] = c.b * k;
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(p.position.slice(), 3));
+    g.setAttribute('normal', new THREE.BufferAttribute(p.normal.slice(), 3));
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    g.setIndex(new THREE.BufferAttribute(p.index, 1));
+    const ng = g.toNonIndexed();
+    if (p.group === 'legL') ng.translate(HIP_X, -HIP_Y, 0);
+    if (p.group === 'legR') ng.translate(-HIP_X, -HIP_Y, 0);
+    (parts[p.group] || parts.upper).push(ng);
+  }
+  return { upper: merge(parts.upper), legL: merge(parts.legL), legR: merge(parts.legR), hd: true };
 }
 // Where the legs hinge (soldier frame).
 export const HIP_X = 0.1, HIP_Y = 0.9;

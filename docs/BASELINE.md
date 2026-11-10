@@ -471,7 +471,8 @@ Done before milestone 5 at the user's request. Details: [GRAPHICS.md](GRAPHICS.m
   available), resolution, draw calls, triangles, and a frame-time graph.
 
 ### Not done in this milestone
-- More detailed soldier models and higher-resolution map textures are not in the pack yet.
+- Higher-resolution map textures are not in the pack yet (Codex is doing skins and map
+  appearance). The detailed soldier was added after milestone 5 (pack version 2).
   The pack format and download can take them later (bump `PACK_VERSION`).
 - No real-GPU frame-rate figures: the test machine renders in software. Use the FPS counter
   on real hardware.

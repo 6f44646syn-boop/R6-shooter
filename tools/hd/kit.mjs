@@ -21,8 +21,10 @@ export function setDetail(lod) {
 //   rubber  butt pads, grip panels
 //   shell   polymer furniture (stocks, grips, handguards, magazine bodies): black, or the
 //           skin when one is equipped, so a skin wraps the whole gun
-export const ROLES = ['finish', 'polymer', 'steel', 'dark', 'rubber', 'shell'];
-export const GROUPS = ['gun', 'mag', 'bolt'];
+export const ROLES = ['finish', 'polymer', 'steel', 'dark', 'rubber', 'shell',
+  // soldier parts (coloured per team at runtime)
+  'cloth', 'clothDark', 'patch', 'vest', 'gear', 'black', 'skin', 'helmet'];
+export const GROUPS = ['gun', 'mag', 'bolt', 'upper', 'legL', 'legR'];
 
 export class Model {
   constructor(name) { this.name = name; this.parts = []; this.group = 'gun'; }
@@ -310,4 +312,18 @@ export function swivel(m, x, y, z, r = 0.007) {
   g.deleteAttribute('uv');
   g.rotateY(Math.PI / 2).translate(x, y, z);
   return m.add(g, 'steel');
+}
+
+// Capsule from a to b ([x, y, z]) with radius r (soldier limbs), round ends.
+export function capsule(m, role, a, b, r, { seg = Q.round, ra = r, rb = r } = {}) {
+  const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), d = B.clone().sub(A), L = d.length();
+  const prof = [];
+  const N = Math.max(3, Math.round(seg / 4));
+  for (let i = 0; i <= N; i++) { const t = -Math.PI / 2 + (i / N) * Math.PI / 2; prof.push([Math.cos(t) * ra, Math.sin(t) * ra]); }
+  for (let i = 0; i <= N; i++) { const t = (i / N) * Math.PI / 2; prof.push([Math.cos(t) * rb, L + Math.sin(t) * rb]); }
+  const g = new THREE.LatheGeometry(prof.map(([x, y]) => new THREE.Vector2(Math.max(0, x), y)), seg);
+  g.deleteAttribute('uv');
+  g.applyMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize())));
+  g.translate(A.x, A.y, A.z);
+  return m.add(g, role);
 }

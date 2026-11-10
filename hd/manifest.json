@@ -1,6 +1,6 @@
 {
  "name": "Recoil Range Enhanced Graphics",
- "version": 1,
+ "version": 2,
  "files": [
   {
    "path": "guns/ak.rrmz",
@@ -51,7 +51,12 @@
    "path": "guns/smg.rrmz",
    "size": 538211,
    "sha256": "d4e4900f9f7023e6b0bda3060186c8a800eb4bd2cf8ea1e15cf3738d7c27f134"
+  },
+  {
+   "path": "soldiers/soldier.rrmz",
+   "size": 254413,
+   "sha256": "9e4c165289300be0dd18ebed7ed5dde2ef934fdc65650a40c8ef16009497e6f1"
   }
  ],
- "total": 6025647
+ "total": 6280060
 }

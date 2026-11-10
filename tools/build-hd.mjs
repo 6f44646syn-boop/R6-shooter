@@ -14,10 +14,12 @@ import { setDetail } from './hd/kit.mjs';
 import { bake } from './hd/bake.mjs';
 import { writeRRM } from './hd/format.mjs';
 import { GUNS } from './hd/guns.mjs';
+import { soldier } from './hd/soldier.mjs';
 
-export const PACK_VERSION = 1;
+export const PACK_VERSION = 2;      // 2: the soldier
 const ROOT = new URL('../hd/', import.meta.url);
 mkdirSync(new URL('guns/', ROOT), { recursive: true });
+mkdirSync(new URL('soldiers/', ROOT), { recursive: true });
 
 const only = process.argv.includes('--manifest') ? ['--none--'] : process.argv.slice(2);
 const LODS = [
@@ -42,11 +44,22 @@ for (const name of Object.keys(GUNS)) {
   console.log(name.padEnd(14), 'tris', tris.join(' / ').padEnd(16), 'raw', (raw.length / 1024).toFixed(0) + ' KB', 'gz', (gz.length / 1024).toFixed(0) + ' KB', ((Date.now() - t0) / 1000).toFixed(1) + ' s');
 }
 
+// The soldier (Battle and the match modes): one level of detail, seen from metres away.
+if (!only.length || only.includes('soldier')) {
+  const t0 = Date.now();
+  setDetail(1);
+  const lod = bake(soldier(), { L: 0.07, R: 0.015, rays: 32, maxD: 0.15 });
+  const raw = writeRRM([lod], { name: 'soldier' });
+  const gz = gzipSync(raw, { level: 9 });
+  writeFileSync(new URL('soldiers/soldier.rrmz', ROOT), gz);
+  console.log('soldier'.padEnd(14), 'tris', String(lod.reduce((s, p) => s + p.idx.length / 3, 0)).padEnd(16), 'raw', (raw.length / 1024).toFixed(0) + ' KB', 'gz', (gz.length / 1024).toFixed(0) + ' KB', ((Date.now() - t0) / 1000).toFixed(1) + ' s');
+}
+
 // Manifest: every file with its size and SHA-256 (the game checks each download).
 const files = [];
-for (const f of readdirSync(new URL('guns/', ROOT)).sort()) {
-  const b = readFileSync(new URL('guns/' + f, ROOT));
-  files.push({ path: 'guns/' + f, size: b.length, sha256: createHash('sha256').update(b).digest('hex') });
+for (const dir of ['guns/', 'soldiers/']) for (const f of readdirSync(new URL(dir, ROOT)).sort()) {
+  const b = readFileSync(new URL(dir + f, ROOT));
+  files.push({ path: dir + f, size: b.length, sha256: createHash('sha256').update(b).digest('hex') });
 }
 const manifest = { name: 'Recoil Range Enhanced Graphics', version: PACK_VERSION, files, total: files.reduce((s, f) => s + f.size, 0) };
 writeFileSync(new URL('manifest.json', ROOT), JSON.stringify(manifest, null, 1) + '\n');
