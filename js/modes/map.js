@@ -32,7 +32,7 @@
 // panel is a grid of cells (3 across, 4 up, each about 0.5 x 0.55 m): bullets and knives
 // break single cells (a murder hole), blasts break the cells near them, a Wall Charge breaks
 // the whole panel. The part above 2.2 m stays. Defenders reinforce soft panels in prep.
-import { CoreWorld, BODY_R, STEP, DOOR_GAP, KIND, PATH } from '../wasm/world.js?v=m4-m8-audio-1';
+import { CoreWorld, BODY_R, STEP, DOOR_GAP, KIND, PATH } from '../wasm/world.js?v=bomb-audio-2';
 
 export const PANEL_W = 1.5, HOLE_H = 2.2, DOOR_HP = 100, CELL_HP = 120, CELL_ROWS = 4, CELL_COLS = 3;
 export { BODY_R, STEP, DOOR_GAP };
@@ -89,6 +89,7 @@ export class MatchMap {
     const zone = data.inside && data.inside.length ? data.inside : data.building ? [data.building] : null;
     this.hasZone = !!zone && data.nav !== false;
     if (this.hasZone) this.world.setZone(zone);
+    this.barricadeHp = DOOR_HP;
     this.version = 0;               // bumps when a panel breaks (renderer refresh)
   }
   // Free the core's copy (the game calls this when a match ends; otherwise it is freed when
@@ -184,7 +185,7 @@ export class MatchMap {
     for (const p of this.panels) {
       if (p.reinforcedBy) { p.kind = 'soft'; p.reinforcedBy = null; for (const c of p.cells) c.kind = 'soft'; }
       if (p.slot) { this._setPanel(p, false); p.hp = 0; }
-      else { this._setPanel(p, true); if (p.kind === 'door') p.hp = DOOR_HP; }
+      else { this._setPanel(p, true); if (p.kind === 'door') p.hp = this.barricadeHp; }
     }
     this.version++;
   }
@@ -210,7 +211,7 @@ export class MatchMap {
   barricade(pn) {
     if (!pn || pn.kind !== 'door' || pn.alive) return false;
     if (!this.world.free((pn.box.minX + pn.box.maxX) / 2, (pn.box.minZ + pn.box.maxZ) / 2, 0.05, pn.y0)) return false;
-    this._setPanel(pn, true); pn.hp = DOOR_HP;
+    this._setPanel(pn, true); pn.hp = this.barricadeHp;
     this.version++;
     return true;
   }

@@ -53,15 +53,15 @@ there is no split-screen feature.
 
 The raw runtime file is **1,436,728 bytes (1.37 MiB)**. Decoded samples occupy
 **2,853,912 bytes (2.72 MiB)**, excluding browser/node overhead and the transient
-input file. Decode took **45.7 ms wall time**, including intentional event-loop
+input file. Decode took **36.1 ms wall time**, including intentional event-loop
 yields, on the recorded Chromium environment.
 
 | Same occluded HRTF gunfire workload | Procedural | Cached pack |
 | --- | ---: | ---: |
-| Nodes per voice, excluding shared master/limiter | 8 | 4 |
+| Nodes per voice, excluding shared output/hearing nodes | 8 | 4 |
 | Sources per voice | 2 | 1 |
-| Median construction/recycling of 400 shots | 78.0 ms | 42.9 ms |
-| Median one-second offline render with 32 voices | 30.5 ms | 13.1 ms |
+| Median construction/recycling of 400 shots | 81.0 ms | 54.2 ms |
+| Median one-second offline render with 32 voices | 30.9 ms | 13.9 ms |
 
 Unoccluded voices omit the low-pass node in both paths. Measurements are from
 interleaved warmed-up runs; raw runs, environment and method are in

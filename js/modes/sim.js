@@ -1,3 +1,4 @@
+import { utilityFor, abilitiesFor } from '../balance/bomb-utility.js?v=bomb-audio-2';
 // Match simulation for Team Deathmatch, Capture the Flag and Bomb (no three.js, no DOM:
 // the same code runs in the browser and in tools/check-modes.mjs).
 //
@@ -7,13 +8,13 @@
 //
 // Body for hits (actor frame, standing; crouching squashes y to 0.7): head sphere at 1.62 m
 // (r 0.13), torso capsule 0.95-1.34 m (r 0.24), legs capsule 0.1-0.9 m (r 0.19).
-import { mulberry32 } from '../core/prng.js?v=m4-m8-audio-1';
-import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=m4-m8-audio-1';
-import { BODY_R } from './map.js?v=m4-m8-audio-1';
-import { Brain } from './bots.js?v=m4-m8-audio-1';
-import { makeRules } from './rules.js?v=m4-m8-audio-1';
-import { Nades } from './nades.js?v=m4-m8-audio-1';
-import { Abilities } from './abilities.js?v=m4-m8-audio-1';
+import { mulberry32 } from '../core/prng.js?v=bomb-audio-2';
+import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=bomb-audio-2';
+import { BODY_R } from './map.js?v=bomb-audio-2';
+import { Brain } from './bots.js?v=bomb-audio-2';
+import { makeRules } from './rules.js?v=bomb-audio-2';
+import { Nades } from './nades.js?v=bomb-audio-2';
+import { Abilities } from './abilities.js?v=bomb-audio-2';
 
 export const TICK = 1 / 60;
 export const EYE = 1.6, CROUCH_EYE = 1.1;
@@ -46,6 +47,8 @@ export class Match {
   constructor(o) {
     this.o = { teamSize: 5, difficulty: 'normal', minutes: 10, headshot: 'lethal', seed: 1, ...o };
     this.map = o.map;
+    this.utility = utilityFor(this.o.mode);
+    this.map.barricadeHp = this.utility.barricadeHp;
     this.acid = !!(o.map.data.hazards && o.map.data.hazards.length);
     this.rng = mulberry32(this.o.seed >>> 0);
     this.t = 0; this.tick = 0;
@@ -55,7 +58,7 @@ export class Match {
     this.bb = { A: { seen: new Map(), deaths: [] }, B: { seen: new Map(), deaths: [] } };
     this.gunsById = new Map(o.guns.map((g) => [g.id, g]));
     this.losBudget = 0;
-    this.ab = new Abilities(this, o.abilities || {});
+    this.ab = new Abilities(this, abilitiesFor(this.o.mode, o.abilities || {}));
     this.nades = new Nades(this);
     this.rules = makeRules(this);
     this._makeTeams();
@@ -379,7 +382,7 @@ export class Match {
     let s = a.gun.speed;
     if (this.t < a.slowUntil) s *= 1 - (this.ab.cfg.jolt_mines ? this.ab.cfg.jolt_mines.slow : 0.4);
     if (a.carry && a.carry.type === 'flag') s *= 0.9;
-    if (this.t - (a.wireAt ?? -9) < 0.1) s *= 0.4;                 // in barbed wire
+    if (this.t - (a.wireAt ?? -9) < 0.1) s *= this.utility.wireSpeed;  // in barbed wire
     if (this.t < a.stunUntil) s = 0;
     return s;
   }

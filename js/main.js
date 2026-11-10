@@ -1,47 +1,48 @@
-import { createAcoustics } from './audio/acoustics.js?v=m4-m8-audio-1';
-import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=m4-m8-audio-1';
-import { mountControls, mountFirstLaunch, tabs } from './ui/m7-menu.js?v=m4-m8-audio-1';
+import { initBombUtility, utilityFor } from './balance/bomb-utility.js?v=bomb-audio-2';
+import { createAcoustics } from './audio/acoustics.js?v=bomb-audio-2';
+import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=bomb-audio-2';
+import { mountControls, mountFirstLaunch, tabs } from './ui/m7-menu.js?v=bomb-audio-2';
 // Recoil Range entry point: wires input, camera, scene, HUD and the frame loop together.
-import * as THREE from '../vendor/three/three.module.min.js?v=m4-m8-audio-1';
-import { Look, PITCH_LIMIT } from './core/look.js?v=m4-m8-audio-1';
-import { Player } from './core/player.js?v=m4-m8-audio-1';
-import { PointerLock } from './core/pointer-lock.js?v=m4-m8-audio-1';
-import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=m4-m8-audio-1';
-import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=m4-m8-audio-1';
-import { Weapon } from './core/weapon.js?v=m4-m8-audio-1';
-import { RecoilEngine } from './core/recoil.js?v=m4-m8-audio-1';
-import { Spread } from './core/spread.js?v=m4-m8-audio-1';
-import { loadGameData } from './core/guns.js?v=m4-m8-audio-1';
-import { randomSeed } from './core/prng.js?v=m4-m8-audio-1';
-import { Range, EYE_HEIGHT } from './scene/range.js?v=m4-m8-audio-1';
-import { RING_STEP } from './scene/range-tex.js?v=m4-m8-audio-1';
-import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=m4-m8-audio-1';
-import { LensPost } from './render/lens-post.js?v=m4-m8-audio-1';
-import { reticleTextures } from './ui/reticle-tex.js?v=m4-m8-audio-1';
-import { DOT_POINTS } from './scene/dots.js?v=m4-m8-audio-1';
-import { Voices } from './audio/voice.js?v=m4-m8-audio-1';
-import { ModeGame } from './modes/game.js?v=m4-m8-audio-1';
-import { Sfx } from './audio/sfx.js?v=m4-m8-audio-1';
-import { DebugHud } from './ui/debug-hud.js?v=m4-m8-audio-1';
-import { drawCrosshair } from './ui/crosshair.js?v=m4-m8-audio-1';
-import { Hud } from './ui/hud.js?v=m4-m8-audio-1';
-import { MagPlot } from './ui/plot.js?v=m4-m8-audio-1';
-import { SettingsUI } from './ui/settings-ui.js?v=m4-m8-audio-1';
-import { sensKeys, zoomKey } from './core/optics.js?v=m4-m8-audio-1';
+import * as THREE from '../vendor/three/three.module.min.js?v=bomb-audio-2';
+import { Look, PITCH_LIMIT } from './core/look.js?v=bomb-audio-2';
+import { Player } from './core/player.js?v=bomb-audio-2';
+import { PointerLock } from './core/pointer-lock.js?v=bomb-audio-2';
+import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=bomb-audio-2';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=bomb-audio-2';
+import { Weapon } from './core/weapon.js?v=bomb-audio-2';
+import { RecoilEngine } from './core/recoil.js?v=bomb-audio-2';
+import { Spread } from './core/spread.js?v=bomb-audio-2';
+import { loadGameData } from './core/guns.js?v=bomb-audio-2';
+import { randomSeed } from './core/prng.js?v=bomb-audio-2';
+import { Range, EYE_HEIGHT } from './scene/range.js?v=bomb-audio-2';
+import { RING_STEP } from './scene/range-tex.js?v=bomb-audio-2';
+import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=bomb-audio-2';
+import { LensPost } from './render/lens-post.js?v=bomb-audio-2';
+import { reticleTextures } from './ui/reticle-tex.js?v=bomb-audio-2';
+import { DOT_POINTS } from './scene/dots.js?v=bomb-audio-2';
+import { Voices } from './audio/voice.js?v=bomb-audio-2';
+import { ModeGame } from './modes/game.js?v=bomb-audio-2';
+import { Sfx } from './audio/sfx.js?v=bomb-audio-2';
+import { DebugHud } from './ui/debug-hud.js?v=bomb-audio-2';
+import { drawCrosshair } from './ui/crosshair.js?v=bomb-audio-2';
+import { Hud } from './ui/hud.js?v=bomb-audio-2';
+import { MagPlot } from './ui/plot.js?v=bomb-audio-2';
+import { SettingsUI } from './ui/settings-ui.js?v=bomb-audio-2';
+import { sensKeys, zoomKey } from './core/optics.js?v=bomb-audio-2';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
 function sensRows(catalogue, sens) {
   const keys = new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)]);
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
-import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=m4-m8-audio-1';
-import { Battle } from './battle/battle.js?v=m4-m8-audio-1';
-import { initCore, coreLoaded } from './wasm/core.js?v=m4-m8-audio-1';
-import { createJoinRequest, acceptJoin } from './net/link.js?v=m4-m8-audio-1';
-import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode } from './net/relay.js?v=m4-m8-audio-1';
-import { Profile, WIN_POINTS } from './core/profile.js?v=m4-m8-audio-1';
-import { skinFits, skinById } from './core/skins.js?v=m4-m8-audio-1';
-import { PackUI } from './ui/packs.js?v=m4-m8-audio-1';
+import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=bomb-audio-2';
+import { Battle } from './battle/battle.js?v=bomb-audio-2';
+import { initCore, coreLoaded } from './wasm/core.js?v=bomb-audio-2';
+import { createJoinRequest, acceptJoin } from './net/link.js?v=bomb-audio-2';
+import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode } from './net/relay.js?v=bomb-audio-2';
+import { Profile, WIN_POINTS } from './core/profile.js?v=bomb-audio-2';
+import { skinFits, skinById } from './core/skins.js?v=bomb-audio-2';
+import { PackUI } from './ui/packs.js?v=bomb-audio-2';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -68,7 +69,7 @@ if (embedded) {
 }
 
 async function boot(data) {
-  const [controls, acoustics] = await Promise.all([createControls(), createAcoustics()]);
+  const [controls, acoustics] = await Promise.all([createControls(), createAcoustics(), initBombUtility()]);
   const settings = loadSettings();
   const canvas = $('view');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: settings.antialias, powerPreference: 'high-performance' });
@@ -1118,7 +1119,7 @@ async function boot(data) {
     $('md-prep').value = String(P.prepTime || 30); $('md-prep').closest('label').hidden = m !== 'bomb';
     $('md-note').textContent = m === 'tdm' ? 'First team to 40 kills, or the most kills when the time runs out. Respawn after 3 s. Tab: scoreboard.'
       : m === 'ctf' ? 'Take the enemy flag (walk over it) to your own stand while your flag is home. First to 3 captures; a tie after the time goes to the next capture. Tab: scoreboard.'
-        : 'First to 4 rounds; sides swap after round 3. One life a round: ' + (P.prepTime || 30) + ' s to prepare (defenders reinforce walls and barricade with Interact, and lay barbed wire with the grenade action; attackers drone), 150 s to plant (hold Interact for 5 s on the site). The bomb goes off after 40 s unless defused (hold Interact for 6 s).';
+        : 'First to 4 rounds; sides swap after round 3. One life a round: ' + (P.prepTime || 30) + ' s to prepare (defenders reinforce walls and barricade with Interact, and lay barbed wire with the grenade action; attackers drone), ' + utilityFor('bomb').actionSeconds + ' s to plant (hold Interact for 5 s on the site). The bomb goes off after 40 s unless defused (hold Interact for 6 s).';
   }
   function readModes() {
     const m = flow.mode, P = modePrefs;

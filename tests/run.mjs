@@ -1263,13 +1263,13 @@ try {
       // the soft wall between the bedroom and the hallway (z = 1, x -25..-22), from the bedroom side
       const soft = m.map.panels.find((q) => q.kind === 'soft' && q.box.minZ < 1.1 && q.box.maxZ > 0.9 && q.box.maxX <= -22.4);
       put(G, (soft.box.minX + soft.box.maxX) / 2, 2.1, 0); R.step(0.2, 60);
-      G.key('KeyE', true); R.step(1.0, 60); out.midHold = G.me.hold && G.me.hold.type; R.step(1.8, 60); G.key('KeyE', false); R.step(0.1, 60);
+      G.key('Interact', true); R.step(1.0, 60); out.midHold = G.me.hold && G.me.hold.type; R.step(1.8, 60); G.key('Interact', false); R.step(0.1, 60);
       out.reinforced = soft.kind === 'reinforced' && soft.cells.every((c) => c.alive && c.kind === 'reinforced'); out.reinfAfter = G.me.reinf;
       // the doorway from the bedroom to the hallway (x -17..-15.6): open, then barricaded
       const slot = m.map.panels.find((q) => q.kind === 'door' && q.slot && q.box.minZ < 1.1 && q.box.maxZ > 0.9 && q.box.minX > -17.1 && q.box.maxX < -15.5);
       out.slotOpen = !slot.alive && m.map.walkClear(-16.3, 2.2, -16.3, -0.2, 0.3);
       put(G, -16.3, 2.1, 0); R.step(0.2, 60);
-      G.key('KeyE', true); R.step(1.7, 60); G.key('KeyE', false); R.step(0.1, 60);
+      G.key('Interact', true); R.step(1.7, 60); G.key('Interact', false); R.step(0.1, 60);
       out.barricaded = slot.alive && !m.map.walkClear(-16.3, 2.2, -16.3, -0.2, 0.3);
       // barbed wire (Caps Lock), laid in the open bedroom, then an attacker walks through it
       put(G, -20, 3.5, 0); G.h.look.setAngles(0, -30); R.step(0.2, 60);
@@ -1313,8 +1313,8 @@ try {
       return out;
     });
     check('preparation time is a match option (45 s asked, ' + bp.prep + ' s given)', Math.abs(bp.prep - 45) < 0.5, String(bp.prep));
-    check('a defender holding E at a soft wall reinforces it in 2.5 s (2 a round)', bp.midHold === 'reinforce' && bp.reinforced && bp.reinfLeft === 2 && bp.reinfAfter === 1, JSON.stringify(bp));
-    check('interior doorways start open; holding E in one barricades it', bp.slotOpen && bp.barricaded, JSON.stringify(bp));
+    check('a defender holding Interact at a soft wall reinforces it in 2.5 s (2 a round)', bp.midHold === 'reinforce' && bp.reinforced && bp.reinfLeft === 2 && bp.reinfAfter === 1, JSON.stringify(bp));
+    check('interior doorways start open; holding Interact in one barricades it', bp.slotOpen && bp.barricaded, JSON.stringify(bp));
     check('Caps Lock lays barbed wire for a Bomb defender (2 a round; the HUD says so)', bp.wireLaid && bp.wireLeft === 1 && /barbed wire/.test(bp.wireText), JSON.stringify(bp));
     check('wire slows an attacker to under half speed and scratches (' + bp.freeSpeed + ' to ' + bp.wireSpeed + ' m/s, ' + bp.wireHurt + ' damage)', bp.wireSpeed < bp.freeSpeed * 0.5 && bp.wireHurt > 0 && bp.wireHurt < 5, JSON.stringify(bp));
     check('a knife clears the wire', bp.wireCut);

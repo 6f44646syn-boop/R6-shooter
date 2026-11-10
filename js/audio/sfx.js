@@ -1,6 +1,7 @@
-import { decodeAudioPack } from './audio-pack.js?v=m4-m8-audio-1';
+import { Hearing } from './hearing.js?v=bomb-audio-2';
+import { decodeAudioPack } from './audio-pack.js?v=bomb-audio-2';
 // WebAudio output only: sound propagation, surface profiles and step cadence are Rust-owned.
-import { cameraPose } from './acoustics.js?v=m4-m8-audio-1';
+import { cameraPose } from './acoustics.js?v=bomb-audio-2';
 const clamp = (v, lo, hi) =>
   Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo;
 export class Sfx {
@@ -32,7 +33,8 @@ export class Sfx {
     this.limiter.ratio.value = 6;
     this.limiter.attack.value = 0.002;
     this.limiter.release.value = 0.15;
-    this.master.connect(this.limiter).connect(ctx.destination);
+    this.hearing = new Hearing(ctx, this.master, this.limiter);
+    this.limiter.connect(ctx.destination);
     this.noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
     const d = this.noise.getChannelData(0);
     let seed = 12345;
@@ -122,6 +124,7 @@ export class Sfx {
     this.voices.delete(v);
   }
   stopAll() {
+    this.hearing?.reset();
     for (const v of [...this.voices]) this._dispose(v);
     this.acoustics?.e.ma_steps_clear();
   }

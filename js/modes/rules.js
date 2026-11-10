@@ -1,3 +1,4 @@
+import { utilityFor } from '../balance/bomb-utility.js?v=bomb-audio-2';
 // Mode rules: Team Deathmatch, Capture the Flag, Bomb. Each sets up the match, spawns,
 // scores, ends it, and gives bots their objective (botGoal).
 export function makeRules(m) {
@@ -230,7 +231,7 @@ export class CTF extends Rules {
 /* ---------- Bomb ---------- */
 // Attackers plant, defenders stop them. First to 4 round wins; sides swap after round 3. One
 // life a round (dead players spectate). Phases: prep 30 s (defenders set gadgets, attackers
-// wait at their spawn and scout with drones), action 150 s, then 5 s of round summary.
+// wait at their spawn and scout with drones), action duration from the Bomb utility policy, then 5 s of round summary.
 // An attacker carries the bomb: hold E for 5 s inside a site to plant; it goes off after
 // 40 s; defenders hold E for 6 s beside it to defuse. Holding stops you moving; damage cancels.
 // A round ends when one team is all dead (after a plant, the defenders must still defuse),
@@ -239,7 +240,7 @@ export class CTF extends Rules {
 // Prep (30 s by default; prepTime in the match options): defenders hold E at a soft wall to
 // reinforce it (two each a round) or in an open doorway or window to barricade it, lay
 // barbed wire (their throwable in Bomb) and place gadgets; attackers drone.
-export const BOMB = { prep: 30, action: 150, plant: 5, fuse: 40, defuse: 6, summary: 5, wins: 4, swapAfter: 3, pickup: 1.2, defuseR: 1.6, reinforce: 2.5, barricade: 1.5, reinforcements: 2, wires: 2 };
+export const BOMB = { prep: 30, get action() { return utilityFor('bomb').actionSeconds; }, plant: 5, fuse: 40, defuse: 6, summary: 5, wins: 4, swapAfter: 3, pickup: 1.2, defuseR: 1.6, reinforce: 2.5, barricade: 1.5, reinforcements: 2, wires: 2 };
 export class Bomb extends Rules {
   constructor(m) {
     super(m);
@@ -354,7 +355,7 @@ export class Bomb extends Rules {
   // reinforcements left), else an open doorway or window to barricade.
   workAt(a) {
     const y = a.yaw * Math.PI / 180, dx = Math.sin(y), dz = -Math.cos(y), map = this.m.map;
-    return (a.reinf > 0 && map.panelInFront(a.x, a.z, a.y, dx, dz, 'soft')) || map.panelInFront(a.x, a.z, a.y, dx, dz, 'slot') || null;
+    return (a.reinf > 0 && map.panelInFront(a.x, a.z, a.y, dx, dz, 'soft', this.m.utility.reinforceReach)) || map.panelInFront(a.x, a.z, a.y, dx, dz, 'slot') || null;
   }
   // Start or stop holding E: defuse, reinforce, barricade, plant. Returns true if a hold
   // started. target: the panel a bot means (people use what they face).
@@ -368,8 +369,8 @@ export class Bomb extends Rules {
     }
     if (def) {
       const pn = target || this.workAt(a);
-      if (pn && pn.kind === 'soft' && a.reinf > 0) { a.hold = { type: 'reinforce', panel: pn, t0: m.t, need: BOMB.reinforce, label: 'Reinforcing' }; return true; }
-      if (pn && pn.kind === 'door' && !pn.alive) { a.hold = { type: 'barricade', panel: pn, t0: m.t, need: BOMB.barricade, label: 'Barricading' }; return true; }
+      if (pn && pn.kind === 'soft' && a.reinf > 0) { a.hold = { type: 'reinforce', panel: pn, t0: m.t, need: m.utility.reinforceSeconds, label: 'Reinforcing' }; return true; }
+      if (pn && pn.kind === 'door' && !pn.alive) { a.hold = { type: 'barricade', panel: pn, t0: m.t, need: m.utility.barricadeSeconds, label: 'Barricading' }; return true; }
     }
     if (this.phase === 'prep') return false;
     if (!def && b.state === 'carried' && b.carrier === a && this.inSite(a.x, a.z)) {
@@ -382,7 +383,7 @@ export class Bomb extends Rules {
   key(me, code, down) { if (code !== 'KeyE') return false; this.setHold(me, down); return true; }
   update() {
     const m = this.m, t = m.t, b = this.bomb;
-    if (this.phase === 'prep' && t >= this.phaseEnd) { this.phase = 'action'; this.phaseEnd = t + BOMB.action; m.emit({ type: 'msg', text: 'Action phase' }); }
+    if (this.phase === 'prep' && t >= this.phaseEnd) { this.phase = 'action'; this.phaseEnd = t + m.utility.actionSeconds; m.emit({ type: 'msg', text: 'Action phase' }); }
     if (this.phase === 'post') { if (t >= this.phaseEnd) { if (!m.over) this.newRound(); } return; }
     // the bomb
     if (b.state === 'carried') {

@@ -1,21 +1,23 @@
+import { sensoryFor } from '../balance/bomb-utility.js?v=bomb-audio-2';
 // Team Deathmatch, Capture the Flag and Bomb in the browser: draws the match simulation
 // (sim.js) and runs your player with the range's own systems (look, sensitivity, recoil,
 // spread, sights, weapon model: battle/human.js), at a fixed 60 Hz simulation.
 //
 // Map: flat-shaded low poly from the map file; static walls merged into one mesh, breakable
 // panels in one instanced mesh, one directional light (a 1024 shadow map in High / Ultra).
-import * as THREE from '../../vendor/three/three.module.min.js?v=m4-m8-audio-1';
-import { MatchMap } from './map.js?v=m4-m8-audio-1';
-import { initCore } from '../wasm/core.js?v=m4-m8-audio-1';
-import { Match, TICK } from './sim.js?v=m4-m8-audio-1';
-import { yawTo, wrap180, DEG } from './geom.js?v=m4-m8-audio-1';
-import { Fighter } from '../battle/fighter.js?v=m4-m8-audio-1';
-import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=m4-m8-audio-1';
-import { buildMapLook, panelTextures } from './look.js?v=m4-m8-audio-1';
-import { Arena } from '../battle/arena.js?v=m4-m8-audio-1';
-import { Human } from '../battle/human.js?v=m4-m8-audio-1';
-import { drawCrosshair } from '../ui/crosshair.js?v=m4-m8-audio-1';
+import * as THREE from '../../vendor/three/three.module.min.js?v=bomb-audio-2';
+import { MatchMap } from './map.js?v=bomb-audio-2';
+import { initCore } from '../wasm/core.js?v=bomb-audio-2';
+import { Match, TICK } from './sim.js?v=bomb-audio-2';
+import { yawTo, wrap180, DEG } from './geom.js?v=bomb-audio-2';
+import { Fighter } from '../battle/fighter.js?v=bomb-audio-2';
+import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=bomb-audio-2';
+import { buildMapLook, panelTextures } from './look.js?v=bomb-audio-2';
+import { Arena } from '../battle/arena.js?v=bomb-audio-2';
+import { Human } from '../battle/human.js?v=bomb-audio-2';
+import { drawCrosshair } from '../ui/crosshair.js?v=bomb-audio-2';
 
+const reducedMotion = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 const TEAM_COLOR = { A: 0x5b8cff, B: 0xff7048 };
 const MAX_TRACERS = 64;
 const json = new Map();
@@ -99,7 +101,7 @@ export class ModeGame {
     if (this.h) this.h.releaseAll();
     if (this.deps.renderer) this.deps.renderer.shadowMap.autoUpdate = true;
   }
-  pause() { if (!this.active) return; this.paused = true; if (this.h) this.h.releaseAll(); }
+  pause() { if (!this.active) return; this.deps.sfx.hearing?.reset(); if (this.hud) this.hud.disruption.style.opacity = '0'; this.paused = true; if (this.h) this.h.releaseAll(); }
   resume(t) { this.paused = false; this.prevT = t; }
   refreshGraphics() { this._applyGraphics(); if (this.h) { this.h.rig.rebuild(); this.h.rig.setGun(this.h.gun, this.deps.slotOf(this.h.gun), this.h.optic); this.h._buildReticle(); } }
   changeGun() {}
@@ -664,8 +666,8 @@ export class ModeGame {
     if (!over) this.specName = null;
     // effects on whatever camera is showing
     const c = over || h.camera;
-    if (me.alive && m.t < me.wobbleUntil) { c.rotation.z += Math.sin(t * 7) * 0.035; }
-    if (me.alive && m.t < me.shakeUntil) { c.rotation.x += (Math.random() - 0.5) * 0.01; c.rotation.y += (Math.random() - 0.5) * 0.01; }
+    if (!reducedMotion() && me.alive && m.t < me.wobbleUntil) { c.rotation.z += Math.sin(t * 7) * 0.035; }
+    if (!reducedMotion() && me.alive && m.t < me.shakeUntil) { c.rotation.x += (Math.random() - 0.5) * 0.01; c.rotation.y += (Math.random() - 0.5) * 0.01; }
     const view = this.hud.view;
     if (view) {
       view.classList.toggle('mg-dread', me.alive && m.t < me.shakeUntil);
@@ -794,9 +796,10 @@ export class ModeGame {
     const holdBar = el('i'); hold.append(el('span', '', ''), holdBar);
     const kcBox = el('div', 'mg-kc'); kcBox.hidden = true;
     const nades = el('div', 'mg-nades', ''), nadeWarn = el('div', 'mg-nadewarn'); nadeWarn.hidden = true;
+    const disruption = el('div', 'mg-disruption');
     const vig = el('div', 'dmg-vig'), lowhp = el('div', 'low-hp'), jam = el('div', 'mg-jam'), banner = el('div', 'mg-banner'); banner.hidden = true;
     lowhp.append(el('span', '', 'LOW HEALTH'));
-    view.append(kcBox, nades, nadeWarn, jam, vig, lowhp, hurt, dmg, cross, hit, pts, dead, prot, name, hp, hpText, ammo, ability, hold, flash, banner);
+    view.append(disruption, kcBox, nades, nadeWarn, jam, vig, lowhp, hurt, dmg, cross, hit, pts, dead, prot, name, hp, hpText, ammo, ability, hold, flash, banner);
     const board = el('div', 'mg-board'); board.hidden = true;
     const end = el('div', 'b-end'); end.hidden = true;
     const box = el('div', 'b-end-box'), endTitle = el('h1', '', ''), endTable = el('div', 'b-table'), endNote = el('p', 'small', '');
@@ -806,7 +809,7 @@ export class ModeGame {
     box.append(endTitle, endTable, row, endNote); end.append(box);
     root.append(view, top, compass, status, feed, board, end);
     this.deps.hudRoot.insertBefore(root, this.deps.hudRoot.querySelector('#menu'));
-    this.hud = { nades, nadeWarn, kcBox, vig, lowhp, jam, banner, prot, root, score, compass, status, feed, view, cross, hit, hurt, dead, name, hpFill, hpText, ammo, pts, ability, dmg, flash, hold, holdBar, board, end, endTitle, endTable, endNote, again, leave, last: {} };
+    this.hud = { disruption, nades, nadeWarn, kcBox, vig, lowhp, jam, banner, prot, root, score, compass, status, feed, view, cross, hit, hurt, dead, name, hpFill, hpText, ammo, pts, ability, dmg, flash, hold, holdBar, board, end, endTitle, endTable, endNote, again, leave, last: {} };
     drawCrosshair(cross, this.deps.settings.crosshair);
   }
   _marker(kind, t) { this.hud.hit.className = 'b-hit on ' + kind; this.hitUntil = t + (kind === 'kill' ? 0.35 : 0.15); }
@@ -861,6 +864,12 @@ export class ModeGame {
     else if (jammed && t - (this._jamSnd || 0) > 0.9) { this.deps.sfx.jam(0.25); this._jamSnd = t; }
     this.wasJammed = jammed;
     const stunned = me.alive && m.t < me.stunUntil;
+    const hearingActive = me.alive && !this.paused && !this.over && !this.kc;
+    const flags = hearingActive ? ((!d && m.t < me.wobbleUntil ? 1 : 0) | (!d && m.t < me.shakeUntil ? 2 : 0) | (jammed ? 4 : 0) | (!d && stunned ? 8 : 0)) : 0;
+    const perception = sensoryFor(m.o.mode, flags);
+    this.deps.sfx.hearing?.set(perception.gain, perception.cutoff);
+    H.disruption.style.opacity = String(perception.veil);
+
     // a Bomb defender at a way out of the building
     if ((this._fr || 0) % 6 === 0) this._edge = m.rules.edgeAhead ? m.rules.edgeAhead(me) : Infinity;
     if (me.kept) { me.kept = false; this._keptAt = t; }

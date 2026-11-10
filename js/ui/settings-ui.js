@@ -1,9 +1,9 @@
-import { tabs } from './m7-menu.js?v=m4-m8-audio-1';
+import { tabs } from './m7-menu.js?v=bomb-audio-2';
 // Settings panel inside the Esc menu. Every change is sanitised, saved to localStorage and
 // handed to main.js through onChange(key) so it takes effect immediately.
-import { sanitize, saveSettings, clearSavedSettings, DEFAULTS, DISTANCES, CROSSHAIR_STYLES, RETICLE_COLOR_NAMES } from '../core/settings.js?v=m4-m8-audio-1';
-import { degPerCount, countsPer360, inchesPer360, horizontalFovDeg } from '../core/sensitivity.js?v=m4-m8-audio-1';
-import { drawCrosshair } from './crosshair.js?v=m4-m8-audio-1';
+import { sanitize, saveSettings, clearSavedSettings, DEFAULTS, DISTANCES, CROSSHAIR_STYLES, RETICLE_COLOR_NAMES } from '../core/settings.js?v=bomb-audio-2';
+import { degPerCount, countsPer360, inchesPer360, horizontalFovDeg } from '../core/sensitivity.js?v=bomb-audio-2';
+import { drawCrosshair } from './crosshair.js?v=bomb-audio-2';
 
 function el(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);

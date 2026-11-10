@@ -108,9 +108,10 @@ export async function decodeAudioPack(input, context) {
     if (++count % 8 === 0)
       await new Promise((resolve) => setTimeout(resolve, 0));
   }
-  const next = new Map();
+  const next = new Map(),
+    manifest = p.manifest;
   return {
-    manifest: p.manifest,
+    manifest,
     byteLength: p.bytes.length,
     clipCount: p.manifest.clips.length,
     pick(key) {
@@ -121,7 +122,7 @@ export async function decodeAudioPack(input, context) {
       return bank[index];
     },
     supportsStep(profile) {
-      const expected = p.manifest.profiles?.[profile.material];
+      const expected = manifest.profiles?.[profile.material];
       return (
         !!expected &&
         ['hz', 'q', 'duration', 'ring'].every(

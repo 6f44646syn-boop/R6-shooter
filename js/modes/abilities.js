@@ -21,7 +21,7 @@
 //   Onyx   Charge Dash    hold Q 0.6 s, then dash 6 m: through soft walls, the first enemy hit
 //                         is stunned and knocked back for 1.5 s. 2 charges, 12 s each.
 // Gadgets die to one bullet. Bots use abilities too (see botThink).
-import { raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=m4-m8-audio-1';
+import { raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=bomb-audio-2';
 
 export const DRONE_R = 0.15;           // a drone's collision radius
 export class Abilities {
@@ -72,7 +72,7 @@ export class Abilities {
     a.wire--;
     if (m.t < a.protectUntil) a.protectUntil = m.t;
     m.noise(a, 8, 'wire');
-    return this.add({ type: 'wire', team: a.team, owner: a.id, x, y: y + 0.25, z, floor: y, yaw: a.yaw, r: 0.5, hp: 3 });
+    return this.add({ type: 'wire', team: a.team, owner: a.id, x, y: y + 0.25, z, floor: y, yaw: a.yaw, r: 0.5, hp: m.utility.wireHp });
   }
   // Is (x, z) at floor height y inside wire g? (2.5 m along, 1.2 m across with a body's reach)
   inWire(g, x, z, y) {

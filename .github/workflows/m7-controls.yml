@@ -1,9 +1,13 @@
-name: Controls and spatial audio
+name: Controls, audio and Bomb utility
 on:
   pull_request:
     paths:
       - 'rust/m7_controls/**'
       - 'rust/m8_audio/**'
+      - 'rust/bomb_utility/**'
+      - 'wasm/bomb_utility.*'
+      - 'js/balance/**'
+      - 'js/modes/**'
       - 'wasm/m8_audio.*'
       - 'js/audio/**'
       - 'packs/audio/**'
@@ -43,3 +47,6 @@ jobs:
         run: NODE_PATH="$RUNNER_TEMP/recoil-range-test-tools/node_modules" npm run test:audio
       - name: Check optional audio pack with external test tooling
         run: NODE_PATH="$RUNNER_TEMP/recoil-range-test-tools/node_modules" npm run test:audio-pack
+      - run: cargo test --manifest-path rust/bomb_utility/Cargo.toml
+      - name: Check Bomb utility with external test tooling
+        run: NODE_PATH="$RUNNER_TEMP/recoil-range-test-tools/node_modules" npm run test:bomb-utility
