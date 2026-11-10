@@ -7,7 +7,9 @@ Pick a gun, hold the trigger, pull against the recoil, and read the spray on the
   core is being moved to Rust (`rust/core` → `wasm/recoil_core.wasm`, built with
   `tools/build-wasm.sh` and committed, so the site itself still needs no build step). See
   [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/MIGRATION.md](docs/MIGRATION.md),
-  [docs/BASELINE.md](docs/BASELINE.md) and [docs/ENGINE_API.md](docs/ENGINE_API.md).
+  [docs/BASELINE.md](docs/BASELINE.md), [docs/ENGINE_API.md](docs/ENGINE_API.md) and
+  [docs/GRAPHICS.md](docs/GRAPHICS.md) (quality levels, the optional Enhanced Graphics pack,
+  post-processing, the FPS counter).
 - No third-party requests at runtime: Three.js (r160) is vendored in `vendor/three/`, no web
   fonts, no analytics. Sounds are synthesised with WebAudio.
 - Gun recoil is data in `data/guns.json`. Slots 2-10 use sprays measured in game while aiming

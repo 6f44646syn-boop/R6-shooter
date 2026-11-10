@@ -1,14 +1,15 @@
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=bomb-audio-2';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=bomb-audio-2';
-import { matcap } from './matcap.js?v=bomb-audio-2';
-import { mulberry32 } from '../core/prng.js?v=bomb-audio-2';
-import { gunMaps } from './range-tex.js?v=bomb-audio-2';
-import { skinById, FACTORY } from '../core/skins.js?v=bomb-audio-2';
-import { legendCanvas, onLegendChange } from '../core/legend.js?v=bomb-audio-2';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=bomb-audio-2';
+import * as THREE from '../../vendor/three/three.module.min.js?v=m6-integration';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=m6-integration';
+import { matcap } from './matcap.js?v=m6-integration';
+import { mulberry32 } from '../core/prng.js?v=m6-integration';
+import { gunMaps } from './range-tex.js?v=m6-integration';
+import { skinById, FACTORY } from '../core/skins.js?v=m6-integration';
+import { legendCanvas, onLegendChange } from '../core/legend.js?v=m6-integration';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=m6-integration';
+import { HDPack } from '../render/hd-pack.js?v=m6-integration';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -85,25 +86,28 @@ function ultraDetail(kind) {
 // small on screen and there can be a dozen of them.
 function shading() { const s = sightShading(); return WORLD && (s === 'high' || s === 'ultra') ? 'detailed' : s; }
 function skinMaterial(def) {
-  const sh = shading(), sk = bakedSkin(def);
+  const sh = shading(), sk = bakedSkin(def), hd = HD;
   let m;
   if (sh === 'fast') {
     m = new THREE.MeshMatcapMaterial({ color: 0xffffff, matcap: matcap('metal') });
     triplanar(m, { skin: sk, scale: sk.scale || 2.8, gain: 1.7 });
   } else if (sh === 'detailed') {
-    m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 1, envMap: ENV, envMapIntensity: 0.9 });
-    triplanar(m, { skin: sk, scale: sk.scale || 2.8 });
+    m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 1, envMap: hd ? highEnv() || ENV : ENV, envMapIntensity: 0.9 });
+    triplanar(m, { skin: sk, scale: sk.scale || 2.8, hd });
   } else {
     // Shine by rarity: every skin gets some lacquer; Epic and Black Ice also a colour-shifting
     // (iridescent) sheen.
     const r = def.rarity;
     const coat = Math.max(sk.clearcoat || 0, { common: 0.25, rare: 0.55, epic: 0.9, blackice: 1, legendary: 1 }[r] || 0);
     m = new THREE.MeshPhysicalMaterial({
-      color: 0xffffff, roughness: 1, metalness: 1, normalMap: gunMaps('metal').normal, normalScale: new THREE.Vector2(0.6, 0.6),
+      color: 0xffffff, roughness: 1, metalness: 1, normalMap: hd ? null : gunMaps('metal').normal, normalScale: new THREE.Vector2(0.6, 0.6),
       clearcoat: coat, clearcoatRoughness: r === 'epic' || r === 'blackice' ? 0.05 : 0.15, envMap: highEnv(), envMapIntensity: r === 'common' ? 1.1 : 1.4,
       iridescence: r === 'blackice' ? 0.8 : r === 'legendary' ? 0.5 : r === 'epic' ? 0.45 : 0, iridescenceIOR: 1.6, iridescenceThicknessRange: [200, 600],
     });
-    triplanar(m, sh === 'ultra' ? { skin: sk, scale: sk.scale || 2.8, detail: ultraDetail('paint'), detailScale: 9, detailStrength: 0.5 } : { skin: sk, scale: sk.scale || 2.8 });
+    // Pack models: relief depth (parallax) on graphics cards with WebGL 2.
+    const depth = hd && RENDERER && RENDERER.capabilities.isWebGL2 ? (def.rarity === 'blackice' ? 0.0022 : def.rarity === 'common' ? 0.0008 : 0.0014) : 0;
+    triplanar(m, sh === 'ultra' ? { skin: sk, scale: sk.scale || 2.8, detail: ultraDetail('paint'), detailScale: 9, detailStrength: hd ? 0.35 : 0.5, hd, depth }
+      : { skin: sk, scale: sk.scale || 2.8, hd, depth, detail: hd ? ultraDetail('paint') : null, detailScale: 9, detailStrength: 0.3 });
   }
   m.userData.skinKey = def.id + '@' + skinSize();
   return m;
@@ -112,9 +116,10 @@ function skinMaterial(def) {
 function mat(color, kind = 'auto') {
   const sh = shading();
   const skin = kind === 'auto' && color !== BLACK && color !== STEEL ? currentSkin() : null;
-  const key = sh + color + kind + (skin ? '|skin' + skin.id + '@' + skinSize() : '');
+  const key = sh + color + kind + (skin ? '|skin' + skin.id + '@' + skinSize() : '') + (HD ? '|hd' : '');
   if (!mats.has(key)) {
     if (skin) { mats.set(key, skinMaterial(skin)); return mats.get(key); }
+    if (HD) { mats.set(key, hdMaterial(color, kind, sh)); return mats.get(key); }
     if (sh === 'ultra') {
       // Polymer, steel and fabric: the high materials plus micro-detail.
       const m = kind === 'cloth' ? highMaterial(color, 'polymer', { roughness: 0.95, envMapIntensity: 0.35, envMap: highEnv() })
@@ -141,7 +146,52 @@ function mat(color, kind = 'auto') {
   }
   return mats.get(key);
 }
-const BLACK = 0x1c1e21, STEEL = 0x55595f;
+const BLACK = 0x1c1e21, STEEL = 0x55595f, RUBBER = 0x141516;
+
+/* ---------- Enhanced Graphics pack models ---------- */
+let HD = false;                 // building from a pack model (materials without UV maps)
+// Materials for pack models: lit by the sky's reflections, micro-detail mapped by position,
+// the baked ambient occlusion, and worn edges.
+function hdMaterial(color, kind, sh) {
+  const ultra = sh === 'ultra', world = sh === 'detailed';
+  const P = {
+    finish: { color, roughness: 0.42, metalness: 0.7, detail: 'paint', edge: 1, edgeCol: [0.34, 0.35, 0.37], edgeMetal: 1, coat: 0.25 },
+    polymer: { color: 0x202225, roughness: 0.6, metalness: 0.05, detail: 'paint', edge: 0.8, edgeCol: [0.075, 0.078, 0.085], edgeMetal: 0.05, coat: 0 },
+    metal: { color: kind === 'metal' && color !== STEEL ? color : 0x4a4e54, roughness: 0.34, metalness: 1, detail: 'brushed', edge: 1, edgeCol: [0.55, 0.56, 0.58], edgeMetal: 1, coat: 0 },
+    rubber: { color: RUBBER, roughness: 0.93, metalness: 0, detail: 'paint', edge: 0, coat: 0 },
+    dark: { color: 0x060607, roughness: 0.75, metalness: 0.4, detail: null, edge: 0, coat: 0 },
+  }[kind === 'metal' ? 'metal' : kind === 'rubber' ? 'rubber' : kind === 'dark' ? 'dark' : color === BLACK ? 'polymer' : 'finish'];
+  const o = { color: P.color, roughness: P.roughness, metalness: P.metalness, envMap: highEnv() || ENV, envMapIntensity: world ? 0.9 : 1.15 };
+  const m = ultra && P.coat ? new THREE.MeshPhysicalMaterial({ ...o, clearcoat: P.coat, clearcoatRoughness: 0.35 }) : new THREE.MeshStandardMaterial(o);
+  triplanar(m, { hd: true, detail: P.detail && !world ? ultraDetail(P.detail) : null, detailScale: P.detail === 'brushed' ? 14 : 10, detailStrength: ultra ? 0.5 : 0.35,
+    hdEdge: P.edge, hdEdgeCol: P.edgeCol || [0, 0, 0], hdEdgeMetal: P.edgeMetal ?? 1 });
+  return m;
+}
+const HD_KIND = { finish: (c) => [c, 'auto'], polymer: () => [BLACK, 'auto'], steel: () => [STEEL, 'metal'], rubber: () => [RUBBER, 'rubber'], dark: () => [0x060607, 'dark'],
+  shell: (c) => (currentSkin() ? [c, 'auto'] : [BLACK, 'auto']) };     // furniture: the skin when one is on, else black polymer
+// The pack's model for a gun type (when High or Ultra graphics and the pack is installed).
+function hdModel(type) {
+  const sh = sightShading();
+  return sh === 'high' || sh === 'ultra' ? HDPack.loadedGun(type) : null;
+}
+// Fill the gun, magazine and bolt groups from a pack model's level of detail.
+function buildHD(g, mg, bg, model, lod, finish) {
+  HD = true;
+  try {
+    for (const p of model.lods[Math.min(lod, model.lods.length - 1)]) {
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(p.position, 3));
+      geo.setAttribute('normal', new THREE.BufferAttribute(p.normal, 3));
+      geo.setAttribute('aDetail', new THREE.BufferAttribute(p.detail, 4, true));
+      geo.setIndex(new THREE.BufferAttribute(p.index, 1));
+      geo.computeBoundingSphere();
+      const [c, kind] = HD_KIND[p.role](finish);
+      const mesh = new THREE.Mesh(geo, mat(c, kind));
+      mesh.userData.hd = true;
+      (p.group === 'mag' ? mg : p.group === 'bolt' && bg ? bg : g).add(mesh);
+    }
+  } finally { HD = false; }
+}
 
 function box(g, color, w, h, d, x, y, z, rx = 0) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(color));
@@ -302,6 +352,7 @@ function iceMaterial(def) {
   iceMats.set(key, m);
   return m;
 }
+const IDENT = { matrix: new THREE.Matrix4() };
 function iceCrystals(g, mg, def, type) {
   const rng = mulberry32(def.id * 977 + type.length * 31);
   const rails = RAILS[type] || [];
@@ -330,6 +381,22 @@ function iceCrystals(g, mg, def, type) {
       geo.dispose();
     };
     for (const part of group.children) {
+      if (part.isMesh && part.userData.hd) {
+        // Pack model: grow from points on the skinned body's top and bottom faces.
+        if (!part.material.userData.skinKey) continue;
+        const P = part.geometry.attributes.position.array, N = part.geometry.attributes.normal.array, n = P.length / 3;
+        const want = Math.round(n / 160);
+        for (let i = 0; i < want; i++) {
+          const k = Math.floor(rng() * n), ny = N[k * 3 + 1];
+          if (Math.abs(ny) < 0.8) continue;
+          const top = ny > 0, zg = P[k * 3 + 2];
+          const nearSight = top && zg < railFrom && zg > railTo;
+          const kk = nearSight ? 0.25 : top ? 1 : 0.8;
+          const cluster = 1 + Math.floor(rng() * 3);
+          for (let c = 0; c < cluster; c++) spike(IDENT, P[k * 3] + (rng() - 0.5) * 0.006, P[k * 3 + 1], zg + (rng() - 0.5) * 0.012, top ? 0 : 1, (0.012 + rng() * 0.04) * kk, 0.003 + rng() * 0.004);
+        }
+        continue;
+      }
       if (!part.isMesh || !part.geometry.parameters || part.geometry.type !== 'BoxGeometry') continue;
       const { width: w, height: h, depth: d } = part.geometry.parameters;
       if (d < 0.04 || h < 0.02) continue;                              // skip small bits (rail teeth, pins)
@@ -603,12 +670,15 @@ const easeInOut = (x) => x * x * (3 - 2 * x);
 const worldGuns = new Map();
 export function buildWorldGun(gun, slot, skinId) {
   const type = MODEL_FOR[gun.id] || (MODEL_TYPES.includes(gun.model) ? gun.model : 'rifle');
-  const key = sightShading() + '|' + gun.id + '|' + slot + '|' + (skinId ?? '-');
+  const hdm = hdModel(type);
+  const key = sightShading() + '|' + gun.id + '|' + slot + '|' + (skinId ?? '-') + (hdm ? '|hd' : '');
   if (!worldGuns.has(key)) {
     const g = new THREE.Group(), mg = new THREE.Group();
     SKIN_SLOT = slot; SKIN_FORCE = skinId ?? null; WORLD = true;
-    try { BUILDERS[type](g, FINISHES[slot % FINISHES.length], mg); }
-    finally { SKIN_FORCE = undefined; WORLD = false; }
+    try {
+      if (hdm) buildHD(g, mg, null, hdm, 1, FINISHES[slot % FINISHES.length]);     // the pack's lighter model
+      else BUILDERS[type](g, FINISHES[slot % FINISHES.length], mg);
+    } finally { SKIN_FORCE = undefined; WORLD = false; }
     g.add(mg);
     mergeStatic(g);
     const box = new THREE.Box3().setFromObject(g);
@@ -814,7 +884,8 @@ export class WeaponRig {
     const type = MODEL_FOR[gun.id] || (MODEL_TYPES.includes(gun.model) ? gun.model : 'rifle');
     // forceSkin (replays: someone else's gun): undefined = your skin for the slot, else that id / null.
     const sk = this.forceSkin !== undefined ? (this.forceSkin === null ? null : skinById(this.forceSkin)) : skinFor(slot);
-    const key = gun.id + '|' + optic.id + '|' + (sk ? sk.id : '-') + (this.noHands ? '|nh' : '');   // a skin change builds a new model
+    const hdm = hdModel(type);
+    const key = gun.id + '|' + optic.id + '|' + (sk ? sk.id : '-') + (this.noHands ? '|nh' : '') + (hdm ? '|hd' : '');   // a skin change builds a new model
     let m = this.models.get(key);
     if (!m) {
       m = new THREE.Group();
@@ -826,10 +897,13 @@ export class WeaponRig {
       SKIN_SLOT = slot;
       if (this.forceSkin !== undefined) SKIN_FORCE = this.forceSkin;
       const finish = FINISHES[slot % FINISHES.length];
-      BUILDERS[type](gunG, finish, magG);
+      if (hdm) buildHD(gunG, magG, null, hdm, 0, finish);      // the pack's detailed model (rails, ports, pins built in)
+      else BUILDERS[type](gunG, finish, magG);
       if (sk && sk.rarity === 'blackice' && sk.ice) iceCrystals(gunG, magG, sk, type);
-      for (const [y, from, to] of RAILS[type]) topRail(gunG, y, from, to);
-      if (sightShading() === 'ultra') ultraDetails(gunG, type, finish, magG);
+      if (!hdm) {
+        for (const [y, from, to] of RAILS[type]) topRail(gunG, y, from, to);
+        if (sightShading() === 'ultra') ultraDetails(gunG, type, finish, magG);
+      }
       if (!this.noHands) hands(gunG, type);
       SKIN_FORCE = undefined;
       mergeStatic(gunG);
@@ -838,7 +912,7 @@ export class WeaponRig {
       const bolt = boltGroup(type);
       gunG.add(bolt);
       const flash = flashGroup();
-      const [my, mz] = SPEC[type].muzzle;
+      const [my, mz] = (hdm && hdm.header.anchors && hdm.header.anchors.muzzle) || SPEC[type].muzzle;
       // Flashlight on the side of the barrel (shown at night).
       const torch = new THREE.Group();
       const tb = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.016, 0.085, 12), mat(BLACK));
@@ -850,7 +924,7 @@ export class WeaponRig {
       gunG.add(torch);
       flash.position.set(0, my, mz - 0.035);
       gunG.add(flash);
-      m.userData = { torch, mag: magG, bolt, boltZ: bolt.position.z, flash, port: new THREE.Vector3(SPEC[type].hw + 0.01, 0.014, SPEC[type].port), gun: gunG };
+      m.userData = { torch, mag: magG, bolt, boltZ: bolt.position.z, flash, port: new THREE.Vector3(SPEC[type].hw + 0.01, 0.014, SPEC[type].port), gun: gunG, hd: !!hdm };
       const skinMats = new Set();
       gunG.traverse((o) => { if (o.isMesh && o.material.userData.tri && o.material.userData.skinKey) skinMats.add(o.material); });
       m.userData.skinMats = [...skinMats];

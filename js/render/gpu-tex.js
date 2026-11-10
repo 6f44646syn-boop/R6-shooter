@@ -8,7 +8,7 @@
 //   bakeSkin(renderer, index, size): one of SKINS, { albedo, rm } (rm: G roughness, B metalness).
 //   triplanar(material, opts): shader patch that maps a skin and/or detail by the surface's
 //        own 3D position (no UV stretching on long thin parts), with edge wear from UVs.
-import * as THREE from '../../vendor/three/three.module.min.js?v=bomb-audio-2';
+import * as THREE from '../../vendor/three/three.module.min.js?v=m6-integration';
 
 const VERT = /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
@@ -415,7 +415,7 @@ export function bakeNormalFromTexture(renderer, heightTex, size, strength = 2) {
     void main() {
       float dx = (s(1.,-1.) + 2.*s(1.,0.) + s(1.,1.)) - (s(-1.,-1.) + 2.*s(-1.,0.) + s(-1.,1.));
       float dy = (s(-1.,1.) + 2.*s(0.,1.) + s(1.,1.)) - (s(-1.,-1.) + 2.*s(0.,-1.) + s(1.,-1.));
-      gl_FragColor = vec4(normalize(vec3(-dx * strength, -dy * strength, 1.0)) * 0.5 + 0.5, 1.0);
+      gl_FragColor = vec4(normalize(vec3(-dx * strength, -dy * strength, 1.0)) * 0.5 + 0.5, s(0., 0.));   // height kept in A
     }`;
   return bake(renderer, frag, size, { h: { value: heightTex }, px: { value: 1 / size }, strength: { value: strength } });
 }
@@ -444,7 +444,11 @@ export function skinThumb(renderer, def, size = 96) {
 //         object-space position (scale: tiles per metre); edges of each part's UV square
 //         wear through to bare metal (box parts map 0..1 per face).
 //   detail: packed micro-detail (bakeDetail), detailScale tiles per metre, detailStrength.
-export function triplanar(material, { skin = null, detail = null, scale = 3, detailScale = 2, detailStrength = 1, gain = 1 } = {}) {
+//   hd: the mesh is an Enhanced Graphics pack model with a baked aDetail attribute (ambient
+//       occlusion, edge, cavity): crevices darken, and paint wears off its real edges.
+//   hdEdge / hdEdgeCol / hdEdgeMetal: edge wear of a part without a skin (0 = none).
+//   depth: skin relief depth in metres (parallax: the design looks layered, not printed).
+export function triplanar(material, { skin = null, detail = null, scale = 3, detailScale = 2, detailStrength = 1, gain = 1, hd = false, hdEdge = 0, hdEdgeCol = [0.32, 0.33, 0.35], hdEdgeMetal = 1, depth = 0 } = {}) {
   const uniforms = {
     triScale: { value: scale }, detScale: { value: detailScale }, detStrength: { value: detailStrength },
     skinAlbedo: { value: skin ? skin.albedo : null }, skinRM: { value: skin ? skin.rm : null }, skinNormal: { value: skin ? skin.normal : null },
@@ -454,7 +458,9 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
     // (triAnim 0..1 is driven by the weapon rig while you inspect; triTime is seconds).
     fadeA: { value: new THREE.Vector3() }, fadeB: { value: new THREE.Vector3() }, fadeAmt: { value: 0 },
     triTime: { value: 0 }, triAnim: { value: 0 }, animFlow: { value: 0 }, sweepCol: { value: new THREE.Vector3(1, 1, 1) },
-    reliefK: { value: skin && skin.def && skin.def.pattern === 10 ? 2.2 : 0.9 },
+    reliefK: { value: (skin && skin.def && skin.def.pattern === 10 ? 2.2 : 0.9) * (hd ? 1.5 : 1) },
+    triAO: { value: hd ? 1 : 0 }, hdEdge: { value: hdEdge }, hdEdgeCol: { value: new THREE.Vector3(...hdEdgeCol) }, hdEdgeMetal: { value: hdEdgeMetal },
+    reliefDepth: { value: depth },
   };
   const def = skin && skin.def;
   if (def) {
@@ -467,12 +473,20 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
     uniforms.sweepCol.value.set(...g.map((v) => Math.min(1, 0.35 + v * 0.6))).multiplyScalar(L[2]);
   }
   material.userData.tri = uniforms;
-  const defs = (skin ? '#define TRI_SKIN\n' : '') + (skin && skin.normal ? '#define TRI_SKIN_NORMAL\n' : '') + (detail ? '#define TRI_DETAIL\n' : '');
+  const defs = (skin ? '#define TRI_SKIN\n' : '') + (skin && skin.normal ? '#define TRI_SKIN_NORMAL\n' : '') + (detail ? '#define TRI_DETAIL\n' : '') +
+    (hd ? '#define TRI_HD\n' : '') + (hd && depth > 0 && skin && skin.normal ? '#define TRI_PARALLAX\n' : '');
   material.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, uniforms);
     sh.vertexShader = defs + 'varying vec3 vTriPos; varying vec3 vTriN; varying vec3 vTriAX; varying vec3 vTriAY; varying vec3 vTriAZ;\n' +
+      '#ifdef TRI_HD\nattribute vec4 aDetail; varying vec4 vDet;\n#endif\n#ifdef TRI_PARALLAX\nvarying vec3 vTriView;\n#endif\n' +
       sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
         vTriPos = position; vTriN = normal;
+        #ifdef TRI_HD
+          vDet = aDetail;
+        #endif
+        #ifdef TRI_PARALLAX
+          vTriView = (inverse(modelMatrix) * vec4(cameraPosition, 1.0)).xyz - position;
+        #endif
         vTriAX = normalize((modelViewMatrix * vec4(1.0, 0.0, 0.0, 0.0)).xyz);
         vTriAY = normalize((modelViewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
         vTriAZ = normalize((modelViewMatrix * vec4(0.0, 0.0, 1.0, 0.0)).xyz);`);
@@ -482,9 +496,18 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       uniform vec3 skinGlow, fadeA, fadeB, sweepCol;
       uniform float fadeAmt, triTime, triAnim, animFlow, reliefK;
       uniform sampler2D skinAlbedo, skinRM, skinNormal, detailMap;
+      uniform float triAO, hdEdge, hdEdgeMetal, reliefDepth;
+      uniform vec3 hdEdgeCol;
+      #ifdef TRI_HD
+        varying vec4 vDet;
+      #endif
+      #ifdef TRI_PARALLAX
+        varying vec3 vTriView;
+      #endif
+      vec2 triOX = vec2(0.0), triOY = vec2(0.0), triOZ = vec2(0.0);   // parallax offsets per projection
       vec3 triW() { vec3 w = pow(abs(normalize(vTriN)), vec3(4.0)); return w / (w.x + w.y + w.z); }
       float sstep(float a, float b, float x) { float t = clamp((x - a) / (b - a), 0.0, 1.0); return t * t * (3.0 - 2.0 * t); }
-      vec4 triTex(sampler2D t, vec3 p, vec3 w) { return texture2D(t, p.zy) * w.x + texture2D(t, p.xz) * w.y + texture2D(t, p.xy) * w.z; }
+      vec4 triTex(sampler2D t, vec3 p, vec3 w) { return texture2D(t, p.zy + triOX) * w.x + texture2D(t, p.xz + triOY) * w.y + texture2D(t, p.xy + triOZ) * w.z; }
     `;
     let f = head + sh.fragmentShader;
     f = f.replace('#include <map_fragment>', /* glsl */`#include <map_fragment>
@@ -493,6 +516,20 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       #ifdef TRI_SKIN
         // While inspecting, Epic and Black Ice patterns flow slowly across the gun.
         vec3 triP = vTriPos * triScale + vec3(0.0, triTime * 0.05, triTime * 0.035) * triAnim * animFlow;
+        float relief = 0.5;
+        #ifdef TRI_PARALLAX
+        {
+          // Parallax: shift each projection's lookup along the view by the design's height,
+          // so raised paint and engraved lines sit at different depths.
+          vec3 V = normalize(vTriView);
+          float hx = texture2D(skinNormal, triP.zy).a, hy = texture2D(skinNormal, triP.xz).a, hz = texture2D(skinNormal, triP.xy).a;
+          float k = reliefDepth * triScale;
+          triOX = V.zy / (abs(V.x) + 0.35) * (hx - 0.5) * k;
+          triOY = V.xz / (abs(V.y) + 0.35) * (hy - 0.5) * k;
+          triOZ = V.xy / (abs(V.z) + 0.35) * (hz - 0.5) * k;
+          relief = hx * tw.x + hy * tw.y + hz * tw.z;
+        }
+        #endif
         vec4 sk = triTex(skinAlbedo, triP, tw);
         #if defined( USE_NORMALMAP ) || defined( USE_MAP )
           #ifdef USE_NORMALMAP
@@ -503,11 +540,22 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
           float ed = min(min(wuv.x, 1.0 - wuv.x), min(wuv.y, 1.0 - wuv.y));
           triWear = sstep(0.035 * skinWear, 0.0, ed - (sk.a - 0.5) * 0.03 * skinWear) * step(0.001, skinWear);
         #endif
+        #ifdef TRI_HD
+          // Paint chips off the model's real edges (baked edge mask), raggedly.
+          float ew = vDet.g * (0.45 + 0.55 * min(skinWear, 1.4)) + (sk.a - 0.5) * 0.6;
+          triWear = sstep(0.48, 0.56, ew) * step(0.001, skinWear);
+        #endif
         vec3 base = sk.rgb * sk.rgb;
         // Colour fade from the stock to the muzzle (Rare and up).
         vec3 fc = mix(fadeB, fadeA, sstep(0.35, -0.55, vTriPos.z));
         base = mix(base, mix(base, fc * (0.6 + 0.8 * dot(base, vec3(0.33))) + fc * 0.25, 0.65), fadeAmt);
         diffuseColor.rgb = mix(base, vec3(0.36, 0.36, 0.38), triWear) * triGain;   // bare steel at the edges
+        #ifdef TRI_HD
+          diffuseColor.rgb *= 1.0 - triWear * (1.0 - triWear) * 1.6;     // dark rim where the paint is chipped
+        #endif
+        #ifdef TRI_PARALLAX
+          diffuseColor.rgb *= mix(1.0, 0.62 + 0.76 * relief, (1.0 - triWear) * 0.6);   // low parts of the design in shade
+        #endif
         // Inspect: a band of light sweeps along the gun.
         float sweepX = mod(triTime * 0.55, 1.7) - 0.95;
         float sweep = exp(-pow(vTriPos.z - sweepX + vTriPos.y * 0.6, 2.0) * 90.0) * triAnim;
@@ -516,6 +564,19 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       #ifdef TRI_DETAIL
         vec4 dt = triTex(detailMap, vTriPos * detScale, tw);
         diffuseColor.rgb *= mix(1.0, dt.b * 2.0, detStrength);
+      #endif
+      float hdWear = 0.0;
+      #ifdef TRI_HD
+        // Parts without a skin: worn edges (bare metal on coated parts, lighter scuffs on
+        // polymer) and grime in inside corners.
+        #ifdef TRI_DETAIL
+          float hn = dt.b;
+        #else
+          float hn = 0.5;
+        #endif
+        hdWear = sstep(0.5, 0.62, vDet.g * hdEdge + (hn - 0.5) * 0.9) * step(0.001, hdEdge);
+        diffuseColor.rgb = mix(diffuseColor.rgb, hdEdgeCol, hdWear);
+        diffuseColor.rgb *= 1.0 - vDet.b * 0.35;
       #endif`);
     f = f.replace('#include <roughnessmap_fragment>', /* glsl */`#include <roughnessmap_fragment>
       #ifdef TRI_SKIN
@@ -524,10 +585,29 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       #endif
       #ifdef TRI_DETAIL
         roughnessFactor = clamp(roughnessFactor * mix(1.0, dt.a * 2.0, detStrength), 0.04, 1.0);
+      #endif
+      #ifdef TRI_HD
+        roughnessFactor = mix(roughnessFactor, 0.32, hdWear);
+        roughnessFactor = min(1.0, roughnessFactor + vDet.b * 0.15);
       #endif`);
     f = f.replace('#include <metalnessmap_fragment>', /* glsl */`#include <metalnessmap_fragment>
       #ifdef TRI_SKIN
         metalnessFactor = mix(skrm.b, 1.0, triWear);
+      #endif
+      #ifdef TRI_HD
+        metalnessFactor = mix(metalnessFactor, hdEdgeMetal, hdWear);
+      #endif`);
+    // Baked ambient occlusion (pack models): ambient and reflections fade in crevices and
+    // under parts; direct light a little.
+    f = f.replace('#include <aomap_fragment>', /* glsl */`#include <aomap_fragment>
+      #ifdef TRI_HD
+      {
+        float hao = clamp(mix(1.0, pow(vDet.r, 1.6) * (1.0 - vDet.b * 0.35), triAO), 0.0, 1.0);
+        reflectedLight.indirectDiffuse *= hao;
+        reflectedLight.indirectSpecular *= mix(1.0, hao, 0.9);
+        reflectedLight.directDiffuse *= mix(1.0, hao, 0.45);
+        reflectedLight.directSpecular *= mix(1.0, hao, 0.6);
+      }
       #endif`);
     f = f.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
       #ifdef TRI_SKIN
@@ -539,9 +619,9 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       #ifdef TRI_SKIN_NORMAL
       {
         // Relief of the skin's design (paint edges, cracks), mapped like the colour.
-        vec2 sx = texture2D(skinNormal, triP.zy).rg * 2.0 - 1.0;
-        vec2 sy = texture2D(skinNormal, triP.xz).rg * 2.0 - 1.0;
-        vec2 sz = texture2D(skinNormal, triP.xy).rg * 2.0 - 1.0;
+        vec2 sx = texture2D(skinNormal, triP.zy + triOX).rg * 2.0 - 1.0;
+        vec2 sy = texture2D(skinNormal, triP.xz + triOY).rg * 2.0 - 1.0;
+        vec2 sz = texture2D(skinNormal, triP.xy + triOZ).rg * 2.0 - 1.0;
         vec3 sn = (sx.x * vTriAZ + sx.y * vTriAY) * tw.x + (sy.x * vTriAX + sy.y * vTriAZ) * tw.y + (sz.x * vTriAX + sz.y * vTriAY) * tw.z;
         normal = normalize(normal + sn * (1.0 - triWear) * reliefK);
       }
@@ -558,7 +638,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       #endif`);
     sh.fragmentShader = f;
   };
-  material.customProgramCacheKey = () => 'tri' + defs;
+  material.customProgramCacheKey = () => 'tri' + defs.replace(/\n/g, '');
   material.needsUpdate = true;
   return material;
 }

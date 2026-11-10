@@ -1,48 +1,53 @@
-import { initBombUtility, utilityFor } from './balance/bomb-utility.js?v=bomb-audio-2';
-import { createAcoustics } from './audio/acoustics.js?v=bomb-audio-2';
-import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=bomb-audio-2';
-import { mountControls, mountFirstLaunch, tabs } from './ui/m7-menu.js?v=bomb-audio-2';
+import { initBombUtility, utilityFor } from './balance/bomb-utility.js?v=m6-integration';
+import { createAcoustics } from './audio/acoustics.js?v=m6-integration';
+import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=m6-integration';
+import { mountControls, mountFirstLaunch, tabs } from './ui/m7-menu.js?v=m6-integration';
 // Recoil Range entry point: wires input, camera, scene, HUD and the frame loop together.
-import * as THREE from '../vendor/three/three.module.min.js?v=bomb-audio-2';
-import { Look, PITCH_LIMIT } from './core/look.js?v=bomb-audio-2';
-import { Player } from './core/player.js?v=bomb-audio-2';
-import { PointerLock } from './core/pointer-lock.js?v=bomb-audio-2';
-import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=bomb-audio-2';
-import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=bomb-audio-2';
-import { Weapon } from './core/weapon.js?v=bomb-audio-2';
-import { RecoilEngine } from './core/recoil.js?v=bomb-audio-2';
-import { Spread } from './core/spread.js?v=bomb-audio-2';
-import { loadGameData } from './core/guns.js?v=bomb-audio-2';
-import { randomSeed } from './core/prng.js?v=bomb-audio-2';
-import { Range, EYE_HEIGHT } from './scene/range.js?v=bomb-audio-2';
-import { RING_STEP } from './scene/range-tex.js?v=bomb-audio-2';
-import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=bomb-audio-2';
-import { LensPost } from './render/lens-post.js?v=bomb-audio-2';
-import { reticleTextures } from './ui/reticle-tex.js?v=bomb-audio-2';
-import { DOT_POINTS } from './scene/dots.js?v=bomb-audio-2';
-import { Voices } from './audio/voice.js?v=bomb-audio-2';
-import { ModeGame } from './modes/game.js?v=bomb-audio-2';
-import { Sfx } from './audio/sfx.js?v=bomb-audio-2';
-import { DebugHud } from './ui/debug-hud.js?v=bomb-audio-2';
-import { drawCrosshair } from './ui/crosshair.js?v=bomb-audio-2';
-import { Hud } from './ui/hud.js?v=bomb-audio-2';
-import { MagPlot } from './ui/plot.js?v=bomb-audio-2';
-import { SettingsUI } from './ui/settings-ui.js?v=bomb-audio-2';
-import { sensKeys, zoomKey } from './core/optics.js?v=bomb-audio-2';
+import * as THREE from '../vendor/three/three.module.min.js?v=m6-integration';
+import { Look, PITCH_LIMIT } from './core/look.js?v=m6-integration';
+import { Player } from './core/player.js?v=m6-integration';
+import { PointerLock } from './core/pointer-lock.js?v=m6-integration';
+import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=m6-integration';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=m6-integration';
+import { Weapon } from './core/weapon.js?v=m6-integration';
+import { RecoilEngine } from './core/recoil.js?v=m6-integration';
+import { Spread } from './core/spread.js?v=m6-integration';
+import { loadGameData } from './core/guns.js?v=m6-integration';
+import { randomSeed } from './core/prng.js?v=m6-integration';
+import { Range, EYE_HEIGHT } from './scene/range.js?v=m6-integration';
+import { RING_STEP } from './scene/range-tex.js?v=m6-integration';
+import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=m6-integration';
+import { LensPost } from './render/lens-post.js?v=m6-integration';
+import { reticleTextures } from './ui/reticle-tex.js?v=m6-integration';
+import { DOT_POINTS } from './scene/dots.js?v=m6-integration';
+import { Voices } from './audio/voice.js?v=m6-integration';
+import { ModeGame } from './modes/game.js?v=m6-integration';
+import { Sfx } from './audio/sfx.js?v=m6-integration';
+import { DebugHud } from './ui/debug-hud.js?v=m6-integration';
+import { drawCrosshair } from './ui/crosshair.js?v=m6-integration';
+import { Hud } from './ui/hud.js?v=m6-integration';
+import { MagPlot } from './ui/plot.js?v=m6-integration';
+import { SettingsUI } from './ui/settings-ui.js?v=m6-integration';
+import { sensKeys, zoomKey } from './core/optics.js?v=m6-integration';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
 function sensRows(catalogue, sens) {
   const keys = new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)]);
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
-import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=bomb-audio-2';
-import { Battle } from './battle/battle.js?v=bomb-audio-2';
-import { initCore, coreLoaded } from './wasm/core.js?v=bomb-audio-2';
-import { createJoinRequest, acceptJoin } from './net/link.js?v=bomb-audio-2';
-import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode } from './net/relay.js?v=bomb-audio-2';
-import { Profile, WIN_POINTS } from './core/profile.js?v=bomb-audio-2';
-import { skinFits, skinById } from './core/skins.js?v=bomb-audio-2';
-import { PackUI } from './ui/packs.js?v=bomb-audio-2';
+import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=m6-integration';
+import { Battle } from './battle/battle.js?v=m6-integration';
+import { initCore, coreLoaded } from './wasm/core.js?v=m6-integration';
+import { createJoinRequest, acceptJoin } from './net/link.js?v=m6-integration';
+import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode } from './net/relay.js?v=m6-integration';
+import { Profile, WIN_POINTS } from './core/profile.js?v=m6-integration';
+import { skinFits, skinById } from './core/skins.js?v=m6-integration';
+import { PackUI } from './ui/packs.js?v=m6-integration';
+import { HDPack } from './render/hd-pack.js?v=m6-integration';
+import { effectiveGraphics, needsPack } from './render/quality.js?v=m6-integration';
+import { GraphicsUI } from './ui/graphics-ui.js?v=m6-integration';
+import { PerfHud } from './ui/perf-hud.js?v=m6-integration';
+import { WorldPost } from './render/world-post.js?v=m6-integration';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -99,16 +104,31 @@ async function boot(data) {
   const rig = new WeaponRig(renderer);
   // Graphics quality: high swaps the range to textured PBR with shadows and tone mapping, and
   // the gun to textured PBR lit by the same sky. Standard is the original fast look.
-  const gunShading = () => (settings.graphics === 'low' ? 'fast' : settings.graphics === 'standard' ? settings.weaponShading : settings.graphics);
+  // High and Ultra need the Enhanced Graphics pack; without it they run as Standard.
+  const gfx = () => effectiveGraphics(settings);
+  const gunShading = () => (gfx() === 'low' ? 'fast' : gfx() === 'standard' ? settings.weaponShading : gfx());
   // Software rendering in the tests cannot bake 4096 maps quickly; real graphics cards can.
   if (new URLSearchParams(location.search).has('test')) { Range.ULTRA_TEX = 512; setUltraTexSize(512); }
   function applyGraphics() {
-    range.setGraphics(settings.graphics, renderer);
+    range.setGraphics(gfx(), renderer);
     if (range.env) rig.setHighEnv(range.env);
     rig.setShading(gunShading());
   }
   applyGraphics();
   const post = new LensPost(renderer, { samples: settings.antialias && renderer.capabilities.isWebGL2 ? 4 : 0 });
+  // World post-processing (High / Ultra: ambient occlusion, TAA, sharpening; any level:
+  // upscaling when the world is drawn below the screen's resolution).
+  const worldPost = new WorldPost(renderer);
+  post.world = worldPost;
+  function applyPost(worldScale) {
+    const g = gfx(), enhanced = g === 'high' || g === 'ultra', webgl2 = renderer.capabilities.isWebGL2;
+    const o = { ao: enhanced && settings.ao, taa: enhanced && settings.taa, sharpen: settings.sharpen, scale: worldScale };
+    worldPost.set(o);
+    // Low / Standard: only when upscaling (it costs a full-screen pass, which a school PC
+    // feels); High / Ultra: whenever one of its effects is on.
+    worldPost.on = webgl2 && !testNoPost && (worldScale < 0.999 ? g !== 'low' : enhanced && (o.ao || o.taa || o.sharpen > 0));
+  }
+  let testNoPost = false;
   const dots = range.dots;
   const sfx = new Sfx(acoustics);
   sfx.spatialAudio = settings.spatialAudio;
@@ -118,6 +138,9 @@ async function boot(data) {
   const look = new Look();
   const debug = new DebugHud($('debug'));
   debug.setVisible(settings.debugHud);
+  const perf = new PerfHud($('app'), renderer);
+  perf.setVisible(settings.fpsCounter);
+  const perfInfo = { w: 0, h: 0, scale: 1, calls: 0, tris: 0, target: 60, hz: 0 };
   const hud = new Hud($);
   const plot = new MagPlot($('plot'));
   const weapon = new Weapon();
@@ -135,6 +158,7 @@ async function boot(data) {
   const testMode = params.has('test');
   const catalogue = data.catalogue;
   let settingsUI = null; // created further down
+  let graphicsUI = null;  // the Graphics screen (further down)
 
   if (data.errors.length || data.warnings.length) {
     const el = $('data-errors');
@@ -673,15 +697,24 @@ async function boot(data) {
   // Dynamic resolution (render resolution on Auto): when frames take too long the picture is
   // drawn at a lower resolution, and sharpened back up when there is time to spare.
   let dynScale = 1, dynSum = 0, dynN = 0, dynFast = 0;
+  // The target is the frame-rate setting, capped at the screen's refresh rate (measured from
+  // the fastest frames: a 60 Hz screen never shows more than 60).
+  let refreshHz = 0;
+  const fastest = [];
+  function fpsGoal() { return Math.min(settings.fpsTarget, refreshHz || 60); }
   function watchResolution(dtMs) {
+    if (dtMs > 2 && dtMs < 100) {
+      fastest.push(dtMs);
+      if (fastest.length >= 120) { fastest.sort((a, b) => a - b); const hz = 1000 / fastest[12]; refreshHz = Math.max(refreshHz * 0.8, [60, 75, 90, 120, 144, 165, 240, 360].reduce((b, v) => (Math.abs(v - hz) < Math.abs(b - hz) ? v : b), 60)); fastest.length = 0; }
+    }
     if (settings.renderScale || testMode || document.hidden || dtMs > 250) return;
     dynSum += dtMs; dynN++;
     if (dynSum < 1500) return;
-    const avg = dynSum / dynN;
+    const avg = dynSum / dynN, budget = 1000 / fpsGoal();
     dynSum = 0; dynN = 0;
     let next = dynScale;
-    if (avg > 21) { next = Math.max(0.7, dynScale * (avg > 30 ? 0.8 : 0.9)); dynFast = 0; }
-    else if (avg < 15.5 && dynScale < 1) { if (++dynFast >= 2) { next = Math.min(1, dynScale * 1.1); dynFast = 0; } }
+    if (avg > budget * 1.25) { next = Math.max(0.6, dynScale * (avg > budget * 1.8 ? 0.8 : 0.9)); dynFast = 0; }
+    else if (avg < budget * 0.93 && dynScale < 1) { if (++dynFast >= 2) { next = Math.min(1, dynScale * 1.1); dynFast = 0; } }
     else dynFast = 0;
     if (Math.abs(next - dynScale) > 0.01) { dynScale = next; resize(); }
   }
@@ -689,7 +722,17 @@ async function boot(data) {
     // Auto: the screen's own sharpness (devicePixelRatio, 1x to 2x). Above 1 = supersampling.
     // Ultra (graphics card) supersamples at least 150% on Auto so the fine detail resolves.
     // Low draws at plain 100% even on a high-DPI screen.
-    const s = settings.renderScale || dynScale * (settings.graphics === 'low' ? 1 : Math.min(2, Math.max(settings.graphics === 'ultra' ? 1.5 : 1, window.devicePixelRatio || 1)));
+    const auto = gfx() === 'low' ? 1 : Math.min(2, Math.max(gfx() === 'ultra' ? 1.5 : 1, window.devicePixelRatio || 1));
+    let s = settings.renderScale || dynScale * auto, worldScale = 1;
+    // Below 100% (the setting, or dynamic resolution) with WebGL 2: the screen stays at full
+    // resolution and only the world is drawn smaller, then upscaled and sharpened, so the
+    // gun, sight and HUD stay crisp.
+    if (renderer.capabilities.isWebGL2 && gfx() !== 'low' && !testNoPost) {
+      const base = settings.renderScale >= 1 ? settings.renderScale : settings.renderScale > 0 ? 1 : auto;
+      worldScale = settings.renderScale > 0 && settings.renderScale < 1 ? settings.renderScale : settings.renderScale ? 1 : dynScale;
+      s = base;
+    }
+    applyPost(worldScale);
     renderW = Math.max(1, Math.round(window.innerWidth * s));
     renderH = Math.max(1, Math.round(window.innerHeight * s));
     renderer.setSize(renderW, renderH, false);
@@ -726,6 +769,7 @@ async function boot(data) {
     settings, guns: data.guns, sensKeys: sensRows(catalogue, data.sens), sensFile: data.sens.ads, aimedMultiplier,
     gameSliders: Object.fromEntries(data.sens.magnifications.map((m) => [m.key, m.slider])), gameSens: data.sens.game, opticMultiplier, isPlaceholder,
     getState: () => state,
+    openGraphics: () => graphicsUI && graphicsUI.open(),
     onChange(key) {
       const all = key === 'all';
       if (all || key === 'scale') resize();
@@ -733,7 +777,14 @@ async function boot(data) {
       if (all || key === 'crosshair') { drawCrosshair($('crosshair'), settings.crosshair); xhGap = -1; }
       if (all || key === 'holes') range.holes.setSize(settings.holeSizeCm / 100);
       if (all || key === 'reload') weapon.reloadSpeed = settings.reloadSpeed;
-      if (all || key === 'shading' || key === 'graphics') { applyGraphics(); rig.setGun(state.gun, state.gunIndex, state.optic); hud.setGun(state.gun, state.gunIndex, state.optic.label, skinName(state.gunIndex)); resize(); }
+      if (all || key === 'shading' || key === 'graphics') {
+        graphicsChanged();
+        // High / Ultra picked without the Enhanced Graphics pack: offer the download.
+        if (needsPack(settings.graphics) && !HDPack.ready && graphicsUI && !graphicsUI.isOpen && key === 'graphics') graphicsUI.open(settings.graphics);
+        if (needsPack(settings.graphics) && HDPack.ready && !hdLoaded) loadHD();
+      }
+      if (all || key === 'perf') perf.setVisible(settings.fpsCounter);
+      if (all || key === 'post') resize();
       // Battle in progress: after the range (which sets the shared gun shading), rebuild its view.
       if (cur() && cur().active && (all || key === 'shading' || key === 'graphics' || key === 'reticle')) cur().refreshGraphics();
       if (key === 'sens' || key === 'assist') { /* read live each mouse event */ }
@@ -779,7 +830,7 @@ async function boot(data) {
   }
   function battleDeps() {
     return {
-      renderer, settings, controls, guns: data.guns, sfx,
+      renderer, settings, controls, guns: data.guns, sfx, worldPost,
       opticFor: (g) => catalogue.byId.get(savedOptic(g)), adsVFov, baseDpc, now: clockNow,
       slotOf: (g) => data.guns.indexOf(g), onEnd: () => lock.exit(), hudRoot: $('app'),
       skinOf: (g) => equippedSkin(data.guns.indexOf(g)),
@@ -1166,7 +1217,7 @@ async function boot(data) {
     if (battle && battle.active) leaveBattle();
     if (!modeGame) {
       modeGame = new ModeGame({
-        renderer, settings, controls, guns: data.guns, sfx, adsVFov, baseDpc, now: clockNow, slotOf: (g) => data.guns.indexOf(g), hudRoot: $('app'),
+        renderer, settings, controls, guns: data.guns, sfx, adsVFov, baseDpc, now: clockNow, slotOf: (g) => data.guns.indexOf(g), hudRoot: $('app'), worldPost,
         onEnd: () => lock.exit(), onPoints: (kind, head) => (kind === 'kill' ? profile.addKill(head) : profile.addPoints(WIN_POINTS)),
         skinOf: (g) => equippedSkin(data.guns.indexOf(g)),
         opticById: (id, g) => catalogue.byId.get(g.optics.includes(id) ? id : g.defaultOptic),
@@ -1230,7 +1281,8 @@ async function boot(data) {
   }
   // A showcase picture of a skin on a gun (pack reveal).
   const SHOT_W = 768, SHOT_H = 432;
-  function skinShot(id) {
+  // o (tests, showcase): { zoom (closer), yaw (turn), w (picture width) }.
+  function skinShot(id, o = {}) {
     const def = skinById(id);
     if (!def) return '';
     const slot = skinFits(id, state.gunIndex) ? state.gunIndex : (def.guns ? def.guns[0] : state.gunIndex);
@@ -1239,7 +1291,8 @@ async function boot(data) {
     try {
       previewRig.setGun(gun, slot, catalogue.byId.get(savedOptic(gun)));
       framePreview();
-      previewPivot.rotation.set(0.14, -Math.PI / 2 + 0.38, 0);
+      if (o.zoom) previewCam.position.multiplyScalar(1 / o.zoom);
+      previewPivot.rotation.set(0.14, -Math.PI / 2 + 0.38 + (o.yaw || 0), 0);
       previewRig.animateSkins(0, 0);
       // Draw on the game canvas and copy it straight away (as the sight gallery does): same
       // colours and tone mapping as the game. The next frame redraws the screen as usual.
@@ -1252,8 +1305,9 @@ async function boot(data) {
       previewCam.aspect = a; previewCam.updateProjectionMatrix();
       // Crop the middle 16:9 of the frame where the gun is.
       const cw = Math.min(renderW, renderH * 16 / 9) * 0.6, ch = cw * 9 / 16;
-      const out = document.createElement('canvas'); out.width = SHOT_W; out.height = SHOT_H;
-      out.getContext('2d').drawImage(r.domElement, (renderW - cw) / 2, (renderH - ch) / 2, cw, ch, 0, 0, SHOT_W, SHOT_H);
+      const ow = o.w || SHOT_W, oh = Math.round(ow * 9 / 16);
+      const out = document.createElement('canvas'); out.width = ow; out.height = oh;
+      out.getContext('2d').drawImage(r.domElement, (renderW - cw) / 2, (renderH - ch) / 2, cw, ch, 0, 0, ow, oh);
       return out.toDataURL();
     } catch (e) { console.error(e); return ''; }
     finally {
@@ -1473,7 +1527,7 @@ async function boot(data) {
   // Lens quality: setting, or auto (starts at 3 and steps down when frames are slow).
   let autoLevel = 3, qAcc = 0, qN = 0, qT0 = 0;
   // Low graphics: always the cheapest lens path (darkening and reticle only).
-  function lensQuality() { return settings.graphics === 'low' ? 0 : settings.lensQuality === 'auto' ? autoLevel : Number(settings.lensQuality); }
+  function lensQuality() { return gfx() === 'low' ? 0 : settings.lensQuality === 'auto' ? autoLevel : Number(settings.lensQuality); }
   // Auto quality drop: average frame time over 20 ms for 2 s while aiming -> one level down.
   // Also steps down when aiming is clearly slower than hip-fire on this machine: the average
   // aimed frame is over 25% longer than the recent hip-fire average and misses ~58 fps.
@@ -1527,11 +1581,19 @@ async function boot(data) {
     requestAnimationFrame(frame);
     const c0 = performance.now();
     if (!manualClock) update(clockNow());
+    perf.beginGpu();
     renderFrame();
+    perf.endGpu();
     if (prevFrameMs) { watchQuality(nowMs, nowMs - prevFrameMs); watchResolution(nowMs - prevFrameMs); }
     cpuMs[cpuIdx++ % cpuMs.length] = performance.now() - c0;
-    if (prevFrameMs) debug.recordFrame(nowMs - prevFrameMs);
+    if (prevFrameMs) { debug.recordFrame(nowMs - prevFrameMs); perf.record(nowMs - prevFrameMs, performance.now() - c0); }
     prevFrameMs = nowMs;
+    if (perf.visible) {
+      perfInfo.w = renderW; perfInfo.h = renderH; perfInfo.scale = settings.renderScale || dynScale;
+      perfInfo.calls = renderer.info.render.calls; perfInfo.tris = renderer.info.render.triangles;
+      perfInfo.target = fpsGoal(); perfInfo.hz = refreshHz;
+      perf.update(nowMs, perfInfo);
+    }
     if (debug.visible) {
       info.dpc = currentDpc(); info.ads = state.ads; info.raw = lock.raw;
       info.fovH = state.fovH; info.fovV = state.fovV;
@@ -1548,6 +1610,31 @@ async function boot(data) {
   }
   requestAnimationFrame(frame);
   applyTarget();
+
+  /* ---------- graphics screen and the Enhanced Graphics pack ---------- */
+  function graphicsChanged() {
+    applyGraphics();
+    rig.rebuild();
+    rig.setGun(state.gun, state.gunIndex, state.optic);
+    hud.setGun(state.gun, state.gunIndex, state.optic.label, skinName(state.gunIndex));
+    resize();
+  }
+  let hdLoaded = false;
+  // Pack models into memory (only when High / Ultra is on), then rebuild what shows them.
+  async function loadHD() {
+    if (!HDPack.ready) return;
+    await HDPack.loadGuns();
+    hdLoaded = true;
+    graphicsChanged();
+    if (cur() && cur().active) cur().refreshGraphics();
+  }
+  HDPack.onChange(() => { if (!HDPack.ready && hdLoaded) { hdLoaded = false; graphicsChanged(); if (cur() && cur().active) cur().refreshGraphics(); } });
+  graphicsUI = new GraphicsUI($('app'), {
+    settings,
+    commit: (key) => { settingsUI.commit(key); settingsUI.refresh(); },
+    onPackReady: async () => { if (needsPack(settings.graphics)) await loadHD(); else graphicsChanged(); },
+  });
+  HDPack.init().then(() => { if (HDPack.ready && needsPack(settings.graphics)) loadHD(); else if (needsPack(settings.graphics)) graphicsChanged(); });
 
   /* ---------- test hooks (only with ?test in the URL) ---------- */
   if (testMode) {
@@ -1573,10 +1660,20 @@ async function boot(data) {
       _range: range,
       shadowCasters: () => (range.key.castShadow ? range.key.shadow.map ? 1 : 0 : 0),
       setGraphics(g) { settings.graphics = g; applyGraphics(); rig.setGun(state.gun, state.gunIndex, state.optic); },
+      // The Enhanced Graphics pack (High / Ultra): install from the test server, load, rebuild.
+      hdInstall: async () => { const ok = await HDPack.install(); if (ok) await loadHD(); return { ok, state: HDPack.state, error: HDPack.error, guns: hdLoaded }; },
+      hdRemove: () => HDPack.remove(),
+      hdState: () => ({ state: HDPack.state, installed: HDPack.installed && HDPack.installed.version, ready: HDPack.ready, loaded: hdLoaded, effective: gfx() }),
+      graphicsUI: () => graphicsUI, perfHud: () => perf, fpsGoal, refreshHz: () => refreshHz,
+      rigHD: () => !!(rig.current && rig.current.userData.hd),
+      worldPost: () => ({ on: worldPost.active, ...worldPost.o }),
+      setPost(o) { Object.assign(settings, o); resize(); return { on: worldPost.active, ...worldPost.o }; },
+      noPost(on) { testNoPost = on; resize(); },
+      showAO(on) { worldPost.showAO = on; },
       setAnimations(on) { settings.animations = on; },
       profile: () => profile, packs: () => packs,
       rigObj: () => rig,
-      skinShot: (id) => skinShot(id),
+      skinShot: (id, o) => skinShot(id, o),
       shotDebug: () => ({ renderW, renderH, cw: canvas.width, ch: canvas.height, cam: previewCam.position.toArray(), fov: previewCam.fov, aspect: previewCam.aspect, root: previewRig.root.position.toArray(), box: (() => { const b = new THREE.Box3().setFromObject(previewRig.current); return [b.min.toArray(), b.max.toArray()]; })() }),
       battleStart(o = {}) { Object.assign(settings.battle, o); startBattle(); return !!(battle && battle.active); },
       battleLeave: () => leaveBattle(),

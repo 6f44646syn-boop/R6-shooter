@@ -435,3 +435,55 @@ of milestone 5.
 | `npm test` | 213 passed, 0 failed |
 | `node tools/check-modes.mjs` | 97 passed, 0 failed |
 | `node tools/play-through.mjs` | no page errors |
+
+## Milestone 6: rendering, the Enhanced Graphics pack, performance tools
+
+Done before milestone 5 at the user's request. Details: [GRAPHICS.md](GRAPHICS.md).
+
+### What changed
+- **Quality levels:** Low and Standard run in any browser with nothing to download. High and
+  Ultra need the optional Enhanced Graphics pack. Choosing them without it opens the Graphics
+  screen with a download prompt; until the pack is installed the game runs as Standard.
+- **The pack** (`hd/`, 5.75 MB, its own version):
+  - ten original, detailed gun models with baked per-vertex ambient occlusion, edge and cavity
+    masks;
+  - two levels of detail each (first person 25k-89k triangles, third person 5k-16k; the
+    low-poly guns are 1k-3k);
+  - downloaded only when the player presses Download, every file checked (size and SHA-256);
+  - kept in Cache Storage (works offline), updatable on its own, removable.
+- **Skins on the pack's guns:**
+  - they wrap the furniture too (stocks, grips, handguards, magazines);
+  - parallax relief and relief shading;
+  - paint chips off the model's real edges;
+  - stronger relief normals.
+- **World post-processing** shared by the Range, Battle and the match modes:
+  - screen-space ambient occlusion and TAA (High / Ultra);
+  - upscaling with contrast-adaptive sharpening;
+  - FXAA when TAA is off.
+- **Resolution scaling:** below 100% only the world is drawn smaller; the gun and HUD stay
+  sharp.
+- **Dynamic resolution** follows a frame-rate target (60 / 120 / 144 / 240), capped at the
+  measured screen refresh rate.
+- **Graphics screen:** levels, the pack, performance profiles (Competitive / Balanced /
+  Quality), frame-rate target, sharpening, render resolution, ambient occlusion, TAA and the
+  FPS counter.
+- **FPS counter:** fps, frame time, 1% low, CPU ms, GPU ms (WebGL timer queries where
+  available), resolution, draw calls, triangles, and a frame-time graph.
+
+### Not done in this milestone
+- More detailed soldier models and higher-resolution map textures are not in the pack yet.
+  The pack format and download can take them later (bump `PACK_VERSION`).
+- No real-GPU frame-rate figures: the test machine renders in software. Use the FPS counter
+  on real hardware.
+
+### Tests after milestone 6
+`npm test`: 224 checks pass. The new block covers:
+- nothing is downloaded until asked; High runs as Standard and offers the download;
+- a damaged file is refused;
+- download with the button, every file cached;
+- detailed guns (more than 4x the triangles);
+- ambient occlusion, TAA and upscaling run;
+- the FPS counter;
+- after a reload the pack loads with no network; removing it frees the space.
+
+No page errors and no third-party requests.
