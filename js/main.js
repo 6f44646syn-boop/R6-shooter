@@ -1,4 +1,5 @@
 import { loadPackArt } from './render/pack-art.js?v=4ab7a0c-mwb7djhc';
+import { loadPackAnims } from './scene/weapon-anims.js?v=4ab7a0c-mwb7djhc';
 import { connectAudioPack } from './audio/pack-bridge.js?v=4ab7a0c-mwb7djhc';
 import { initBombUtility, utilityFor } from './balance/bomb-utility.js?v=4ab7a0c-mwb7djhc';
 import { createAcoustics } from './audio/acoustics.js?v=4ab7a0c-mwb7djhc';
@@ -1502,6 +1503,7 @@ async function boot(data) {
     rig.bobY = Math.sin(walkPhase) * 0.004 * Math.min(1, player.speed / 3) * (1 - 0.8 * state.adsE);
     rig.animations = settings.animations;
     rig.reloadP = weapon.reloading ? weapon.reloadProgress : -1;
+    rig.reloadEmpty = !!weapon.reloadEmpty;
     rig.sprinting = player.sprinting;
     rig.update(dt, state.adsE, t);
     rig.root.visible = settings.showViewmodel || state.adsE > 0;
@@ -1672,7 +1674,7 @@ async function boot(data) {
   // Pack models into memory (only when High / Ultra is on), then rebuild what shows them.
   async function loadHD() {
     if (!HDPack.ready) return;
-    await Promise.all([HDPack.loadGuns(), loadPackArt()]);
+    await Promise.all([HDPack.loadGuns(), loadPackArt(), loadPackAnims()]);
     hdLoaded = true;
     graphicsChanged();
     if (cur() && cur().active) cur().refreshGraphics();
@@ -1696,6 +1698,8 @@ async function boot(data) {
       attach(code) { const b = baseOf(state.gun); try { localStorage.setItem('attach:' + b.id, sanitize(b, code)); } catch (e) { /* ignore */ } selectGun(state.gunIndex); return state.gun.attach || measuredCode(b); },
       gunNow: () => { const g = state.gun; return { id: g.id, attach: g.attach || null, base: !g.base, magSize: g.magSize, reloadSeconds: g.reloadSeconds, adsSeconds: g.adsSeconds, damage: g.damage, flash: g.flash ?? 1, suppressed: !!g.suppressed, last: g.sprayPath[g.sprayPath.length - 1] }; },
       openArmory: () => openArmory('setup'),
+      reloadFrom(empty) { if (empty) weapon.ammo = 0; else weapon.ammo = Math.max(1, weapon.ammo - 5); return weapon.startReload(clockNow()); },
+      packClip: () => { const u = rig.current && rig.current.userData; return { split: !!(u && u.support), hand: u && u.support ? u.support.position.toArray() : null, mag: u ? [...u.mag.position.toArray(), u.mag.rotation.x, u.mag.visible] : null, bolt: u ? u.bolt.position.z - u.boltZ : 0, clip: rig._reloadClip ? (rig._reloadClip.bolt ? 'empty' : 'tactical') : null }; },
       manual(on) { manualClock = on; manualT = performance.now() / 1000; prevT = manualT; },
       // Advance the manual clock in fixed frame steps, running the game update each step.
       step(seconds, fps = 60) {

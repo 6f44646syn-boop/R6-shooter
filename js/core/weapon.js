@@ -45,6 +45,7 @@ export class Weapon {
     // Reloading with a round still chambered gives magSize + 1 (guns with "chambered": true).
     this.reloadTo = this.gun.magSize + (this.gun.chambered && this.ammo > 0 ? 1 : 0);
     this.reloading = true;
+    this.reloadEmpty = this.ammo === 0;   // for the animation only (same duration either way)
     this.reloadDur = this.gun.reloadSeconds / this.reloadSpeed;
     this.reloadEnd = t + this.reloadDur;
     return true;

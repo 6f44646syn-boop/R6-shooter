@@ -15,8 +15,9 @@ import { bake } from './hd/bake.mjs';
 import { writeRRM } from './hd/format.mjs';
 import { GUNS } from './hd/guns.mjs';
 import { soldier } from './hd/soldier.mjs';
+import { buildAnims } from './hd/anims.mjs';
 
-export const PACK_VERSION = 3;      // 2: the soldier (Claude) / surfaces, audio (Codex); 3: both
+export const PACK_VERSION = 4;      // 2: the soldier (Claude) / surfaces, audio (Codex); 3: both; 4: weapon animations
 const ROOT = new URL('../hd/', import.meta.url);
 mkdirSync(new URL('guns/', ROOT), { recursive: true });
 mkdirSync(new URL('soldiers/', ROOT), { recursive: true });
@@ -56,6 +57,10 @@ if (!only.length || only.includes('soldier')) {
   writeFileSync(new URL('soldiers/soldier.rrmz', ROOT), gz);
   console.log('soldier'.padEnd(14), 'tris', String(lod.reduce((s, p) => s + p.idx.length / 3, 0)).padEnd(16), 'raw', (raw.length / 1024).toFixed(0) + ' KB', 'gz', (gz.length / 1024).toFixed(0) + ' KB', ((Date.now() - t0) / 1000).toFixed(1) + ' s');
 }
+
+// Weapon animations (keyframed reload, empty reload, draw, inspect): small, always rebuilt.
+mkdirSync(new URL('anims/', ROOT), { recursive: true });
+writeFileSync(new URL('anims/weapons.json', ROOT), JSON.stringify(buildAnims()));
 
 // Manifest: every file with its size and SHA-256 (the game checks each download).
 mkdirSync(new URL('audio/', ROOT), { recursive: true });

@@ -308,6 +308,7 @@ export class Human {
     rig.bobY = Math.sin(this.walkPhase) * 0.004 * Math.min(1, Math.hypot(f.vx, f.vz) / 3) * (1 - 0.8 * this.adsE);
     rig.animations = s.animations;
     rig.reloadP = this.weapon.reloading ? this.weapon.reloadProgress : -1;
+    rig.reloadEmpty = !!this.weapon.reloadEmpty;
     rig.sprinting = sprinting || !!this.vault;
     rig.update(dt, this.adsE, t);
     rig.root.visible = f.alive;

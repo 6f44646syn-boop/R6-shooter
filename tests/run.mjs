@@ -580,6 +580,45 @@ try {
     await page.close();
   }
 
+  /* ---------- 2d. pack weapon animations (Milestone 8) ---------- */
+  console.log('\nPack weapon animations: keyframed reloads on High with the pack, same timing');
+  {
+    const { page, errors } = await openPage('index.html?test');
+    const r = await page.evaluate(async () => {
+      const R = window.__range, out = {};
+      R.manual(true); R.setGraphics('standard'); R.selectGun(4); R.step(0.5);
+      out.standardSplit = R.packClip().split;
+      out.install = (await R.hdInstall()).ok;
+      R.setGraphics('high'); R.selectGun(4); R.step(0.5);
+      out.highSplit = R.packClip().split;
+      const rest = R.packClip().hand;
+      R.reloadFrom(true);
+      let far = 0, hidden = false, bolt = 0, steps = 0, clip = null;
+      while (R.state().reloading && steps < 1000) {
+        R.step(1 / 60); steps++;
+        const c = R.packClip(); clip = clip || c.clip;
+        far = Math.max(far, Math.hypot(c.hand[0] - rest[0], c.hand[1] - rest[1], c.hand[2] - rest[2]));
+        if (!c.mag[4]) hidden = true;
+        bolt = Math.max(bolt, c.bolt);
+      }
+      out.clip = clip; out.far = far; out.hidden = hidden; out.bolt = bolt; out.steps = steps;
+      R.step(0.3);
+      const end = R.packClip();
+      out.endRest = Math.hypot(end.hand[0] - rest[0], end.hand[1] - rest[1], end.hand[2] - rest[2]) < 1e-3 && end.mag[4] && Math.abs(end.mag[1]) < 1e-6;
+      R.setGraphics('standard'); R.selectGun(4); R.step(0.2);
+      R.reloadFrom(false); let s2 = 0; while (R.state().reloading && s2 < 1000) { R.step(1 / 60); s2++; }
+      out.steps2 = s2;
+      return out;
+    });
+    check('Standard keeps the procedural animations (no separate hand)', r.standardSplit === false, JSON.stringify(r));
+    check('High with the pack: the support hand is its own animated part', r.install && r.highSplit === true, JSON.stringify(r));
+    check('empty reload: the hand leaves the handguard, the old magazine drops, the charging handle is pulled', r.clip === 'empty' && r.far > 0.1 && r.hidden && r.bolt > 0.03, JSON.stringify(r));
+    check('after the reload the hand and magazine are back at rest', r.endRest, JSON.stringify(r));
+    check('reload takes the same time with the pack clips as without (within one frame)', Math.abs(r.steps - r.steps2) <= 1, r.steps + ' vs ' + r.steps2);
+    check('no page errors', errors.length === 0, errors.join('\n'));
+    await page.close();
+  }
+
   /* ---------- 3. frame-time check ---------- */
   console.log('\nFrame time at 1920x1080 (headless, software GPU: treat fps as a lower bound)');
   {

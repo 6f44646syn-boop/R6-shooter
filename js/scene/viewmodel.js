@@ -3,6 +3,7 @@ import { packArt } from '../render/pack-art.js?v=4ab7a0c-mwb7djhc';
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
 import * as THREE from '../../vendor/three/three.module.min.js?v=4ab7a0c-mwb7djhc';
+import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=4ab7a0c-mwb7djhc';
 import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=4ab7a0c-mwb7djhc';
 import { matcap } from './matcap.js?v=4ab7a0c-mwb7djhc';
 import { mulberry32 } from '../core/prng.js?v=4ab7a0c-mwb7djhc';
@@ -290,9 +291,12 @@ function capsule(g, color, r, a, b) {
   g.add(m);
   return m;
 }
-function hands(g, type) {
+// sup (optional): a group for the support hand, so the pack's animations can move it. Its
+// origin is the palm (returned), and its parts are placed relative to that.
+function hands(g0, type, sup) {
   // Support hand: palm under the handguard, fingers wrapping up the left side, thumb on the right.
   const hz = HAND_Z[type];
+  let g = sup || g0;
   const palm = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.022, 0.085), mat(GLOVE, 'cloth'));
   palm.position.set(-0.004, -0.04, hz);
   palm.rotation.z = 0.25;
@@ -309,6 +313,9 @@ function hands(g, type) {
   g.add(back);
   capsule(g, GLOVE, 0.024, [-0.01, -0.06, hz + 0.04], [-0.05, -0.1, hz + 0.1]);       // wrist
   capsule(g, SLEEVE, 0.036, [-0.05, -0.1, hz + 0.1], [-0.16, -0.36, hz + 0.32]);      // forearm
+  const palm0 = new THREE.Vector3(-0.004, -0.04, hz);
+  if (sup) { for (const c of sup.children) c.position.sub(palm0); sup.position.copy(palm0); }
+  g = g0;
   // Firing hand on the grip, index finger along the frame.
   const gz = GRIP_Z[type];
   capsule(g, GLOVE, 0.026, [0.006, -0.065, gz + 0.02], [0.006, -0.11, gz + 0.04]);
@@ -316,6 +323,7 @@ function hands(g, type) {
   capsule(g, GLOVE, 0.007, [0.026, -0.03, gz - 0.005], [0.026, -0.03, gz - 0.06]);
   capsule(g, GLOVE, 0.028, [0.02, -0.13, gz + 0.06], [0.06, -0.2, gz + 0.12]);        // wrist
   capsule(g, SLEEVE, 0.04, [0.06, -0.2, gz + 0.12], [0.13, -0.42, gz + 0.22]);        // forearm
+  return palm0;
 }
 
 
@@ -842,19 +850,40 @@ export class WeaponRig {
     a.x = a.y = a.z = a.p = a.yw = a.r = 0;
     const u = this.current && this.current.userData;
     if (!this.animations) {
-      if (u && u.mag) { u.mag.position.y = 0; u.mag.visible = true; u.bolt.position.z = u.boltZ; u.flash.visible = false; }
+      if (u && u.mag) { u.mag.position.set(0, 0, 0); u.mag.rotation.set(0, 0, 0); u.mag.visible = true; u.bolt.position.z = u.boltZ; u.flash.visible = false; }
+      if (u && u.support) { u.support.position.fromArray(u.anchors.rest); u.support.rotation.set(0, 0, 0); }
       this.flashLight.intensity = 0;
       for (const b of this.brass) b.visible = false;
       return a;
     }
+    // Pack animations (High / Ultra with the pack's gun): keyframed clips instead of the
+    // procedural draw, inspect and reload below, over the same durations.
+    const style = u && u.support && u.anchors ? styleFor(u.type) : null;
+    const S = this._clip || (this._clip = {});
+    let hand = null, magK = null, boltK = 0;
     // Draw: the gun comes up from below, pitched down and rolled.
     if (this.drawT < 1) this.drawT = Math.min(1, this.drawT + dt / 0.42);
-    const d = 1 - Math.pow(1 - this.drawT, 3);
-    a.y -= 0.11 * (1 - d); a.p -= 0.7 * (1 - d); a.r += 0.25 * (1 - d);
+    if (style && this.drawT < 1) {
+      sampleClip(style.draw, this.drawT, u.anchors, S);
+      if (S.root) { a.x += S.root[0]; a.y += S.root[1]; a.z += S.root[2]; a.p += S.root[3]; a.yw += S.root[4]; a.r += S.root[5]; }
+      hand = S.hand && S.hand.slice();
+    } else if (!style) {
+      const d = 1 - Math.pow(1 - this.drawT, 3);
+      a.y -= 0.11 * (1 - d); a.p -= 0.7 * (1 - d); a.r += 0.25 * (1 - d);
+    }
     // Inspect: bring the gun to the middle, show the right side, then the left, then back.
     if (this.inspectHold >= 0) this.inspectT = this.inspectHold;
     else if (this.inspectT >= 0) { this.inspectT += dt / 3.2; if (this.inspectT >= 1) this.inspectT = -1; }
-    if (this.inspectT >= 0) {
+    if (this.inspectT >= 0 && style) {
+      const p = this.inspectT, k = 1 - e;
+      sampleClip(style.inspect, p, u.anchors, S);
+      if (S.root) { a.x += S.root[0] * k; a.y += S.root[1] * k; a.z += S.root[2] * k; a.p += S.root[3] * k; a.yw += S.root[4] * k; a.r += S.root[5] * k; }
+      if (S.hand) hand = S.hand.slice();
+      if (S.mag) magK = S.mag.slice();
+      boltK = S.bolt;
+      for (const ev of eventsBetween(style.inspect, this._lastI ?? -1, p)) this._clipEvent(ev);
+      this._lastI = p;
+    } else if (this.inspectT >= 0) {
       const p = this.inspectT;
       const w = smooth01(0, 0.15, p) * (1 - smooth01(0.85, 1, p)) * (1 - e);
       const side = smooth01(0.42, 0.62, p);           // 0: right side towards you, 1: left side
@@ -867,7 +896,28 @@ export class WeaponRig {
     this.sprintE += ((this.sprinting ? 1 : 0) - this.sprintE) * Math.min(1, dt * 9);
     const se = this.sprintE * (1 - e);
     a.x -= 0.035 * se; a.y -= 0.045 * se; a.yw += 0.55 * se; a.r += 0.35 * se; a.p -= 0.2 * se;
-    if (u && u.mag) {
+    if (this.inspectT < 0) this._lastI = -1;
+    if (u && u.mag && style) {
+      // Pack reload: the tactical clip, or the empty one (magazine drops, charging handle).
+      const p = this.reloadP;
+      if (p >= 0) {
+        if (this._lastP < 0) this._reloadClip = this.reloadEmpty ? style.reloadEmpty : style.reload;
+        const clip = this._reloadClip || style.reload, k = 1 - 0.6 * e;
+        sampleClip(clip, p, u.anchors, S);
+        if (S.root) { a.x += S.root[0] * k; a.y += S.root[1] * k; a.z += S.root[2] * k; a.p += S.root[3] * k; a.yw += S.root[4] * k; a.r += S.root[5] * k; }
+        if (S.hand) hand = S.hand.slice();
+        if (S.mag) magK = S.mag.slice();
+        boltK = Math.max(boltK, S.bolt);
+        for (const ev of eventsBetween(clip, Math.max(0, this._lastP), p)) this._clipEvent(ev);
+        this._lastP = p;
+      } else this._lastP = -1;
+      const mg = u.mag;
+      if (magK) { mg.position.set(magK[0], magK[1], magK[2]); mg.rotation.set(magK[3], magK[4], magK[5]); mg.visible = magK[6] > 0.5; }
+      else { mg.position.set(0, 0, 0); mg.rotation.set(0, 0, 0); mg.visible = true; }
+      const an = u.anchors.rest, sup = u.support;
+      if (hand) { sup.position.set(hand[0], hand[1], hand[2]); sup.rotation.set(hand[3], hand[4], hand[5]); }
+      else { sup.position.set(an[0], an[1], an[2]); sup.rotation.set(0, 0, 0); }
+    } else if (u && u.mag) {
       // Reload: tilt the gun, old magazine drops out, new one goes in, slap, charge.
       const p = this.reloadP;
       if (p >= 0) {
@@ -882,9 +932,11 @@ export class WeaponRig {
         if (p > 0.8 && p < 0.92) this.boltZ = Math.max(this.boltZ, 0.04 * Math.sin(Math.PI * (p - 0.8) / 0.12));
         this._lastP = p;
       } else { u.mag.position.y = 0; u.mag.visible = true; this._lastP = -1; }
+    }
+    if (u && u.mag) {
       // Bolt returns forward; flash lasts one or two frames.
       this.boltZ *= Math.exp(-dt * 30);
-      u.bolt.position.z = u.boltZ + this.boltZ;
+      u.bolt.position.z = u.boltZ + Math.max(this.boltZ, boltK);   // boltK: pulled by a pack clip
       this.flashT -= dt;
       const on = this.flashT > 0;
       u.flash.visible = on;
@@ -959,7 +1011,7 @@ export class WeaponRig {
     // forceSkin (replays: someone else's gun): undefined = your skin for the slot, else that id / null.
     const sk = this.forceSkin !== undefined ? (this.forceSkin === null ? null : skinById(this.forceSkin)) : skinFor(slot);
     const hdm = hdModel(type);
-    const key = gun.id + '|' + optic.id + '|' + (sk ? sk.id : '-') + (this.noHands ? '|nh' : '') + (hdm ? '|hd' : '') + (gun.attach ? '|a' + gun.attach : '');   // a skin or attachment change builds a new model
+    const key = gun.id + '|' + optic.id + '|' + (sk ? sk.id : '-') + (this.noHands ? '|nh' : '') + (hdm ? '|hd' + (packAnims.set ? 'a' + packAnims.revision : '') : '') + (gun.attach ? '|a' + gun.attach : '');   // a skin or attachment change builds a new model
     let m = this.models.get(key);
     if (!m) {
       m = new THREE.Group();
@@ -983,9 +1035,14 @@ export class WeaponRig {
       const keepSkin = SKIN_FORCE; SKIN_FORCE = null;
       const ext = attachParts(gunG, magG, type, gun.attach, my, mz);
       SKIN_FORCE = keepSkin;
-      if (!this.noHands) hands(gunG, type);
+      // Pack guns with the pack's animations: the support hand is its own part (it reloads).
+      const sup = hdm && packAnims.set && !this.noHands ? new THREE.Group() : null;
+      let palm = null;
+      if (!this.noHands) palm = hands(gunG, type, sup);
       SKIN_FORCE = undefined;
       mergeStatic(gunG);
+      if (sup) { mergeStatic(sup); gunG.add(sup); }
+      const mb = new THREE.Box3().setFromObject(magG);
       mergeStatic(magG);
       gunG.add(magG);
       const bolt = boltGroup(type);
@@ -1002,7 +1059,14 @@ export class WeaponRig {
       gunG.add(torch);
       flash.position.set(0, my, mz - 0.035 - ext);
       gunG.add(flash);
-      m.userData = { torch, mag: magG, bolt, boltZ: bolt.position.z, flash, port: new THREE.Vector3(SPEC[type].hw + 0.01, 0.014, SPEC[type].port), gun: gunG, hd: !!hdm };
+      m.userData = { torch, mag: magG, bolt, boltZ: bolt.position.z, flash, port: new THREE.Vector3(SPEC[type].hw + 0.01, 0.014, SPEC[type].port), gun: gunG, hd: !!hdm, type };
+      if (sup) {
+        // Anchors for the keyframed hand (gun space), measured on this model.
+        const c = mb.isEmpty() ? new THREE.Vector3(0, -0.1, 0) : mb.getCenter(new THREE.Vector3());
+        const hz = HAND_Z[type] ?? -0.2, sp = SPEC[type];
+        m.userData.support = sup;
+        m.userData.anchors = { id: key, rest: palm.toArray(), mag: c.toArray(), magBottom: [c.x, mb.isEmpty() ? -0.16 : mb.min.y, c.z], port: [sp.hw + 0.01, 0.012, sp.port + 0.03], pouch: [-0.12, -0.42, hz + 0.18] };
+      }
       const skinMats = new Set();
       gunG.traverse((o) => { if (o.isMesh && o.material.userData.tri && o.material.userData.skinKey) skinMats.add(o.material); });
       m.userData.skinMats = [...skinMats];
@@ -1051,6 +1115,12 @@ export class WeaponRig {
     this.flashRot = Math.random() * Math.PI;
     this.flashS = (0.75 + Math.random() * 0.5) * Math.max(0.35, this.flashMul ?? 1);
     this._ejectBrass();
+  }
+
+  // Pack clip events: the magazine slap and the charging handle nudge the gun.
+  _clipEvent(name) {
+    if (name === 'slap') { this.vp += 0.6; this.vz += 0.15; }
+    else if (name === 'charge') { this.vp += 0.35; this.vz += 0.1; }
   }
 
   // K: a quick melee jab (the gun swings across and forward, then back).
