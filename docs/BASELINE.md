@@ -166,3 +166,58 @@ before, about +40 per match; after, none.)
 | `node tools/play-through.mjs` | no page errors |
 
 Bugs B1 to B8 from the audit are fixed. B9 to B12 are scheduled in later milestones.
+
+## Milestone 2: Rust core (WebAssembly)
+
+The match-map kernel (collision, swept movement, raycasts, line of sight, pathfinding, door
+and panel state) now runs in Rust (`rust/core`, 34 KB of WebAssembly, no outside libraries).
+The JavaScript it replaced is kept only as a test reference in `tools/ref-js/`.
+
+### Same answers
+`node tools/check-core.mjs` asks the old JavaScript and the Rust core the same seeded questions
+on all nine maps, with panels whole, broken and reset: 102,000 raycasts, 102,000 sight checks,
+102,000 push-outs, 51,000 moves, 102,000 free checks, 102,000 walk checks, 25,500 neighbour
+lists, 25,500 nearest-waypoint lookups, 8,500 paths, 25,500 door lookups. Every answer is
+identical, bit for bit. Rebuilding the maps with the Rust core gives byte-identical map files.
+
+### Speed, before and after (same machine, same seeded questions; operations per second)
+
+| Map | Raycasts | | Sight checks | | Paths | | Push-outs | | Walk checks | |
+|---|---|---|---|---|---|---|---|---|---|---|
+| yard | 1,733,186 | 0.7x | 2,085,054 | 1.3x | 33,145 | 2.4x | 3,214,455 | 1.8x | 4,458,459 | 2.5x |
+| containers | 2,048,934 | 4.6x | 2,763,704 | 0.9x | 31,111 | 1.6x | 4,181,734 | 2.6x | 5,029,561 | 2.0x |
+| winter | 1,828,454 | 0.7x | 3,723,843 | 1.3x | 45,855 | 2.3x | 7,813,080 | 3.4x | 6,493,317 | 1.8x |
+| casino | 2,099,438 | 1.0x | 2,814,333 | 1.3x | 33,158 | 2.0x | 3,795,146 | 1.0x | 3,365,745 | 1.2x |
+| school | 3,386,338 | 1.0x | 4,194,160 | 1.1x | 65,354 | 2.1x | 7,789,982 | 1.2x | 7,999,888 | 1.9x |
+| ranch | 2,484,361 | 1.1x | 2,443,090 | 1.2x | 15,994 | 2.8x | 3,932,216 | 1.8x | 2,643,682 | 1.6x |
+| embassy | 3,375,818 | 1.3x | 3,805,526 | 1.3x | 15,228 | 2.8x | 7,438,636 | 1.4x | 5,422,597 | 2.5x |
+| workshop | 3,168,990 | 1.2x | 4,023,222 | 1.4x | 17,417 | 2.6x | 6,981,205 | 1.4x | 5,071,483 | 2.3x |
+
+(Each pair: the Rust figure, then how many times the JavaScript baseline it is.)
+
+Whole 5v5 bot matches, time per 60 Hz step:
+
+| Match | Average ms: before | after | 99th percentile ms: before | after | Worst ms: before | after |
+|---|---|---|---|---|---|---|
+| tdm/containers | 0.0509 | 0.0379 | 0.3962 | 0.1899 | 3.95 | 2.479 |
+| tdm/casino | 0.0466 | 0.0387 | 0.3454 | 0.1459 | 1.263 | 2.817 |
+| ctf/winter | 0.053 | 0.0395 | 0.3763 | 0.1541 | 1.683 | 4.283 |
+| ctf/yard | 0.0409 | 0.0325 | 0.2706 | 0.1115 | 1.904 | 2.588 |
+| bomb/ranch | 0.0593 | 0.0544 | 0.4954 | 0.3372 | 4.795 | 4.19 |
+| bomb/embassy | 0.0661 | 0.0486 | 0.7396 | 0.3024 | 4.198 | 1.368 |
+| bomb/workshop | 0.0421 | 0.033 | 0.3543 | 0.1371 | 1.172 | 4.336 |
+
+What this means: pathfinding is 2 to 3 times faster, push-outs and walk checks about 1.5 to
+2.5 times, sight checks slightly faster, raycasts about the same (the figures move by 20-30%
+between runs). Whole matches run 15-25% faster on average and the 99th-percentile step is
+roughly halved. The simulation was already a small part of a frame (0.05 ms of 16.7), so this
+does **not** raise frame rate by itself; drawing is the limit, and that is milestone 6.
+
+### Tests after milestone 2
+| Suite | Result |
+|---|---|
+| `cargo test` (Rust unit tests) | 9 passed |
+| `node tools/check-core.mjs` (parity + build is current) | 12 passed |
+| `npm test` (now runs check-core first) | 179 passed, 0 failed (12 core checks + 167 browser checks) |
+| `node tools/check-modes.mjs` | 82 passed, 0 failed (4 box tests moved to Rust unit tests) |
+| `node tools/play-through.mjs` | no page errors |

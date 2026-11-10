@@ -2,3 +2,5 @@ node_modules/
 tests/output/
 .DS_Store
 reference/
+rust/core/target/
+rust/core/Cargo.lock

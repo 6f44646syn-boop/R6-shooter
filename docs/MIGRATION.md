@@ -43,7 +43,7 @@ old code is removed. The game stays playable after every step.
 
 ## Rules for each step
 
-1. Port one system; keep the JavaScript version as the reference under `tools/reference/`.
+1. Port one system; keep the JavaScript version as the reference under `tools/ref-js/`.
 2. Parity test: the same seeded questions to both, answers must match (`tools/check-core.mjs`).
 3. Run every suite (`npm test`, `tools/check-modes.mjs`) on the Rust path.
 4. Measure before and after (`tools/bench-sim.mjs`), record in `BASELINE.md`.

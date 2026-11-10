@@ -1,23 +1,7 @@
 // Geometry for the match modes (no three.js, no DOM: runs in the browser and in Node).
-// Boxes: { minX, maxX, minY, maxY, minZ, maxZ }. Rays: origin o [x, y, z], unit direction d.
-
-// Ray against a box. Returns the entry distance (> 0) or Infinity; sets out.n (normal axis).
-export function rayBox(o, d, b, maxT = Infinity, out = null) {
-  let t0 = 0, t1 = maxT, ax = -1;
-  for (let a = 0; a < 3; a++) {
-    const oo = o[a], dd = d[a];
-    const lo = a === 0 ? b.minX : a === 1 ? b.minY : b.minZ, hi = a === 0 ? b.maxX : a === 1 ? b.maxY : b.maxZ;
-    if (Math.abs(dd) < 1e-12) { if (oo < lo || oo > hi) return Infinity; continue; }
-    let ta = (lo - oo) / dd, tb = (hi - oo) / dd;
-    if (ta > tb) { const s = ta; ta = tb; tb = s; }
-    if (ta > t0) { t0 = ta; ax = a; }
-    if (tb < t1) t1 = tb;
-    if (t0 > t1) return Infinity;
-  }
-  if (ax < 0 || t0 <= 1e-6) return Infinity;       // starting inside counts as no hit
-  if (out) { out.n = ax; out.s = -Math.sign(d[ax]); }
-  return t0;
-}
+// Rays: origin o [x, y, z], unit direction d. Box tests, collision and line of sight are in
+// the Rust core (rust/core/src/geom.rs, world.rs); what is left here is hit zones on bodies
+// and angle helpers.
 
 // Ray against a sphere (centre c, radius r): entry distance or Infinity.
 export function raySphere(o, d, c, r) {
@@ -49,38 +33,6 @@ export function rayCapsule(o, d, a, b, r) {
   tmp[0] = a[0] + ux * s2; tmp[1] = a[1] + uy * s2; tmp[2] = a[2] + uz * s2;
   const t2 = raySphere(o, d, tmp, r);
   return Math.min(t, t2);
-}
-
-// Push a circle (x, z, radius r) out of a box (in the xz plane). Returns true if it moved.
-export function pushCircleBox(p, r, b) {
-  const cx = Math.max(b.minX, Math.min(p.x, b.maxX)), cz = Math.max(b.minZ, Math.min(p.z, b.maxZ));
-  const dx = p.x - cx, dz = p.z - cz, d2 = dx * dx + dz * dz;
-  if (d2 >= r * r) return false;
-  if (d2 > 1e-12) { const d = Math.sqrt(d2); p.x = cx + dx / d * r; p.z = cz + dz / d * r; return true; }
-  const opts = [[p.x - b.minX, -1, 0], [b.maxX - p.x, 1, 0], [p.z - b.minZ, 0, -1], [b.maxZ - p.z, 0, 1]];
-  let best = opts[0];
-  for (const q of opts) if (q[0] < best[0]) best = q;
-  if (best[1]) p.x = best[1] < 0 ? b.minX - r : b.maxX + r; else p.z = best[2] < 0 ? b.minZ - r : b.maxZ + r;
-  return true;
-}
-
-// Does a circle at (x, z) overlap the box (xz)?
-export function circleHitsBox(x, z, r, b) {
-  const cx = Math.max(b.minX, Math.min(x, b.maxX)), cz = Math.max(b.minZ, Math.min(z, b.maxZ));
-  return (x - cx) ** 2 + (z - cz) ** 2 < r * r;
-}
-
-// Segment a-b (xz) against a box grown by r: true if it crosses.
-export function segHitsBox(ax, az, bx, bz, b, r = 0) {
-  let t0 = 0, t1 = 1;
-  for (const [o, d, lo, hi] of [[ax, bx - ax, b.minX - r, b.maxX + r], [az, bz - az, b.minZ - r, b.maxZ + r]]) {
-    if (Math.abs(d) < 1e-12) { if (o < lo || o > hi) return false; continue; }
-    let ta = (lo - o) / d, tb = (hi - o) / d;
-    if (ta > tb) { const s = ta; ta = tb; tb = s; }
-    t0 = Math.max(t0, ta); t1 = Math.min(t1, tb);
-    if (t0 > t1) return false;
-  }
-  return true;
 }
 
 export const DEG = Math.PI / 180;

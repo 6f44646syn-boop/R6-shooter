@@ -1040,6 +1040,10 @@ try {
       const ren = R.renderer(), geo = [];
       for (let i = 0; i < 5; i++) { await R.modeStart('bomb', { map: maps, seed: 3 }); R.step(1, 60); R.renderFrame(); geo.push(ren.info.memory.geometries); }
       out.geo = geo;
+      // the Rust core is what answers collision and paths, and old maps are freed in it too
+      const core = globalThis.__recoilCore;
+      out.core = !!core && core.e.rc_abi() === 1 && typeof R.modeGame().map._w === 'number';
+      out.worlds = core ? core.e.rc_world_count() : -1;
       // death replay ends before the respawn in Team Deathmatch
       await R.modeStart('tdm', { map: maps, seed: 3 });
       const G2 = R.modeGame(), m2 = G2.m, me2 = G2.me;
@@ -1068,6 +1072,7 @@ try {
     check('a drone rolls under a boarded door', mm.droneUnderDoor > -23.6, String(mm.droneUnderDoor));
     check('sprinting at a wall or a boarded door at 10 FPS does not get you through (x ' + mm.bodyWall + ', ' + mm.bodyDoor + ')', mm.bodyWall < -24.4 && mm.bodyDoor < -24.3 && mm.doorAlive, JSON.stringify(mm));
     check('graphics memory is steady across match restarts (geometries ' + mm.geo.join(', ') + ')', Math.max(...mm.geo) - Math.min(...mm.geo) <= 6, mm.geo.join(','));
+    check('the Rust core (WebAssembly) is loaded and holds exactly the current map', mm.core && mm.worlds === 1, JSON.stringify({ core: mm.core, worlds: mm.worlds }));
     check('the death replay ends before the Team Deathmatch respawn', mm.kcOn && mm.kcOffBeforeRespawn && mm.respawned, JSON.stringify({ on: mm.kcOn, off: mm.kcOffBeforeRespawn, back: mm.respawned }));
     check('Battle: sprinting at a thin Casino wall at 10 FPS does not get you through', mm.casinoWall > -7.9, String(mm.casinoWall));
     check('no page errors', errors.length === 0, errors.join('\n'));

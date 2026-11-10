@@ -7,7 +7,7 @@
 import { readFileSync } from 'node:fs';
 import { MatchMap } from '../js/modes/map.js';
 import { Match, TICK } from '../js/modes/sim.js';
-import { rayBox, rayCapsule, raySphere } from '../js/modes/geom.js';
+import { rayCapsule, raySphere } from '../js/modes/geom.js';
 
 const root = new URL('../', import.meta.url);
 const json = (p) => JSON.parse(readFileSync(new URL(p, root), 'utf8'));
@@ -26,11 +26,7 @@ const check = (msg, ok, info = '') => (ok ? pass(msg) : fail(msg + (info ? '\n  
 /* ---------- unit tests ---------- */
 console.log('Hitscan');
 {
-  const b = { minX: -1, maxX: 1, minY: 0, maxY: 2, minZ: 4, maxZ: 6 };
-  check('ray hits a box face at the right distance', Math.abs(rayBox([0, 1, 0], [0, 0, 1], b) - 4) < 1e-9);
-  check('ray beside a box misses', rayBox([1.5, 1, 0], [0, 0, 1], b) === Infinity);
-  check('ray over a low box misses', rayBox([0, 2.5, 0], [0, 0, 1], b) === Infinity);
-  check('ray from inside a box does not hit it', rayBox([0, 1, 5], [0, 0, 1], b) === Infinity);
+  // (ray against box, push-out and segment tests are Rust unit tests now: cargo test in rust/core)
   const t = rayCapsule([0, 1, 0], [0, 0, 1], [0, 0.5, 5], [0, 1.5, 5], 0.25);
   check('ray hits a capsule side at 4.75 m', Math.abs(t - 4.75) < 1e-6, String(t));
   check('ray passes a capsule 0.3 m off', rayCapsule([0.3, 1, 0], [0, 0, 1], [0, 0.5, 5], [0, 1.5, 5], 0.25) === Infinity);

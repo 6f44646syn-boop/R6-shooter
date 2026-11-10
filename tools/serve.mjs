@@ -10,7 +10,7 @@ const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.md': 'text/markdown; charset=utf-8',
-  '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
+  '.png': 'image/png', '.wasm': 'application/wasm', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
 };
 
 export function startServer(port = 8080) {

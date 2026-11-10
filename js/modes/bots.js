@@ -7,8 +7,8 @@
 // target and grows with sustained fire (bloom); bursts limited by the gun's rpm and magazine.
 // Navigation: A* on the map's waypoint graph, string-pulled, with a stuck watchdog (no
 // progress for 3 s: re-path; still stuck: walk to the nearest waypoint).
-import { SKILL, EYE, NOISE } from './sim.js?v=7de51ed-mwa42x51';
-import { dirFrom, yawTo, wrap180, DEG } from './geom.js?v=7de51ed-mwa42x51';
+import { SKILL, EYE, NOISE } from './sim.js?v=9ba226e-mwa4h4pc';
+import { dirFrom, yawTo, wrap180, DEG } from './geom.js?v=9ba226e-mwa4h4pc';
 
 const VIEW = 55, RANGE = 45;
 

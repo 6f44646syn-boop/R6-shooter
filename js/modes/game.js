@@ -4,16 +4,17 @@
 //
 // Map: flat-shaded low poly from the map file; static walls merged into one mesh, breakable
 // panels in one instanced mesh, one directional light (a 1024 shadow map in High / Ultra).
-import * as THREE from '../../vendor/three/three.module.min.js?v=7de51ed-mwa42x51';
-import { MatchMap } from './map.js?v=7de51ed-mwa42x51';
-import { Match, TICK } from './sim.js?v=7de51ed-mwa42x51';
-import { yawTo, wrap180, DEG } from './geom.js?v=7de51ed-mwa42x51';
-import { Fighter } from '../battle/fighter.js?v=7de51ed-mwa42x51';
-import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=7de51ed-mwa42x51';
-import { buildMapLook, panelTextures } from './look.js?v=7de51ed-mwa42x51';
-import { Arena } from '../battle/arena.js?v=7de51ed-mwa42x51';
-import { Human } from '../battle/human.js?v=7de51ed-mwa42x51';
-import { drawCrosshair } from '../ui/crosshair.js?v=7de51ed-mwa42x51';
+import * as THREE from '../../vendor/three/three.module.min.js?v=9ba226e-mwa4h4pc';
+import { MatchMap } from './map.js?v=9ba226e-mwa4h4pc';
+import { initCore } from '../wasm/core.js?v=9ba226e-mwa4h4pc';
+import { Match, TICK } from './sim.js?v=9ba226e-mwa4h4pc';
+import { yawTo, wrap180, DEG } from './geom.js?v=9ba226e-mwa4h4pc';
+import { Fighter } from '../battle/fighter.js?v=9ba226e-mwa4h4pc';
+import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=9ba226e-mwa4h4pc';
+import { buildMapLook, panelTextures } from './look.js?v=9ba226e-mwa4h4pc';
+import { Arena } from '../battle/arena.js?v=9ba226e-mwa4h4pc';
+import { Human } from '../battle/human.js?v=9ba226e-mwa4h4pc';
+import { drawCrosshair } from '../ui/crosshair.js?v=9ba226e-mwa4h4pc';
 
 const TEAM_COLOR = { A: 0x5b8cff, B: 0xff7048 };
 const MAX_TRACERS = 64;
@@ -48,7 +49,8 @@ export class ModeGame {
   /* ---------- start / stop ---------- */
   // o: { mode, map, difficulty, teamSize, abilities, minutes, headshot, op, side }
   async start(o) {
-    const [mapData, ops, abilities] = await Promise.all([load('data/maps/' + o.map + '.json'), load('data/ops.json'), load('data/abilities.json')]);
+    // the map and operator data, and the Rust core (collision, raycasts, pathfinding)
+    const [mapData, ops, abilities] = await Promise.all([load('data/maps/' + o.map + '.json'), load('data/ops.json'), load('data/abilities.json'), initCore()]);
     this.stop();
     const d = this.deps;
     this.opts = o;
