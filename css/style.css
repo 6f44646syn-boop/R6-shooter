@@ -349,6 +349,7 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 @keyframes jamjit { 0% { background-position: 0 0, 0 0; } 50% { background-position: 0 3px, 0 0; } 100% { background-position: 0 1px, 0 0; } }
 .mg-banner { position: absolute; left: 50%; top: 24%; transform: translateX(-50%); padding: 6px 14px; border-radius: 5px; background: rgba(10, 60, 80, 0.8); color: #9ff0ff; font-weight: 700; letter-spacing: 1px; font-size: 15px; white-space: nowrap; pointer-events: none; }
 .mg-banner.stun { background: rgba(90, 80, 10, 0.8); color: #ffe880; }
+.mg-banner.edge { top: 30%; background: rgba(20, 24, 30, 0.6); color: #d8dde6; font-weight: 600; letter-spacing: 0.3px; font-size: 13px; }
 .mg-stun { box-shadow: inset 0 0 200px 60px rgba(255, 250, 220, 0.35); }
 .mg-compass.jammed { animation: jamjit 0.15s steps(2) infinite; opacity: 0.35; filter: blur(1px); }
 .mg-kc { position: absolute; left: 50%; bottom: 16%; transform: translateX(-50%); padding: 10px 16px; background: rgba(12, 14, 18, 0.82); border: 1px solid rgba(255, 80, 60, 0.6); border-radius: 6px; text-align: center; max-width: 80%; pointer-events: none; }

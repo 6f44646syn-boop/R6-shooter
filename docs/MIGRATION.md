@@ -20,9 +20,11 @@ old code is removed. The game stays playable after every step.
 |---|---|---|---|---|
 | Match-map collision (push-out, swept movement) | JS `modes/map.js` | **Rust** | — | 2 |
 | Raycast, line of sight (match maps) | JS `modes/map.js`, `geom.js` | **Rust** | — | 2 |
-| Pathfinding (A* + path smoothing) | JS `modes/map.js` | **Rust** | — | 2 |
+| Pathfinding (A* + path smoothing) | JS `modes/map.js` | **Rust** (replaced again in milestone 3) | — | 2 |
 | Breakable panels and doors (state) | JS `modes/map.js` | **Rust** (state mirrored to JS for drawing) | — | 2 |
-| Height-aware physics (floors, stairs, ramps, vault) | JS `battle/arena.js` | JS | Rust, shared by Battle and the match modes | 3 |
+| Height-aware physics (floors, stairs, ramps, falling, vault) | JS `battle/arena.js` | **Rust**, shared by Battle and the match modes (`js/wasm/world.js`) | — | 3 |
+| Pathfinding on every level (0.5 m cells, A*, smoothing; panels and zones) | JS `battle/arena.js`; a 2 m ground-floor graph in the modes | **Rust**, shared | — | 3 |
+| Bomb defender boundary | — | JS `modes/rules.js` (rule), Rust (paths stay inside) | — | 3 |
 | Grenade and projectile flight | JS `modes/nades.js`, `abilities.js` | JS | Rust | 3–4 |
 | Destruction, barbed wire, reinforcing | JS | JS | Rust | 4 |
 | Match simulation (actors, rules, abilities) | JS `modes/sim.js`, `rules.js`, `abilities.js` | JS | Rust | 5 |

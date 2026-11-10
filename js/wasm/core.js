@@ -8,7 +8,7 @@
 // The instance is kept on globalThis so every copy of this module (the cache-busting ?v=
 // stamp makes separate module instances) shares one core.
 const KEY = '__recoilCore';
-const ABI = 1;
+const ABI = 3;
 let pending = null;
 
 function bind(instance) {

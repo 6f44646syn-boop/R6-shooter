@@ -5,10 +5,11 @@
 // States: route (going somewhere), engage, cover, reload, objective (from the mode's rules),
 // ability (abilities.js decides). Aim: reaction time, then an error that shrinks while on
 // target and grows with sustained fire (bloom); bursts limited by the gun's rpm and magazine.
-// Navigation: A* on the map's waypoint graph, string-pulled, with a stuck watchdog (no
-// progress for 3 s: re-path; still stuck: walk to the nearest waypoint).
-import { SKILL, EYE, NOISE } from './sim.js?v=9ba226e-mwa4h4pc';
-import { dirFrom, yawTo, wrap180, DEG } from './geom.js?v=9ba226e-mwa4h4pc';
+// Navigation: the core's A* over every level of the map (floors, stairs, ramps), smoothed,
+// with a stuck watchdog (no progress for 3 s: re-path; still stuck: step to the nearest
+// open spot).
+import { SKILL, EYE, NOISE } from './sim.js?v=e1f5a8d-mwah3s7c';
+import { dirFrom, yawTo, wrap180, DEG } from './geom.js?v=e1f5a8d-mwah3s7c';
 
 const VIEW = 55, RANGE = 45;
 
@@ -77,14 +78,14 @@ export class Brain {
       const c = this.coverFrom({ x: nade.x, z: nade.z });
       const dx = a.x - nade.x, dz = a.z - nade.z, L = Math.hypot(dx, dz) || 1;
       const g = c || [a.x + dx / L * 7, a.z + dz / L * 7];
-      this.state = 'flee'; this.goalKey = ''; this.setGoal(g[0], g[1], 'cover'); this.commitUntil = t + 2; this.holding = false; this.push = true;
+      this.state = 'flee'; this.goalKey = ''; this.setGoal(g[0], g[1], 'cover', g[2] ?? a.y); this.commitUntil = t + 2; this.holding = false; this.push = true;
       return;
     }
     if (this.state === 'flee' && t < this.commitUntil && this.path.length) return;
     if (t < (this.panicUntil || 0) && this.state !== 'cover') {
       const near = best || [...m.bb[a.team].seen.values()].sort((p, q) => q.t - p.t)[0];
       const c = near && this.coverFrom(near);
-      if (c) { this.state = 'cover'; this.setGoal(c[0], c[1], 'cover'); this.wantCrouch = true; this.commitUntil = this.panicUntil; return; }
+      if (c) { this.state = 'cover'; this.setGoal(c[0], c[1], 'cover', c[2] || 0); this.wantCrouch = true; this.commitUntil = this.panicUntil; return; }
     }
     // committed to reaching cover: do not flip-flop
     if ((this.state === 'cover' || this.state === 'reload') && t < this.commitUntil && this.path.length) return;
@@ -94,30 +95,30 @@ export class Brain {
     if (best && obj && obj.push) {
       this.push = true;
       this.state = 'objective';
-      this.setGoal(obj.x, obj.z, obj.key || 'obj');
+      this.setGoal(obj.x, obj.z, obj.key || 'obj', obj.y);
       this.holding = false; this.face = null; this.wantCrouch = false;
       return;
     }
     if (best && !(obj && obj.ignoreEnemies)) {
       if (a.hp < 35 && S !== SKILL.terminator && !this.holding && (!obj || !obj.must)) {
         const c = this.coverFrom(best);
-        if (c) { this.state = 'cover'; this.setGoal(c[0], c[1], 'cover'); this.wantCrouch = true; this.commitUntil = t + 3; return; }
+        if (c) { this.state = 'cover'; this.setGoal(c[0], c[1], 'cover', c[2] || 0); this.wantCrouch = true; this.commitUntil = t + 3; return; }
       }
       this.state = 'engage';
       // close the distance if far, otherwise strafe (handled in act)
       // chase far targets, unless told to hold a position (then hold and shoot)
-      if (bd > 22 && !(obj && obj.hold)) this.setGoal(best.x, best.z, 'chase'); else { this.path = []; this.goal = null; this.goalKey = ''; }
+      if (bd > 22 && !(obj && obj.hold)) this.setGoal(best.x, best.z, 'chase', best.y); else { this.path = []; this.goal = null; this.goalKey = ''; }
       this.wantCrouch = false;
       return;
     }
     if (a.reloadUntil && t - this.visAt < 4) {
       const last = [...m.bb[a.team].seen.values()].sort((p, q) => q.t - p.t)[0];
-      if (last) { const c = this.coverFrom(last); if (c) { this.state = 'reload'; this.setGoal(c[0], c[1], 'cover'); this.wantCrouch = true; this.commitUntil = t + 3; return; } }
+      if (last) { const c = this.coverFrom(last); if (c) { this.state = 'reload'; this.setGoal(c[0], c[1], 'cover', c[2] || 0); this.wantCrouch = true; this.commitUntil = t + 3; return; } }
     }
     this.push = !!(obj && obj.push);
     if (obj) {
       this.state = 'objective';
-      this.setGoal(obj.x, obj.z, obj.key || 'obj');
+      this.setGoal(obj.x, obj.z, obj.key || 'obj', obj.y);
       this.holding = !!obj.hold && Math.hypot(obj.x - a.x, obj.z - a.z) < (obj.r || 1.2);
       this.face = obj.face || null;
       this.wantCrouch = !!obj.crouch && this.holding;
@@ -129,15 +130,15 @@ export class Brain {
     // hunt: the freshest sighting or sound, recent deaths, else patrol
     let g = null;
     for (const s of m.bb[a.team].seen.values()) if (t - s.t < 12 && (!g || s.t > g.t)) g = s;
-    if (g) { this.setGoal(g.x, g.z, 'hunt' + Math.round(g.x) + ',' + Math.round(g.z)); return; }
+    if (g) { this.setGoal(g.x, g.z, 'hunt' + Math.round(g.x) + ',' + Math.round(g.z), g.y); return; }
     const dth = m.bb[a.team].deaths.filter((d) => t - d.t < 20).pop();
-    if (dth) { this.setGoal(dth.x, dth.z, 'death' + Math.round(dth.x)); return; }
+    if (dth) { this.setGoal(dth.x, dth.z, 'death' + Math.round(dth.x), dth.y); return; }
     if (!this.patrol || Math.hypot(this.patrol[0] - a.x, this.patrol[1] - a.z) < 3 || t > this.patrolUntil) {
       const N = m.map.nodes;
       for (let k = 0; k < 10; k++) { const n = N[Math.floor(m.rng() * N.length)]; if (Math.hypot(n[0] - a.x, n[1] - a.z) > 15) { this.patrol = n; break; } }
       this.patrolUntil = t + 25;
     }
-    if (this.patrol) this.setGoal(this.patrol[0], this.patrol[1], 'patrol' + this.patrol[0] + ',' + this.patrol[1]);
+    if (this.patrol) this.setGoal(this.patrol[0], this.patrol[1], 'patrol' + this.patrol[0] + ',' + this.patrol[1], this.patrol[2]);
   }
   // A cover spot near me out of the threat's sight.
   coverFrom(e) {
@@ -147,22 +148,27 @@ export class Brain {
     for (const c of m.map.data.cover) {
       const d = Math.hypot(c[0] - a.x, c[1] - a.z);
       if (d >= bd || (av && Math.hypot(c[0] - av.x, c[1] - av.z) < 1.5)) continue;
+      const in_ = m.rules.keepIn(a, c[0], c[1]);
+      if (in_ && in_[2]) continue;               // outside the building (a Bomb defender)
       if (m.actors.some((q) => q !== a && q.alive && q.team === a.team && Math.hypot(q.x - c[0], q.z - c[1]) < 1.2)) continue;   // a teammate is there
-      if (m.map.sight([e.x, 1.6, e.z], [c[0], 1.0, c[1]])) continue;
+      if (Math.abs((c[2] || 0) - a.y) > 1.5 || m.map.sight([e.x, (e.y || 0) + 1.6, e.z], [c[0], (c[2] || 0) + 1.0, c[1]])) continue;
       best = c; bd = d;
     }
     return best;
   }
-  setGoal(x, z, key) {
+  // Go to (x, z) on the level at height y (the ground floor if not given).
+  setGoal(x, z, key, y = 0) {
     const m = this.m, a = this.a;
+    const in_ = m.rules.keepIn(a, x, z);       // a Bomb defender's goals stay inside the building
+    if (in_) { x = in_[0]; z = in_[1]; }
     const changed = key !== this.goalKey || !this.goal || Math.hypot(x - this.goal[0], z - this.goal[1]) > 2;
     if (!changed && m.t < this.nextPath && this.path.length) return;
     // do not swap goals back and forth: keep a new goal at least 1.2 s while on the way
     // (taking cover is always allowed)
     if (key !== this.goalKey && key !== 'cover' && this.path.length && m.t - (this.goalSetAt || -9) < 1.2) return;
     if (key !== this.goalKey) this.goalSetAt = m.t;
-    this.goal = [x, z]; this.goalKey = key;
-    this.path = Math.hypot(x - a.x, z - a.z) < 2 ? [] : m.map.path(a.x, a.z, x, z);   // already there
+    this.goal = [x, z, y]; this.goalKey = key;
+    this.path = Math.hypot(x - a.x, z - a.z) < 2 && Math.abs(y - a.y) < 1 ? [] : m.map.path(a.x, a.z, x, z, a.y, y, !!in_);   // already there
     this.nextPath = m.t + 3 + m.rng();
     this.progT = m.t; this.progD = Infinity;
   }
@@ -184,7 +190,7 @@ export class Brain {
       } else if (this.path.length && !this.holding) {
         const wp = this.path[0], dx = wp[0] - a.x, dz = wp[1] - a.z, d = Math.hypot(dx, dz);
         // a boarded door on the way: walk up to it and knife it open
-        const door = d > 0.3 ? m.map.doorOn(a.x, a.z, wp[0], wp[1], 0.2) : null;
+        const door = d > 0.3 ? m.map.doorOn(a.x, a.z, wp[0], wp[1], 0.2, a.y) : null;
         const db = door && door.box, ddx = db ? (db.minX + db.maxX) / 2 - a.x : 0, ddz = db ? (db.minZ + db.maxZ) / 2 - a.z : 0;
         if (door && Math.hypot(ddx, ddz) < 1.25) {
           this.doorFace = [a.x + ddx, a.z + ddz]; this.progT = t;
@@ -199,13 +205,13 @@ export class Brain {
           else if (this.path.length === 1 && d < 2 && t - this.progT > 1) { this.path.length = 0; this.progD = Infinity; }   // close enough (someone is standing there)
           else if (t - this.progT > 3) {
             this.progT = t; this.progD = Infinity;
-            if (this.stuckStage === 0) { this.stuckStage = 1; this.nextPath = 0; const g = this.goal; if (g) { this.path = m.map.path(a.x, a.z, g[0], g[1]); } }
+            if (this.stuckStage === 0) { this.stuckStage = 1; this.nextPath = 0; const g = this.goal; if (g) { this.path = m.map.path(a.x, a.z, g[0], g[1], a.y, g[2] || 0, !!m.rules.keepIn(a, a.x, a.z)); } }
             else {
               // still stuck: give this goal up for a while and step onto the nearest waypoint
               this.stuckStage = 0;
               if (this.goal) this.avoid = { x: this.goal[0], z: this.goal[1], until: t + 15 };
-              const k = m.map.nearestNode(a.x, a.z, true);
-              this.path = k >= 0 ? [m.map.nodes[k].slice()] : [];
+              const n = m.map.nearestSpot(a.x, a.z, a.y);
+              this.path = n ? [n] : [];
               this.goal = null; this.goalKey = ''; this.patrol = null;
             }
           }
@@ -249,7 +255,7 @@ export class Brain {
     // fire
     if (frozen || !sees || m.rules.noFire(a)) return;
     // close enough to knife (faster than a burst, works while reloading)
-    if (Math.hypot(tgt.x - a.x, tgt.z - a.z) < 1.3 && Math.abs(wrap180(yawTo(tgt.x - a.x, tgt.z - a.z) - a.yaw)) < 35 && t - this.seenAt > S.reaction) { m.knife(a); return; }
+    if (Math.hypot(tgt.x - a.x, tgt.z - a.z) < 1.3 && Math.abs(tgt.y - a.y) < 1.2 && Math.abs(wrap180(yawTo(tgt.x - a.x, tgt.z - a.z) - a.yaw)) < 35 && t - this.seenAt > S.reaction) { m.knife(a); return; }
     if (a.reloadUntil || a.ammo <= 0) return;
     // holding an angle (standing still, waiting): quicker on the trigger
     if (t - this.seenAt < S.reaction * (this.holding ? 0.6 : 1) * (t < a.shakeUntil ? 2 : 1) || t < this.pauseUntil || t < a.nextShot) return;

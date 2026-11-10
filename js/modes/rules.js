@@ -23,6 +23,9 @@ class Rules {
   botGoal() { return null; }
   frozen() { return false; }
   noFire() { return false; }
+  // Where an actor may be: Bomb keeps defenders inside the building (see Bomb.keepIn).
+  keepIn() { return null; }
+  confine() { return false; }
   timeLeft() { return Math.max(0, this.timeLimit - this.m.t); }
 }
 
@@ -52,12 +55,12 @@ export class CTF extends Rules {
     this.name = 'Capture the Flag'; this.limit = 3; this.overtime = false; this.usesE = false;
     const st = m.map.data.flags;
     this.flags = {};
-    for (const team of ['A', 'B']) this.flags[team] = { team, state: 'home', x: st[team][0], z: st[team][1], stand: st[team], carrier: null, returnAt: 0 };
+    for (const team of ['A', 'B']) this.flags[team] = { team, state: 'home', x: st[team][0], z: st[team][1], y: st[team][2] || 0, stand: st[team], carrier: null, returnAt: 0 };
     this.nextRoles = 0;
     this.group = {};
   }
   other(team) { return team === 'A' ? 'B' : 'A'; }
-  flagHome(f) { f.state = 'home'; f.x = f.stand[0]; f.z = f.stand[1]; f.carrier = null; f.returnAt = 0; }
+  flagHome(f) { f.state = 'home'; f.x = f.stand[0]; f.z = f.stand[1]; f.y = f.stand[2] || 0; f.carrier = null; f.returnAt = 0; }
   update(dt) {
     super.update(dt);
     const m = this.m, t = m.t;
@@ -66,7 +69,7 @@ export class CTF extends Rules {
       if (f.state === 'carried') {
         const c = f.carrier;
         if (!c || !c.alive) this.drop(f, c);
-        else { f.x = c.x; f.z = c.z; }
+        else { f.x = c.x; f.z = c.z; f.y = c.y; }
       } else if (f.state === 'dropped' && t >= f.returnAt) {
         this.flagHome(f);
         m.emit({ type: 'msg', text: (team === 'A' ? 'Blue' : 'Orange') + ' flag returned', team, flag: 'return' });
@@ -76,20 +79,20 @@ export class CTF extends Rules {
       if (!a.alive) continue;
       const enemy = this.flags[this.other(a.team)], own = this.flags[a.team];
       // pick up the enemy flag
-      if (!a.carry && (enemy.state === 'home' || enemy.state === 'dropped') && Math.hypot(enemy.x - a.x, enemy.z - a.z) < TOUCH) {
+      if (!a.carry && (enemy.state === 'home' || enemy.state === 'dropped') && Math.hypot(enemy.x - a.x, enemy.z - a.z) < TOUCH && Math.abs(enemy.y - a.y) < 1.5) {
         enemy.state = 'carried'; enemy.carrier = a; enemy.returnAt = 0;
         a.carry = { type: 'flag', team: enemy.team };
         m.emit({ type: 'msg', text: (a.human ? 'You have' : a.name + ' has') + ' the ' + (enemy.team === 'A' ? 'blue' : 'orange') + ' flag', team: a.team, flag: 'take', id: a.id });
         this.nextRoles = 0;
       }
       // return our dropped flag by touching it
-      if (own.state === 'dropped' && Math.hypot(own.x - a.x, own.z - a.z) < TOUCH) {
+      if (own.state === 'dropped' && Math.hypot(own.x - a.x, own.z - a.z) < TOUCH && Math.abs(own.y - a.y) < 1.5) {
         this.flagHome(own);
         m.emit({ type: 'msg', text: (a.human ? 'You returned' : a.name + ' returned') + ' the ' + (own.team === 'A' ? 'blue' : 'orange') + ' flag', team: a.team, flag: 'return' });
         this.nextRoles = 0;
       }
       // capture
-      if (a.carry && a.carry.type === 'flag' && own.state === 'home' && Math.hypot(own.stand[0] - a.x, own.stand[1] - a.z) < CAPTURE_R) {
+      if (a.carry && a.carry.type === 'flag' && own.state === 'home' && Math.hypot(own.stand[0] - a.x, own.stand[1] - a.z) < CAPTURE_R && Math.abs((own.stand[2] || 0) - a.y) < 1.5) {
         const f = this.flags[a.carry.team];
         this.flagHome(f); a.carry = null;
         this.score[a.team]++;
@@ -101,7 +104,7 @@ export class CTF extends Rules {
   }
   drop(f, c) {
     f.state = 'dropped'; f.carrier = null; f.returnAt = this.m.t + RETURN_S;
-    if (c) { f.x = c.x; f.z = c.z; c.carry = null; }
+    if (c) { f.x = c.x; f.z = c.z; f.y = this.m.map.groundAt(c.x, c.z, c.y); c.carry = null; }
     this.m.emit({ type: 'msg', text: (f.team === 'A' ? 'Blue' : 'Orange') + ' flag dropped', team: f.team, flag: 'drop' });
     this.nextRoles = 0;
   }
@@ -162,20 +165,20 @@ export class CTF extends Rules {
     switch (brain.role) {
       case 'carry': {
         const via = this.via(brain, own.stand);
-        if (via) return { x: via[0], z: via[1], key: 'carryvia', must: true, push: true };
-        return { x: own.stand[0], z: own.stand[1], key: 'carry', must: true, push: true };
+        if (via) return { x: via[0], z: via[1], y: via[2], key: 'carryvia', must: true, push: true };
+        return { x: own.stand[0], z: own.stand[1], y: own.stand[2] || 0, key: 'carry', must: true, push: true };
       }
       case 'steal': {
         const via = this.via(brain, [enemy.x, enemy.z]);
-        if (via) return { x: via[0], z: via[1], key: 'via' + via[1], push: true };
+        if (via) return { x: via[0], z: via[1], y: via[2], key: 'via' + via[1], push: true };
         const g = this.group[a.team];
         if (g && g.until && !g.go && g.stage) return { x: g.stage[0], z: g.stage[1], key: 'stage', hold: true, r: 4, face: [enemy.x, enemy.z] };
-        return { x: enemy.x, z: enemy.z, key: 'steal' + enemy.state + Math.round(enemy.x) + ',' + Math.round(enemy.z), push: true };
+        return { x: enemy.x, z: enemy.z, y: enemy.y, key: 'steal' + enemy.state + Math.round(enemy.x) + ',' + Math.round(enemy.z), push: true };
       }
       case 'hunt': return null;
-      case 'escort': { const c = enemy.carrier; return c ? { x: c.x - 1.5, z: c.z, key: 'escort' + Math.round(c.x / 3) + ',' + Math.round(c.z / 3), push: true } : null; }
-      case 'chase': return { x: own.x, z: own.z, key: 'chase' + Math.round(own.x / 3) + ',' + Math.round(own.z / 3) };
-      case 'recover': return { x: own.x, z: own.z, key: 'recover', push: true };
+      case 'escort': { const c = enemy.carrier; return c ? { x: c.x - 1.5, z: c.z, y: c.y, key: 'escort' + Math.round(c.x / 3) + ',' + Math.round(c.z / 3), push: true } : null; }
+      case 'chase': return { x: own.x, z: own.z, y: own.y, key: 'chase' + Math.round(own.x / 3) + ',' + Math.round(own.z / 3) };
+      case 'recover': return { x: own.x, z: own.z, y: own.y, key: 'recover', push: true };
       default: {
         // hold near our stand at a cover spot
         if (!brain.post || brain.postT < this.m.t) {
@@ -183,7 +186,7 @@ export class CTF extends Rules {
           brain.post = spots.length ? spots[Math.floor(this.m.rng() * spots.length)] : own.stand;
           brain.postT = this.m.t + 20;
         }
-        return { x: brain.post[0], z: brain.post[1], key: 'post' + brain.post[0] + ',' + brain.post[1], hold: true, r: 1.5, face: [enemy.stand[0], enemy.stand[1]] };
+        return { x: brain.post[0], z: brain.post[1], y: brain.post[2] || 0, key: 'post' + brain.post[0] + ',' + brain.post[1], hold: true, r: 1.5, face: [enemy.stand[0], enemy.stand[1]] };
       }
     }
   }
@@ -196,9 +199,10 @@ export class CTF extends Rules {
     if (brain.viaDone) return null;
     if (Math.abs(to[0] - a.x) < 14 || (Math.sign(to[0]) === Math.sign(a.x) && Math.abs(a.x) > 8)) { brain.viaDone = true; return null; }
     const hz = this.m.map.hz, map = this.m.map;
-    const k = map.nearestNode(Math.sign(to[0]) * 11, brain.lane * hz * 0.68, false);
-    if (k < 0) { brain.viaDone = true; return null; }
-    const n = map.nodes[k];
+    const vk = Math.sign(to[0]) + ',' + brain.lane, V = this._via || (this._via = new Map());
+    if (!V.has(vk)) V.set(vk, map.nearestSpot(Math.sign(to[0]) * 11, brain.lane * hz * 0.68, 0));
+    const n = V.get(vk);
+    if (!n) { brain.viaDone = true; return null; }
     if (Math.hypot(n[0] - a.x, n[1] - a.z) < 2.5) { brain.viaDone = true; return null; }
     return n;
   }
@@ -207,8 +211,8 @@ export class CTF extends Rules {
     const out = [];
     for (const team of ['A', 'B']) {
       const f = this.flags[team], col = team === 'A' ? 0x5b8cff : 0xff7048, ours = team === me.team;
-      out.push({ key: 'stand' + team, shape: 'stand', x: f.stand[0], z: f.stand[1], color: col });
-      out.push({ key: 'flag' + team, shape: 'flag', x: f.x, z: f.z, y: f.state === 'carried' ? 0.6 : 0, color: col, show: !(f.state === 'carried' && f.carrier === me), compass: ours ? 'Our flag' : 'Enemy flag' });
+      out.push({ key: 'stand' + team, shape: 'stand', x: f.stand[0], z: f.stand[1], y: f.stand[2] || 0, color: col });
+      out.push({ key: 'flag' + team, shape: 'flag', x: f.x, z: f.z, y: (f.y || 0) + (f.state === 'carried' ? 0.6 : 0), color: col, show: !(f.state === 'carried' && f.carrier === me), compass: ours ? 'Our flag' : 'Enemy flag' });
     }
     return out;
   }
@@ -241,6 +245,10 @@ export class Bomb extends Rules {
     this.firstAttack = (m.o.human && m.o.human.side === 'defend') ? 'B' : 'A';   // your team is A
     this.bomb = { state: 'none', x: 0, z: 0, carrier: null, site: null, fuseEnd: 0 };
     this.sites = m.map.data.sites;
+    // The defenders' area: the rooms of the building ([x0, z0, x1, z1] each). They never
+    // leave it: not through a door, a window, or a wall that has been opened.
+    const D = m.map.data;
+    this.inside = D.inside && D.inside.length ? D.inside : D.building ? [D.building] : null;
   }
   attackTeam() { return this.round > BOMB.swapAfter ? (this.firstAttack === 'A' ? 'B' : 'A') : this.firstAttack; }
   sideOf(team) { return team === (this.round > BOMB.swapAfter ? (this.firstAttack === 'A' ? 'B' : 'A') : this.firstAttack) ? 'attack' : 'defend'; }
@@ -286,6 +294,41 @@ export class Bomb extends Rules {
     }
     m.emit({ type: 'round', round: this.round, attack: this.attackTeam() });
     m.emit({ type: 'msg', text: 'Round ' + this.round + ': ' + (this.attackTeam() === (m.human() ? m.human().team : 'A') ? 'attack' : 'defend') });
+  }
+  // The nearest point to (x, z) a defender may stand at: [x, z, moved]. Others: null.
+  keepIn(a, x, z) {
+    const R = this.inside;
+    if (!R || this.isAttacker(a)) return null;
+    let bx = x, bz = z, bd = Infinity;
+    for (const r of R) {
+      const cx = Math.max(r[0], Math.min(x, r[2])), cz = Math.max(r[1], Math.min(z, r[3]));
+      const d = (cx - x) * (cx - x) + (cz - z) * (cz - z);
+      if (d < bd) { bd = d; bx = cx; bz = cz; if (d === 0) break; }
+    }
+    return [bx, bz, bd > 1e-10];
+  }
+  // Put a defender who is outside back at the edge of the building. Returns true if it moved.
+  confine(a) {
+    const p = this.keepIn(a, a.x, a.z);
+    if (!p || !p[2]) return false;
+    a.x = p[0]; a.z = p[1];
+    return true;
+  }
+  // A defender this close to a way out (an open door, a hole in an outside wall) gets a
+  // warning: metres to the edge of the building, or Infinity.
+  edgeAhead(a) {
+    const R = this.inside;
+    if (!R || this.isAttacker(a) || !a.alive) return Infinity;
+    const map = this.m.map;
+    let best = Infinity;
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      // how far in this direction until the building ends
+      let d = 0;
+      while (d < 1.6 && !this.keepIn(a, a.x + dx * (d + 0.2), a.z + dz * (d + 0.2))[2]) d += 0.2;
+      if (d >= 1.6 || d >= best) continue;
+      if (map.walkClear(a.x, a.z, a.x + dx * (d + 0.9), a.z + dz * (d + 0.9), 0.15, a.y)) best = d;   // nothing in the way: an opening
+    }
+    return best;
   }
   give(a) { const b = this.bomb; b.state = 'carried'; b.carrier = a; a.carry = { type: 'bomb' }; }
   frozen(a) {

@@ -1,43 +1,44 @@
 // Recoil Range entry point: wires input, camera, scene, HUD and the frame loop together.
-import * as THREE from '../vendor/three/three.module.min.js?v=9ba226e-mwa4h4pc';
-import { Look, PITCH_LIMIT } from './core/look.js?v=9ba226e-mwa4h4pc';
-import { Player } from './core/player.js?v=9ba226e-mwa4h4pc';
-import { PointerLock } from './core/pointer-lock.js?v=9ba226e-mwa4h4pc';
-import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=9ba226e-mwa4h4pc';
-import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=9ba226e-mwa4h4pc';
-import { Weapon } from './core/weapon.js?v=9ba226e-mwa4h4pc';
-import { RecoilEngine } from './core/recoil.js?v=9ba226e-mwa4h4pc';
-import { Spread } from './core/spread.js?v=9ba226e-mwa4h4pc';
-import { loadGameData } from './core/guns.js?v=9ba226e-mwa4h4pc';
-import { randomSeed } from './core/prng.js?v=9ba226e-mwa4h4pc';
-import { Range, EYE_HEIGHT } from './scene/range.js?v=9ba226e-mwa4h4pc';
-import { RING_STEP } from './scene/range-tex.js?v=9ba226e-mwa4h4pc';
-import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=9ba226e-mwa4h4pc';
-import { LensPost } from './render/lens-post.js?v=9ba226e-mwa4h4pc';
-import { reticleTextures } from './ui/reticle-tex.js?v=9ba226e-mwa4h4pc';
-import { DOT_POINTS } from './scene/dots.js?v=9ba226e-mwa4h4pc';
-import { Voices } from './audio/voice.js?v=9ba226e-mwa4h4pc';
-import { ModeGame } from './modes/game.js?v=9ba226e-mwa4h4pc';
-import { Sfx } from './audio/sfx.js?v=9ba226e-mwa4h4pc';
-import { DebugHud } from './ui/debug-hud.js?v=9ba226e-mwa4h4pc';
-import { drawCrosshair } from './ui/crosshair.js?v=9ba226e-mwa4h4pc';
-import { Hud } from './ui/hud.js?v=9ba226e-mwa4h4pc';
-import { MagPlot } from './ui/plot.js?v=9ba226e-mwa4h4pc';
-import { SettingsUI } from './ui/settings-ui.js?v=9ba226e-mwa4h4pc';
-import { sensKeys, zoomKey } from './core/optics.js?v=9ba226e-mwa4h4pc';
+import * as THREE from '../vendor/three/three.module.min.js?v=e1f5a8d-mwah3s7c';
+import { Look, PITCH_LIMIT } from './core/look.js?v=e1f5a8d-mwah3s7c';
+import { Player } from './core/player.js?v=e1f5a8d-mwah3s7c';
+import { PointerLock } from './core/pointer-lock.js?v=e1f5a8d-mwah3s7c';
+import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=e1f5a8d-mwah3s7c';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=e1f5a8d-mwah3s7c';
+import { Weapon } from './core/weapon.js?v=e1f5a8d-mwah3s7c';
+import { RecoilEngine } from './core/recoil.js?v=e1f5a8d-mwah3s7c';
+import { Spread } from './core/spread.js?v=e1f5a8d-mwah3s7c';
+import { loadGameData } from './core/guns.js?v=e1f5a8d-mwah3s7c';
+import { randomSeed } from './core/prng.js?v=e1f5a8d-mwah3s7c';
+import { Range, EYE_HEIGHT } from './scene/range.js?v=e1f5a8d-mwah3s7c';
+import { RING_STEP } from './scene/range-tex.js?v=e1f5a8d-mwah3s7c';
+import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=e1f5a8d-mwah3s7c';
+import { LensPost } from './render/lens-post.js?v=e1f5a8d-mwah3s7c';
+import { reticleTextures } from './ui/reticle-tex.js?v=e1f5a8d-mwah3s7c';
+import { DOT_POINTS } from './scene/dots.js?v=e1f5a8d-mwah3s7c';
+import { Voices } from './audio/voice.js?v=e1f5a8d-mwah3s7c';
+import { ModeGame } from './modes/game.js?v=e1f5a8d-mwah3s7c';
+import { Sfx } from './audio/sfx.js?v=e1f5a8d-mwah3s7c';
+import { DebugHud } from './ui/debug-hud.js?v=e1f5a8d-mwah3s7c';
+import { drawCrosshair } from './ui/crosshair.js?v=e1f5a8d-mwah3s7c';
+import { Hud } from './ui/hud.js?v=e1f5a8d-mwah3s7c';
+import { MagPlot } from './ui/plot.js?v=e1f5a8d-mwah3s7c';
+import { SettingsUI } from './ui/settings-ui.js?v=e1f5a8d-mwah3s7c';
+import { sensKeys, zoomKey } from './core/optics.js?v=e1f5a8d-mwah3s7c';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
 function sensRows(catalogue, sens) {
   const keys = new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)]);
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
-import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=9ba226e-mwa4h4pc';
-import { Battle } from './battle/battle.js?v=9ba226e-mwa4h4pc';
-import { createJoinRequest, acceptJoin } from './net/link.js?v=9ba226e-mwa4h4pc';
-import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode } from './net/relay.js?v=9ba226e-mwa4h4pc';
-import { Profile, WIN_POINTS } from './core/profile.js?v=9ba226e-mwa4h4pc';
-import { skinFits, skinById } from './core/skins.js?v=9ba226e-mwa4h4pc';
-import { PackUI } from './ui/packs.js?v=9ba226e-mwa4h4pc';
+import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=e1f5a8d-mwah3s7c';
+import { Battle } from './battle/battle.js?v=e1f5a8d-mwah3s7c';
+import { initCore, coreLoaded } from './wasm/core.js?v=e1f5a8d-mwah3s7c';
+import { createJoinRequest, acceptJoin } from './net/link.js?v=e1f5a8d-mwah3s7c';
+import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode } from './net/relay.js?v=e1f5a8d-mwah3s7c';
+import { Profile, WIN_POINTS } from './core/profile.js?v=e1f5a8d-mwah3s7c';
+import { skinFits, skinById } from './core/skins.js?v=e1f5a8d-mwah3s7c';
+import { PackUI } from './ui/packs.js?v=e1f5a8d-mwah3s7c';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -46,6 +47,8 @@ const $ = (id) => document.getElementById(id);
 /* ---------- iframe check: Google Sites' sandbox blocks pointer lock and fullscreen ---------- */
 // Inside a frame we lead with "Open in a full tab". Some frames do allow mouse capture, so
 // "Play here" boots the game in place; if capture is refused, the menu says so.
+// The game data and the Rust core (wasm) load together; the range still works without the core.
+const loadAll = () => Promise.all([loadGameData(), initCore().catch((e) => { console.error(e); return null; })]).then(([d]) => d);
 let embedded = false;
 try { embedded = window.self !== window.top; } catch (e) { embedded = true; }
 if (embedded) {
@@ -55,10 +58,10 @@ if (embedded) {
   $('play-here').addEventListener('click', () => {
     $('embedded').hidden = true;
     $('menu').hidden = false;
-    loadGameData().then(boot);
+    loadAll().then(boot);
   }, { once: true });
 } else {
-  loadGameData().then(boot);
+  loadAll().then(boot);
 }
 
 function boot(data) {
@@ -765,7 +768,16 @@ function boot(data) {
       onPoints: (kind, head) => (kind === 'kill' ? profile.addKill(head) : profile.addPoints(WIN_POINTS)),
     };
   }
+  // The Rust core (collision, stairs, pathfinding) loads with the page; if a battle is asked
+  // for before it has arrived, start as soon as it does.
+  function needCore(then) {
+    if (coreLoaded()) return false;
+    flashNotice('Loading the game engine...');
+    initCore().then(then, (err) => flashNotice('Could not load the game engine (' + (err && err.message || err) + '). Press Ctrl+F5 to load the latest version.', 9000));
+    return true;
+  }
   function startBattle() {
+    if (needCore(startBattle)) return;
     const B = settings.battle;
     if (B.opponent === 'bots' && B.bots < 1) { flashNotice('Choose at least one bot.'); return; }
     if (B.opponent === 'net') {
@@ -992,6 +1004,7 @@ function boot(data) {
   netInit = true;
   netUi();
   function startClientBattle(m) {
+    if (needCore(() => startClientBattle(m))) return;
     if (!battle) {
       battle = new Battle(battleDeps());
       battle.hud.again.addEventListener('click', () => { startBattle(); });

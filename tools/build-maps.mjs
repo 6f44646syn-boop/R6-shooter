@@ -1,8 +1,10 @@
-// Builds data/maps/*.json for the match modes: the layout below, plus a waypoint graph and
-// cover spots computed from the walls. Run: node tools/build-maps.mjs
+// Builds data/maps/*.json for the match modes: the layout below, plus places to go and cover
+// spots computed from the walls with the game's own collision and pathfinding (the Rust core).
+// Run: node tools/build-maps.mjs
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { MatchMap } from '../js/modes/map.js';
 import { MAPS as BATTLE } from '../js/battle/maps.js';
+import { layoutSolids } from '../js/battle/solids.js';
 
 const H = 3.2;
 const wall = (x0, z0, x1, z1, h = H, look) => (look ? { x0, z0, x1, z1, h, look } : { x0, z0, x1, z1, h });
@@ -48,7 +50,7 @@ const yard = {
 /* ---------- Depot: a building with two bomb sites (attack from the south) ---------- */
 // Building x -16..16, z -6..12; hallway x -2..2 between Site A (west) and Site B (east).
 const depot = {
-  id: 'depot', name: 'Depot', hx: 22.5, hz: 17.5, wallH: H,
+  id: 'depot', name: 'Depot', hx: 22.5, hz: 17.5, wallH: H, building: [-16, -6, 16, 12],
   walls: [
     ...line('x', -16, 16, -6, [[-12.5, -10.5], [-8, -5], [-1, 1], [5, 8], [10.5, 12.5]]),   // south wall: doors and soft gaps
     ...line('x', -16, 16, 12, [[-10, -8], [-1, 1], [8, 10]]),                           // north wall with doors
@@ -107,7 +109,9 @@ function building(spec) {
     const room = (spec.data.callouts || []).find((c) => c.floor && st.x > c.x0 && st.x < c.x1 && st.z > c.z0 && st.z < c.z1);
     return room ? e[0] >= room.x0 - 0.6 && e[0] <= room.x1 + 0.6 && e[1] >= room.z0 - 0.6 && e[1] <= room.z1 + 0.6 : Math.hypot(e[0] - st.x, e[1] - st.z) < 11;
   }) }));
-  return { ...spec.data, sites, wallH: H, walls: [...walls, ...spec.data.walls], doors, soft, reinforced, openings };
+  // the defenders' area: the rooms (callouts with a floor)
+  const inside = (spec.data.callouts || []).filter((c) => c.floor).map((c) => [c.x0, c.z0, c.x1, c.z1]);
+  return { ...spec.data, sites, inside, wallH: H, walls: [...walls, ...spec.data.walls], doors, soft, reinforced, openings };
 }
 
 // Ranch: one long house; a hallway runs east-west between the south rooms (kitchen, lobby,
@@ -129,7 +133,7 @@ const ranch = building({
     id: 'ranch', name: 'Ranch', hx: 34, hz: 24, building: [-24, -12, 20, 12], ground: 'grass',
     walls: [
       box(-18, -10.3, 4, 0.8, 1.1, 'counter'), box(-23.3, -7, 0.8, 4, 1.1, 'counter'), box(-4, -8, 3, 1, 1.1, 'desk'), box(12, -7, 2.2, 4.4, 1.5, 'car'), box(17.5, -10, 1.2, 1.2, 1.2, 'crate'),
-      box(-19, 8, 2.2, 3, 0.8, 'bed'), box(-10, 11.3, 2, 0.8, 1.8, 'shelf'), box(12, 9.5, 2, 1, 1.1, 'desk'), box(16.5, 4.5, 1.2, 1.2, 1.2, 'crate'),
+      box(-19, 8, 2.2, 3, 0.8, 'bed'), box(-6.6, 9.4, 0.8, 2, 1.8, 'shelf'), box(12, 9.5, 2, 1, 1.1, 'desk'), box(16.5, 4.5, 1.2, 1.2, 1.2, 'crate'),
       box(1, 7, 4, 1, 0.9, 'sofa'), box(1, 11.5, 3, 0.6, 2, 'shelf'), box(-20, 0, 1.2, 1.2, 1.2, 'crate'), box(14, 0, 1, 1, 1.1, 'crate'), box(-15, 4.5, 1.6, 1, 0.8, 'table'),
       box(-14, -18, 4.5, 2, 1.5, 'car'), box(6, -19, 2, 4.5, 1.5, 'car'), box(-2, -16, 1.2, 1.2, 1.2, 'crate'), box(18, -17, 3, 0.8, 1.1, 'barrier'),
       box(-15, 17, 3, 1, 1.1, 'barrier'), box(4, 18, 4.5, 2, 1.5, 'car'), box(16, 16, 1.2, 1.2, 1.2, 'crate'),
@@ -241,54 +245,34 @@ const workshop = building({
 });
 
 /* ---------- the Battle maps, for Team Deathmatch and Capture the Flag ---------- */
-// Same layouts as Battle (js/battle/maps.js); the match modes play on the ground floor:
-// stairs and ramps are cover, upper floors are overhead (they still stop bullets).
+// Same layouts and the same solids as Battle (js/battle/maps.js, js/battle/solids.js): the
+// floors, stairs, ramps and upper levels all work in the match modes.
 const yawTo = (dx, dz) => Math.atan2(dx, -dz) * 180 / Math.PI;
 function fromBattle(id, key, name) {
-  const M = BATTLE[key], walls = [];
-  const solid = (x0, x1, y0, y1, z0, z1) => { if (y1 - y0 > 0.02) walls.push({ x0, z0, x1, z1, y0: +y0.toFixed(3), h: +(y1 - y0).toFixed(3) }); };
-  const span = (b) => ({ minX: b.x - b.w / 2, maxX: b.x + b.w / 2, minZ: b.z - b.d / 2, maxZ: b.z + b.d / 2, along: b.dir[1] === 'x' ? b.w : b.d });
-  const piece = (s, dir, i, n) => {
-    let a0 = i * s.along / n, a1 = (i + 1) * s.along / n;
-    if (dir[0] === '-') { const t0 = s.along - a1; a1 = s.along - a0; a0 = t0; }
-    return [dir[1] === 'x' ? [s.minX + a0, s.minX + a1] : [s.minX, s.maxX], dir[1] === 'z' ? [s.minZ + a0, s.minZ + a1] : [s.minZ, s.maxZ]];
-  };
-  const addBox = (b) => { const y0 = b.y || 0; solid(b.x - b.w / 2, b.x + b.w / 2, y0, y0 + b.h, b.z - b.d / 2, b.z + b.d / 2); };
-  const addStairs = (b) => {
-    const s = span(b), y0 = b.y || 0, n = Math.max(1, Math.round((b.y1 - y0) / (b.rise || 0.3))), base = b.base ?? y0;
-    for (let i = 0; i < n; i++) { const [bx, bz] = piece(s, b.dir, i, n); solid(bx[0], bx[1], base, y0 + (b.y1 - y0) * (i + 1) / n, bz[0], bz[1]); }
-  };
-  const addRamp = (b) => {
-    const s = span(b), y0 = b.y || 0, base = b.base ?? 0, n = Math.max(1, Math.ceil(s.along / 0.5));
-    for (let i = 0; i < n; i++) { const [bx, bz] = piece(s, b.dir, i, n); solid(bx[0], bx[1], base, y0 + (b.y1 - y0) * (i + 0.5) / n, bz[0], bz[1]); }
-  };
-  for (const b0 of M.layout) {
-    const b = (b0.stairs || b0.ramp) && !b0.dir ? { ...b0, dir: b0.stairs || b0.ramp } : b0;
-    const list = [b];
-    if (b.mirror ?? M.mirror) list.push({ ...b, x: -b.x, z: -b.z, dir: b.dir ? (b.dir[0] === '+' ? '-' : '+') + b.dir[1] : undefined });
-    for (const e of list) (e.stairs ? addStairs : e.ramp ? addRamp : addBox)(e);
-  }
-  const mirror = (l) => l.map((p) => [-p[0], -p[1]]);
+  const M = BATTLE[key];
+  const walls = layoutSolids(M).map((b) => ({ x0: b.minX, z0: b.minZ, x1: b.maxX, z1: b.maxZ, y0: b.minY, h: b.maxY - b.minY }));
+  const mirror = (l) => l.map((p) => [-p[0], -p[1], p[2]]);
   const raw = { A: M.spawns, B: M.spawnsB || mirror(M.spawns) };
-  return { id, name, arena: key, hx: M.hx, hz: M.hz, wallH: Math.max(2.4, M.wallH), walls, soft: [], reinforced: [], doors: [], openings: [], rawSpawns: raw, sites: [], flags: {}, gadgets: {}, callouts: [] };
+  const hazards = (M.acid || []).map((a) => ({ minX: a.x - a.w / 2, maxX: a.x + a.w / 2, minZ: a.z - a.d / 2, maxZ: a.z + a.d / 2, dps: a.dps || 34 }));
+  return { id, name, arena: key, hx: M.hx, hz: M.hz, wallH: M.wallH, open: !M.ceiling, ceil: M.ceiling ? M.wallH : 0, hazards, walls, soft: [], reinforced: [], doors: [], openings: [], rawSpawns: raw, sites: [], flags: {}, gadgets: {}, callouts: [] };
 }
-// After the waypoints exist: spawns and flags on reachable ground near Battle's spawns,
-// gadget spots from cover, facing the middle.
+// After the places exist: spawns and flags on reachable ground near Battle's spawns, gadget
+// spots from cover, facing the middle.
 function placeBattle(data) {
-  const N = data.nodes, near = (x, z) => { let b = null, bd = Infinity; for (const n of N) { const d = Math.hypot(n[0] - x, n[1] - z); if (d < bd) { bd = d; b = n; } } return b; };
+  const N = data.nodes;
+  const near = (x, z, y, ok = () => true) => { let b = null, bd = Infinity; for (const n of N) { if (!ok(n)) continue; const d = Math.hypot(n[0] - x, n[1] - z, 2 * (n[2] - y)); if (d < bd) { bd = d; b = n; } } return b; };
   data.spawns = {};
   for (const T of ['A', 'B']) {
     const used = new Set();
     data.spawns[T] = data.rawSpawns[T].map((p) => {
-      let n = near(p[0], p[1]);
-      if (used.has(n)) n = N.filter((q) => !used.has(q)).sort((a, b) => Math.hypot(a[0] - p[0], a[1] - p[1]) - Math.hypot(b[0] - p[0], b[1] - p[1]))[0];
+      const n = near(p[0], p[1], p[2] || 0, (q) => !used.has(q));
       used.add(n);
-      return [n[0], n[1], Math.round(yawTo(-n[0], -n[1]))];
+      return [n[0], n[1], Math.round(yawTo(-n[0], -n[1])), n[2]];
     });
     const cx = data.spawns[T].reduce((s, p) => s + p[0], 0) / data.spawns[T].length, cz = data.spawns[T].reduce((s, p) => s + p[1], 0) / data.spawns[T].length;
-    // the flag a little in front of the spawns, toward the middle
-    const f = near(cx * 0.82, cz * 0.82);
-    data.flags[T] = [f[0], f[1]];
+    // the flag on the ground, a little in front of the spawns, toward the middle
+    const f = near(cx * 0.82, cz * 0.82, 0, (q) => q[2] < 0.5);
+    data.flags[T] = [f[0], f[1], f[2]];
   }
   const cov = data.cover.filter((c, i) => i % 3 === 0);
   data.gadgets = { mine: cov.slice(0, 8), jammer: cov.slice(8, 12), catcher: cov.slice(12, 16) };
@@ -300,38 +284,30 @@ function placeBattle(data) {
   delete data.rawSpawns;
 }
 
-/* ---------- waypoints and cover ---------- */
+/* ---------- places and cover ---------- */
+// Paths are found at run time by the core, on every level (no baked waypoint graph). What is
+// baked here: "places" (spots about 2 m apart on every level that a body can walk to from
+// the spawns and back, for patrols and spawn points) and cover spots.
 function finish(data) {
-  // doors count as open for the waypoints (bots knife through them)
-  const m = new MatchMap({ ...data, doors: [], nodes: [], links: [] });
-  const S = 2, nodes = [], index = new Map();
-  for (let x = -data.hx + 1; x <= data.hx - 1; x += S) for (let z = -data.hz + 1; z <= data.hz - 1; z += S) {
-    if (m.free(x, z, 0.5)) { index.set(x + ',' + z, nodes.length); nodes.push([x, z]); }
-  }
-  // a waypoint in each doorway and one on each side of it
-  for (const o of data.openings || []) for (const k of [-1.1, 0, 1.1]) {
-    const x = o.axis === 'x' ? o.c : o.at + k, z = o.axis === 'x' ? o.at + k : o.c;
-    if (m.free(x, z, 0.36) && !nodes.some((n) => Math.hypot(n[0] - x, n[1] - z) < 0.5)) nodes.push([+x.toFixed(2), +z.toFixed(2)]);
-  }
-  // extra nodes in every doorway and gap (centre of openings), so narrow doors are linked
-  const links = new Set();
-  const link = (a, b) => links.add(Math.min(a, b) + ',' + Math.max(a, b));
-  for (let k = 0; k < nodes.length; k++) {
-    const [x, z] = nodes[k];
-    for (const [dx, dz] of [[S, 0], [0, S], [S, S], [S, -S], [2 * S, 0], [0, 2 * S]]) {
-      const j = index.get((x + dx) + ',' + (z + dz));
-      if (j !== undefined && m.walkClear(x, z, x + dx, z + dz, 0.42)) link(k, j);
-    }
-  }
-  // connect each node to nearby nodes it can walk to straight (handles 1-2 m doors on the grid)
-  for (let k = 0; k < nodes.length; k++) for (let j = k + 1; j < nodes.length; j++) {
-    const d = Math.hypot(nodes[k][0] - nodes[j][0], nodes[k][1] - nodes[j][1]);
-    if (d > 3.1 || d < 0.1) continue;
-    if (m.walkClear(nodes[k][0], nodes[k][1], nodes[j][0], nodes[j][1], 0.36)) link(k, j);
+  // doors count as open for paths (bots knife through them)
+  const m = new MatchMap({ ...data, doors: [], nodes: [] });
+  const nav = m.world.navNodes(), hx = data.hx, hz = data.hz;
+  const s0 = (data.rawSpawns ? data.rawSpawns.A : data.spawns.A)[0];
+  const seed = m.nearestSpot(s0[0], s0[1], data.rawSpawns ? s0[2] || 0 : 0);
+  const both = (x, z, y) => m.path(seed[0], seed[1], x, z, seed[2], y).length > 0 && m.path(x, z, seed[0], seed[1], y, seed[2]).length > 0;
+  const nodes = [];
+  let all = 0, levels = new Set();
+  for (let k = 0; k < m.world.nodeCount; k++) {
+    const i = Math.round((nav.x[k] + hx) / 0.5 - 0.5), j = Math.round((nav.z[k] + hz) / 0.5 - 0.5);
+    if (i % 4 !== 2 || j % 4 !== 2) continue;
+    all++;
+    const x = nav.x[k], z = nav.z[k], y = +nav.y[k].toFixed(3);
+    if (!m.free(x, z, 0.5, y) || !both(x, z, y)) continue;
+    nodes.push([x, z, y]); levels.add(y);
   }
   data.nodes = nodes;
-  data.links = [...links].map((s) => s.split(',').map(Number));
-  // cover: beside solid boxes taller than a crouched body
+  delete data.links;
+  // cover: beside solid boxes taller than a crouched body, on the ground
   const cover = [];
   for (const b of m.solids) {
     if (b.kind === 'edge' || b.maxY < 1.0 || b.minY > 0) continue;
@@ -341,40 +317,27 @@ function finish(data) {
     const nX = Math.max(1, Math.round((b.maxX - b.minX) / 2.5)), nZ = Math.max(1, Math.round((b.maxZ - b.minZ) / 2.5));
     along(b.minX, b.maxZ + off, b.maxX, b.maxZ + off, nX); along(b.minX, b.minZ - off, b.maxX, b.minZ - off, nX);
     along(b.maxX + off, b.minZ, b.maxX + off, b.maxZ, nZ); along(b.minX - off, b.minZ, b.minX - off, b.maxZ, nZ);
-    for (const [x, z] of cand) if (m.free(x, z, 0.4) && !cover.some((c) => Math.hypot(c[0] - x, c[1] - z) < 1.2)) cover.push([+x.toFixed(2), +z.toFixed(2)]);
+    for (const [x, z] of cand) {
+      if (!m.free(x, z, 0.4) || m.groundAt(x, z, 0) > 0.01 || cover.some((c) => Math.hypot(c[0] - x, c[1] - z) < 1.2)) continue;
+      // only where a body can walk to it from the spawns
+      const n = m.nearestSpot(x, z, 0);
+      if (!n || n[2] > 0.01 || Math.hypot(n[0] - x, n[1] - z) > 0.6 || !both(n[0], n[1], 0)) continue;
+      cover.push([+x.toFixed(2), +z.toFixed(2)]);
+    }
   }
   data.cover = cover;
-  // report connectivity
-  const adj = nodes.map(() => []);
-  for (const [a, b] of data.links) { adj[a].push(b); adj[b].push(a); }
-  const comp = new Int32Array(nodes.length).fill(-1);
-  let nc = 0;
-  for (let s = 0; s < nodes.length; s++) {
-    if (comp[s] >= 0) continue;
-    const st = [s]; comp[s] = nc;
-    while (st.length) { const c = st.pop(); for (const k of adj[c]) if (comp[k] < 0) { comp[k] = nc; st.push(k); } }
-    nc++;
-  }
-  const sizes = Array.from({ length: nc }, (_, i) => comp.filter((c) => c === i).length).sort((a, b) => b - a);
-  // keep only the biggest connected part (cut-off pockets, the space under stairs)
-  if (nc > 1) {
-    const big = Array.from({ length: nc }, (_, i) => i).sort((p, q) => comp.filter((c) => c === q).length - comp.filter((c) => c === p).length)[0];
-    const remap = new Int32Array(nodes.length).fill(-1), keep = [];
-    nodes.forEach((n, i) => { if (comp[i] === big) { remap[i] = keep.length; keep.push(n); } });
-    data.nodes = keep;
-    data.links = data.links.filter(([a, b]) => remap[a] >= 0 && remap[b] >= 0).map(([a, b]) => [remap[a], remap[b]]);
-  }
-  console.log(data.id + ': ' + data.nodes.length + ' nodes, ' + data.links.length + ' links, ' + cover.length + ' cover spots, components ' + JSON.stringify(sizes.slice(0, 5)));
-  // cover only where a body can walk to it from the kept waypoints
-  data.cover = data.cover.filter((c) => data.nodes.some((n) => Math.hypot(n[0] - c[0], n[1] - c[1]) < 2.9 && m.walkClear(c[0], c[1], n[0], n[1], 0.36)));
+  console.log(data.id + ': ' + m.world.nodeCount + ' path nodes, ' + nodes.length + ' places of ' + all + ' on ' + levels.size + ' levels, ' + cover.length + ' cover spots');
   if (data.rawSpawns) placeBattle(data);
   // every authored spot must be on reachable ground
-  const full = new MatchMap({ ...data, nodes: [], links: [] });
-  const reach = (x, z) => data.nodes.some((n) => Math.hypot(n[0] - x, n[1] - z) < 2.2) && full.free(x, z, 0.3);
-  for (const T of ['A', 'B']) for (const p of data.spawns[T]) if (!reach(p[0], p[1])) console.log('  WARN ' + data.id + ' spawn ' + T + ' ' + p);
-  for (const [k, list] of Object.entries(data.gadgets)) for (const p of list) if (!full.free(p[0], p[1], 0.15)) console.log('  WARN ' + data.id + ' gadget ' + k + ' ' + p);
-  for (const st of data.sites) if (!reach(st.x, st.z)) console.log('  WARN ' + data.id + ' site ' + st.name);
+  const reach = (x, z, y = 0) => { const n = m.nearestSpot(x, z, y); return !!n && Math.hypot(n[0] - x, n[1] - z) < 0.8 && Math.abs(n[2] - y) < 0.3 && both(n[0], n[1], n[2]); };
+  for (const T of ['A', 'B']) for (const p of data.spawns[T]) if (!reach(p[0], p[1], p[3] || 0)) console.log('  WARN ' + data.id + ' spawn ' + T + ' ' + p);
+  for (const T of Object.keys(data.flags || {})) if (!reach(data.flags[T][0], data.flags[T][1], data.flags[T][2] || 0)) console.log('  WARN ' + data.id + ' flag ' + T);
+  for (const [k, list] of Object.entries(data.gadgets)) for (const p of list) if (!m.free(p[0], p[1], 0.15)) console.log('  WARN ' + data.id + ' gadget ' + k + ' ' + p);
+  for (const st of data.sites) { if (!reach(st.x, st.z)) console.log('  WARN ' + data.id + ' site ' + st.name); for (const e of st.entries || []) if (!m.nearestSpot(e[0], e[1], 0) || !both(...m.nearestSpot(e[0], e[1], 0))) console.log('  WARN ' + data.id + ' site entry ' + e); }
+  // every doorway and opening has a way through it
+  for (const o of data.openings || []) { const x = o.axis === 'x' ? o.c : o.at, z = o.axis === 'x' ? o.at : o.c; if (!m.standable(x, z, 0)) console.log('  WARN ' + data.id + ' no path node in the opening at ' + x + ', ' + z); }
   delete data.openings;
+  m.dispose();
   return data;
 }
 

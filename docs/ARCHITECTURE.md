@@ -45,7 +45,8 @@ through `js/battle/human.js`, and one WebGL renderer (three.js r160).
 | File | Does | Depends on |
 |---|---|---|
 | `maps.js` | The four Battle maps as data plus their textures | three.js |
-| `arena.js` | Builds a map's scene; collision with heights, raycast, line of sight, navigation graph, spawns, weather | maps, three.js |
+| `solids.js` | A Battle map's layout as solid boxes (stairs as steps, ramps as slices); shared with the match maps | — |
+| `arena.js` | Builds a map's scene, spawns, cover spots, weather; collision, raycasts and paths are asked of the Rust core | maps, solids, three.js, **Rust core** |
 | `battle.js` | The match: scoring, respawn, bullets, kill cam, HUD, network host/client | arena, fighter, bot, human, nades |
 | `bot.js` | Battle bot brain (aim model, hearing, cover, radio) | core |
 | `human.js` | The player controller used by Battle and the match modes | core, scene |
@@ -56,10 +57,10 @@ through `js/battle/human.js`, and one WebGL renderer (three.js r160).
 | File | Does | Depends on |
 |---|---|---|
 | `geom.js` | Ray/box/sphere/capsule tests, circle-box push | — |
-| `map.js` | A map from `data/maps/*.json`: solids, breakable panels, doors, collision, raycast, line of sight, pathfinding | geom, **Rust core** |
+| `map.js` | A map from `data/maps/*.json`: solids, breakable panels, doors; collision, stairs, falling, vaulting, raycast, line of sight and paths on every level are asked of the Rust core | **Rust core** |
 | `sim.js` | The match: actors, spawning, damage, shooting, knife, the 60 Hz step | map, bots, rules, abilities, nades |
 | `bots.js` | Bot brain: perception, utility states, aim, movement, doors | sim |
-| `rules.js` | Team Deathmatch, Capture the Flag, Bomb (rounds, roles, objectives) | — |
+| `rules.js` | Team Deathmatch, Capture the Flag, Bomb (rounds, roles, objectives, the defenders' boundary) | — |
 | `abilities.js` | The ten operator abilities, gadgets, drones | geom |
 | `nades.js` | Frag grenades | geom |
 | `game.js` | Browser side: scene, player, HUD, effects, death replay | everything above, battle/human, fighter |
@@ -71,13 +72,15 @@ relay), `relay/` (a Cloudflare Worker that only passes messages between players)
 is Battle only; the host's browser is the authority.
 
 ### Rust core (`rust/core/` → `wasm/recoil_core.wasm`)
-See `MIGRATION.md` for what lives here. Loaded by `js/wasm/core.js`.
+See `MIGRATION.md` for what lives here. Loaded by `js/wasm/core.js`; `js/wasm/world.js`
+(`CoreWorld`) is the one JavaScript face of a map inside the core, used by Battle's arena and
+the match maps alike.
 
 ### Data, tools, tests
 | Path | Does |
 |---|---|
 | `data/guns.json`, `optics.json`, `sens.json`, `ops.json`, `abilities.json`, `maps/*.json` | Game data |
-| `tools/build-maps.mjs` | Builds the match maps (layout → waypoints, cover) |
+| `tools/build-maps.mjs` | Builds the match maps (layout → places on every level, cover; checks every spot is reachable) |
 | `tools/build-wasm.sh` | Compiles the Rust core to WebAssembly |
 | `tools/stamp.mjs` | Cache-busting version stamp before publishing |
 | `tools/check-modes.mjs` | Unit tests and 20 seeded bot matches per mode |

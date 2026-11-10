@@ -21,7 +21,7 @@
 //   Onyx   Charge Dash    hold Q 0.6 s, then dash 6 m: through soft walls, the first enemy hit
 //                         is stunned and knocked back for 1.5 s. 2 charges, 12 s each.
 // Gadgets die to one bullet. Bots use abilities too (see botThink).
-import { raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=9ba226e-mwa4h4pc';
+import { raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=e1f5a8d-mwah3s7c';
 
 export const DRONE_R = 0.15;           // a drone's collision radius
 export class Abilities {
@@ -53,11 +53,12 @@ export class Abilities {
     this.m.emit({ type: 'gadgetDown', id: g.id, by: by ? by.id : 0 });
   }
   // An enemy jammer covers this spot?
-  jammed(x, z, team) {
+  // (y: the height of what is asked about; jammers reach in every direction, floors included)
+  jammed(x, z, team, y) {
     const R = (this.cfg.static_jammer || {}).radius || 8;
-    return this.gadgets.some((g) => g.alive && g.type === 'jammer' && g.team !== team && this.m.t >= g.disabledUntil && Math.hypot(g.x - x, g.z - z) < R);
+    return this.gadgets.some((g) => g.alive && g.type === 'jammer' && g.team !== team && this.m.t >= g.disabledUntil && Math.hypot(g.x - x, g.z - z, y === undefined ? 0 : g.y - y) < R);
   }
-  off(g) { return !g.alive || this.m.t < g.disabledUntil || this.jammed(g.x, g.z, g.team); }
+  off(g) { return !g.alive || this.m.t < g.disabledUntil || this.jammed(g.x, g.z, g.team, g.y); }
   rayGadgets(o, d, maxT, shooter) {
     let best = maxT, hit = null;
     for (const g of this.gadgets) {
@@ -73,11 +74,12 @@ export class Abilities {
   aimPoint(a, range) {
     const m = this.m, o = m.eye(a), d = dirFrom(a.yaw, a.pitch);
     const h = m.map.raycast(o, d, range);
-    if (h && !h.box.ground) { const t = h.t - 0.06; return { x: o[0] + d[0] * t, y: Math.max(0.2, Math.min(2, o[1] + d[1] * t)), z: o[2] + d[2] * t, wall: true, box: h.box }; }
-    if (h && h.box.ground) return { x: o[0] + d[0] * h.t, y: 0.05, z: o[2] + d[2] * h.t, wall: false };
-    const p = { x: a.x + Math.sin(a.yaw * DEG) * 1.5, z: a.z - Math.cos(a.yaw * DEG) * 1.5 };
+    // a floor (the ground, a stair, an upper floor): lying on it
+    if (h && !h.box.ceiling && (h.box.ground || (h.axis === 1 && d[1] < 0))) return { x: o[0] + d[0] * h.t, y: o[1] + d[1] * h.t + 0.05, z: o[2] + d[2] * h.t, wall: false };
+    if (h && !h.box.ground) { const t = h.t - 0.06; return { x: o[0] + d[0] * t, y: Math.max(a.y + 0.2, Math.min(a.y + 2, o[1] + d[1] * t)), z: o[2] + d[2] * t, wall: true, box: h.box }; }
+    const p = { x: a.x + Math.sin(a.yaw * DEG) * 1.5, y: a.y, z: a.z - Math.cos(a.yaw * DEG) * 1.5 };
     m.map.resolve(p, 0.2);
-    return { x: p.x, y: 0.05, z: p.z, wall: false };
+    return { x: p.x, y: m.map.groundAt(p.x, p.z, a.y) + 0.05, z: p.z, wall: false };
   }
   // Q pressed (down) or released (up). Returns true if something happened.
   // Bomb prep: every attacker has a plain drone (scan only). Glitch's Spark Drone is his
@@ -87,11 +89,19 @@ export class Abilities {
   launchDrone(a, plain) {
     const m = this.m, ab = a.ab, c = this.cfg.spark_drone || {};
     // set down at your feet and rolled 0.6 m forward (never placed straight through a wall)
-    const g = this.add({ type: 'drone', basic: plain, team: a.team, owner: a.id, x: a.x, y: 0.15, z: a.z, yaw: a.yaw, pitch: 0, r: 0.22, end: plain ? m.rules.phaseEnd : m.t + (c.battery || 20), scanAt: 0 });
-    m.map.moveCircle(g, Math.sin(a.yaw * DEG) * 0.6, -Math.cos(a.yaw * DEG) * 0.6, DRONE_R, true);
+    const g = this.add({ type: 'drone', basic: plain, team: a.team, owner: a.id, x: a.x, fy: a.y, vy: 0, y: a.y + 0.15, z: a.z, yaw: a.yaw, pitch: 0, r: 0.22, end: plain ? m.rules.phaseEnd : m.t + (c.battery || 20), scanAt: 0 });
+    this.roll(g, Math.sin(a.yaw * DEG) * 0.6, -Math.cos(a.yaw * DEG) * 0.6, 0);
     ab.drone = g; ab.busy = true;
     if (plain) ab.prepDrones--; else ab.charges--;
     return g;
+  }
+  // Roll a drone by (dx, dz) over dt seconds: it never passes through anything, goes under
+  // boarded doors, up ramps (not stairs), and falls off ledges.
+  roll(g, dx, dz, dt) {
+    const p = this._dp || (this._dp = { x: 0, y: 0, z: 0, vy: 0 });
+    p.x = g.x; p.y = g.fy || 0; p.z = g.z; p.vy = g.vy || 0;
+    this.m.map.stepBody(p, dx, dz, dt, DRONE_R, true);
+    g.x = p.x; g.z = p.z; g.fy = p.y; g.vy = p.vy; g.y = p.y + 0.15;
   }
   q(a, down) {
     const m = this.m, t = m.t, ab = a.ab, c = ab.c;
@@ -100,7 +110,7 @@ export class Abilities {
     if (down && this.plainDrone(a)) { this.launchDrone(a, true); return true; }
     if (!this.on || !a.alive || (m.rules.frozen(a) && !(ab.id === 'spark_drone' || ab.drone))) return false;
     if (!down) { if (ab.id === 'charge_dash') ab.holdQ = 0; return false; }
-    if (this.jammed(a.x, a.z, a.team) && !['jolt_mines', 'dread_mines', 'static_jammer', 'catcher'].includes(ab.id)) { m.emit({ type: 'msg', text: 'Jammed', id: a.id, private: true }); return false; }
+    if (this.jammed(a.x, a.z, a.team, a.y + 1) && !['jolt_mines', 'dread_mines', 'static_jammer', 'catcher'].includes(ab.id)) { m.emit({ type: 'msg', text: 'Jammed', id: a.id, private: true }); return false; }
     switch (ab.id) {
       case 'jolt_mines': case 'dread_mines': {
         if (ab.charges <= 0) return false;
@@ -111,14 +121,14 @@ export class Abilities {
       case 'static_jammer': {
         if (ab.charges <= 0) return false;
         const p = this.aimPoint(a, c.placeRange || 3);
-        if (p.wall && p.box && p.box.kind !== 'soft') { p.wall = false; p.y = 0.05; }
+        if (p.wall && p.box && p.box.kind !== 'soft') { p.wall = false; p.y = m.map.groundAt(p.x, p.z, a.y) + 0.05; }
         this.add({ type: 'jammer', team: a.team, owner: a.id, x: p.x, y: p.y, z: p.z, r: 0.22 });
         ab.charges--; return true;
       }
       case 'catcher': {
         if (ab.charges <= 0) return false;
         const p = this.aimPoint(a, c.placeRange || 3);
-        this.add({ type: 'catcher', team: a.team, owner: a.id, x: p.x, y: p.wall ? p.y : 0.4, z: p.z, r: 0.2, readyAt: 0 });
+        this.add({ type: 'catcher', team: a.team, owner: a.id, x: p.x, y: p.wall ? p.y : p.y + 0.35, z: p.z, r: 0.2, readyAt: 0 });
         ab.charges--; return true;
       }
       case 'spark_drone': {
@@ -173,7 +183,7 @@ export class Abilities {
   // F: the drone zaps a gadget off.
   f(a) {
     const ab = a.ab, d = ab.drone, m = this.m;
-    if (!this.on || !d || !d.alive || d.basic || this.jammed(d.x, d.z, d.team)) return false;
+    if (!this.on || !d || !d.alive || d.basic || this.jammed(d.x, d.z, d.team, d.y)) return false;
     const R = ab.c.zapRange || 2;
     const g = this.gadgets.filter((x) => x.alive && x.team !== a.team && x.type !== 'drone').sort((p, q) => Math.hypot(p.x - d.x, p.z - d.z) - Math.hypot(q.x - d.x, q.z - d.z))[0];
     if (!g || Math.hypot(g.x - d.x, g.z - d.z) > R) { m.emit({ type: 'msg', text: 'No gadget in reach', id: a.id, private: true }); return false; }
@@ -183,11 +193,11 @@ export class Abilities {
   }
   scan(a) {
     const ab = a.ab, d = ab.drone, m = this.m;
-    if (!d || m.t < d.scanAt || this.jammed(d.x, d.z, d.team)) return false;
+    if (!d || m.t < d.scanAt || this.jammed(d.x, d.z, d.team, d.y)) return false;
     d.scanAt = m.t + 1;
     const R = ab.c.scanRadius || 8;
     let n = 0;
-    for (const e of m.actors) if (e.alive && e.team !== a.team && Math.hypot(e.x - d.x, e.z - d.z) < R) { e.revealedUntil = m.t + (ab.c.revealTime || 3); m.report(a.team, e); n++; }
+    for (const e of m.actors) if (e.alive && e.team !== a.team && Math.hypot(e.x - d.x, e.z - d.z, e.y + 1 - d.y) < R) { e.revealedUntil = m.t + (ab.c.revealTime || 3); m.report(a.team, e); n++; }
     m.emit({ type: 'scan', id: a.id, x: d.x, z: d.z, r: R });
     if (n) m.emit({ type: 'msg', text: n + ' enem' + (n > 1 ? 'ies' : 'y') + ' spotted', id: a.id, private: true });
     return true;
@@ -197,11 +207,11 @@ export class Abilities {
   droneInput(a, inp, dt) {
     const d = a.ab && a.ab.drone;
     if (!d || !d.alive) return;
-    const sp = (a.ab.c.speed || 6) * (this.jammed(d.x, d.z, d.team) ? 0.5 : 1);
+    const sp = (a.ab.c.speed || 6) * (this.jammed(d.x, d.z, d.team, d.y) ? 0.5 : 1);
     const f = (inp.fwd ? 1 : 0) - (inp.back ? 1 : 0), s = (inp.right ? 1 : 0) - (inp.left ? 1 : 0);
-    if (!f && !s) return;
+    if (!f && !s) { this.roll(d, 0, 0, dt); return; }
     const y = d.yaw * DEG, L = Math.hypot(f, s);
-    this.m.map.moveCircle(d, (Math.sin(y) * f + Math.cos(y) * s) / L * sp * dt, (-Math.cos(y) * f + Math.sin(y) * s) / L * sp * dt, DRONE_R, true);
+    this.roll(d, (Math.sin(y) * f + Math.cos(y) * s) / L * sp * dt, (-Math.cos(y) * f + Math.sin(y) * s) / L * sp * dt, dt);
   }
   mouse(a, dx, dy) {
     const d = a.ab && a.ab.drone;
@@ -213,7 +223,7 @@ export class Abilities {
   blowCharge(g, a) {
     const m = this.m, pn = m.map.panels[g.panel], c = this.cfg.wall_charge || {};
     m.map.breakPanel(pn);
-    for (const e of m.actors) if (e.alive && Math.hypot(e.x - g.x, e.z - g.z) < (c.radius || 2)) m.hit(e, c.damage || 30, a, 'torso', 'ability');
+    for (const e of m.actors) if (e.alive && Math.hypot(e.x - g.x, e.z - g.z, e.y + 1 - g.y) < (c.radius || 2)) m.hit(e, c.damage || 30, a, 'torso', 'ability');
     this.destroy(g);
     m.noise(a, 35, 'blast');
     m.emit({ type: 'boom', x: g.x, z: g.z, small: true });
@@ -290,16 +300,16 @@ export class Abilities {
         const c = this.cfg[g.kind === 'jolt' ? 'jolt_mines' : 'dread_mines'] || {};
         if (!g.trigAt) {
           if (this.off(g)) continue;
-          if (m.actors.some((e) => e.alive && e.team !== g.team && Math.hypot(e.x - g.x, e.z - g.z) < (c.trigger || 2))) { g.trigAt = t + (c.delay || 1); m.emit({ type: 'mineArmed', id: g.id }); }
+          if (m.actors.some((e) => e.alive && e.team !== g.team && Math.hypot(e.x - g.x, e.z - g.z, e.y + 0.5 - g.y) < (c.trigger || 2))) { g.trigAt = t + (c.delay || 1); m.emit({ type: 'mineArmed', id: g.id }); }
         } else if (t >= g.trigAt) {
           const owner = m.actors.find((a) => a.id === g.owner);
           for (const e of m.actors) {
-            if (!e.alive || e.team === g.team || Math.hypot(e.x - g.x, e.z - g.z) > (c.radius || 4)) continue;
+            if (!e.alive || e.team === g.team || Math.hypot(e.x - g.x, e.z - g.z, e.y + 0.5 - g.y) > (c.radius || 4)) continue;
             m.hit(e, c.damage || 10, owner, 'torso', 'ability');
             if (g.kind === 'jolt') { e.slowUntil = t + (c.slowTime || 3); e.wobbleUntil = t + (c.wobbleTime || 3); }
             else this.dread(e, g.team, c);
           }
-          if (g.kind === 'dread') this.clouds.push({ x: g.x, z: g.z, r: c.cloudRadius || 3, until: t + (c.cloudTime || 5), team: g.team, c });
+          if (g.kind === 'dread') this.clouds.push({ x: g.x, y: g.y, z: g.z, r: c.cloudRadius || 3, until: t + (c.cloudTime || 5), team: g.team, c });
           m.emit({ type: 'pulse', x: g.x, z: g.z, kind: g.kind, r: g.kind === 'dread' ? c.cloudRadius || 3 : c.radius || 4, dur: g.kind === 'dread' ? c.cloudTime || 5 : 0 });
           this.destroy(g);
         }
@@ -307,12 +317,12 @@ export class Abilities {
     }
     // dread gas: anyone inside keeps shaking and stays revealed
     this.clouds = (this.clouds || []).filter((cl) => t < cl.until);
-    for (const cl of this.clouds) for (const e of m.actors) if (e.alive && e.team !== cl.team && Math.hypot(e.x - cl.x, e.z - cl.z) < cl.r) this.dread(e, cl.team, { ...cl.c, shakeTime: 1.5, revealTime: 2 });
+    for (const cl of this.clouds) for (const e of m.actors) if (e.alive && e.team !== cl.team && Math.hypot(e.x - cl.x, e.z - cl.z, e.y - (cl.y || 0)) < cl.r) this.dread(e, cl.team, { ...cl.c, shakeTime: 1.5, revealTime: 2 });
     // catchers also zap enemy drones and wall charges that come in range
     const C = this.cfg.catcher || {};
     for (const cat of this.gadgets) {
       if (cat.type !== 'catcher' || this.off(cat) || t < cat.readyAt) continue;
-      const g = this.gadgets.find((x) => x.alive && x.team !== cat.team && (x.type === 'drone' || x.type === 'charge') && Math.hypot(x.x - cat.x, x.z - cat.z) < (C.radius || 5));
+      const g = this.gadgets.find((x) => x.alive && x.team !== cat.team && (x.type === 'drone' || x.type === 'charge') && Math.hypot(x.x - cat.x, x.z - cat.z, x.y - cat.y) < (C.radius || 5));
       if (g) { cat.readyAt = t + (C.recharge || 10); m.emit({ type: 'caught', x: g.x, y: g.y || 0.3, z: g.z, cx: cat.x, cy: cat.y, cz: cat.z }); this.destroy(g); }
     }
     this.gadgets = this.gadgets.filter((g) => g.alive);
@@ -339,20 +349,20 @@ export class Abilities {
   stepDash(a, dt) {
     const m = this.m, D = a.ab.dash, c = a.ab.c;
     const sp = (c.distance || 6) / D.T, step = Math.min(D.left, sp * dt);
-    const ahead = [a.x + D.dx * 0.6, 1, a.z + D.dz * 0.6];
+    const ahead = [a.x + D.dx * 0.6, a.y + 1, a.z + D.dz * 0.6];
     if (m.map.near(ahead[0], ahead[2], 0.5, []).some((b) => b.kind === 'soft' && b.alive)) m.map.breakAt(ahead, 0.3);
-    const p = m.map.moveCircle({ x: a.x, z: a.z }, D.dx * step, D.dz * step);
-    a.x = p.x; a.z = p.z; if (a.human) a.forced = true;
+    const p = m.map.moveCircle({ x: a.x, y: a.y, z: a.z }, D.dx * step, D.dz * step);
+    a.x = p.x; a.y = p.y; a.z = p.z; if (a.human) a.forced = true;
     D.left -= step; D.t += dt;
     if (!D.hit && !m.rules.noFire(a)) {
-      const e = m.actors.find((q) => q.alive && q.team !== a.team && Math.hypot(q.x - a.x, q.z - a.z) < 1.0);
+      const e = m.actors.find((q) => q.alive && q.team !== a.team && Math.hypot(q.x - a.x, q.z - a.z) < 1.0 && Math.abs(q.y - a.y) < 1.2);
       if (e) {
         D.hit = true;
         e.stunUntil = m.t + (c.stun || 2);
         m.emit({ type: 'stun', id: e.id, by: a.id });
         // knocked back along the dash, stopping at walls (never through them)
-        const k = m.map.moveCircle({ x: e.x, z: e.z }, D.dx * (c.knockback || 2), D.dz * (c.knockback || 2));
-        e.x = k.x; e.z = k.z; if (e.human) e.forced = true;
+        const k = m.map.moveCircle({ x: e.x, y: e.y, z: e.z }, D.dx * (c.knockback || 2), D.dz * (c.knockback || 2));
+        e.x = k.x; e.y = k.y; e.z = k.z; if (e.human) e.forced = true;
         m.hit(e, c.damage || 35, a, 'torso', 'ability');
         D.left = 0;
       }
@@ -413,7 +423,7 @@ export class Abilities {
         return;
       }
       case 'breach_rounds': {
-        if (ab.charges <= 0 || t < ab.nextAt || this.jammed(a.x, a.z, a.team) || R.frozen(a)) return;
+        if (ab.charges <= 0 || t < ab.nextAt || this.jammed(a.x, a.z, a.team, a.y + 1) || R.frozen(a)) return;
         if (tgt && dist > 6 && dist < 25 && m.rng() < 0.3) { this.aimAt(a, brain, tgt.x, tgt.y + 1, tgt.z); this.q(a, true); return; }
         if (attacking && R.phase === 'action' && !tgt) {
           const p = this.panelNear(a, R.target, 'soft', 14);
@@ -500,12 +510,12 @@ export class Abilities {
     if (!d || !d.alive) return;
     const goal = R.name === 'Bomb' ? R.target : m.actors.find((e) => e.team !== a.team && e.alive);
     if (!goal) return;
-    if (!d.path || m.t > (d.repath || 0)) { d.path = m.map.path(d.x, d.z, goal.x, goal.z); d.repath = m.t + 3; }
+    if (!d.path || m.t > (d.repath || 0)) { d.path = m.map.path(d.x, d.z, goal.x, goal.z, d.fy || 0, goal.y || 0); d.repath = m.t + 3; }
     const wp = d.path && d.path[0];
     if (wp) {
       const dx = wp[0] - d.x, dz = wp[1] - d.z, L = Math.hypot(dx, dz);
       if (L < 0.6) d.path.shift();
-      else { const st = Math.min(L, (a.ab.c.speed || 6) / 15); m.map.moveCircle(d, dx / L * st, dz / L * st, DRONE_R, true); d.yaw = yawTo(dx, dz); }
+      else { const st = Math.min(L, (a.ab.c.speed || 6) / 15); this.roll(d, dx / L * st, dz / L * st, 1 / 15); d.yaw = yawTo(dx, dz); }
     }
     if (m.t >= d.scanAt) this.scan(a);
     if (!wp && Math.hypot(goal.x - d.x, goal.z - d.z) < 3 && m.rng() < 0.1) { this.destroy(d); brain.droneAfter = m.t + 60; }
@@ -515,7 +525,7 @@ export class Abilities {
   hudText(a) {
     if (!a.ab) return '';
     const ab = a.ab, t = this.m.t;
-    if (ab.drone) return 'Drone ' + Math.ceil(ab.drone.end - t) + ' s · Q scan' + (ab.drone.basic ? '' : ' · F zap') + ' · V back' + (this.jammed(ab.drone.x, ab.drone.z, a.team) ? ' · JAMMED' : '');
+    if (ab.drone) return 'Drone ' + Math.ceil(ab.drone.end - t) + ' s · Q scan' + (ab.drone.basic ? '' : ' · F zap') + ' · V back' + (this.jammed(ab.drone.x, ab.drone.z, a.team, ab.drone.y) ? ' · JAMMED' : '');
     if (this.plainDrone(a)) return 'Q Drone (prep only) · rolls under doors';
     if (!this.on || !ab.name) return '';
     switch (ab.id) {

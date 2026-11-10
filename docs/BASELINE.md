@@ -119,7 +119,7 @@ Geometries grow by about 40 with every new match: a leak (bug B4 below).
 | B7 | Death replay in Team Deathmatch and Capture the Flag is cut off by the respawn | Replay ran 3.4 s, respawn is 3 s | Milestone 1 |
 | B8 | You can knife or throw a grenade from your body while driving a drone | No check | Milestone 1 |
 | B9 | Defender bots break boarded doors on the way to their posts in prep | Doors block defenders too | Milestone 4 (doorways redesign) |
-| B10 | Match modes on the Battle maps are ground floor only | The match engine has no heights | Milestone 3 |
+| B10 | Match modes on the Battle maps are ground floor only | The match engine has no heights | **Fixed in milestone 3** |
 | B11 | Battle grenades are off in network games | Not sent to the other player | Later (relay only) |
 | B12 | Step label says "3 Weapon" where step 3 is the operator | Label | Milestone 7 (UI redesign) |
 
@@ -221,3 +221,111 @@ does **not** raise frame rate by itself; drawing is the limit, and that is miles
 | `npm test` (now runs check-core first) | 179 passed, 0 failed (12 core checks + 167 browser checks) |
 | `node tools/check-modes.mjs` | 82 passed, 0 failed (4 box tests moved to Rust unit tests) |
 | `node tools/play-through.mjs` | no page errors |
+
+## Milestone 3: physics, stairs, vaulting and the Bomb boundary
+
+One body and one physics for every mode. Battle's height-aware collision (floors, stairs,
+ramps, upper levels, falling, vaulting) and its multi-level pathfinding moved into the Rust
+core, and the match modes (Team Deathmatch, Capture the Flag, Bomb) now use the same code.
+Before, the match modes were ground floor only (B10): stairs were cover and upper floors
+were a ceiling.
+
+What changed for a player:
+- Team Deathmatch and Capture the Flag on Container Yard, Winter Cabin, Jesse's Casino and
+  School Basement have their stairs, ramps and upper floors (the Casino has 15 levels, the
+  top 3.6 m up). You walk, sprint and crouch on them, fall off edges and land.
+- C vaults over low cover or climbs onto a ledge up to 1.5 m in every mode (it was Battle
+  only). It never goes over a full-height wall, a soft or reinforced wall or a boarded door.
+- Bomb: defenders cannot leave the building, through a door, a window or a breached wall.
+  Near a way out a quiet note says "Defenders stay inside the building". Attackers move
+  freely. Defender bots plan their routes inside the building too.
+- Bots in every mode find their way up and down stairs and ramps, and avoid acid.
+- Gadgets, grenades, drones and the gas cloud work at the height they are at; drones roll
+  up ramps (not stairs) and fall off ledges.
+- The School Basement acid hurts in the match modes too.
+
+### Same answers as the code it replaced
+`node tools/check-core.mjs` asks the old JavaScript (`tools/ref-js/arena-ref.mjs`, Battle's
+arena as it was) and the Rust core the same seeded questions on the four Battle maps, on
+every level: 26,837 path nodes, 80,000 floor heights, 80,000 raycasts (with the face hit),
+40,000 sight lines, 80,000 node lookups, 12,000 nearest nodes, 24,000 straight-walk checks
+and 6,000 paths. All identical. Two things are deliberately not bit-identical:
+- Movement: the core pushes a body out of walls in two passes (the old code did one), so
+  at corners it ends up slightly differently. Over 224,400 steps of random walks at 60, 30
+  and 15 FPS: the same position in 99.49%; a body was left overlapping a wall after a step
+  249 times with the core and 838 times with the old code.
+- Vaulting: 118 of 80,000 tries give a different answer (1,893 vaults). The core refuses
+  landings where the body would not fit, and lets you climb from the side onto stairs and
+  ramps. Every landing spot is checked to be free and standing.
+The match maps' ground floor is still checked against the milestone 1 map code: identical.
+
+### Physics on every map (`node tools/check-modes.mjs`)
+- 540 walks along the game's own paths between random places on all nine maps, at 60 and
+  15 FPS: all arrive.
+- 34 climbs to every upper level and 34 descents: all arrive.
+- 40 walks off the edge of an upper level: all land standing, inside the map.
+- 48 doorways of the Bomb buildings walked through both ways: all within 4 s.
+- 216 of 225 low obstacles (0.5 to 1.5 m) can be vaulted from at least one side. The other
+  nine are pressed against walls or other cover on every side, so there is nowhere to land.
+- 799 tries to vault full-height walls, panels and doors: none succeed.
+- 44 opened doors and breached outside walls on the three Bomb maps: a defender pushing out
+  through each never gets past the wall line; an attacker walks out of each freely.
+- 60 bot matches (20 per mode): nobody below the floor, no defender outside the building at
+  any step, bots go upstairs in 15 of 16 matches on maps with upper floors, no bot stuck
+  more than 3 s.
+
+### Played in the browser (`npm test`, real key presses)
+Up the Casino stairs to the top floor with W held (5.8 s), camera at eye height, a bot
+upstairs drawn upstairs, crouching up there, off the edge and landing, back down at 15 FPS,
+C over a 1.2 m crate, C at a wall doing nothing, a Bomb defender stopped at an opened door
+and a breached wall at 60 and 10 FPS with the warning shown, a defender bot stopped there
+too, an attacker walking out of the same door, and Battle climbing the same stairs.
+
+### Speed (same machine; operations per second, Rust core)
+
+| Map | Paths: M2 | M3 | Raycasts: M2 | M3 | Push-outs: M2 | M3 |
+|---|---|---|---|---|---|---|
+| yard | 33,145 | 8,148 | 1,733,186 | 1,503,180 | 3,214,455 | 4,277,572 |
+| containers | 31,111 | 9,760 | 2,048,934 | 2,684,207 | 4,181,734 | 4,793,220 |
+| winter | 45,855 | 11,033 | 1,828,454 | 2,997,117 | 7,813,080 | 7,294,704 |
+| casino | 33,158 | 3,637 | 2,099,438 | 1,966,406 | 3,795,146 | 4,877,008 |
+| school | 65,354 | 15,739 | 3,386,338 | 2,416,222 | 7,789,982 | 8,762,629 |
+| ranch | 15,994 | 4,636 | 2,484,361 | 3,772,236 | 3,932,216 | 5,518,939 |
+| embassy | 15,228 | 3,603 | 3,375,818 | 3,813,334 | 7,438,636 | 7,483,056 |
+| workshop | 17,417 | 4,503 | 3,168,990 | 3,373,614 | 6,981,205 | 7,038,462 |
+
+Paths are 3 to 9 times slower than in milestone 2. That is the price of finding them on every
+level over 0.5 m cells instead of over a 2 m ground-floor waypoint graph. Raycasts and
+push-outs are about the same (the figures move 20-30% between runs). On Battle's maps the
+core finds paths about 2 times faster than the JavaScript it replaced (0.19 ms against 0.41
+ms on Container Yard, 0.35 against 0.70 on the Casino).
+
+Whole 5v5 bot matches, ms per 60 Hz step:
+
+| Match | Average: M2 | M3 | 99th percentile: M2 | M3 | Worst: M2 | M3 |
+|---|---|---|---|---|---|---|
+| tdm/containers | 0.0379 | 0.0577 | 0.1899 | 0.4679 | 2.479 | 3.882 |
+| tdm/casino | 0.0387 | 0.0557 | 0.1459 | 0.6537 | 2.817 | 2.818 |
+| ctf/winter | 0.0395 | 0.0863 | 0.1541 | 1.5656 | 4.283 | 6.696 |
+| ctf/yard | 0.0325 | 0.0304 | 0.1115 | 0.2541 | 2.588 | 1.604 |
+| bomb/ranch | 0.0544 | 0.0709 | 0.3372 | 0.6099 | 4.19 | 4.329 |
+| bomb/embassy | 0.0486 | 0.0494 | 0.3024 | 0.5047 | 1.368 | 2.435 |
+| bomb/workshop | 0.033 | 0.0457 | 0.1371 | 0.4049 | 4.336 | 2.523 |
+
+The simulation got slower: on average 0.03 to 0.09 ms per step, at worst a few ms when
+several bots plan long paths in the same step. That is still well inside a 16.7 ms frame,
+and drawing is still the limit (milestone 6). Spreading path planning across steps is in
+milestone 5 (bot AI).
+
+### Tests after milestone 3
+| Suite | Result |
+|---|---|
+| `cargo test` (Rust unit tests) | 18 passed |
+| `node tools/check-core.mjs` | 20 passed |
+| `npm test` (check-core, then the browser suite) | 203 passed, 0 failed |
+| `node tools/check-modes.mjs` | 97 passed, 0 failed |
+| `node tools/play-through.mjs` | no page errors |
+
+Known limits: the nine low obstacles above have no room to vault; Battle grenades are still
+off in network games (B11); defender bots still break boarded doors in prep (B9, milestone 4).
+Movement is not checked by anyone but the player's own browser (there is no server).

@@ -7,9 +7,9 @@
 //
 // Levels: Easy, Medium, Hard and Terminator (near-instant, precise, leads moving targets,
 // hears everything, always pushes on a callout).
-import { Weapon } from '../core/weapon.js?v=9ba226e-mwa4h4pc';
-import { RecoilEngine } from '../core/recoil.js?v=9ba226e-mwa4h4pc';
-import { mulberry32 } from '../core/prng.js?v=9ba226e-mwa4h4pc';
+import { Weapon } from '../core/weapon.js?v=e1f5a8d-mwah3s7c';
+import { RecoilEngine } from '../core/recoil.js?v=e1f5a8d-mwah3s7c';
+import { mulberry32 } from '../core/prng.js?v=e1f5a8d-mwah3s7c';
 
 // Per level: reaction (s), aim error sd (deg), turn rate when not fighting (deg/s), recoil
 // control (0..1), burst [min, max] shots, pause between bursts (s), head aim chance, strafes,
@@ -224,20 +224,14 @@ export class Bot {
     const k = 1 - Math.exp(-10 * dt);
     const sp = (this.crouchWanted ? Math.min(speed, 1.5) : speed) * (1 - 0.35 * this.adsE);
     f.vx += (mx * sp - f.vx) * k; f.vz += (mz * sp - f.vz) * k;
-    const p = { x: f.x, y: f.y, z: f.z };
-    {
-      // in steps shorter than half a body radius (never through a thin wall on a long frame)
-      const dist = Math.hypot(f.vx, f.vz) * dt, steps = Math.min(60, Math.max(1, Math.ceil(dist / 0.15)));
-      for (let i = 0; i < steps; i++) { p.x += f.vx * dt / steps; p.z += f.vz * dt / steps; arena.resolve(p); }
-    }
+    // The core moves the body (never through a thin wall on a long frame, up stairs, falling).
+    const p = this._body || (this._body = { x: 0, y: 0, z: 0, vy: 0 });
+    p.x = f.x; p.y = f.y; p.z = f.z; p.vy = f.vy || 0;
+    arena.stepBody(p, f.vx * dt, f.vz * dt, dt);
     if (Math.hypot(p.x - (f.x + f.vx * dt), p.z - (f.z + f.vz * dt)) > 0.01 && this.mode !== 'fight') this.nextPath = Math.min(this.nextPath, t + 0.4);  // bumped: re-plan soon
     // Never walk into acid (strafing included).
-    if (!arena.hazards.length || arena.hazardAt(p.x, arena.groundAt(p.x, p.z, f.y), p.z) === 0 || arena.hazardAt(f.x, f.y, f.z) > 0) { f.x = p.x; f.z = p.z; }
+    if (!arena.hazards.length || arena.hazardAt(p.x, p.y, p.z) === 0 || arena.hazardAt(f.x, f.y, f.z) > 0) { f.x = p.x; f.y = p.y; f.z = p.z; f.vy = p.vy; }
     else { f.vx = f.vz = 0; this.strafeDir = -this.strafeDir; }
-    // Stand on what is underneath, or fall.
-    const g = arena.groundAt(f.x, f.z, f.y);
-    if (g >= f.y - 1e-4) { f.y = g; f.vy = 0; }
-    else { f.vy -= 22 * dt; f.y = Math.max(g, f.y + f.vy * dt); if (f.y === g) f.vy = 0; }
     f.crouch += ((this.crouchWanted ? 1 : 0) - f.crouch) * (1 - Math.exp(-12 * dt));
 
     /* aim */

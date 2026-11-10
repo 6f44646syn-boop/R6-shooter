@@ -3,14 +3,14 @@
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=9ba226e-mwa4h4pc';
-import { Arena } from './arena.js?v=9ba226e-mwa4h4pc';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=9ba226e-mwa4h4pc';
-import { Bot, LEVELS } from './bot.js?v=9ba226e-mwa4h4pc';
-import { Human } from './human.js?v=9ba226e-mwa4h4pc';
-import { BattleNades } from './nades.js?v=9ba226e-mwa4h4pc';
-import { drawCrosshair } from '../ui/crosshair.js?v=9ba226e-mwa4h4pc';
-import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=9ba226e-mwa4h4pc';
+import * as THREE from '../../vendor/three/three.module.min.js?v=e1f5a8d-mwah3s7c';
+import { Arena } from './arena.js?v=e1f5a8d-mwah3s7c';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=e1f5a8d-mwah3s7c';
+import { Bot, LEVELS } from './bot.js?v=e1f5a8d-mwah3s7c';
+import { Human } from './human.js?v=e1f5a8d-mwah3s7c';
+import { BattleNades } from './nades.js?v=e1f5a8d-mwah3s7c';
+import { drawCrosshair } from '../ui/crosshair.js?v=e1f5a8d-mwah3s7c';
+import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=e1f5a8d-mwah3s7c';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second

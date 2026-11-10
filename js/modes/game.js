@@ -4,17 +4,17 @@
 //
 // Map: flat-shaded low poly from the map file; static walls merged into one mesh, breakable
 // panels in one instanced mesh, one directional light (a 1024 shadow map in High / Ultra).
-import * as THREE from '../../vendor/three/three.module.min.js?v=9ba226e-mwa4h4pc';
-import { MatchMap } from './map.js?v=9ba226e-mwa4h4pc';
-import { initCore } from '../wasm/core.js?v=9ba226e-mwa4h4pc';
-import { Match, TICK } from './sim.js?v=9ba226e-mwa4h4pc';
-import { yawTo, wrap180, DEG } from './geom.js?v=9ba226e-mwa4h4pc';
-import { Fighter } from '../battle/fighter.js?v=9ba226e-mwa4h4pc';
-import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=9ba226e-mwa4h4pc';
-import { buildMapLook, panelTextures } from './look.js?v=9ba226e-mwa4h4pc';
-import { Arena } from '../battle/arena.js?v=9ba226e-mwa4h4pc';
-import { Human } from '../battle/human.js?v=9ba226e-mwa4h4pc';
-import { drawCrosshair } from '../ui/crosshair.js?v=9ba226e-mwa4h4pc';
+import * as THREE from '../../vendor/three/three.module.min.js?v=e1f5a8d-mwah3s7c';
+import { MatchMap } from './map.js?v=e1f5a8d-mwah3s7c';
+import { initCore } from '../wasm/core.js?v=e1f5a8d-mwah3s7c';
+import { Match, TICK } from './sim.js?v=e1f5a8d-mwah3s7c';
+import { yawTo, wrap180, DEG } from './geom.js?v=e1f5a8d-mwah3s7c';
+import { Fighter } from '../battle/fighter.js?v=e1f5a8d-mwah3s7c';
+import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=e1f5a8d-mwah3s7c';
+import { buildMapLook, panelTextures } from './look.js?v=e1f5a8d-mwah3s7c';
+import { Arena } from '../battle/arena.js?v=e1f5a8d-mwah3s7c';
+import { Human } from '../battle/human.js?v=e1f5a8d-mwah3s7c';
+import { drawCrosshair } from '../ui/crosshair.js?v=e1f5a8d-mwah3s7c';
 
 const TEAM_COLOR = { A: 0x5b8cff, B: 0xff7048 };
 const MAX_TRACERS = 64;
@@ -203,9 +203,16 @@ export class ModeGame {
     if (!this.h) this.h = new Human(f, 'mouse', deps, d.slotOf);
     this.h.f = f; this.h.deps = deps; this.h.controls = 'mouse'; this.h.releaseAll();
     this.h.setGun(this.me.gunData);
-    this.h.respawn(this.me.x, this.me.z, d.now(), 0);
+    this.h.respawn(this.me.x, this.me.z, d.now(), this.me.y);
     this.h.look.setAngles(this.me.yaw, 0);
-    this.bl = { arena: { resolve: (p) => this.map.resolve(p), groundAt: () => 0, vaultTarget: () => null, hazardAt: () => 0, hazards: [] }, fire: (h, shotT) => this._fire(h, shotT) };
+    // Your body moves in the same core as everyone else's: stairs, ramps, upper floors,
+    // falling, and vaulting (C) over low cover. A Bomb defender cannot vault out of the building.
+    const map = this.map;
+    this.bl = { arena: {
+      resolve: (p) => map.resolve(p), groundAt: (x, z, y) => map.groundAt(x, z, y), stepBody: (p, dx, dz, dt) => { const on = map.stepBody(p, dx, dz, dt), k = this.m.rules.keepIn(this.me, p.x, p.z); if (k && k[2]) { p.x = k[0]; p.z = k[1]; this.me.kept = true; } return on; },
+      vaultTarget: (x, y, z, dx, dz) => { const v = map.vaultTarget(x, y, z, dx, dz), k = v && this.m.rules.keepIn(this.me, v.x, v.z); return k && k[2] ? null : v; },
+      hazardAt: () => 0, hazards: [],
+    }, fire: (h, shotT) => this._fire(h, shotT) };
     this.hud.name.textContent = 'You · ' + op.name + ' · ' + this.me.gunData.name;
   }
 
@@ -231,7 +238,7 @@ export class ModeGame {
     const m = this.m, me = this.me, h = this.h;
     // you (the range's movement, look and weapon), then copy into the simulation
     const ab = me.ab, abOn = m.o.abilitiesOn && ab;
-    if (me.forced) { h.f.x = me.x; h.f.z = me.z; h.f.vx = 0; h.f.vz = 0; me.forced = false; }
+    if (me.forced) { h.f.x = me.x; h.f.z = me.z; h.f.y = me.y; h.f.vx = 0; h.f.vz = 0; h.vault = null; me.forced = false; }
     const frozen = m.rules.frozen(me) || m.t < me.stunUntil || (ab && (ab.busy || ab.dash));
     const droning = !!(ab && ab.drone && ab.drone.alive);
     if (droning && !this.paused && !this.over) m.ab.droneInput(me, h.in, dt);
@@ -247,7 +254,7 @@ export class ModeGame {
     if (mv) [h.in.fwd, h.in.back, h.in.left, h.in.right] = mv;
     h.in.fire = fire;
     if (me.alive) {
-      me.x = h.f.x; me.z = h.f.z; me.yaw = h.look.yaw; me.pitch = h.look.pitch;
+      me.x = h.f.x; me.z = h.f.z; me.y = h.f.y; me.vy = h.f.vy || 0; me.yaw = h.look.yaw; me.pitch = h.look.pitch;
       me.crouch = h.f.crouch; me.speed = Math.hypot(h.f.vx, h.f.vz); me.ads = h.adsE;
     }
     // the simulation at 60 Hz
@@ -262,7 +269,7 @@ export class ModeGame {
     // draw everyone where the simulation has them
     for (const a of m.actors) {
       const f = this.fig.get(a.id);
-      if (a !== me) { f.x = a.x; f.z = a.z; f.y = 0; f.yaw = a.yaw; f.pitch = a.pitch; f.crouch = a.crouch; f.ads = a.ads; }
+      if (a !== me) { f.x = a.x; f.z = a.z; f.y = a.y; f.yaw = a.yaw; f.pitch = a.pitch; f.crouch = a.crouch; f.ads = a.ads; }
       f.alive = a.alive; f.health = a.hp; f.protectUntil = t + (a.protectUntil - m.t);
       // stunned: stars round the head; charging (Onyx): a blue streak
       const stun = a.alive && m.t < a.stunUntil && a !== me;
@@ -270,7 +277,7 @@ export class ModeGame {
       if (f.stars) { f.stars.visible = stun; if (stun) { f.stars.position.y = 1.95 - 0.4 * a.crouch; f.stars.rotation.y = t * 5; } }
       const dash = a.alive && a.ab && a.ab.dash;
       if (dash && !f.trail) { f.trail = dashTrail(); this.markerG.add(f.trail); }
-      if (f.trail) { f.trail.visible = !!dash && a !== me; if (dash) { f.trail.position.set(a.x, 0, a.z); f.trail.rotation.y = Math.atan2(-dash.dx, -dash.dz); f.trail.scale.z = 2.5; } }
+      if (f.trail) { f.trail.visible = !!dash && a !== me; if (dash) { f.trail.position.set(a.x, a.y, a.z); f.trail.rotation.y = Math.atan2(-dash.dx, -dash.dz); f.trail.scale.z = 2.5; } }
       f.updateVisual(t);
       const enemy = a.team !== me.team;
       const v = a !== me && a.alive && enemy;
@@ -278,7 +285,7 @@ export class ModeGame {
       if (xr !== !!f._xr) { f._xr = xr; this._xray(f, xr); }
       f.outline.visible = v; for (const l of f.legs) l.o.visible = v;
       // teammates: a silhouette through walls (only while a wall is in the way)
-      if (a !== me && a.alive && !enemy) { if ((this._fr + a.id) % 6 === 0 || f._ghost === undefined) f.setGhost(!m.map.sight(this.camOverride ? [this.camOverride.position.x, this.camOverride.position.y, this.camOverride.position.z] : [me.x, 1.6, me.z], [a.x, 1.2, a.z])); }
+      if (a !== me && a.alive && !enemy) { if ((this._fr + a.id) % 6 === 0 || f._ghost === undefined) f.setGhost(!m.map.sight(this.camOverride ? [this.camOverride.position.x, this.camOverride.position.y, this.camOverride.position.z] : [me.x, me.y + 1.6, me.z], [a.x, a.y + 1.2, a.z])); }
       else f.setGhost(false);
       if (xr) f.group.visible = true;
     }
@@ -313,7 +320,7 @@ export class ModeGame {
         if (k === me) { this._marker('kill', t); this._earn('kill', e.head); }
         if (v === me) { this.killedBy = k ? k.name : 'the world'; if (k && k !== me) this._startKc(k, e, t); }
       } else if (e.type === 'spawn' && e.id === me.id) {
-        this.h.respawn(me.x, me.z, t, 0);
+        this.h.respawn(me.x, me.z, t, me.y);
         this.h.look.setAngles(me.yaw, 0);
         this.h.f.alive = true;
       } else if (e.type === 'end') {
@@ -343,7 +350,7 @@ export class ModeGame {
         else { const a = m.actors.find((x) => x.id === e.id), w = a && this._where(a.x, a.z); if (w && w.dist < 15) sfx.knife(Math.min(0.8, 3 / (w.dist + 2)), w.pan, w.muffle); }
       } else if (e.type === 'pulse') {
         const w = this._where(e.x, e.z);
-        if (e.kind === 'dread') { this._fxAdd(gasCloud(e.x, e.z, e.r || 3), t, e.dur || 5, 'cloud'); this._boom(e.x, e.z, e.r || 3, t, 0x9040ff); sfx.shot(0.02, Math.min(0.6, 4 / (w.dist + 3)), w.pan, w.muffle); }
+        if (e.kind === 'dread') { { const cl = gasCloud(e.x, e.z, e.r || 3); cl.position.y += e.y || 0; this._fxAdd(cl, t, e.dur || 5, 'cloud'); } this._boom(e.x, e.z, e.r || 3, t, 0x9040ff); sfx.shot(0.02, Math.min(0.6, 4 / (w.dist + 3)), w.pan, w.muffle); }
         else { this._boom(e.x, e.z, e.r || 4, t, 0x60b0ff); this._boom(e.x, e.z, (e.r || 4) * 0.5, t, 0xe0f4ff); sfx.zap(Math.min(1, 5 / (w.dist + 3)), w.pan, w.muffle); }
       } else if (e.type === 'scan') {
         if (e.id === me.id || m.actors.find((x) => x.id === e.id)?.team === me.team) this._boom(e.x, e.z, e.r, t, 0x60ffd0);
@@ -389,8 +396,8 @@ export class ModeGame {
   _record() {
     const m = this.m, R = this.rec;
     if (this.kc) return;
-    const s = new Float32Array(m.actors.length * 6);
-    m.actors.forEach((a, i) => { s.set([a.x, a.z, a.yaw, a.pitch, a.crouch, a.alive ? 1 : 0], i * 6); });
+    const s = new Float32Array(m.actors.length * 7);
+    m.actors.forEach((a, i) => { s.set([a.x, a.z, a.yaw, a.pitch, a.crouch, a.alive ? 1 : 0, a.y], i * 7); });
     R.frames.push({ t: m.t, s });
     while (R.frames.length && R.frames[0].t < m.t - 5) R.frames.shift();
     while (R.shots.length && R.shots[0].t < m.t - 5) R.shots.shift();
@@ -430,17 +437,17 @@ export class ModeGame {
     const f = B.t > A.t ? Math.max(0, Math.min(1, (rt - A.t) / (B.t - A.t))) : 0;
     const lerpYaw = (a, b) => a + wrap180(b - a) * f;
     m.actors.forEach((a, k) => {
-      const fig = this.fig.get(a.id), o = k * 6;
-      if (o + 5 >= A.s.length) return;
+      const fig = this.fig.get(a.id), o = k * 7;
+      if (o + 6 >= A.s.length) return;
       fig.x = A.s[o] + (B.s[o] - A.s[o]) * f; fig.z = A.s[o + 1] + (B.s[o + 1] - A.s[o + 1]) * f;
       fig.yaw = lerpYaw(A.s[o + 2], B.s[o + 2]); fig.pitch = A.s[o + 3] + (B.s[o + 3] - A.s[o + 3]) * f; fig.crouch = A.s[o + 4];
-      fig.alive = A.s[o + 5] > 0.5; fig.y = 0;
+      fig.alive = A.s[o + 5] > 0.5; fig.y = A.s[o + 6] + (B.s[o + 6] - A.s[o + 6]) * f;
       fig.updateVisual(t);
       fig.outline.visible = false; for (const l of fig.legs) l.o.visible = false; fig.setGhost(false);
       if (a.id === kc.by) {
         // the killer's eyes
         fig.group.visible = false;
-        this.kcCam.position.set(fig.x, 1.6 - 0.45 * fig.crouch, fig.z);
+        this.kcCam.position.set(fig.x, fig.y + 1.6 - 0.45 * fig.crouch, fig.z);
         this.kcCam.rotation.set(fig.pitch * DEG, -fig.yaw * DEG, 0, 'YXZ');
       }
       if (a === this.me) { fig.outline.visible = true; for (const l of fig.legs) l.o.visible = true; }   // you, in red
@@ -686,7 +693,7 @@ export class ModeGame {
       if (code === 'KeyB' && me.ab.id === 'underbarrel') { if (down) ab.toggleShotgun(me); return true; }
     }
     if (this.m.rules.key && this.m.rules.key(this.me, code, down)) return true;
-    const map = { KeyW: 'fwd', KeyS: 'back', KeyA: 'left', KeyD: 'right', ShiftLeft: 'sprint', Space: 'crouch', KeyC: 'crouch', KeyQ: 'leanL', KeyE: 'leanR' };
+    const map = { KeyW: 'fwd', KeyS: 'back', KeyA: 'left', KeyD: 'right', ShiftLeft: 'sprint', Space: 'crouch', KeyC: 'vault', KeyQ: 'leanL', KeyE: 'leanR' };
     if (qUsed) delete map.KeyQ;                          // Q is the ability / drone
     if (this.m.rules.usesE) delete map.KeyE;            // E: pick up / plant / defuse
     if (map[code]) { h.in[map[code]] = down; return true; }
@@ -813,13 +820,17 @@ export class ModeGame {
     const low = me.alive && me.hp <= 35;
     if (L.low !== low) { L.low = low; H.lowhp.classList.toggle('on', low); }
     const d = me.ab && me.ab.drone && me.ab.drone.alive ? me.ab.drone : null;
-    const jammed = me.alive && (m.ab.jammed(me.x, me.z, me.team) || (d && m.ab.jammed(d.x, d.z, me.team)));
+    const jammed = me.alive && (m.ab.jammed(me.x, me.z, me.team, me.y + 1) || (d && m.ab.jammed(d.x, d.z, me.team, d.y)));
     if (jammed && !this.wasJammed) { this.deps.sfx.jam(0.7); this._jamSnd = t; }
     else if (jammed && t - (this._jamSnd || 0) > 0.9) { this.deps.sfx.jam(0.25); this._jamSnd = t; }
     this.wasJammed = jammed;
     const stunned = me.alive && m.t < me.stunUntil;
-    const ban = stunned ? 'STUNNED' : jammed ? 'JAMMED · abilities, drone and team radio offline' : '';
-    if (L.ban !== ban) { L.ban = ban; H.banner.hidden = !ban; H.banner.textContent = ban; H.banner.className = 'mg-banner' + (stunned ? ' stun' : ''); H.jam.classList.toggle('on', jammed); H.view.classList.toggle('mg-stun', stunned); H.compass.classList.toggle('jammed', jammed); }
+    // a Bomb defender at a way out of the building
+    if ((this._fr || 0) % 6 === 0) this._edge = m.rules.edgeAhead ? m.rules.edgeAhead(me) : Infinity;
+    if (me.kept) { me.kept = false; this._keptAt = t; }
+    const edge = me.alive && (this._edge < 0.9 || t - (this._keptAt || -9) < 1.5);
+    const ban = stunned ? 'STUNNED' : jammed ? 'JAMMED · abilities, drone and team radio offline' : edge ? 'Defenders stay inside the building' : '';
+    if (L.ban !== ban) { L.ban = ban; H.banner.hidden = !ban; H.banner.textContent = ban; H.banner.className = 'mg-banner' + (stunned ? ' stun' : !jammed && edge ? ' edge' : ''); H.jam.classList.toggle('on', jammed); H.view.classList.toggle('mg-stun', stunned); H.compass.classList.toggle('jammed', jammed); }
     const pr = me.alive && m.t < me.protectUntil ? 'Spawn protection ' + Math.ceil(me.protectUntil - m.t) + ' · shooting ends it' : '';
     if (L.pr !== pr) { L.pr = pr; H.prot.hidden = !pr; H.prot.textContent = pr; }
     const st = m.rules.statusText ? m.rules.statusText(me) : '';

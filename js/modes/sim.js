@@ -7,13 +7,13 @@
 //
 // Body for hits (actor frame, standing; crouching squashes y to 0.7): head sphere at 1.62 m
 // (r 0.13), torso capsule 0.95-1.34 m (r 0.24), legs capsule 0.1-0.9 m (r 0.19).
-import { mulberry32 } from '../core/prng.js?v=9ba226e-mwa4h4pc';
-import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=9ba226e-mwa4h4pc';
-import { BODY_R } from './map.js?v=9ba226e-mwa4h4pc';
-import { Brain } from './bots.js?v=9ba226e-mwa4h4pc';
-import { makeRules } from './rules.js?v=9ba226e-mwa4h4pc';
-import { Nades } from './nades.js?v=9ba226e-mwa4h4pc';
-import { Abilities } from './abilities.js?v=9ba226e-mwa4h4pc';
+import { mulberry32 } from '../core/prng.js?v=e1f5a8d-mwah3s7c';
+import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=e1f5a8d-mwah3s7c';
+import { BODY_R } from './map.js?v=e1f5a8d-mwah3s7c';
+import { Brain } from './bots.js?v=e1f5a8d-mwah3s7c';
+import { makeRules } from './rules.js?v=e1f5a8d-mwah3s7c';
+import { Nades } from './nades.js?v=e1f5a8d-mwah3s7c';
+import { Abilities } from './abilities.js?v=e1f5a8d-mwah3s7c';
 
 export const TICK = 1 / 60;
 export const EYE = 1.6, CROUCH_EYE = 1.1;
@@ -46,6 +46,7 @@ export class Match {
   constructor(o) {
     this.o = { teamSize: 5, difficulty: 'normal', minutes: 10, headshot: 'lethal', seed: 1, ...o };
     this.map = o.map;
+    this.acid = !!(o.map.data.hazards && o.map.data.hazards.length);
     this.rng = mulberry32(this.o.seed >>> 0);
     this.t = 0; this.tick = 0;
     this.events = []; this.noises = [];
@@ -94,7 +95,7 @@ export class Match {
     const g = this.gunsById.get(op.gun) || this.o.guns[0];
     const a = {
       id: this.actors.length + 1, team, op, human, name: human ? 'You' : op.name, gun: gunStats(g), gunData: g,
-      x: 0, z: 0, y: 0, vx: 0, vz: 0, yaw: 0, pitch: 0, crouch: 0, speed: 0, ads: 0,
+      x: 0, z: 0, y: 0, vx: 0, vy: 0, vz: 0, onGround: true, yaw: 0, pitch: 0, crouch: 0, speed: 0, ads: 0,
       hp: 100, alive: false, respawnAt: 0, protectUntil: 0, lastHurt: -10, kills: 0, deaths: 0, assists: 0,
       ammo: g.magSize, reloadUntil: 0, nextShot: 0, stunUntil: 0, slowUntil: 0, shakeUntil: 0, wobbleUntil: 0, revealedUntil: 0,
       carry: null, hold: null, stuckFor: 0, _sx: 0, _sz: 0, _st: 0,
@@ -109,8 +110,9 @@ export class Match {
   human() { return this.actors.find((a) => a.human) || null; }
 
   /* ---------- spawning ---------- */
-  // A random safe spawn (no enemy within 12 m or in sight), from the map's spawns and the
-  // waypoints within `spread` m of them; if none is safe, the best scored one.
+  // A random safe spawn (no enemy within 12 m or in sight), from the map's spawns
+  // ([x, z, yaw, y]) and the places within `spread` m of them on the same level; if none is
+  // safe, the best scored one.
   spawn(a, list, protect = 3, spread = 8) {
     const foes = this.enemiesOf(a).filter((e) => e.alive);
     if (!this._pools) this._pools = new Map();
@@ -119,8 +121,8 @@ export class Match {
     if (!pool) {
       pool = list.slice();
       for (const n of this.map.data.nodes || []) {
-        const near = list.find((s) => Math.hypot(n[0] - s[0], n[1] - s[1]) <= spread);
-        if (near && this.map.free(n[0], n[1], 0.5)) pool.push([n[0], n[1], near[2]]);
+        const near = list.find((s) => Math.hypot(n[0] - s[0], n[1] - s[1]) <= spread && Math.abs((n[2] || 0) - (s[3] || 0)) < 1.5);
+        if (near && this.map.free(n[0], n[1], 0.5, n[2] || 0)) pool.push([n[0], n[1], near[2], n[2] || 0]);
       }
       this._pools.set(pk, pool);
     }
@@ -130,7 +132,7 @@ export class Match {
       for (const e of foes) {
         const d = Math.hypot(e.x - s[0], e.z - s[1]);
         if (d < 12) return false;
-        if (d < 45 && this.map.sight(this.eye(e, eyeAt), [s[0], 1.2, s[1]])) return false;
+        if (d < 45 && this.map.sight(this.eye(e, eyeAt), [s[0], (s[3] || 0) + 1.2, s[1]])) return false;
       }
       return true;
     };
@@ -143,7 +145,7 @@ export class Match {
       let d = 99;
       for (const e of foes) d = Math.min(d, Math.hypot(e.x - s[0], e.z - s[1]));
       let seen = false;
-      for (const e of foes) if (Math.hypot(e.x - s[0], e.z - s[1]) < 45 && this.map.sight([e.x, e.y + EYE, e.z], [s[0], 1.2, s[1]])) { seen = true; break; }
+      for (const e of foes) if (Math.hypot(e.x - s[0], e.z - s[1]) < 45 && this.map.sight([e.x, e.y + EYE, e.z], [s[0], (s[3] || 0) + 1.2, s[1]])) { seen = true; break; }
       const busy = this.actors.some((b) => b !== a && b.alive && Math.hypot(b.x - s[0], b.z - s[1]) < 0.8);
       const score = d - (seen ? 60 : 0) - (busy ? 30 : 0) + this.rng();
       if (score > bs) { bs = score; best = s; }
@@ -152,8 +154,11 @@ export class Match {
   }
   _place(a, best, protect) {
     // a little off the spot (so two never land on each other), without crossing a wall
-    const p = this.map.moveCircle({ x: best[0], z: best[1] }, this.r(-0.6, 0.6), this.r(-0.6, 0.6));
-    Object.assign(a, { x: p.x, z: p.z, y: 0, vx: 0, vz: 0, yaw: best[2] || 0, pitch: 0, crouch: 0, hp: 100, alive: true, protectUntil: this.t + protect, lastHurt: -10,
+    const y0 = best[3] || 0, p = this.map.moveCircle({ x: best[0], y: y0, z: best[1] }, this.r(-0.6, 0.6), this.r(-0.6, 0.6));
+    p.y = this.map.groundAt(p.x, p.z, p.y);
+    // not off the edge of a platform, and not into a gap too narrow to walk out of
+    if (Math.abs(p.y - y0) > 0.5 || !this.map.standable(p.x, p.z, p.y)) { p.x = best[0]; p.z = best[1]; p.y = this.map.groundAt(p.x, p.z, y0); }
+    Object.assign(a, { x: p.x, z: p.z, y: p.y, vx: 0, vy: 0, vz: 0, onGround: true, yaw: best[2] || 0, pitch: 0, crouch: 0, hp: 100, alive: true, protectUntil: this.t + protect, lastHurt: -10,
       ammo: a.gun.magSize, reloadUntil: 0, nextShot: 0, stunUntil: 0, slowUntil: 0, shakeUntil: 0, wobbleUntil: 0, carry: null, hold: null, stuckFor: 0, _sx: p.x, _sz: p.z, _st: this.t });
     this.nades.refill(a);
     if (a.brain) a.brain.spawned();
@@ -178,7 +183,7 @@ export class Match {
   kill(v, by, head = false, kind = 'gun') {
     v.hp = 0; v.alive = false; v.deaths++; v.hold = null;
     if (by && by !== v && by.team !== v.team) by.kills++;
-    this.bb[v.team].deaths.push({ x: v.x, z: v.z, t: this.t });
+    this.bb[v.team].deaths.push({ x: v.x, z: v.z, y: v.y, t: this.t });
     if (this.bb[v.team].deaths.length > 8) this.bb[v.team].deaths.shift();
     this.emit({ type: 'kill', id: v.id, by: by ? by.id : 0, head, kind });
     this.ab.onDeath(v);
@@ -237,8 +242,8 @@ export class Match {
     for (const e of this.actors) {
       if (peace || !e.alive || e === a || e.team === a.team) continue;
       const d = Math.hypot(e.x - a.x, e.z - a.z);
-      if (d >= bd || Math.abs(wrap180(yawTo(e.x - a.x, e.z - a.z) - a.yaw)) > KNIFE.cone) continue;
-      if (!this.map.sight(this.eye(a), [e.x, 1.1, e.z])) continue;
+      if (d >= bd || Math.abs(e.y - a.y) > 1.2 || Math.abs(wrap180(yawTo(e.x - a.x, e.z - a.z) - a.yaw)) > KNIFE.cone) continue;
+      if (!this.map.sight(this.eye(a), [e.x, e.y + 1.1, e.z])) continue;
       best = e; bd = d;
     }
     if (best) {
@@ -262,7 +267,7 @@ export class Match {
   }
   noise(a, range, kind) {
     if (range <= 0) return;
-    this.noises.push({ x: a.x, z: a.z, t: this.t, range, kind, team: a.team, id: a.id });
+    this.noises.push({ x: a.x, z: a.z, y: a.y, t: this.t, range, kind, team: a.team, id: a.id });
     while (this.noises.length && this.noises[0].t < this.t - 0.5) this.noises.shift();
   }
   eye(a, out = [0, 0, 0]) { out[0] = a.x; out[1] = a.y + (EYE + (CROUCH_EYE - EYE) * a.crouch); out[2] = a.z; return out; }
@@ -298,23 +303,42 @@ export class Match {
         a.stuckFor = a.brain && a.brain.wantsMove() && moved < 0.3 ? a.stuckFor + (this.t - a._st) : 0;
         a._sx = a.x; a._sz = a.z; a._st = this.t;
         // wedged into a gap too thin for a body (pushed there): back onto the nearest waypoint
-        if (a.stuckFor >= 2 && !a.human && !this.map.free(a.x, a.z, BODY_R * 0.9)) {
-          const k = this.map.nearestNode(a.x, a.z, false), n = k >= 0 && this.map.nodes[k];
-          if (n && Math.hypot(n[0] - a.x, n[1] - a.z) < 3) { a.x = n[0]; a.z = n[1]; a.stuckFor = 0; if (a.brain) a.brain.path = []; }
+        if (a.stuckFor >= 2 && !a.human && !this.map.free(a.x, a.z, BODY_R * 0.9, a.y)) {
+          const n = this.map.nearestSpot(a.x, a.z, a.y);
+          if (n && Math.hypot(n[0] - a.x, n[1] - a.z) < 3) { a.x = n[0]; a.z = n[1]; a.y = n[2]; a.vy = 0; a.stuckFor = 0; if (a.brain) a.brain.path = []; }
         }
       }
-      if (!Number.isFinite(a.x) || !Number.isFinite(a.z)) { this.nan = true; a.x = 0; a.z = 0; }
+      if (this.rules.confine(a) && a.human) { a.forced = true; a.kept = true; }
+      // acid pools burn (in 8-point bites)
+      if (this.acid) { const dps = this.map.hazardAt(a.x, a.y, a.z); if (dps) { a.burn = (a.burn || 0) + dps * dt; if (a.burn >= 8) { a.burn -= 8; this.hit(a, 8, null, 'torso', 'acid'); } } }        // Bomb: defenders stay in the building
+      if (!Number.isFinite(a.x) || !Number.isFinite(a.z) || !Number.isFinite(a.y)) { this.nan = true; a.x = 0; a.z = 0; a.y = 0; a.vy = 0; }
     }
     this.rules.check();
   }
-  // Move a bot's body: wish velocity (vx, vz) in m/s, with collision.
+  // Move a bot's body: wish velocity (vx, vz) in m/s. The core moves it with collision, up
+  // stairs and ramps, and lets it fall off ledges.
   moveActor(a, wx, wz, dt) {
     const k = 1 - Math.exp(-12 * dt);
     a.vx += (wx - a.vx) * k; a.vz += (wz - a.vz) * k;
-    const p = this.map.moveCircle({ x: a.x, z: a.z }, a.vx * dt, a.vz * dt);
+    const p = this._body || (this._body = { x: 0, y: 0, z: 0, vy: 0 });
+    p.x = a.x; p.y = a.y; p.z = a.z; p.vy = a.vy || 0;
+    a.onGround = this.map.stepBody(p, a.vx * dt, a.vz * dt, dt);
+    // never walk out over acid (strafing included): slide along its edge instead; a body
+    // already over it (pushed off a catwalk) keeps moving and falling
+    if (this.acid && this.overAcid(p) && !this.overAcid(a)) {
+      let ok = false;
+      for (const [dx, dz] of Math.abs(a.vx) > Math.abs(a.vz) ? [[a.vx, 0], [0, a.vz], [0, 0]] : [[0, a.vz], [a.vx, 0], [0, 0]]) {
+        p.x = a.x; p.y = a.y; p.z = a.z; p.vy = a.vy || 0;
+        a.onGround = this.map.stepBody(p, dx * dt, dz * dt, dt);
+        if (!this.overAcid(p)) { ok = true; break; }
+      }
+      if (!ok) { a.vx = a.vz = 0; a.speed = 0; return; }
+    }
     a.speed = Math.hypot(p.x - a.x, p.z - a.z) / dt;
-    a.x = p.x; a.z = p.z;
+    a.x = p.x; a.y = p.y; a.z = p.z; a.vy = p.vy;
   }
+  // Is the floor under this body acid?
+  overAcid(p) { return this.map.hazardAt(p.x, this.map.groundAt(p.x, p.z, p.y), p.z) > 0; }
   speedOf(a) {
     let s = a.gun.speed;
     if (this.t < a.slowUntil) s *= 1 - (this.ab.cfg.jolt_mines ? this.ab.cfg.jolt_mines.slow : 0.4);
@@ -327,7 +351,7 @@ export class Match {
     const L = this.actors;
     for (let i = 0; i < L.length; i++) for (let j = i + 1; j < L.length; j++) {
       const a = L[i], b = L[j];
-      if (!a.alive || !b.alive) continue;
+      if (!a.alive || !b.alive || Math.abs(a.y - b.y) > 1.6) continue;
       let dx = b.x - a.x, dz = b.z - a.z;
       const d = Math.hypot(dx, dz), min = BODY_R * 2;
       if (d >= min) continue;
@@ -346,6 +370,6 @@ export class Match {
   }
   // Team blackboard: an enemy seen or heard.
   // by: the one who saw it; inside an enemy jammer the radio is down (nobody else hears it)
-  report(team, e, x = e.x, z = e.z, by = null) { if (by && this.ab.jammed(by.x, by.z, by.team)) return; this.bb[team].seen.set(e.id, { x, z, t: this.t, id: e.id }); }
+  report(team, e, x = e.x, z = e.z, by = null) { if (by && this.ab.jammed(by.x, by.z, by.team, by.y + 1)) return; this.bb[team].seen.set(e.id, { x, z, y: e.y, t: this.t, id: e.id }); }
 }
 export { dirFrom, yawTo, wrap180, DEG };

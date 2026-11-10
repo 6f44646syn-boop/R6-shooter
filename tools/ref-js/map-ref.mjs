@@ -1,6 +1,10 @@
 // REFERENCE COPY (not loaded by the game): the JavaScript map kernel the Rust core was ported
-// from, as of milestone 1. tools/check-core.mjs asks both the same seeded questions and the
-// answers must be identical. Lengths use sqrt(x*x + z*z) so both sides round the same way.
+// from, as of milestone 1. tools/check-core.mjs asks both the same seeded questions about
+// the ground floor and the answers must be identical. Lengths use sqrt(x*x + z*z) so both
+// sides round the same way.
+// Milestone 3 gave every mode one body (Battle's): the constants here follow it. A ledge up
+// to 0.45 m is stepped onto (was 0.35), a body is 1.75 m tall (was 1.7), a drone rolls over
+// 0.12 m (was 0.05), and the walls round the map are far taller than anything thrown.
 // A match map built from data/maps/*.json (no three.js: shared by the game, the map builder and
 // the headless check).
 //
@@ -23,9 +27,9 @@
 // be destroyed (a hole); the part above stays.
 import { rayBox, pushCircleBox, circleHitsBox, segHitsBox } from './geom-ref.mjs';
 
-export const PANEL_W = 1.5, HOLE_H = 2.2, BODY_R = 0.32, DOOR_HP = 100, STEP = 0.35, DOOR_GAP = 0.3;
+export const PANEL_W = 1.5, HOLE_H = 2.2, BODY_R = 0.32, DOOR_HP = 100, STEP = 0.45, DOOR_GAP = 0.3;
 // Blocks a body at floor level (not a box overhead, not a tiny ledge you step over).
-const blocks = (b) => b.minY < 1.7 && b.maxY > STEP;
+const blocks = (b) => b.maxY > STEP + 1e-4 && b.minY < 1.75;
 const GRID = 2;
 
 const hyp = (x, z) => Math.sqrt(x * x + z * z);
@@ -42,7 +46,7 @@ export class RefMap {
     for (const w of data.walls) { const y0 = w.y0 || 0, y1 = y0 + (w.h ?? H); add({ minX: Math.min(w.x0, w.x1), maxX: Math.max(w.x0, w.x1), minZ: Math.min(w.z0, w.z1), maxZ: Math.max(w.z0, w.z1), minY: y0, maxY: y1, kind: w.kind || (y0 > 0 ? 'upper' : y1 < 1.4 ? 'low' : 'wall'), look: w.look }); }
     // perimeter
     for (const [x0, z0, x1, z1] of [[-this.hx - 1, -this.hz - 1, this.hx + 1, -this.hz], [-this.hx - 1, this.hz, this.hx + 1, this.hz + 1], [-this.hx - 1, -this.hz, -this.hx, this.hz], [this.hx, -this.hz, this.hx + 1, this.hz]]) {
-      add({ minX: x0, maxX: x1, minZ: z0, maxZ: z1, minY: 0, maxY: H + 2, kind: 'edge' });
+      add({ minX: x0, maxX: x1, minZ: z0, maxZ: z1, minY: 0, maxY: 1e4, kind: 'edge' });
     }
     for (const kind of ['soft', 'reinforced']) for (const w of data[kind] || []) {
       const alongX = Math.abs(w.x1 - w.x0) >= Math.abs(w.z1 - w.z0);
@@ -96,7 +100,7 @@ export class RefMap {
   // flyer: a drone, low enough to pass under anything that starts above DOOR_GAP.
   resolve(p, r = BODY_R, flyer = false) {
     const list = this.near(p.x, p.z, r + 0.1, this._rl || (this._rl = []));
-    for (let k = 0; k < 2; k++) for (const b of list) if (flyer ? b.minY < DOOR_GAP - 0.05 && b.maxY > 0.05 : blocks(b)) pushCircleBox(p, r, b);
+    for (let k = 0; k < 2; k++) for (const b of list) if (flyer ? b.minY < DOOR_GAP - 0.05 && b.maxY > 0.12 + 1e-4 : blocks(b)) pushCircleBox(p, r, b);
     return p;
   }
   // Move a circle by (dx, dz) without ever passing through anything. One big step can carry

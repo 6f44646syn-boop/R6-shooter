@@ -26,10 +26,10 @@ for (const id of MAPS) {
   const pts = Array.from({ length: 4000 }, () => N[Math.floor(r() * N.length)]);
   const dirs = Array.from({ length: 4000 }, () => { const a = r() * Math.PI * 2, p = (r() - 0.5) * 0.4; return [Math.sin(a) * Math.cos(p), Math.sin(p), -Math.cos(a) * Math.cos(p)]; });
   let sink = 0;
-  const ray = rate(4000, () => { for (let i = 0; i < 4000; i++) { const h = map.raycast([pts[i][0], 1.6, pts[i][1]], dirs[i], 200); sink += h ? h.t : 0; } });
-  const sight = rate(4000, () => { for (let i = 0; i < 4000; i++) { const a = pts[i], b = pts[(i * 7 + 13) % 4000]; sink += map.sight([a[0], 1.6, a[1]], [b[0], 1.2, b[1]]) ? 1 : 0; } });
-  const path = rate(300, () => { for (let i = 0; i < 300; i++) { const a = pts[i], b = pts[(i * 11 + 5) % 4000]; sink += map.path(a[0], a[1], b[0], b[1]).length; } });
-  const resolve = rate(4000, () => { const p = { x: 0, z: 0 }; for (let i = 0; i < 4000; i++) { p.x = pts[i][0] + 0.7; p.z = pts[i][1] + 0.7; map.resolve(p); sink += p.x; } });
+  const ray = rate(4000, () => { for (let i = 0; i < 4000; i++) { const h = map.raycast([pts[i][0], (pts[i][2] || 0) + 1.6, pts[i][1]], dirs[i], 200); sink += h ? h.t : 0; } });
+  const sight = rate(4000, () => { for (let i = 0; i < 4000; i++) { const a = pts[i], b = pts[(i * 7 + 13) % 4000]; sink += map.sight([a[0], (a[2] || 0) + 1.6, a[1]], [b[0], (b[2] || 0) + 1.2, b[1]]) ? 1 : 0; } });
+  const path = rate(300, () => { for (let i = 0; i < 300; i++) { const a = pts[i], b = pts[(i * 11 + 5) % 4000]; sink += map.path(a[0], a[1], b[0], b[1], a[2] || 0, b[2] || 0).length; } });
+  const resolve = rate(4000, () => { const p = { x: 0, y: 0, z: 0 }; for (let i = 0; i < 4000; i++) { p.x = pts[i][0] + 0.7; p.z = pts[i][1] + 0.7; p.y = pts[i][2] || 0; map.resolve(p); sink += p.x; } });
   const walk = rate(4000, () => { for (let i = 0; i < 4000; i++) { const a = pts[i], b = pts[(i * 3 + 1) % 4000]; sink += map.walkClear(a[0], a[1], a[0] + (b[0] - a[0]) * 0.1, a[1] + (b[1] - a[1]) * 0.1) ? 1 : 0; } });
   out.kernel[id] = { solids: map.solids.length, nodes: N.length, raycastPerSec: Math.round(ray), sightPerSec: Math.round(sight), pathPerSec: Math.round(path), resolvePerSec: Math.round(resolve), walkClearPerSec: Math.round(walk) };
   if (map.dispose) map.dispose();

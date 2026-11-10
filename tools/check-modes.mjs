@@ -323,6 +323,137 @@ console.log('\nDrones');
   check('prep drones work with abilities off too', !!a2.ab.drone && a2.ab.drone.basic);
 }
 
+/* ---------- physics on every map ---------- */
+// A body follows the game's own paths with the game's own movement (as a bot does: re-planning
+// every 1.5 s) from one place to another. Returns { ok, why, t }.
+function walkTo(map, from, to, fps, speed = 5.2) {
+  const p = { x: from[0], y: from[2] || 0, z: from[1], vy: 0 }, dt = 1 / fps, ty = to[2] || 0;
+  let path = map.path(p.x, p.z, to[0], to[1], p.y, ty), t = 0, replan = 1.5;
+  if (!path.length) return { ok: false, why: 'no path' };
+  while (t < 90 && path.length) {
+    const wp = path[0], dx = wp[0] - p.x, dz = wp[1] - p.z, d = Math.hypot(dx, dz);
+    if (d < (path.length === 1 ? 0.2 : 0.4) && Math.abs(wp[2] - p.y) < 1) { path.shift(); continue; }
+    const st = Math.min(d, speed * dt);
+    map.stepBody(p, d > 1e-9 ? dx / d * st : 0, d > 1e-9 ? dz / d * st : 0, dt);
+    t += dt;
+    if (p.y < -1e-9) return { ok: false, why: 'below the floor at ' + [p.x, p.y, p.z].map((v) => v.toFixed(2)) };
+    if (!Number.isFinite(p.x + p.y + p.z)) return { ok: false, why: 'NaN' };
+    if (t >= replan) { replan = t + 1.5; path = map.path(p.x, p.z, to[0], to[1], p.y, ty); }
+  }
+  const ok = Math.hypot(p.x - to[0], p.z - to[1]) < 0.6 && Math.abs(p.y - ty) < 0.46;      // (a place on a stair: the tread beside it will do)
+  return { ok, why: ok ? '' : 'ended at ' + [p.x, p.y, p.z].map((v) => v.toFixed(2)) + ' after ' + t.toFixed(1) + ' s', t };
+}
+function seeded(seed) { let a = seed >>> 0; return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const ALL_MAPS = ['yard', 'depot', 'containers', 'winter', 'casino', 'school', 'ranch', 'embassy', 'workshop'];
+console.log('\nPhysics on every map: stairs, upper floors, falling, vaulting, doorways');
+{
+  let walks = 0, up = 0, down = 0, vaultOk = 0, vaultTried = 0, lowBoxes = 0, lowVaulted = 0, tallTried = 0, falls = 0, doors = 0;
+  const badWalk = [], badUp = [], badVault = [], badTall = [], badFall = [], badDoor = [], noVault = [];
+  for (const id of ALL_MAPS) {
+    const map = new MatchMap(maps[id]), N = map.nodes, r = seeded(900 + id.length * 13);
+    for (const pn of map.panels) if (pn.kind === 'door') map.hurtDoor(pn, 999);      // doors open: every route is there to walk
+    // from anywhere to anywhere, at 60 and 15 FPS
+    for (let i = 0; i < 60; i++) {
+      const a = N[Math.floor(r() * N.length)], b = N[Math.floor(r() * N.length)], w = walkTo(map, a, b, i % 2 ? 15 : 60);
+      walks++;
+      if (!w.ok && badWalk.length < 5) badWalk.push(id + ' ' + a + ' -> ' + b + ': ' + w.why);
+    }
+    // up to every upper level and back down (stairs and ramps in both directions)
+    const ground = N.filter((n) => n[2] < 0.05), levels = [...new Set(N.filter((n) => n[2] > 0.5).map((n) => n[2]))];
+    for (const y of levels) {
+      const top = N.filter((n) => n[2] === y);
+      for (let k = 0; k < Math.min(3, top.length); k++) {
+        const t = top[Math.floor(r() * top.length)], g = ground[Math.floor(r() * ground.length)];
+        const a = walkTo(map, g, t, k % 2 ? 15 : 60), b = walkTo(map, t, g, k % 2 ? 60 : 15);
+        up++; down++;
+        if (!a.ok && badUp.length < 5) badUp.push(id + ' up to ' + t + ' from ' + g + ': ' + a.why);
+        if (!b.ok && badUp.length < 5) badUp.push(id + ' down from ' + t + ' to ' + g + ': ' + b.why);
+      }
+      // walking off the edge of every upper level: land on something, standing
+      for (let k = 0; k < Math.min(4, top.length); k++) {
+        const t = top[Math.floor(r() * top.length)], ang = r() * Math.PI * 2, p = { x: t[0], y: t[2], z: t[1], vy: 0 };
+        let on = true, fell = false;
+        for (let i = 0; i < 60 * 6; i++) { on = map.stepBody(p, Math.sin(ang) * 3.4 / 60, -Math.cos(ang) * 3.4 / 60, 1 / 60); if (!on) fell = true; if (p.y < -1e-9) break; }
+        falls++;
+        if (p.y < -1e-9 || !on || Math.abs(map.groundAt(p.x, p.z, p.y) - p.y) > 1e-6 || Math.abs(p.x) > map.hx || Math.abs(p.z) > map.hz) { if (badFall.length < 5) badFall.push(id + ' from ' + t + ': ended at ' + [p.x, p.y, p.z].map((v) => v.toFixed(2)) + (on ? '' : ' still falling')); }
+      }
+    }
+    // every doorway of the Bomb buildings: walk through it both ways
+    for (const pn of map.panels) {
+      if (pn.kind !== 'door') continue;
+      const b = pn.box, cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2, n = pn.alongX ? [0, 1] : [1, 0];
+      const A = map.nearestSpot(cx - n[0] * 1.3, cz - n[1] * 1.3, 0), B = map.nearestSpot(cx + n[0] * 1.3, cz + n[1] * 1.3, 0);
+      const w1 = walkTo(map, A, B, 60), w2 = walkTo(map, B, A, 15);
+      doors++;
+      if ((!w1.ok || !w2.ok || w1.t > 4 || w2.t > 4) && badDoor.length < 5) badDoor.push(id + ' door at ' + cx.toFixed(1) + ',' + cz.toFixed(1) + ': ' + (w1.why || w2.why || 'took ' + Math.max(w1.t, w2.t).toFixed(1) + ' s (went round)'));
+    }
+    map.resetPanels();
+    // vaulting: every low obstacle on the ground from its four sides; never a full-height
+    // wall, a soft or reinforced wall, or a boarded door
+    for (const b of map.solids) {
+      if (b.kind === 'edge' || b.minY > 0.05) continue;
+      const h = b.maxY, cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2, low = h > 0.5 && h <= 1.5 && !b.panel && b.kind !== 'door';
+      const tall = h > 1.5 + 0.45 + 1e-3;
+      if (!low && !tall) continue;
+      let any = false, stood = 0;
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const x = cx - dx * ((b.maxX - b.minX) / 2 + 0.5), z = cz - dz * ((b.maxZ - b.minZ) / 2 + 0.5);
+        if (!map.free(x, z, 0.32, 0) || map.groundAt(x, z, 0) > 0.01) continue;      // nowhere to stand on this side
+        stood++;
+        const v = map.vaultTarget(x, 0, z, dx, dz);
+        if (tall) { tallTried++; if (v && Math.abs(v.top - h) < 1e-9 && badTall.length < 5) badTall.push(id + ' ' + b.kind + ' ' + h + ' m at ' + cx.toFixed(1) + ',' + cz.toFixed(1)); continue; }
+        vaultTried++;
+        if (!v) continue;
+        vaultOk++; any = true;
+        if (!map.free(v.x, v.z, 0.32 - 1e-6, v.y) || Math.abs(map.groundAt(v.x, v.z, v.y) - v.y) > 1e-9 || v.top > 1.5 + 1e-9) { if (badVault.length < 5) badVault.push(id + ' ' + b.kind + ' at ' + cx.toFixed(1) + ',' + cz.toFixed(1) + ' lands at ' + [v.x, v.y, v.z].map((q) => q.toFixed(2))); }
+      }
+      if (low && stood) { lowBoxes++; if (any) lowVaulted++; else if (noVault.length < 60) noVault.push(id + ' ' + (b.look || b.kind) + ' ' + h.toFixed(2) + ' m at ' + cx.toFixed(1) + ',' + cz.toFixed(1)); }
+    }
+    map.dispose();
+  }
+  check('a body walks the game\'s own paths between random places on all 9 maps and arrives (' + walks + ' walks, 60 and 15 FPS)', !badWalk.length, badWalk.join('\n       '));
+  check('up to every upper level and back down again by the stairs and ramps (' + up + ' climbs, ' + down + ' descents)', !badUp.length && up > 20, badUp.join('\n       '));
+  check('walking off the edge of an upper level always lands standing on something inside the map (' + falls + ' falls)', !badFall.length && falls > 20, badFall.join('\n       '));
+  check('every doorway of the Bomb buildings can be walked through, both ways (' + doors + ' doorways)', !badDoor.length && doors > 30, badDoor.join('\n       '));
+  check('vaulting: ' + lowVaulted + ' of ' + lowBoxes + ' low obstacles (0.5 to 1.5 m) can be vaulted or climbed from at least one side (' + vaultOk + ' of ' + vaultTried + ' sides)', lowVaulted >= lowBoxes * 0.9, noVault.join('; '));
+  check('vaulting: every landing spot is free and on its feet', !badVault.length, badVault.join('\n       '));
+  check('vaulting: never over a full-height wall, a soft or reinforced wall, or a boarded door (' + tallTried + ' sides tried)', !badTall.length && tallTried > 200, badTall.join('\n       '));
+  if (noVault.length) console.log('  (not vaultable from any side: ' + noVault.join('; ') + ')');
+}
+
+console.log('\nBomb: defenders stay inside the building');
+{
+  let tried = 0, escaped = [], attOk = 0, attTried = 0;
+  const attBad = [];
+  let blocked = 0;
+  for (const id of MAPS_OF.bomb) {
+    const m = new Match({ map: new MatchMap(maps[id]), mode: 'bomb', guns, ops, abilities, teamSize: 2, seed: 11, human: null, abilitiesOn: false });
+    const R = m.rules, def = m.actors.find((a) => !R.isAttacker(a)), att = m.actors.find((a) => R.isAttacker(a));
+    for (const a of m.actors) a.brain = null;
+    const B = maps[id].building, out = (x, z) => R.keepIn(def, x, z)[2];
+    // every door, soft wall and reinforced wall in an outside wall, opened: push out through it
+    for (const pn of m.map.panels) {
+      const b = pn.box, cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2, n = pn.alongX ? [0, 1] : [1, 0];
+      const o1 = out(cx + n[0] * 0.8, cz + n[1] * 0.8), o2 = out(cx - n[0] * 0.8, cz - n[1] * 0.8);
+      if (o1 === o2) continue;                         // an inside wall
+      const s = o1 ? 1 : -1;
+      if (!m.map.free(cx - n[0] * s * 0.9, cz - n[1] * s * 0.9, 0.32, 0)) { blocked++; continue; }      // furniture stands against it inside
+      m.map.breakPanel(pn); if (pn.kind === 'door') m.map.hurtDoor(pn, 999);
+      for (const who of [def, att]) {
+        (who === def ? att : def).alive = false;          // one at a time: nobody stands in the way
+        Object.assign(who, { x: cx - n[0] * s * 0.9, z: cz - n[1] * s * 0.9, y: 0, vx: 0, vz: 0, alive: true, hp: 100 });
+        let far = 0;
+        for (let i = 0; i < 120; i++) { m.moveActor(who, n[0] * s * 5.6, n[1] * s * 5.6, TICK); m.step(); far = Math.max(far, ((who.x - cx) * n[0] + (who.z - cz) * n[1]) * s); }
+        if (who === def) { tried++; if (far > 1e-6 || out(def.x, def.z)) escaped.push(id + ' ' + pn.kind + ' at ' + cx.toFixed(1) + ',' + cz.toFixed(1) + ' (' + far.toFixed(2) + ' m out)'); }
+        else { attTried++; if (far > 1) attOk++; else attBad.push(id + ' ' + pn.kind + ' at ' + cx.toFixed(1) + ',' + cz.toFixed(1) + ' (' + far.toFixed(2) + ' m)'); }
+      }
+    }
+    m.map.dispose();
+  }
+  check('a defender pushing out through every opened door and breached outside wall never gets past the wall line (' + tried + ' openings on ' + MAPS_OF.bomb.length + ' maps)', !escaped.length && tried > 20, escaped.slice(0, 5).join('; '));
+  check('attackers walk out through the same openings freely (' + attOk + ' of ' + attTried + '; ' + blocked + ' with furniture against them inside not tried)', attOk === attTried, attBad.join('; '));
+}
+
 /* ---------- matches ---------- */
 function run(mode, seed, extra = {}) {
   const list = extra.maps || MAPS_OF[mode], mapId = list[seed % list.length];
@@ -330,15 +461,16 @@ function run(mode, seed, extra = {}) {
   const diffs = ['easy', 'normal', 'hard'];
   const { maps: _ignore, ...opts } = extra;
   const m = new Match({ map, mode, guns, ops, abilities, seed, human: null, teamSize: seed % 2 ? 5 : 3, difficulty: diffs[seed % 3], abilitiesOn: mode === 'bomb', minutes: 10, ...opts });
-  let maxStuck = 0, who = '';
+  let maxStuck = 0, who = '', topY = 0, low = false, outside = 0;
   const cap = (mode === 'bomb' ? 7 * 260 : m.o.minutes * 60 + 660) / TICK;
   while (!m.over && m.tick < cap) {
     m.step();
     if (m.tick % 30 === 0) for (const a of m.actors) if (a.stuckFor > maxStuck) { maxStuck = a.stuckFor; who = mapId + ' ' + a.name + ' ' + (a.brain ? a.brain.state : '') + ' at ' + a.x.toFixed(1) + ',' + a.z.toFixed(1); }
+    for (const a of m.actors) { if (!a.alive) continue; if (a.y > topY) topY = a.y; if (a.y < -1e-6) low = true; if (mode === 'bomb') { const k = m.rules.keepIn(a, a.x, a.z); if (k && k[2]) outside++; } }
     m.events.length = 0;
   }
   const hash = m.actors.map((a) => a.x.toFixed(3) + ',' + a.z.toFixed(3) + ',' + a.kills).join('|');
-  return { m, maxStuck, who, hash, ended: m.over, nan: !!m.nan };
+  return { m, mapId, maxStuck, who, hash, ended: m.over, nan: !!m.nan, topY, low, outside };
 }
 for (const mode of modes) {
   console.log('\n' + mode.toUpperCase() + ': ' + N + ' bot-only matches');
@@ -351,6 +483,9 @@ for (const mode of modes) {
   const stuck = res.filter((r) => r.maxStuck > 5);
   check('no bot stuck for more than 5 s (worst ' + Math.max(...res.map((r) => r.maxStuck)).toFixed(1) + ' s)', !stuck.length, stuck.slice(0, 4).map((r) => 'seed ' + r.m.o.seed + ': ' + r.who + ' ' + r.maxStuck.toFixed(1) + ' s').join('; '));
   check('no NaN positions', !res.some((r) => r.nan));
+  check('nobody ever below the floor', !res.some((r) => r.low));
+  if (mode === 'bomb') check('no defender is outside the building at any step of any round', res.every((r) => r.outside === 0), res.filter((r) => r.outside).map((r) => 'seed ' + r.m.o.seed + ' ' + r.mapId + ': ' + r.outside + ' steps').join('; '));
+  else { const multi = res.filter((r) => maps[r.mapId].nodes.some((n) => n[2] > 1)); check('bots go up to the upper levels on the maps that have them (in ' + multi.filter((r) => r.topY > 1).length + ' of ' + multi.length + ' matches; highest ' + Math.max(...res.map((r) => r.topY)).toFixed(1) + ' m)', multi.filter((r) => r.topY > 1).length >= multi.length * 0.6); }
   const a = run(mode, 7), b = run(mode, 7);
   check('the same seed gives the same result', a.hash === b.hash && a.m.winner === b.m.winner && a.m.tick === b.m.tick);
   const summary = res.map((r) => r.m.rules.summary ? r.m.rules.summary() : r.m.winner + ' ' + JSON.stringify(r.m.rules.score)).slice(0, 6).join(' | ');

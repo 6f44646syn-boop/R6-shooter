@@ -13,7 +13,7 @@ pub struct Solid {
     pub max_y: f64,
     pub min_z: f64,
     pub max_z: f64,
-    /// 1 = a boarded door (see `World::door_on`), 0 = anything else.
+    /// 1 = a boarded door, 2 = a breakable wall panel, 0 = anything else.
     pub kind: u8,
     /// Broken panels and doors are not alive: nothing collides with them.
     pub alive: bool,
@@ -22,6 +22,10 @@ pub struct Solid {
 /// Ray (origin `o`, unit direction `d`) against a box: the entry distance, or infinity.
 /// A ray that starts inside the box does not hit it.
 pub fn ray_box(o: &[f64; 3], d: &[f64; 3], b: &Solid, max_t: f64) -> f64 {
+    ray_box_axis(o, d, b, max_t).0
+}
+/// The same, with the axis (0 x, 1 y, 2 z) of the face the ray enters by.
+pub fn ray_box_axis(o: &[f64; 3], d: &[f64; 3], b: &Solid, max_t: f64) -> (f64, i32) {
     let mut t0 = 0.0_f64;
     let mut t1 = max_t;
     let mut ax: i32 = -1;
@@ -35,7 +39,7 @@ pub fn ray_box(o: &[f64; 3], d: &[f64; 3], b: &Solid, max_t: f64) -> f64 {
         };
         if dd.abs() < 1e-12 {
             if oo < lo || oo > hi {
-                return INF;
+                return (INF, -1);
             }
             continue;
         }
@@ -52,13 +56,13 @@ pub fn ray_box(o: &[f64; 3], d: &[f64; 3], b: &Solid, max_t: f64) -> f64 {
             t1 = tb;
         }
         if t0 > t1 {
-            return INF;
+            return (INF, -1);
         }
     }
     if ax < 0 || t0 <= 1e-6 {
-        return INF;
+        return (INF, -1);
     }
-    t0
+    (t0, ax)
 }
 
 /// Push a circle (centre `x`, `z`, radius `r`) out of a box in the floor plane.
