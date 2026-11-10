@@ -7,9 +7,9 @@
 //
 // Levels: Easy, Medium, Hard and Terminator (near-instant, precise, leads moving targets,
 // hears everything, always pushes on a callout).
-import { Weapon } from '../core/weapon.js?v=e1f5a8d-mwah3s7c';
-import { RecoilEngine } from '../core/recoil.js?v=e1f5a8d-mwah3s7c';
-import { mulberry32 } from '../core/prng.js?v=e1f5a8d-mwah3s7c';
+import { Weapon } from '../core/weapon.js?v=651d04c-mwahvcb3';
+import { RecoilEngine } from '../core/recoil.js?v=651d04c-mwahvcb3';
+import { mulberry32 } from '../core/prng.js?v=651d04c-mwahvcb3';
 
 // Per level: reaction (s), aim error sd (deg), turn rate when not fighting (deg/s), recoil
 // control (0..1), burst [min, max] shots, pause between bursts (s), head aim chance, strafes,

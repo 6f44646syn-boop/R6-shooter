@@ -1,8 +1,9 @@
+import { tabs } from './m7-menu.js?v=651d04c-mwahvcb3';
 // Settings panel inside the Esc menu. Every change is sanitised, saved to localStorage and
 // handed to main.js through onChange(key) so it takes effect immediately.
-import { sanitize, saveSettings, clearSavedSettings, DEFAULTS, DISTANCES, CROSSHAIR_STYLES, RETICLE_COLOR_NAMES } from '../core/settings.js?v=e1f5a8d-mwah3s7c';
-import { degPerCount, countsPer360, inchesPer360, horizontalFovDeg } from '../core/sensitivity.js?v=e1f5a8d-mwah3s7c';
-import { drawCrosshair } from './crosshair.js?v=e1f5a8d-mwah3s7c';
+import { sanitize, saveSettings, clearSavedSettings, DEFAULTS, DISTANCES, CROSSHAIR_STYLES, RETICLE_COLOR_NAMES } from '../core/settings.js?v=651d04c-mwahvcb3';
+import { degPerCount, countsPer360, inchesPer360, horizontalFovDeg } from '../core/sensitivity.js?v=651d04c-mwahvcb3';
+import { drawCrosshair } from './crosshair.js?v=651d04c-mwahvcb3';
 
 function el(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);
@@ -102,7 +103,7 @@ export class SettingsUI {
         this.range('set-sens-v', 'Vertical sensitivity', { min: 1, max: 50, step: 1, fmt: (v) => String(v) }, () => this.s.sensV, (v) => { this.s.sensV = v; }, 'sens'),
         this.select('set-ads-sens', 'Aimed sensitivity', [['focal', 'Match screen distance (focal length)'], ['game', 'My game values (sens.json)']], () => this.s.adsSens, (v) => { this.s.adsSens = v; }, 'sens'),
         this.range('set-mdm', 'Monitor distance (focal mode)', { min: 0, max: 1, step: 0.05, fmt: (v) => Math.round(v * 100) + '%' + (v === 0 ? ' (match at crosshair)' : v === 1 ? ' (match at screen edge)' : '') }, () => this.s.mdm, (v) => { this.s.mdm = v; }, 'sens'),
-        this.range('set-assist', 'Aim assist', { min: 0, max: 1, step: 0.05, fmt: (v) => v === 0 ? 'off' : Math.round(v * 100) + '%' }, () => this.s.aimAssist, (v) => { this.s.aimAssist = v; }, 'assist'),
+        this.range('set-assist', 'Range training aim assist (offline only)', { min: 0, max: 1, step: 0.05, fmt: (v) => v === 0 ? 'off' : Math.round(v * 100) + '%' }, () => this.s.aimAssist, (v) => { this.s.aimAssist = v; }, 'assist'),
       ),
       this.derived);
 
@@ -225,8 +226,11 @@ export class SettingsUI {
       resetAll.textContent = 'Reset all settings';
     });
 
-    this.root.append(el('div', { class: 'settings' }, sens, optics, view, cross, range,
-      el('div', { class: 'row' }, resetAll, el('span', { class: 'small', text: 'Settings are saved in this browser automatically.' }))));
+    const panels = [sens, optics, view, cross, range];
+    panels.forEach((p,i) => p.id = 'm7-settings-' + i);
+    const settings = el('div', { class: 'settings' }, ...panels);
+    tabs(settings, panels.map((panel,i)=>({panel,label:['Sensitivity','ADS','Video & audio','Crosshair','Range'][i]})), 'Settings categories');
+    this.root.append(settings, el('div', { class: 'row' }, resetAll, el('span', { class: 'small', text: 'Settings are saved in this browser automatically.' })));
   }
 
   // Push current settings into every control (after load or reset, and when the menu opens).

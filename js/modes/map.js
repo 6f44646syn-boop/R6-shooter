@@ -26,7 +26,7 @@
 //
 // Soft and reinforced walls are split into panels 1.5 m wide. The lower 2.2 m of a panel can
 // be destroyed (a hole); the part above stays.
-import { CoreWorld, BODY_R, STEP, DOOR_GAP, KIND } from '../wasm/world.js?v=e1f5a8d-mwah3s7c';
+import { CoreWorld, BODY_R, STEP, DOOR_GAP, KIND } from '../wasm/world.js?v=651d04c-mwahvcb3';
 
 export const PANEL_W = 1.5, HOLE_H = 2.2, DOOR_HP = 100;
 export { BODY_R, STEP, DOOR_GAP };

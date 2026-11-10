@@ -3,14 +3,14 @@
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=e1f5a8d-mwah3s7c';
-import { Arena } from './arena.js?v=e1f5a8d-mwah3s7c';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=e1f5a8d-mwah3s7c';
-import { Bot, LEVELS } from './bot.js?v=e1f5a8d-mwah3s7c';
-import { Human } from './human.js?v=e1f5a8d-mwah3s7c';
-import { BattleNades } from './nades.js?v=e1f5a8d-mwah3s7c';
-import { drawCrosshair } from '../ui/crosshair.js?v=e1f5a8d-mwah3s7c';
-import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=e1f5a8d-mwah3s7c';
+import * as THREE from '../../vendor/three/three.module.min.js?v=651d04c-mwahvcb3';
+import { Arena } from './arena.js?v=651d04c-mwahvcb3';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=651d04c-mwahvcb3';
+import { Bot, LEVELS } from './bot.js?v=651d04c-mwahvcb3';
+import { Human } from './human.js?v=651d04c-mwahvcb3';
+import { BattleNades } from './nades.js?v=651d04c-mwahvcb3';
+import { drawCrosshair } from '../ui/crosshair.js?v=651d04c-mwahvcb3';
+import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=651d04c-mwahvcb3';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -730,7 +730,7 @@ export class Battle {
       return true;
     }
     if (code === 'KeyI') { if (down && !p1.ads) p1.rig.inspect(); return true; }
-    if (code === 'KeyF') { if (down && this.night) { p1.f.light = !p1.f.light; p1.rig.setTorch(p1.f.light); if (this.deps.sfx.click) this.deps.sfx.click(); } return true; }
+    if (code === 'Interact' || code === 'KeyF') { if (down && this.night) { p1.f.light = !p1.f.light; p1.rig.setTorch(p1.f.light); if (this.deps.sfx.click) this.deps.sfx.click(); } return true; }
     return false;
   }
 

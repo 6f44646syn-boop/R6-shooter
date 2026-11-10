@@ -33,6 +33,7 @@ async function openPage(path, viewport = { width: 1280, height: 720 }) {
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('request', (r) => { if (!r.url().startsWith(BASE)) external.push(r.url()); });
   await page.goto(BASE + path, { waitUntil: 'networkidle' });
+  if (path.startsWith('index')) { await page.waitForFunction(() => window.__range?.ready); await page.locator('[data-first-profile=mouse]').click(); }
   return { page, errors, external };
 }
 
@@ -368,6 +369,8 @@ try {
     check('Shift sprint is faster than walking (' + mv.sprintSpeed.toFixed(2) + ' vs ' + mv.walkSpeed.toFixed(2) + ' m/s after 0.15 s)', mv.sprintSpeed > mv.walkSpeed * 1.4, JSON.stringify(mv));
     check('a level shot while crouched hits the dummy body, not the head', mv.crouchShot.hits === 1 && mv.crouchShot.headshots === 0, JSON.stringify(mv.crouchShot));
 
+    // Real gameplay inputs are active after the menu closes.
+    await page.evaluate(() => { document.getElementById('menu').hidden = true; });
     // Space is hold-to-crouch (real key events).
     await page.keyboard.down('Space');
     const holdDown = await page.evaluate(() => { window.__range.step(0.5); return window.__range.player(); });
@@ -1016,7 +1019,7 @@ try {
       // bots parked: no catcher zapping the drone, nobody opening the doors
       for (const a of m.actors) if (a !== me) { a.brain = null; a.x = 30; a.z = 20 - a.id; }
       R.step(0.5, 60);
-      G.key('KeyQ', true); G.key('KeyQ', false);
+      G.key('OperatorAbility', true); G.key('OperatorAbility', false);
       const d = me.ab.drone;
       out.drone = !!d;
       // at 10 and 15 FPS: straight at the west outer wall (x = -24) for 3 s, from outside
@@ -1244,7 +1247,7 @@ try {
     const nerr = [];
     for (const [n, p] of [['host', A], ['player', B]]) p.on('pageerror', (e) => nerr.push(n + ': ' + String(e.stack || e)));
     for (const p of [A, B]) { await p.goto(BASE + 'index.html?test' + (via === 'relay' ? '&relay=' + encodeURIComponent(RELAY) : ''), { waitUntil: 'networkidle' }); await p.waitForFunction(() => window.__range); }
-    for (const p of [A, B]) await p.evaluate(() => document.querySelector('.mode-card[data-mode=net]').click());
+    for (const p of [A, B]) { await p.locator('[data-first-profile=mouse]').click(); await p.evaluate(() => document.querySelector('.mode-card[data-mode=net]').click()); }
     let connected = true, join = '';
     if (via === 'relay') {
       for (const p of [A, B]) await p.click('#net-via-relay');

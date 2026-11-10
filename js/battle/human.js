@@ -8,16 +8,16 @@
 //                       B crouch, A vault, L3 sprint, LB/RB lean.
 //   keys  (player 2, no gamepad): I J K L move, arrow keys look, Enter fire,
 //                       Right Shift aim, Backspace reload, / crouch.
-import * as THREE from '../../vendor/three/three.module.min.js?v=e1f5a8d-mwah3s7c';
-import { Look, PITCH_LIMIT } from '../core/look.js?v=e1f5a8d-mwah3s7c';
-import { Weapon } from '../core/weapon.js?v=e1f5a8d-mwah3s7c';
-import { RecoilEngine } from '../core/recoil.js?v=e1f5a8d-mwah3s7c';
-import { Spread } from '../core/spread.js?v=e1f5a8d-mwah3s7c';
-import { focalRatio } from '../core/sensitivity.js?v=e1f5a8d-mwah3s7c';
-import { WeaponRig } from '../scene/viewmodel.js?v=e1f5a8d-mwah3s7c';
-import { EYE_Z, VIEW_H } from '../scene/sight-model.js?v=e1f5a8d-mwah3s7c';
-import { reticleTextures } from '../ui/reticle-tex.js?v=e1f5a8d-mwah3s7c';
-import { RETICLE_COLORS } from '../ui/scope.js?v=e1f5a8d-mwah3s7c';
+import * as THREE from '../../vendor/three/three.module.min.js?v=651d04c-mwahvcb3';
+import { Look, PITCH_LIMIT } from '../core/look.js?v=651d04c-mwahvcb3';
+import { Weapon } from '../core/weapon.js?v=651d04c-mwahvcb3';
+import { RecoilEngine } from '../core/recoil.js?v=651d04c-mwahvcb3';
+import { Spread } from '../core/spread.js?v=651d04c-mwahvcb3';
+import { focalRatio } from '../core/sensitivity.js?v=651d04c-mwahvcb3';
+import { WeaponRig } from '../scene/viewmodel.js?v=651d04c-mwahvcb3';
+import { EYE_Z, VIEW_H } from '../scene/sight-model.js?v=651d04c-mwahvcb3';
+import { reticleTextures } from '../ui/reticle-tex.js?v=651d04c-mwahvcb3';
+import { RETICLE_COLORS } from '../ui/scope.js?v=651d04c-mwahvcb3';
 
 const DEG = Math.PI / 180;
 const WALK = 3.4, SPRINT = 5.6, CROUCH_WALK = 1.6, ADS_WALK = 2.2;
@@ -90,6 +90,7 @@ export class Human {
   }
 
   respawn(x, z, t, y = 0) {
+    if (this.controls === 'mouse') this.deps.controls?.release();
     const f = this.f;
     f.x = x; f.z = z; f.y = y; f.vx = f.vy = f.vz = 0; f.crouch = 0;
     this.camY = y; this.vault = null;

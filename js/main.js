@@ -1,44 +1,46 @@
+import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=651d04c-mwahvcb3';
+import { mountControls, mountFirstLaunch, tabs } from './ui/m7-menu.js?v=651d04c-mwahvcb3';
 // Recoil Range entry point: wires input, camera, scene, HUD and the frame loop together.
-import * as THREE from '../vendor/three/three.module.min.js?v=e1f5a8d-mwah3s7c';
-import { Look, PITCH_LIMIT } from './core/look.js?v=e1f5a8d-mwah3s7c';
-import { Player } from './core/player.js?v=e1f5a8d-mwah3s7c';
-import { PointerLock } from './core/pointer-lock.js?v=e1f5a8d-mwah3s7c';
-import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=e1f5a8d-mwah3s7c';
-import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=e1f5a8d-mwah3s7c';
-import { Weapon } from './core/weapon.js?v=e1f5a8d-mwah3s7c';
-import { RecoilEngine } from './core/recoil.js?v=e1f5a8d-mwah3s7c';
-import { Spread } from './core/spread.js?v=e1f5a8d-mwah3s7c';
-import { loadGameData } from './core/guns.js?v=e1f5a8d-mwah3s7c';
-import { randomSeed } from './core/prng.js?v=e1f5a8d-mwah3s7c';
-import { Range, EYE_HEIGHT } from './scene/range.js?v=e1f5a8d-mwah3s7c';
-import { RING_STEP } from './scene/range-tex.js?v=e1f5a8d-mwah3s7c';
-import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=e1f5a8d-mwah3s7c';
-import { LensPost } from './render/lens-post.js?v=e1f5a8d-mwah3s7c';
-import { reticleTextures } from './ui/reticle-tex.js?v=e1f5a8d-mwah3s7c';
-import { DOT_POINTS } from './scene/dots.js?v=e1f5a8d-mwah3s7c';
-import { Voices } from './audio/voice.js?v=e1f5a8d-mwah3s7c';
-import { ModeGame } from './modes/game.js?v=e1f5a8d-mwah3s7c';
-import { Sfx } from './audio/sfx.js?v=e1f5a8d-mwah3s7c';
-import { DebugHud } from './ui/debug-hud.js?v=e1f5a8d-mwah3s7c';
-import { drawCrosshair } from './ui/crosshair.js?v=e1f5a8d-mwah3s7c';
-import { Hud } from './ui/hud.js?v=e1f5a8d-mwah3s7c';
-import { MagPlot } from './ui/plot.js?v=e1f5a8d-mwah3s7c';
-import { SettingsUI } from './ui/settings-ui.js?v=e1f5a8d-mwah3s7c';
-import { sensKeys, zoomKey } from './core/optics.js?v=e1f5a8d-mwah3s7c';
+import * as THREE from '../vendor/three/three.module.min.js?v=651d04c-mwahvcb3';
+import { Look, PITCH_LIMIT } from './core/look.js?v=651d04c-mwahvcb3';
+import { Player } from './core/player.js?v=651d04c-mwahvcb3';
+import { PointerLock } from './core/pointer-lock.js?v=651d04c-mwahvcb3';
+import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=651d04c-mwahvcb3';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=651d04c-mwahvcb3';
+import { Weapon } from './core/weapon.js?v=651d04c-mwahvcb3';
+import { RecoilEngine } from './core/recoil.js?v=651d04c-mwahvcb3';
+import { Spread } from './core/spread.js?v=651d04c-mwahvcb3';
+import { loadGameData } from './core/guns.js?v=651d04c-mwahvcb3';
+import { randomSeed } from './core/prng.js?v=651d04c-mwahvcb3';
+import { Range, EYE_HEIGHT } from './scene/range.js?v=651d04c-mwahvcb3';
+import { RING_STEP } from './scene/range-tex.js?v=651d04c-mwahvcb3';
+import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=651d04c-mwahvcb3';
+import { LensPost } from './render/lens-post.js?v=651d04c-mwahvcb3';
+import { reticleTextures } from './ui/reticle-tex.js?v=651d04c-mwahvcb3';
+import { DOT_POINTS } from './scene/dots.js?v=651d04c-mwahvcb3';
+import { Voices } from './audio/voice.js?v=651d04c-mwahvcb3';
+import { ModeGame } from './modes/game.js?v=651d04c-mwahvcb3';
+import { Sfx } from './audio/sfx.js?v=651d04c-mwahvcb3';
+import { DebugHud } from './ui/debug-hud.js?v=651d04c-mwahvcb3';
+import { drawCrosshair } from './ui/crosshair.js?v=651d04c-mwahvcb3';
+import { Hud } from './ui/hud.js?v=651d04c-mwahvcb3';
+import { MagPlot } from './ui/plot.js?v=651d04c-mwahvcb3';
+import { SettingsUI } from './ui/settings-ui.js?v=651d04c-mwahvcb3';
+import { sensKeys, zoomKey } from './core/optics.js?v=651d04c-mwahvcb3';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
 function sensRows(catalogue, sens) {
   const keys = new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)]);
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
-import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=e1f5a8d-mwah3s7c';
-import { Battle } from './battle/battle.js?v=e1f5a8d-mwah3s7c';
-import { initCore, coreLoaded } from './wasm/core.js?v=e1f5a8d-mwah3s7c';
-import { createJoinRequest, acceptJoin } from './net/link.js?v=e1f5a8d-mwah3s7c';
-import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode } from './net/relay.js?v=e1f5a8d-mwah3s7c';
-import { Profile, WIN_POINTS } from './core/profile.js?v=e1f5a8d-mwah3s7c';
-import { skinFits, skinById } from './core/skins.js?v=e1f5a8d-mwah3s7c';
-import { PackUI } from './ui/packs.js?v=e1f5a8d-mwah3s7c';
+import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=651d04c-mwahvcb3';
+import { Battle } from './battle/battle.js?v=651d04c-mwahvcb3';
+import { initCore, coreLoaded } from './wasm/core.js?v=651d04c-mwahvcb3';
+import { createJoinRequest, acceptJoin } from './net/link.js?v=651d04c-mwahvcb3';
+import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode } from './net/relay.js?v=651d04c-mwahvcb3';
+import { Profile, WIN_POINTS } from './core/profile.js?v=651d04c-mwahvcb3';
+import { skinFits, skinById } from './core/skins.js?v=651d04c-mwahvcb3';
+import { PackUI } from './ui/packs.js?v=651d04c-mwahvcb3';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -58,13 +60,14 @@ if (embedded) {
   $('play-here').addEventListener('click', () => {
     $('embedded').hidden = true;
     $('menu').hidden = false;
-    loadAll().then(boot);
+    loadAll().then(boot).catch(e => { $('data-errors').hidden = false; $('data-errors').textContent = e.message; });
   }, { once: true });
 } else {
-  loadAll().then(boot);
+  loadAll().then(boot).catch(e => { $('data-errors').hidden = false; $('data-errors').textContent = e.message; });
 }
 
-function boot(data) {
+async function boot(data) {
+  const controls = await createControls();
   const settings = loadSettings();
   const canvas = $('view');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: settings.antialias, powerPreference: 'high-performance' });
@@ -81,7 +84,7 @@ function boot(data) {
   range.holes.setSize(settings.holeSizeCm / 100);
   renderer.info.autoReset = false; // several passes per frame; reset once per frame
   // Your skins and points (localStorage + save code). The gun model asks it which skin a slot wears.
-  const flow = { page: null, prev: 'mode', mode: 'range', inGame: false, armoryFrom: 'setup', setupFromPause: false };
+  const flow = { page: null, prev: 'mode', mode: 'range', inGame: false, armoryFrom: 'setup', setupFromPause: false, settingsOnly: false };
   const profile = new Profile();
   var packsUi = null;      // the Skins & packs panel (created further down; var: readable before then)
   let skinOverride = null;   // { slot, id }: a one-off render of a skin (pack reveal)
@@ -377,6 +380,7 @@ function boot(data) {
         if (cur() && cur().active) cur().resume(clockNow());
         return;
       }
+      controls.release();
       // Mouse released (Esc): the pause menu (or the end screen of a battle).
       if (cur() && cur().active) cur().pause();
       else { weapon.releaseTrigger(); setAds(false); player.releaseKeys(); player.crouched = false; }
@@ -413,18 +417,20 @@ function boot(data) {
   /* ---------- mouse look: every event, straight to yaw/pitch ---------- */
   document.addEventListener('mousemove', (e) => {
     if (!lock.locked) return;
-    if (cur() && cur().active) { cur().mouseMove(e.movementX, e.movementY); return; }
+    const ads = cur()?.active ? cur().h?.ads || cur().humans?.[0]?.ads : state.ads;
+    const [dx,dy] = controls.look(e.movementX,e.movementY,ads);
+    if (cur() && cur().active) { cur().mouseMove(dx, dy); return; }
     // Siege-style: vertical sensitivity scales pitch; aim assist may slow the aim near a target.
     const dpc = currentDpc() * assistSlow;
-    if (look.apply(e.movementX, e.movementY, dpc, dpc * settings.sensV / settings.sensH) && state.adsP > 0) {
+    if (look.apply(dx, dy, dpc, dpc * settings.sensV / settings.sensH) && state.adsP > 0) {
       // Scope sway: the housing lags behind the turn (degrees -> screen pixels).
       const pxPerDeg = window.innerHeight / state.fovV;
-      rig.nudge(e.movementX * dpc * pxPerDeg, e.movementY * dpc * pxPerDeg);
+      rig.nudge(dx * dpc * pxPerDeg, dy * dpc * pxPerDeg);
     }
   });
 
-  document.addEventListener('mousedown', (e) => {
-    if (!lock.locked) return;
+  function handleMouseDown(e) {
+    if (!lock.locked && !testMode) return;
     if (cur() && cur().active) { if (e.button >= 3) e.preventDefault(); cur().mouseButton(e.button, true); return; }
     if (e.button === 0) {
       if (weapon.ammo === 0 && !weapon.reloading) sfx.click();
@@ -432,14 +438,14 @@ function boot(data) {
     } else if (e.button === 2) setAds(true);
     else if (e.button === 3) { e.preventDefault(); player.leanL = true; }   // mouse back button: lean left
     else if (e.button === 4) { e.preventDefault(); player.leanR = true; }   // mouse forward button: lean right
-  });
-  document.addEventListener('mouseup', (e) => {
+  }
+  function handleMouseUp(e) {
     if (cur() && cur().active) { cur().mouseButton(e.button, false); return; }
     if (e.button === 0) weapon.releaseTrigger();
     else if (e.button === 2) setAds(false);
     else if (e.button === 3) { e.preventDefault(); player.leanL = false; }
     else if (e.button === 4) { e.preventDefault(); player.leanR = false; }
-  });
+  }
   document.addEventListener('contextmenu', (e) => e.preventDefault());
 
   // Ease-out both ways: aiming in, e = 1 - (1 - p)^3; aiming out, e = p^3 on the way back
@@ -460,7 +466,7 @@ function boot(data) {
   }
 
   /* ---------- keys ---------- */
-  document.addEventListener('keyup', (e) => {
+  function handleKeyUp(e) {
     const c = e.code;
     if (cur() && cur().active) { if (cur().key(c, false)) e.preventDefault(); return; }
     if (c === 'KeyW' || c === 'KeyA' || c === 'KeyS' || c === 'KeyD') player.keys[c[3].toLowerCase()] = false;
@@ -468,9 +474,9 @@ function boot(data) {
     else if (c === 'KeyQ') player.leanL = false;
     else if (c === 'KeyE') player.leanR = false;
     else if (c === 'Space') { player.crouched = false; hud.setDistance(range.distance, targetLabel()); }
-  });
-  window.addEventListener('blur', () => { player.releaseKeys(); player.crouched = false; });
-  document.addEventListener('keydown', (e) => {
+  }
+  window.addEventListener('blur', () => { player.releaseKeys(); player.crouched = false; if(cur()?.active) cur().pause(); });
+  function handleKeyDown(e) {
     if (e.repeat && e.code !== 'KeyR') return;
     const c = e.code;
     if (c === 'F4') { e.preventDefault(); toggleGallery(); return; }
@@ -511,7 +517,17 @@ function boot(data) {
       const i = DISTANCES.indexOf(range.distance) + (c === 'Equal' || c === 'NumpadAdd' ? 1 : -1);
       if (i >= 0 && i < DISTANCES.length) setDistance(DISTANCES[i]);
     }
-  });
+  }
+  const actionKeys = {forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD',sprint:'ShiftLeft',crouch:'Space',leanLeft:'KeyQ',leanRight:'KeyE',ability:'OperatorAbility',interact:'Interact',reload:'KeyR',vault:'KeyC',grenade:'KeyG',knife:'KeyK',inspect:'KeyI',scoreboard:'Tab',recall:'KeyV',droneZap:'DroneZap',underbarrel:'KeyB',reset:'KeyX',target:'KeyM',zero:'KeyZ'};
+  controls.onAction = (id,down) => {
+    const event = {code:actionKeys[id],button:id==='fire'?0:2,timeStamp:performance.now(),preventDefault(){}};
+    if(id==='fire'||id==='ads') (down?handleMouseDown:handleMouseUp)(event);
+    else (down?handleKeyDown:handleKeyUp)(event);
+  };
+  // Only these fixed browser/debug/range shortcuts bypass the binding table.
+  const auxiliary = /^(F3|F4|Escape|BracketLeft|BracketRight|Digit[0-9]|Minus|Equal|NumpadAdd|NumpadSubtract)$/;
+  attachRawInput(controls,{enabled:()=>!document.querySelector('dialog[open]') && (lock.locked || testMode && $('menu').hidden && $('armory').hidden),onAux:(e,down)=>{if(auxiliary.test(e.code))(down?handleKeyDown:handleKeyUp)(e);}});
+  document.addEventListener('keydown',e=>{if(!lock.locked && !$('menu').hidden && !document.querySelector('dialog[open]') && !e.target.closest('input,select,textarea') && /^(F3|F4|Escape)$/.test(e.code))handleKeyDown(e);});
 
   function setDistance(d) {
     range.setDistance(d);
@@ -759,7 +775,7 @@ function boot(data) {
   }
   function battleDeps() {
     return {
-      renderer, settings, guns: data.guns, sfx,
+      renderer, settings, controls, guns: data.guns, sfx,
       opticFor: (g) => catalogue.byId.get(savedOptic(g)), adsVFov, baseDpc, now: clockNow,
       slotOf: (g) => data.guns.indexOf(g), onEnd: () => lock.exit(), hudRoot: $('app'),
       skinOf: (g) => equippedSkin(data.guns.indexOf(g)),
@@ -778,6 +794,7 @@ function boot(data) {
   }
   function startBattle() {
     if (needCore(startBattle)) return;
+    controls.release();
     const B = settings.battle;
     if (B.opponent === 'bots' && B.bots < 1) { flashNotice('Choose at least one bot.'); return; }
     if (B.opponent === 'net') {
@@ -810,6 +827,7 @@ function boot(data) {
   const MATCH_MODES = ['tdm', 'ctf', 'bomb'];
   const cur = () => (modeGame && modeGame.active ? modeGame : battle);
   function leaveMode() {
+    controls.release();
     if (!modeGame || !modeGame.active) return;
     modeGame.stop();
     $('hud').hidden = false;
@@ -819,6 +837,7 @@ function boot(data) {
     resize();
   }
   function leaveBattle() {
+    controls.release();
     if (modeGame && modeGame.active) { leaveMode(); return; }
     if (!battle) return;
     battle.stop();
@@ -1033,6 +1052,7 @@ function boot(data) {
     const names = { range: 'Shooting range', bots: 'Battle vs bots', net: 'Network battle', tdm: 'Team Deathmatch', ctf: 'Capture the Flag', bomb: 'Bomb' };
     $('menu-crumbs').textContent = name === 'mode' ? 'Choose a mode' : name === 'pause' ? names[flow.mode] + ' (paused)' :
       name === 'setup' ? names[flow.mode] + ': settings' : name === 'ops' ? names[flow.mode] + ': operator' : name === 'packs' ? 'Skins & packs' : 'Controls';
+    document.querySelectorAll('[aria-label="Main menu"] button').forEach(b=>b.setAttribute('aria-current', b.id === ({mode:'go-play',pause:'go-play',setup:'go-settings',controls:'go-controls',packs:'go-packs'}[name]) ? 'page' : 'false'));
     $('mini-points').textContent = '(' + profile.points + ' points)';
     if (name === 'setup') {
       $('range-setup').hidden = flow.mode !== 'range';
@@ -1040,15 +1060,18 @@ function boot(data) {
       $('modes-setup').hidden = !MATCH_MODES.includes(flow.mode);
       if (MATCH_MODES.includes(flow.mode)) modesUi();
       $('net-panel').hidden = flow.mode !== 'net';
-      $('setup-title').textContent = names[flow.mode];
-      $('setup-next').textContent = flow.setupFromPause ? 'Back to the game' : MATCH_MODES.includes(flow.mode) ? 'Next: choose your operator' : 'Next: choose your weapon';
-      $('all-settings').open = flow.mode === 'range' && !flow.setupFromPause ? $('all-settings').open : $('all-settings').open;
+      $('setup-title').textContent = flow.settingsOnly ? 'Settings' : names[flow.mode];
+      $('match-settings-tab').hidden = flow.settingsOnly;
+      $('setup-next').textContent = flow.settingsOnly ? 'Done' : flow.setupFromPause ? 'Back to the game' : MATCH_MODES.includes(flow.mode) ? 'Next: choose your operator' : 'Next: choose your weapon';
       if (netInit) netUi();
     }
   }
   function chooseMode(m) {
     if (battle && battle.active) leaveBattle();
-    flow.mode = m; flow.inGame = false; flow.setupFromPause = false;
+    controls.release();
+    flow.mode = m; flow.inGame = false; flow.setupFromPause = false; flow.settingsOnly = false;
+    // Setup starts with match options for each newly selected mode.
+    selectSetupTab(0);
     if (modeGame && modeGame.active) leaveMode();
     if (m !== 'range' && !MATCH_MODES.includes(m)) settings.battle.opponent = m;
     saveSettings(settings);
@@ -1061,11 +1084,12 @@ function boot(data) {
   for (const b of document.querySelectorAll('.back-btn')) b.addEventListener('click', () => showPage(b.dataset.back === 'prev' ? (flow.prev || 'mode') : b.dataset.back));
   $('setup-back').addEventListener('click', () => showPage(flow.setupFromPause ? 'pause' : 'mode'));
   $('setup-next').addEventListener('click', () => {
+    if (flow.settingsOnly) { flow.settingsOnly = false; showPage(flow.inGame ? 'pause' : 'mode'); return; }
     if (flow.setupFromPause) { flow.setupFromPause = false; showPage('pause'); }
     else if (MATCH_MODES.includes(flow.mode)) { showPage('ops'); renderOps(); }
     else openArmory('setup');
   });
-  $('pause-settings').addEventListener('click', () => { flow.setupFromPause = true; showPage('setup'); });
+  $('pause-settings').addEventListener('click', () => { flow.settingsOnly = false; flow.setupFromPause = true; showPage('setup'); });
   $('pause-loadout').addEventListener('click', () => openArmory('pause'));
   $('pause-quit').addEventListener('click', () => { if (cur() && cur().active) leaveBattle(); flow.inGame = false; showPage('mode'); });
 
@@ -1090,7 +1114,7 @@ function boot(data) {
     $('md-len').closest('label').hidden = m === 'bomb';
     $('md-note').textContent = m === 'tdm' ? 'First team to 40 kills, or the most kills when the time runs out. Respawn after 3 s. Tab: scoreboard.'
       : m === 'ctf' ? 'Take the enemy flag (walk over it) to your own stand while your flag is home. First to 3 captures; a tie after the time goes to the next capture. Tab: scoreboard.'
-        : 'First to 4 rounds; sides swap after round 3. One life a round: 30 s to prepare, 150 s to plant (hold E for 5 s on a site). The bomb goes off after 40 s unless defused (hold E for 6 s).';
+        : 'First to 4 rounds; sides swap after round 3. One life a round: 30 s to prepare, 150 s to plant (hold Interact for 5 s on a site). The bomb goes off after 40 s unless defused (hold Interact for 6 s).';
   }
   function readModes() {
     const m = flow.mode, P = modePrefs;
@@ -1106,6 +1130,7 @@ function boot(data) {
       catch (e) { $('ops-note').textContent = 'Could not load the operators (' + e.message + '). Press Ctrl+F5.'; return; }
     }
     const m = flow.mode, P = modePrefs, bomb = m === 'bomb';
+    $('ops-search').value = '';
     $('ops-side').hidden = !bomb;
     for (const b of document.querySelectorAll('#ops-side .seg-btn')) b.setAttribute('aria-checked', String(b.dataset.side === P.side));
     const allowed = bomb ? (P.side === 'attack' ? opsData.attackers : opsData.defenders) : [...opsData.attackers, ...opsData.defenders];
@@ -1131,11 +1156,12 @@ function boot(data) {
   $('ops-back').addEventListener('click', () => showPage('setup'));
   $('ops-go').addEventListener('click', () => startMode());
   async function startMode() {
+    controls.release();
     const m = flow.mode, P = modePrefs;
     if (battle && battle.active) leaveBattle();
     if (!modeGame) {
       modeGame = new ModeGame({
-        renderer, settings, guns: data.guns, sfx, adsVFov, baseDpc, now: clockNow, slotOf: (g) => data.guns.indexOf(g), hudRoot: $('app'),
+        renderer, settings, controls, guns: data.guns, sfx, adsVFov, baseDpc, now: clockNow, slotOf: (g) => data.guns.indexOf(g), hudRoot: $('app'),
         onEnd: () => lock.exit(), onPoints: (kind, head) => (kind === 'kill' ? profile.addKill(head) : profile.addPoints(WIN_POINTS)),
         skinOf: (g) => equippedSkin(data.guns.indexOf(g)),
         opticById: (id, g) => catalogue.byId.get(g.optics.includes(id) ? id : g.defaultOptic),
@@ -1231,6 +1257,7 @@ function boot(data) {
     }
   }
   function openArmory(from) {
+    controls.release();
     flow.armoryFrom = from;
     $('menu').hidden = true;
     $('armory').hidden = false;
@@ -1284,6 +1311,20 @@ function boot(data) {
     r.render(previewRig.scene, previewCam);
     r.autoClear = false;
   }
+  mountControls($('controls-root'), controls);
+  mountFirstLaunch(controls);
+  const selectSetupTab = tabs($('page-setup'), [{label:'Match',panel:$('match-settings')},{label:'Settings',panel:$('all-settings')}], 'Setup');
+  $('go-settings').addEventListener('click', () => { flow.settingsOnly = true; flow.setupFromPause = flow.inGame; showPage('setup'); selectSetupTab(1); });
+  $('go-play').addEventListener('click', () => showPage(flow.inGame ? 'pause' : 'mode'));
+  for (const button of document.querySelectorAll('[data-mode-filter]')) button.addEventListener('click', () => {
+    for (const b of document.querySelectorAll('[data-mode-filter]')) b.setAttribute('aria-pressed',String(b === button));
+    const groups = {training:['range'],combat:['bots','tdm','ctf','bomb'],online:['net']};
+    for (const card of document.querySelectorAll('.mode-card')) card.hidden = button.dataset.modeFilter !== 'all' && !groups[button.dataset.modeFilter].includes(card.dataset.mode);
+  });
+  const opSearch = $('ops-search');
+  opSearch.addEventListener('input', () => { for (const card of $('ops-grid').querySelectorAll('.op-card')) card.hidden = !card.textContent.toLowerCase().includes(opSearch.value.toLowerCase()); });
+  const weaponSearch = $('weapon-search');
+  weaponSearch.addEventListener('input', () => { for (const card of slotButtons) card.hidden = !card.textContent.toLowerCase().includes(weaponSearch.value.toLowerCase()); });
   showPage('mode');
 
   /* ---------- frame loop ---------- */
@@ -1395,7 +1436,7 @@ function boot(data) {
   const ASSIST_RADIUS = 2.5;   // degrees from the target where assist starts at 100%
   function aimAssist(dt, t) {
     assistSlow = 1;
-    const s = settings.aimAssist;
+    const s = controls.e.mc_assist_allowed(+(flow.mode === 'range'), +(flow.mode === 'net')) ? settings.aimAssist : 0;
     if (!(s > 0) || !lock.locked && !testMode) return;
     const R = ASSIST_RADIUS * (0.4 + 0.6 * s);
     const vy = look.yaw + offset[0], vp = look.pitch + offset[1];
@@ -1506,6 +1547,7 @@ function boot(data) {
   if (testMode) {
     window.__range = {
       ready: true,
+      controls,
       guns: data.guns,
       manual(on) { manualClock = on; manualT = performance.now() / 1000; prevT = manualT; },
       // Advance the manual clock in fixed frame steps, running the game update each step.
