@@ -203,3 +203,13 @@ a Rust-backed getter); late plants still get the full 40 s fuse. The requested
 For M5 integration, keep the small hooks and measure against the updated tactics.
 The latest paired M4 bot sample still has early defender eliminations and strong
 map variation; do not treat these utility changes as a completed tactics fix.
+
+## Enhanced pack v2 (Codex contribution)
+
+The player-started HDPack lifecycle now includes the 83-clip audio bank, bounded map
+surfaces, RRM soldier equipment and skin finish parameters. `js/audio/pack-bridge.js`
+connects the existing Sfx instance; decoding waits for user-gesture unlock. `installPack`
+accepts an optional completion guard to reject stale results after pack removal.
+`js/render/pack-art.js` loads presentation assets only through `HDPack.file()` and supplies
+`applyMapArt()`/`packArt`; no physics or map-data exports change. High/Ultra gates remain.
+See [PACK_INTEGRATION.md](PACK_INTEGRATION.md) for limits, measurements and failing checks.

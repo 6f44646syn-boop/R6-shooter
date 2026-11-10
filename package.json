@@ -16,6 +16,8 @@
     "build:audio-pack": "node tools/build-audio-pack.mjs",
     "test:audio-pack": "node tests/audio-pack.mjs && node tests/audio-pack-browser.mjs",
     "build:bomb-utility": "bash tools/build-bomb-utility.sh --test",
-    "test:bomb-utility": "node tests/bomb-utility.mjs && node tests/bomb-utility-browser.mjs"
+    "test:bomb-utility": "node tests/bomb-utility.mjs && node tests/bomb-utility-browser.mjs",
+    "test:enhanced-pack": "node tests/pack-assets.mjs && node tests/pack-integration.mjs",
+    "build:enhanced-surfaces": "node tools/build-hd.mjs --surfaces"
   }
 }

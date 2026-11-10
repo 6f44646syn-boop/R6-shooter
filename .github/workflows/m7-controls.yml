@@ -11,6 +11,9 @@ on:
       - 'wasm/m8_audio.*'
       - 'js/audio/**'
       - 'packs/audio/**'
+      - 'hd/**'
+      - 'js/render/**'
+      - 'js/scene/**'
       - 'js/core/settings.js'
       - 'wasm/m7_controls.*'
       - 'js/ui/**'
@@ -50,3 +53,5 @@ jobs:
       - run: cargo test --manifest-path rust/bomb_utility/Cargo.toml
       - name: Check Bomb utility with external test tooling
         run: NODE_PATH="$RUNNER_TEMP/recoil-range-test-tools/node_modules" npm run test:bomb-utility
+      - name: Check Enhanced Graphics integration
+        run: NODE_PATH="$RUNNER_TEMP/recoil-range-test-tools/node_modules" npm run test:enhanced-pack

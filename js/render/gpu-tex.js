@@ -394,7 +394,7 @@ export function bakeSkin(renderer, def, size = 4096) {
   const rmu = { finishRough: { value: finish.roughnessVariation || 0 }, finishMetal: { value: finish.paintMetalReduction || 0 }, ...skinUniforms(def), rmA: { value: new THREE.Vector2(def.rm[0], def.rm[1]) }, rmB: { value: new THREE.Vector2(def.rm[2], def.rm[3]) } };
   const rm = bake(renderer, head + /* glsl */`
     uniform vec2 rmA, rmB; uniform float finishRough, finishMetal;
-    void main() { vec3 col; float m, g; skinAt(vUv, col, m, g); vec2 r = mix(rmA, rmB, m); r.x = clamp(r.x + finishRough * (0.5 + fbm(vUv, 128.0, 3)), 0.06, 1.0); r.y = clamp(r.y - finishMetal * m, 0.0, 1.0); gl_FragColor = vec4(g, r.x, r.y, 1.0); }`,
+    void main() { vec3 col; float m, g; skinAt(vUv, col, m, g); vec2 r = mix(rmA, rmB, m); if (finishRough > 0.0) { r.x = clamp(r.x + finishRough * (0.5 + fbm(vUv, 128.0, 3)), 0.06, 1.0); r.y = clamp(r.y - finishMetal * m, 0.0, 1.0); } gl_FragColor = vec4(g, r.x, r.y, 1.0); }`,
   Math.max(128, size >> 1), rmu);
   // High / ultra: a relief map from the design (accent shapes raised, glow lines cut in),
   // turned into a normal map on the GPU, so the skin catches light like layered paint.

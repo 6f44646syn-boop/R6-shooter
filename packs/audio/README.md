@@ -1,3 +1,5 @@
+> Integrated into Enhanced Graphics pack v2. See [current integration report](../../docs/PACK_INTEGRATION.md). The standalone archive remains available; the original loader instructions below are historical context.
+
 # Optional Recoil Range audio pack — Claude handoff
 
 This is an optional, original sound pack for the future download manager. It
