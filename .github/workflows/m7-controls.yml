@@ -1,0 +1,32 @@
+name: Milestone 7 controls
+on:
+  pull_request:
+    paths:
+      - 'rust/m7_controls/**'
+      - 'wasm/m7_controls.*'
+      - 'js/ui/**'
+      - 'js/main.js'
+      - 'js/battle/**'
+      - 'js/modes/game.js'
+      - 'index.html'
+      - 'css/**'
+      - 'tests/**'
+      - 'package*.json'
+      - '.github/workflows/m7-controls.yml'
+  push:
+    branches: [feature/m7-ui-controls]
+permissions:
+  contents: read
+jobs:
+  controls:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: cargo test --manifest-path rust/m7_controls/Cargo.toml
+      - run: npm run test:controls
