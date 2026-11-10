@@ -1,8 +1,8 @@
 # Optional Recoil Range audio pack — Claude handoff
 
 This is an optional, original sound pack for the future download manager. It
-pre-renders the game's gunfire, eight ground-material footsteps, reloads, vaults
-and gadget/UI cues into 81 mono 48 kHz PCM clips. Gunfire and footsteps have three
+pre-renders the game's gunfire, eight ground-material footsteps, reloads, vaults,
+barbed-wire rattles and gadget/UI cues into 83 mono 48 kHz PCM clips. Gunfire and footsteps have three
 variants per bank. No third-party recordings or runtime libraries are included.
 This is the audio portion of M8; attachments and the rest of M8 remain separate.
 
@@ -51,17 +51,17 @@ there is no split-screen feature.
 
 ## Measured performance and cost
 
-The raw runtime file is **1,397,000 bytes (1.33 MiB)**. Decoded samples occupy
-**2,774,856 bytes (2.65 MiB)**, excluding browser/node overhead and the transient
-input file. Decode took **39.4 ms wall time**, including intentional event-loop
+The raw runtime file is **1,436,728 bytes (1.37 MiB)**. Decoded samples occupy
+**2,853,912 bytes (2.72 MiB)**, excluding browser/node overhead and the transient
+input file. Decode took **45.7 ms wall time**, including intentional event-loop
 yields, on the recorded Chromium environment.
 
 | Same occluded HRTF gunfire workload | Procedural | Cached pack |
 | --- | ---: | ---: |
 | Nodes per voice, excluding shared master/limiter | 8 | 4 |
 | Sources per voice | 2 | 1 |
-| Median construction/recycling of 400 shots | 83.5 ms | 47.6 ms |
-| Median one-second offline render with 32 voices | 28.9 ms | 12.8 ms |
+| Median construction/recycling of 400 shots | 78.0 ms | 42.9 ms |
+| Median one-second offline render with 32 voices | 30.5 ms | 13.1 ms |
 
 Unoccluded voices omit the low-pass node in both paths. Measurements are from
 interleaved warmed-up runs; raw runs, environment and method are in
@@ -100,6 +100,6 @@ npm run test:audio
 ```
 
 The packager copies build metadata and manifest, assembles the ZIP (including all
-81 WAV previews), and regenerates the two published SHA-256 checksums. Baking is
+83 WAV previews), and regenerates the two published SHA-256 checksums. Baking is
 seeded, but browser implementations can produce different samples; preserve the
 recorded renderer and checksums when distributing an existing version.

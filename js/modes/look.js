@@ -1,7 +1,7 @@
 // How the match maps look (the Battle maps keep Battle's own scenery). Everything is drawn in
 // code on small canvases; no image files. Boxes are merged per look into a few meshes:
 // walls and floors tile in world space, furniture is fitted per face.
-import * as THREE from '../../vendor/three/three.module.min.js?v=651d04c-mwahvcb3';
+import * as THREE from '../../vendor/three/three.module.min.js?v=m4-m8-audio-1';
 
 /* ---------- textures ---------- */
 const cache = new Map();
@@ -77,6 +77,11 @@ const TEX = {
     g.fillStyle = '#4a3420'; g.fillRect(0, 24, w, 16); g.fillRect(0, h - 40, w, 16);
   }),
   fence: () => canvasTex('fence', 128, 128, (g, w, h, r) => { fill(g, w, h, '#b4aea2'); noise(g, w, h, r, 1500, ['#9a948a', '#c4beb2'], 2, 0.4); g.fillStyle = 'rgba(0,0,0,0.15)'; for (let x = 0; x < w; x += 32) g.fillRect(x, 0, 2, h); }),
+  deck: () => canvasTex('deck', 256, 256, (g, w, h, r) => { for (let x = 0; x < w; x += 32) { const l = 150 + r() * 25; g.fillStyle = 'rgb(' + (l + 20 | 0) + ',' + (l | 0) + ',' + (l - 35 | 0) + ')'; g.fillRect(x, 0, 30, h); g.fillStyle = 'rgba(40,25,10,0.5)'; g.fillRect(x + 30, 0, 2, h); } noise(g, w, h, r, 600, ['#6a5030'], 2, 0.25); }),
+  barn: () => canvasTex('barn', 128, 256, (g, w, h, r) => { for (let x = 0; x < w; x += 21) { const l = 120 + r() * 25; g.fillStyle = 'rgb(' + (l + 40 | 0) + ',' + (l * 0.35 | 0) + ',' + (l * 0.3 | 0) + ')'; g.fillRect(x, 0, 20, h); g.fillStyle = 'rgba(30,10,5,0.5)'; g.fillRect(x + 20, 0, 1, h); } g.fillStyle = '#e8e0d0'; g.fillRect(0, 0, w, 6); }),
+  rust: () => canvasTex('rust', 256, 256, (g, w, h, r) => { fill(g, w, h, '#7a3a28'); for (let x = 0; x < w; x += 16) { g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(x, 0, 3, h); g.fillStyle = 'rgba(255,255,255,0.06)'; g.fillRect(x + 8, 0, 2, h); } noise(g, w, h, r, 1500, ['#5a2a1c', '#9a5a3a', '#4a3a30'], 3, 0.5); }),
+  ceiling: () => canvasTex('ceiling', 128, 128, (g, w, h, r) => { fill(g, w, h, '#d9d4c8'); noise(g, w, h, r, 900, ['#c8c2b4', '#e4e0d6'], 2, 0.3); g.fillStyle = 'rgba(0,0,0,0.08)'; g.fillRect(0, 0, w, 2); g.fillRect(0, 0, 2, h); }),
+  railTex: () => canvasTex('railTex', 64, 64, (g, w, h) => { fill(g, w, h, '#4a3a2a'); g.fillStyle = '#6a5440'; g.fillRect(0, 0, w, 10); for (let x = 4; x < w; x += 12) g.fillRect(x, 10, 4, h - 10); }, false),
   bark: () => canvasTex('bark', 32, 64, (g, w, h, r) => { fill(g, w, h, '#5a4230'); noise(g, w, h, r, 300, ['#3a2a1c', '#6a5038'], 3, 0.6); }),
   leaves: () => canvasTex('leaves', 64, 64, (g, w, h, r) => { fill(g, w, h, '#3c6428'); noise(g, w, h, r, 800, ['#2a4a1c', '#4e7c34', '#5c8a3c'], 4, 0.7); }),
 };
@@ -101,7 +106,14 @@ const LOOKS = {
   barrier: { side: 'barrier', top: 'concrete', fit: true },
   planter: { side: 'stone', top: 'planterTop', fit: true },
   fountain: { side: 'stone', top: 'water', fit: true },
+  fence: { side: 'fence', top: 'walltop', tile: [2, 1.1] },
+  container: { side: 'rust', top: 'rust', tile: [2.6, 2.6] },
+  barn: { side: 'barn', top: 'walltop', tile: [2.4, 3.2] },
+  stair: { side: 'wood', top: 'wood', tile: [1.2, 1.2] },
+  rail: { side: 'railTex', top: 'tableTop', fit: true },
 };
+// upper floors: the room's floor on top, a ceiling underneath
+for (const f of ['wood', 'carpet', 'carpet2', 'tiles', 'tiles2', 'concrete', 'marble', 'stone', 'deck']) LOOKS['slab-' + f] = { side: 'walltop', top: f, bottom: 'ceiling', tile: [f === 'wood' || f === 'deck' ? 3 : f.startsWith('carpet') ? 2 : 1.6, 1.6] };
 const PAINTS = [0xb03a2e, 0x2e5ea8, 0xe8e4dc, 0x2a2c30, 0x6a7a3a, 0xc8a040, 0x707880];
 const GROUND = { grass: 'grass', lawn: 'lawn', dirt: 'dirt', asphalt: 'asphalt' };
 
@@ -127,6 +139,8 @@ function addBox(acc, b, look, tint) {
   const long = (x1 - x0) > (z1 - z0);
   const fitTop = long ? [[0, 0], [0, 1], [1, 1], [1, 0]] : tu;
   quad('top', [[x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0]], [0, 1, 0], fit ? fitTop : tu);
+  // a box off the floor (an upper floor, a lintel): its underside too
+  if (y0 > 0.05) quad('bottom', [[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]], [0, -1, 0], fit ? [[0, 0], [1, 0], [1, 1], [0, 1]] : [[x0 / tw, z0 / tw], [x1 / tw, z0 / tw], [x1 / tw, z1 / tw], [x0 / tw, z1 / tw]]);
 }
 function meshFrom(a, map, shadow) {
   const g = new THREE.BufferGeometry();
@@ -166,7 +180,7 @@ export function buildMapLook(scene, map, L) {
   gt.repeat.set((map.hx * 2 + 40) / 6, (map.hz * 2 + 40) / 6);
   group.add(ground);
   for (const c of data.callouts || []) {
-    if (!c.floor || !TEX[c.floor]) continue;
+    if (!c.floor || !TEX[c.floor] || c.y) continue;           // (upper floors: the slab's top)
     const w = c.x1 - c.x0, d = c.z1 - c.z0, t = TEX[c.floor]().clone();
     t.needsUpdate = true; t.userData.own = true;
     const tile = c.floor === 'wood' ? 3 : c.floor.startsWith('carpet') ? 2 : c.floor === 'marble' || c.floor === 'stone' ? 3 : 1.6;
@@ -189,7 +203,7 @@ export function buildMapLook(scene, map, L) {
   }
   for (const [name, parts] of Object.entries(acc)) {
     const look = LOOKS[name];
-    for (const [part, a] of Object.entries(parts)) group.add(meshFrom(a, TEX[part === 'top' ? look.top : look.side](), name !== 'edge'));
+    for (const [part, a] of Object.entries(parts)) group.add(meshFrom(a, TEX[part === 'top' ? look.top : part === 'bottom' ? look.bottom || 'ceiling' : look.side](), name !== 'edge'));
   }
   // outside: trees and bushes where nothing is in the way, a fence round the edge
   if (data.building) {

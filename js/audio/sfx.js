@@ -1,6 +1,6 @@
-import { decodeAudioPack } from './audio-pack.js?v=m8-pack-1';
+import { decodeAudioPack } from './audio-pack.js?v=m4-m8-audio-1';
 // WebAudio output only: sound propagation, surface profiles and step cadence are Rust-owned.
-import { cameraPose } from './acoustics.js?v=m8-audio-1';
+import { cameraPose } from './acoustics.js?v=m4-m8-audio-1';
 const clamp = (v, lo, hi) =>
   Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo;
 export class Sfx {
@@ -334,6 +334,20 @@ export class Sfx {
     const t = this.ctx.currentTime;
     this._osc(v, t, 0.32, { hz: 220, to: 90, type: 'square', peak: 0.25 });
     this._noise(v, t, 0.26, { type: 'highpass', hz: 3000, peak: 0.4 });
+  }
+  // Barbed wire: preserve M4's six metallic ticks within the bounded voice graph.
+  wire(vol = 0.5, pan = 0, muffle = 0) {
+    if (this._sample('wire', vol, pan, muffle, 2)) return;
+    const v = this._voice(vol, pan, muffle, 2);
+    if (!v) return;
+    const t = this.ctx.currentTime;
+    for (let i = 0; i < 6; i++)
+      this._noise(v, t + i * 0.025 + Math.random() * 0.02, 0.07, {
+        hz: 3200 + Math.random() * 2600,
+        q: 12,
+        peak: 0.35,
+        attack: 0.002,
+      });
   }
   crack(vol = 1, pan = 0, muffle = 0) {
     if (this._sample('crack', vol, pan, muffle, 2)) return;

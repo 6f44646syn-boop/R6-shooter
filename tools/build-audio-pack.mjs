@@ -64,6 +64,7 @@ try {
       'reload',
       'vault',
       'switch',
+      'wire',
     ])
       for (let variant = 0; variant < 2; variant++)
         jobs.push({ key: kind, variant, kind });

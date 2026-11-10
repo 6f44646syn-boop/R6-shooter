@@ -5,7 +5,7 @@
   "channels": 1,
   "format": "pcm_s16le",
   "license": "Original synthesized Recoil Range sounds; no third-party recordings.",
-  "sourceSha256": "857ec78409ecd68e983ba61360489eb5c768da2a2e4ae59fc55965fddffb767d",
+  "sourceSha256": "975e8757c039d76d8b86752b7940498c44f97f0e0041a63d6c8eff9bc5aa70e3",
   "profiles": {
     "concrete": {
       "material": "concrete",
@@ -712,6 +712,22 @@
       "frames": 4592,
       "gain": 0.2749120702548903,
       "offset": 1378244
+    },
+    {
+      "id": "wire:0",
+      "key": "wire",
+      "variant": 0,
+      "frames": 9862,
+      "gain": 0.07987581953710439,
+      "offset": 1387428
+    },
+    {
+      "id": "wire:1",
+      "key": "wire",
+      "variant": 1,
+      "frames": 9902,
+      "gain": 0.08455376539911542,
+      "offset": 1407152
     }
   ]
 }

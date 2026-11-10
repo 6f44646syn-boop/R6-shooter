@@ -118,7 +118,7 @@ Geometries grow by about 40 with every new match: a leak (bug B4 below).
 | B6 | The previous match's kill feed stays on screen when a new match starts | Feed list cleared but not redrawn | Milestone 1 |
 | B7 | Death replay in Team Deathmatch and Capture the Flag is cut off by the respawn | Replay ran 3.4 s, respawn is 3 s | Milestone 1 |
 | B8 | You can knife or throw a grenade from your body while driving a drone | No check | Milestone 1 |
-| B9 | Defender bots break boarded doors on the way to their posts in prep | Doors block defenders too | Milestone 4 (doorways redesign) |
+| B9 | Defender bots break boarded doors on the way to their posts in prep | Doors block defenders too | **Fixed in milestone 4** (interior doorways start open; defender paths treat barricades as closed) |
 | B10 | Match modes on the Battle maps are ground floor only | The match engine has no heights | **Fixed in milestone 3** |
 | B11 | Battle grenades are off in network games | Not sent to the other player | Later (relay only) |
 | B12 | Step label says "3 Weapon" where step 3 is the operator | Label | Milestone 7 (UI redesign) |
@@ -329,3 +329,109 @@ milestone 5 (bot AI).
 Known limits: the nine low obstacles above have no room to vault; Battle grenades are still
 off in network games (B11); defender bots still break boarded doors in prep (B9, milestone 4).
 Movement is not checked by anyone but the player's own browser (there is no server).
+
+## Milestone 4: Bomb maps, destruction and barbed wire
+
+### The maps
+Ranch, Embassy and Workshop were rebuilt bigger, with two storeys and more ways in. Every
+map is original. Each new area gives a new angle, route or way in; none is empty space.
+
+| Map | Map area | Building | Rooms (ground + upstairs) | Ways in through the outside walls (ground + upstairs) | Upstairs | Places a body can reach |
+|---|---|---|---|---|---|---|
+| Ranch | 80 x 60 m (was 68 x 48) | 52 x 28 m | 10 + 2 | 16 (6 doors, 7 windows, 3 soft walls) + 2 | loft, bedroom, balcony with back stairs | 1,167 on 10 levels |
+| Embassy | 84 x 64 m (was 66 x 50) | 56 x 36 m | 14 + 5 | 19 (5 doors, 9 windows, 3 soft, 2 reinforced) + 4 | north wing (3 rooms), two landings, fire escape | 1,391 on 10 levels |
+| Workshop | 84 x 64 m (was 68 x 48) | 56 x 34 m | 10 + 2 | 19 (8 doors, 6 windows, 5 soft walls) + 3 | manager's office, drafting room, garage catwalk, bridge, outside stairs | 1,423 on 11 levels |
+
+- **Ranch:** the house gained a dining room, laundry, entry hall, a workshop off the garage
+  and a loft with a bedroom (stairs in the living room). A balcony with back stairs is the
+  attackers' way upstairs. Outside: a barn, a corral and a trailer.
+- **Embassy:** a two-storey north wing over the archives (the site), landings in the west
+  and east halls with windows over the courtyard, a vault with reinforced walls and a fire
+  escape.
+- **Workshop:** a double-height garage (the site) with a catwalk joined by a bridge over the
+  maintenance corridor to the offices' upper floor; storage rooms, a paint shop, a server
+  room with reinforced walls, lockers, a loading bay and outside stairs.
+
+### New in Bomb
+- **Windows:** a 1 m sill to vault and an opening to 2.3 m. Outside windows start boarded,
+  as outside doors do; windows inside the building start open.
+- **Interior doorways** start open, so defender bots no longer break their own doors (B9).
+  Defenders barricade a doorway or window by holding E in it (1.5 s).
+- **Reinforcing:** defenders hold E at a soft wall for 2.5 s (two each a round). It turns
+  to metal, and only a Wall Charge or Breach Rounds open it after that. Walls are soft again
+  next round.
+- **Barbed wire:** two rolls for each defender in Bomb, in place of grenades (Caps Lock). It
+  is 2.4 m long and laid across the way you face. It slows attackers to 40%, does 2 damage a
+  second while they move through it, rattles (heard 14 m away) and snags drones (60%). Both
+  teams see it. Three shots, a knife or any blast clears it.
+- **Destruction:** soft walls are grids of cells (3 across, 4 up). Bullets chip a cell
+  open in about 8 shots, a knife opens one at once, and blasts open the cells near them. A
+  hole of two cells across and four up is a way through; a hole above an intact bottom row
+  can be vaulted. Barricades splinter and darken as they take hits. Breaks throw debris.
+- **Preparation time** is a match option (15 to 90 s; default 30).
+- **Bots:** they vault: paths now include vault links over sills, rails and low cover,
+  marked so bots, and the test walker, press vault there. Defender bots reinforce the
+  site's walls, barricade its doorways and lay wire just inside a way in during prep.
+  Attacker bots knife barricades and wire in their way.
+
+### Engine fixes found by the new tests
+- A drop in a path could fall "through" an upper floor wherever the floor had no walkable
+  cell next to furniture. Drops now land on the floor actually underneath. The same bug was
+  in Battle's old code, and the reference copy carries the fix.
+- A body starting inside a stack of solid stair steps could be pushed through the wall
+  beside them. Now a move that leaves a body overlapping something it cannot be pushed out
+  of stops there. The new Rust test covers it.
+- Wall tops, sills and rails are not floors any more, so nobody can walk along the top of
+  a wall from an upper floor.
+
+### Tests
+| Check | Result |
+|---|---|
+| Physics on every map | 540 walks with 288 vaults on the way, 96 climbs and 96 descents, 113 falls, 94 doorways both ways: all arrive |
+| Vaulting | 263 of 273 low obstacles vaultable from at least one side (the rest have no room to land); never over a full wall, panel or barricade |
+| Defenders kept inside | 77 opened doors and breached outside walls: no defender gets past the wall line; attackers walk out of each (52 of 52) |
+| Played in the browser | reinforcing, barricading, wire (laying, slowing, damage, knifing it), bullet and knife holes, knifing a boarded window open and vaulting through it, prep time 45 s |
+
+### Balance (not fixed: milestone 5)
+Bot-only Bomb matches, 8 per map, about 50 rounds each, share of rounds won by attackers:
+
+| Code and maps | Ranch | Embassy | Workshop |
+|---|---|---|---|
+| Milestone 3 (old maps) | 62% | 74% | 74% |
+| Milestone 4 (new maps) | 69 to 82% | 80 to 88% | 80 to 90% |
+
+Attackers won more than before. Almost every round ends with all defenders dead, and
+defenders die a median of 9 s into the action phase. Boarding the outside windows helped a
+little. Switching off wall chipping or the defenders' prep jobs changed nothing, and nor did
+a faster reaction for defenders holding an angle (reverted). The rooms are bigger and have
+more ways in, and defender bots spread over them hold too little. Defender tactics
+(falling back, holding the angles that matter, rotating) are the first item of milestone 5.
+
+### Speed (same machine; Rust core)
+Paths on the Bomb maps per second (M3, then M4): Ranch 4,636 to 2,307, Embassy 3,603 to
+1,794, Workshop 4,503 to 2,160. The buildings are bigger, paths can vault, and closed
+barricades are checked. Whole 5v5 bot matches, ms per 60 Hz step:
+
+| Match | Average: M3 | M4 | 99th percentile: M3 | M4 | Worst: M3 | M4 |
+|---|---|---|---|---|---|---|
+| tdm/containers | 0.0577 | 0.0561 | 0.4679 | 0.4463 | 3.882 | 4.441 |
+| tdm/casino | 0.0557 | 0.0438 | 0.6537 | 0.4011 | 2.818 | 2.985 |
+| ctf/winter | 0.0863 | 0.1135 | 1.5656 | 4.5876 | 6.696 | 10.219 |
+| ctf/yard | 0.0304 | 0.0396 | 0.2541 | 0.2935 | 1.604 | 2.325 |
+| bomb/ranch | 0.0709 | 0.0786 | 0.6099 | 1.0026 | 4.329 | 3.379 |
+| bomb/embassy | 0.0494 | 0.0675 | 0.5047 | 0.8187 | 2.435 | 3.937 |
+| bomb/workshop | 0.0457 | 0.0542 | 0.4049 | 0.6608 | 2.523 | 2.217 |
+
+The average step is still under 0.12 ms. The worst steps come from several bots planning
+long paths in the same step; on Winter Cabin that reached 10 ms, which can show as a
+hitch on a slow laptop. Spreading path planning over several steps is the first speed item
+of milestone 5.
+
+### Tests after milestone 4
+| Suite | Result |
+|---|---|
+| `cargo test` | 21 passed |
+| `node tools/check-core.mjs` | 20 passed |
+| `npm test` | 213 passed, 0 failed |
+| `node tools/check-modes.mjs` | 97 passed, 0 failed |
+| `node tools/play-through.mjs` | no page errors |

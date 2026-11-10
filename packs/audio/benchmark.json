@@ -1,56 +1,56 @@
 {
   "method": "Nine interleaved batches of 400 shots for graph construction/voice recycling; five interleaved one-second offline renders with 32 HRTF+lowpass voices. Warm-up excluded. No game FPS measurement.",
   "browser": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
-  "packBytes": 1397000,
-  "clipCount": 81,
-  "decodedPcmBytes": 2774856,
-  "decodeWallMs": 39.400000002235174,
+  "packBytes": 1436728,
+  "clipCount": 83,
+  "decodedPcmBytes": 2853912,
+  "decodeWallMs": 45.69999999925494,
   "procedural": {
     "nodesPerVoice": 8,
     "sourcesPerVoice": 2,
-    "constructionMedianMs": 83.5,
+    "constructionMedianMs": 78,
     "constructionRunsMs": [
-      101.5,
-      90.30000000074506,
-      61.5,
-      98.10000000149012,
-      133.20000000298023,
-      83.5,
-      76.60000000149012,
-      57.80000000074506,
-      57.80000000074506
+      104.80000000074506,
+      107.80000000074506,
+      79.69999999925494,
+      73.59999999776483,
+      85.90000000223517,
+      78,
+      57.69999999925494,
+      71.20000000298023,
+      68.09999999776483
     ],
-    "offlineRenderMedianMs": 28.899999998509884,
+    "offlineRenderMedianMs": 30.5,
     "offlineRenderRunsMs": [
-      28.299999997019768,
-      29.199999999254942,
-      28.899999998509884,
-      28.799999997019768,
-      31.199999999254942
+      36.600000001490116,
+      30.5,
+      30,
+      31.100000001490116,
+      30.199999999254942
     ]
   },
   "packed": {
     "nodesPerVoice": 4,
     "sourcesPerVoice": 1,
-    "constructionMedianMs": 47.600000001490116,
+    "constructionMedianMs": 42.899999998509884,
     "constructionRunsMs": [
-      44.19999999925494,
-      48.5,
-      47.600000001490116,
-      61.399999998509884,
-      72,
-      71.39999999850988,
-      44.5,
-      38,
-      40
+      78.19999999925494,
+      42.899999998509884,
+      42.69999999925494,
+      40.400000002235174,
+      45.100000001490116,
+      52.900000002235174,
+      37.80000000074506,
+      40.29999999701977,
+      62.80000000074506
     ],
-    "offlineRenderMedianMs": 12.800000000745058,
+    "offlineRenderMedianMs": 13.099999997764826,
     "offlineRenderRunsMs": [
-      12.800000000745058,
-      13,
-      12.300000000745058,
-      12.399999998509884,
-      12.800000000745058
+      21.899999998509884,
+      13.099999997764826,
+      14.100000001490116,
+      12.599999997764826,
+      12.5
     ]
   }
 }

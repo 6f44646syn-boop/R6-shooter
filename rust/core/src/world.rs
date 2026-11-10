@@ -24,6 +24,9 @@ pub const FLY_STEP: f64 = 0.12;
 pub const KIND_DOOR: u8 = 1;
 /// A breakable wall panel (soft or reinforced): paths avoid it while it stands.
 pub const KIND_PANEL: u8 = 2;
+/// A solid you cannot stand on (the top of a wall, a sill, a rail): you slide off it. Only
+/// kind 0 is a floor (the ground, a slab, a stair, furniture).
+pub const KIND_NOSTAND: u8 = 3;
 /// `raycast` hit index for the floor, the ceiling (indoor maps) and nothing.
 pub const HIT_GROUND: i32 = -2;
 pub const HIT_CEIL: i32 = -3;
@@ -143,7 +146,7 @@ impl World {
         let mut g = 0.0_f64;
         for &k in list.iter() {
             let b = &self.solids[k as usize];
-            if x < b.min_x || x > b.max_x || z < b.min_z || z > b.max_z {
+            if b.kind != 0 || x < b.min_x || x > b.max_x || z < b.min_z || z > b.max_z {
                 continue;
             }
             if b.max_y <= y + step + 1e-4 && b.max_y > g {
@@ -164,6 +167,12 @@ impl World {
     /// Keep a circle with its feet at height y out of the solids: push it out of each one it
     /// overlaps (two passes).
     pub fn resolve(&mut self, x: f64, y: f64, z: f64, r: f64, flyer: bool) -> (f64, f64) {
+        let (px, pz, _) = self.resolve_ok(x, y, z, r, flyer);
+        (px, pz)
+    }
+    /// The same, and whether the result is clear of everything (false: still overlapping,
+    /// a squeeze or a pile of boxes the push-out could not settle).
+    pub fn resolve_ok(&mut self, x: f64, y: f64, z: f64, r: f64, flyer: bool) -> (f64, f64, bool) {
         let list = self.near(x, z, r + 0.1);
         let (mut px, mut pz) = (x, z);
         for _ in 0..2 {
@@ -174,8 +183,16 @@ impl World {
                 }
             }
         }
+        let mut ok = true;
+        for &k in list.iter() {
+            let b = &self.solids[k as usize];
+            if (if flyer { blocks_flyer(b, y) } else { blocks(b, y) }) && circle_hits_box(px, pz, r - 1e-6, b) {
+                ok = false;
+                break;
+            }
+        }
         self.recycle(list);
-        (px, pz)
+        (px, pz, ok)
     }
 
     /// Move a circle by (dx, dz) without ever passing through anything: the move is cut into
@@ -188,8 +205,17 @@ impl World {
         let (sx, sz) = (dx / n, dz / n);
         let (mut px, mut py, mut pz) = (x, y, z);
         let step = if flyer { FLY_STEP } else { STEP };
+        // starting clear, a step that ends overlapping something stops the move there (the
+        // push-out bouncing between stacked boxes must never walk a body through a wall)
+        let mut guard = self.resolve_ok(px, py, pz, r, flyer).2;
         for _ in 0..(n as u32) {
-            let p = self.resolve(px + sx, py, pz + sz, r, flyer);
+            let p = self.resolve_ok(px + sx, py, pz + sz, r, flyer);
+            if guard && !p.2 {
+                break;
+            }
+            if !guard && p.2 {
+                guard = true;
+            }
             px = p.0;
             pz = p.1;
             let g = self.ground_step(px, pz, py, step);
@@ -608,6 +634,27 @@ mod tests {
         assert!(!w.free(9.9, 0.0, 0.0, BODY_R));
         assert!(w.walk_clear(-5.0, -5.0, -5.0, 5.0, 0.4, 0.0));
         assert!(!w.walk_clear(-5.0, 0.0, 5.0, 0.0, 0.4, 0.0)); // the door is whole
+    }
+
+    #[test]
+    fn a_drone_at_the_foot_of_stairs_never_ends_up_through_the_wall_beside_them() {
+        // ten 0.45 m slices of stairs (x 4.6..5.8) against a wall (x 5.8..6.2)
+        let mut w = World::new(10.0, 10.0, 6.0, 0.0);
+        for i in 0..10 {
+            let z0 = 1.2 + 0.45 * i as f64;
+            w.solids.push(wall(4.6, 5.8, z0, z0 + 0.45, 0.0, 0.32 * (i + 1) as f64, 0));
+        }
+        w.solids.push(wall(5.8, 6.2, -10.0, 10.0, 0.0, 3.2, 0));
+        w.build();
+        for z in [1.5, 2.3, 3.1, 3.9, 4.7, 5.1, 5.6, 6.0] {
+            for x in [4.7, 4.95, 5.3] {
+                let mut p = (x, 0.0, z);
+                for _ in 0..45 {
+                    p = w.move_circle(p.0, p.1, p.2, 0.2, 0.0, 0.15, true);
+                }
+                assert!(p.0 < 5.8, "started at {x} {z}: ended at {p:?}");
+            }
+        }
     }
 
     #[test]

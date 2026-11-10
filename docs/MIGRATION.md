@@ -26,7 +26,9 @@ old code is removed. The game stays playable after every step.
 | Pathfinding on every level (0.5 m cells, A*, smoothing; panels and zones) | JS `battle/arena.js`; a 2 m ground-floor graph in the modes | **Rust**, shared | — | 3 |
 | Bomb defender boundary | — | JS `modes/rules.js` (rule), Rust (paths stay inside) | — | 3 |
 | Grenade and projectile flight | JS `modes/nades.js`, `abilities.js` | JS | Rust | 3–4 |
-| Destruction, barbed wire, reinforcing | JS | JS | Rust | 4 |
+| Destruction (wall cells, barricades), reinforcing | JS | Collision and paths in **Rust** (cells and barricades are core solids; paths open and close with them); damage rules in JS `modes/map.js`, `sim.js` | Damage rules to Rust with the simulation | 4, 5 |
+| Barbed wire | — | JS `modes/abilities.js` | Rust with the simulation | 4, 5 |
+| Vault links in paths (bots vault) | — | **Rust** | — | 4 |
 | Match simulation (actors, rules, abilities) | JS `modes/sim.js`, `rules.js`, `abilities.js` | JS | Rust | 5 |
 | Bot AI (match modes and Battle) | JS `modes/bots.js`, `battle/bot.js` | JS | Rust | 5 |
 | Recoil, spread, weapon state, attachments | JS `core/` | JS | Rust | 8 |

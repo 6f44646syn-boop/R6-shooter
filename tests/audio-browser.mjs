@@ -122,6 +122,7 @@ try {
       'reload',
       'vault',
       'weaponSwitch',
+      'wire',
     ]) {
       const context = new OfflineAudioContext(2, 48000, 48000),
         cue = new Sfx(audio);
@@ -251,6 +252,31 @@ try {
   check(
     'listener follows the actual match camera height',
     Math.abs(mode.listenerY - mode.cameraY) < 1e-5,
+  );
+  const wire = await page.evaluate(() => {
+    const G = __range.modeGame(),
+      A = __range.audio;
+    const events = G.m.events,
+      original = A.wire;
+    let captured = null;
+    A.wire = (gain, route) => {
+      captured = { gain, route };
+    };
+    try {
+      G.m.events = [
+        { type: 'wire', id: G.me.id, x: G.me.x, y: G.me.y + 4, z: G.me.z },
+      ];
+      G._events(G.m.t);
+    } finally {
+      G.m.events = events;
+      A.wire = original;
+    }
+    return { captured, expected: G.me.y + 4 };
+  });
+  check(
+    'M4 barbed-wire events retain spatial playback and supplied height',
+    wire.captured?.route.position[1] === wire.expected &&
+      Number.isFinite(wire.captured.gain),
   );
   const silence = await page.evaluate(() => {
     const G = __range.modeGame(),

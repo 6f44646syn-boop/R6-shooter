@@ -1022,30 +1022,32 @@ try {
       G.key('OperatorAbility', true); G.key('OperatorAbility', false);
       const d = me.ab.drone;
       out.drone = !!d;
-      // at 10 and 15 FPS: straight at the west outer wall (x = -24) for 3 s, from outside
+      // at 10 and 15 FPS: straight at the west outer wall (x = -28) for 3 s, from outside
       out.droneWall = [];
       for (const fps of [10, 15, 30]) {
-        d.x = -25.4; d.z = -6; d.yaw = 90; d.pitch = 0;
+        d.x = -29.4; d.z = -5; d.yaw = 90; d.pitch = 0;
         G.key('KeyW', true); R.step(3, fps); G.key('KeyW', false);
         out.droneWall.push(+d.x.toFixed(2));
       }
-      // and at the reinforced wall of the site (x = -24, z 5..8) and under the west door (z -1.4..0)
-      d.x = -25.4; d.z = 6.5; d.yaw = 90; G.key('KeyW', true); R.step(3, 10); G.key('KeyW', false); out.droneReinforced = +d.x.toFixed(2);
-      d.x = -25.4; d.z = -0.7; d.yaw = 90; G.key('KeyW', true); R.step(1.2, 10); G.key('KeyW', false); out.droneUnderDoor = +d.x.toFixed(2);
+      // and at the site's west soft wall reinforced (x = -28, z 9..12) and under the west door (z -1.7..-0.3)
+      for (const pn of m.map.panels) if (pn.kind === 'soft' && pn.box.minX < -27.9 && pn.box.maxX > -28.1) m.map.reinforce(pn);
+      d.x = -29.4; d.z = 10.5; d.yaw = 90; G.key('KeyW', true); R.step(3, 10); G.key('KeyW', false); out.droneReinforced = +d.x.toFixed(2);
+      m.map.resetPanels();
+      d.x = -29.4; d.z = -1; d.yaw = 90; G.key('KeyW', true); R.step(1.2, 10); G.key('KeyW', false); out.droneUnderDoor = +d.x.toFixed(2);
       G.key('KeyV', true); G.key('KeyV', false);
       // the player: sprint at the wall and at the boarded door at 10 FPS
       while (m.rules.phase === 'prep') R.step(1, 60);
       const run = (x, z, secs, fps) => { G.h.f.x = x; G.h.f.z = z; G.h.f.vx = G.h.f.vz = 0; me.x = x; me.z = z; G.h.look.setAngles(90, 0); G.key('KeyW', true); G.key('ShiftLeft', true); R.step(secs, fps); G.key('KeyW', false); G.key('ShiftLeft', false); return +G.h.f.x.toFixed(2); };
-      out.bodyWall = run(-26.5, -6, 2, 10);
-      out.bodyDoor = run(-26.5, -0.7, 2, 10);
-      out.doorAlive = m.map.panels.filter((q) => q.kind === 'door').some((q) => q.alive && Math.abs((q.box.minZ + q.box.maxZ) / 2 + 0.7) < 0.1 && q.box.minX < -23.9);
+      out.bodyWall = run(-30.5, -5, 2, 10);
+      out.bodyDoor = run(-30.5, -1, 2, 10);
+      out.doorAlive = m.map.panels.filter((q) => q.kind === 'door').some((q) => q.alive && Math.abs((q.box.minZ + q.box.maxZ) / 2 + 1) < 0.1 && q.box.minX < -27.9);
       // memory: the same match started again and again keeps the same amount on the graphics card
       const ren = R.renderer(), geo = [];
       for (let i = 0; i < 5; i++) { await R.modeStart('bomb', { map: maps, seed: 3 }); R.step(1, 60); R.renderFrame(); geo.push(ren.info.memory.geometries); }
       out.geo = geo;
       // the Rust core is what answers collision and paths, and old maps are freed in it too
       const core = globalThis.__recoilCore;
-      out.core = !!core && core.e.rc_abi() === 3 && R.modeGame().map.world.id >= 0;
+      out.core = !!core && core.e.rc_abi() === 4 && R.modeGame().map.world.id >= 0;
       out.worlds = core ? core.e.rc_world_count() : -1;
       // death replay ends before the respawn in Team Deathmatch
       await R.modeStart('tdm', { map: maps, seed: 3 });
@@ -1070,10 +1072,10 @@ try {
     });
     check('every mode starts and runs on its maps', mm.started.every((s) => s.endsWith(':ok')), mm.started.join(' '));
     check('a new match starts with an empty kill feed', mm.feedAtStart === 0, String(mm.feedAtStart));
-    check('a drone driven at a wall stays outside it at 10, 15 and 30 FPS (x ' + mm.droneWall.join(', ') + ')', mm.drone && mm.droneWall.every((x) => x < -24.2 && x > -24.6), JSON.stringify(mm.droneWall));
-    check('a drone cannot pass a reinforced wall at 10 FPS', mm.droneReinforced < -24.1, String(mm.droneReinforced));
-    check('a drone rolls under a boarded door', mm.droneUnderDoor > -23.6, String(mm.droneUnderDoor));
-    check('sprinting at a wall or a boarded door at 10 FPS does not get you through (x ' + mm.bodyWall + ', ' + mm.bodyDoor + ')', mm.bodyWall < -24.4 && mm.bodyDoor < -24.3 && mm.doorAlive, JSON.stringify(mm));
+    check('a drone driven at a wall stays outside it at 10, 15 and 30 FPS (x ' + mm.droneWall.join(', ') + ')', mm.drone && mm.droneWall.every((x) => x < -28.2 && x > -28.6), JSON.stringify(mm.droneWall));
+    check('a drone cannot pass a reinforced wall at 10 FPS', mm.droneReinforced < -28.1, String(mm.droneReinforced));
+    check('a drone rolls under a boarded door', mm.droneUnderDoor > -27.6, String(mm.droneUnderDoor));
+    check('sprinting at a wall or a boarded door at 10 FPS does not get you through (x ' + mm.bodyWall + ', ' + mm.bodyDoor + ')', mm.bodyWall < -28.4 && mm.bodyDoor < -28.3 && mm.doorAlive, JSON.stringify(mm));
     check('graphics memory is steady across match restarts (geometries ' + mm.geo.join(', ') + ')', Math.max(...mm.geo) - Math.min(...mm.geo) <= 6, mm.geo.join(','));
     check('the Rust core (WebAssembly) is loaded and holds exactly the current map', mm.core && mm.worlds === 1, JSON.stringify({ core: mm.core, worlds: mm.worlds }));
     check('the death replay ends before the Team Deathmatch respawn', mm.kcOn && mm.kcOffBeforeRespawn && mm.respawned, JSON.stringify({ on: mm.kcOn, off: mm.kcOffBeforeRespawn, back: mm.respawned }));
@@ -1100,6 +1102,12 @@ try {
         G.key('ShiftLeft', true);
         while (t < secs && !(Math.hypot(to[0] - f.x, to[1] - f.z) < 0.5 && Math.abs(f.y - to[2]) < 0.5)) {
           const path = G.map.path(f.x, f.z, to[0], to[1], f.y, to[2]);
+          // a vault on the way: face it and press C (as a player does)
+          if (path[0] && path[0][3] === 1 && path[1] && Math.hypot(path[0][0] - f.x, path[0][1] - f.z) < 0.45) {
+            const ex = path[1][0] - f.x, ez = path[1][1] - f.z, ax = Math.abs(ex) > Math.abs(ez);
+            G.h.look.setAngles(yawTo(ax ? Math.sign(ex) : 0, ax ? 0 : Math.sign(ez)), 0);
+            G.key('KeyW', false); G.key('KeyC', true); R.step(0.1, fps); G.key('KeyC', false); R.step(0.6, fps); t += 0.7; continue;
+          }
           const wp = path.find((p) => Math.hypot(p[0] - f.x, p[1] - f.z) > 0.35) || to;
           G.h.look.setAngles(yawTo(wp[0] - f.x, wp[1] - f.z), 0);
           G.key('KeyW', true); R.step(0.1, fps); t += 0.1;
@@ -1111,7 +1119,9 @@ try {
       /* Team Deathmatch on Jesse's Casino: up to the top floor and down again */
       await R.modeStart('tdm', prefs('tdm', 'casino'));
       let G = R.modeGame(); park(G);
-      const N = G.map.nodes, topY = Math.max(...N.map((n) => n[2])), up = N.filter((n) => n[2] === topY)[0], down = N.filter((n) => n[2] === 0).sort((a, b) => Math.hypot(b[0] - up[0], b[1] - up[1]) - Math.hypot(a[0] - up[0], a[1] - up[1]))[0];
+      // the upper floor: the level above 2.5 m with the most places on it
+      const N = G.map.nodes, lv = new Map(); for (const n of N) if (n[2] > 2.5) lv.set(n[2], (lv.get(n[2]) || 0) + 1);
+      const topY = [...lv.entries()].sort((p, q) => q[1] - p[1])[0][0], up = N.filter((n) => n[2] === topY)[0], down = N.filter((n) => n[2] === 0).sort((a, b) => Math.hypot(b[0] - up[0], b[1] - up[1]) - Math.hypot(a[0] - up[0], a[1] - up[1]))[0];
       const start = [G.h.f.x, G.h.f.z, G.h.f.y];
       out.topY = topY; out.levels = new Set(N.map((n) => n[2])).size;
       out.climb = walk(G, up, 60, 60);
@@ -1166,34 +1176,34 @@ try {
       await R.modeStart('bomb', prefs('bomb', 'ranch', 'defend'));
       G = R.modeGame(); park(G);
       out.defender = !G.m.rules.isAttacker(G.me);
-      const door = G.map.panels.find((q) => q.kind === 'door' && q.box.minX < -23.9 && q.box.maxX > -24.1);
+      const door = G.map.panels.find((q) => q.kind === 'door' && !q.win && q.box.minX < -27.9 && q.box.maxX > -28.1);
       G.map.hurtDoor(door, 999);
       const dz0 = (door.box.minZ + door.box.maxZ) / 2;
       const push = (x, z, yaw, secs, fps) => { put(G, x, z, 0, yaw); G.key('KeyW', true); G.key('ShiftLeft', true); let far = 1e9; for (let i = 0; i < secs * 10; i++) { R.step(0.1, fps); far = Math.min(far, G.h.f.x); } G.key('KeyW', false); G.key('ShiftLeft', false); return far; };
       out.doorOpen = !door.alive;
-      out.defOut = [push(-22.5, dz0, 270, 2, 60), push(-22.5, dz0, 270, 2, 10)];
+      out.defOut = [push(-26.5, dz0, 270, 2, 60), push(-26.5, dz0, 270, 2, 10)];
       R.step(0.05, 60);
       out.warn = G.hud.banner.hidden ? '' : G.hud.banner.textContent;
       // back in the middle of the house the warning goes away
       put(G, -15, 7, 0, 0); R.step(2, 60);
       out.warnInside = G.hud.banner.hidden ? '' : G.hud.banner.textContent;
-      // a breached soft wall in the north outside wall (z = 12)
-      const softN = G.map.panels.filter((q) => q.kind === 'soft' && q.box.maxZ > 11.9 && q.box.minZ < 12.1);
+      // a breached soft wall in the west outside wall (x = -28, z 9..12) and the window (z 5..7) broken open
+      const softN = G.map.panels.filter((q) => (q.kind === 'soft' || q.win) && q.box.minX < -27.9 && q.box.maxX > -28.1);
       for (const q of softN) G.map.breakPanel(q);
-      const sx = (softN[0].box.minX + softN[0].box.maxX) / 2;
-      put(G, sx, 10.5, 0, 180); G.key('KeyW', true); G.key('ShiftLeft', true); let farZ = -1e9; for (let i = 0; i < 20; i++) { R.step(0.1, 15); farZ = Math.max(farZ, G.h.f.z); } G.key('KeyW', false); G.key('ShiftLeft', false);
-      out.softBroken = softN.length; out.defOutSoft = farZ;
+      out.defOutSoft = -1e9;
+      for (const q of softN) { const sz = (q.box.minZ + q.box.maxZ) / 2; put(G, -26.6, sz, 0, 270); G.key('KeyW', true); G.key('ShiftLeft', true); for (let i = 0; i < 20; i++) { R.step(0.1, 15); out.defOutSoft = Math.max(out.defOutSoft, -G.h.f.x); } G.key('KeyW', false); G.key('ShiftLeft', false); G.key('KeyC', true); R.step(0.6, 15); G.key('KeyC', false); R.step(0.3, 15); out.defOutSoft = Math.max(out.defOutSoft, -G.h.f.x); }
+      out.softBroken = softN.length; out.defOutSoft = -out.defOutSoft;
       // defender bots too: one sent outside comes no farther than the wall line
       const db = G.m.actors.find((a) => a !== G.me && !G.m.rules.isAttacker(a));
-      db.x = -22.5; db.z = dz0; db.y = 0; let botFar = 1e9; for (let i = 0; i < 120; i++) { G.m.moveActor(db, -5.6, 0, 1 / 60); G.m.step(); botFar = Math.min(botFar, db.x); }
+      db.x = -26.5; db.z = dz0; db.y = 0; let botFar = 1e9; for (let i = 0; i < 120; i++) { G.m.moveActor(db, -5.6, 0, 1 / 60); G.m.step(); botFar = Math.min(botFar, db.x); }
       out.botOut = botFar;
       /* the same door as an attacker: out you go */
       await R.modeStart('bomb', prefs('bomb', 'ranch', 'attack'));
       G = R.modeGame(); park(G);
       while (G.m.rules.phase === 'prep') R.step(1, 60);
-      const door2 = G.map.panels.find((q) => q.kind === 'door' && q.box.minX < -23.9 && q.box.maxX > -24.1);
+      const door2 = G.map.panels.find((q) => q.kind === 'door' && !q.win && q.box.minX < -27.9 && q.box.maxX > -28.1);
       G.map.hurtDoor(door2, 999);
-      put(G, -22.5, dz0, 0, 270); G.key('KeyW', true); R.step(2, 60); G.key('KeyW', false);
+      put(G, -26.5, dz0, 0, 270); G.key('KeyW', true); R.step(2, 60); G.key('KeyW', false);
       out.attOut = G.h.f.x; out.attWarn = G.hud.banner.hidden ? '' : G.hud.banner.textContent;
       R.battleLeave();
       /* Battle: the same stairs with the same body */
@@ -1204,7 +1214,12 @@ try {
       const A = B.arena, topB = topY, goal = up;        // the same top-floor spot as in Team Deathmatch
       let tB = 0;
       while (tB < 60 && !(Math.hypot(goal[0] - h.f.x, goal[1] - h.f.z) < 0.6 && Math.abs(h.f.y - topB) < 0.5)) {
-        const path = A.findPath(h.f.x, h.f.z, goal[0], goal[1], h.f.y, topB), wp = path.find((p) => Math.hypot(p[0] - h.f.x, p[1] - h.f.z) > 0.35) || goal;
+        const path = A.findPath(h.f.x, h.f.z, goal[0], goal[1], h.f.y, topB);
+        if (path[0] && path[0][3] === 1 && path[1] && Math.hypot(path[0][0] - h.f.x, path[0][1] - h.f.z) < 0.45) {
+          const ex = path[1][0] - h.f.x, ez = path[1][1] - h.f.z, ax = Math.abs(ex) > Math.abs(ez);
+          h.look.setAngles(yawTo(ax ? Math.sign(ex) : 0, ax ? 0 : Math.sign(ez)), 0); B.key('KeyW', false); B.key('KeyC', true); R.step(0.1, 30); B.key('KeyC', false); R.step(0.6, 30); tB += 0.7; continue;
+        }
+        const wp = path.find((p) => Math.hypot(p[0] - h.f.x, p[1] - h.f.z) > 0.35) || goal;
         h.look.setAngles(yawTo(wp[0] - h.f.x, wp[1] - h.f.z), 0); B.key('KeyW', true); R.step(0.1, 30); tB += 0.1;
       }
       B.key('KeyW', false);
@@ -1222,12 +1237,90 @@ try {
     check('and you walk back down to the ground floor at 15 FPS (' + ph.descend.t + ' s)', ph.descend.there && Math.abs(ph.descend.y) < 0.01, JSON.stringify(ph.descend));
     check('C vaults over low cover in a match mode (a ' + (ph.vault && ph.vault.h.toFixed(2)) + ' m obstacle; feet up to ' + (ph.vault && ph.vault.peak) + ' m)', !!ph.vault && ph.vault.mid && ph.vault.peak > ph.vault.h && Math.abs(ph.vault.crossed - ph.vault.want) < 0.3 && Math.abs(ph.vault.y) < 0.01 && ph.vault.sim < 0.3, JSON.stringify(ph.vault));
     check('C at a full-height wall does nothing', ph.noVaultWall);
-    check('Bomb defender: sprinting out of an opened outside door stops at the wall line, at 60 and 10 FPS (x ' + ph.defOut.map((v) => v.toFixed(2)).join(', ') + ')', ph.defender && ph.doorOpen && ph.defOut.every((x) => x >= -24.001), JSON.stringify(ph.defOut));
+    check('Bomb defender: sprinting out of an opened outside door stops at the wall line, at 60 and 10 FPS (x ' + ph.defOut.map((v) => v.toFixed(2)).join(', ') + ')', ph.defender && ph.doorOpen && ph.defOut.every((x) => x >= -28.001), JSON.stringify(ph.defOut));
     check('a quiet warning shows there ("' + ph.warn + '") and goes away inside', /inside the building/.test(ph.warn) && ph.warnInside === '', JSON.stringify([ph.warn, ph.warnInside]));
-    check('a breached outside wall does not let a defender out either (z ' + ph.defOutSoft.toFixed(2) + ')', ph.softBroken > 0 && ph.defOutSoft <= 12.001, JSON.stringify([ph.softBroken, ph.defOutSoft]));
-    check('defender bots are held at the same line (x ' + ph.botOut.toFixed(2) + ')', ph.botOut >= -24.001, String(ph.botOut));
-    check('an attacker walks out of the same door freely, with no warning (x ' + ph.attOut.toFixed(2) + ')', ph.attOut < -26 && ph.attWarn === '', JSON.stringify([ph.attOut, ph.attWarn]));
+    check('a breached outside wall or an opened window (sprinting at it, then C to vault) does not let a defender out either (x ' + ph.defOutSoft.toFixed(2) + ')', ph.softBroken > 2 && ph.defOutSoft >= -28.001, JSON.stringify([ph.softBroken, ph.defOutSoft]));
+    check('defender bots are held at the same line (x ' + ph.botOut.toFixed(2) + ')', ph.botOut >= -28.001, String(ph.botOut));
+    check('an attacker walks out of the same door freely, with no warning (x ' + ph.attOut.toFixed(2) + ')', ph.attOut < -30 && ph.attWarn === '', JSON.stringify([ph.attOut, ph.attWarn]));
     check('Battle uses the same body on the same stairs: up to the Casino top floor (' + ph.battleTop.t + ' s)', ph.sameTop && Math.abs(ph.battleTop.y - ph.battleTop.want) < 0.01, JSON.stringify(ph.battleTop));
+    check('no page errors', errors.length === 0, errors.join('\n'));
+    await page.close();
+  }
+
+  /* ---------- Bomb prep and destruction, played ---------- */
+  console.log('\nBomb: reinforcing, barricading, barbed wire, wall holes, windows (played with the keys)');
+  {
+    const { page, errors } = await openPage('index.html?test');
+    await page.waitForFunction(() => window.__range && window.__range.ready);
+    const bp = await page.evaluate(async () => {
+      const R = window.__range, out = {};
+      R.manual(true); R.setGraphics('standard');
+      const start = async (side, prep = 30) => { await R.modeStart('bomb', { map: { tdm: 'containers', ctf: 'yard', bomb: 'ranch' }, seed: 3, side, prepTime: prep, op: { tdm: 'glitch', ctf: 'dash', bomb: side === 'attack' ? 'pace' : 'kamai' }, abilities: { tdm: false, ctf: false, bomb: true } }); const G = R.modeGame(); for (const a of G.m.actors) if (a !== G.me) { a.brain = null; a.x = 36; a.z = 27 - a.id; } G.me.protectUntil = 1e9; return G; };
+      const put = (G, x, z, yaw) => { const f = G.h.f; f.x = x; f.z = z; f.y = 0; f.vx = f.vy = f.vz = 0; G.h.camY = 0; G.h.vault = null; G.me.x = x; G.me.z = z; G.me.y = 0; G.h.look.setAngles(yaw, 0); };
+      /* a defender in prep, 45 s of it this time */
+      let G = await start('defend', 45), m = G.m;
+      out.prep = +(m.rules.phaseEnd - m.t).toFixed(1); out.reinfLeft = G.me.reinf;
+      // the soft wall between the bedroom and the hallway (z = 1, x -25..-22), from the bedroom side
+      const soft = m.map.panels.find((q) => q.kind === 'soft' && q.box.minZ < 1.1 && q.box.maxZ > 0.9 && q.box.maxX <= -22.4);
+      put(G, (soft.box.minX + soft.box.maxX) / 2, 2.1, 0); R.step(0.2, 60);
+      G.key('KeyE', true); R.step(1.0, 60); out.midHold = G.me.hold && G.me.hold.type; R.step(1.8, 60); G.key('KeyE', false); R.step(0.1, 60);
+      out.reinforced = soft.kind === 'reinforced' && soft.cells.every((c) => c.alive && c.kind === 'reinforced'); out.reinfAfter = G.me.reinf;
+      // the doorway from the bedroom to the hallway (x -17..-15.6): open, then barricaded
+      const slot = m.map.panels.find((q) => q.kind === 'door' && q.slot && q.box.minZ < 1.1 && q.box.maxZ > 0.9 && q.box.minX > -17.1 && q.box.maxX < -15.5);
+      out.slotOpen = !slot.alive && m.map.walkClear(-16.3, 2.2, -16.3, -0.2, 0.3);
+      put(G, -16.3, 2.1, 0); R.step(0.2, 60);
+      G.key('KeyE', true); R.step(1.7, 60); G.key('KeyE', false); R.step(0.1, 60);
+      out.barricaded = slot.alive && !m.map.walkClear(-16.3, 2.2, -16.3, -0.2, 0.3);
+      // barbed wire (Caps Lock), laid in the open bedroom, then an attacker walks through it
+      put(G, -20, 3.5, 0); G.h.look.setAngles(0, -30); R.step(0.2, 60);
+      const n0 = m.ab.gadgets.filter((g) => g.alive && g.type === 'wire').length;
+      G.key('CapsLock', true); G.key('CapsLock', false); R.step(0.2, 60);
+      const wire = m.ab.gadgets.find((g) => g.alive && g.type === 'wire');
+      out.wireLaid = !!wire && m.ab.gadgets.filter((g) => g.alive && g.type === 'wire').length === n0 + 1; out.wireLeft = G.me.wire;
+      out.wireText = G.hud.nades.textContent;
+      while (m.rules.phase === 'prep') R.step(1, 60);
+      const at = m.actors.find((a) => m.rules.isAttacker(a)); at.alive = true; at.hp = 100; at.protectUntil = 0;
+      const step = (a, secs = 0.5) => { const x0 = a.x; for (let i = 0; i < secs * 60; i++) { m.moveActor(a, 3.4 * m.speedOf(a), 0, 1 / 60); m.step(); } return (a.x - x0) / secs; };
+      at.x = wire.x - 4; at.z = wire.z; at.y = 0; at.vx = at.vz = 0; out.freeSpeed = +step(at).toFixed(2);
+      at.x = wire.x - 1.1; at.z = wire.z; at.vx = at.vz = 0; const hp0 = at.hp; out.wireSpeed = +step(at, 1.2).toFixed(2); out.wireHurt = hp0 - at.hp;
+      // the attacker knifes it
+      at.x = wire.x - 1.3; at.z = wire.z; at.yaw = 90; at.pitch = 0; at.knifeAt = 0; m.knife(at);
+      out.wireCut = !wire.alive;
+      /* an attacker in the action phase: holes in a soft wall, a window */
+      G = await start('attack'); m = G.m;
+      while (m.rules.phase === 'prep') R.step(1, 60);
+      // the soft wall between the kitchen and the hallway (z = -3, x -6..-3) from the kitchen side
+      const sw = m.map.panels.find((q) => q.kind === 'soft' && q.box.minZ < -2.9 && q.box.maxZ > -3.1 && q.box.minX >= -6.01);
+      const cx = (sw.box.minX + sw.box.maxX) / 2;
+      put(G, cx, -5, 0); R.step(0.2, 60);
+      const shots0 = sw.cells.filter((c) => c.alive).length;
+      for (let i = 0; i < 12; i++) { G.mouse && 0; m.shoot(G.me, [cx, 1.4, -5], [0, 0, 1]); }
+      out.cellsAfterShots = [shots0, sw.cells.filter((c) => c.alive).length];
+      out.seeThrough = m.map.sight([cx, 1.4, -5], [cx, 1.4, -1]);
+      // the knife makes another hole beside it
+      put(G, cx + 0.5, -3.6, 180); G.h.look.setAngles(180, 10); R.step(0.8, 60); G.key('KeyK', true); G.key('KeyK', false); R.step(0.2, 60);
+      out.cellsAfterKnife = sw.cells.filter((c) => c.alive).length;
+      R.renderFrame();
+      // the boarded window of the bedroom (west wall, z 5..7): knife it open, then C to vault in
+      const win = m.map.panels.find((q) => q.win && q.box.minX < -27.9 && q.box.maxX > -28.1);
+      out.winBoarded = win.alive;
+      put(G, -29.1, 6, 90); R.step(0.8, 60);
+      for (let i = 0; i < 3 && win.alive; i++) { G.key('KeyK', true); G.key('KeyK', false); R.step(0.8, 60); }
+      out.winOpen = !win.alive;
+      G.key('KeyC', true); R.step(0.1, 60); out.vaulting = !!G.h.vault; R.step(0.6, 60); G.key('KeyC', false); R.step(0.3, 60);
+      out.inside = G.h.f.x > -27.6 && Math.abs(G.h.f.y) < 0.01;
+      R.battleLeave();
+      return out;
+    });
+    check('preparation time is a match option (45 s asked, ' + bp.prep + ' s given)', Math.abs(bp.prep - 45) < 0.5, String(bp.prep));
+    check('a defender holding E at a soft wall reinforces it in 2.5 s (2 a round)', bp.midHold === 'reinforce' && bp.reinforced && bp.reinfLeft === 2 && bp.reinfAfter === 1, JSON.stringify(bp));
+    check('interior doorways start open; holding E in one barricades it', bp.slotOpen && bp.barricaded, JSON.stringify(bp));
+    check('Caps Lock lays barbed wire for a Bomb defender (2 a round; the HUD says so)', bp.wireLaid && bp.wireLeft === 1 && /barbed wire/.test(bp.wireText), JSON.stringify(bp));
+    check('wire slows an attacker to under half speed and scratches (' + bp.freeSpeed + ' to ' + bp.wireSpeed + ' m/s, ' + bp.wireHurt + ' damage)', bp.wireSpeed < bp.freeSpeed * 0.5 && bp.wireHurt > 0 && bp.wireHurt < 5, JSON.stringify(bp));
+    check('a knife clears the wire', bp.wireCut);
+    check('bullets chip a soft wall into a hole you can see through (cells ' + bp.cellsAfterShots.join(' to ') + ' of 12)', bp.cellsAfterShots[1] < bp.cellsAfterShots[0] && bp.cellsAfterShots[1] >= 8 && bp.seeThrough, JSON.stringify(bp));
+    check('the knife breaks one more cell', bp.cellsAfterKnife === bp.cellsAfterShots[1] - 1, JSON.stringify(bp));
+    check('outside windows start boarded; knife it open and C vaults you in', bp.winBoarded && bp.winOpen && bp.vaulting && bp.inside, JSON.stringify(bp));
     check('no page errors', errors.length === 0, errors.join('\n'));
     await page.close();
   }

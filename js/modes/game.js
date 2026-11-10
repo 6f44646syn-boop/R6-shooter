@@ -4,17 +4,17 @@
 //
 // Map: flat-shaded low poly from the map file; static walls merged into one mesh, breakable
 // panels in one instanced mesh, one directional light (a 1024 shadow map in High / Ultra).
-import * as THREE from '../../vendor/three/three.module.min.js?v=651d04c-mwahvcb3';
-import { MatchMap } from './map.js?v=651d04c-mwahvcb3';
-import { initCore } from '../wasm/core.js?v=651d04c-mwahvcb3';
-import { Match, TICK } from './sim.js?v=651d04c-mwahvcb3';
-import { yawTo, wrap180, DEG } from './geom.js?v=651d04c-mwahvcb3';
-import { Fighter } from '../battle/fighter.js?v=651d04c-mwahvcb3';
-import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=651d04c-mwahvcb3';
-import { buildMapLook, panelTextures } from './look.js?v=651d04c-mwahvcb3';
-import { Arena } from '../battle/arena.js?v=651d04c-mwahvcb3';
-import { Human } from '../battle/human.js?v=651d04c-mwahvcb3';
-import { drawCrosshair } from '../ui/crosshair.js?v=651d04c-mwahvcb3';
+import * as THREE from '../../vendor/three/three.module.min.js?v=m4-m8-audio-1';
+import { MatchMap } from './map.js?v=m4-m8-audio-1';
+import { initCore } from '../wasm/core.js?v=m4-m8-audio-1';
+import { Match, TICK } from './sim.js?v=m4-m8-audio-1';
+import { yawTo, wrap180, DEG } from './geom.js?v=m4-m8-audio-1';
+import { Fighter } from '../battle/fighter.js?v=m4-m8-audio-1';
+import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=m4-m8-audio-1';
+import { buildMapLook, panelTextures } from './look.js?v=m4-m8-audio-1';
+import { Arena } from '../battle/arena.js?v=m4-m8-audio-1';
+import { Human } from '../battle/human.js?v=m4-m8-audio-1';
+import { drawCrosshair } from '../ui/crosshair.js?v=m4-m8-audio-1';
 
 const TEAM_COLOR = { A: 0x5b8cff, B: 0xff7048 };
 const MAX_TRACERS = 64;
@@ -55,7 +55,7 @@ export class ModeGame {
     const d = this.deps;
     this.opts = o;
     this.map = new MatchMap(mapData);
-    this.m = new Match({ map: this.map, mode: o.mode, guns: d.guns, ops, abilities, teamSize: o.teamSize, difficulty: o.difficulty, abilitiesOn: o.abilities, minutes: o.minutes, headshot: o.headshot, seed: o.seed ?? ((Math.random() * 2 ** 31) | 0), human: { op: o.op, side: o.side } });
+    this.m = new Match({ map: this.map, mode: o.mode, guns: d.guns, ops, abilities, teamSize: o.teamSize, difficulty: o.difficulty, abilitiesOn: o.abilities, minutes: o.minutes, prepTime: o.prepTime, headshot: o.headshot, seed: o.seed ?? ((Math.random() * 2 ** 31) | 0), human: { op: o.op, side: o.side } });
     this.me = this.m.human();
     this._buildScene();
     this._buildActors();
@@ -121,17 +121,19 @@ export class ModeGame {
     scene.add(this.hemi, this.sun, this.sun.target);
     // ground, floors, walls, furniture, trees (look.js)
     this.lookGroup = buildMapLook(scene, map, L);
-    // breakable panels: one instanced mesh per kind (a broken one is scaled to nothing)
+    // breakable walls, cell by cell: every wall cell has a slot in the soft mesh and in the
+    // reinforced mesh (it shows in the one matching its kind now: defenders reinforce soft
+    // walls in prep); barricades one each. A broken one is scaled to nothing.
     const tex = panelTextures(), c = new THREE.Color();
     this.panelLook = L;
     this.panelMeshes = {};
-    this.panelSlot = map.panels.map(() => null);
-    for (const kind of ['soft', 'reinforced', 'door']) {
-      const list = map.panels.filter((pn) => pn.kind === kind);
+    this.cellSlot = new Map();                 // solid index -> instance index
+    const cells = map.panels.filter((pn) => pn.kind !== 'door').flatMap((pn) => pn.cells), doors = map.panels.filter((pn) => pn.kind === 'door');
+    for (const [kind, list] of [['soft', cells], ['reinforced', cells], ['door', doors.map((pn) => pn.box)]]) {
       if (!list.length) continue;
       const im = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial({ map: tex[kind] }), list.length);
       im.castShadow = im.receiveShadow = true;
-      list.forEach((pn, k) => { this.panelSlot[pn.i] = [im, k]; im.setColorAt(k, c.setRGB(1, 1, 1)); });
+      list.forEach((b, k) => { this.cellSlot.set(b.i, k); im.setColorAt(k, c.setRGB(1, 1, 1)); });
       scene.add(im);
       this.panelMeshes[kind] = im;
     }
@@ -163,16 +165,27 @@ export class ModeGame {
     this.mapVersion = this.map.version;
     const mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3();
     const c = this._pc || (this._pc = new THREE.Color());
-    this.map.panels.forEach((pn, i) => {
-      const slot = this.panelSlot[i];
-      if (!slot) return;
-      const [im, k] = slot, b = pn.box;
-      if (pn.alive) { p.set((b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2, (b.minZ + b.maxZ) / 2); s.set(b.maxX - b.minX - 0.02, b.maxY - b.minY, b.maxZ - b.minZ); }
-      else s.set(0, 0, 0);
+    const M = this.panelMeshes, show = (im, k, b, on) => {
+      if (!im) return;
+      if (on) { p.set((b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2, (b.minZ + b.maxZ) / 2); s.set(b.maxX - b.minX - 0.004, b.maxY - b.minY - 0.004, b.maxZ - b.minZ); } else s.set(0, 0, 0);
       im.setMatrixAt(k, mtx.compose(p, q, s));
-      // doors darken as they splinter
-      if (pn.kind === 'door') im.setColorAt(k, c.setScalar(0.45 + 0.55 * Math.max(0, pn.hp) / 100));
-    });
+    };
+    for (const pn of this.map.panels) {
+      if (pn.kind === 'door') {
+        const k = this.cellSlot.get(pn.box.i);
+        show(M.door, k, pn.box, pn.alive);
+        // boards darken as they splinter
+        if (M.door) M.door.setColorAt(k, c.setScalar(0.4 + 0.6 * Math.max(0, pn.hp) / 100));
+        continue;
+      }
+      for (const cell of pn.cells) {
+        const k = this.cellSlot.get(cell.i);
+        show(M.soft, k, cell, cell.alive && cell.kind === 'soft');
+        show(M.reinforced, k, cell, cell.alive && cell.kind === 'reinforced');
+        // chipped cells look scuffed
+        if (M.soft && cell.kind === 'soft') M.soft.setColorAt(k, c.setScalar(0.7 + 0.3 * Math.max(0, cell.hp) / 120));
+      }
+    }
     for (const im of Object.values(this.panelMeshes)) { im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; }
   }
   _applyGraphics() {
@@ -347,6 +360,18 @@ export class ModeGame {
       } else if (e.type === 'door') {
         const w = this._where(e.x, e.z, e.y ?? null, 'crack', 40);
         sfx.crack(w.gain, w.route, w.muffle);
+      } else if (e.type === 'splinter' || e.type === 'debris') {
+        // chips off a wall or a barricade; a breach throws a lot of them
+        const n = e.type === 'debris' ? e.n || 20 : e.broke ? 10 : 4, col = e.kind === 'door' ? 0x6a4a2a : e.kind === 'wire' ? 0x9aa0a6 : e.kind === 'reinforced' ? 0x6b7480 : 0xd6cbb2;
+        this._debris(e.x, e.y ?? 1, e.z, n, col, t, e.type === 'debris' ? 3.5 : 2);
+        if (e.kind === 'soft' && e.broke) { const w = this._where(e.x, e.z, e.y ?? null, 'crack', 30); sfx.crack(w.gain * 0.6, w.route, w.muffle); }
+      } else if (e.type === 'wire') {
+        const w = this._where(e.x, e.z, e.y ?? null, 'knife', 16);
+        sfx.wire(w.gain * 0.5, w.route, w.muffle);
+      } else if (e.type === 'reinforce' || e.type === 'barricade') {
+        const w = this._where(e.x, e.z, e.y ?? null, 'crack', 30);
+        if (e.type === 'reinforce') sfx.reload(w.gain, w.route, w.muffle); else sfx.crack(w.gain * 0.5, w.route, w.muffle);
+        this._debris(e.x, e.y, e.z, 6, e.type === 'reinforce' ? 0x9aa4b0 : 0x6a4a2a, t, 1);
       } else if (e.type === 'knife') {
         if (e.id === me.id) { sfx.knife(1); if (this.h.rig.melee) this.h.rig.melee(); }
         else { const a = m.actors.find((x) => x.id === e.id), w = a && this._where(a.x, a.z, a.y + 1, 'knife', 15); if (w) sfx.knife(w.gain, w.route, w.muffle); }
@@ -529,6 +554,7 @@ export class ModeGame {
       if (!o) { o = this._gadgetMesh(g); this.gMeshes.set(key, o); this.markerG.add(o); }
       o.position.set(g.x, g.y || 0.05, g.z);
       if (g.type === 'drone') { o.rotation.y = -g.yaw * DEG; o.visible = !(me.ab && me.ab.drone === g); }
+      if (g.type === 'wire') o.rotation.y = -g.yaw * DEG;
       if (g.type === 'charge') { const pn = this.map.panels[g.panel]; if (pn) { const b = pn.box; o.rotation.y = (b.maxX - b.minX) > (b.maxZ - b.minZ) ? 0 : Math.PI / 2; } }
       // spin, spark, pulse; dark when zapped or jammed; the jammer's reach shows to its team and up close
       const u = o.userData, off = g.type !== 'breach' && ab.off(g);
@@ -567,6 +593,21 @@ export class ModeGame {
     this.markerG.add(mesh);
     this.fx.push({ mesh, t, r });
   }
+  // Chips: small pieces flung from (x, y, z) that fall and fade.
+  _debris(x, y, z, n, color, t, speed = 2) {
+    const grp = new THREE.Group();
+    if (!this._chipGeo) this._chipGeo = new THREE.BoxGeometry(0.05, 0.05, 0.05);
+    const matl = new THREE.MeshLambertMaterial({ color, transparent: true });
+    for (let i = 0; i < n; i++) {
+      const c = new THREE.Mesh(this._chipGeo, matl), s = 0.6 + Math.random() * 1.6;
+      c.scale.set(s, s * (0.5 + Math.random()), s);
+      c.userData.v = [(Math.random() - 0.5) * speed * 2, Math.random() * speed, (Math.random() - 0.5) * speed * 2];
+      grp.add(c);
+    }
+    grp.position.set(x, y, z); grp.userData.mat = matl;
+    if (this.fx2 && this.fx2.filter((f) => f.kind === 'debris').length > 24) { const old = this.fx2.find((f) => f.kind === 'debris'); old.t = -1e9; }
+    this._fxAdd(grp, t, 1.2, 'debris');
+  }
   _fxAdd(obj, t, dur, kind) {
     if (!this.fx2) this.fx2 = [];
     this.markerG.add(obj);
@@ -577,7 +618,11 @@ export class ModeGame {
       const k = (t - f.t) / f.dur;
       if (k >= 1) { this.markerG.remove(f.obj); f.obj.traverse((n) => { if (n.material) n.material.dispose(); if (n.geometry && f.kind === 'beam') n.geometry.dispose(); }); return false; }
       if (f.kind === 'cloud') updateCloud(f.obj, k, 1 / 60);
-      else f.obj.material.opacity = 1 - k;
+      else if (f.kind === 'debris') {
+        const dt = 1 / 60;
+        for (const c of f.obj.children) { const v = c.userData.v; v[1] -= 9.8 * dt; c.position.x += v[0] * dt; c.position.y = Math.max(-f.obj.position.y + 0.02, c.position.y + v[1] * dt); c.position.z += v[2] * dt; c.rotation.x += v[0] * dt * 6; }
+        f.obj.userData.mat.opacity = k < 0.6 ? 1 : 1 - (k - 0.6) / 0.4;
+      } else f.obj.material.opacity = 1 - k;
       return true;
     });
     if (!this.fx) return;
@@ -830,7 +875,8 @@ export class ModeGame {
     if (L.hp !== hp) { L.hp = hp; H.hpFill.style.width = hp + '%'; H.hpFill.className = hp > 60 ? '' : hp > 30 ? 'mid' : 'low'; H.hpText.textContent = String(hp); }
     const ammo = m.ab.ammoText ? m.ab.ammoText(me) || (h.weapon.reloading ? 'reloading' : h.weapon.ammo + ' / ' + h.gun.magSize) : (h.weapon.reloading ? 'reloading' : h.weapon.ammo + ' / ' + h.gun.magSize);
     if (L.ammo !== ammo) { L.ammo = ammo; H.ammo.textContent = ammo; }
-    const nt = me.alive ? '● '.repeat(me.nades || 0).trim() + (me.nades ? '' : 'no grenades') + ' · ' + (this.deps.controls?.bindingLabel('grenade') || 'G') : '';
+    const wireSlot = m.rules.name === 'Bomb' && !m.rules.isAttacker(me);       // Bomb defenders: barbed wire in the grenade slot
+    const nt = !me.alive ? '' : wireSlot ? '≋ '.repeat(me.wire || 0).trim() + (me.wire ? ' barbed wire' : 'no wire') + ' · ' + (this.deps.controls?.bindingLabel('grenade') || 'G') : '● '.repeat(me.nades || 0).trim() + (me.nades ? '' : 'no grenades') + ' · ' + (this.deps.controls?.bindingLabel('grenade') || 'G');
     if (L.nt !== nt) { L.nt = nt; H.nades.textContent = nt; }
     // a live enemy grenade (or yours) within 7 m: an arrow pointing at it
     const ln = me.alive ? m.nades.live.find((n) => Math.hypot(n.x - me.x, n.z - me.z) < 7) : null;

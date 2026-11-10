@@ -141,12 +141,23 @@ const load = (id) =>
   );
   const wood = map.data.callouts.find((c) => c.floor === 'wood');
   if (wood) {
-    const sx = (wood.x0 + wood.x1) / 2,
-      sz = (wood.z0 + wood.z1) / 2;
+    // The M4 room centre contains furniture. Select an exposed floor point,
+    // so this assertion tests floor metadata rather than the object on top.
+    let exposed = null;
+    for (let x = wood.x0 + 0.5; x < wood.x1 && !exposed; x += 1)
+      for (let z = wood.z0 + 0.5; z < wood.z1; z += 1) {
+        const t = map.world.raycast([x, 0.08, z], [0, -1, 0], 0.24);
+        if (t >= 0 && map.world.hit === -2 && map.world.free(x, z, 0.32, 0)) {
+          exposed = [x, z];
+          break;
+        }
+      }
+    assert.ok(exposed, 'authored wood room contains exposed ground');
+    const [sx, sz] = exposed;
     const floor = audio.locate(
       'step',
       { x: sx, y: 0.12, z: sz, feetY: 0 },
-      ear,
+      { ...ear, x: sx, z: sz },
       map,
       null,
       { trace: false, reach: 20 },

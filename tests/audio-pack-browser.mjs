@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { startServer } from '../tools/serve.mjs';
 const { chromium } = createRequire(import.meta.url)('playwright');
-const server = await startServer(8155);
+const server = await startServer(8355);
 const browser = await chromium.launch({
   executablePath: process.env.PLAYWRIGHT_CHROMIUM || undefined,
   args: ['--autoplay-policy=no-user-gesture-required'],
@@ -15,7 +15,7 @@ const check = (name, v) => {
 };
 try {
   const page = await browser.newPage();
-  await page.goto('http://127.0.0.1:8155/tests/unit.html');
+  await page.goto('http://127.0.0.1:8355/tests/unit.html');
   const result = await page.evaluate(async () => {
     const { Sfx } = await import('/js/audio/sfx.js?v=m8-audio-1');
     const { createAcoustics } =
@@ -55,6 +55,8 @@ try {
     const stepSources = [...s.voices][1].sources.length;
     s.shot(0.333);
     const fallbackSources = [...s.voices][2].sources.length;
+    s.wire();
+    const wireSources = [...s.voices][3].sources.length;
     const before = s.locate('shot', { x: 3, y: 1.6, z: -3 }, camera, null);
     s.removePack();
     const after = s.locate('shot', { x: 3, y: 1.6, z: -3 }, camera, null);
@@ -87,6 +89,7 @@ try {
       supports,
       stepSources,
       fallbackSources,
+      wireSources,
       liveRules: JSON.stringify(before) === JSON.stringify(after),
       left: energy(rendered.getChannelData(0)),
       right: energy(rendered.getChannelData(1)),
@@ -96,7 +99,7 @@ try {
   });
   check(
     'optional pack loads all clips only on explicit install',
-    result.loadShape.clips === 81 && result.loadShape.byteLength > 0,
+    result.loadShape.clips === 83 && result.loadShape.byteLength > 0,
   );
   check('sample bank rotates three shot variations', result.variation);
   check(
@@ -115,6 +118,7 @@ try {
     'unknown future gun tones retain procedural fallback',
     result.fallbackSources === 2,
   );
+  check('M4 wire rattle uses a cached buffer', result.wireSources === 1);
   check(
     'switching sound assets does not change acoustic rules',
     result.liveRules,

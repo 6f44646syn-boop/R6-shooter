@@ -12,7 +12,7 @@ use geom::Solid;
 use world::World;
 
 /// Bumped whenever the functions below change, so the loader can refuse a stale .wasm.
-const ABI: u32 = 3;
+const ABI: u32 = 4;
 const BUF_LEN: usize = 1 << 16;
 
 struct State {
@@ -20,7 +20,7 @@ struct State {
     buf: Vec<f64>,
     hit: i32,
     axis: i32,
-    path: Vec<[f64; 3]>,
+    path: Vec<[f64; 4]>,
 }
 
 static mut STATE: *mut State = core::ptr::null_mut();
@@ -122,6 +122,17 @@ pub extern "C" fn rc_nav_careful(id: u32, on: u32) {
     if let Some(w) = world(id) {
         w.nav.careful = on != 0;
     }
+}
+/// Off: no vault links (parity tests). Call before rc_nav_build.
+#[no_mangle]
+pub extern "C" fn rc_nav_vaults(id: u32, on: u32) {
+    if let Some(w) = world(id) {
+        w.nav.vaults = on != 0;
+    }
+}
+#[no_mangle]
+pub extern "C" fn rc_nav_vault_count(id: u32) -> u32 {
+    world(id).map_or(0, |w| w.nav_vault_count() as u32)
 }
 #[no_mangle]
 pub extern "C" fn rc_nav_count(id: u32) -> u32 {
@@ -303,22 +314,24 @@ pub extern "C" fn rc_nearest_node(id: u32, x: f64, z: f64, y: f64) -> i32 {
 pub extern "C" fn rc_clear_walk(id: u32, ax: f64, az: f64, ay: f64, bx: f64, bz: f64, by: f64) -> u32 {
     world(id).map_or(0, |w| w.clear_walk(&[ax, az, ay], &[bx, bz, by]) as u32)
 }
-/// A path from a to b: returns the number of points; (x, z, y) triples are in the buffer.
-/// zone != 0: only through the zone (rc_nav_zone).
+/// A path from a to b: returns the number of points; (x, z, y, vault) per point are in the
+/// buffer (vault 1: vault from this point to the next). flags: 1 only through the zone
+/// (rc_nav_zone), 2 standing doors are closed.
 #[no_mangle]
-pub extern "C" fn rc_path(id: u32, ax: f64, az: f64, ay: f64, bx: f64, bz: f64, by: f64, zone: u32) -> u32 {
+pub extern "C" fn rc_path(id: u32, ax: f64, az: f64, ay: f64, bx: f64, bz: f64, by: f64, flags: u32) -> u32 {
     let s = st();
     let mut out = core::mem::take(&mut s.path);
     if let Some(Some(w)) = s.worlds.get_mut(id as usize) {
-        w.find_path_in(ax, az, ay, bx, bz, by, zone != 0, &mut out);
+        w.find_path_in(ax, az, ay, bx, bz, by, flags, &mut out);
     } else {
         out.clear();
     }
-    let n = out.len().min(BUF_LEN / 3);
+    let n = out.len().min(BUF_LEN / 4);
     for k in 0..n {
-        s.buf[k * 3] = out[k][0];
-        s.buf[k * 3 + 1] = out[k][1];
-        s.buf[k * 3 + 2] = out[k][2];
+        s.buf[k * 4] = out[k][0];
+        s.buf[k * 4 + 1] = out[k][1];
+        s.buf[k * 4 + 2] = out[k][2];
+        s.buf[k * 4 + 3] = out[k][3];
     }
     s.path = out;
     n as u32

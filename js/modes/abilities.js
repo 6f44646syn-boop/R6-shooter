@@ -21,7 +21,7 @@
 //   Onyx   Charge Dash    hold Q 0.6 s, then dash 6 m: through soft walls, the first enemy hit
 //                         is stunned and knocked back for 1.5 s. 2 charges, 12 s each.
 // Gadgets die to one bullet. Bots use abilities too (see botThink).
-import { raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=651d04c-mwahvcb3';
+import { raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=m4-m8-audio-1';
 
 export const DRONE_R = 0.15;           // a drone's collision radius
 export class Abilities {
@@ -51,6 +51,70 @@ export class Abilities {
     g.alive = false;
     if (g.type === 'drone') { const o = this.m.actors.find((a) => a.id === g.owner); if (o && o.ab) { o.ab.drone = null; o.ab.busy = false; } }
     this.m.emit({ type: 'gadgetDown', id: g.id, by: by ? by.id : 0 });
+  }
+  // Bullets and blades on a gadget: barbed wire takes a few, the rest go at once.
+  hurtGadget(g, by = null) {
+    if (g.type === 'wire' && --g.hp > 0) { this.m.emit({ type: 'splinter', x: g.x, y: g.y, z: g.z, kind: 'wire' }); return; }
+    this.destroy(g, by);
+  }
+
+  /* ---------- barbed wire (Bomb defenders, in place of grenades) ---------- */
+  // A 2 m roll laid on the floor in front, across the way you face (Caps Lock / G).
+  placeWire(a) {
+    const m = this.m;
+    if (!a.alive || m.over || (a.wire || 0) <= 0 || (a.ab && a.ab.busy) || m.rules.frozen(a)) return null;
+    const p = this.aimPoint(a, 2.5);
+    let x = p.x, z = p.z, y = p.y - 0.05;
+    if (p.wall || Math.hypot(x - a.x, z - a.z) < 0.8) { x = a.x + Math.sin(a.yaw * DEG) * 1.3; z = a.z - Math.cos(a.yaw * DEG) * 1.3; const q = { x, y: a.y, z }; m.map.resolve(q, 0.3); x = q.x; z = q.z; y = m.map.groundAt(x, z, a.y); }
+    if (Math.abs(y - a.y) > 0.6) return null;
+    const k = m.rules.keepIn(a, x, z);
+    if (k && k[2]) return null;                      // not outside the building
+    a.wire--;
+    if (m.t < a.protectUntil) a.protectUntil = m.t;
+    m.noise(a, 8, 'wire');
+    return this.add({ type: 'wire', team: a.team, owner: a.id, x, y: y + 0.25, z, floor: y, yaw: a.yaw, r: 0.5, hp: 3 });
+  }
+  // Is (x, z) at floor height y inside wire g? (2.5 m along, 1.2 m across with a body's reach)
+  inWire(g, x, z, y) {
+    if (Math.abs(y - g.floor) > 0.5) return false;
+    const yr = g.yaw * DEG, fx = Math.sin(yr), fz = -Math.cos(yr), dx = x - g.x, dz = z - g.z;
+    return Math.abs(dx * fz * -1 + dz * fx) < 1.25 && Math.abs(dx * fx + dz * fz) < 0.6;
+  }
+  // The enemy wire a body is in right now, or null.
+  wireAt(a) { for (const g of this.gadgets) if (g.alive && g.type === 'wire' && g.team !== a.team && this.inWire(g, a.x, a.z, a.y)) return g; return null; }
+  // An enemy wire within reach in front of a (a knife clears it), or null.
+  wireInFront(a, reach = 1.9) {
+    const yr = a.yaw * DEG, fx = Math.sin(yr), fz = -Math.cos(yr);
+    for (const g of this.gadgets) {
+      if (!g.alive || g.type !== 'wire' || g.team === a.team || Math.abs(g.floor - a.y) > 0.6) continue;
+      for (let s = 0.3; s <= reach; s += 0.3) if (this.inWire(g, a.x + fx * s, a.z + fz * s, a.y)) return g;
+    }
+    return null;
+  }
+  // The enemy wire on the way from a to (bx, bz), or null.
+  wireOn(a, bx, bz) {
+    const L = Math.hypot(bx - a.x, bz - a.z);
+    for (const g of this.gadgets) {
+      if (!g.alive || g.type !== 'wire' || g.team === a.team || Math.abs(g.floor - a.y) > 0.6) continue;
+      for (let s = 0; s <= Math.min(L, 3); s += 0.25) if (this.inWire(g, a.x + (bx - a.x) / L * s, a.z + (bz - a.z) / L * s, a.y)) return { g, d: s };
+    }
+    return null;
+  }
+  // Every step: wire slows and scratches whoever moves through it, and rattles.
+  _wires(dt) {
+    const m = this.m, t = m.t;
+    for (const g of this.gadgets) {
+      if (!g.alive || g.type !== 'wire') continue;
+      for (const e of m.actors) {
+        if (!e.alive || e.team === g.team || !this.inWire(g, e.x, e.z, e.y)) continue;
+        e.wireAt = t;
+        if (e.speed > 0.4) {
+          e.wireCut = (e.wireCut || 0) + 2 * dt;       // 2 health a second while moving through
+          if (e.wireCut >= 1) { e.wireCut -= 1; m.hit(e, 1, m.actors.find((q) => q.id === g.owner), 'limbs', 'wire'); }
+          if (t - (e.wireNoise || -9) > 0.35) { e.wireNoise = t; m.noise(e, 14, 'wire'); m.emit({ type: 'wire', id: e.id, x: e.x, z: e.z }); }
+        }
+      }
+    }
   }
   // An enemy jammer covers this spot?
   // (y: the height of what is asked about; jammers reach in every direction, floors included)
@@ -100,6 +164,8 @@ export class Abilities {
   roll(g, dx, dz, dt) {
     const p = this._dp || (this._dp = { x: 0, y: 0, z: 0, vy: 0 });
     p.x = g.x; p.y = g.fy || 0; p.z = g.z; p.vy = g.vy || 0;
+    // barbed wire snags the wheels
+    if (this.gadgets.some((w) => w.alive && w.type === 'wire' && w.team !== g.team && this.inWire(w, g.x, g.z, p.y))) { dx *= 0.6; dz *= 0.6; }
     this.m.map.stepBody(p, dx, dz, dt, DRONE_R, true);
     g.x = p.x; g.z = p.z; g.fy = p.y; g.vy = p.vy; g.y = p.y + 0.15;
   }
@@ -224,6 +290,8 @@ export class Abilities {
     const m = this.m, pn = m.map.panels[g.panel], c = this.cfg.wall_charge || {};
     m.map.breakPanel(pn);
     for (const e of m.actors) if (e.alive && Math.hypot(e.x - g.x, e.z - g.z, e.y + 1 - g.y) < (c.radius || 2)) m.hit(e, c.damage || 30, a, 'torso', 'ability');
+    for (const w of this.gadgets) if (w.alive && w.type === 'wire' && Math.hypot(w.x - g.x, w.z - g.z) < 3) this.destroy(w, a);
+    if (pn) { const b = pn.box; m.emit({ type: 'debris', x: (b.minX + b.maxX) / 2, y: (b.minY + b.maxY) / 2, z: (b.minZ + b.maxZ) / 2, kind: pn.kind, n: 24 }); }
     this.destroy(g);
     m.noise(a, 35, 'blast');
     m.emit({ type: 'boom', x: g.x, z: g.z, small: true });
@@ -275,6 +343,7 @@ export class Abilities {
     const m = this.m, t = m.t;
     // drones: flat battery, and the plain prep drones stop when the action phase starts
     for (const g of this.gadgets) if (g.alive && g.type === 'drone' && (t >= g.end || (g.basic && m.rules.phase !== 'prep'))) this.destroy(g);
+    this._wires(dt);
     if (!this.on) { this.gadgets = this.gadgets.filter((g) => g.alive); return; }
     // projectiles (Kamai's catchers take them first)
     for (const p of this.projectiles) {

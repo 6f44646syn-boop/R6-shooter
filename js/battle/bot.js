@@ -7,9 +7,9 @@
 //
 // Levels: Easy, Medium, Hard and Terminator (near-instant, precise, leads moving targets,
 // hears everything, always pushes on a callout).
-import { Weapon } from '../core/weapon.js?v=651d04c-mwahvcb3';
-import { RecoilEngine } from '../core/recoil.js?v=651d04c-mwahvcb3';
-import { mulberry32 } from '../core/prng.js?v=651d04c-mwahvcb3';
+import { Weapon } from '../core/weapon.js?v=m4-m8-audio-1';
+import { RecoilEngine } from '../core/recoil.js?v=m4-m8-audio-1';
+import { mulberry32 } from '../core/prng.js?v=m4-m8-audio-1';
 
 // Per level: reaction (s), aim error sd (deg), turn rate when not fighting (deg/s), recoil
 // control (0..1), burst [min, max] shots, pause between bursts (s), head aim chance, strafes,
@@ -69,7 +69,7 @@ export class Bot {
   }
 
   respawned() {
-    this.target = null; this.seenAt = -1; this.path = []; this.goal = null; this.mode = 'roam';
+    this.target = null; this.seenAt = -1; this.path = []; this.goal = null; this.mode = 'roam'; this.vault = null;
     this.heard = null; this.calledTarget = null; this.flank = 0; this.lastSeen = null;
     this.ay = this.f.yaw; this.ap = 0; this.mv = null; this.adsE = 0; this.f.ads = 0; this.f.viewDY = this.f.viewDP = 0;
     this.weapon.setGun(this.gun);
@@ -214,8 +214,14 @@ export class Bot {
       }
       const wp = this.path[0];
       if (wp) {
-        const dx = wp[0] - f.x, dz = wp[1] - f.z, d = Math.hypot(dx, dz);
-        if (d < 0.35) { this.path.shift(); if (!this.path.length) this.nextPath = Math.min(this.nextPath, t + 0.2); }
+        const dx = wp[0] - f.x, dz = wp[1] - f.z, d = Math.hypot(dx, dz), vto = wp[3] === 1 && this.path.length > 1 ? this.path[1] : null;
+        if (vto && d < 0.25) {
+          // a vault (low cover, a rail) from here toward the next point
+          const ex = vto[0] - f.x, ez = vto[1] - f.z, ax = Math.abs(ex) > Math.abs(ez);
+          const v = arena.vaultTarget(f.x, f.y, f.z, ax ? Math.sign(ex) : 0, ax ? 0 : Math.sign(ez));
+          this.path.shift();
+          if (v) { this.vault = { t: 0, dur: 0.32 + 0.12 * Math.max(0, v.top - f.y), from: [f.x, f.y, f.z], to: [v.x, v.y, v.z], peak: Math.max(v.top, f.y, v.y) + 0.22 }; battle._noise(f, 'vault', 10, t); }
+        } else if (!vto && d < (this.path[1] && Math.abs(this.path[1][2] - wp[2]) > 0.2 ? 0.15 : 0.35)) { this.path.shift(); if (!this.path.length) this.nextPath = Math.min(this.nextPath, t + 0.2); }
         else { mx = dx / d; mz = dz / d; }
       } else if (this.mode === 'retreat') { this.mode = 'hold'; this.holdUntil = t + this._r(1.5, 3); }
       if (this.mode === 'hold') { mx = mz = 0; }
@@ -224,6 +230,16 @@ export class Bot {
     const k = 1 - Math.exp(-10 * dt);
     const sp = (this.crouchWanted ? Math.min(speed, 1.5) : speed) * (1 - 0.35 * this.adsE);
     f.vx += (mx * sp - f.vx) * k; f.vz += (mz * sp - f.vz) * k;
+    // a vault in progress: up and over, nothing else moves the body
+    if (this.vault) {
+      const v = this.vault, e = (x) => x * x * (3 - 2 * x);
+      v.t += dt;
+      const q = Math.min(1, v.t / v.dur);
+      f.x = v.from[0] + (v.to[0] - v.from[0]) * e(q); f.z = v.from[2] + (v.to[2] - v.from[2]) * e(q);
+      f.y = q < 0.45 ? v.from[1] + (v.peak - v.from[1]) * e(q / 0.45) : v.peak + (v.to[1] - v.peak) * e((q - 0.45) / 0.55);
+      f.vx = f.vz = f.vy = 0;
+      if (q >= 1) { this.vault = null; f.y = v.to[1]; }
+    } else {
     // The core moves the body (never through a thin wall on a long frame, up stairs, falling).
     const p = this._body || (this._body = { x: 0, y: 0, z: 0, vy: 0 });
     p.x = f.x; p.y = f.y; p.z = f.z; p.vy = f.vy || 0;
@@ -232,6 +248,7 @@ export class Bot {
     // Never walk into acid (strafing included).
     if (!arena.hazards.length || arena.hazardAt(p.x, p.y, p.z) === 0 || arena.hazardAt(f.x, f.y, f.z) > 0) { f.x = p.x; f.y = p.y; f.z = p.z; f.vy = p.vy; }
     else { f.vx = f.vz = 0; this.strafeDir = -this.strafeDir; }
+    }
     f.crouch += ((this.crouchWanted ? 1 : 0) - f.crouch) * (1 - Math.exp(-12 * dt));
 
     /* aim */

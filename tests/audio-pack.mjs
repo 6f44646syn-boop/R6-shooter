@@ -14,8 +14,8 @@ const check = (name, condition) => {
   console.log('PASS ' + name);
 };
 check(
-  'download pack has 81 mono 48 kHz clips',
-  m.clips.length === 81 && m.channels === 1 && m.sampleRate === 48000,
+  'download pack has 83 mono 48 kHz clips',
+  m.clips.length === 83 && m.channels === 1 && m.sampleRate === 48000,
 );
 const source = createHash('sha256');
 for (const p of ['js/audio/sfx.js', 'rust/m8_audio/src/lib.rs'])
@@ -45,6 +45,10 @@ check(
     'stone',
     'tile',
   ].every((k) => m.clips.filter((c) => c.key === 'step:' + k).length === 3),
+);
+check(
+  'M4 barbed-wire bank is included',
+  m.clips.filter((c) => c.key === 'wire').length === 2,
 );
 const samples = (c) =>
   parsed.bytes.subarray(

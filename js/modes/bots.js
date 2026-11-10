@@ -8,8 +8,8 @@
 // Navigation: the core's A* over every level of the map (floors, stairs, ramps), smoothed,
 // with a stuck watchdog (no progress for 3 s: re-path; still stuck: step to the nearest
 // open spot).
-import { SKILL, EYE, NOISE } from './sim.js?v=651d04c-mwahvcb3';
-import { dirFrom, yawTo, wrap180, DEG } from './geom.js?v=651d04c-mwahvcb3';
+import { SKILL, EYE, NOISE } from './sim.js?v=m4-m8-audio-1';
+import { dirFrom, yawTo, wrap180, DEG } from './geom.js?v=m4-m8-audio-1';
 
 const VIEW = 55, RANGE = 45;
 
@@ -26,7 +26,7 @@ export class Brain {
     this.burst = 0; this.pauseUntil = 0; this.strafe = 0; this.nextStrafe = 0; this.head = false;
     this.attacker = null; this.attackedAt = -10; this.heard = null;
     this.progT = this.m.t; this.progD = Infinity; this.stuckStage = 0;
-    this.holding = false; this.wantCrouch = false; this.patrol = null; this.role = null; this.doorFace = null;
+    this.holding = false; this.wantCrouch = false; this.patrol = null; this.role = null; this.doorFace = null; this.vaultMiss = 0;
   }
   // dread: run for cover for a moment
   panic(until) { this.panicUntil = until; this.commitUntil = 0; this.goalKey = ''; }
@@ -189,16 +189,28 @@ export class Brain {
         wx = Math.cos(y) * this.strafe; wz = Math.sin(y) * this.strafe; speed = 2.6;
       } else if (this.path.length && !this.holding) {
         const wp = this.path[0], dx = wp[0] - a.x, dz = wp[1] - a.z, d = Math.hypot(dx, dz);
-        // a boarded door on the way: walk up to it and knife it open
-        const door = d > 0.3 ? m.map.doorOn(a.x, a.z, wp[0], wp[1], 0.2, a.y) : null;
+        // a vault (a sill, a rail, low cover): from the marked point toward the next one
+        const vto = wp[3] === 1 && this.path.length > 1 ? this.path[1] : null;
+        // a barricade on the way (or across the window to vault): walk up to it and knife it
+        const door = d > 0.3 || vto ? m.map.doorOn(a.x, a.z, vto && d < 0.4 ? vto[0] : wp[0], vto && d < 0.4 ? vto[1] : wp[1], 0.2, a.y) : null;
         const db = door && door.box, ddx = db ? (db.minX + db.maxX) / 2 - a.x : 0, ddz = db ? (db.minZ + db.maxZ) / 2 - a.z : 0;
+        // barbed wire on the way: knife it rather than crawl through
+        const wire = !door && d > 0.2 ? m.ab.wireOn(a, wp[0], wp[1]) : null;
         if (door && Math.hypot(ddx, ddz) < 1.25) {
           this.doorFace = [a.x + ddx, a.z + ddz]; this.progT = t;
           if (t >= (a.knifeAt || 0)) { a.yaw = yawTo(ddx, ddz); this.aimYaw = a.yaw; m.knife(a); }
-        } else if (d < (this.path.length === 1 ? 1.0 : 0.5)) { this.path.shift(); this.progD = Infinity; }
+        } else if (wire && wire.d < 1.4 && !m.rules.frozen(a)) {
+          this.progT = t;
+          if (t >= (a.knifeAt || 0)) { a.yaw = yawTo(dx, dz); this.aimYaw = a.yaw; m.knife(a); }
+        } else if (vto && d < 0.45 && (() => { const ex = vto[0] - a.x, ez = vto[1] - a.z, ax = Math.abs(ex) > Math.abs(ez); return m.vault(a, ax ? Math.sign(ex) : 0, ax ? 0 : Math.sign(ez)); })()) {
+          this.path.shift(); this.progD = Infinity; this.progT = t; this.vaultMiss = 0;
+        } else if (vto && d < 0.12) {
+          if (++this.vaultMiss > 20) { this.vaultMiss = 0; this.path.shift(); }     // nothing to vault there now: walk on
+        } else if (!vto && d < (this.path.length === 1 ? 1.0 : this.path[1] && Math.abs(this.path[1][2] - wp[2]) > 0.2 ? 0.15 : 0.5)) { this.path.shift(); this.progD = Infinity; }     // (exactly onto the foot of stairs)
         else {
           this.doorFace = null;
           wx = dx / d; wz = dz / d;
+          if (vto) { wx *= Math.min(1, d * 2.5); wz *= Math.min(1, d * 2.5); }     // ease onto the vault point
           speed = (this.state === 'route' && !tgt) || this.push ? 5.2 : this.state === 'cover' || this.state === 'reload' ? 4.6 : 4.2;
           // stuck watchdog
           if (d < this.progD - 0.3) { this.progD = d; this.progT = t; }

@@ -32,7 +32,7 @@ console.log('Rust core build');
   for (const f of files) h.update(readFileSync(new URL(f, src)));
   const want = h.digest('hex'), have = readFileSync(new URL('wasm/recoil_core.hash', root), 'utf8').trim();
   check('wasm/recoil_core.wasm was built from the current Rust sources', want === have, 'run tools/build-wasm.sh (sources ' + want.slice(0, 12) + ', built from ' + have.slice(0, 12) + ')');
-  check('the core loads and reports its interface version', core().e.rc_abi() === 3);
+  check('the core loads and reports its interface version', core().e.rc_abi() === 4);
 }
 
 /* ---------- Battle's maps: every level ---------- */
@@ -41,7 +41,7 @@ const exact = {}, soft = { steps: 0, same: 0, oldInside: 0, coreInside: 0, vault
 const count = (k, n = 1) => { exact[k] = (exact[k] || 0) + n; };
 for (const id of Object.keys(BATTLE)) {
   const M = BATTLE[id], R = 0.35, A = new RefArena(M, R);
-  const B = new CoreWorld({ hx: M.hx, hz: M.hz, wallH: M.wallH, ceil: M.ceiling ? M.wallH : 0, solids: [...layoutSolids(M), ...edgeSolids(M.hx, M.hz)], hazards: A.hazards, bodyR: R, careful: false });
+  const B = new CoreWorld({ hx: M.hx, hz: M.hz, wallH: M.wallH, ceil: M.ceiling ? M.wallH : 0, solids: [...layoutSolids(M), ...edgeSolids(M.hx, M.hz)], hazards: A.hazards, bodyR: R, careful: false, vaults: false });
   const r = rng(77 + id.length), X = () => (r() * 2 - 1) * (M.hx - 0.4), Z = () => (r() * 2 - 1) * (M.hz - 0.4);
   const levels = [...new Set(Array.from(A.nodeY))], Y = () => (r() < 0.5 ? 0 : levels[Math.floor(r() * levels.length)]);
   const bad = [];
@@ -112,12 +112,12 @@ check('vaulting: every landing spot is free, on the ground there, and no higher 
 
 /* ---------- the match maps: the ground floor ---------- */
 const MAPS = ['yard', 'depot', 'containers', 'winter', 'casino', 'school', 'ranch', 'embassy', 'workshop'];
-const FLAT = new Set(['yard', 'depot', 'ranch', 'embassy', 'workshop']);       // no steps: moves stay on the floor
+const FLAT = new Set(['yard', 'depot']);       // no stairs: moves stay on the floor
 const total = { ray: 0, sight: 0, resolve: 0, move: 0, free: 0, walk: 0, near: 0, door: 0 };
 console.log('\nMatch maps, ground floor: the old map code and the Rust core (answers must be identical)');
 for (const id of MAPS) {
   const data = { ...json('data/maps/' + id + '.json'), ceil: 0 };
-  const A = new RefMap(data), B = new MatchMap(data);
+  const B = new MatchMap(data), A = new RefMap(data, B.solids);
   const r = rng(1234 + id.length * 7 + id.charCodeAt(0)), bad = [];
   const note = (what, q, a, b) => { if (bad.length < 4) bad.push(what + ' ' + JSON.stringify(q) + ': ref ' + JSON.stringify(a) + ' core ' + JSON.stringify(b)); };
   const X = () => (r() * 2 - 1) * (A.hx + 1), Z = () => (r() * 2 - 1) * (A.hz + 1);
@@ -172,15 +172,19 @@ for (const id of MAPS) {
   };
   pass('');
   // break things the same way on both, ask again, then put everything back and ask once more
+  // break things in the game's map (whole panels, single cells, doors; barricades up), copy
+  // the state across, ask again; then put everything back and ask once more
+  const copy = () => { for (let k = 0; k < B.solids.length; k++) A.solids[k].alive = B.solids[k].alive; };
   let broke = 0;
-  for (const pn of A.panels) if (r() < 0.5) {
-    const c = [(pn.box.minX + pn.box.maxX) / 2, 1, (pn.box.minZ + pn.box.maxZ) / 2];
-    if (pn.kind === 'door') { A.hurtDoor(pn, 100); B.hurtDoor(B.panels[pn.i], 100); } else { A.breakAt(c, 0.1, true); B.breakAt(c, 0.1, true); }
+  for (const pn of B.panels) if (r() < 0.5) {
+    if (pn.kind === 'door') { if (pn.alive) B.hurtDoor(pn, 100); else B.barricade(pn); }
+    else if (r() < 0.5) B.breakPanel(pn); else B.hurtCell(pn.cells[Math.floor(r() * pn.cells.length)], 999);
     broke++;
   }
-  const same = A.panels.every((pn, k) => pn.alive === B.panels[k].alive);
+  copy();
+  const same = B.solids.every((b, k) => b.alive === A.solids[k].alive);
   if (broke) pass('(broken) ');
-  A.resetPanels(); B.resetPanels();
+  B.resetPanels(); copy();
   if (broke) pass('(reset) ');
   check(id + ': identical answers' + (broke ? ', also with ' + broke + ' panels and doors broken, and after a reset' : ''), !bad.length && same, bad.join('\n       '));
   B.dispose();

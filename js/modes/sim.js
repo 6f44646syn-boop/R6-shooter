@@ -7,13 +7,13 @@
 //
 // Body for hits (actor frame, standing; crouching squashes y to 0.7): head sphere at 1.62 m
 // (r 0.13), torso capsule 0.95-1.34 m (r 0.24), legs capsule 0.1-0.9 m (r 0.19).
-import { mulberry32 } from '../core/prng.js?v=651d04c-mwahvcb3';
-import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=651d04c-mwahvcb3';
-import { BODY_R } from './map.js?v=651d04c-mwahvcb3';
-import { Brain } from './bots.js?v=651d04c-mwahvcb3';
-import { makeRules } from './rules.js?v=651d04c-mwahvcb3';
-import { Nades } from './nades.js?v=651d04c-mwahvcb3';
-import { Abilities } from './abilities.js?v=651d04c-mwahvcb3';
+import { mulberry32 } from '../core/prng.js?v=m4-m8-audio-1';
+import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=m4-m8-audio-1';
+import { BODY_R } from './map.js?v=m4-m8-audio-1';
+import { Brain } from './bots.js?v=m4-m8-audio-1';
+import { makeRules } from './rules.js?v=m4-m8-audio-1';
+import { Nades } from './nades.js?v=m4-m8-audio-1';
+import { Abilities } from './abilities.js?v=m4-m8-audio-1';
 
 export const TICK = 1 / 60;
 export const EYE = 1.6, CROUCH_EYE = 1.1;
@@ -159,7 +159,7 @@ export class Match {
     // not off the edge of a platform, and not into a gap too narrow to walk out of
     if (Math.abs(p.y - y0) > 0.5 || !this.map.standable(p.x, p.z, p.y)) { p.x = best[0]; p.z = best[1]; p.y = this.map.groundAt(p.x, p.z, y0); }
     Object.assign(a, { x: p.x, z: p.z, y: p.y, vx: 0, vy: 0, vz: 0, onGround: true, yaw: best[2] || 0, pitch: 0, crouch: 0, hp: 100, alive: true, protectUntil: this.t + protect, lastHurt: -10,
-      ammo: a.gun.magSize, reloadUntil: 0, nextShot: 0, stunUntil: 0, slowUntil: 0, shakeUntil: 0, wobbleUntil: 0, carry: null, hold: null, stuckFor: 0, _sx: p.x, _sz: p.z, _st: this.t });
+      ammo: a.gun.magSize, reloadUntil: 0, nextShot: 0, stunUntil: 0, slowUntil: 0, shakeUntil: 0, wobbleUntil: 0, carry: null, hold: null, vaulting: null, wireAt: -9, stuckFor: 0, _sx: p.x, _sz: p.z, _st: this.t });
     this.nades.refill(a);
     if (a.brain) a.brain.spawned();
     this.emit({ type: 'spawn', id: a.id });
@@ -201,14 +201,16 @@ export class Match {
       const r = this.rayActor(o, d, e, best);
       if (r && r.t < best) { best = r.t; hit = r; }
     }
-    // gadgets die to one hit
+    // gadgets die to one hit (barbed wire takes a few)
     const g = this.ab.rayGadgets(o, d, best, a);
-    if (g) { best = g.t; hit = null; this.ab.destroy(g.g, a); }
+    if (g) { best = g.t; hit = null; this.ab.hurtGadget(g.g, a); }
     const end = [o[0] + d[0] * best, o[1] + d[1] * best, o[2] + d[2] * best];
     this.emit({ type: 'shot', id: a.id, from: o.slice(), to: end, team: a.team, kind, wall: !hit && !g && w && w.box && !w.box.ground ? 1 : 0 });
     if (hit && damage > 0) this.hit(hit.actor, damage, a, hit.zone, kind);
     // bullets splinter doors: a few shots break one
-    if (!hit && !g && w && w.box && w.box.kind === 'door' && damage > 0) this.doorHit(this.map.panels[w.box.panel], 22, a);
+    if (!hit && !g && w && w.box && w.box.kind === 'door' && damage > 0) this.doorHit(this.map.panels[w.box.panel], 22, a, end);
+    // and chip soft walls: a few shots open a hole the size of a hand span
+    if (!hit && !g && w && w.box && w.box.kind === 'soft' && damage > 0) this.cellHit(w.box, damage * 0.4, a, end);
     return { t: best, actor: hit ? hit.actor : null, zone: hit ? hit.zone : null, box: !hit && w ? w.box : null, end };
   }
   rayActor(o, d, e, maxT = Infinity) {
@@ -222,7 +224,16 @@ export class Match {
     if (tl < t) { t = tl; zone = 'limbs'; }
     return t < maxT ? { t, zone, actor: e } : null;
   }
-  doorHit(pn, dmg, a) {
+  // A soft-wall cell hit (bullets, a knife): splinters, and a hole when it breaks.
+  cellHit(cell, dmg, a, at) {
+    if (cell.kind !== 'soft' || !cell.alive) return;
+    const broke = this.map.hurtCell(cell, dmg);
+    const c = at || [(cell.minX + cell.maxX) / 2, (cell.minY + cell.maxY) / 2, (cell.minZ + cell.maxZ) / 2];
+    this.emit({ type: 'splinter', x: c[0], y: c[1], z: c[2], kind: 'soft', broke });
+    if (broke) this.noises.push({ x: c[0], z: c[2], y: c[1], t: this.t, range: 12, kind: 'wall', team: a ? a.team : '', id: a ? a.id : 0 });
+  }
+  doorHit(pn, dmg, a, at = null) {
+    if (pn && pn.alive) { const b = pn.box, c = at || [(b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2, (b.minZ + b.maxZ) / 2]; this.emit({ type: 'splinter', x: c[0], y: c[1], z: c[2], kind: 'door' }); }
     if (this.map.hurtDoor(pn, dmg)) {
       const b = pn.box, x = (b.minX + b.maxX) / 2, z = (b.minZ + b.maxZ) / 2;
       this.noises.push({ x, z, t: this.t, range: NOISE.door, kind: 'door', team: a ? a.team : '', id: a ? a.id : 0 });
@@ -254,6 +265,9 @@ export class Match {
     const o = this.eye(a), d = dirFrom(a.yaw, Math.max(-35, Math.min(20, a.pitch)));
     const w = this.map.raycast(o, d, KNIFE.range + 0.2);
     if (w && w.box && w.box.kind === 'door') { this.doorHit(this.map.panels[w.box.panel], KNIFE.door, a); return 'door'; }
+    if (w && w.box && w.box.kind === 'soft') { this.cellHit(w.box, 999, a); return 'wall'; }
+    const wire = this.ab.wireInFront(a, KNIFE.range + 0.2);
+    if (wire) { this.ab.destroy(wire, a); return 'gadget'; }
     const g = this.ab.rayGadgets(o, d, KNIFE.range, a);
     if (g) { this.ab.destroy(g.g, a); return 'gadget'; }
     return '';
@@ -315,9 +329,31 @@ export class Match {
     }
     this.rules.check();
   }
+  // Vault or climb (as C does for you): over low cover or onto a ledge in direction (dx, dz).
+  // A Bomb defender never vaults out of the building. Returns true if it started.
+  vault(a, dx, dz) {
+    if (a.vaulting || !a.alive) return false;
+    const v = this.map.vaultTarget(a.x, a.y, a.z, dx, dz);
+    if (!v) return false;
+    const k = this.rules.keepIn(a, v.x, v.z);
+    if (k && k[2]) return false;
+    a.vaulting = { t: 0, dur: 0.32 + 0.12 * Math.max(0, v.top - a.y), from: [a.x, a.y, a.z], to: [v.x, v.y, v.z], peak: Math.max(v.top, a.y, v.y) + 0.22 };
+    this.noise(a, 10, 'vault');
+    return true;
+  }
   // Move a bot's body: wish velocity (vx, vz) in m/s. The core moves it with collision, up
   // stairs and ramps, and lets it fall off ledges.
   moveActor(a, wx, wz, dt) {
+    if (a.vaulting) {
+      const v = a.vaulting, e = (x) => x * x * (3 - 2 * x);
+      v.t += dt;
+      const p = Math.min(1, v.t / v.dur);
+      a.x = v.from[0] + (v.to[0] - v.from[0]) * e(p); a.z = v.from[2] + (v.to[2] - v.from[2]) * e(p);
+      a.y = p < 0.45 ? v.from[1] + (v.peak - v.from[1]) * e(p / 0.45) : v.peak + (v.to[1] - v.peak) * e((p - 0.45) / 0.55);
+      a.speed = 3; a.vy = 0;
+      if (p >= 1) { a.vaulting = null; a.y = v.to[1]; }
+      return;
+    }
     const k = 1 - Math.exp(-12 * dt);
     a.vx += (wx - a.vx) * k; a.vz += (wz - a.vz) * k;
     const p = this._body || (this._body = { x: 0, y: 0, z: 0, vy: 0 });
@@ -343,6 +379,7 @@ export class Match {
     let s = a.gun.speed;
     if (this.t < a.slowUntil) s *= 1 - (this.ab.cfg.jolt_mines ? this.ab.cfg.jolt_mines.slow : 0.4);
     if (a.carry && a.carry.type === 'flag') s *= 0.9;
+    if (this.t - (a.wireAt ?? -9) < 0.1) s *= 0.4;                 // in barbed wire
     if (this.t < a.stunUntil) s = 0;
     return s;
   }

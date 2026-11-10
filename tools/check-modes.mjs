@@ -152,7 +152,7 @@ console.log('\nDoors and the knife');
   const [a, b] = [m.actors.find((x) => x.team === 'A'), m.actors.find((x) => x.team === 'B')];
   for (const x of m.actors) if (x !== a && x !== b) { x.x = 30; x.z = 20 + x.id; }
   a.protectUntil = b.protectUntil = 0;
-  const door = m.map.panels.find((p) => p.kind === 'door');
+  const door = m.map.panels.find((p) => p.kind === 'door' && !p.slot && !p.win && p.alongX);
   const db = door.box, cx = (db.minX + db.maxX) / 2, cz = (db.minZ + db.maxZ) / 2;
   check('a whole door blocks walking through it', !m.map.walkClear(cx, cz - 1, cx, cz + 1));
   a.x = cx; a.z = cz - 1; a.yaw = 180; a.pitch = 0; a.crouch = 0; b.x = -30; b.z = -20;
@@ -204,7 +204,7 @@ console.log('\nCollision: drones and bodies against every wall, soft wall, reinf
         const start = { x: thinX ? face - dir * (r + 0.7) : lo + s, z: thinX ? lo + s : face - dir * (r + 0.7) };
         const probe = { x: start.x, z: start.z };
         map.resolve(probe, r, flyer);
-        if (Math.hypot(probe.x - start.x, probe.z - start.z) > 1e-9) continue;         // something stands there
+        if (Math.hypot(probe.x - start.x, probe.z - start.z) > 1e-9 || !map.world.e.rc_free(map.world.id, start.x, 0, start.z, r)) continue;         // something stands there
         // must be able to reach the face (nothing else in the way)
         const reach = { x: start.x, z: start.z };
         for (let i = 0; i < 80; i++) map.moveCircle(reach, thinX ? dir * 0.01 : 0, thinX ? 0 : dir * 0.01, r, flyer);
@@ -250,15 +250,15 @@ console.log('\nCollision: drones and bodies against every wall, soft wall, reinf
   while (m.rules.phase === 'prep') { m.step(); m.events.length = 0; }
   const onyx = m.actors.find((a) => a.ab.id === 'charge_dash'), foe = m.actors.find((a) => a.team !== onyx.team);
   for (const a of m.actors) { a.brain = null; if (a !== onyx && a !== foe) { a.x = 30; a.z = 20 - a.id; } }
-  // the west outer wall of Ranch is at x = -24 (0.4 thick): victim 0.6 m inside it, in the open kitchen corner, dashed at from the east
-  foe.x = -23.2; foe.z = -11; onyx.x = -21.6; onyx.z = -11; onyx.yaw = 270; foe.protectUntil = 0; foe.hp = 100; onyx.protectUntil = 0;
+  // the west outer wall of Ranch is at x = -28 (0.4 thick): victim 0.6 m inside it, in the dining room, dashed at from the east
+  foe.x = -27.2; foe.z = -5.5; onyx.x = -25.6; onyx.z = -5.5; onyx.yaw = 270; foe.protectUntil = 0; foe.hp = 100; onyx.protectUntil = 0;
   m.ab.startDash(onyx);
   for (let i = 0; i < 40; i++) { m.ab.update(TICK); m.t += TICK; }
-  check('Charge Dash knockback stops at the wall (victim stays inside)', foe.x > -23.9 && foe.x < -20, 'victim x ' + foe.x.toFixed(2));
+  check('Charge Dash knockback stops at the wall (victim stays inside)', foe.x > -27.9 && foe.x < -24, 'victim x ' + foe.x.toFixed(2));
   const att = m.actors.find((a) => m.rules.isAttacker(a) && a.ab.id !== 'spark_drone');
-  att.alive = true; att.x = -24.6; att.z = -6; att.yaw = 90;        // outside, nose to the west wall
+  att.alive = true; att.x = -28.6; att.y = 0; att.z = -5; att.yaw = 90;        // outside, nose to the west wall
   const d = m.ab.launchDrone(att, true);
-  check('a drone deployed facing a wall stays on your side of it', d.x < -24.2, 'drone x ' + d.x.toFixed(2));
+  check('a drone deployed facing a wall stays on your side of it', d.x < -28.2, 'drone x ' + d.x.toFixed(2));
 }
 
 /* ---------- grenades ---------- */
@@ -306,7 +306,7 @@ console.log('\nDrones');
   const d = plain.ab.drone;
   check('Q in prep sends out the prep drone (any attacker)', !!d && d.basic);
   // under a door: the drone rolls through, a person does not
-  const door = m.map.panels.find((p) => p.kind === 'door'), b = door.box, cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
+  const door = m.map.panels.find((p) => p.kind === 'door' && !p.slot && !p.win), b = door.box, cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
   d.x = cx; d.z = cz - 0.6; d.yaw = 180;
   for (let i = 0; i < 30; i++) m.ab.droneInput(plain, { fwd: true }, 1 / 60);
   check('a drone rolls under a whole door', door.alive && d.z > cz + 0.5, d.z.toFixed(2));
@@ -326,13 +326,21 @@ console.log('\nDrones');
 /* ---------- physics on every map ---------- */
 // A body follows the game's own paths with the game's own movement (as a bot does: re-planning
 // every 1.5 s) from one place to another. Returns { ok, why, t }.
+let vaults = 0;
 function walkTo(map, from, to, fps, speed = 5.2) {
   const p = { x: from[0], y: from[2] || 0, z: from[1], vy: 0 }, dt = 1 / fps, ty = to[2] || 0;
   let path = map.path(p.x, p.z, to[0], to[1], p.y, ty), t = 0, replan = 1.5;
   if (!path.length) return { ok: false, why: 'no path' };
   while (t < 90 && path.length) {
     const wp = path[0], dx = wp[0] - p.x, dz = wp[1] - p.z, d = Math.hypot(dx, dz);
-    if (d < (path.length === 1 ? 0.2 : 0.4) && Math.abs(wp[2] - p.y) < 1) { path.shift(); continue; }
+    // a vault marked on the path: from here toward the next point (as a bot does)
+    if (wp[3] === 1 && path.length > 1 && d < 0.45) {
+      const ex = path[1][0] - p.x, ez = path[1][1] - p.z, ax = Math.abs(ex) > Math.abs(ez);
+      const v = map.vaultTarget(p.x, p.y, p.z, ax ? Math.sign(ex) : 0, ax ? 0 : Math.sign(ez));
+      if (v) { path.shift(); p.x = v.x; p.y = v.y; p.z = v.z; p.vy = 0; t += 0.5; vaults++; continue; }
+      if (d < 0.02) { path.shift(); continue; }
+    }
+    if (wp[3] !== 1 && d < (path.length === 1 ? 0.2 : path[1] && Math.abs(path[1][2] - wp[2]) > 0.2 ? 0.1 : 0.4) && Math.abs(wp[2] - p.y) < 1) { path.shift(); continue; }
     const st = Math.min(d, speed * dt);
     map.stepBody(p, d > 1e-9 ? dx / d * st : 0, d > 1e-9 ? dz / d * st : 0, dt);
     t += dt;
@@ -382,7 +390,8 @@ console.log('\nPhysics on every map: stairs, upper floors, falling, vaulting, do
     for (const pn of map.panels) {
       if (pn.kind !== 'door') continue;
       const b = pn.box, cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2, n = pn.alongX ? [0, 1] : [1, 0];
-      const A = map.nearestSpot(cx - n[0] * 1.3, cz - n[1] * 1.3, 0), B = map.nearestSpot(cx + n[0] * 1.3, cz + n[1] * 1.3, 0);
+      if (pn.win && pn.y0) continue;                   // an upstairs window: a drop, not a way through
+      const A = map.nearestSpot(cx - n[0] * 1.3, cz - n[1] * 1.3, pn.y0 || 0), B = map.nearestSpot(cx + n[0] * 1.3, cz + n[1] * 1.3, pn.y0 || 0);
       const w1 = walkTo(map, A, B, 60), w2 = walkTo(map, B, A, 15);
       doors++;
       if ((!w1.ok || !w2.ok || w1.t > 4 || w2.t > 4) && badDoor.length < 5) badDoor.push(id + ' door at ' + cx.toFixed(1) + ',' + cz.toFixed(1) + ': ' + (w1.why || w2.why || 'took ' + Math.max(w1.t, w2.t).toFixed(1) + ' s (went round)'));
@@ -392,7 +401,7 @@ console.log('\nPhysics on every map: stairs, upper floors, falling, vaulting, do
     // wall, a soft or reinforced wall, or a boarded door
     for (const b of map.solids) {
       if (b.kind === 'edge' || b.minY > 0.05) continue;
-      const h = b.maxY, cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2, low = h > 0.5 && h <= 1.5 && !b.panel && b.kind !== 'door';
+      const h = b.maxY, cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2, low = h > 0.5 && h <= 1.5 && b.panel === undefined && b.kind !== 'door' && b.kind !== 'sill';      // (sills: the window tests)
       const tall = h > 1.5 + 0.45 + 1e-3;
       if (!low && !tall) continue;
       let any = false, stood = 0;
@@ -411,7 +420,7 @@ console.log('\nPhysics on every map: stairs, upper floors, falling, vaulting, do
     }
     map.dispose();
   }
-  check('a body walks the game\'s own paths between random places on all 9 maps and arrives (' + walks + ' walks, 60 and 15 FPS)', !badWalk.length, badWalk.join('\n       '));
+  check('a body walks the game\'s own paths between random places on all 9 maps and arrives (' + walks + ' walks, 60 and 15 FPS; ' + vaults + ' vaults on the way)', !badWalk.length, badWalk.join('\n       '));
   check('up to every upper level and back down again by the stairs and ramps (' + up + ' climbs, ' + down + ' descents)', !badUp.length && up > 20, badUp.join('\n       '));
   check('walking off the edge of an upper level always lands standing on something inside the map (' + falls + ' falls)', !badFall.length && falls > 20, badFall.join('\n       '));
   check('every doorway of the Bomb buildings can be walked through, both ways (' + doors + ' doorways)', !badDoor.length && doors > 30, badDoor.join('\n       '));
@@ -437,15 +446,15 @@ console.log('\nBomb: defenders stay inside the building');
       const o1 = out(cx + n[0] * 0.8, cz + n[1] * 0.8), o2 = out(cx - n[0] * 0.8, cz - n[1] * 0.8);
       if (o1 === o2) continue;                         // an inside wall
       const s = o1 ? 1 : -1;
-      if (!m.map.free(cx - n[0] * s * 0.9, cz - n[1] * s * 0.9, 0.32, 0)) { blocked++; continue; }      // furniture stands against it inside
+      if (!m.map.free(cx - n[0] * s * 0.9, cz - n[1] * s * 0.9, 0.32, pn.y0 || 0)) { blocked++; continue; }      // furniture stands against it inside
       m.map.breakPanel(pn); if (pn.kind === 'door') m.map.hurtDoor(pn, 999);
       for (const who of [def, att]) {
         (who === def ? att : def).alive = false;          // one at a time: nobody stands in the way
-        Object.assign(who, { x: cx - n[0] * s * 0.9, z: cz - n[1] * s * 0.9, y: 0, vx: 0, vz: 0, alive: true, hp: 100 });
+        Object.assign(who, { x: cx - n[0] * s * 0.9, z: cz - n[1] * s * 0.9, y: pn.y0 || 0, vy: 0, vx: 0, vz: 0, alive: true, hp: 100 });
         let far = 0;
         for (let i = 0; i < 120; i++) { m.moveActor(who, n[0] * s * 5.6, n[1] * s * 5.6, TICK); m.step(); far = Math.max(far, ((who.x - cx) * n[0] + (who.z - cz) * n[1]) * s); }
         if (who === def) { tried++; if (far > 1e-6 || out(def.x, def.z)) escaped.push(id + ' ' + pn.kind + ' at ' + cx.toFixed(1) + ',' + cz.toFixed(1) + ' (' + far.toFixed(2) + ' m out)'); }
-        else { attTried++; if (far > 1) attOk++; else attBad.push(id + ' ' + pn.kind + ' at ' + cx.toFixed(1) + ',' + cz.toFixed(1) + ' (' + far.toFixed(2) + ' m)'); }
+        else if (!pn.win) { attTried++; if (far > 1) attOk++; else attBad.push(id + ' ' + pn.kind + ' at ' + cx.toFixed(1) + ',' + cz.toFixed(1) + ' (' + far.toFixed(2) + ' m)'); }
       }
     }
     m.map.dispose();

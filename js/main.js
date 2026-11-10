@@ -1,47 +1,47 @@
-import { createAcoustics } from './audio/acoustics.js?v=m8-audio-1';
-import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=651d04c-mwahvcb3';
-import { mountControls, mountFirstLaunch, tabs } from './ui/m7-menu.js?v=651d04c-mwahvcb3';
+import { createAcoustics } from './audio/acoustics.js?v=m4-m8-audio-1';
+import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=m4-m8-audio-1';
+import { mountControls, mountFirstLaunch, tabs } from './ui/m7-menu.js?v=m4-m8-audio-1';
 // Recoil Range entry point: wires input, camera, scene, HUD and the frame loop together.
-import * as THREE from '../vendor/three/three.module.min.js?v=651d04c-mwahvcb3';
-import { Look, PITCH_LIMIT } from './core/look.js?v=651d04c-mwahvcb3';
-import { Player } from './core/player.js?v=651d04c-mwahvcb3';
-import { PointerLock } from './core/pointer-lock.js?v=651d04c-mwahvcb3';
-import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=m8-audio-1';
-import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=651d04c-mwahvcb3';
-import { Weapon } from './core/weapon.js?v=651d04c-mwahvcb3';
-import { RecoilEngine } from './core/recoil.js?v=651d04c-mwahvcb3';
-import { Spread } from './core/spread.js?v=651d04c-mwahvcb3';
-import { loadGameData } from './core/guns.js?v=651d04c-mwahvcb3';
-import { randomSeed } from './core/prng.js?v=651d04c-mwahvcb3';
-import { Range, EYE_HEIGHT } from './scene/range.js?v=651d04c-mwahvcb3';
-import { RING_STEP } from './scene/range-tex.js?v=651d04c-mwahvcb3';
-import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=651d04c-mwahvcb3';
-import { LensPost } from './render/lens-post.js?v=651d04c-mwahvcb3';
-import { reticleTextures } from './ui/reticle-tex.js?v=651d04c-mwahvcb3';
-import { DOT_POINTS } from './scene/dots.js?v=651d04c-mwahvcb3';
-import { Voices } from './audio/voice.js?v=651d04c-mwahvcb3';
-import { ModeGame } from './modes/game.js?v=m8-audio-1';
-import { Sfx } from './audio/sfx.js?v=m8-audio-1';
-import { DebugHud } from './ui/debug-hud.js?v=651d04c-mwahvcb3';
-import { drawCrosshair } from './ui/crosshair.js?v=651d04c-mwahvcb3';
-import { Hud } from './ui/hud.js?v=651d04c-mwahvcb3';
-import { MagPlot } from './ui/plot.js?v=651d04c-mwahvcb3';
-import { SettingsUI } from './ui/settings-ui.js?v=m8-audio-1';
-import { sensKeys, zoomKey } from './core/optics.js?v=651d04c-mwahvcb3';
+import * as THREE from '../vendor/three/three.module.min.js?v=m4-m8-audio-1';
+import { Look, PITCH_LIMIT } from './core/look.js?v=m4-m8-audio-1';
+import { Player } from './core/player.js?v=m4-m8-audio-1';
+import { PointerLock } from './core/pointer-lock.js?v=m4-m8-audio-1';
+import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=m4-m8-audio-1';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=m4-m8-audio-1';
+import { Weapon } from './core/weapon.js?v=m4-m8-audio-1';
+import { RecoilEngine } from './core/recoil.js?v=m4-m8-audio-1';
+import { Spread } from './core/spread.js?v=m4-m8-audio-1';
+import { loadGameData } from './core/guns.js?v=m4-m8-audio-1';
+import { randomSeed } from './core/prng.js?v=m4-m8-audio-1';
+import { Range, EYE_HEIGHT } from './scene/range.js?v=m4-m8-audio-1';
+import { RING_STEP } from './scene/range-tex.js?v=m4-m8-audio-1';
+import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=m4-m8-audio-1';
+import { LensPost } from './render/lens-post.js?v=m4-m8-audio-1';
+import { reticleTextures } from './ui/reticle-tex.js?v=m4-m8-audio-1';
+import { DOT_POINTS } from './scene/dots.js?v=m4-m8-audio-1';
+import { Voices } from './audio/voice.js?v=m4-m8-audio-1';
+import { ModeGame } from './modes/game.js?v=m4-m8-audio-1';
+import { Sfx } from './audio/sfx.js?v=m4-m8-audio-1';
+import { DebugHud } from './ui/debug-hud.js?v=m4-m8-audio-1';
+import { drawCrosshair } from './ui/crosshair.js?v=m4-m8-audio-1';
+import { Hud } from './ui/hud.js?v=m4-m8-audio-1';
+import { MagPlot } from './ui/plot.js?v=m4-m8-audio-1';
+import { SettingsUI } from './ui/settings-ui.js?v=m4-m8-audio-1';
+import { sensKeys, zoomKey } from './core/optics.js?v=m4-m8-audio-1';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
 function sensRows(catalogue, sens) {
   const keys = new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)]);
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
-import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=651d04c-mwahvcb3';
-import { Battle } from './battle/battle.js?v=m8-audio-1';
-import { initCore, coreLoaded } from './wasm/core.js?v=651d04c-mwahvcb3';
-import { createJoinRequest, acceptJoin } from './net/link.js?v=651d04c-mwahvcb3';
-import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode } from './net/relay.js?v=651d04c-mwahvcb3';
-import { Profile, WIN_POINTS } from './core/profile.js?v=651d04c-mwahvcb3';
-import { skinFits, skinById } from './core/skins.js?v=651d04c-mwahvcb3';
-import { PackUI } from './ui/packs.js?v=651d04c-mwahvcb3';
+import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=m4-m8-audio-1';
+import { Battle } from './battle/battle.js?v=m4-m8-audio-1';
+import { initCore, coreLoaded } from './wasm/core.js?v=m4-m8-audio-1';
+import { createJoinRequest, acceptJoin } from './net/link.js?v=m4-m8-audio-1';
+import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode } from './net/relay.js?v=m4-m8-audio-1';
+import { Profile, WIN_POINTS } from './core/profile.js?v=m4-m8-audio-1';
+import { skinFits, skinById } from './core/skins.js?v=m4-m8-audio-1';
+import { PackUI } from './ui/packs.js?v=m4-m8-audio-1';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -1097,15 +1097,15 @@ async function boot(data) {
   $('pause-quit').addEventListener('click', () => { if (cur() && cur().active) leaveBattle(); flow.inGame = false; showPage('mode'); });
 
   /* ---------- match modes: settings and operator select ---------- */
-  const MODE_DEFAULTS = { map: { tdm: 'containers', ctf: 'yard', bomb: 'ranch' }, abilities: { tdm: false, ctf: false, bomb: true }, op: { tdm: 'glitch', ctf: 'dash', bomb: 'pace' }, difficulty: 'normal', teamSize: 5, minutes: 10, headshot: 'lethal', side: 'attack' };
+  const MODE_DEFAULTS = { map: { tdm: 'containers', ctf: 'yard', bomb: 'ranch' }, abilities: { tdm: false, ctf: false, bomb: true }, op: { tdm: 'glitch', ctf: 'dash', bomb: 'pace' }, difficulty: 'normal', teamSize: 5, minutes: 10, prepTime: 30, headshot: 'lethal', side: 'attack' };
   let modePrefs;
   try { modePrefs = { ...MODE_DEFAULTS, ...JSON.parse(localStorage.getItem('recoilRange.modes') || '{}') }; } catch (e) { modePrefs = { ...MODE_DEFAULTS }; }
   for (const k of ['map', 'abilities', 'op']) modePrefs[k] = { ...MODE_DEFAULTS[k], ...(modePrefs[k] || {}) };
   const saveModePrefs = () => { try { localStorage.setItem('recoilRange.modes', JSON.stringify(modePrefs)); } catch (e) { /* storage blocked */ } };
   const MAP_NAMES = {
     yard: 'Yard (60 x 40 m, two flanks and a mid lane)', containers: 'Container Yard (Battle map)', winter: 'Winter Cabin (Battle map)',
-    casino: "Jesse's Casino (Battle map, ground floor)", school: 'School Basement (Battle map)',
-    ranch: 'Ranch (a long house: Bedroom A, Office B)', embassy: 'Embassy (rooms round a courtyard: Archive A, Vault B)', workshop: 'Workshop (offices and a garage: Drafting A, Garage B)',
+    casino: "Jesse's Casino (Battle map, two floors)", school: 'School Basement (Battle map)',
+    ranch: 'Ranch (a house with a loft; site: master bedroom)', embassy: 'Embassy (two storeys round a courtyard; site: archives)', workshop: 'Workshop (offices, catwalk, corridor; site: garage)',
   };
   function modesUi() {
     const m = flow.mode, P = modePrefs;
@@ -1115,17 +1115,18 @@ async function boot(data) {
     $('md-diff').value = P.difficulty; $('md-size').value = String(P.teamSize); $('md-ab').value = P.abilities[m] ? 'on' : 'off';
     $('md-len').value = String(P.minutes); $('md-head').value = P.headshot;
     $('md-len').closest('label').hidden = m === 'bomb';
+    $('md-prep').value = String(P.prepTime || 30); $('md-prep').closest('label').hidden = m !== 'bomb';
     $('md-note').textContent = m === 'tdm' ? 'First team to 40 kills, or the most kills when the time runs out. Respawn after 3 s. Tab: scoreboard.'
       : m === 'ctf' ? 'Take the enemy flag (walk over it) to your own stand while your flag is home. First to 3 captures; a tie after the time goes to the next capture. Tab: scoreboard.'
-        : 'First to 4 rounds; sides swap after round 3. One life a round: 30 s to prepare, 150 s to plant (hold Interact for 5 s on a site). The bomb goes off after 40 s unless defused (hold Interact for 6 s).';
+        : 'First to 4 rounds; sides swap after round 3. One life a round: ' + (P.prepTime || 30) + ' s to prepare (defenders reinforce walls and barricade with Interact, and lay barbed wire with the grenade action; attackers drone), 150 s to plant (hold Interact for 5 s on the site). The bomb goes off after 40 s unless defused (hold Interact for 6 s).';
   }
   function readModes() {
     const m = flow.mode, P = modePrefs;
     P.map[m] = $('md-map').value; P.difficulty = $('md-diff').value; P.teamSize = Number($('md-size').value);
-    P.abilities[m] = $('md-ab').value === 'on'; P.minutes = Number($('md-len').value); P.headshot = $('md-head').value;
+    P.abilities[m] = $('md-ab').value === 'on'; P.minutes = Number($('md-len').value); P.prepTime = Number($('md-prep').value) || 30; P.headshot = $('md-head').value;
     saveModePrefs();
   }
-  for (const id of ['md-map', 'md-diff', 'md-size', 'md-ab', 'md-len', 'md-head']) $(id).addEventListener('change', readModes);
+  for (const id of ['md-map', 'md-diff', 'md-size', 'md-ab', 'md-len', 'md-prep', 'md-head']) $(id).addEventListener('change', readModes);
   let opsData = null, abilityData = null;
   async function renderOps() {
     if (!opsData) {
@@ -1153,7 +1154,7 @@ async function boot(data) {
     };
     const group = (title, list) => { const g = document.createElement('div'); g.className = 'ops-group'; const h = document.createElement('h3'); h.textContent = title; const row = document.createElement('div'); row.className = 'ops-row'; row.append(...list.map(card)); g.append(h, row); return g; };
     $('ops-grid').replaceChildren(group('Attackers', opsData.attackers), group('Defenders', opsData.defenders));
-    $('ops-note').textContent = (bomb ? 'Bomb: pick any operator; a defender puts you on defence, an attacker on attack. You are ' + (P.side === 'attack' ? 'attacking' : 'defending') + '. ' : 'Pick any operator. ') + 'Bots take the other places with random operators (no repeats in a team).' + (P.abilities[m] ? ' Abilities on: Q uses yours.' : '');
+    $('ops-note').textContent = (bomb ? 'Bomb: pick any operator; a defender puts you on defence, an attacker on attack. You are ' + (P.side === 'attack' ? 'attacking' : 'defending') + '. ' : 'Pick any operator. ') + 'Bots take the other places with random operators (no repeats in a team).' + (P.abilities[m] ? ' Abilities on: ' + controls.bindingLabel('ability') + ' uses yours.' : '');
   }
   for (const b of document.querySelectorAll('#ops-side .seg-btn')) b.addEventListener('click', () => { modePrefs.side = b.dataset.side; saveModePrefs(); renderOps(); });
   $('ops-back').addEventListener('click', () => showPage('setup'));
@@ -1174,7 +1175,7 @@ async function boot(data) {
     }
     weapon.releaseTrigger(); setAds(false); player.releaseKeys();
     try {
-      await modeGame.start({ mode: m, map: P.map[m], difficulty: P.difficulty, teamSize: P.teamSize, abilities: !!P.abilities[m], minutes: P.minutes, headshot: P.headshot, op: P.op[m], side: P.side, seed: testMode ? P.seed : undefined });
+      await modeGame.start({ mode: m, map: P.map[m], difficulty: P.difficulty, teamSize: P.teamSize, abilities: !!P.abilities[m], minutes: P.minutes, prepTime: P.prepTime, headshot: P.headshot, op: P.op[m], side: P.side, seed: testMode ? P.seed : undefined });
     } catch (err) {
       console.error(err);
       flashNotice('Could not start the match (' + (err && err.message || err) + '). Press Ctrl+F5 to load the latest version.', 9000);
