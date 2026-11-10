@@ -103,7 +103,7 @@ try {
   await page.evaluate(() => { const b = document.querySelector('#page-packs .back-btn'); if (b) b.click(); });
   await click('#go-controls'); await snap('41-controls');
 } catch (e) {
-  errors.push('[script] ' + String(e.message).split('\n')[0]);
+  errors.push('[script] ' + String(e.stack || e));
   await snap('99-failure').catch(() => {});
 } finally {
   console.log(errors.length ? '\nERRORS (' + errors.length + ')\n' + [...new Set(errors)].join('\n') : '\nNo page errors in the play-through');

@@ -11,7 +11,7 @@ The game is a static site (GitHub Pages): `index.html`, `css/`, `js/`, `data/`, 
 | Engine | Used by | Code | Notes |
 |---|---|---|---|
 | Range | Shooting range | `js/main.js`, `js/core/`, `js/scene/`, `js/render/`, `js/ui/` | The aim trainer: measured recoil, sights, sensitivity. |
-| Battle | Battle vs bots, split screen, network battle | `js/battle/` | Height-aware maps (floors, stairs, ramps, vaulting), free-for-all style. |
+| Battle | Battle vs bots, network battle | `js/battle/` | Height-aware maps (floors, stairs, ramps, vaulting), free-for-all style. |
 | Match | Team Deathmatch, Capture the Flag, Bomb | `js/modes/` | Fixed 60 Hz simulation, seeded and repeatable; teams, operators, abilities. |
 
 All three share the player's own systems (look, recoil, spread, weapon, sights, weapon model)

@@ -17,6 +17,12 @@ Milestone 3 is now on `main` at `651d04c`. Claude prepared merge commit
 fast-forward, preserving both histories and Claude's conflict resolutions.
 Codex has not pushed to `main`.
 
+M4 engine commit `7fcbf5a` was subsequently merged into this feature branch in
+`880fd42`. Engine ABI is now 4. Preparation time, cell rendering, destruction
+events and the barbed-wire HUD are retained alongside configurable bindings.
+The M3 results below are historical; current audio/integration results belong in
+[MILESTONE_8_HANDOFF.md](MILESTONE_8_HANDOFF.md).
+
 Read [ENGINE_API.md](ENGINE_API.md) for the current engine contract. The handoff
 was read directly from [Claude's PR comment](https://github.com/6f44646syn-boop/R6-shooter/pull/1#issuecomment-6763983308).
 Engine ownership stays with Claude; UI, controls, the existing network layer and
@@ -115,10 +121,9 @@ not establish competitive security against a modified client or host, and this
 work makes no such claim. Keep profile assistance disabled online and do not
 accept client-provided profile or ranked flags as proof of fairness.
 
-Claude reports that the user narrowed networking to the existing relay/WebRTC
-Battle. Confirmation was requested in this conversation because the original
-brief asked for a broader backend. Until resolved, this increment makes no new
-networking implementation or backend commitment.
+The user confirmed the narrower networking scope: use only the existing relay
+and peer-to-peer Battle. Do not add or plan a dedicated backend. No new network
+system or deployment is introduced by the UI/audio increments.
 
 Remaining verification/integration: browser/device testing on physical trackpads and Safari/Firefox;
 Mac Caps Lock's unusual key-up-only behavior; full operator/model/role catalogue
@@ -131,7 +136,7 @@ Milestone 7 or Milestones 8–12 are finished.
 | Milestone | Existing foundation and integration need |
 | --- | --- |
 | 8 | Existing WebAudio SFX, optic catalogue and weapon viewmodels; Rust weapon/attachment state and authoritative balance still needed |
-| 9 | Codex owns the existing relay/WebRTC Battle; networking scope confirmation is pending. Coordinate B11 (online grenades) through the engine contract before touching engine-owned grenade logic |
+| 9 | Codex owns the existing relay/WebRTC Battle only, confirmed by the user. Coordinate B11 (online grenades) through the engine contract before touching engine-owned grenade logic |
 | 10 | Extend `ModeGame._record()` and its seven-float actor stride for lean, ADS and recoil; use the existing recorder rather than adding another |
 | 11 | Server results, identity, matchmaking and persistent seasonal records must precede rankings/rewards; no simulated online ranking UI |
 | 12 | Existing range and local profile can host drill UI once Rust drill state/stat interfaces are agreed |
@@ -208,3 +213,13 @@ Claude's reported results are separate evidence: 204 checks passed, mode checks
 97 passed and a clean play-through on his integration environment. His two
 previously failing checks passed there. The environment difference is recorded;
 no engine implementation was changed to make our run pass.
+
+
+### Current M4 / Bomb follow-up
+
+Current core ABI is 4, merged from `7fcbf5a` in `880fd42`. The user subsequently
+approved separate Bomb-only utility/ability tuning, a 120 s attack phase and
+stronger vision/hearing disruption; see [BOMB_BALANCE_HANDOFF.md](BOMB_BALANCE_HANDOFF.md).
+The final shared-file regression has 263 passes and one known direct WebRTC
+connection timeout. Both imported reinforcing/barricading tests pass after using
+the existing `Interact` semantic action. The 55% defender target is unverified.

@@ -105,3 +105,69 @@ are reinforced (`m.map.panels`), and the gadgets (`m.ab.gadgets`, wire included)
 Audio is the UI side's (milestone 8, including any downloadable sound files). The engine
 only calls `sfx` functions on its events; milestone 4 added one, `sfx.wire()` (the barbed
 wire rattle), which a new audio system should keep a sound for.
+
+## Audio integration (Milestone 8, Codex)
+
+`rust/m8_audio/`, `wasm/m8_audio.*` and `js/audio/` are owned by Codex. The audio
+WASM is independent of `rust/core` (audio ABI 1, engine ABI 4). It calls no engine
+exports directly. The browser adapter reads `CoreWorld.sight()` and `raycast()`
+for propagation and underfoot material lookup, preserving all physics ownership.
+
+- `Sfx.wire(vol, route, muffle)` preserves M4 barbed-wire rattle events and uses
+  the same bounded voice graph. New splinter/reinforce/barricade cues retain their
+  supplied heights; the wire HUD retains configurable grenade bindings.
+- `Sfx.installPack(bytes)` / `Sfx.removePack()` opt into the pre-rendered bank.
+  No automatic download; see [the pack handoff](../packs/audio/README.md), which
+  includes loader code, tradeoffs, source assets and benchmark results for the
+  future HD download manager.
+- `Sfx.listen(camera)` follows the active camera's position, yaw, pitch and lean.
+- `Sfx.locate(kind, source, camera, geometry, arena, options)` returns Rust-owned
+  distance/gain/cutoff parameters and a WebAudio route. Sources with a real `y`
+  use full 3D distance and occlusion.
+- Match footsteps consume `m.noises`: `kind`, `range`, `id`, `team`, `x,y,z,t`.
+  Zero noise ranges remain silent; this preserves silent match crouch walking.
+- Battle/Range presentation steps use Rust cadence on existing actor poses.
+  Battle's AI noise list is unchanged. Network clients use existing interpolated
+  poses; no new message, transport or backend was added.
+- Room floor textures come from `data.callouts[].floor`; Arena material kinds
+  come from `arena.boxes`. The built Arena match maps preserve that box order.
+- The existing seven-float replay stride is unchanged. Replay audio remains a
+  later extension of the existing recorder.
+
+### Requests for the engine owner
+
+These requests do not change current engine behavior and are not implemented in
+engine-owned files by this increment:
+
+1. Please include the actual `y` on `boom` events in grenades, bomb rules and
+   abilities, `door` events, gadget `pulse` events and M4 `wire` events. Those currently carry
+   `x,z` only, even where the emitter can be on an upper floor. The audio adapter
+   already accepts optional `e.y`; until supplied, those cues retain horizontal
+   positioning at the listener's height. Shots, footsteps, Battle blasts and
+   catcher events already have usable heights.
+2. For future map additions, optional explicit surface/material metadata on
+   floor regions and standable boxes would avoid guessed defaults for unknown
+   kinds. Existing authored room floors and Arena kinds are supported now.
+3. For the next M8 attachment increment, agree on an engine-owned per-actor
+   effective weapon configuration entry point. It should accept a Rust-validated
+   attachment result at spawn/loadout change for humans and bots, without
+   mutating the shared base gun catalogue. Recoil, ADS, spread, ammo/reload and
+   host-side validation must consume that same effective configuration. Codex
+   will own the attachment policy, UI and existing network serialization.
+
+
+## User-approved Bomb balance hooks (Codex)
+
+The user explicitly requested Bomb-only defensive utility and ability buffs,
+stronger vision/sound disruption and less attacker time. The separate
+`rust/bomb_utility` policy is loaded before matches; the engine core stays ABI 4.
+Small hooks in `modes/{sim,rules,map,abilities}.js` consume `m.utility` and a
+copied ability config. No bot, physics, map-data or weapon implementation is
+changed. See [BOMB_BALANCE_HANDOFF.md](BOMB_BALANCE_HANDOFF.md) for exact values,
+merge locations and paired results. Attack time is now 120 s (`BOMB.action` is
+a Rust-backed getter); late plants still get the full 40 s fuse. The requested
+55% defender win rate remains unverified and is not claimed by this candidate.
+
+For M5 integration, keep the small hooks and measure against the updated tactics.
+The latest paired M4 bot sample still has early defender eliminations and strong
+map variation; do not treat these utility changes as a completed tactics fix.
