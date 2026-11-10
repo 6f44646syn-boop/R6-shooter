@@ -142,6 +142,61 @@ are reinforced (`m.map.panels`), and the gadgets (`m.ab.gadgets`, wire included)
   `renderer.clearDepth()`. This applies ambient occlusion, TAA and upscaling the same way
   everywhere.
 
+## Weapons, attachments and effective stats (milestone 8, Claude)
+
+This answers the request for an engine-owned per-actor effective weapon configuration.
+
+**Entry point:** `effectiveGun(baseGun, code)` in `js/core/loadout.js`, backed by
+`rust/loadout` (`wasm/loadout.wasm`, ABI 1; `tools/build-loadout.sh --test`).
+- `code` is four digits, one per slot: muzzle, grip, underbarrel, magazine (ids in the
+  table below). `null` or an invalid code (unknown id, or not allowed on that model)
+  gives the measured loadout. Rust decides what is allowed (`lo_allowed`).
+- Effects are relative to the loadout each gun's spray was measured with
+  (`measurement.attachments` in `data/guns.json`, kept as `gun.measuredAttachments`). The
+  measured loadout returns the catalogue gun itself (same object), so the data is
+  reproduced exactly. The catalogue is never mutated.
+- Other codes return a frozen copy, cached per gun and code: `magSize`, `reloadSeconds`,
+  `adsSeconds`, `damage`, `sprayPath` / `sprayPathSmooth` / `jitter` (recoil), plus
+  `hipCone`, `noise`, `flash`, `suppressed`, `laser`, `attach` (the code) and `base` (the
+  catalogue gun).
+- Use `baseOf(g)` / `slotIn(list, g)` to find a gun's catalogue entry; never
+  `list.indexOf(g)`.
+
+| Slot | 0 | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|---|
+| muzzle | none | flash hider | compensator | muzzle brake | suppressor | extended barrel |
+| grip | none | vertical grip | angled grip | | | |
+| underbarrel | none | laser | | | | |
+| magazine | standard | extended (LMGs: not allowed) | quick-change | | | |
+
+**Who consumes it** (no consumer needed new rules: they read the gun they are given):
+- `Weapon` (capacity, reload);
+- `RecoilEngine` (spray, jitter);
+- `Spread` (`hipCone`);
+- Battle's ADS time scale;
+- the match sim (`gunStats` carries `noise` / `suppressed`; a suppressed shot's
+  `NOISE.shot` reach is multiplied by `noise`);
+- shot sounds (suppressed: 45% gain);
+- muzzle flashes (`flash`);
+- `buildWorldGun` / `WeaponRig.setGun` (attachment models; cache keys include the code).
+
+**Where codes come from:**
+- **Range:** `localStorage['attach:<gun id>']`, chosen in the armory.
+- **Match modes:** `Match` option `attach: { [gunId]: code }` for the human, applied in
+  `Match.gunFor(human, id)` (also used on the Bomb side swap). Bots carry the measured loadout.
+- **Battle network:** `hello`, `gun`, `look` and the roster carry `at` (the code). The host
+  rebuilds the effective gun with `effectiveGun()`, so its damage and fire-rate checks use
+  the Rust-validated stats. A client cannot claim an invalid combination: Rust falls back
+  to the measured loadout.
+
+**Codex (M10-M12):**
+- Kill cams that draw the killer's gun should pass the killer's effective gun (`f.gun` /
+  `a.gunData`) to `WeaponRig.setGun`, so attachments show.
+- The Training Academy's recoil lessons can call `effectiveGun()` to compare loadouts.
+
+**Pack animations:** see [GRAPHICS.md](GRAPHICS.md). `Weapon.reloadEmpty` is set at each
+reload start; `WeaponRig.reloadEmpty` picks the empty-reload clip.
+
 ## Audio
 
 Audio is the UI side's (milestone 8, including any downloadable sound files). The engine
@@ -190,8 +245,9 @@ engine-owned files by this increment:
 2. For future map additions, optional explicit surface/material metadata on
    floor regions and standable boxes would avoid guessed defaults for unknown
    kinds. Existing authored room floors and Arena kinds are supported now.
-3. For the next M8 attachment increment, agree on an engine-owned per-actor
-   effective weapon configuration entry point. It should accept a Rust-validated
+3. *(Done by Claude: see "Weapons, attachments and effective stats" above.)* For the next M8
+   attachment increment, agree on an engine-owned per-actor effective weapon configuration
+   entry point. It should accept a Rust-validated
    attachment result at spawn/loadout change for humans and bots, without
    mutating the shared base gun catalogue. Recoil, ADS, spread, ammo/reload and
    host-side validation must consume that same effective configuration. Codex

@@ -69,6 +69,30 @@ Each gun model has two levels of detail: about 25k-90k triangles for first perso
 (ray-traced against the whole gun), an edge mask (convex edges) and a cavity mask (inside
 corners).
 
+**Weapon animations** (pack version 4, `hd/anims/weapons.json`, 22 KB, built by
+`tools/hd/anims.mjs`, played by `js/scene/weapon-anims.js`). These are used with the
+pack's guns on High and Ultra:
+- On those guns the support hand is a separate part.
+- **Tactical reload:** the hand strips the magazine and stows it, brings a new one, seats
+  it and slaps it home.
+- **Empty reload:** the old magazine drops free while the hand fetches a new one, then
+  the hand comes over and works the charging handle.
+- **Draw:** the gun comes up with a turn and a settle, and the hand catches the handguard.
+- **Inspect:** the right side with a chamber check, the left side, then a magazine check.
+- **Per-gun styles:** the AK rocks its magazine in; the bullpup reaches back behind the
+  grip; the machine pistol loads through the grip; the LMG has its own hold.
+- **Anchors:** hand positions are given relative to points measured on each model (the
+  magazine, its base, the charging handle, a pouch), so one clip fits every gun.
+- **Timing:** clips use normalised time over the game's existing durations (the gun's
+  reload time, 0.42 s draw, 3.2 s inspect). They change how things look, never when a
+  magazine is ready.
+- **Low and Standard** keep the procedural animations.
+
+**Attachments** (milestone 8) are built onto the first-person and third-person guns in every
+quality: muzzle devices, grips, the laser, the longer extended magazine and the quick-change
+pull loop. They use neutral colours, so skins don't paint them. See ENGINE_API.md for the
+effective stats.
+
 ### How the models are built (`node tools/build-hd.mjs`)
 
 - `tools/hd/kit.mjs`: modelling kit. Bevelled side profiles (with real holes for ports,
@@ -91,6 +115,7 @@ corners).
 - `tools/hd/view.html?gun=ak&mode=shaded|ao|edge`: a viewer for checking a model.
 
 Building all ten takes about two minutes. Bump `PACK_VERSION` when the content changes.
+`node tools/build-hd.mjs --manifest` rebuilds only the animations and the manifest.
 
 ### What the pack changes at runtime
 

@@ -20,7 +20,7 @@
 // straight line to zero at recovery.degPerSecond. shotIndex goes back to 0 once resetSeconds pass
 // without a shot.
 
-import { GaussianRng } from './prng.js?v=4ab7a0c-mwb7djhc';
+import { GaussianRng } from './prng.js?v=2bc20c5-mwb9w9ii';
 
 export const TAIL_STEPS = 3;
 export const EASE_FRACTION = 0.4;
