@@ -11,11 +11,16 @@ The supplied complete-engine PDF is design context for Milestones 7–12. The
 immediate implementation is Milestone 7. The user confirmed that split-screen
 is unwanted: this work adds no split-screen mode or selection UI.
 
-Claude's reported status: Milestone 3 height-aware Rust physics and multi-level
-pathfinding are implemented, with browser verification in progress. Those changes
-were not on either remote branch at audit. No Claude session contents were
-accessible through the supplied URL; this status comes from the user's pasted
-progress report. No physics, maps, bots, Rust core, or networking code is replaced.
+Milestone 3 is now on `main` at `651d04c`. Claude prepared merge commit
+`98bf6f1` on `integration/m3-m7`, combining that engine with our original
+`6ebd245` feature head. The feature branch has adopted that exact merge by
+fast-forward, preserving both histories and Claude's conflict resolutions.
+Codex has not pushed to `main`.
+
+Read [ENGINE_API.md](ENGINE_API.md) for the current engine contract. The handoff
+was read directly from [Claude's PR comment](https://github.com/6f44646syn-boop/R6-shooter/pull/1#issuecomment-6763983308).
+Engine ownership stays with Claude; UI, controls, the existing network layer and
+later milestone modules stay with Codex. Shared glue edits must remain small.
 
 ## Implemented
 
@@ -79,22 +84,23 @@ can consume these actions directly without changing the menus or storage.
 
 ## Integration with Claude's Milestone 3
 
-The likely overlapping files are `js/main.js`, `js/modes/game.js`,
-`js/battle/human.js` and import cache stamps. Preserve Claude's physics and vault
-changes when combining branches. In particular:
+The imported integration preserves:
 
-1. Keep new `KeyC: 'vault'` handling when it arrives. This branch deliberately
-   leaves Milestone 2's match-mode C/crouch behavior intact; the `vault` semantic
-   action emits KeyC and will use the new implementation. Battle already vaults.
-2. In ModeGame input, replace the old Q ability branch with `OperatorAbility`.
-   Keep Q/E movement entries; remove the old deletions of Q/E from the map.
-3. Dispatch `Interact` to the bomb rule's legacy KeyE handler (or its new semantic
-   interaction API). Q/E must never be consumed by abilities or bomb actions.
-4. Keep `controls.release()` around mode transitions and mouse-player respawns.
-5. Preserve the new floor coordinates and camera math in all other handlers.
+1. `KeyC: 'vault'` in every mode; crouch is Space. The existing `vault` semantic
+   action already emits KeyC, so it needs no new adapter.
+2. `OperatorAbility`, `Interact` and `DroneZap`; Q/E remain lean inputs.
+3. `controls.release()` on respawn alongside the real floor height (`me.y`, `f.y`).
+4. Early core loading (`loadAll()`), `needCore()` before Battle startup, and the
+   existing `data-errors` feedback.
+5. `CoreWorld` in `js/wasm/world.js`, shared by Arena and MatchMap. The game core
+   is ABI **3**; the separate controls WASM remains ABI **1**.
+6. The existing replay recorder's seven-float actor stride:
+   `[x, z, yaw, pitch, crouch, alive, y]`.
 
-The change does not modify `rust/core`, its committed WASM, map data, simulation,
-AI, ability implementations, bomb rules, relay, or WebRTC protocols.
+Codex's follow-up changes do not edit Claude's engine directories or physics,
+map, simulation, AI, ability, bomb-rule or grenade implementations. Any engine
+check failure is recorded for Claude instead of changing his implementation.
+When touching shared glue, run `npm test` and `node tools/check-modes.mjs`.
 
 ## Fairness and remaining Milestone 7 work
 
@@ -104,13 +110,17 @@ same recoil, spread and target rules. The existing optional range assist is
 explicitly limited to offline range training. Automatic ADS is ordinary input
 composition and grants no aim, recoil or damage benefit.
 
-Client restrictions cannot enforce competitive security against a modified
-client. Server-authoritative input/weapon policy must be integrated with the real
-Milestone 9 backend before claiming competitive fairness enforcement. Do not
-accept a client-provided `profile`, `ranked`, or `allowAssist` flag as authority.
+The existing multiplayer uses a player-hosted authority. Client restrictions do
+not establish competitive security against a modified client or host, and this
+work makes no such claim. Keep profile assistance disabled online and do not
+accept client-provided profile or ranked flags as proof of fairness.
 
-Remaining verification/integration: merge-test against Claude's Milestone 3
-interfaces; browser/device testing on physical trackpads and Safari/Firefox;
+Claude reports that the user narrowed networking to the existing relay/WebRTC
+Battle. Confirmation was requested in this conversation because the original
+brief asked for a broader backend. Until resolved, this increment makes no new
+networking implementation or backend commitment.
+
+Remaining verification/integration: browser/device testing on physical trackpads and Safari/Firefox;
 Mac Caps Lock's unusual key-up-only behavior; full operator/model/role catalogue
 presentation (the current data supplies name, weapon, sight and ability).
 This is an operational Milestone 7 increment, not a claim that the entire
@@ -121,16 +131,17 @@ Milestone 7 or Milestones 8–12 are finished.
 | Milestone | Existing foundation and integration need |
 | --- | --- |
 | 8 | Existing WebAudio SFX, optic catalogue and weapon viewmodels; Rust weapon/attachment state and authoritative balance still needed |
-| 9 | Existing Cloudflare relay + WebRTC Battle is peer-hosted, not a trusted dedicated Rust server; coordinate networking ownership before adding a backend |
-| 10 | Existing compact kill-cam recordings must be extended for exact camera pose and all stance/weapon state |
+| 9 | Codex owns the existing relay/WebRTC Battle; networking scope confirmation is pending. Coordinate B11 (online grenades) through the engine contract before touching engine-owned grenade logic |
+| 10 | Extend `ModeGame._record()` and its seven-float actor stride for lean, ADS and recoil; use the existing recorder rather than adding another |
 | 11 | Server results, identity, matchmaking and persistent seasonal records must precede rankings/rewards; no simulated online ranking UI |
 | 12 | Existing range and local profile can host drill UI once Rust drill state/stat interfaces are agreed |
 
 ## Build and verification
 
 ```sh
-npm ci
-npx playwright install chromium
+# Use existing external Playwright test tooling, without project dependencies:
+# export NODE_PATH=/path/to/test-tools/node_modules
+# export PLAYWRIGHT_CHROMIUM=/usr/bin/chromium
 cargo test --manifest-path rust/core/Cargo.toml
 rustup target add wasm32-unknown-unknown
 npm run build:controls
@@ -140,13 +151,20 @@ node tools/check-modes.mjs
 npm run check
 ```
 
+Playwright is not declared in the project's package.json and no package lockfile
+is required. Browser tests load it with `createRequire`, matching `tests/run.mjs`.
+Use an existing global installation with `NODE_PATH` pointing to its module root,
+or external test tooling supplied by the development environment. In CI it is
+pinned and installed only under the runner's temporary test-tools directory;
+there is no project-local installation or `npm ci` step.
+
 For an existing system Chromium, set `PLAYWRIGHT_CHROMIUM=/usr/bin/chromium`.
 Build controls before running tests when Rust changes. CI validates native Rust,
 committed WASM source freshness, persistence and real Chromium UI/input tests.
 `tests/output/m7/` contains generated desktop/mobile screenshots (gitignored).
 Full regression results and any baseline failures are recorded in the PR.
 
-### Verified results in this workspace
+### Historical results before the Milestone 3 integration
 
 | Check | Result |
 | --- | --- |
@@ -168,3 +186,25 @@ claim is made that real internet multiplayer was verified by this task.
 The full suite ran after the main integration; subsequent tab-focus, HUD-label
 and input-guard refinements were verified with the focused controls suite.
 The click-through smoke test result is also recorded in the PR.
+
+### Milestone 3 integration verification
+
+The integration was revalidated in the Codex workspace, using Playwright from
+outside the checkout and no project `node_modules` directory:
+
+- Existing core native Rust tests: 18 passed.
+- Controls native Rust tests: 8 passed.
+- Controls/WASM/browser checks: 26 passed.
+- Mode simulations: 97 checks passed.
+- Data validation: passed.
+
+- Full integrated `npm test`: 197 checks passed, 2 failed. The same exact-boundary
+  shot-count mismatch (19 expected, 18 received) and direct WebRTC connection
+  timeout reproduced here. Relay testing was skipped because no relay was running.
+- Missing external test tooling: exits cleanly with status 2 and setup guidance.
+- [Integrated controls CI](https://github.com/6f44646syn-boop/R6-shooter/actions/runs/42793392544): passed.
+
+Claude's reported results are separate evidence: 204 checks passed, mode checks
+97 passed and a clean play-through on his integration environment. His two
+previously failing checks passed there. The environment difference is recorded;
+no engine implementation was changed to make our run pass.
