@@ -1,31 +1,102 @@
-import assert from 'node:assert/strict';
-import {readFileSync,readdirSync} from 'node:fs';
-import {createHash} from 'node:crypto';
-import {ACTIONS,CODES,inputCode,inputLabel,createControls} from '../js/ui/m7-raw-input.js';
-const root=new URL('../',import.meta.url);
-const src=new URL('rust/m7_controls/',root);
-const hash=createHash('sha256');
-for(const f of ['Cargo.toml',...readdirSync(new URL('src/',src)).filter(f=>f.endsWith('.rs')).sort().map(f=>'src/'+f)])hash.update(readFileSync(new URL(f,src)));
-assert.equal(hash.digest('hex'),readFileSync(new URL('wasm/m7_controls.hash',root),'utf8').trim(),'committed WASM source hash');
-const bytes=readFileSync(new URL('wasm/m7_controls.wasm',root));
-const {instance}=await WebAssembly.instantiate(bytes,{});const e=instance.exports;
-assert.equal(e.mc_abi(),1);assert.equal(e.mc_count(),ACTIONS.length);
+import assert from "node:assert/strict";
+import { readFileSync, readdirSync } from "node:fs";
+import { createHash } from "node:crypto";
+import {
+  ACTIONS,
+  CODES,
+  inputCode,
+  inputLabel,
+  createControls,
+} from "../js/ui/m7-raw-input.js";
+const root = new URL("../", import.meta.url);
+const src = new URL("rust/m7_controls/", root);
+const hash = createHash("sha256");
+for (const f of [
+  "Cargo.toml",
+  ...readdirSync(new URL("src/", src))
+    .filter((f) => f.endsWith(".rs"))
+    .sort()
+    .map((f) => "src/" + f),
+])
+  hash.update(readFileSync(new URL(f, src)));
+assert.equal(
+  hash.digest("hex"),
+  readFileSync(new URL("wasm/m7_controls.hash", root), "utf8").trim(),
+  "committed WASM source hash",
+);
+const bytes = readFileSync(new URL("wasm/m7_controls.wasm", root));
+const { instance } = await WebAssembly.instantiate(bytes, {});
+const e = instance.exports;
+assert.equal(e.mc_abi(), 1);
+assert.equal(e.mc_count(), ACTIONS.length);
 e.mc_reset(0);
-assert.equal(e.mc_binding(10,0),129);assert.equal(e.mc_event(129,1),267);assert.equal(e.mc_event(129,0),11);
-assert.equal(e.mc_event(17,1),265);assert.equal(e.mc_event(5,1),266);assert.equal(e.mc_release(),(1<<8)|(1<<9));
-assert.equal(e.mc_bind(10,0,17),0);assert.equal(e.mc_bind(10,0,21),1);assert.equal(e.mc_event(129,1),0);assert.equal(e.mc_event(21,1),267);
-e.mc_reset(1);assert.equal(e.mc_binding(0,0),10);assert.equal(e.mc_binding(1,0),12);assert.equal(e.mc_binding(10,0),21);
-e.mc_options(1,2,.5,1);assert.equal(e.mc_look(4,1,1),-4);assert.equal(e.mc_look(NaN,0,0),0);
-assert.equal(e.mc_assist_allowed(1,0),1);assert.equal(e.mc_assist_allowed(1,1),0);assert.equal(e.mc_assist_allowed(0,0),0);
-assert.equal(CODES.length,46);assert.equal(inputCode({type:'mousedown',button:1}),129);assert.equal(inputCode({type:'keydown',code:'KeyQ'}),17);assert.equal(inputLabel(129),'Middle mouse');
+assert.equal(e.mc_binding(10, 0), 129);
+assert.equal(e.mc_event(129, 1), 267);
+assert.equal(e.mc_event(129, 0), 11);
+assert.equal(e.mc_event(17, 1), 265);
+assert.equal(e.mc_event(5, 1), 266);
+assert.equal(e.mc_release(), (1 << 8) | (1 << 9));
+assert.equal(e.mc_bind(10, 0, 17), 0);
+assert.equal(e.mc_bind(10, 0, 21), 1);
+assert.equal(e.mc_event(129, 1), 0);
+assert.equal(e.mc_event(21, 1), 267);
+e.mc_reset(1);
+assert.equal(e.mc_binding(0, 0), 10);
+assert.equal(e.mc_binding(1, 0), 12);
+assert.equal(e.mc_binding(10, 0), 21);
+e.mc_options(1, 2, 0.5, 1);
+assert.equal(e.mc_look(4, 1, 1), -4);
+assert.equal(e.mc_look(NaN, 0, 0), 0);
+assert.equal(e.mc_assist_allowed(1, 0), 1);
+assert.equal(e.mc_assist_allowed(1, 1), 0);
+assert.equal(e.mc_assist_allowed(0, 0), 0);
+assert.equal(CODES.length, 46);
+assert.equal(inputCode({ type: "mousedown", button: 1 }), 129);
+assert.equal(inputCode({ type: "keydown", code: "KeyQ" }), 17);
+assert.equal(inputLabel(129), "Middle mouse");
 // Exercise the actual persistence adapter against real WASM, including corrupt storage.
-const originalFetch=globalThis.fetch;
-globalThis.fetch=async()=>({ok:true,arrayBuffer:async()=>bytes});
-let saved=null;globalThis.localStorage={getItem:()=>saved,setItem:(_,v)=>saved=v};
-let api=await createControls();assert.equal(api.selected,false);api.setProfile('trackpad');api.selected=true;api.bind(10,0,15);assert.equal(api.save(),true);
-api=await createControls();assert.equal(api.profile,'trackpad');assert.equal(api.selected,true);assert.equal(api.e.mc_binding(10,0),15);
-saved=JSON.stringify({...JSON.parse(saved),bindings:Array.from({length:24},()=>[17,17])});api=await createControls();assert.equal(api.e.mc_binding(10,0),21,'invalid duplicate bindings restore profile');
-saved='{';api=await createControls();assert.equal(api.selected,false);
-globalThis.localStorage={getItem(){throw Error('blocked');},setItem(){throw Error('blocked');}};api=await createControls();assert.equal(api.save(),false);assert.equal(api.e.mc_binding(10,0),129);
-globalThis.fetch=originalFetch;
-console.log('PASS controls WASM: source hash, ABI, profiles, transitions, collisions, sensitivity, fairness and storage recovery');
+const originalFetch = globalThis.fetch;
+globalThis.fetch = async () => ({ ok: true, arrayBuffer: async () => bytes });
+let saved = null;
+globalThis.localStorage = {
+  getItem: () => saved,
+  setItem: (_, v) => (saved = v),
+};
+let api = await createControls();
+assert.equal(api.selected, false);
+api.setProfile("trackpad");
+api.selected = true;
+api.bind(10, 0, 15);
+assert.equal(api.save(), true);
+api = await createControls();
+assert.equal(api.profile, "trackpad");
+assert.equal(api.selected, true);
+assert.equal(api.e.mc_binding(10, 0), 15);
+saved = JSON.stringify({
+  ...JSON.parse(saved),
+  bindings: Array.from({ length: 24 }, () => [17, 17]),
+});
+api = await createControls();
+assert.equal(
+  api.e.mc_binding(10, 0),
+  21,
+  "invalid duplicate bindings restore profile",
+);
+saved = "{";
+api = await createControls();
+assert.equal(api.selected, false);
+globalThis.localStorage = {
+  getItem() {
+    throw Error("blocked");
+  },
+  setItem() {
+    throw Error("blocked");
+  },
+};
+api = await createControls();
+assert.equal(api.save(), false);
+assert.equal(api.e.mc_binding(10, 0), 129);
+globalThis.fetch = originalFetch;
+console.log(
+  "PASS controls WASM: source hash, ABI, profiles, transitions, collisions, sensitivity, fairness and storage recovery",
+);
