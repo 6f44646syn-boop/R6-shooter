@@ -22,8 +22,9 @@ Do not describe those remaining tasks as complete.
 
 - Codex owns UI/controls, audio and later milestones; Claude owns the evolving
   engine, physics, maps, AI and rendering work in M1–6. Read PR comments and
-  `docs/ENGINE_API.md` before changing shared files. Last observed main was M4,
-  `7fcbf5a`; it is integrated in feature merge `880fd42` (core ABI 4).
+  `docs/ENGINE_API.md` before changing shared files. The feature branch integrates M4
+  `7fcbf5a` in `880fd42` (core ABI 4). **Late transfer update:** main now has
+  Claude's M6 `5cafaa1`; it was fetched/read but is not merged into this branch.
 - M5 bot tactics and M6 rendering/HD pack may advance during transfer. Inspect
   current commits/interfaces before integrating. Preserve Claude's work.
 - No split-screen. Middle mouse is ability, Q/E lean, F interaction, C vault.
@@ -56,8 +57,21 @@ Use the existing Sfx instance: call `sfx.unlock()` from a user gesture, fetch th
 versioned runtime `.rra` through the eventual pack manager, then
 `await sfx.installPack(bytes)`. `removePack()` restores procedural fallback.
 Integrate this addon into Claude's manager; do not build a competing downloader.
-There is **no HD download-manager interface in the last inspected M4 checkout**.
-The existing `js/ui/packs.js` is the cosmetic loot/collection UI, not that manager.
+Claude's M6 has now published the actual manager on `origin/main`:
+`js/render/hd-pack.js`, `hd/manifest.json`, `tools/build-hd.mjs` and
+`docs/GRAPHICS.md`. These are not yet in the M4-based feature working tree.
+`js/ui/packs.js` is the cosmetic loot/collection UI, not that download manager.
+
+Merge M6 into the feature branch first, preserving both sides' shared-file work.
+The current manager provides `init`, `check`, player-started `install`, `remove`,
+`ready`, `onChange` and `file(path)`. Its manifest lists `path`, `size`, `sha256`,
+plus a pack version and total. Cache Storage is `recoil-range-hd`; nongzipped
+`.rra` bytes can be read directly with `HDPack.file('audio/recoil-range-audio-v1.rra')`.
+Copy/build the audio runtime into that location, update the existing build tool
+and versioned manifest, then pass cached bytes to `sfx.installPack`. Reset the
+sample bank when the pack is removed. Defer AudioContext-dependent decoding until
+user-gesture unlock, including after a cached reload; do not add a separate fetch
+or cache manager.
 
 Decoded PCM is 2.72 MiB plus browser/node overhead. Cached occluded gunfire uses
 4 nodes/voice instead of 8. A final isolated local microbenchmark measured 81.0
@@ -114,8 +128,10 @@ a headline percentage. No AI implementation or Rust core was edited for this.
   established `Interact` action. E still leans. Assertions were not weakened.
 - Earlier serial click-through of Range, Battle, TDM, CTF, Bomb was clean; new
   balanced mechanics and effects were verified by focused tests/full regression.
-- CI for feature merge `880fd42` passed, run `42802993202`. New source CI is
-  triggered on push; inspect the latest PR checks rather than assuming success.
+- CI for feature merge `880fd42` passed, run `42802993202`. Source CI at `a3a419d` passed, run `42807398726`:
+  https://github.com/6f44646syn-boop/R6-shooter/actions/runs/42807398726
+  The transfer commits are documentation-only. These checks cover the M4-based
+  feature source, not the newly published, unmerged M6 integration.
 
 Cloud repo path was `/workspace/work/R6-shooter`; the desktop path will differ.
 Do not assume cloud toolchain paths exist locally. Use available Rust/Chromium
@@ -139,11 +155,18 @@ PDF was design context; explicit user changes above override it.
 ## Next: Claude's download pack, skins and map appearance
 
 1. Fetch current branch/main and read Claude's latest PR notes and ENGINE_API.
-   Find the actual M6 HD pack manifest, loader/cache API, quality settings,
+   Merge M6 `5cafaa1` into the feature branch without modifying main. Preserve
+   `effectiveGraphics(settings)` instead of direct graphics-level reads, existing
+   `worldPost.draw()` integration, and the Graphics test IDs (`#gfx`,
+   `#gx-download`, `#gx-remove`, `#set-open-graphics`, `#perf`). Keep M7 controls,
+   all three independent WASM boot modules, spatial audio, Bomb policy and
+   Interact tests alongside M6. Resolve cache stamps consistently and re-bake
+   audio because its source fingerprint includes Sfx imports. Inspect quality settings,
    resource budgets and build tool. Add the existing audio runtime file there
    as an optional component, with graceful missing/corrupt fallback. Preserve
    the base game's small startup download and existing hosting.
-2. Improve skin **assets/materials**, preserving skin IDs, ownership, rarity,
+2. M6 already supplies detailed gun meshes, baked AO/edge/cavity data and 4K
+   relief/parallax skins on Ultra. Improve those existing **assets/materials**, preserving skin IDs, ownership, rarity,
    unlocks, save codes, equipped loadouts and weapon silhouettes. Inspect
    `js/core/skins.js`, `js/render/gpu-tex.js` (`skinThumb`, material/detail bakers)
    and `js/scene/viewmodel.js`. Higher quality should include sharper authored
@@ -160,7 +183,8 @@ PDF was design context; explicit user changes above override it.
    silently introduce a new loader dependency. If Claude's pack API is still
    pending, prepare the asset contribution and a concrete integration patch
    against his contract rather than inventing another downloader.
-5. Compare before/after screenshots in representative skins and maps, including
+5. After merging, run the full shared-file suite and mode checks before further
+   visual changes. Compare before/after screenshots in representative skins and maps, including
    dark interiors and upper floors. Measure download size, decoded texture
    memory, startup and shader warmup, draw calls, repeated-match memory and frame
    times at matching settings/hardware. Software-GPU timings are not a claim
