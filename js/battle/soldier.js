@@ -1,11 +1,13 @@
-import { packArt } from '../render/pack-art.js?v=m6-integration';
+import { packArt } from '../render/pack-art.js?v=4ab7a0c-mwb7djhc';
 // The battle soldier: a helmeted figure in a plate carrier holding a rifle at the ready.
 // Hits are decided on simple shapes (a sphere head and capsules: SOLDIER_PARTS) laid out in
 // the same pose as the model, so what you see is what can be hit. The gear (helmet, vest,
 // pouches, pack, boots) sits snugly over those shapes.
 //
 // Coordinates: metres, the soldier's own frame: x right, y up from the feet, z forward.
-import * as THREE from '../../vendor/three/three.module.min.js?v=m6-integration';
+import * as THREE from '../../vendor/three/three.module.min.js?v=4ab7a0c-mwb7djhc';
+import { HDPack } from '../render/hd-pack.js?v=4ab7a0c-mwb7djhc';
+import { sightShading } from '../scene/sight-model.js?v=4ab7a0c-mwb7djhc';
 
 const L = -1, R = 1;
 const cap = (a, b, r, zone) => ({ t: 'capsule', a, b, r, zone });
@@ -86,13 +88,22 @@ function boxAt(w, h, d, x, y, z, rx = 0, ry = 0) {
 const cache = new Map();
 // team: the team colour (hex). Returns { upper, legL, legR } geometries with colours (legs
 // with the hip at their origin).
-export function soldierGeometry(team, enhanced = false) {
-  const key = team + ':' + (enhanced && packArt.soldier ? packArt.revision : 0);
+export function soldierGeometry(team, enhanced) {
+  // High / Ultra with the Enhanced Graphics pack: its detailed soldier (Claude; same pose and
+  // hit shapes). Without it, the simple soldier, with the pack's equipment overlay (Codex).
+  // (enhanced: the caller's quality when it knows it; otherwise the current gun shading)
+  const hd = (enhanced === undefined ? sightShading() === 'high' || sightShading() === 'ultra' : !!enhanced) && HDPack.loadedGun('soldier');
+  const key = team + ':' + (hd ? 'hd' + packArt.revision : enhanced && packArt.soldier ? packArt.revision : 0);
   if (cache.has(key)) return cache.get(key);
   const tc = new THREE.Color(team);
   const mix = (c, k, grey = 0x3a3d3a) => '#' + new THREE.Color(grey).lerp(tc, k).multiplyScalar(c).getHexString();
   const cloth = mix(0.85, 0.42), clothDark = mix(0.6, 0.35), patch = '#' + tc.clone().multiplyScalar(1.1).getHexString();
   const VEST = 0x2b302b, GEAR = 0x4a4636, BLACK = 0x161718, SKIN = 0xc89a78, HELMET = 0x343a34;
+  if (hd) {
+    const out = hdSoldier(hd, { cloth, clothDark, patch, vest: VEST, gear: GEAR, black: BLACK, skin: SKIN, helmet: HELMET });
+    cache.set(key, out);
+    return out;
+  }
   const parts = [];
   const add = (g, c) => parts.push(colored(g, c));
   // head, face, helmet (with a team band), goggles, ears/headset
@@ -138,10 +149,36 @@ export function soldierGeometry(team, enhanced = false) {
   }
   const out = { upper: merge(parts), legL: merge(legs[L]), legR: merge(legs[R]) };
   for (const [old, g] of cache) if (old.startsWith(team + ':') && old !== key && !old.endsWith(':0')) {
-    for (const geometry of Object.values(g)) geometry.dispose(); cache.delete(old);
+    for (const geometry of Object.values(g)) if (geometry && geometry.isBufferGeometry) geometry.dispose(); cache.delete(old);
   }
   cache.set(key, out);
   return out;
+}
+// The pack's soldier: colours per part (team colours where the cloth is), with its baked
+// ambient occlusion and cavity darkening multiplied in (the body material is plain
+// vertex-coloured Lambert). Legs move to their hip hinge like the simple soldier's.
+function hdSoldier(model, colors) {
+  const C = {};
+  for (const [k, v] of Object.entries(colors)) C[k] = new THREE.Color(v);
+  const parts = { upper: [], legL: [], legR: [] };
+  for (const p of model.lods[0]) {
+    const n = p.position.length / 3, col = new Float32Array(n * 3), c = C[p.role] || C.gear;
+    for (let i = 0; i < n; i++) {
+      const ao = p.detail[i * 4] / 255, edge = p.detail[i * 4 + 1] / 255, cav = p.detail[i * 4 + 2] / 255;
+      const k = (0.3 + 0.7 * Math.pow(ao, 1.3)) * (1 - 0.35 * cav) * (1 + 0.12 * edge);
+      col[i * 3] = c.r * k; col[i * 3 + 1] = c.g * k; col[i * 3 + 2] = c.b * k;
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(p.position.slice(), 3));
+    g.setAttribute('normal', new THREE.BufferAttribute(p.normal.slice(), 3));
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    g.setIndex(new THREE.BufferAttribute(p.index, 1));
+    const ng = g.toNonIndexed();
+    if (p.group === 'legL') ng.translate(HIP_X, -HIP_Y, 0);
+    if (p.group === 'legR') ng.translate(-HIP_X, -HIP_Y, 0);
+    (parts[p.group] || parts.upper).push(ng);
+  }
+  return { upper: merge(parts.upper), legL: merge(parts.legL), legR: merge(parts.legR), hd: true };
 }
 // Where the legs hinge (soldier frame).
 export const HIP_X = 0.1, HIP_Y = 0.9;

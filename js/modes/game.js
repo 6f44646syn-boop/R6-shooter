@@ -1,23 +1,23 @@
-import { applyMapArt } from '../render/pack-art.js?v=m6-integration';
-import { sensoryFor } from '../balance/bomb-utility.js?v=m6-integration';
+import { applyMapArt } from '../render/pack-art.js?v=4ab7a0c-mwb7djhc';
+import { sensoryFor } from '../balance/bomb-utility.js?v=4ab7a0c-mwb7djhc';
 // Team Deathmatch, Capture the Flag and Bomb in the browser: draws the match simulation
 // (sim.js) and runs your player with the range's own systems (look, sensitivity, recoil,
 // spread, sights, weapon model: battle/human.js), at a fixed 60 Hz simulation.
 //
 // Map: flat-shaded low poly from the map file; static walls merged into one mesh, breakable
 // panels in one instanced mesh, one directional light (a 1024 shadow map in High / Ultra).
-import * as THREE from '../../vendor/three/three.module.min.js?v=m6-integration';
-import { MatchMap } from './map.js?v=m6-integration';
-import { initCore } from '../wasm/core.js?v=m6-integration';
-import { Match, TICK } from './sim.js?v=m6-integration';
-import { yawTo, wrap180, DEG } from './geom.js?v=m6-integration';
-import { Fighter } from '../battle/fighter.js?v=m6-integration';
-import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=m6-integration';
-import { buildMapLook, panelTextures } from './look.js?v=m6-integration';
-import { Arena } from '../battle/arena.js?v=m6-integration';
-import { Human } from '../battle/human.js?v=m6-integration';
-import { drawCrosshair } from '../ui/crosshair.js?v=m6-integration';
-import { effectiveGraphics } from '../render/quality.js?v=m6-integration';
+import * as THREE from '../../vendor/three/three.module.min.js?v=4ab7a0c-mwb7djhc';
+import { MatchMap } from './map.js?v=4ab7a0c-mwb7djhc';
+import { initCore } from '../wasm/core.js?v=4ab7a0c-mwb7djhc';
+import { Match, TICK } from './sim.js?v=4ab7a0c-mwb7djhc';
+import { yawTo, wrap180, DEG } from './geom.js?v=4ab7a0c-mwb7djhc';
+import { Fighter } from '../battle/fighter.js?v=4ab7a0c-mwb7djhc';
+import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=4ab7a0c-mwb7djhc';
+import { buildMapLook, panelTextures } from './look.js?v=4ab7a0c-mwb7djhc';
+import { Arena } from '../battle/arena.js?v=4ab7a0c-mwb7djhc';
+import { Human } from '../battle/human.js?v=4ab7a0c-mwb7djhc';
+import { drawCrosshair } from '../ui/crosshair.js?v=4ab7a0c-mwb7djhc';
+import { effectiveGraphics } from '../render/quality.js?v=4ab7a0c-mwb7djhc';
 
 const reducedMotion = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 const TEAM_COLOR = { A: 0x5b8cff, B: 0xff7048 };

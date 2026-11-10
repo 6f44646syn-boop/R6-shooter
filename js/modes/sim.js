@@ -1,4 +1,4 @@
-import { utilityFor, abilitiesFor } from '../balance/bomb-utility.js?v=m6-integration';
+import { utilityFor, abilitiesFor } from '../balance/bomb-utility.js?v=4ab7a0c-mwb7djhc';
 // Match simulation for Team Deathmatch, Capture the Flag and Bomb (no three.js, no DOM:
 // the same code runs in the browser and in tools/check-modes.mjs).
 //
@@ -8,13 +8,13 @@ import { utilityFor, abilitiesFor } from '../balance/bomb-utility.js?v=m6-integr
 //
 // Body for hits (actor frame, standing; crouching squashes y to 0.7): head sphere at 1.62 m
 // (r 0.13), torso capsule 0.95-1.34 m (r 0.24), legs capsule 0.1-0.9 m (r 0.19).
-import { mulberry32 } from '../core/prng.js?v=m6-integration';
-import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=m6-integration';
-import { BODY_R } from './map.js?v=m6-integration';
-import { Brain } from './bots.js?v=m6-integration';
-import { makeRules } from './rules.js?v=m6-integration';
-import { Nades } from './nades.js?v=m6-integration';
-import { Abilities } from './abilities.js?v=m6-integration';
+import { mulberry32 } from '../core/prng.js?v=4ab7a0c-mwb7djhc';
+import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=4ab7a0c-mwb7djhc';
+import { BODY_R } from './map.js?v=4ab7a0c-mwb7djhc';
+import { Brain } from './bots.js?v=4ab7a0c-mwb7djhc';
+import { makeRules } from './rules.js?v=4ab7a0c-mwb7djhc';
+import { Nades } from './nades.js?v=4ab7a0c-mwb7djhc';
+import { Abilities } from './abilities.js?v=4ab7a0c-mwb7djhc';
 
 export const TICK = 1 / 60;
 export const EYE = 1.6, CROUCH_EYE = 1.1;
@@ -57,7 +57,7 @@ export class Match {
     this.actors = [];
     this.bb = { A: { seen: new Map(), deaths: [] }, B: { seen: new Map(), deaths: [] } };
     this.gunsById = new Map(o.guns.map((g) => [g.id, g]));
-    this.losBudget = 0;
+    this.losBudget = 0; this.pathBudget = 2;
     this.ab = new Abilities(this, abilitiesFor(this.o.mode, o.abilities || {}));
     this.nades = new Nades(this);
     this.rules = makeRules(this);
@@ -238,9 +238,9 @@ export class Match {
   doorHit(pn, dmg, a, at = null) {
     if (pn && pn.alive) { const b = pn.box, c = at || [(b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2, (b.minZ + b.maxZ) / 2]; this.emit({ type: 'splinter', x: c[0], y: c[1], z: c[2], kind: 'door' }); }
     if (this.map.hurtDoor(pn, dmg)) {
-      const b = pn.box, x = (b.minX + b.maxX) / 2, z = (b.minZ + b.maxZ) / 2;
-      this.noises.push({ x, z, t: this.t, range: NOISE.door, kind: 'door', team: a ? a.team : '', id: a ? a.id : 0 });
-      this.emit({ type: 'door', x, z, by: a ? a.id : 0 });
+      const b = pn.box, x = (b.minX + b.maxX) / 2, z = (b.minZ + b.maxZ) / 2, y = (b.minY + b.maxY) / 2;
+      this.noises.push({ x, y, z, t: this.t, range: NOISE.door, kind: 'door', team: a ? a.team : '', id: a ? a.id : 0 });
+      this.emit({ type: 'door', x, y, z, by: a ? a.id : 0 });
     }
   }
   // K: the knife. Hits the closest enemy in front within reach (lethal from behind), else a
@@ -295,6 +295,10 @@ export class Match {
     const dt = TICK;
     this.t += dt; this.tick++;
     this.losBudget = 18;
+    // Path planning budget: at most this many new routes a step (a bot over budget plans at
+    // its next think, 1/15 s later). Long routes for several bots in one step were the
+    // worst steps (10 ms on Winter Cabin). A count, not a time, so matches stay deterministic.
+    this.pathBudget = 2;
     this.rules.update(dt);
     // bots: think at 15 Hz (staggered), act every step
     for (let i = 0; i < this.actors.length; i++) {

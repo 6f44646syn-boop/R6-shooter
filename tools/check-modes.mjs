@@ -430,6 +430,19 @@ console.log('\nPhysics on every map: stairs, upper floors, falling, vaulting, do
   if (noVault.length) console.log('  (not vaultable from any side: ' + noVault.join('; ') + ')');
 }
 
+console.log('\nPath planning cost (milestone 5)');
+{
+  // A goal with no walkable spot close to it (inside furniture) used to search the whole map
+  // for the nearest reachable spot: 36 ms on Workshop. Now the nearest few, in order.
+  const map = new MatchMap(maps.workshop);
+  map.path(-3.2, -4, -1.6, -19.8, 0, 0);
+  const t0 = performance.now();
+  for (let i = 0; i < 5; i++) map.path(-3.2, -4, -1.6, -19.8, 0, 0);
+  const ms = (performance.now() - t0) / 5;
+  check('a route to a point inside furniture takes ' + ms.toFixed(1) + ' ms (was 36 ms), under 8 ms', ms < 8, ms.toFixed(2));
+  map.dispose();
+}
+
 console.log('\nBomb: defenders stay inside the building');
 {
   let tried = 0, escaped = [], attOk = 0, attTried = 0;
@@ -510,6 +523,10 @@ for (const mode of modes) {
   if (mode === 'bomb') {
     const rounds = res.flatMap((r) => r.m.rules.rounds || []);
     const okReasons = ['eliminated', 'detonated', 'defused', 'time'];
+    // milestone 5: neither side wins nearly everything (the bot tuning aims at about 55%
+    // defender wins over many matches: tools/bomb-ai-report.mjs; this sample is small)
+    const defWins = rounds.filter((x) => x.side === 'defend').length;
+    check('Bomb bots: both sides win rounds (defenders ' + defWins + ' of ' + rounds.length + ')', rounds.length >= 10 && defWins >= rounds.length * 0.2 && defWins <= rounds.length * 0.85, JSON.stringify(rounds.map((x) => x.side[0])));
     check('every Bomb round ends by one of the four rules (' + rounds.length + ' rounds: ' + okReasons.map((k) => k + ' ' + rounds.filter((x) => x.reason === k).length).join(', ') + ')', rounds.length > 0 && rounds.every((x) => okReasons.includes(x.reason)), JSON.stringify(rounds.filter((x) => !okReasons.includes(x.reason)).slice(0, 3)));
   }
 }

@@ -14,12 +14,14 @@ import { setDetail } from './hd/kit.mjs';
 import { bake } from './hd/bake.mjs';
 import { writeRRM } from './hd/format.mjs';
 import { GUNS } from './hd/guns.mjs';
+import { soldier } from './hd/soldier.mjs';
 
-export const PACK_VERSION = 2;
+export const PACK_VERSION = 3;      // 2: the soldier (Claude) / surfaces, audio (Codex); 3: both
 const ROOT = new URL('../hd/', import.meta.url);
 mkdirSync(new URL('guns/', ROOT), { recursive: true });
+mkdirSync(new URL('soldiers/', ROOT), { recursive: true });
 
-if (process.argv.includes('--surfaces')) { await import('./hd/soldier.mjs'); await import('./build-pack-surfaces.mjs'); }
+if (process.argv.includes('--surfaces')) { await import('./hd/soldier-equipment.mjs'); await import('./build-pack-surfaces.mjs'); }
 
 const only = (process.argv.includes('--manifest') || process.argv.includes('--surfaces')) ? ['--none--'] : process.argv.slice(2);
 const LODS = [
@@ -42,6 +44,17 @@ for (const name of Object.keys(GUNS)) {
   writeFileSync(new URL('guns/' + name + '.rrmz', ROOT), gz);
   const tris = lods.map((lod) => lod.reduce((s, p) => s + p.idx.length / 3, 0));
   console.log(name.padEnd(14), 'tris', tris.join(' / ').padEnd(16), 'raw', (raw.length / 1024).toFixed(0) + ' KB', 'gz', (gz.length / 1024).toFixed(0) + ' KB', ((Date.now() - t0) / 1000).toFixed(1) + ' s');
+}
+
+// The soldier (Battle and the match modes): one level of detail, seen from metres away.
+if (!only.length || only.includes('soldier')) {
+  const t0 = Date.now();
+  setDetail(1);
+  const lod = bake(soldier(), { L: 0.07, R: 0.015, rays: 32, maxD: 0.15 });
+  const raw = writeRRM([lod], { name: 'soldier' });
+  const gz = gzipSync(raw, { level: 9 });
+  writeFileSync(new URL('soldiers/soldier.rrmz', ROOT), gz);
+  console.log('soldier'.padEnd(14), 'tris', String(lod.reduce((s, p) => s + p.idx.length / 3, 0)).padEnd(16), 'raw', (raw.length / 1024).toFixed(0) + ' KB', 'gz', (gz.length / 1024).toFixed(0) + ' KB', ((Date.now() - t0) / 1000).toFixed(1) + ' s');
 }
 
 // Manifest: every file with its size and SHA-256 (the game checks each download).

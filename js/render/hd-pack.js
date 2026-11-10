@@ -7,7 +7,7 @@
 //
 // state: 'none' (not installed), 'downloading', 'installed', 'update' (installed, newer one
 // on the site), 'unsupported' (this browser cannot store or unpack it), 'error'.
-import { parseRRM } from './hd-mesh.js?v=m6-integration';
+import { parseRRM } from './hd-mesh.js?v=4ab7a0c-mwb7djhc';
 
 const BASE = new URL('../../hd/', import.meta.url);
 const CACHE = 'recoil-range-hd';
@@ -158,9 +158,11 @@ export const HDPack = {
   },
 
   // A gun model from the pack (parsed .rrm), or null if the pack has none for it.
-  gun(name) {
-    if (!this.ready || !this.installed.files.some((f) => f.path === 'guns/' + name + '.rrmz')) return Promise.resolve(null);
-    if (!meshes.has(name)) meshes.set(name, this.file('guns/' + name + '.rrmz').then((b) => (b ? parseRRM(b) : null)).catch((e) => { console.error('HD gun ' + name, e); return null; }));
+  gun(name) { return this.model('guns/' + name + '.rrmz', name); },
+  // Any model of the installed pack by its path (guns/<name>.rrmz, soldiers/soldier.rrmz).
+  model(path, name = path) {
+    if (!this.ready || !this.installed.files.some((f) => f.path === path)) return Promise.resolve(null);
+    if (!meshes.has(name)) meshes.set(name, this.file(path).then((b) => (b ? parseRRM(b) : null)).catch((e) => { console.error('HD model ' + path, e); return null; }));
     return meshes.get(name);
   },
   // The parsed models already loaded (synchronous access for building a gun).
@@ -168,8 +170,9 @@ export const HDPack = {
   // Load every gun model into memory (after install, or at boot when High / Ultra is on).
   async loadGuns() {
     if (!this.ready) return 0;
-    const names = this.installed.files.filter((f) => f.path.startsWith('guns/')).map((f) => f.path.slice(5).replace('.rrmz', ''));
-    await Promise.all(names.map(async (n) => { const g = await this.gun(n); if (g) loaded.set(n, g); }));
+    // guns by model name; the soldier as 'soldier'
+    const paths = this.installed.files.filter((f) => /^(guns|soldiers)\/.*\.rrmz$/.test(f.path)).map((f) => f.path);
+    await Promise.all(paths.map(async (p) => { const n = p.split('/').pop().replace('.rrmz', ''); const g = await this.model(p, n); if (g) loaded.set(n, g); }));
     return loaded.size;
   },
 };

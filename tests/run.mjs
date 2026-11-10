@@ -910,6 +910,24 @@ try {
     });
     check('download with the button: every file checked and kept in the browser (' + p1.cached + ' files); High switches on', p1.st.state === 'installed' && p1.cached === p1.files && p1.hd && p1.tone !== 0 && !p1.prompt && /Installed/.test(p1.status), JSON.stringify(p1));
     check('the pack\'s gun is far more detailed (' + Math.round(p1.hiTris / 1000) + 'k triangles vs ' + Math.round(p1.lowTris / 1000) + 'k)', p1.hiTris > p1.lowTris * 4, JSON.stringify(p1));
+    // The pack's soldier in a battle (High): far more detailed than the simple one, same hit shapes.
+    const sol = await page.evaluate(() => {
+      const R = window.__range;
+      const started = R.battleStart({ opponent: 'bots', bots: 2, level: 'easy', kills: 30 });
+      if (!started) return { why: 'battle did not start: ' + document.getElementById('notice').textContent + ' | ' + JSON.stringify(R.battleState && R.battleState()) };
+      const B = R.battle(), f = B.bots[0].f;
+      R.step(0.5); R.renderFrame();
+      const hiVerts = f.body.geometry.attributes.position.count + f.legs.reduce((s, l) => s + l.piv.children[0].geometry.attributes.position.count, 0);
+      R.battleLeave();
+      R.setGraphics('standard');
+      R.battleStart({ opponent: 'bots', bots: 2, level: 'easy', kills: 30 });
+      const f2 = R.battle().bots[0].f;
+      const loVerts = f2.body.geometry.attributes.position.count + f2.legs.reduce((s, l) => s + l.piv.children[0].geometry.attributes.position.count, 0);
+      R.battleLeave();
+      R.setGraphics('high');
+      return { hiVerts, loVerts };
+    });
+    check('the pack\'s soldier in battles (' + Math.round(sol.hiVerts / 3000) + 'k triangles vs ' + Math.round(sol.loVerts / 3000) + 'k)', sol.hiVerts > sol.loVerts * 3, JSON.stringify(sol));
     // World post-processing on High: ambient occlusion + TAA, then upscaling at 60%.
     const wp = await page.evaluate(() => {
       const R = window.__range;
@@ -1291,6 +1309,8 @@ try {
       R.battleStart({ opponent: 'bots', bots: 1, level: 'easy', kills: 99, map: 'casino' });
       const B = R.battle(), h = B.humans[0];
       for (const b of B.bots) { b.update = () => {}; b.f.x = 18; b.f.z = 12; }
+      // Start downstairs so a random upper-floor spawn cannot bypass the stairs.
+      h.respawn(-19.25, 14.75, B.t, 0);
       h.f.protectUntil = 1e9; R.step(0.2, 60);
       const A = B.arena, topB = topY, goal = up;        // the same top-floor spot as in Team Deathmatch
       let tB = 0;

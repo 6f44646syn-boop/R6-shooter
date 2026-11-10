@@ -54,7 +54,17 @@ original designs built to the same layout and anchor points as the low-poly guns
 top, rails, grip, magazine, hand positions and muzzle), so sights, hands, reloads, the bolt,
 brass and the muzzle flash line up unchanged.
 
-Each model has two levels of detail: about 25k-90k triangles for first person, and about
+**The soldier** (pack version 2, `hd/soldiers/soldier.rrmz`, about 26k triangles) is used
+in Battle and the match modes on High and Ultra:
+- a rounded helmet with a team band, side rails, a night-vision mount and a headset;
+- a plate carrier with webbing straps, magazine and admin pouches and a radio;
+- a belt with pouches, a backpack, elbow and knee pads, gloves, and boots with soles and laces.
+
+It has exactly the pose and proportions of the simple soldier, so the hit shapes
+(`SOLDIER_PARTS`) still match what you see. It is coloured per team, with its baked ambient
+occlusion and cavity darkening in the vertex colours. Its builder is `tools/hd/soldier.mjs`.
+
+Each gun model has two levels of detail: about 25k-90k triangles for first person, and about
 5k-16k for guns other players carry. Every vertex stores baked data: ambient occlusion
 (ray-traced against the whole gun), an edge mask (convex edges) and a cavity mask (inside
 corners).

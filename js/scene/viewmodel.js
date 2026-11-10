@@ -1,16 +1,16 @@
-import { packArt } from '../render/pack-art.js?v=m6-integration';
+import { packArt } from '../render/pack-art.js?v=4ab7a0c-mwb7djhc';
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=m6-integration';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=m6-integration';
-import { matcap } from './matcap.js?v=m6-integration';
-import { mulberry32 } from '../core/prng.js?v=m6-integration';
-import { gunMaps } from './range-tex.js?v=m6-integration';
-import { skinById, FACTORY } from '../core/skins.js?v=m6-integration';
-import { legendCanvas, onLegendChange } from '../core/legend.js?v=m6-integration';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=m6-integration';
-import { HDPack } from '../render/hd-pack.js?v=m6-integration';
+import * as THREE from '../../vendor/three/three.module.min.js?v=4ab7a0c-mwb7djhc';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=4ab7a0c-mwb7djhc';
+import { matcap } from './matcap.js?v=4ab7a0c-mwb7djhc';
+import { mulberry32 } from '../core/prng.js?v=4ab7a0c-mwb7djhc';
+import { gunMaps } from './range-tex.js?v=4ab7a0c-mwb7djhc';
+import { skinById, FACTORY } from '../core/skins.js?v=4ab7a0c-mwb7djhc';
+import { legendCanvas, onLegendChange } from '../core/legend.js?v=4ab7a0c-mwb7djhc';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=4ab7a0c-mwb7djhc';
+import { HDPack } from '../render/hd-pack.js?v=4ab7a0c-mwb7djhc';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 

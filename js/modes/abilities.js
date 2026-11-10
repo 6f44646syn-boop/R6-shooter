@@ -21,7 +21,7 @@
 //   Onyx   Charge Dash    hold Q 0.6 s, then dash 6 m: through soft walls, the first enemy hit
 //                         is stunned and knocked back for 1.5 s. 2 charges, 12 s each.
 // Gadgets die to one bullet. Bots use abilities too (see botThink).
-import { raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=m6-integration';
+import { raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=4ab7a0c-mwb7djhc';
 
 export const DRONE_R = 0.15;           // a drone's collision radius
 export class Abilities {
@@ -111,7 +111,7 @@ export class Abilities {
         if (e.speed > 0.4) {
           e.wireCut = (e.wireCut || 0) + 2 * dt;       // 2 health a second while moving through
           if (e.wireCut >= 1) { e.wireCut -= 1; m.hit(e, 1, m.actors.find((q) => q.id === g.owner), 'limbs', 'wire'); }
-          if (t - (e.wireNoise || -9) > 0.35) { e.wireNoise = t; m.noise(e, 14, 'wire'); m.emit({ type: 'wire', id: e.id, x: e.x, z: e.z }); }
+          if (t - (e.wireNoise || -9) > 0.35) { e.wireNoise = t; m.noise(e, 14, 'wire'); m.emit({ type: 'wire', id: e.id, x: e.x, y: e.y, z: e.z }); }
         }
       }
     }
@@ -294,7 +294,7 @@ export class Abilities {
     if (pn) { const b = pn.box; m.emit({ type: 'debris', x: (b.minX + b.maxX) / 2, y: (b.minY + b.maxY) / 2, z: (b.minZ + b.maxZ) / 2, kind: pn.kind, n: 24 }); }
     this.destroy(g);
     m.noise(a, 35, 'blast');
-    m.emit({ type: 'boom', x: g.x, z: g.z, small: true });
+    m.emit({ type: 'boom', x: g.x, y: g.y, z: g.z, small: true });
   }
   // The breacher (Huck): 8 pellets in a cone, up to 70 damage close up, breaks soft walls.
   fireShotgun(a) {
@@ -324,7 +324,7 @@ export class Abilities {
     }
     for (const g of this.gadgets) if (g.alive && g.team !== p.team && Math.hypot(g.x - x, g.z - z) < R) this.destroy(g, owner);
     if (owner) m.noise(owner, 35, 'blast');
-    m.emit({ type: 'boom', x, z, small: true });
+    m.emit({ type: 'boom', x, y, z, small: true });
   }
 
   // Dread: the screen shakes and darkens, the defenders see you through walls, and a bot
@@ -379,7 +379,7 @@ export class Abilities {
             else this.dread(e, g.team, c);
           }
           if (g.kind === 'dread') this.clouds.push({ x: g.x, y: g.y, z: g.z, r: c.cloudRadius || 3, until: t + (c.cloudTime || 5), team: g.team, c });
-          m.emit({ type: 'pulse', x: g.x, z: g.z, kind: g.kind, r: g.kind === 'dread' ? c.cloudRadius || 3 : c.radius || 4, dur: g.kind === 'dread' ? c.cloudTime || 5 : 0 });
+          m.emit({ type: 'pulse', x: g.x, y: g.y, z: g.z, kind: g.kind, r: g.kind === 'dread' ? c.cloudRadius || 3 : c.radius || 4, dur: g.kind === 'dread' ? c.cloudTime || 5 : 0 });
           this.destroy(g);
         }
       } else if (g.type === 'drone' && t >= g.end) this.destroy(g);

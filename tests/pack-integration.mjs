@@ -37,7 +37,7 @@ try{
  });
  check('map geometry is identical across presets',JSON.stringify(result.before)===JSON.stringify(result.after));
  check('map textures activate and restore',result.enhanced>0&&result.fallback===0);
- check('soldier detail adds under 1200 triangles',(result.high-result.low)/3>0&&(result.high-result.low)/3<=1200);
+ check('pack soldier is used on High (Claude\'s detailed soldier, under 30k triangles)',result.high>result.low&&result.high/3<=30000);
  check('pack never changes cosmetic ownership',result.profileSame);
  check('no browser exceptions',errors.length===0);
  console.log(JSON.stringify(result));console.log(count+' pack integration checks passed');

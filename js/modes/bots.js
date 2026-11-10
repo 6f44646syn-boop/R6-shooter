@@ -8,8 +8,8 @@
 // Navigation: the core's A* over every level of the map (floors, stairs, ramps), smoothed,
 // with a stuck watchdog (no progress for 3 s: re-path; still stuck: step to the nearest
 // open spot).
-import { SKILL, EYE, NOISE } from './sim.js?v=m6-integration';
-import { dirFrom, yawTo, wrap180, DEG } from './geom.js?v=m6-integration';
+import { SKILL, EYE, NOISE } from './sim.js?v=4ab7a0c-mwb7djhc';
+import { dirFrom, yawTo, wrap180, DEG } from './geom.js?v=4ab7a0c-mwb7djhc';
 
 const VIEW = 55, RANGE = 45;
 
@@ -37,7 +37,7 @@ export class Brain {
   think() {
     const m = this.m, a = this.a, t = m.t, eye = m.eye(a, this._eye || (this._eye = [0, 0, 0]));
     // see
-    let best = null, bd = Infinity;
+    let best = null, bd = Infinity, seen = 0;
     for (const e of m.actors) {
       if (!e.alive || e.team === a.team || t < e.protectUntil) continue;
       const dx = e.x - a.x, dz = e.z - a.z, d = Math.hypot(dx, dz);
@@ -52,7 +52,7 @@ export class Brain {
         if (t < e.revealedUntil && !v) v = false;
         this.vis.set(e.id, v);
       }
-      if (v) { m.report(a.team, e, e.x, e.z, a); if (d < bd) { bd = d; best = e; } }
+      if (v) { seen++; m.report(a.team, e, e.x, e.z, a); if (d < bd) { bd = d; best = e; } }
     }
     if (best !== this.target) { this.target = best; this.seenAt = best ? t : -1; this.burst = 0; this.onTarget = 0; }
     if (best) this.visAt = t;
@@ -100,6 +100,11 @@ export class Brain {
       return;
     }
     if (best && !(obj && obj.ignoreEnemies)) {
+      // outnumbered (two or more in sight at once) or hurt: back off to cover, then re-peek
+      if (seen >= 2 && S !== SKILL.terminator && (!obj || !obj.must) && t >= (this.backOffUntil || 0)) {
+        const c = this.coverFrom(best);
+        if (c) { this.state = 'cover'; this.setGoal(c[0], c[1], 'cover', c[2] || 0); this.commitUntil = t + 2.5; this.backOffUntil = t + 6; return; }
+      }
       if (a.hp < 35 && S !== SKILL.terminator && !this.holding && (!obj || !obj.must)) {
         const c = this.coverFrom(best);
         if (c) { this.state = 'cover'; this.setGoal(c[0], c[1], 'cover', c[2] || 0); this.wantCrouch = true; this.commitUntil = t + 3; return; }
@@ -140,6 +145,15 @@ export class Brain {
     }
     if (this.patrol) this.setGoal(this.patrol[0], this.patrol[1], 'patrol' + this.patrol[0] + ',' + this.patrol[1], this.patrol[2]);
   }
+  // Where to look while holding a spot: the freshest sound heard (2.5 s), else the freshest
+  // enemy sighting a teammate reported within 20 m (2 s). Null if nothing.
+  threat() {
+    const m = this.m, a = this.a, t = m.t;
+    if (this.heard && t - this.heard.t < 2.5) return [this.heard.x, this.heard.z];
+    let best = null;
+    for (const s of m.bb[a.team].seen.values()) if (t - s.t < 2 && Math.hypot(s.x - a.x, s.z - a.z) < 20 && Math.abs((s.y || 0) - a.y) < 2.5 && (!best || s.t > best.t)) best = s;
+    return best ? [best.x, best.z] : null;
+  }
   // A cover spot near me out of the threat's sight.
   coverFrom(e) {
     const m = this.m, a = this.a;
@@ -166,9 +180,14 @@ export class Brain {
     // do not swap goals back and forth: keep a new goal at least 1.2 s while on the way
     // (taking cover is always allowed)
     if (key !== this.goalKey && key !== 'cover' && this.path.length && m.t - (this.goalSetAt || -9) < 1.2) return;
+    const here = Math.hypot(x - a.x, z - a.z) < 2 && Math.abs(y - a.y) < 1;      // already there
+    // over this step's planning budget: keep the old route and ask again at the next think
+    // (taking cover and fleeing go first)
+    if (!here && m.pathBudget <= 0 && key !== 'cover') return;
+    if (!here) m.pathBudget--;
     if (key !== this.goalKey) this.goalSetAt = m.t;
     this.goal = [x, z, y]; this.goalKey = key;
-    this.path = Math.hypot(x - a.x, z - a.z) < 2 && Math.abs(y - a.y) < 1 ? [] : m.map.path(a.x, a.z, x, z, a.y, y, !!in_);   // already there
+    this.path = here ? [] : m.map.path(a.x, a.z, x, z, a.y, y, !!in_);
     this.nextPath = m.t + 3 + m.rng();
     this.progT = m.t; this.progD = Infinity;
   }
@@ -229,6 +248,11 @@ export class Brain {
           }
         }
       }
+      // clearing: with a known threat close by (heard, or called out), walk, so it can shoot straight
+      if ((this.state === 'objective' || this.state === 'route') && !this.doorFace && speed > 2.4) {
+        const th = this.threat();
+        if (th && Math.hypot(th[0] - a.x, th[1] - a.z) < 15) speed = 2.4;
+      }
       if (this.wantCrouch) speed = Math.min(speed, 1.6);
       speed *= m.speedOf(a);
       wx *= speed; wz *= speed;
@@ -245,15 +269,21 @@ export class Brain {
       this.onTarget += dt;
     } else {
       this.onTarget = 0;
+      // Holding a spot: turn to a threat the bot heard, or a teammate called out close by
+      // (pre-aiming where the enemy will appear; it still needs line of sight to shoot).
+      // On the move: check the angle a sound or a callout came from (clearing as it goes).
+      const threat = !this.doorFace && (this.holding || this.state === 'route' || this.state === 'objective') ? this.threat() : null;
       if (this.doorFace && this.path.length) wantY = yawTo(this.doorFace[0] - a.x, this.doorFace[1] - a.z);
+      else if (threat) wantY = yawTo(threat[0] - a.x, threat[1] - a.z);
       else if (this.face) wantY = yawTo(this.face[0] - a.x, this.face[1] - a.z);
       else if (Math.hypot(a.vx, a.vz) > 0.5) wantY = yawTo(a.vx, a.vz);
       else if (this.heard && t - this.heard.t < 3) wantY = yawTo(this.heard.x - a.x, this.heard.z - a.z);
     }
     if (t >= this.nextErr) {
       this.nextErr = t + 0.25;
-      // shooting on the move is less accurate
-      const base = (S.err * (0.35 + 0.65 * Math.exp(-this.onTarget / 1.0)) + this.bloom) * (Math.hypot(a.vx, a.vz) > 2.5 ? 1.4 : 1)
+      // shooting on the move is much less accurate (running worse than walking)
+      const sp = Math.hypot(a.vx, a.vz);
+      const base = (S.err * (0.35 + 0.65 * Math.exp(-this.onTarget / 1.0)) + this.bloom) * (sp > 4.4 ? 2.1 : sp > 2.5 ? 1.5 : 1)
         * (t < a.wobbleUntil ? 2.4 : 1) * (t < a.shakeUntil ? 1.7 : 1) + (t < a.wobbleUntil ? 1.5 : 0);
       this.errY = m.gauss() * base; this.errP = m.gauss() * base * 0.6;
     }

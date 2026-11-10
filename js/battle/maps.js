@@ -10,9 +10,9 @@
 // Each side is laid out differently.
 //
 // Everything is drawn in code (canvas textures); no image files.
-import * as THREE from '../../vendor/three/three.module.min.js?v=m6-integration';
-import { concreteTiles, wallPanels, duskSky, hazardStripes } from '../scene/range-tex.js?v=m6-integration';
-import { mulberry32 } from '../core/prng.js?v=m6-integration';
+import * as THREE from '../../vendor/three/three.module.min.js?v=4ab7a0c-mwb7djhc';
+import { concreteTiles, wallPanels, duskSky, hazardStripes } from '../scene/range-tex.js?v=4ab7a0c-mwb7djhc';
+import { mulberry32 } from '../core/prng.js?v=4ab7a0c-mwb7djhc';
 
 /* ---------- texture helpers ---------- */
 function canvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; }
@@ -375,7 +375,7 @@ function rectMinus(x0, x1, z0, z1, holes) {
 //   B side (south): cashier cage (west, windows), high-stakes room (middle), slot alley (east);
 //   a long ramp up.
 function casinoLayout() {
-  const FY = 3.35, FT = 0.25, UP = FY + FT, D = { lo: 0, hi: 2.3 }, W = { lo: 1.0, hi: 2.0 };
+  const FY = 3.35, FT = 0.25, UP = FY + FT, D = { lo: 0, hi: 2.3 }, W = { lo: 1.0, hi: 2.3 };   // windows tall enough to vault through
   const L = [];
   const wall = (axis, a, b, at, gaps, kind = 'room', h = FY, y = 0, th = 0.25) => L.push(...wallWithGaps(axis, a, b, at, th, h, kind, gaps, y));
   const gap = (from, to, g = D) => ({ from, to, ...g });
@@ -438,10 +438,10 @@ const CABIN = { x: 0, z: -1, w: 9, d: 6.6, th: 0.35, h: 3.0 };
 const cabinWalls = (() => {
   const { x, z, w, d, th, h } = CABIN, x0 = x - w / 2, x1 = x + w / 2, z0 = z - d / 2, z1 = z + d / 2;
   return [
-    ...wallWithGaps('x', x0, x1, z1 - th / 2, th, h, 'logwall', [{ from: x - 2.9, to: x - 1.5, lo: 0, hi: 2.15 }, { from: x + 1.3, to: x + 2.7, lo: 1.0, hi: 1.85 }]),
-    ...wallWithGaps('x', x0, x1, z0 + th / 2, th, h, 'logwall', [{ from: x + 1.8, to: x + 3.2, lo: 0, hi: 2.15 }, { from: x - 3.0, to: x - 1.6, lo: 1.0, hi: 1.85 }]),
-    ...wallWithGaps('z', z0 + th, z1 - th, x0 + th / 2, th, h, 'logwall', [{ from: z - 0.7, to: z + 0.7, lo: 1.0, hi: 1.85 }]),
-    ...wallWithGaps('z', z0 + th, z1 - th, x1 - th / 2, th, h, 'logwall', [{ from: z - 1.4, to: z + 0.2, lo: 1.0, hi: 1.85 }]),
+    ...wallWithGaps('x', x0, x1, z1 - th / 2, th, h, 'logwall', [{ from: x - 2.9, to: x - 1.5, lo: 0, hi: 2.15 }, { from: x + 1.3, to: x + 2.7, lo: 1.0, hi: 2.25 }]),
+    ...wallWithGaps('x', x0, x1, z0 + th / 2, th, h, 'logwall', [{ from: x + 1.8, to: x + 3.2, lo: 0, hi: 2.15 }, { from: x - 3.0, to: x - 1.6, lo: 1.0, hi: 2.25 }]),
+    ...wallWithGaps('z', z0 + th, z1 - th, x0 + th / 2, th, h, 'logwall', [{ from: z - 0.7, to: z + 0.7, lo: 1.0, hi: 2.25 }]),
+    ...wallWithGaps('z', z0 + th, z1 - th, x1 - th / 2, th, h, 'logwall', [{ from: z - 1.4, to: z + 0.2, lo: 1.0, hi: 2.25 }]),
   ];
 })();
 
