@@ -1,0 +1,56 @@
+{
+  "method": "Nine interleaved batches of 400 shots for graph construction/voice recycling; five interleaved one-second offline renders with 32 HRTF+lowpass voices. Warm-up excluded. No game FPS measurement.",
+  "browser": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+  "packBytes": 1397000,
+  "clipCount": 81,
+  "decodedPcmBytes": 2774856,
+  "decodeWallMs": 39.400000002235174,
+  "procedural": {
+    "nodesPerVoice": 8,
+    "sourcesPerVoice": 2,
+    "constructionMedianMs": 83.5,
+    "constructionRunsMs": [
+      101.5,
+      90.30000000074506,
+      61.5,
+      98.10000000149012,
+      133.20000000298023,
+      83.5,
+      76.60000000149012,
+      57.80000000074506,
+      57.80000000074506
+    ],
+    "offlineRenderMedianMs": 28.899999998509884,
+    "offlineRenderRunsMs": [
+      28.299999997019768,
+      29.199999999254942,
+      28.899999998509884,
+      28.799999997019768,
+      31.199999999254942
+    ]
+  },
+  "packed": {
+    "nodesPerVoice": 4,
+    "sourcesPerVoice": 1,
+    "constructionMedianMs": 47.600000001490116,
+    "constructionRunsMs": [
+      44.19999999925494,
+      48.5,
+      47.600000001490116,
+      61.399999998509884,
+      72,
+      71.39999999850988,
+      44.5,
+      38,
+      40
+    ],
+    "offlineRenderMedianMs": 12.800000000745058,
+    "offlineRenderRunsMs": [
+      12.800000000745058,
+      13,
+      12.300000000745058,
+      12.399999998509884,
+      12.800000000745058
+    ]
+  }
+}

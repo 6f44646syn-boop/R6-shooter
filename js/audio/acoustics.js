@@ -238,7 +238,13 @@ export class Acoustics {
         pan: f[3],
         priority: f[15],
       },
-      step: { hz: f[10], q: f[11], duration: f[12], ring: f[13] },
+      step: {
+        material: MATERIALS[material],
+        hz: f[10],
+        q: f[11],
+        duration: f[12],
+        ring: f[13],
+      },
     };
   }
 }

@@ -111,6 +111,31 @@ try {
       stats = { ...s.stats };
     await c.startRendering();
     const drained = s.voices.size;
+    const cues = [];
+    for (const name of [
+      'knife',
+      'zap',
+      'crack',
+      'jam',
+      'radio',
+      'click',
+      'reload',
+      'vault',
+      'weaponSwitch',
+    ]) {
+      const context = new OfflineAudioContext(2, 48000, 48000),
+        cue = new Sfx(audio);
+      cue._setup(context);
+      cue[name]();
+      const buffer = await context.startRendering(),
+        samples = buffer.getChannelData(0);
+      cues.push({
+        name,
+        energy: energy(samples),
+        finite: samples.every(Number.isFinite),
+        voices: cue.voices.size,
+      });
+    }
     const muted = new Sfx(audio);
     muted._setup(new OfflineAudioContext(2, 48000, 48000));
     muted.setVolume(0);
@@ -124,6 +149,7 @@ try {
       stats,
       drained,
       muted: muted.voices.size,
+      cues,
     };
   });
   check(
@@ -164,6 +190,14 @@ try {
     rendered.drained === 0,
   );
   check('muting creates no audio voice graph', rendered.muted === 0);
+  check(
+    'reload, switching, vault, gadget and legacy cues render finite sound',
+    rendered.cues.every((c) => c.energy > 0 && c.finite),
+  );
+  check(
+    'all additional cue graphs release after rendering',
+    rendered.cues.every((c) => c.voices === 0),
+  );
   await page.addInitScript(() => {
     if (!localStorage.getItem('recoilRange.settings.v1'))
       localStorage.setItem(

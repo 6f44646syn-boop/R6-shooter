@@ -8,3 +8,4 @@ rust/m7_controls/target/
 rust/m7_controls/Cargo.lock
 rust/m8_audio/target/
 rust/m8_audio/Cargo.lock
+work/audio-pack/

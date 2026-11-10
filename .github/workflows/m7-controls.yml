@@ -6,6 +6,7 @@ on:
       - 'rust/m8_audio/**'
       - 'wasm/m8_audio.*'
       - 'js/audio/**'
+      - 'packs/audio/**'
       - 'js/core/settings.js'
       - 'wasm/m7_controls.*'
       - 'js/ui/**'
@@ -40,3 +41,5 @@ jobs:
         run: NODE_PATH="$RUNNER_TEMP/recoil-range-test-tools/node_modules" npm run test:controls
       - name: Check spatial audio with external test tooling
         run: NODE_PATH="$RUNNER_TEMP/recoil-range-test-tools/node_modules" npm run test:audio
+      - name: Check optional audio pack with external test tooling
+        run: NODE_PATH="$RUNNER_TEMP/recoil-range-test-tools/node_modules" npm run test:audio-pack

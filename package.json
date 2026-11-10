@@ -12,6 +12,8 @@
     "test:controls": "node tests/controls-wasm.mjs && node tests/controls-browser.mjs",
     "build:controls": "bash tools/build-controls.sh --test",
     "test:audio": "node tests/audio-wasm.mjs && node tests/audio-browser.mjs",
-    "build:audio": "bash tools/build-audio.sh --test"
+    "build:audio": "bash tools/build-audio.sh --test",
+    "build:audio-pack": "node tools/build-audio-pack.mjs",
+    "test:audio-pack": "node tests/audio-pack.mjs && node tests/audio-pack-browser.mjs"
   }
 }

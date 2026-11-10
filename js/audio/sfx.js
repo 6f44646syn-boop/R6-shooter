@@ -1,3 +1,4 @@
+import { decodeAudioPack } from './audio-pack.js?v=m8-pack-1';
 // WebAudio output only: sound propagation, surface profiles and step cadence are Rust-owned.
 import { cameraPose } from './acoustics.js?v=m8-audio-1';
 const clamp = (v, lo, hi) =>
@@ -8,6 +9,7 @@ export class Sfx {
     this.ctx = null;
     this.volume = 0.35;
     this.spatialAudio = true;
+    this.samplePack = null;
     this.voices = new Set();
     this.maxVoices = 32;
     this.stats = { played: 0, stolen: 0, culled: 0, peak: 0 };
@@ -190,6 +192,32 @@ export class Sfx {
     this.stats.peak = Math.max(this.stats.peak, this.voices.size);
     return v;
   }
+  async installPack(bytes) {
+    if (!this.ctx)
+      throw Error(
+        'Unlock audio from a user gesture before installing an optional audio pack.',
+      );
+    const pack = await decodeAudioPack(bytes, this.ctx);
+    this.samplePack = pack;
+    return { clips: pack.clipCount, bytes: pack.byteLength };
+  }
+  removePack() {
+    this.samplePack = null;
+  }
+  _sample(key, volume, route = 0, muffle = 0, priority = 1) {
+    const buffer = this.samplePack?.pick(key);
+    if (!buffer) return false;
+    const v = this._voice(volume, route, muffle, priority);
+    if (!v) return true;
+    const src = this.ctx.createBufferSource();
+    src.buffer = buffer;
+    src.connect(v.input);
+    v.nodes.push(src);
+    v.sources.push(src);
+    src.onended = () => this._ended(v);
+    src.start();
+    return true;
+  }
   _ended(v) {
     v.ended++;
     if (v.ended === v.sources.length) this._dispose(v);
@@ -243,6 +271,10 @@ export class Sfx {
     o.stop(t + duration);
   }
   shot(tone = 0.5, vol = 1, pan = 0, muffle = 0) {
+    if (
+      this._sample('shot:' + clamp(tone, 0, 1).toFixed(3), vol, pan, muffle, 3)
+    )
+      return;
     const v = this._voice(vol, pan, muffle, 3);
     if (!v) return;
     const t = this.ctx.currentTime;
@@ -262,6 +294,11 @@ export class Sfx {
     muffle = 0,
     profile = { hz: 650, q: 0.9, duration: 0.1, ring: 0 },
   ) {
+    if (
+      this.samplePack?.supportsStep(profile) &&
+      this._sample('step:' + profile.material, vol, pan, muffle, 1)
+    )
+      return;
     const v = this._voice(vol, pan, muffle, 1);
     if (!v) return;
     const t = this.ctx.currentTime;
@@ -279,6 +316,7 @@ export class Sfx {
       });
   }
   knife(vol = 1, pan = 0, muffle = 0) {
+    if (this._sample('knife', vol, pan, muffle, 2)) return;
     const v = this._voice(vol, pan, muffle, 2);
     if (v)
       this._noise(v, this.ctx.currentTime, 0.16, {
@@ -290,6 +328,7 @@ export class Sfx {
       });
   }
   zap(vol = 1, pan = 0, muffle = 0) {
+    if (this._sample('zap', vol, pan, muffle, 2)) return;
     const v = this._voice(vol, pan, muffle, 2);
     if (!v) return;
     const t = this.ctx.currentTime;
@@ -297,6 +336,7 @@ export class Sfx {
     this._noise(v, t, 0.26, { type: 'highpass', hz: 3000, peak: 0.4 });
   }
   crack(vol = 1, pan = 0, muffle = 0) {
+    if (this._sample('crack', vol, pan, muffle, 2)) return;
     const v = this._voice(vol, pan, muffle, 2);
     if (!v) return;
     const t = this.ctx.currentTime;
@@ -309,6 +349,7 @@ export class Sfx {
       });
   }
   jam(vol = 0.5) {
+    if (this._sample('jam', vol, 0, 0, 1)) return;
     const v = this._voice(vol);
     if (!v) return;
     const t = this.ctx.currentTime;
@@ -319,6 +360,7 @@ export class Sfx {
       });
   }
   radio() {
+    if (this._sample('radio', 1, 0, 0, 1)) return;
     const v = this._voice(1);
     if (v)
       this._noise(v, this.ctx.currentTime, 0.13, {
@@ -329,6 +371,7 @@ export class Sfx {
       });
   }
   click() {
+    if (this._sample('click', 1, 0, 0, 1)) return;
     const v = this._voice(1);
     if (v)
       this._osc(v, this.ctx.currentTime, 0.04, {
@@ -339,6 +382,7 @@ export class Sfx {
       });
   }
   reload(vol = 1, pan = 0, muffle = 0) {
+    if (this._sample('reload', vol, pan, muffle, 2)) return;
     const v = this._voice(vol, pan, muffle, 2);
     if (!v) return;
     const t = this.ctx.currentTime;
@@ -354,6 +398,7 @@ export class Sfx {
       });
   }
   weaponSwitch() {
+    if (this._sample('switch', 0.6, 0, 0, 2)) return;
     const v = this._voice(0.6, 0, 0, 2);
     if (v)
       this._noise(v, this.ctx.currentTime, 0.09, {
@@ -364,6 +409,7 @@ export class Sfx {
       });
   }
   vault(vol = 0.5, pan = 0, muffle = 0) {
+    if (this._sample('vault', vol, pan, muffle, 2)) return;
     const v = this._voice(vol, pan, muffle, 2);
     if (!v) return;
     this._noise(v, this.ctx.currentTime, 0.18, {
