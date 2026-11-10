@@ -1,189 +1,375 @@
-// Synthesised sounds (WebAudio): no audio files, no network.
-// The AudioContext is created on the first user gesture, as browsers require.
-
+// WebAudio output only: sound propagation, surface profiles and step cadence are Rust-owned.
+import { cameraPose } from './acoustics.js?v=m8-audio-1';
+const clamp = (v, lo, hi) =>
+  Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo;
 export class Sfx {
-  constructor() {
+  constructor(acoustics = null) {
+    this.acoustics = acoustics;
     this.ctx = null;
     this.volume = 0.35;
+    this.spatialAudio = true;
+    this.voices = new Set();
+    this.maxVoices = 32;
+    this.stats = { played: 0, stolen: 0, culled: 0, peak: 0 };
   }
-
   unlock() {
-    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
-    this.ctx = new AC();
-    this.master = this.ctx.createGain();
+    if (this.ctx) {
+      if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+      return;
+    }
+    const AC = globalThis.AudioContext || globalThis.webkitAudioContext;
+    if (AC) this._setup(new AC());
+  }
+  _setup(ctx) {
+    this.ctx = ctx;
+    this.master = ctx.createGain();
     this.master.gain.value = this.volume;
-    this.master.connect(this.ctx.destination);
-    // One shared second of white noise; each shot plays a slice of it.
-    const len = this.ctx.sampleRate;
-    this.noise = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+    this.limiter = ctx.createDynamicsCompressor();
+    this.limiter.threshold.value = -12;
+    this.limiter.knee.value = 10;
+    this.limiter.ratio.value = 6;
+    this.limiter.attack.value = 0.002;
+    this.limiter.release.value = 0.15;
+    this.master.connect(this.limiter).connect(ctx.destination);
+    this.noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
     const d = this.noise.getChannelData(0);
     let seed = 12345;
-    for (let i = 0; i < len; i++) { seed = (seed * 1103515245 + 12345) >>> 0; d[i] = seed / 2147483648 - 1; }
+    for (let i = 0; i < d.length; i++) {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      d[i] = seed / 2147483648 - 1;
+    }
   }
-
   setVolume(v) {
-    this.volume = v;
-    if (this.master) this.master.gain.value = v;
+    this.volume = clamp(v, 0, 1);
+    if (this.master) this.master.gain.value = this.volume;
   }
-
-  // Where a sound goes: pan -1 (left) .. 1 (right); muffle 0..1 (behind you or through walls:
-  // a low-pass filter takes the top off).
-  _out(pan = 0, muffle = 0) {
+  listen(camera) {
+    if (!this.ctx || !this.acoustics || !camera) return;
+    const p = cameraPose(camera),
+      o = this.acoustics.orientation(p),
+      l = this.ctx.listener,
+      t = this.ctx.currentTime;
+    if (l.positionX) {
+      ['X', 'Y', 'Z'].forEach((axis, i) => {
+        l['position' + axis].setValueAtTime([p.x, p.y, p.z][i], t);
+        l['forward' + axis].setValueAtTime(o.forward[i], t);
+        l['up' + axis].setValueAtTime(o.up[i], t);
+      });
+    } else {
+      l.setPosition(p.x, p.y, p.z);
+      l.setOrientation(...o.forward, ...o.up);
+    }
+  }
+  locate(kind, source, camera, geometry, arena = null, options = {}) {
+    const p = cameraPose(camera);
+    this.listen(camera);
+    return this.acoustics.locate(kind, source, p, geometry, arena, {
+      ...options,
+      trace: !!this.ctx && this.volume > 0,
+    });
+  }
+  observeSteps(actors, camera, geometry, time, arena = null, ownId = null) {
+    if (!this.ctx || this.volume <= 0 || !this.acoustics || !camera) return;
+    this.listen(camera);
+    this.acoustics.configure(geometry, arena);
+    const team = actors.find((a) => a.id === ownId)?.team;
+    for (const a of actors) {
+      const range = this.acoustics.e.ma_step(
+        a.id ?? 0,
+        time,
+        a.x,
+        a.y || 0,
+        a.z,
+        +!!a.alive,
+        a.crouch || 0,
+      );
+      if (!range) continue;
+      const y = a.y || 0;
+      this.stepAt(
+        { x: a.x, y: y + 0.12, z: a.z, feetY: y },
+        camera,
+        geometry,
+        arena,
+        range,
+        a.team === team,
+      );
+    }
+  }
+  stepAt(source, camera, geometry, arena, noiseRange, teammate = false) {
+    const w = this.locate('step', source, camera, geometry, arena, {
+      reach: this.acoustics.e.ma_reach(noiseRange),
+      teammate,
+    });
+    this.step(w.gain, w.route, w.muffle, w.step);
+    return w;
+  }
+  _dispose(v) {
+    if (v.disposed) return;
+    v.disposed = true;
+    for (const s of v.sources) {
+      try {
+        s.stop();
+      } catch {}
+      s.onended = null;
+    }
+    for (const n of v.nodes) {
+      try {
+        n.disconnect();
+      } catch {}
+    }
+    this.voices.delete(v);
+  }
+  stopAll() {
+    for (const v of [...this.voices]) this._dispose(v);
+    this.acoustics?.e.ma_steps_clear();
+  }
+  _voice(volume, route = 0, muffle = 0, priority = 1) {
     const c = this.ctx;
-    let node = this.master;
-    if (pan && c.createStereoPanner) { const p = c.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); p.connect(node); node = p; }
-    if (muffle > 0.01) { const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 9000 * Math.pow(0.12, muffle); f.connect(node); node = f; }
-    return node;
+    if (!c || this.volume <= 0 || !(volume > 0)) return null;
+    const spatial = typeof route === 'object' && route !== null;
+    priority = spatial ? route.priority : priority;
+    if (this.voices.size >= this.maxVoices) {
+      let victim = null;
+      for (const v of this.voices)
+        if (!victim || v.priority < victim.priority) victim = v;
+      if (!victim || victim.priority > priority) {
+        this.stats.culled++;
+        return null;
+      }
+      this._dispose(victim);
+      this.stats.stolen++;
+    }
+    const input = c.createGain();
+    input.gain.value = clamp(volume, 0, 1);
+    const v = {
+      nodes: [input],
+      sources: [],
+      input,
+      priority,
+      ended: 0,
+      disposed: false,
+    };
+    let output = input;
+    const cutoff = spatial
+      ? route.cutoff
+      : 18000 * Math.pow(0.055, clamp(muffle, 0, 1));
+    if (cutoff < 17999) {
+      const filter = c.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = cutoff;
+      output.connect(filter);
+      v.nodes.push(filter);
+      output = filter;
+    }
+    if (spatial && this.spatialAudio && c.createPanner) {
+      const p = c.createPanner();
+      p.panningModel = 'HRTF';
+      p.distanceModel = 'linear';
+      p.rolloffFactor = 0;
+      p.refDistance = 1;
+      p.maxDistance = 1000000;
+      p.coneInnerAngle = p.coneOuterAngle = 360;
+      if (p.positionX)
+        ['X', 'Y', 'Z'].forEach(
+          (axis, i) => (p['position' + axis].value = route.position[i]),
+        );
+      else p.setPosition(...route.position);
+      output.connect(p);
+      v.nodes.push(p);
+      output = p;
+    } else if (c.createStereoPanner) {
+      const p = c.createStereoPanner();
+      p.pan.value = clamp(spatial ? route.pan : route, -1, 1);
+      output.connect(p);
+      v.nodes.push(p);
+      output = p;
+    }
+    output.connect(this.master);
+    this.voices.add(v);
+    this.stats.played++;
+    this.stats.peak = Math.max(this.stats.peak, this.voices.size);
+    return v;
   }
-
-  // tone 0..1 shifts the pitch a little so guns sound different.
-  // vol 0..1: quieter for distant shooters; pan / muffle: where it came from (see _out).
+  _ended(v) {
+    v.ended++;
+    if (v.ended === v.sources.length) this._dispose(v);
+  }
+  _noise(
+    v,
+    t,
+    duration,
+    {
+      hz = 1200,
+      to = hz,
+      q = 0.9,
+      type = 'bandpass',
+      peak = 0.5,
+      attack = 0.006,
+    } = {},
+  ) {
+    const c = this.ctx,
+      src = c.createBufferSource(),
+      f = c.createBiquadFilter(),
+      g = c.createGain();
+    src.buffer = this.noise;
+    f.type = type;
+    f.frequency.setValueAtTime(hz, t);
+    f.Q.value = q;
+    if (to !== hz)
+      f.frequency.exponentialRampToValueAtTime(Math.max(20, to), t + duration);
+    g.gain.setValueAtTime(0.00001, t);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.00002, peak), t + attack);
+    g.gain.exponentialRampToValueAtTime(0.00001, t + duration);
+    src.connect(f).connect(g).connect(v.input);
+    v.nodes.push(src, f, g);
+    v.sources.push(src);
+    src.onended = () => this._ended(v);
+    src.start(t, Math.random() * Math.max(0, 1 - duration), duration);
+  }
+  _osc(v, t, duration, { hz = 150, to = 45, peak = 0.5, type = 'sine' } = {}) {
+    const c = this.ctx,
+      o = c.createOscillator(),
+      g = c.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(hz, t);
+    o.frequency.exponentialRampToValueAtTime(to, t + duration);
+    g.gain.setValueAtTime(Math.max(0.00002, peak), t);
+    g.gain.exponentialRampToValueAtTime(0.00001, t + duration);
+    o.connect(g).connect(v.input);
+    v.nodes.push(o, g);
+    v.sources.push(o);
+    o.onended = () => this._ended(v);
+    o.start(t);
+    o.stop(t + duration);
+  }
   shot(tone = 0.5, vol = 1, pan = 0, muffle = 0) {
-    const c = this.ctx;
-    if (!c || this.volume <= 0) return;
-    const t = c.currentTime, out = this._out(pan, muffle);
-    const src = c.createBufferSource();
-    src.buffer = this.noise;
-    const lp = c.createBiquadFilter();
-    lp.type = 'lowpass';
-    lp.frequency.setValueAtTime(5200 - tone * 2400, t);
-    lp.frequency.exponentialRampToValueAtTime(400, t + 0.16);
-    const g = c.createGain();
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(Math.max(0.0002, 0.9 * vol), t + 0.002);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
-    src.connect(lp).connect(g).connect(out);
-    src.start(t, Math.random() * 0.7, 0.2);
-
-    const o = c.createOscillator();
-    o.type = 'sine';
-    o.frequency.setValueAtTime(150 - tone * 60, t);
-    o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
-    const og = c.createGain();
-    og.gain.setValueAtTime(Math.max(0.0002, 0.7 * vol), t);
-    og.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
-    o.connect(og).connect(out);
-    o.start(t);
-    o.stop(t + 0.15);
+    const v = this._voice(vol, pan, muffle, 3);
+    if (!v) return;
+    const t = this.ctx.currentTime;
+    tone = clamp(tone, 0, 1);
+    this._noise(v, t, 0.2, {
+      type: 'lowpass',
+      hz: 5200 - tone * 2400,
+      to: 400,
+      peak: 0.9,
+      attack: 0.002,
+    });
+    this._osc(v, t, 0.15, { hz: 150 - tone * 60, to: 45, peak: 0.7 });
   }
-
-  // A footstep: a soft thud and a scuff.
-  step(vol = 0.5, pan = 0, muffle = 0) {
-    const c = this.ctx;
-    if (!c || this.volume <= 0 || vol < 0.01) return;
-    const t = c.currentTime, out = this._out(pan, muffle);
-    const src = c.createBufferSource(); src.buffer = this.noise;
-    const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 500 + Math.random() * 300; bp.Q.value = 0.9;
-    const g = c.createGain();
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, 0.55 * vol), t + 0.01); g.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
-    src.connect(bp).connect(g).connect(out);
-    src.start(t, Math.random() * 0.8, 0.1);
+  step(
+    vol = 0.5,
+    pan = 0,
+    muffle = 0,
+    profile = { hz: 650, q: 0.9, duration: 0.1, ring: 0 },
+  ) {
+    const v = this._voice(vol, pan, muffle, 1);
+    if (!v) return;
+    const t = this.ctx.currentTime;
+    this._noise(v, t, profile.duration, {
+      hz: profile.hz,
+      q: profile.q,
+      peak: 0.55,
+      attack: 0.01,
+    });
+    if (profile.ring > 0)
+      this._osc(v, t, profile.duration, {
+        hz: profile.ring,
+        to: Math.max(35, profile.ring * 0.8),
+        peak: 0.14,
+      });
   }
-  // The knife: a quick swish.
   knife(vol = 1, pan = 0, muffle = 0) {
-    const c = this.ctx;
-    if (!c || this.volume <= 0) return;
-    const t = c.currentTime, out = this._out(pan, muffle);
-    const src = c.createBufferSource(); src.buffer = this.noise;
-    const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 2;
-    bp.frequency.setValueAtTime(1500, t); bp.frequency.exponentialRampToValueAtTime(5000, t + 0.12);
-    const g = c.createGain();
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.35 * vol, t + 0.05); g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
-    src.connect(bp).connect(g).connect(out);
-    src.start(t, Math.random() * 0.7, 0.16);
+    const v = this._voice(vol, pan, muffle, 2);
+    if (v)
+      this._noise(v, this.ctx.currentTime, 0.16, {
+        hz: 1500,
+        to: 5000,
+        q: 2,
+        peak: 0.35,
+        attack: 0.05,
+      });
   }
-  // Electric zap (jolt mines, catchers): a buzzing square wave over crackle.
   zap(vol = 1, pan = 0, muffle = 0) {
-    const c = this.ctx;
-    if (!c || this.volume <= 0) return;
-    const t = c.currentTime, out = this._out(pan, muffle);
-    const o = c.createOscillator(); o.type = 'square';
-    o.frequency.setValueAtTime(220, t); o.frequency.linearRampToValueAtTime(90, t + 0.25);
-    const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.25 * vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
-    o.connect(g).connect(out); o.start(t); o.stop(t + 0.32);
-    const src = c.createBufferSource(); src.buffer = this.noise;
-    const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 3000;
-    const g2 = c.createGain(); g2.gain.setValueAtTime(0.4 * vol, t); g2.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
-    src.connect(hp).connect(g2).connect(out); src.start(t, Math.random() * 0.6, 0.26);
+    const v = this._voice(vol, pan, muffle, 2);
+    if (!v) return;
+    const t = this.ctx.currentTime;
+    this._osc(v, t, 0.32, { hz: 220, to: 90, type: 'square', peak: 0.25 });
+    this._noise(v, t, 0.26, { type: 'highpass', hz: 3000, peak: 0.4 });
   }
-  // Radio static (you are jammed).
-  jam(vol = 0.5) {
-    const c = this.ctx;
-    if (!c || this.volume <= 0) return;
-    const t = c.currentTime;
-    for (let i = 0; i < 5; i++) {
-      const s = t + i * 0.06 + Math.random() * 0.04;
-      const src = c.createBufferSource(); src.buffer = this.noise;
-      const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1500 + Math.random() * 2500; bp.Q.value = 0.8;
-      const g = c.createGain(); g.gain.setValueAtTime(0.0001, s); g.gain.exponentialRampToValueAtTime(0.3 * vol, s + 0.005); g.gain.exponentialRampToValueAtTime(0.001, s + 0.05 + Math.random() * 0.05);
-      src.connect(bp).connect(g).connect(this.master); src.start(s, Math.random() * 0.8, 0.1);
-    }
-  }
-  // Wood splintering (a door breaking).
   crack(vol = 1, pan = 0, muffle = 0) {
-    const c = this.ctx;
-    if (!c || this.volume <= 0) return;
-    const t = c.currentTime, out = this._out(pan, muffle);
-    for (let i = 0; i < 4; i++) {
-      const s = t + i * 0.035 + Math.random() * 0.02;
-      const src = c.createBufferSource(); src.buffer = this.noise;
-      const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 700 + Math.random() * 1600; bp.Q.value = 3;
-      const g = c.createGain();
-      g.gain.setValueAtTime(0.0001, s); g.gain.exponentialRampToValueAtTime(0.5 * vol, s + 0.004); g.gain.exponentialRampToValueAtTime(0.001, s + 0.12);
-      src.connect(bp).connect(g).connect(out);
-      src.start(s, Math.random() * 0.7, 0.13);
-    }
+    const v = this._voice(vol, pan, muffle, 2);
+    if (!v) return;
+    const t = this.ctx.currentTime;
+    for (let i = 0; i < 4; i++)
+      this._noise(v, t + i * 0.035, 0.13, {
+        hz: 700 + Math.random() * 1600,
+        q: 3,
+        peak: 0.5,
+        attack: 0.004,
+      });
   }
-
-  // Radio squelch: a short burst of band-passed noise before a bot speaks.
+  jam(vol = 0.5) {
+    const v = this._voice(vol);
+    if (!v) return;
+    const t = this.ctx.currentTime;
+    for (let i = 0; i < 5; i++)
+      this._noise(v, t + i * 0.06, 0.09, {
+        hz: 1500 + Math.random() * 2500,
+        peak: 0.3,
+      });
+  }
   radio() {
-    const c = this.ctx;
-    if (!c || this.volume <= 0) return;
-    const t = c.currentTime;
-    const src = c.createBufferSource();
-    src.buffer = this.noise;
-    const bp = c.createBiquadFilter();
-    bp.type = 'bandpass'; bp.frequency.value = 2200; bp.Q.value = 1.4;
-    const g = c.createGain();
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.25, t + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
-    src.connect(bp).connect(g).connect(this.master);
-    src.start(t, Math.random() * 0.7, 0.13);
+    const v = this._voice(1);
+    if (v)
+      this._noise(v, this.ctx.currentTime, 0.13, {
+        hz: 2200,
+        q: 1.4,
+        peak: 0.25,
+        attack: 0.01,
+      });
   }
-
   click() {
-    const c = this.ctx;
-    if (!c || this.volume <= 0) return;
-    const t = c.currentTime;
-    const o = c.createOscillator();
-    o.type = 'square';
-    o.frequency.setValueAtTime(1800, t);
-    const g = c.createGain();
-    g.gain.setValueAtTime(0.15, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
-    o.connect(g).connect(this.master);
-    o.start(t);
-    o.stop(t + 0.04);
+    const v = this._voice(1);
+    if (v)
+      this._osc(v, this.ctx.currentTime, 0.04, {
+        hz: 1800,
+        to: 900,
+        type: 'square',
+        peak: 0.15,
+      });
   }
-
-  reload() {
-    const c = this.ctx;
-    if (!c || this.volume <= 0) return;
-    const t = c.currentTime;
-    for (const [dt, f] of [[0, 900], [0.09, 600]]) {
-      const o = c.createOscillator();
-      o.type = 'triangle';
-      o.frequency.setValueAtTime(f, t + dt);
-      const g = c.createGain();
-      g.gain.setValueAtTime(0.0001, t + dt);
-      g.gain.exponentialRampToValueAtTime(0.25, t + dt + 0.004);
-      g.gain.exponentialRampToValueAtTime(0.001, t + dt + 0.06);
-      o.connect(g).connect(this.master);
-      o.start(t + dt);
-      o.stop(t + dt + 0.07);
-    }
+  reload(vol = 1, pan = 0, muffle = 0) {
+    const v = this._voice(vol, pan, muffle, 2);
+    if (!v) return;
+    const t = this.ctx.currentTime;
+    for (const [dt, hz] of [
+      [0, 900],
+      [0.09, 600],
+    ])
+      this._osc(v, t + dt, 0.07, {
+        hz,
+        to: hz * 0.8,
+        type: 'triangle',
+        peak: 0.25,
+      });
+  }
+  weaponSwitch() {
+    const v = this._voice(0.6, 0, 0, 2);
+    if (v)
+      this._noise(v, this.ctx.currentTime, 0.09, {
+        type: 'highpass',
+        hz: 1700,
+        peak: 0.22,
+        attack: 0.012,
+      });
+  }
+  vault(vol = 0.5, pan = 0, muffle = 0) {
+    const v = this._voice(vol, pan, muffle, 2);
+    if (!v) return;
+    this._noise(v, this.ctx.currentTime, 0.18, {
+      hz: 360,
+      peak: 0.3,
+      attack: 0.02,
+    });
   }
 }

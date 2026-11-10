@@ -92,6 +92,7 @@ export class ModeGame {
     if (this.map && this.map.dispose) this.map.dispose();
   }
   stop() {
+    this.deps.sfx.stopAll?.();
     if (this.scene) { this._disposeScene(); this.scene = null; }
     this.active = false; this.paused = false;
     if (this.hud) { this.hud.root.hidden = true; this.hud.board.hidden = true; }
@@ -264,7 +265,6 @@ export class ModeGame {
     if (n === 8) this.acc = 0;
     this._events(t);
     this._record();
-    if (!this.paused && !this.over) this._steps();
     this._refreshPanels();
     // draw everyone where the simulation has them
     for (const a of m.actors) {
@@ -293,6 +293,8 @@ export class ModeGame {
     this._gadgets(t);
     if (this.kc) this._replay(t);
     this._camera(t);
+    this.deps.sfx.listen(this.camOverride || h.camera);
+    if (!this.paused && !this.over && !this.kc) this._steps();
     this._updateTracers(t);
     if (this.arena) this.arena.update(dt, t, h.camera.position);
     this._hud(t);
@@ -307,8 +309,7 @@ export class ModeGame {
         const f = this.fig.get(e.id);
         if (f) { f.flashUntil = t + 0.05; this._tracer(f.muzzleWorld(this._v || (this._v = new THREE.Vector3())), e.to, t, e.team); }
         const a = m.actors.find((x) => x.id === e.id);
-        const dist = a ? Math.hypot(a.x - me.x, a.z - me.z) : 20;
-        if (t - (this._lastShotSnd || 0) > 0.04) { this._lastShotSnd = t; const w = this._where(e.from[0], e.from[2]); sfx.shot(a ? a.gun.tone : 0.5, Math.max(0.05, Math.min(0.6, 3 / (w.dist + 2))), w.pan, w.muffle); }
+        const w = this._where(e.from[0], e.from[2], e.from[1]); sfx.shot(a ? a.gun.tone : 0.5, w.gain, w.route, w.muffle);
       } else if (e.type === 'hit') {
         if (e.id === me.id) this._hurt(e.by, t, e.dmg);
         if (e.by === me.id) this._marker(e.zone === 'head' ? 'head' : 'hit', t);
@@ -337,57 +338,47 @@ export class ModeGame {
         this.h.setGun(me.gunData);
         this.hud.name.textContent = 'You · ' + op.name + ' · ' + me.gunData.name;
       } else if (e.type === 'boom') {
-        const w = this._where(e.x, e.z);
-        sfx.shot(0.05, Math.max(0.1, Math.min(1, 6 / (w.dist + 3))), w.pan, w.muffle * 0.6);
+        const w = this._where(e.x, e.z, e.y ?? null, 'blast', 120);
+        sfx.shot(0.05, w.gain, w.route, w.muffle);
         this._boom(e.x, e.z, e.nade ? 6 : e.small ? 3 : 8, t, 0xffa040);
         if (e.nade) { this._boom(e.x, e.z, 2.5, t, 0xfff0c0); if (w.dist < 9) this.vigT = Math.max(this.vigT, t - 0.2); }
       } else if (e.type === 'nadeThrow') {
         if (e.id === me.id) { if (this.h.rig.melee) this.h.rig.melee(); sfx.knife(0.6); }
       } else if (e.type === 'door') {
-        const w = this._where(e.x, e.z);
-        if (w.dist < 40) sfx.crack(Math.min(1, 5 / (w.dist + 3)), w.pan, w.muffle);
+        const w = this._where(e.x, e.z, e.y ?? null, 'crack', 40);
+        sfx.crack(w.gain, w.route, w.muffle);
       } else if (e.type === 'knife') {
         if (e.id === me.id) { sfx.knife(1); if (this.h.rig.melee) this.h.rig.melee(); }
-        else { const a = m.actors.find((x) => x.id === e.id), w = a && this._where(a.x, a.z); if (w && w.dist < 15) sfx.knife(Math.min(0.8, 3 / (w.dist + 2)), w.pan, w.muffle); }
+        else { const a = m.actors.find((x) => x.id === e.id), w = a && this._where(a.x, a.z, a.y + 1, 'knife', 15); if (w) sfx.knife(w.gain, w.route, w.muffle); }
       } else if (e.type === 'pulse') {
-        const w = this._where(e.x, e.z);
-        if (e.kind === 'dread') { { const cl = gasCloud(e.x, e.z, e.r || 3); cl.position.y += e.y || 0; this._fxAdd(cl, t, e.dur || 5, 'cloud'); } this._boom(e.x, e.z, e.r || 3, t, 0x9040ff); sfx.shot(0.02, Math.min(0.6, 4 / (w.dist + 3)), w.pan, w.muffle); }
-        else { this._boom(e.x, e.z, e.r || 4, t, 0x60b0ff); this._boom(e.x, e.z, (e.r || 4) * 0.5, t, 0xe0f4ff); sfx.zap(Math.min(1, 5 / (w.dist + 3)), w.pan, w.muffle); }
+        const w = this._where(e.x, e.z, e.y ?? null, 'zap', 50);
+        if (e.kind === 'dread') { { const cl = gasCloud(e.x, e.z, e.r || 3); cl.position.y += e.y || 0; this._fxAdd(cl, t, e.dur || 5, 'cloud'); } this._boom(e.x, e.z, e.r || 3, t, 0x9040ff); sfx.shot(0.02, w.gain, w.route, w.muffle); }
+        else { this._boom(e.x, e.z, e.r || 4, t, 0x60b0ff); this._boom(e.x, e.z, (e.r || 4) * 0.5, t, 0xe0f4ff); sfx.zap(w.gain, w.route, w.muffle); }
       } else if (e.type === 'scan') {
         if (e.id === me.id || m.actors.find((x) => x.id === e.id)?.team === me.team) this._boom(e.x, e.z, e.r, t, 0x60ffd0);
       } else if (e.type === 'caught') {
         this._boom(e.x, e.z, 1, t, 0x9cff70);
         if (e.cx !== undefined) this._fxAdd(beam([e.cx, (e.cy || 0.4) + 0.12, e.cz], [e.x, e.y, e.z], 0x9cff70), t, 0.3, 'beam');
-        const w = this._where(e.x, e.z); sfx.zap(Math.min(0.8, 4 / (w.dist + 3)), w.pan, w.muffle);
+        const w = this._where(e.x, e.z, e.y ?? null, 'zap', 50); sfx.zap(w.gain, w.route, w.muffle);
       } else if (e.type === 'stun') {
         if (e.id === me.id) { this._flash('Stunned', t); sfx.shot(0.02, 0.6); }
       }
     }
     m.events.length = 0;
   }
-  // Where a sound at (x, z) is for your ears: distance, left/right, and muffled when behind
-  // you or with a wall in between. Your ears are the drone's or spectated camera when one is on.
-  _where(x, z) {
-    const cam = this.camOverride, me = this.me;
-    const lx = cam ? cam.position.x : me.x, lz = cam ? cam.position.z : me.z;
-    const yaw = cam ? -cam.rotation.y / DEG : this.h.look.yaw;
-    const dx = x - lx, dz = z - lz, dist = Math.hypot(dx, dz);
-    if (dist < 0.5) return { dist, pan: 0, muffle: 0 };
-    const rel = wrap180(yawTo(dx, dz) - yaw) * DEG;
-    let muffle = Math.max(0, -Math.cos(rel)) * 0.35;
-    if (!this.map.sight([lx, 1.6, lz], [x, 1.2, z])) muffle += 0.45;
-    return { dist, pan: Math.sin(rel) * 0.85, muffle };
+  // Events with y use full 3D propagation. Older 2D engine events stay on the
+  // listener's horizontal plane until the engine supplies their missing height.
+  _where(x, z, y = null, kind = 'shot', reach = 80) {
+    const camera = this.camOverride || this.h.camera;
+    return this.deps.sfx.locate(kind, {x, y:y ?? camera.position.y, z}, camera, this.map, this.arena, {reach});
   }
-  // Footsteps you can hear: everyone else's, louder when running, from their direction.
   _steps() {
-    const m = this.m, me = this.me, sfx = this.deps.sfx;
+    const m = this.m, me = this.me, camera = this.camOverride || this.h.camera;
+    // Preserve the engine's audibility policy, including silent crouch walking.
     for (const n of m.noises) {
       if (n.kind !== 'steps' || n.id === me.id || n.t <= (this._stepT || 0)) continue;
-      const w = this._where(n.x, n.z);
-      const reach = n.range * 1.6 + 2;           // you hear a bit further than the bots do
-      if (w.dist > reach) continue;
-      const vol = (1 - w.dist / reach) * (n.range > 8 ? 0.9 : 0.5) * (n.team === me.team ? 0.45 : 1);
-      sfx.step(vol, w.pan, w.muffle);
+      const y = n.y || 0;
+      this.deps.sfx.stepAt({x:n.x,y:y+.12,z:n.z,feetY:y}, camera, this.map, this.arena, n.range, n.team === me.team);
     }
     for (const n of m.noises) this._stepT = Math.max(this._stepT || 0, n.t);
   }

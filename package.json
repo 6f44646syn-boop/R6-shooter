@@ -5,11 +5,13 @@
   "type": "module",
   "scripts": {
     "serve": "node tools/serve.mjs 8080",
-    "test": "node tests/controls-wasm.mjs && node tools/check-core.mjs && node tests/run.mjs",
+    "test": "node tests/controls-wasm.mjs && node tests/audio-wasm.mjs && node tools/check-core.mjs && node tests/run.mjs",
     "build:wasm": "bash tools/build-wasm.sh --test",
     "check": "node tools/check-data.mjs",
     "placeholders": "node tools/make-placeholder-guns.mjs",
     "test:controls": "node tests/controls-wasm.mjs && node tests/controls-browser.mjs",
-    "build:controls": "bash tools/build-controls.sh --test"
+    "build:controls": "bash tools/build-controls.sh --test",
+    "test:audio": "node tests/audio-wasm.mjs && node tests/audio-browser.mjs",
+    "build:audio": "bash tools/build-audio.sh --test"
   }
 }

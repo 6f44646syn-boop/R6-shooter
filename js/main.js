@@ -1,3 +1,4 @@
+import { createAcoustics } from './audio/acoustics.js?v=m8-audio-1';
 import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=651d04c-mwahvcb3';
 import { mountControls, mountFirstLaunch, tabs } from './ui/m7-menu.js?v=651d04c-mwahvcb3';
 // Recoil Range entry point: wires input, camera, scene, HUD and the frame loop together.
@@ -5,7 +6,7 @@ import * as THREE from '../vendor/three/three.module.min.js?v=651d04c-mwahvcb3';
 import { Look, PITCH_LIMIT } from './core/look.js?v=651d04c-mwahvcb3';
 import { Player } from './core/player.js?v=651d04c-mwahvcb3';
 import { PointerLock } from './core/pointer-lock.js?v=651d04c-mwahvcb3';
-import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=651d04c-mwahvcb3';
+import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=m8-audio-1';
 import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=651d04c-mwahvcb3';
 import { Weapon } from './core/weapon.js?v=651d04c-mwahvcb3';
 import { RecoilEngine } from './core/recoil.js?v=651d04c-mwahvcb3';
@@ -19,13 +20,13 @@ import { LensPost } from './render/lens-post.js?v=651d04c-mwahvcb3';
 import { reticleTextures } from './ui/reticle-tex.js?v=651d04c-mwahvcb3';
 import { DOT_POINTS } from './scene/dots.js?v=651d04c-mwahvcb3';
 import { Voices } from './audio/voice.js?v=651d04c-mwahvcb3';
-import { ModeGame } from './modes/game.js?v=651d04c-mwahvcb3';
-import { Sfx } from './audio/sfx.js?v=651d04c-mwahvcb3';
+import { ModeGame } from './modes/game.js?v=m8-audio-1';
+import { Sfx } from './audio/sfx.js?v=m8-audio-1';
 import { DebugHud } from './ui/debug-hud.js?v=651d04c-mwahvcb3';
 import { drawCrosshair } from './ui/crosshair.js?v=651d04c-mwahvcb3';
 import { Hud } from './ui/hud.js?v=651d04c-mwahvcb3';
 import { MagPlot } from './ui/plot.js?v=651d04c-mwahvcb3';
-import { SettingsUI } from './ui/settings-ui.js?v=651d04c-mwahvcb3';
+import { SettingsUI } from './ui/settings-ui.js?v=m8-audio-1';
 import { sensKeys, zoomKey } from './core/optics.js?v=651d04c-mwahvcb3';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
@@ -34,7 +35,7 @@ function sensRows(catalogue, sens) {
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
 import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=651d04c-mwahvcb3';
-import { Battle } from './battle/battle.js?v=651d04c-mwahvcb3';
+import { Battle } from './battle/battle.js?v=m8-audio-1';
 import { initCore, coreLoaded } from './wasm/core.js?v=651d04c-mwahvcb3';
 import { createJoinRequest, acceptJoin } from './net/link.js?v=651d04c-mwahvcb3';
 import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode } from './net/relay.js?v=651d04c-mwahvcb3';
@@ -67,7 +68,7 @@ if (embedded) {
 }
 
 async function boot(data) {
-  const controls = await createControls();
+  const [controls, acoustics] = await Promise.all([createControls(), createAcoustics()]);
   const settings = loadSettings();
   const canvas = $('view');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: settings.antialias, powerPreference: 'high-performance' });
@@ -108,7 +109,8 @@ async function boot(data) {
   applyGraphics();
   const post = new LensPost(renderer, { samples: settings.antialias && renderer.capabilities.isWebGL2 ? 4 : 0 });
   const dots = range.dots;
-  const sfx = new Sfx();
+  const sfx = new Sfx(acoustics);
+  sfx.spatialAudio = settings.spatialAudio;
   const voices = new Voices();
   sfx.setVolume(settings.volume);
 
@@ -218,6 +220,7 @@ async function boot(data) {
   function selectGun(index) {
     if (index < 0 || index >= data.guns.length) return;
     const gun = data.guns[index];
+    if (state.gun && state.gun !== gun) sfx.weaponSwitch();
     state.gun = gun;
     state.gunIndex = index;
     weapon.setGun(gun);
@@ -734,7 +737,7 @@ async function boot(data) {
       if (cur() && cur().active && (all || key === 'shading' || key === 'graphics' || key === 'reticle')) cur().refreshGraphics();
       if (key === 'sens' || key === 'assist') { /* read live each mouse event */ }
       if (all || key === 'recoil') { recoil.aimScale = settings.aimRecoil; recoil.hipScale = settings.hipRecoil; recoil.aimSmooth = settings.aimSmooth; }
-      if (all || key === 'volume') sfx.setVolume(settings.volume);
+      if (all || key === 'volume' || key === 'audio') { sfx.setVolume(settings.volume); sfx.spatialAudio = settings.spatialAudio; }
       if (all || key === 'debug') debug.setVisible(settings.debugHud);
       if (all || key === 'gun') selectGun(Math.min(settings.gunIndex, data.guns.length - 1));
       if (all || key === 'distance') setDistance(settings.distance);
@@ -1368,6 +1371,7 @@ async function boot(data) {
     player.update(dt, look.yaw, state.ads);
     camera.position.set(player.ex, player.ey, player.ez);
     camera.rotation.z = -player.roll * DEG;   // lean tilt (positive roll = leaning right)
+    sfx.observeSteps([{id:0,x:player.x,y:0,z:player.z,crouch:+player.crouched,alive:true,team:'range'}], camera, null, t, null, 0);
     aimAssist(dt, t);
     dots.update(t);
 
@@ -1548,6 +1552,7 @@ async function boot(data) {
     window.__range = {
       ready: true,
       controls,
+      audio: sfx,
       guns: data.guns,
       manual(on) { manualClock = on; manualT = performance.now() / 1000; prevT = manualT; },
       // Advance the manual clock in fixed frame steps, running the game update each step.

@@ -229,6 +229,7 @@ export class Battle {
   }
 
   stop() {
+    this.deps.sfx.stopAll?.();
     if (this.active && this.net && this.net.role === 'host') this._broadcast({ k: 'stopped' });
     if (this.active && this.net && this.net.role === 'client') this.net.link.send({ k: 'left' });
     this.active = false;
@@ -290,6 +291,8 @@ export class Battle {
     this.nadesB.update(this.over ? 0 : dt, t);
     this._updateBlasts(t);
     this._killCam(t);
+    const ears = this.humans[0];
+    if (ears) { this.deps.sfx.listen(ears.camera); if (!this.kc && !this.over) this.deps.sfx.observeSteps(this.fighters, ears.camera, this.arena, t, null, ears.f.id); }
     this._updateTorches();
     this.arena.update(dt, t, this.humans[0] ? this.humans[0].camera.position : null);
     this._updateTracers(t);
@@ -303,8 +306,8 @@ export class Battle {
     ring.rotation.x = -Math.PI / 2; ring.position.set(x, y + 0.05, z);
     this.arena.scene.add(ring);
     (this.blasts || (this.blasts = [])).push({ ring, t });
-    const w = this._where(x, y, z);
-    this.deps.sfx.shot(0.05, Math.max(0.15, Math.min(1, 6 / (w.dist + 3))), w.pan, w.muffle * 0.6);
+    const w = this._where(x, y, z, 'blast', 120);
+    this.deps.sfx.shot(0.05, w.gain, w.route, w.muffle);
     const h = this.humans[0];
     if (h && Math.hypot(h.f.x - x, h.f.z - z) < 9) { const v = this.hud.views[0]; if (v) v.vigT = Math.max(v.vigT, t - 0.2); }
   }
@@ -350,15 +353,12 @@ export class Battle {
       this.arena.holes.add(hole[0], hole[1], hole[2], n[0], n[1], n[2]);
     }
     if (this.net) this._broadcast({ k: 'tr', by: f.id, a: [r2(from.x), r2(from.y), r2(from.z)], b: [r2(o[0] + d[0] * end), r2(o[1] + d[1] * end), r2(o[2] + d[2] * end)], team: f.team, tone: f.gun.tone, hole }, true);
-    // Sound: your own shots full volume; others by distance to the nearest human (rate-limited).
+    // Own shots are centred; other emitters use Rust propagation and bounded voices.
     const sfx = this.deps.sfx;
     if (shooter instanceof Human) sfx.shot(f.gun.tone, this.humans.length > 1 ? 0.7 : 1);
-    else if (shotT - this._lastBotSound > 0.045) {
-      this._lastBotSound = shotT;
-      let dist = Infinity;
-      for (const h of this.humans) dist = Math.min(dist, Math.hypot(h.f.x - f.x, h.f.z - f.z));
-      const w = this._where(f.x, f.y, f.z);
-      sfx.shot(f.gun.tone, Math.max(0.06, Math.min(0.6, 3 / (dist + 2))), w.pan, w.muffle);
+    else {
+      const w = this._where(from.x, from.y, from.z);
+      sfx.shot(f.gun.tone, w.gain, w.route, w.muffle);
     }
   }
 
@@ -521,12 +521,10 @@ export class Battle {
     this._renderFeed();
     this._updateScore();
   }
-  _shotSound(f, t) {
-    if (t - this._lastBotSound < 0.045) return;
-    this._lastBotSound = t;
-    const me = this.humans[0] && this.humans[0].f;
-    const dist = me ? Math.hypot(me.x - f.x, me.z - f.z) : 10;
-    this.deps.sfx.shot(f.gun ? f.gun.tone : 0.5, Math.max(0.06, Math.min(0.6, 3 / (dist + 2))));
+  _shotSound(f, t, position = null) {
+    const p = position || f.muzzleWorld(this._v).toArray();
+    const w = this._where(p[0], p[1], p[2]);
+    this.deps.sfx.shot(f.gun ? f.gun.tone : 0.5, w.gain, w.route, w.muffle);
   }
 
   /* ---------- network: client ---------- */
@@ -607,7 +605,7 @@ export class Battle {
       const by = this.fighters.find((g) => g.id === m.by);
       this._addTracer(new THREE.Vector3(m.a[0], m.a[1], m.a[2]), m.b, t, m.team, false, m.by);
       if (m.hole) this.arena.holes.add(m.hole[0], m.hole[1], m.hole[2], m.hole[3], m.hole[4], m.hole[5]);
-      if (by) { by.flashUntil = t + 0.05; this._shotSound(by, t); }
+      if (by) { by.flashUntil = t + 0.05; this._shotSound(by, t, m.a); }
     } else if (m.k === 'hurt' && me) {
       this._hurtFlash(me, Array.isArray(m.from) ? { x: m.from[0], z: m.from[1] } : null, t);
       if (m.id) this._taken(m.id, m.zone, +m.dmg || 0);
@@ -663,6 +661,8 @@ export class Battle {
     }
     for (const f of this.fighters) f.updateVisual(t);
     this._killCam(t);
+    const ears = this.humans[0];
+    if (ears) { this.deps.sfx.listen(ears.camera); if (!this.kc && !this.over) this.deps.sfx.observeSteps(this.fighters, ears.camera, this.arena, t, null, ears.f.id); }
     this._updateTorches();
     this.arena.update(dt, t, me ? me.camera.position : null);
     this._updateTracers(t);
@@ -898,23 +898,17 @@ export class Battle {
     const n = this.noises || (this.noises = []);
     n.push({ x: f.x, y: f.y, z: f.z, t, kind, range, team: f.team });
     while (n.length > 64 || (n.length && n[0].t < t - 0.6)) n.shift();
-    // you hear other people's footsteps from where they are (one player on this screen)
-    if (kind === 'steps' && this.humans.length === 1 && this.humans[0].f !== f) {
-      const w = this._where(f.x, f.y, f.z), reach = range * 1.6 + 2;
-      if (w.dist < reach) this.deps.sfx.step((1 - w.dist / reach) * (range > 8 ? 0.9 : 0.5), w.pan, w.muffle);
+    // Keep AI noises untouched. Presentation footsteps use the same Rust cadence
+    // on local and interpolated remote actor poses, without new network messages.
+    if ((kind === 'reload' || kind === 'vault') && this.humans[0]?.f !== f) {
+      const w = this._where(f.x, f.y + 1, f.z, kind, kind === 'vault' ? 24 : 16);
+      this.deps.sfx[kind](w.gain, w.route, w.muffle);
     }
   }
-  // A sound at (x, y, z) for your ears: distance, left/right pan, muffled behind you or
-  // through walls. Split screen: no panning (two players share the speakers).
-  _where(x, y, z) {
-    const h = this.humans[0];
-    if (!h || this.humans.length > 1) return { dist: 0, pan: 0, muffle: 0 };
-    const dx = x - h.f.x, dz = z - h.f.z, dist = Math.hypot(dx, dz);
-    if (dist < 0.5) return { dist, pan: 0, muffle: 0 };
-    const rel = (Math.atan2(dx, -dz) * 180 / Math.PI - h.look.yaw) * Math.PI / 180;
-    let muffle = Math.max(0, -Math.cos(rel)) * 0.35;
-    if (!this.arena.sightLine([h.f.x, h.f.y + 1.6, h.f.z], [x, y + 1.2, z])) muffle += 0.45;
-    return { dist, pan: Math.sin(rel) * 0.85, muffle };
+  _where(x, y, z, kind = 'shot', reach = 80) {
+    const camera = this.humans[0]?.camera;
+    if (!camera) return {dist:0,gain:0,pan:0,muffle:0,route:0};
+    return this.deps.sfx.locate(kind, {x,y,z}, camera, this.arena, null, {reach});
   }
   // Footsteps (by speed: sprinting is loud, crouch-walking almost silent), vaults, reloads.
   _sounds(f, t, dt) {

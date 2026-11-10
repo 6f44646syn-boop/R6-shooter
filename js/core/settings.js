@@ -21,6 +21,7 @@ export const DEFAULTS = Object.freeze({
   reticleColor: 'red',   // ADS sight reticle: red, green, cyan, magenta, white, yellow
   crosshair: { style: 'cross', size: 10, gap: 4, thickness: 2, color: '#3dff9a', outline: true },
   volume: 0.35,
+  spatialAudio: true,
   holeSizeCm: 3,
   aimRecoil: 1,          // Aimed recoil strength (1 = as measured)
   hipRecoil: 1.8,        // hip-fire recoil strength (x the measured spray)
@@ -107,6 +108,7 @@ export function sanitize(input) {
   out.animations = typeof s.animations === 'boolean' ? s.animations : DEFAULTS.animations;
   out.weaponShading = s.weaponShading === 'detailed' ? 'detailed' : 'fast';
   out.lensQuality = ['auto', '3', '2', '1', '0'].includes(String(s.lensQuality)) ? String(s.lensQuality) : DEFAULTS.lensQuality;
+  out.spatialAudio = typeof s.spatialAudio === 'boolean' ? s.spatialAudio : DEFAULTS.spatialAudio;
   out.adsSens = s.adsSens === 'game' ? 'game' : 'focal';
   out.aimSmooth = typeof s.aimSmooth === 'boolean' ? s.aimSmooth : DEFAULTS.aimSmooth;
   out.hipSpread = typeof s.hipSpread === 'boolean' ? s.hipSpread : DEFAULTS.hipSpread;

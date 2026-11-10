@@ -1,7 +1,7 @@
 import { tabs } from './m7-menu.js?v=651d04c-mwahvcb3';
 // Settings panel inside the Esc menu. Every change is sanitised, saved to localStorage and
 // handed to main.js through onChange(key) so it takes effect immediately.
-import { sanitize, saveSettings, clearSavedSettings, DEFAULTS, DISTANCES, CROSSHAIR_STYLES, RETICLE_COLOR_NAMES } from '../core/settings.js?v=651d04c-mwahvcb3';
+import { sanitize, saveSettings, clearSavedSettings, DEFAULTS, DISTANCES, CROSSHAIR_STYLES, RETICLE_COLOR_NAMES } from '../core/settings.js?v=m8-audio-1';
 import { degPerCount, countsPer360, inchesPer360, horizontalFovDeg } from '../core/sensitivity.js?v=651d04c-mwahvcb3';
 import { drawCrosshair } from './crosshair.js?v=651d04c-mwahvcb3';
 
@@ -178,7 +178,6 @@ export class SettingsUI {
         this.select('set-graphics', 'Graphics quality', [['low', 'Low: flat colours (slowest PCs)'], ['standard', 'Standard (fast, for school PCs)'], ['high', 'High: realistic lighting, shadows, textures'], ['ultra', 'Ultra (graphics card): 4K textures, weapon skins, detail']], () => this.s.graphics, (v) => { this.s.graphics = v; }, 'graphics'),
         this.select('set-shading', 'Gun and sight shading (Standard graphics)', [['fast', 'Fast (recommended)'], ['detailed', 'Detailed metal (slower)']], () => this.s.weaponShading, (v) => { this.s.weaponShading = v; }, 'shading'),
         this.select('set-lens', 'Lens effects when aiming', [['auto', 'Auto (drops if aiming is slow)'], ['3', 'High: blur, fringing, glare'], ['2', 'Medium: no blur'], ['1', 'Low (fast): glare, darkening, reticle'], ['0', 'Off (fast): darkening and reticle']], () => this.s.lensQuality, (v) => { this.s.lensQuality = v; }, 'lens'),
-        this.range('set-volume', 'Volume', { min: 0, max: 1, step: 0.05, fmt: (v) => Math.round(v * 100) + '%' }, () => this.s.volume, (v) => { this.s.volume = v; }, 'volume'),
       ),
       this.fovNote,
       el('div', { class: 'row' },
@@ -187,6 +186,11 @@ export class SettingsUI {
         this.check('set-viewmodel', 'Show gun model', () => this.s.showViewmodel, (v) => { this.s.showViewmodel = v; }, 'viewmodel'),
         this.check('set-debug', 'Debug readout (F3)', () => this.s.debugHud, (v) => { this.s.debugHud = v; }, 'debug'),
       ));
+
+    const audio = this.group('Audio',
+      this.range('set-volume', 'Master volume', { min: 0, max: 1, step: 0.05, fmt: (v) => Math.round(v * 100) + '%' }, () => this.s.volume, (v) => { this.s.volume = v; }, 'volume'),
+      this.check('set-spatial-audio', '3D headphone positioning (HRTF)', () => this.s.spatialAudio, (v) => { this.s.spatialAudio = v; }, 'audio'),
+      el('p', { class:'small', text:'Headphones provide directional and height cues. Distance and wall muffling remain active with stereo positioning. Footsteps follow the floor material; no enemy markers are added.' }));
 
     /* Crosshair */
     this.preview = el('canvas', { 'aria-hidden': 'true' });
@@ -226,10 +230,10 @@ export class SettingsUI {
       resetAll.textContent = 'Reset all settings';
     });
 
-    const panels = [sens, optics, view, cross, range];
+    const panels = [sens, optics, view, cross, range, audio];
     panels.forEach((p,i) => p.id = 'm7-settings-' + i);
     const settings = el('div', { class: 'settings' }, ...panels);
-    tabs(settings, panels.map((panel,i)=>({panel,label:['Sensitivity','ADS','Video & audio','Crosshair','Range'][i]})), 'Settings categories');
+    tabs(settings, panels.map((panel,i)=>({panel,label:['Sensitivity','ADS','Video','Crosshair','Range','Audio'][i]})), 'Settings categories');
     this.root.append(settings, el('div', { class: 'row' }, resetAll, el('span', { class: 'small', text: 'Settings are saved in this browser automatically.' })));
   }
 

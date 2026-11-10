@@ -1,8 +1,12 @@
-name: Milestone 7 controls
+name: Controls and spatial audio
 on:
   pull_request:
     paths:
       - 'rust/m7_controls/**'
+      - 'rust/m8_audio/**'
+      - 'wasm/m8_audio.*'
+      - 'js/audio/**'
+      - 'js/core/settings.js'
       - 'wasm/m7_controls.*'
       - 'js/ui/**'
       - 'js/main.js'
@@ -31,5 +35,8 @@ jobs:
       - name: Prepare test browser
         run: '"$RUNNER_TEMP/recoil-range-test-tools/node_modules/.bin/playwright" install --with-deps chromium'
       - run: cargo test --manifest-path rust/m7_controls/Cargo.toml
+      - run: cargo test --manifest-path rust/m8_audio/Cargo.toml
       - name: Check controls with external test tooling
         run: NODE_PATH="$RUNNER_TEMP/recoil-range-test-tools/node_modules" npm run test:controls
+      - name: Check spatial audio with external test tooling
+        run: NODE_PATH="$RUNNER_TEMP/recoil-range-test-tools/node_modules" npm run test:audio
