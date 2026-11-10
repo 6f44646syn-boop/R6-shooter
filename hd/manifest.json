@@ -1,7 +1,12 @@
 {
  "name": "Recoil Range Enhanced Graphics",
- "version": 1,
+ "version": 2,
  "files": [
+  {
+   "path": "audio/recoil-range-audio-v1.rra",
+   "size": 1436728,
+   "sha256": "2491421d0fdc24366a623c59026f582489e3393bd49b6dd720bb70b3e2ab5ee2"
+  },
   {
    "path": "guns/ak.rrmz",
    "size": 738978,
@@ -53,5 +58,5 @@
    "sha256": "d4e4900f9f7023e6b0bda3060186c8a800eb4bd2cf8ea1e15cf3738d7c27f134"
   }
  ],
- "total": 6025647
+ "total": 7462375
 }

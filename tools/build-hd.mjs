@@ -15,7 +15,7 @@ import { bake } from './hd/bake.mjs';
 import { writeRRM } from './hd/format.mjs';
 import { GUNS } from './hd/guns.mjs';
 
-export const PACK_VERSION = 1;
+export const PACK_VERSION = 2;
 const ROOT = new URL('../hd/', import.meta.url);
 mkdirSync(new URL('guns/', ROOT), { recursive: true });
 
@@ -43,10 +43,15 @@ for (const name of Object.keys(GUNS)) {
 }
 
 // Manifest: every file with its size and SHA-256 (the game checks each download).
+mkdirSync(new URL('audio/', ROOT), { recursive: true });
+writeFileSync(new URL('audio/recoil-range-audio-v1.rra', ROOT), readFileSync(new URL('../packs/audio/recoil-range-audio-v1.rra', import.meta.url)));
 const files = [];
-for (const f of readdirSync(new URL('guns/', ROOT)).sort()) {
-  const b = readFileSync(new URL('guns/' + f, ROOT));
-  files.push({ path: 'guns/' + f, size: b.length, sha256: createHash('sha256').update(b).digest('hex') });
+const paths = [];
+function walk(dir = '') { for (const f of readdirSync(new URL(dir, ROOT), { withFileTypes: true })) { const p = dir + f.name; if (f.isDirectory()) walk(p + '/'); else if (p !== 'manifest.json') paths.push(p); } }
+walk();
+for (const f of paths.sort()) {
+  const b = readFileSync(new URL(f, ROOT));
+  files.push({ path: f, size: b.length, sha256: createHash('sha256').update(b).digest('hex') });
 }
 const manifest = { name: 'Recoil Range Enhanced Graphics', version: PACK_VERSION, files, total: files.reduce((s, f) => s + f.size, 0) };
 writeFileSync(new URL('manifest.json', ROOT), JSON.stringify(manifest, null, 1) + '\n');

@@ -1,3 +1,4 @@
+import { connectAudioPack } from './audio/pack-bridge.js?v=m6-integration';
 import { initBombUtility, utilityFor } from './balance/bomb-utility.js?v=m6-integration';
 import { createAcoustics } from './audio/acoustics.js?v=m6-integration';
 import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=m6-integration';
@@ -131,6 +132,7 @@ async function boot(data) {
   let testNoPost = false;
   const dots = range.dots;
   const sfx = new Sfx(acoustics);
+  const audioPack = connectAudioPack(HDPack, sfx);
   sfx.spatialAudio = settings.spatialAudio;
   const voices = new Voices();
   sfx.setVolume(settings.volume);
@@ -432,6 +434,7 @@ async function boot(data) {
 
   async function startLock() {
     sfx.unlock();
+    void audioPack.sync();
     const ok = await lock.request();
     if (ok) {
       notice.textContent = 'Raw input unavailable: Windows pointer settings may affect aim.';
@@ -1663,6 +1666,8 @@ async function boot(data) {
       // The Enhanced Graphics pack (High / Ultra): install from the test server, load, rebuild.
       hdInstall: async () => { const ok = await HDPack.install(); if (ok) await loadHD(); return { ok, state: HDPack.state, error: HDPack.error, guns: hdLoaded }; },
       hdRemove: () => HDPack.remove(),
+      audioPackState: () => ({ unlocked: !!sfx.ctx, clips: sfx.samplePack?.clipCount || 0 }),
+      audioPackSync: () => { sfx.unlock(); return audioPack.sync(); },
       hdState: () => ({ state: HDPack.state, installed: HDPack.installed && HDPack.installed.version, ready: HDPack.ready, loaded: hdLoaded, effective: gfx() }),
       graphicsUI: () => graphicsUI, perfHud: () => perf, fpsGoal, refreshHz: () => refreshHz,
       rigHD: () => !!(rig.current && rig.current.userData.hd),

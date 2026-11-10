@@ -142,6 +142,8 @@ export const HDPack = {
   // A file of the installed pack, unpacked (ArrayBuffer), or null.
   async file(path) {
     if (!this.ready) return null;
+    const entry = this.installed.files.find(f => f.path === path);
+    if (!entry) return null;
     let data = null;
     if (memory && memory.has(path)) data = memory.get(path);
     else if (this.persistent) {
@@ -149,6 +151,8 @@ export const HDPack = {
       if (r) data = await r.arrayBuffer();
     }
     if (!data) return null;
+    const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', data))].map(b => b.toString(16).padStart(2, '0')).join('');
+    if (data.byteLength !== entry.size || hash !== entry.sha256) throw new Error('Cached pack file damaged: ' + path);
     if (path.endsWith('.rrmz')) data = await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
     return data;
   },

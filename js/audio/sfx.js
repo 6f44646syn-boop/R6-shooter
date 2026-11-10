@@ -195,13 +195,13 @@ export class Sfx {
     this.stats.peak = Math.max(this.stats.peak, this.voices.size);
     return v;
   }
-  async installPack(bytes) {
+  async installPack(bytes, accept = () => true) {
     if (!this.ctx)
       throw Error(
         'Unlock audio from a user gesture before installing an optional audio pack.',
       );
     const pack = await decodeAudioPack(bytes, this.ctx);
-    this.samplePack = pack;
+    if (accept()) this.samplePack = pack;
     return { clips: pack.clipCount, bytes: pack.byteLength };
   }
   removePack() {
