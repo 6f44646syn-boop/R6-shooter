@@ -12,6 +12,7 @@ import { BattleNades } from './nades.js?v=4ab7a0c-mwb7djhc';
 import { drawCrosshair } from '../ui/crosshair.js?v=4ab7a0c-mwb7djhc';
 import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=4ab7a0c-mwb7djhc';
 import { effectiveGraphics } from '../render/quality.js?v=4ab7a0c-mwb7djhc';
+import { effectiveGun, slotIn } from '../core/loadout.js?v=4ab7a0c-mwb7djhc';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -164,7 +165,7 @@ export class Battle {
       const team = 'p' + (i + 2);
       const f = new Fighter({ name: r.name, team, color: TEAM_COLOR[team], human: true });
       f.showBar = false;
-      const rm = new Remote(f, r.link, d.guns[r.gunIndex] || d.guns[0]);
+      const rm = new Remote(f, r.link, effectiveGun(d.guns[r.gunIndex] || d.guns[0], r.attach));   // attachments checked by Rust
       this._look(f, rm.gun, skinNum(r.skin));
       this.remotes.push(rm);
       this.fighters.push(f);
@@ -174,7 +175,7 @@ export class Battle {
       const f = new Fighter({ name: BOT_NAMES[i] + ' (' + LEVELS[opts.level].name + ')', team: 'bots', color: TEAM_COLOR.bots });
       const gun = d.guns[(i * 3 + 1) % d.guns.length];
       const b = new Bot(f, opts.level, gun, 1000 + i * 7919 + Math.floor(Math.random() * 1e6));
-      this._look(f, gun, botSkin(d.guns.indexOf(gun)));
+      this._look(f, gun, botSkin(slotIn(d.guns, gun)));
       this.bots.push(b); this.fighters.push(f);
     }
     this.fighters.forEach((f, i) => { f.id = i + 1; this.arena.scene.add(f.group); });
@@ -202,8 +203,8 @@ export class Battle {
     h.setGun(gun);
     const skin = this.deps.skinOf ? this.deps.skinOf(gun) : null;
     this._look(h.f, gun, skin);
-    if (this.net && this.net.role === 'client') this.net.link.send({ k: 'gun', i: this.deps.guns.indexOf(gun), s: skin });
-    if (this.net && this.net.role === 'host') this._broadcast({ k: 'look', id: h.f.id, gun: this.deps.guns.indexOf(gun), s: skin });
+    if (this.net && this.net.role === 'client') this.net.link.send({ k: 'gun', i: slotIn(this.deps.guns, gun), s: skin, at: gun.attach || null });
+    if (this.net && this.net.role === 'host') this._broadcast({ k: 'look', id: h.f.id, gun: slotIn(this.deps.guns, gun), s: skin, at: gun.attach || null });
     const v = this.hud.views[0];
     if (v) v.box.querySelector('.b-name').textContent = h.f.name + ' · ' + gun.name;
   }
@@ -220,14 +221,14 @@ export class Battle {
   }
 
   _roster() {
-    return this.fighters.map((f) => ({ id: f.id, name: f.name, team: f.team, human: f.human, gun: this.deps.guns.indexOf(f.gun), skin: f.skin }));
+    return this.fighters.map((f) => ({ id: f.id, name: f.name, team: f.team, human: f.human, gun: slotIn(this.deps.guns, f.gun), at: (f.gun && f.gun.attach) || null, skin: f.skin }));
   }
   // The gun (with its skin) others see this fighter carry.
   _look(f, gun, skin, mine = this.humans.some((h) => h.f === f)) {
     f.setDetail(effectiveGraphics(this.deps.settings));
     // Someone else's Legendary (their own photo) shows as the gold finish here.
     if (skin === LEGEND_ID && !mine) skin = LEGEND_GOLD_ID;
-    try { f.setLook(gun, Math.max(0, this.deps.guns.indexOf(gun)), skin); } catch (e) { console.warn('gun look', e); }
+    try { f.setLook(gun, Math.max(0, slotIn(this.deps.guns, gun)), skin); } catch (e) { console.warn('gun look', e); }
   }
 
   stop() {
@@ -340,7 +341,7 @@ export class Battle {
       if (r && r.t < bt) { bt = r.t; best = { g, r }; }
     }
     const end = bt === Infinity ? 60 : bt;
-    this._noise(f, 'shot', 48, shotT);
+    this._noise(f, 'shot', 48 * (f.gun.noise ?? 1), shotT);
     for (const b of this.bots) {
       if (b.f === f || b.f.team === f.team || !b.f.alive || (best && best.g === b.f)) continue;
       if (this._rayDist(o, d, end, b.f.x, b.f.y + 1.2, b.f.z) < 1.6) b.onShotAt(f, shotT);
@@ -357,10 +358,10 @@ export class Battle {
     if (this.net) this._broadcast({ k: 'tr', by: f.id, a: [r2(from.x), r2(from.y), r2(from.z)], b: [r2(o[0] + d[0] * end), r2(o[1] + d[1] * end), r2(o[2] + d[2] * end)], team: f.team, tone: f.gun.tone, hole }, true);
     // Own shots are centred; other emitters use Rust propagation and bounded voices.
     const sfx = this.deps.sfx;
-    if (shooter instanceof Human) sfx.shot(f.gun.tone, this.humans.length > 1 ? 0.7 : 1);
+    if (shooter instanceof Human) sfx.shot(f.gun.tone, (this.humans.length > 1 ? 0.7 : 1) * (f.gun.suppressed ? 0.45 : 1));
     else {
       const w = this._where(from.x, from.y, from.z);
-      sfx.shot(f.gun.tone, w.gain, w.route, w.muffle);
+      sfx.shot(f.gun.tone, w.gain * (f.gun.suppressed ? 0.45 : 1), w.route, w.muffle);
     }
   }
 
@@ -490,7 +491,7 @@ export class Battle {
       f.flashUntil = t + 0.05;
       const a = f.muzzleWorld(this._v);
       this._addTracer(a, m.b, t, f.team, false, f.id);
-      this._noise(f, 'shot', 48, t);
+      this._noise(f, 'shot', 48 * (f.gun.noise ?? 1), t);
       this._broadcast({ k: 'tr', by: f.id, a: [r2(a.x), r2(a.y), r2(a.z)], b: m.b, team: f.team, tone: r.gun.tone, hole: m.hole || null }, true, r);
       if (m.hole) this.arena.holes.add(m.hole[0], m.hole[1], m.hole[2], m.hole[3], m.hole[4], m.hole[5]);
       this._shotSound(f, t);
@@ -505,8 +506,10 @@ export class Battle {
         }
       }
     } else if (m.k === 'gun') {
-      const g = this.deps.guns[m.i | 0];
-      if (g) { r.gun = g; f.gun = g; this._look(f, g, skinNum(m.s)); this._broadcast({ k: 'look', id: f.id, gun: m.i | 0, s: skinNum(m.s) }, false, r); }
+      // The host takes the player's attachments through the same Rust policy (an invalid code
+      // gives the measured loadout), so its damage and rate checks use the effective gun.
+      const g = this.deps.guns[m.i | 0] && effectiveGun(this.deps.guns[m.i | 0], m.at);
+      if (g) { r.gun = g; f.gun = g; this._look(f, g, skinNum(m.s)); this._broadcast({ k: 'look', id: f.id, gun: m.i | 0, s: skinNum(m.s), at: g.attach || null }, false, r); }
     } else if (m.k === 'left') this.onLinkClosed(link);
   }
   // A player's connection dropped (host) or the host's did (client).
@@ -526,7 +529,7 @@ export class Battle {
   _shotSound(f, t, position = null) {
     const p = position || f.muzzleWorld(this._v).toArray();
     const w = this._where(p[0], p[1], p[2]);
-    this.deps.sfx.shot(f.gun ? f.gun.tone : 0.5, w.gain, w.route, w.muffle);
+    this.deps.sfx.shot(f.gun ? f.gun.tone : 0.5, w.gain * (f.gun && f.gun.suppressed ? 0.45 : 1), w.route, w.muffle);
   }
 
   /* ---------- network: client ---------- */
@@ -550,7 +553,7 @@ export class Battle {
     for (const e of m.roster) {
       const f = new Fighter({ name: e.name, team: e.team, color: TEAM_COLOR[e.team] || 0xffffff, human: e.human });
       f.id = e.id;
-      f.gun = d.guns[e.gun] || d.guns[0];
+      f.gun = effectiveGun(d.guns[e.gun] || d.guns[0], e.at);
       this._look(f, f.gun, e.id === m.you ? (d.skinOf ? d.skinOf(f.gun) : null) : skinNum(e.skin), e.id === m.you);
       if (e.human) f.showBar = false;
       this.fighters.push(f);
@@ -614,7 +617,7 @@ export class Battle {
     } else if (m.k === 'comm') {
       this._addComm(String(m.who || '?').slice(0, 40), String(m.team || 'bots'), String(m.text || '').slice(0, 80), t);
     } else if (m.k === 'look') {
-      const f = this.fighters.find((g) => g.id === m.id), g = this.deps.guns[m.gun | 0];
+      const f = this.fighters.find((g) => g.id === m.id), g = this.deps.guns[m.gun | 0] && effectiveGun(this.deps.guns[m.gun | 0], m.at);
       if (f && g && (!me || f !== me.f)) this._look(f, g, skinNum(m.s));
     } else if (m.k === 'hm' && me) {
       this._hitMarker(me, m.kind, t);

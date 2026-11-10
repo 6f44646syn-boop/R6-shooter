@@ -15,6 +15,7 @@ import { Weapon } from './core/weapon.js?v=4ab7a0c-mwb7djhc';
 import { RecoilEngine } from './core/recoil.js?v=4ab7a0c-mwb7djhc';
 import { Spread } from './core/spread.js?v=4ab7a0c-mwb7djhc';
 import { loadGameData } from './core/guns.js?v=4ab7a0c-mwb7djhc';
+import { initLoadout, effectiveGun, sanitize, slotIn, baseOf, SLOTS as ATTACH_SLOTS, allowed as attachAllowed, measuredCode, describe as describeAttach, hint as attachHint } from './core/loadout.js?v=4ab7a0c-mwb7djhc';
 import { randomSeed } from './core/prng.js?v=4ab7a0c-mwb7djhc';
 import { Range, EYE_HEIGHT } from './scene/range.js?v=4ab7a0c-mwb7djhc';
 import { RING_STEP } from './scene/range-tex.js?v=4ab7a0c-mwb7djhc';
@@ -76,7 +77,7 @@ if (embedded) {
 }
 
 async function boot(data) {
-  const [controls, acoustics] = await Promise.all([createControls(), createAcoustics(), initBombUtility()]);
+  const [controls, acoustics] = await Promise.all([createControls(), createAcoustics(), initBombUtility(), initLoadout()]);
   const settings = loadSettings();
   const canvas = $('view');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: settings.antialias, powerPreference: 'high-performance' });
@@ -247,8 +248,8 @@ async function boot(data) {
 
   function selectGun(index) {
     if (index < 0 || index >= data.guns.length) return;
-    const gun = data.guns[index];
-    if (state.gun && state.gun !== gun) sfx.weaponSwitch();
+    const gun = effectiveGun(data.guns[index], savedAttach(data.guns[index]));   // this player's attachments
+    if (state.gun && baseOf(state.gun) !== baseOf(gun)) sfx.weaponSwitch();
     state.gun = gun;
     state.gunIndex = index;
     weapon.setGun(gun);
@@ -262,6 +263,49 @@ async function boot(data) {
     if (settings.gunIndex !== index) { settings.gunIndex = index; saveSettings(settings); }
   }
   hud.setDistance(range.distance);
+
+  /* ---------- attachments (Milestone 8, js/core/loadout.js) ---------- */
+  // Saved per gun ("attach:<gun id>", four digits). No saved code = the measured loadout.
+  function savedAttach(gun) {
+    let c = null;
+    try { c = localStorage.getItem('attach:' + gun.id); } catch (e) { c = null; }
+    return sanitize(gun, c);
+  }
+  const attachMap = () => Object.fromEntries(data.guns.map((g) => [g.id, savedAttach(g)]));
+  // Change one slot of the current gun: the new effective gun takes over (full magazine).
+  function setAttach(slot, id) {
+    const base = baseOf(state.gun), code = savedAttach(base).split('');
+    code[slot] = String(id);
+    const c = sanitize(base, code.join(''));
+    try { localStorage.setItem('attach:' + base.id, c); } catch (e) { /* ignore */ }
+    selectGun(state.gunIndex);
+    if (battle && battle.active && flow.armoryFrom === 'pause') battle.changeGun(state.gun);
+  }
+  // Armory: one row of choices per slot; the dot marks what the gun's spray was measured with.
+  function renderAttach() {
+    const base = baseOf(state.gun), code = savedAttach(base), meas = measuredCode(base);
+    const rows = ATTACH_SLOTS.map((sl, s) => {
+      const row = document.createElement('div'); row.className = 'attach-slot';
+      const lab = document.createElement('span'); lab.textContent = sl.name;
+      const opts = document.createElement('div'); opts.className = 'attach-opts'; opts.setAttribute('role', 'group'); opts.setAttribute('aria-label', sl.name);
+      sl.options.forEach((name, id) => {
+        if (!attachAllowed(base, s, id)) return;
+        const b = document.createElement('button'); b.type = 'button'; b.textContent = name;
+        b.dataset.slot = s; b.dataset.id = id;
+        b.setAttribute('aria-pressed', String(Number(code[s]) === id));
+        if (Number(meas[s]) === id) b.dataset.measured = '';
+        b.title = (attachHint(s, id) || 'Nothing fitted') + (Number(meas[s]) === id ? ' (as measured)' : '');
+        b.addEventListener('click', () => setAttach(s, id));
+        opts.append(b);
+      });
+      row.append(lab, opts);
+      return row;
+    });
+    $('attach-rows').replaceChildren(...rows);
+    const fx = describeAttach(base, code).map((d) => { const e = document.createElement('span'); e.className = d.better ? 'good' : 'bad'; e.textContent = d.label + ' ' + d.value; return e; });
+    $('attach-fx').replaceChildren(...fx);
+    $('attach-note').textContent = code === meas ? 'As measured: the spray is exactly the recorded one.' : 'Compared with the measured loadout (\u2022). The magazine plot and spray change to match.';
+  }
 
   /* ---------- sights ---------- */
   // The chosen sight is saved per slot ("scope:<gun id>"). A saved id that the gun no longer
@@ -836,8 +880,8 @@ async function boot(data) {
     return {
       renderer, settings, controls, guns: data.guns, sfx, worldPost,
       opticFor: (g) => catalogue.byId.get(savedOptic(g)), adsVFov, baseDpc, now: clockNow,
-      slotOf: (g) => data.guns.indexOf(g), onEnd: () => lock.exit(), hudRoot: $('app'),
-      skinOf: (g) => equippedSkin(data.guns.indexOf(g)),
+      slotOf: (g) => slotIn(data.guns, g), onEnd: () => lock.exit(), hudRoot: $('app'),
+      skinOf: (g) => equippedSkin(slotIn(data.guns, g)),
       voice: voices,
       onNetLost: (msg) => { netReset(); leaveBattle(); netStatus(msg, 'bad'); },
       onPoints: (kind, head) => (kind === 'kill' ? profile.addKill(head) : profile.addPoints(WIN_POINTS)),
@@ -868,7 +912,7 @@ async function boot(data) {
     weapon.releaseTrigger(); setAds(false); player.releaseKeys();
     try {
       battle.start({ opponent: B.opponent, bots: B.bots, level: B.level, killsToWin: B.kills, map: B.map, night: B.night, weather: B.weather, fog: B.fog, p1Gun: state.gun, p2Gun: data.guns[Math.min(B.p2Gun, data.guns.length - 1)],
-        hostName: 'Host', remotes: B.opponent === 'net' ? net.peers.map((e) => ({ link: e.link, name: e.name, gunIndex: e.gunIndex, skin: e.skin })) : [] });
+        hostName: 'Host', remotes: B.opponent === 'net' ? net.peers.map((e) => ({ link: e.link, name: e.name, gunIndex: e.gunIndex, attach: e.attach, skin: e.skin })) : [] });
     } catch (err) {
       // Usually a half-updated page (old files still cached): say so instead of doing nothing.
       console.error(err);
@@ -957,10 +1001,10 @@ async function boot(data) {
 
   // Host: a player's link is open (direct or through the relay).
   function addPeer(link) {
-    const entry = { link, name: 'Player ' + (net.peers.length + 2), gunIndex: 0, skin: null };
+    const entry = { link, name: 'Player ' + (net.peers.length + 2), gunIndex: 0, attach: null, skin: null };
     net.peers.push(entry);
     link.onmessage = (m) => {
-      if (m.k === 'hello') { entry.gunIndex = Math.min(data.guns.length - 1, Math.max(0, m.gun | 0)); entry.skin = Number.isInteger(m.skin) ? m.skin : null; netUi(); return; }
+      if (m.k === 'hello') { entry.gunIndex = Math.min(data.guns.length - 1, Math.max(0, m.gun | 0)); entry.skin = Number.isInteger(m.skin) ? m.skin : null; entry.attach = typeof m.at === 'string' ? m.at.slice(0, 4) : null; netUi(); return; }
       if (battle && battle.active && battle.net) battle.onNet(link, m);
     };
     link.onclose = () => {
@@ -974,7 +1018,7 @@ async function boot(data) {
   // Joiner: connected to the host.
   function joined(link) {
     net.request = null; net.link = link;
-    link.send({ k: 'hello', gun: state.gunIndex, skin: equippedSkin(state.gunIndex) });
+    link.send({ k: 'hello', gun: state.gunIndex, at: state.gun.attach || null, skin: equippedSkin(state.gunIndex) });
     link.onmessage = (m) => {
       if (m.k === 'start') { startClientBattle(m); return; }
       if (m.k === 'stopped') { if (battle && battle.active) { leaveBattle(); netStatus('The host ended the match. Still connected: wait for the next one.', 'ok'); } return; }
@@ -1221,9 +1265,9 @@ async function boot(data) {
     if (battle && battle.active) leaveBattle();
     if (!modeGame) {
       modeGame = new ModeGame({
-        renderer, settings, controls, guns: data.guns, sfx, adsVFov, baseDpc, now: clockNow, slotOf: (g) => data.guns.indexOf(g), hudRoot: $('app'), worldPost,
+        renderer, settings, controls, guns: data.guns, sfx, adsVFov, baseDpc, now: clockNow, slotOf: (g) => slotIn(data.guns, g), hudRoot: $('app'), worldPost,
         onEnd: () => lock.exit(), onPoints: (kind, head) => (kind === 'kill' ? profile.addKill(head) : profile.addPoints(WIN_POINTS)),
-        skinOf: (g) => equippedSkin(data.guns.indexOf(g)),
+        skinOf: (g) => equippedSkin(slotIn(data.guns, g)),
         opticById: (id, g) => catalogue.byId.get(g.optics.includes(id) ? id : g.defaultOptic),
       });
       modeGame.hud.again.addEventListener('click', () => startMode());
@@ -1231,7 +1275,7 @@ async function boot(data) {
     }
     weapon.releaseTrigger(); setAds(false); player.releaseKeys();
     try {
-      await modeGame.start({ mode: m, map: P.map[m], difficulty: P.difficulty, teamSize: P.teamSize, abilities: !!P.abilities[m], minutes: P.minutes, prepTime: P.prepTime, headshot: P.headshot, op: P.op[m], side: P.side, seed: testMode ? P.seed : undefined });
+      await modeGame.start({ mode: m, map: P.map[m], difficulty: P.difficulty, teamSize: P.teamSize, abilities: !!P.abilities[m], minutes: P.minutes, prepTime: P.prepTime, headshot: P.headshot, op: P.op[m], side: P.side, attach: attachMap(), seed: testMode ? P.seed : undefined });
     } catch (err) {
       console.error(err);
       flashNotice('Could not start the match (' + (err && err.message || err) + '). Press Ctrl+F5 to load the latest version.', 9000);
@@ -1265,6 +1309,7 @@ async function boot(data) {
     previewRig.setGun(g, state.gunIndex, state.optic);
     framePreview();
     packs.renderArmorySkins($('arm-skins'), state.gunIndex);
+    renderAttach();
     $('arm-skins-note').textContent = 'Skins you own that fit the ' + g.name + '. Get more from packs (Skins & packs).';
     $('arm-deploy').textContent = flow.armoryFrom === 'pause' ? 'Back to the game' : flow.mode === 'range' ? 'Deploy to the range' : 'Deploy to battle';
   }
@@ -1358,7 +1403,7 @@ async function boot(data) {
       $('pause-title').textContent = net.link ? 'Waiting for the host to start the battle...' : 'Connect to a host first (Settings).';
       $('start-btn').disabled = true;
       $('start-btn').textContent = 'Waiting for the host';
-      if (net.link) net.link.send({ k: 'hello', gun: state.gunIndex, skin: equippedSkin(state.gunIndex) });
+      if (net.link) net.link.send({ k: 'hello', gun: state.gunIndex, at: state.gun.attach || null, skin: equippedSkin(state.gunIndex) });
     } else {
       startBattle();
       if (!(battle && battle.active)) { $('menu').hidden = false; showPage('setup'); }
@@ -1647,6 +1692,10 @@ async function boot(data) {
       controls,
       audio: sfx,
       guns: data.guns,
+      // Attachments (Milestone 8): set the current gun's code, read the effective gun.
+      attach(code) { const b = baseOf(state.gun); try { localStorage.setItem('attach:' + b.id, sanitize(b, code)); } catch (e) { /* ignore */ } selectGun(state.gunIndex); return state.gun.attach || measuredCode(b); },
+      gunNow: () => { const g = state.gun; return { id: g.id, attach: g.attach || null, base: !g.base, magSize: g.magSize, reloadSeconds: g.reloadSeconds, adsSeconds: g.adsSeconds, damage: g.damage, flash: g.flash ?? 1, suppressed: !!g.suppressed, last: g.sprayPath[g.sprayPath.length - 1] }; },
+      openArmory: () => openArmory('setup'),
       manual(on) { manualClock = on; manualT = performance.now() / 1000; prevT = manualT; },
       // Advance the manual clock in fixed frame steps, running the game update each step.
       step(seconds, fps = 60) {

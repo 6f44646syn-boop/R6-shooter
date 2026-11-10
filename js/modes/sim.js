@@ -9,6 +9,7 @@ import { utilityFor, abilitiesFor } from '../balance/bomb-utility.js?v=4ab7a0c-m
 // Body for hits (actor frame, standing; crouching squashes y to 0.7): head sphere at 1.62 m
 // (r 0.13), torso capsule 0.95-1.34 m (r 0.24), legs capsule 0.1-0.9 m (r 0.19).
 import { mulberry32 } from '../core/prng.js?v=4ab7a0c-mwb7djhc';
+import { effectiveGun } from '../core/loadout.js?v=4ab7a0c-mwb7djhc';
 import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=4ab7a0c-mwb7djhc';
 import { BODY_R } from './map.js?v=4ab7a0c-mwb7djhc';
 import { Brain } from './bots.js?v=4ab7a0c-mwb7djhc';
@@ -36,6 +37,7 @@ export function gunStats(g) {
   return {
     id: g.id, name: g.name, model: g.model, rpm: g.rpm, magSize: g.magSize, reload: g.reloadSeconds || 2.8,
     damage: g.damage || MODEL_DAMAGE[g.model] || 32, speed: g.moveSpeedMult || MODEL_SPEED[g.model] || 1, tone: g.tone ?? 0.5,
+    noise: g.noise ?? 1, suppressed: !!g.suppressed, attach: g.attach || null,
   };
 }
 
@@ -94,8 +96,14 @@ export class Match {
     }
   }
   humanTeam() { return this.o.human && this.rules.humanTeam ? this.rules.humanTeam() : 'A'; }
+  // The gun an actor carries: the catalogue gun with that actor's attachments (o.attach: the
+  // human's saved codes by gun id; bots carry the measured loadout).
+  gunFor(human, id) {
+    const g = this.gunsById.get(id) || this.o.guns[0];
+    return human && this.o.attach ? effectiveGun(g, this.o.attach[g.id]) : g;
+  }
   addActor(team, op, human) {
-    const g = this.gunsById.get(op.gun) || this.o.guns[0];
+    const g = this.gunFor(human, op.gun);
     const a = {
       id: this.actors.length + 1, team, op, human, name: human ? 'You' : op.name, gun: gunStats(g), gunData: g,
       x: 0, z: 0, y: 0, vx: 0, vy: 0, vz: 0, onGround: true, yaw: 0, pitch: 0, crouch: 0, speed: 0, ads: 0,
@@ -279,7 +287,7 @@ export class Match {
   humanShot(a, o, d) {
     if (!a.alive || this.over || this.rules.frozen(a) || this.rules.noFire(a)) return null;
     if (this.t < a.protectUntil) a.protectUntil = this.t;          // firing ends spawn protection
-    this.noise(a, NOISE.shot, 'shot');
+    this.noise(a, NOISE.shot * (a.gun.noise ?? 1), 'shot');   // a suppressor carries less far
     return this.shoot(a, o, d);
   }
   noise(a, range, kind) {

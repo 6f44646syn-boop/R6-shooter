@@ -272,7 +272,7 @@ export class Bomb extends Rules {
         const from = O.attackers.findIndex((o) => o.id === a.op.id), to = from >= 0 ? O.defenders[from] : O.attackers[O.defenders.findIndex((o) => o.id === a.op.id)];
         if (!to) continue;
         a.op = to; if (!a.human) a.name = to.name;
-        const g = m.gunsById.get(to.gun);
+        const g = m.gunFor ? m.gunFor(a.human, to.gun) : m.gunsById.get(to.gun);
         a.gunData = g; a.gun = Object.assign(a.gun, { ...m.constructor.gunStatsOf(g) });
         m.ab.init(a);
       }

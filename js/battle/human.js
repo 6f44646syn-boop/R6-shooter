@@ -281,7 +281,8 @@ export class Human {
     // Aim-down-sights blend and FOV (vertical FOV setting; sight's aimed FOV).
     const target = this.ads ? 1 : 0;
     if (this.adsP !== target) {
-      const step = dt / 0.15;
+      // 0.15 s for the catalogue gun; attachments scale it (angled grip faster, extended mag slower).
+      const g = this.gun, step = dt / (0.15 * (g && g.base ? g.adsSeconds / (g.base.adsSeconds || 0.3) : 1));
       this.adsP = target ? Math.min(1, this.adsP + step) : Math.max(0, this.adsP - step);
     }
     this.adsE = this.ads ? easeOut(this.adsP) : 1 - easeOut(1 - this.adsP);

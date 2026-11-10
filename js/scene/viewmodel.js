@@ -662,6 +662,77 @@ Object.assign(SPEC, {
 });
 
 
+/* ---------- Attachments (Milestone 8, js/core/loadout.js codes) ---------- */
+// Adds the attachments of a loadout code to a gun built along -z (muzzle at [my, mz]). The
+// magazine parts go in mg so they move with the reload. Returns how far the muzzle moved
+// forward (the flash goes to the new end). Neutral colours: skins never paint attachments.
+const LASER_RED = 0xff3030;
+function attachParts(g, mg, type, code, my, mz) {
+  if (!code || code === '0000') return 0;
+  const [mu, gr, un, mgk] = [...code].map(Number);
+  const sp = SPEC[type], hz = HAND_Z[type] ?? -0.2;
+  let ext = 0;
+  if (mu === 1) {            // flash hider: a slotted tube
+    tube(g, BLACK, 0.0105, 0.05, 0, my, mz - 0.025, 12);
+    for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + Math.PI / 4; box(g, DARK, 0.003, 0.003, 0.03, Math.cos(a) * 0.0105, my + Math.sin(a) * 0.0105, mz - 0.032); }
+    ext = 0.05;
+  } else if (mu === 2) {     // compensator: a flat block with ports on top
+    box(g, BLACK, 0.022, 0.02, 0.045, 0, my, mz - 0.0225);
+    for (let i = 0; i < 3; i++) box(g, DARK, 0.014, 0.003, 0.006, 0, my + 0.0095, mz - 0.01 - i * 0.012);
+    ext = 0.045;
+  } else if (mu === 3) {     // muzzle brake: wide baffles with side windows
+    tube(g, STEEL, 0.009, 0.055, 0, my, mz - 0.0275, 10);
+    for (let i = 0; i < 3; i++) box(g, BLACK, 0.034, 0.018, 0.008, 0, my, mz - 0.008 - i * 0.018);
+    ext = 0.055;
+  } else if (mu === 4) {     // suppressor: a long can with an end cap
+    tube(g, RUBBER, 0.017, 0.15, 0, my, mz - 0.075, 16);
+    tube(g, BLACK, 0.0175, 0.012, 0, my, mz - 0.006, 16);
+    tube(g, BLACK, 0.0175, 0.01, 0, my, mz - 0.145, 16);
+    ext = 0.15;
+  } else if (mu === 5) {     // extended barrel: a longer barrel and a small crown
+    tube(g, STEEL, 0.0075, 0.08, 0, my, mz - 0.04, 10);
+    tube(g, BLACK, 0.0095, 0.018, 0, my, mz - 0.075, 10);
+    ext = 0.084;
+  }
+  // Grips go just ahead of the support hand, under the handguard.
+  const gy = -0.032, gz = Math.max(mz + 0.03, hz - 0.075);
+  if (gr === 1) {            // vertical grip: a ribbed post with a cap
+    box(g, BLACK, 0.02, 0.008, 0.03, 0, gy - 0.004, gz);
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.0135, 0.07, 12), mat(RUBBER, 'polymer'));
+    post.position.set(0, gy - 0.043, gz); g.add(post);
+    for (let i = 0; i < 4; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.0128, 0.0018, 4, 12), mat(BLACK, 'polymer')); r.rotation.x = Math.PI / 2; r.position.set(0, gy - 0.02 - i * 0.015, gz); g.add(r); }
+    tube(g, BLACK, 0.014, 0.006, 0, gy - 0.08, gz).rotation.x = 0;
+  } else if (gr === 2) {     // angled grip: a swept wedge
+    box(g, BLACK, 0.02, 0.008, 0.06, 0, gy - 0.004, gz + 0.01);
+    const w = box(g, RUBBER, 0.018, 0.026, 0.065, 0, gy - 0.02, gz + 0.012, -0.45);
+    w.material = mat(RUBBER, 'polymer');
+  }
+  if (un === 1) {            // laser: a small box on the left of the handguard with a red lens
+    const lx = -((sp ? sp.hw : 0.024) + 0.011), lz = Math.max(mz + 0.04, hz - 0.02);
+    box(g, BLACK, 0.016, 0.018, 0.05, lx, my - 0.012, lz);
+    box(g, STEEL, 0.004, 0.012, 0.02, lx + 0.009, my - 0.012, lz);
+    const lens = new THREE.Mesh(new THREE.CircleGeometry(0.004, 10), new THREE.MeshBasicMaterial({ color: LASER_RED, toneMapped: false }));
+    lens.position.set(lx, my - 0.012, lz - 0.0255); lens.rotation.y = Math.PI; g.add(lens);
+  }
+  if (mgk === 1 || mgk === 2) {
+    const b = new THREE.Box3().setFromObject(mg);
+    if (!b.isEmpty()) {
+      if (mgk === 1) {       // extended: a longer body, the same top in the magazine well
+        // (each part is stretched down from the well; the group itself stays free for the reload)
+        const top = b.max.y, k = 1.32;
+        for (const c of [...mg.children]) { c.position.y = top + (c.position.y - top) * k; c.scale.y *= k; }
+        const low = top + (b.min.y - top) * k;
+        box(mg, BLACK, (b.max.x - b.min.x) * 0.9 + 0.004, 0.01, (b.max.z - b.min.z) * 0.9 + 0.004, (b.max.x + b.min.x) / 2, low - 0.003, (b.max.z + b.min.z) / 2);
+      } else {               // quick-change: a pull loop under the base plate
+        const cx = (b.max.x + b.min.x) / 2, cz = (b.max.z + b.min.z) / 2;
+        const loop = new THREE.Mesh(new THREE.TorusGeometry(0.014, 0.003, 6, 14, Math.PI), mat(0x3d4a2a, 'cloth'));
+        loop.position.set(cx, b.min.y, cz); loop.rotation.set(Math.PI, Math.PI / 2, 0); mg.add(loop);
+        box(mg, 0x3d4a2a, 0.02, 0.004, 0.03, cx, b.min.y - 0.002, cz);
+      }
+    }
+  }
+  return ext;
+}
 
 const easeInOut = (x) => x * x * (3 - 2 * x);
 
@@ -672,13 +743,15 @@ const worldGuns = new Map();
 export function buildWorldGun(gun, slot, skinId) {
   const type = MODEL_FOR[gun.id] || (MODEL_TYPES.includes(gun.model) ? gun.model : 'rifle');
   const hdm = hdModel(type);
-  const key = sightShading() + '|' + gun.id + '|' + slot + '|' + (skinId ?? '-') + (hdm ? '|hd' : '');
+  const at = gun.attach || null;
+  const key = sightShading() + '|' + gun.id + '|' + slot + '|' + (skinId ?? '-') + (hdm ? '|hd' : '') + (at ? '|a' + at : '');
   if (!worldGuns.has(key)) {
     const g = new THREE.Group(), mg = new THREE.Group();
     SKIN_SLOT = slot; SKIN_FORCE = skinId ?? null; WORLD = true;
     try {
       if (hdm) buildHD(g, mg, null, hdm, 1, FINISHES[slot % FINISHES.length]);     // the pack's lighter model
       else BUILDERS[type](g, FINISHES[slot % FINISHES.length], mg);
+      if (at) { const [my, mz] = (hdm && hdm.header.anchors && hdm.header.anchors.muzzle) || SPEC[type].muzzle; SKIN_FORCE = null; attachParts(g, mg, type, at, my, mz); }
     } finally { SKIN_FORCE = undefined; WORLD = false; }
     g.add(mg);
     mergeStatic(g);
@@ -886,7 +959,7 @@ export class WeaponRig {
     // forceSkin (replays: someone else's gun): undefined = your skin for the slot, else that id / null.
     const sk = this.forceSkin !== undefined ? (this.forceSkin === null ? null : skinById(this.forceSkin)) : skinFor(slot);
     const hdm = hdModel(type);
-    const key = gun.id + '|' + optic.id + '|' + (sk ? sk.id : '-') + (this.noHands ? '|nh' : '') + (hdm ? '|hd' : '');   // a skin change builds a new model
+    const key = gun.id + '|' + optic.id + '|' + (sk ? sk.id : '-') + (this.noHands ? '|nh' : '') + (hdm ? '|hd' : '') + (gun.attach ? '|a' + gun.attach : '');   // a skin or attachment change builds a new model
     let m = this.models.get(key);
     if (!m) {
       m = new THREE.Group();
@@ -905,6 +978,11 @@ export class WeaponRig {
         for (const [y, from, to] of RAILS[type]) topRail(gunG, y, from, to);
         if (sightShading() === 'ultra') ultraDetails(gunG, type, finish, magG);
       }
+      // Attachments (unskinned), merged with the gun below like its own parts.
+      const [my, mz] = (hdm && hdm.header.anchors && hdm.header.anchors.muzzle) || SPEC[type].muzzle;
+      const keepSkin = SKIN_FORCE; SKIN_FORCE = null;
+      const ext = attachParts(gunG, magG, type, gun.attach, my, mz);
+      SKIN_FORCE = keepSkin;
       if (!this.noHands) hands(gunG, type);
       SKIN_FORCE = undefined;
       mergeStatic(gunG);
@@ -913,7 +991,6 @@ export class WeaponRig {
       const bolt = boltGroup(type);
       gunG.add(bolt);
       const flash = flashGroup();
-      const [my, mz] = (hdm && hdm.header.anchors && hdm.header.anchors.muzzle) || SPEC[type].muzzle;
       // Flashlight on the side of the barrel (shown at night).
       const torch = new THREE.Group();
       const tb = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.016, 0.085, 12), mat(BLACK));
@@ -923,7 +1000,7 @@ export class WeaponRig {
       torch.position.set(SPEC[type].hw + 0.022, my - 0.012, mz + 0.1);
       torch.visible = false;
       gunG.add(torch);
-      flash.position.set(0, my, mz - 0.035);
+      flash.position.set(0, my, mz - 0.035 - ext);
       gunG.add(flash);
       m.userData = { torch, mag: magG, bolt, boltZ: bolt.position.z, flash, port: new THREE.Vector3(SPEC[type].hw + 0.01, 0.014, SPEC[type].port), gun: gunG, hd: !!hdm };
       const skinMats = new Set();
@@ -947,6 +1024,7 @@ export class WeaponRig {
     // Draw animation when the gun itself changes (not for a sight change).
     if (this.gunId !== gun.id && this.gunId !== undefined && this.animations) this.drawT = 0;
     this.gunId = gun.id;
+    this.flashMul = gun.flash ?? 1;          // attachments: flash hider smaller, suppressor none
     this.current = m;
   }
 
@@ -969,9 +1047,9 @@ export class WeaponRig {
     this.cancelInspect();
     if (!this.animations || !this.current) return;
     this.boltZ = 0.032;                        // bolt slams back, then returns
-    this.flashT = 0.045;
+    this.flashT = (this.flashMul ?? 1) > 0 ? 0.045 : 0;
     this.flashRot = Math.random() * Math.PI;
-    this.flashS = 0.75 + Math.random() * 0.5;
+    this.flashS = (0.75 + Math.random() * 0.5) * Math.max(0.35, this.flashMul ?? 1);
     this._ejectBrass();
   }
 

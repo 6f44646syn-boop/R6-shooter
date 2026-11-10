@@ -529,6 +529,57 @@ try {
     await p2.close();
   }
 
+  /* ---------- 2c. attachments (Milestone 8) ---------- */
+  console.log('\nAttachments: effective guns in the Range, the armory, Battle and the match modes');
+  {
+    const { page, errors } = await openPage('index.html?test');
+    const a = await page.evaluate(() => {
+      const R = window.__range, out = {};
+      R.manual(true); R.selectGun(1);
+      out.measured = R.gunNow();
+      out.code = R.attach('1111');
+      out.ext = R.gunNow();
+      const s0 = R.state().shots;
+      R.trigger(true); R.step(6); R.trigger(false); R.step(0.2);
+      out.fired = R.state().shots - s0; out.ammo = R.state().ammo;
+      return out;
+    });
+    check('measured loadout is the catalogue gun (F2: flash hider, vertical grip, laser)', a.measured.base && a.measured.attach === null && a.measured.magSize === 25, JSON.stringify(a.measured));
+    check('extended magazine: 35 rounds fired from one magazine', a.code === '1111' && a.ext.magSize === 35 && a.fired >= 35 && a.fired <= 36 && a.ammo === 0, JSON.stringify(a));
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForFunction(() => window.__range && window.__range.ready);
+    const kept = await page.evaluate(() => { window.__range.selectGun(1); return window.__range.gunNow().attach; });
+    check('attachments are remembered per gun after reload', kept === '1111', 'got ' + kept);
+    await page.evaluate(() => window.__range.openArmory());
+    await page.locator('#attach-rows button', { hasText: /^Suppressor$/ }).click();
+    const ui = await page.evaluate(() => ({ g: window.__range.gunNow(), fx: document.getElementById('attach-fx').innerText, pressed: [...document.querySelectorAll('#attach-rows button[aria-pressed=true]')].map((b) => b.textContent) }));
+    check('armory: picking the suppressor changes the gun and lists its effects', ui.g.suppressed && ui.g.flash === 0 && /Shot noise -60%/.test(ui.fx) && ui.pressed.join() === 'Suppressor,Vertical grip,Laser,Extended', JSON.stringify(ui));
+    await page.evaluate(() => document.getElementById('arm-back').click());
+    const b = await page.evaluate(() => {
+      const R = window.__range;
+      R.manual(true); R.setGraphics('standard');
+      R.battleStart({ opponent: 'bots', bots: 2, level: 'easy', kills: 99 });
+      R.step(0.5, 60);
+      const B = R.battle(), h = B.humans[0];
+      const out = { attach: h.gun.attach, cap: h.weapon.capacity, look: h.f._lookKey, bots: B.bots.map((x) => !!x.gun.base) };
+      R.battleLeave();
+      return out;
+    });
+    check('Battle: you carry your attachments (suppressor, extended magazine); bots the measured loadout', b.attach === '4111' && b.cap >= 35 && /\|4111$/.test(b.look) && b.bots.every((x) => !x), JSON.stringify(b));
+    const mm = await page.evaluate(async () => {
+      const R = window.__range;
+      for (const g of R.guns) localStorage.setItem('attach:' + g.id, g.model === 'lmg' ? '0002' : '0002');
+      await R.modeStart('tdm', { map: { tdm: 'containers', ctf: 'yard', bomb: 'ranch' }, seed: 3, side: 'attack', op: { tdm: 'glitch', ctf: 'dash', bomb: 'pace' }, abilities: { tdm: false, ctf: false, bomb: false } });
+      R.step(1, 60);
+      const G = R.modeGame(), me = G.me;
+      const base = R.guns.find((g) => g.id === me.gunData.id);
+      return { attach: me.gunData.attach, human: G.h.gun.attach, reload: me.gun.reload, baseReload: base.reloadSeconds, bots: G.m.actors.filter((x) => !x.human).every((x) => !x.gunData.base) };
+    });
+    check('match modes: your op\'s gun has your saved attachments (quick-change: faster reload)', mm.attach && mm.attach.endsWith('2') && mm.human === mm.attach && mm.reload < mm.baseReload && mm.bots, JSON.stringify(mm));
+    check('no page errors', errors.length === 0, errors.join('\n'));
+    await page.close();
+  }
+
   /* ---------- 3. frame-time check ---------- */
   console.log('\nFrame time at 1920x1080 (headless, software GPU: treat fps as a lower bound)');
   {

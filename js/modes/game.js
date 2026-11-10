@@ -12,6 +12,7 @@ import { initCore } from '../wasm/core.js?v=4ab7a0c-mwb7djhc';
 import { Match, TICK } from './sim.js?v=4ab7a0c-mwb7djhc';
 import { yawTo, wrap180, DEG } from './geom.js?v=4ab7a0c-mwb7djhc';
 import { Fighter } from '../battle/fighter.js?v=4ab7a0c-mwb7djhc';
+import { slotIn } from '../core/loadout.js?v=4ab7a0c-mwb7djhc';
 import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=4ab7a0c-mwb7djhc';
 import { buildMapLook, panelTextures } from './look.js?v=4ab7a0c-mwb7djhc';
 import { Arena } from '../battle/arena.js?v=4ab7a0c-mwb7djhc';
@@ -59,7 +60,7 @@ export class ModeGame {
     const d = this.deps;
     this.opts = o;
     this.map = new MatchMap(mapData);
-    this.m = new Match({ map: this.map, mode: o.mode, guns: d.guns, ops, abilities, teamSize: o.teamSize, difficulty: o.difficulty, abilitiesOn: o.abilities, minutes: o.minutes, prepTime: o.prepTime, headshot: o.headshot, seed: o.seed ?? ((Math.random() * 2 ** 31) | 0), human: { op: o.op, side: o.side } });
+    this.m = new Match({ map: this.map, mode: o.mode, guns: d.guns, ops, abilities, teamSize: o.teamSize, difficulty: o.difficulty, abilitiesOn: o.abilities, minutes: o.minutes, prepTime: o.prepTime, headshot: o.headshot, seed: o.seed ?? ((Math.random() * 2 ** 31) | 0), human: { op: o.op, side: o.side }, attach: o.attach || null });
     this.me = this.m.human();
     this._buildScene();
     this._buildActors();
@@ -212,7 +213,7 @@ export class ModeGame {
     for (const a of m.actors) {
       const f = new Fighter({ name: a.name, team: a.team, color: TEAM_COLOR[a.team], human: a.human });
       f.setDetail(effectiveGraphics(d.settings));
-      f.setLook(a.gunData, Math.max(0, d.guns.indexOf(a.gunData)), a.human && d.skinOf ? d.skinOf(a.gunData) : null);
+      f.setLook(a.gunData, Math.max(0, slotIn(d.guns, a.gunData)), a.human && d.skinOf ? d.skinOf(a.gunData) : null);
       f.showBar = !a.human && a.team === this.me.team;
       f.id = a.id;
       this.scene.add(f.group);
@@ -248,7 +249,7 @@ export class ModeGame {
     if (!r) return;
     const from = new THREE.Vector3(this.o[0] + this.d[0] * 0.6, this.o[1] - 0.12 + this.d[1] * 0.6, this.o[2] + this.d[2] * 0.6);
     this._tracer(from, r.end, this.prevT, me.team);
-    this.deps.sfx.shot(me.gun.tone, 1);
+    this.deps.sfx.shot(me.gun.tone, me.gun.suppressed ? 0.45 : 1);
   }
 
   /* ---------- frame ---------- */
@@ -330,7 +331,7 @@ export class ModeGame {
         const f = this.fig.get(e.id);
         if (f) { f.flashUntil = t + 0.05; this._tracer(f.muzzleWorld(this._v || (this._v = new THREE.Vector3())), e.to, t, e.team); }
         const a = m.actors.find((x) => x.id === e.id);
-        const w = this._where(e.from[0], e.from[2], e.from[1]); sfx.shot(a ? a.gun.tone : 0.5, w.gain, w.route, w.muffle);
+        const w = this._where(e.from[0], e.from[2], e.from[1]); sfx.shot(a ? a.gun.tone : 0.5, w.gain * (a && a.gun.suppressed ? 0.45 : 1), w.route, w.muffle);
       } else if (e.type === 'hit') {
         if (e.id === me.id) this._hurt(e.by, t, e.dmg);
         if (e.by === me.id) this._marker(e.zone === 'head' ? 'head' : 'hit', t);
@@ -353,7 +354,7 @@ export class ModeGame {
       } else if (e.type === 'msg') {
         if (!e.private || e.id === me.id) this._flash(e.text, t);
       } else if (e.type === 'swap') {
-        for (const a of m.actors) { const f = this.fig.get(a.id); f.name = a.name; f.setLook(a.gunData, Math.max(0, this.deps.guns.indexOf(a.gunData)), a.human && this.deps.skinOf ? this.deps.skinOf(a.gunData) : null); }
+        for (const a of m.actors) { const f = this.fig.get(a.id); f.name = a.name; f.setLook(a.gunData, Math.max(0, slotIn(this.deps.guns, a.gunData)), a.human && this.deps.skinOf ? this.deps.skinOf(a.gunData) : null); }
         const op = me.op;
         this.h.deps = { ...this.deps, opticFor: (g) => this.deps.opticById(op.sight, g) };
         this.h.setGun(me.gunData);

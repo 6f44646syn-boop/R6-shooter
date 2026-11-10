@@ -92,6 +92,7 @@ export function validateGuns(data, catalogue) {
       resetSeconds: g.resetSeconds, placeholder: g.placeholder,
       damage: isNum(g.damage) ? g.damage : null, tail: g.tail || 'extrapolate', chambered: g.chambered === true,
       measuredAtVFov: g.measuredAtVFov || null,
+      measuredAttachments: g.measurement && Array.isArray(g.measurement.attachments) ? g.measurement.attachments.filter((a) => typeof a === 'string') : [],
       measuredAiming: g.measuredAiming === true, measuredSight: typeof g.measuredSight === 'string' ? g.measuredSight : null,
       placeholderFields: Array.isArray(g.placeholderFields) ? g.placeholderFields.filter((f) => typeof f === 'string') : [],
       fireMode: g.fireMode || 'auto', model: g.model || guessModel(g.id), tone: g.tone === undefined ? 0.5 : g.tone,

@@ -17,7 +17,7 @@ export class Spread {
   // Cone half-angle (degrees) right now. aimE: 0 hip .. 1 aimed.
   cone(t, gun, moving, crouched, aimE = 0) {
     const b = this._bloomAt(t);
-    const base = (HIP_CONE[gun.model] || 3) + b;
+    const base = (HIP_CONE[gun.model] || 3) * (gun.hipCone || 1) + b;   // hipCone: attachments (laser)
     const k = (moving ? MOVING : 1) * (crouched ? CROUCHED : 1);
     const hip = (1 - aimE) * (1 - aimE);
     return base * k * hip;

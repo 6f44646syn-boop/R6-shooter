@@ -166,7 +166,7 @@ export class Fighter {
   // The gun model others see: gun data, its loadout slot (finish) and skin id (or null).
   setLook(gun, slot, skin) {
     this.gun = gun; this.skin = skin ?? null;
-    const key = gun.id + '|' + slot + '|' + this.skin;
+    const key = gun.id + '|' + slot + '|' + this.skin + '|' + (gun.attach || '');
     if (key === this._lookKey) return;
     this._lookKey = key;
     if (this._gunModel) this._gunModel.removeFromParent();
@@ -225,8 +225,8 @@ export class Fighter {
     const pr = this.protectUntil - t;
     this.shield.visible = this.alive && pr > 0 && (pr > 0.5 || Math.floor(t * 12) % 2 === 0);
     this.torchG.visible = this.night && this.light;
-    this.flash.visible = t < this.flashUntil;
-    if (this.flash.visible) this.flash.rotation.z = Math.random() * Math.PI;
+    this.flash.visible = t < this.flashUntil && (!this.gun || (this.gun.flash ?? 1) > 0);   // suppressor: no flash
+    if (this.flash.visible) { this.flash.rotation.z = Math.random() * Math.PI; this.flash.scale.setScalar(Math.max(0.4, this.gun ? this.gun.flash ?? 1 : 1)); }
     const top = 1.62 * this.scaleY + 0.35;
     this.barBg.position.set(0, top, 0);
     this.barFg.position.set(-0.3, top, 0);
