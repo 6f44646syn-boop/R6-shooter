@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recoil Range</title>
-<link rel="stylesheet" href="css/style.css?v=9ba226e-mwa4h4pc">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="css/style.css?v=m7-1">
 </head>
 <body>
 <div id="app">
@@ -52,11 +53,13 @@
         </div>
         <div class="steps" aria-hidden="true"><span data-step="1">1 Mode</span><span data-step="2">2 Settings</span><span data-step="3">3 Weapon</span></div>
       </header>
+      <nav class="row" aria-label="Main menu"><button type="button" id="go-play">Play</button><button type="button" id="go-settings">Settings</button><button type="button" id="go-controls">Controls</button><button type="button" id="go-packs">Customisation <span id="mini-points"></span></button></nav>
       <p id="lock-hint" class="hint" hidden></p>
       <p id="menu-note" class="hint" hidden role="status"></p>
       <p id="data-errors" class="errors" hidden></p>
 
       <section class="page" id="page-mode">
+        <div class="row" role="group" aria-label="Filter game modes"><button type="button" data-mode-filter="all" aria-pressed="true">All modes</button><button type="button" data-mode-filter="training" aria-pressed="false">Training</button><button type="button" data-mode-filter="combat" aria-pressed="false">Bot matches</button><button type="button" data-mode-filter="online" aria-pressed="false">Online</button></div>
         <div class="modes">
           <button type="button" class="mode-card" data-mode="range"><b>Shooting range</b><span>Practise spray control on a dummy, a paper target or red dots. Measured sprays, every sight.</span></button>
           <button type="button" class="mode-card" data-mode="bots"><b>Battle vs bots</b><span>An arena with cover against 1-6 bots: Easy, Medium or Hard. Kills earn points for packs.</span></button>
@@ -65,10 +68,7 @@
           <button type="button" class="mode-card mode-new" data-mode="bomb"><b>Bomb</b><span>Attackers plant, defenders stop them. One life a round, abilities on, first to 4 rounds.</span></button>
           <button type="button" class="mode-card" data-mode="net"><b>Network battle</b><span>Play friends on other PCs: over the internet with a short game code, or on the same network. Bots optional.</span></button>
         </div>
-        <div class="row">
-          <button type="button" id="go-packs">Skins &amp; packs <span id="mini-points"></span></button>
-          <button type="button" id="go-controls">Controls</button>
-        </div>
+
       </section>
 
       <section class="page" id="page-pause" hidden>
@@ -85,8 +85,9 @@
 
       <section class="page" id="page-setup" hidden>
         <h2 id="setup-title">Settings</h2>
+        <div id="match-settings">
         <section class="set-group" id="range-setup">
-          <p class="small">Target type, distance and red-dot options are under <b>All settings</b> below (M and - / + change them in game too).</p>
+          <p class="small">Target type, distance and red-dot options are in the <b>Settings → Range</b> tab (M and - / + change them in game too).</p>
         </section>
         <section class="set-group battle-setup" id="battle-setup">
           <div class="set-grid">
@@ -163,7 +164,7 @@
             <label class="field" for="md-size"><span>Teams</span>
               <select id="md-size"><option value="3">3v3</option><option value="5" selected>5v5</option></select></label>
             <label class="field" for="md-ab"><span>Abilities</span>
-              <select id="md-ab"><option value="on">On (Q)</option><option value="off">Off</option></select></label>
+              <select id="md-ab"><option value="on">On (operator ability)</option><option value="off">Off</option></select></label>
             <label class="field" for="md-len"><span>Match length</span>
               <select id="md-len"><option value="5">5 minutes</option><option value="10" selected>10 minutes</option><option value="15">15 minutes</option></select></label>
             <label class="field" for="md-head"><span>Headshots</span>
@@ -171,10 +172,10 @@
           </div>
           <p class="small" id="md-note"></p>
         </section>
-        <details class="all-settings" id="all-settings">
-          <summary>All settings (sensitivity, graphics, crosshair, recoil, targets...)</summary>
+        </div>
+        <section class="all-settings" id="all-settings">
           <div id="settings-root"></div>
-        </details>
+        </section>
         <div class="row nav">
           <button type="button" id="setup-back">Back</button>
           <button type="button" id="setup-next" class="primary">Next: choose your weapon</button>
@@ -188,6 +189,7 @@
           <button type="button" class="seg-btn" data-side="attack" role="radio">Attackers</button>
           <button type="button" class="seg-btn" data-side="defend" role="radio">Defenders</button>
         </div>
+        <input type="search" id="ops-search" class="m7-search" aria-label="Search operators" placeholder="Search operators, weapons or abilities">
         <div id="ops-grid" class="ops-grid"></div>
         <p class="small" id="ops-note"></p>
         <div class="row nav">
@@ -203,15 +205,17 @@
 
       <section class="keys page" id="page-controls" hidden>
         <h2>Controls</h2>
+        <div id="controls-root"></div>
+        <details><summary>Range shortcuts and mode notes</summary>
         <dl>
-          <dt>Mouse</dt><dd>Look</dd>
+          <dt>Mouse / trackpad</dt><dd>Look</dd>
           <dt>W A S D</dt><dd>Move (small area behind the firing line)</dd>
           <dt>Shift</dt><dd>Sprint (hold)</dd>
           <dt>Space</dt><dd>Crouch (hold)</dd>
-          <dt>F</dt><dd>Battle at night: flashlight on / off (bots spot a lit flashlight from far away)</dd>
+          <dt>Interact (F)</dt><dd>Bomb: plant / defuse. Battle at night: flashlight on / off (bots spot a lit flashlight from far away)</dd>
           <dt>X</dt><dd>Back to the firing line</dd>
           <dt>Left button</dt><dd>Fire (hold for automatic)</dd>
-          <dt>Right button</dt><dd>Aim down sights (hold)</dd>
+          <dt>Middle button</dt><dd>Default operator ability; Q/E remain lean</dd>
           <dt>R</dt><dd>Reload</dd>
           <dt>[ / ]</dt><dd>Previous / next sight (while not aiming)</dd>
           <dt>1-9, 0</dt><dd>Select gun 1-10</dd>
@@ -225,7 +229,7 @@
           <dt>F3</dt><dd>Debug readout (Z zeroes its counters)</dd>
           <dt>F4</dt><dd>Sight gallery (every sight side by side)</dd>
           <dt>Esc</dt><dd>Pause (resume, change weapon, settings, skins, main menu)</dd>
-        </dl>
+        </dl></details>
         <div class="row nav"><button type="button" class="back-btn" data-back="mode">Back</button></div>
       </section>
     </div>
@@ -244,7 +248,8 @@
         <button type="button" id="arm-next" aria-label="Next gun">&#8250;</button>
       </div>
       <div class="arm-bottom">
-        <div id="loadout" class="loadout arm-slots" role="list"></div>
+        <input type="search" id="weapon-search" class="m7-search" aria-label="Search weapons" placeholder="Search weapons">
+      <div id="loadout" class="loadout arm-slots" role="list"></div>
         <div class="row arm-actions">
           <button type="button" id="arm-back">Back</button>
           <button type="button" id="arm-deploy" class="primary">Deploy</button>
@@ -268,6 +273,6 @@
     </div>
   </div>
 </div>
-<script type="module" src="js/main.js?v=9ba226e-mwa4h4pc"></script>
+<script type="module" src="js/main.js?v=m7-1"></script>
 </body>
 </html>

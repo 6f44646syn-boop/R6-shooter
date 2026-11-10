@@ -13,7 +13,7 @@ import { Fighter } from '../battle/fighter.js?v=9ba226e-mwa4h4pc';
 import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=9ba226e-mwa4h4pc';
 import { buildMapLook, panelTextures } from './look.js?v=9ba226e-mwa4h4pc';
 import { Arena } from '../battle/arena.js?v=9ba226e-mwa4h4pc';
-import { Human } from '../battle/human.js?v=9ba226e-mwa4h4pc';
+import { Human } from '../battle/human.js?v=m7-1';
 import { drawCrosshair } from '../ui/crosshair.js?v=9ba226e-mwa4h4pc';
 
 const TEAM_COLOR = { A: 0x5b8cff, B: 0xff7048 };
@@ -313,6 +313,7 @@ export class ModeGame {
         if (k === me) { this._marker('kill', t); this._earn('kill', e.head); }
         if (v === me) { this.killedBy = k ? k.name : 'the world'; if (k && k !== me) this._startKc(k, e, t); }
       } else if (e.type === 'spawn' && e.id === me.id) {
+        this.deps.controls?.release();
         this.h.respawn(me.x, me.z, t, 0);
         this.h.look.setAngles(me.yaw, 0);
         this.h.f.alive = true;
@@ -667,6 +668,7 @@ export class ModeGame {
     const h = this.h;
     if (!h) return;
     if (b === 0 && down && !this.me.alive && this.m.o.mode === 'bomb') { this.specIndex = (this.specIndex || 0) + 1; return; }
+    if (b === 1) { this.key('OperatorAbility', down); return; }
     if (b === 0) h.in.fire = down;
     else if (b === 2) h.in.ads = down;
     else if (b === 3) h.in.leanL = down;
@@ -678,17 +680,15 @@ export class ModeGame {
     if (code === 'Space' && this.kc) { if (down) this._endKc(); return true; }
     if (code === 'Tab') { this.hud.board.hidden = !down; if (down) this._renderBoard(); return true; }
     const me = this.me, ab = this.m.ab;
-    const qUsed = this.m.o.abilitiesOn || this.m.o.mode === 'bomb';     // Bomb: Q is also the prep drone
-    if (qUsed && me.alive && me.ab) {
-      if (code === 'KeyQ') { if (!this.paused && !this.over) ab.q(me, down); return true; }
-      if (code === 'KeyF' && me.ab.drone) { if (down) ab.f(me); return true; }
+    const abilityUsed = this.m.o.abilitiesOn || this.m.o.mode === 'bomb';
+    if (abilityUsed && me.alive && me.ab) {
+      if (code === 'OperatorAbility') { if (!down || !this.paused && !this.over) ab.q(me, down); return true; }
+      if (code === 'DroneZap' && me.ab.drone) { if (down) ab.f(me); return true; }
       if (code === 'KeyV' && me.ab.drone) { if (down) ab.recall(me); return true; }
       if (code === 'KeyB' && me.ab.id === 'underbarrel') { if (down) ab.toggleShotgun(me); return true; }
     }
-    if (this.m.rules.key && this.m.rules.key(this.me, code, down)) return true;
+    if (code === 'Interact') { if (me.ab?.drone) { if (down) ab.f(me); } else if (this.m.rules.key) this.m.rules.key(me, 'KeyE', down); return true; }
     const map = { KeyW: 'fwd', KeyS: 'back', KeyA: 'left', KeyD: 'right', ShiftLeft: 'sprint', Space: 'crouch', KeyC: 'crouch', KeyQ: 'leanL', KeyE: 'leanR' };
-    if (qUsed) delete map.KeyQ;                          // Q is the ability / drone
-    if (this.m.rules.usesE) delete map.KeyE;            // E: pick up / plant / defuse
     if (map[code]) { h.in[map[code]] = down; return true; }
     if (code === 'KeyR') { if (down && this.me.alive) h.reload(); return true; }
     if (code === 'KeyI') { if (down && !h.ads) h.rig.inspect(); return true; }
@@ -822,13 +822,13 @@ export class ModeGame {
     if (L.ban !== ban) { L.ban = ban; H.banner.hidden = !ban; H.banner.textContent = ban; H.banner.className = 'mg-banner' + (stunned ? ' stun' : ''); H.jam.classList.toggle('on', jammed); H.view.classList.toggle('mg-stun', stunned); H.compass.classList.toggle('jammed', jammed); }
     const pr = me.alive && m.t < me.protectUntil ? 'Spawn protection ' + Math.ceil(me.protectUntil - m.t) + ' · shooting ends it' : '';
     if (L.pr !== pr) { L.pr = pr; H.prot.hidden = !pr; H.prot.textContent = pr; }
-    const st = m.rules.statusText ? m.rules.statusText(me) : '';
+    const st = (m.rules.statusText ? m.rules.statusText(me) : '').replace(/hold E/g, 'hold ' + (this.deps.controls?.bindingLabel('interact') || 'F'));
     if (L.st !== st) { L.st = st; H.status.textContent = st; H.status.hidden = !st; }
     const hp = Math.max(0, Math.ceil(me.hp));
     if (L.hp !== hp) { L.hp = hp; H.hpFill.style.width = hp + '%'; H.hpFill.className = hp > 60 ? '' : hp > 30 ? 'mid' : 'low'; H.hpText.textContent = String(hp); }
     const ammo = m.ab.ammoText ? m.ab.ammoText(me) || (h.weapon.reloading ? 'reloading' : h.weapon.ammo + ' / ' + h.gun.magSize) : (h.weapon.reloading ? 'reloading' : h.weapon.ammo + ' / ' + h.gun.magSize);
     if (L.ammo !== ammo) { L.ammo = ammo; H.ammo.textContent = ammo; }
-    const nt = me.alive ? '● '.repeat(me.nades || 0).trim() + (me.nades ? '' : 'no grenades') + ' · Caps Lock' : '';
+    const nt = me.alive ? '● '.repeat(me.nades || 0).trim() + (me.nades ? '' : 'no grenades') + ' · ' + (this.deps.controls?.bindingLabel('grenade') || 'G') : '';
     if (L.nt !== nt) { L.nt = nt; H.nades.textContent = nt; }
     // a live enemy grenade (or yours) within 7 m: an arrow pointing at it
     const ln = me.alive ? m.nades.live.find((n) => Math.hypot(n.x - me.x, n.z - me.z) < 7) : null;
@@ -849,7 +849,7 @@ export class ModeGame {
     if (hold) { H.hold.firstChild.textContent = hold.label; H.holdBar.style.width = Math.min(100, (m.t - hold.t0) / hold.need * 100) + '%'; }
     // ability icon
     if (m.ab.hudText) {
-      const ab = m.ab.hudText(me);
+      const ab = m.ab.hudText(me).replace(/\bQ\b/g, this.deps.controls ? this.deps.controls.abilityLabel() : 'Middle mouse').replace(/\bF zap\b/g, (this.deps.controls?.bindingLabel('interact') || 'F') + ' zap').replace(/\bV back\b/g, (this.deps.controls?.bindingLabel('recall') || 'V') + ' back');
       if (L.ab !== ab) { L.ab = ab; H.ability.hidden = !ab; H.ability.textContent = ab || ''; }
       const cd = m.ab.cooldown ? m.ab.cooldown(me) : 0;
       H.ability.style.setProperty('--cd', String(cd));

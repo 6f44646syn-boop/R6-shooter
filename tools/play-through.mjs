@@ -12,7 +12,7 @@ const PORT = 8139, BASE = 'http://127.0.0.1:' + PORT + '/';
 const shots = process.argv[2] || 'tests/output/play';
 mkdirSync(shots, { recursive: true });
 const server = await startServer(PORT);
-const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
+const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM || undefined, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 const errors = [], log = [];
 page.on('pageerror', (e) => errors.push('[page] ' + String(e.stack || e).split('\n').slice(0, 3).join(' | ')));
@@ -47,6 +47,7 @@ async function common(tag) {
 try {
   await page.goto(BASE + 'index.html?test', { waitUntil: 'networkidle' });
   await page.waitForFunction(() => window.__range && window.__range.ready);
+  await click('[data-first-profile=mouse]');
   await snap('00-menu');
 
   note('Range');
@@ -87,11 +88,11 @@ try {
     await wait(200); await snap('30-bomb-ops-' + side);
     await click('#ops-go'); await wait(1500);
     await snap('31-bomb-prep-' + side);
-    await key('KeyQ'); await wait(300);
-    if (side === 'attack') { await page.keyboard.down('KeyW'); await wait(2500); await look(200, 0); await wait(1500); await page.keyboard.up('KeyW'); await key('KeyQ'); await snap('32-bomb-drone'); await key('KeyV'); }
-    else { await page.keyboard.down('KeyW'); await wait(800); await page.keyboard.up('KeyW'); await key('KeyQ'); await snap('32-bomb-gadget'); }
+    await page.mouse.click(640,360,{button:'middle'}); await wait(300);
+    if (side === 'attack') { await page.keyboard.down('KeyW'); await wait(2500); await look(200, 0); await wait(1500); await page.keyboard.up('KeyW'); await page.mouse.click(640,360,{button:'middle'}); await snap('32-bomb-drone'); await key('KeyV'); }
+    else { await page.keyboard.down('KeyW'); await wait(800); await page.keyboard.up('KeyW'); await page.mouse.click(640,360,{button:'middle'}); await snap('32-bomb-gadget'); }
     await common('33-bomb-' + side);
-    await page.keyboard.down('KeyE'); await wait(400); await page.keyboard.up('KeyE');
+    await page.keyboard.down('KeyF'); await wait(400); await page.keyboard.up('KeyF');
     await key('KeyK'); await key('CapsLock');
     await wait(1500);
     await toMenu();

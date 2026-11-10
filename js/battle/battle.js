@@ -7,7 +7,7 @@ import * as THREE from '../../vendor/three/three.module.min.js?v=9ba226e-mwa4h4p
 import { Arena } from './arena.js?v=9ba226e-mwa4h4pc';
 import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=9ba226e-mwa4h4pc';
 import { Bot, LEVELS } from './bot.js?v=9ba226e-mwa4h4pc';
-import { Human } from './human.js?v=9ba226e-mwa4h4pc';
+import { Human } from './human.js?v=m7-1';
 import { BattleNades } from './nades.js?v=9ba226e-mwa4h4pc';
 import { drawCrosshair } from '../ui/crosshair.js?v=9ba226e-mwa4h4pc';
 import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=9ba226e-mwa4h4pc';
@@ -730,7 +730,7 @@ export class Battle {
       return true;
     }
     if (code === 'KeyI') { if (down && !p1.ads) p1.rig.inspect(); return true; }
-    if (code === 'KeyF') { if (down && this.night) { p1.f.light = !p1.f.light; p1.rig.setTorch(p1.f.light); if (this.deps.sfx.click) this.deps.sfx.click(); } return true; }
+    if (code === 'Interact' || code === 'KeyF') { if (down && this.night) { p1.f.light = !p1.f.light; p1.rig.setTorch(p1.f.light); if (this.deps.sfx.click) this.deps.sfx.click(); } return true; }
     return false;
   }
 

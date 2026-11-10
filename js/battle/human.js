@@ -90,6 +90,7 @@ export class Human {
   }
 
   respawn(x, z, t, y = 0) {
+    if (this.controls === 'mouse') this.deps.controls?.release();
     const f = this.f;
     f.x = x; f.z = z; f.y = y; f.vx = f.vy = f.vz = 0; f.crouch = 0;
     this.camY = y; this.vault = null;

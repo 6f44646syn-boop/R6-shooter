@@ -356,3 +356,53 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 .mg-nades { position: absolute; right: 16px; bottom: 58px; font-size: 13px; color: #d8e0c8; text-shadow: 0 1px 2px #000; letter-spacing: 1px; }
 .mg-nadewarn { position: absolute; left: 50%; top: 50%; width: 170px; height: 170px; pointer-events: none; }
 .mg-nadewarn::before { content: '💣'; position: absolute; left: 50%; top: -6px; transform: translateX(-50%); font-size: 22px; filter: drop-shadow(0 0 4px #f00); animation: lowhp 0.4s infinite; }
+
+/* Milestone 7: compact tactical menu shell. */
+#menu { padding: clamp(8px, 3vh, 28px) 12px; background: linear-gradient(120deg,rgba(5,12,19,.96),rgba(12,18,25,.86)); }
+#menu-panel { max-width: 1060px; border-radius: 12px; border-top: 3px solid var(--accent); box-shadow: 0 24px 80px #0008; padding: clamp(14px,2vw,26px); gap: 16px; }
+.menu-head h1 { font-size: clamp(24px,3vw,36px); text-transform: uppercase; letter-spacing: .08em; }
+.menu-head::before { content: 'RR / 07'; font: 700 12px var(--mono); color: var(--accent); border: 1px solid var(--accent); padding: 12px 8px; }
+.menu-head > div:first-child { flex: 1; }
+.mode-card { min-height: 124px; text-align: left; border-radius: 8px; padding: 18px; background: linear-gradient(135deg,#253241,#141d27); border-color: #3a4857; }
+.mode-card:hover { border-color: var(--accent); background: #293b4b; }
+.mode-card b { font-size: 18px; }
+.m7-tabs { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--panel-edge); }
+.m7-tabs [role=tab] { min-height: 40px; flex: 1 1 auto; }
+.m7-tabs [aria-selected=true], [data-profile][aria-pressed=true] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+[role=tabpanel][hidden], .set-group[hidden] { display: none !important; }
+#all-settings { margin: 0; padding: 0; border: 0; }
+#settings-root .settings { display: block; }
+#settings-root > .row { margin-top: 16px; }
+.m7-bindings { display: grid; gap: 6px; margin-top: 12px; }
+.m7-binding { display: grid; grid-template-columns: minmax(120px,1fr) minmax(90px,150px) minmax(90px,150px); align-items: center; gap: 10px; border-bottom: 1px solid #ffffff0d; padding: 6px 0; }
+.m7-binding button { min-height: 38px; font-family: var(--mono); }
+.m7-welcome { color: var(--fg); background: #121c27; border: 1px solid #617183; border-top: 3px solid var(--accent); border-radius: 12px; padding: 28px; max-width: min(540px,calc(100vw - 24px)); box-shadow: 0 20px 80px #000b; }
+.m7-welcome::backdrop { background: #02080fe8; }
+.m7-welcome button { display: block; width: 100%; min-height: 52px; margin-top: 12px; }
+.m7-welcome button:first-of-type { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.m7-search { width: 100%; padding: 10px 12px; margin-bottom: 12px; background: #101822; border: 1px solid var(--panel-edge); border-radius: 6px; }
+#menu button:disabled { opacity: .5; cursor: default; }
+@media (max-width: 600px) {
+  .menu-head .steps { display: none; }
+  .modes { grid-template-columns: 1fr; }
+  .mode-card { min-height: 88px; }
+  .m7-binding { grid-template-columns: minmax(80px,1fr) 90px 90px; gap: 5px; font-size: 12px; }
+  .m7-binding button { padding: 6px 3px; }
+  .keys dl { grid-template-columns: 1fr; }
+  .keys dd { margin: 0 0 8px; }
+}
+@media (prefers-reduced-motion: reduce) { #menu *, .m7-welcome * { scroll-behavior: auto; transition: none !important; animation: none !important; } }
+#menu [aria-current=page], [data-mode-filter][aria-pressed=true] { border-color: var(--accent); color: var(--accent); }
+.modes { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.mode-card::before { display: block; color: var(--accent); font: 700 11px var(--mono); letter-spacing: .12em; margin-bottom: 12px; }
+.mode-card[data-mode=range]::before { content: '01 / TRAINING'; }
+.mode-card[data-mode=bots]::before { content: '02 / SOLO COMBAT'; }
+.mode-card[data-mode=tdm]::before { content: '03 / TEAM COMBAT'; }
+.mode-card[data-mode=ctf]::before { content: '04 / OBJECTIVE'; }
+.mode-card[data-mode=bomb]::before { content: '05 / TACTICAL'; }
+.mode-card[data-mode=net]::before { content: '06 / ONLINE'; }
+@media (max-width: 800px) { .modes { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media (max-width: 600px) { .modes { grid-template-columns: 1fr; } }
+.m7-options .field:has(input[type=checkbox]) { display: flex; justify-content: space-between; align-items: center; gap: 14px; min-height: 40px; }
+.m7-options input[type=checkbox] { width: 18px; height: 18px; flex: 0 0 auto; }
+#controls-root > [role=status]:empty { display: none; }
