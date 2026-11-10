@@ -2,9 +2,9 @@
 // test. The body is a soldier (soldier.js) in team colours carrying their real gun with its
 // skin; hits are decided on the same shapes the body is built around. Crouching squashes the
 // body to CROUCH_SCALE. y is the height of the feet (floors, stairs, box tops).
-import * as THREE from '../../vendor/three/three.module.min.js?v=97ee87f-mw7pvirk';
-import { soldierGeometry, raycastSoldier, GRIP_HAND, HIP_X, HIP_Y } from './soldier.js?v=97ee87f-mw7pvirk';
-import { buildWorldGun } from '../scene/viewmodel.js?v=97ee87f-mw7pvirk';
+import * as THREE from '../../vendor/three/three.module.min.js?v=7de51ed-mwa42x51';
+import { soldierGeometry, raycastSoldier, GRIP_HAND, HIP_X, HIP_Y } from './soldier.js?v=7de51ed-mwa42x51';
+import { buildWorldGun } from '../scene/viewmodel.js?v=7de51ed-mwa42x51';
 
 export const STAND_EYE = 1.6, CROUCH_EYE = 1.12;
 export const CROUCH_SCALE = 0.7;
@@ -191,6 +191,8 @@ export class Fighter {
   chest(out = [0, 0, 0]) { out[0] = this.x; out[1] = this.y + 1.18 * this.scaleY; out[2] = this.z; return out; }
 
   // Sync the mesh with the state (call once per frame).
+  // Free this fighter's own materials (its geometry, gun model and outline materials are shared).
+  dispose() { this.group.removeFromParent(); this.body.material.dispose(); this.barBg.material.dispose(); this.barFg.material.dispose(); }
   // A teammate's silhouette through walls (match modes).
   setGhost(on) { if (this._ghost === on) return; this._ghost = on; for (const g of this.ghosts) g.visible = on; }
   updateVisual(t) {

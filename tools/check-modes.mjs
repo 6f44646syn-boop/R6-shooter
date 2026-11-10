@@ -190,6 +190,81 @@ console.log('\nBomb: your bomb and the bots\' jobs');
   check('one bomb site per map', ['ranch', 'embassy', 'workshop'].every((id) => maps[id].sites.length === 1 && maps[id].sites[0].entries.length >= 2));
 }
 
+/* ---------- nothing passes through walls, at any frame rate ---------- */
+console.log('\nCollision: drones and bodies against every wall, soft wall, reinforced wall and door (Bomb maps)');
+{
+  const DR = 0.15, BR = 0.32;
+  // Drive a circle straight at each thin solid from both sides, at several frame times.
+  // step(map, p, dx, dz, r, flyer) is the movement under test.
+  function drive(map, step, r, flyer, kinds, frames, speed) {
+    let tests = 0, crossed = 0, passed = 0; const where = [];
+    for (const b of map.solids) {
+      if (!kinds.includes(b.kind) || !b.alive || b.minY > 0.31 || b.maxY < 1.9) continue;
+      const w = b.maxX - b.minX, d = b.maxZ - b.minZ, thinX = w < d;
+      if (Math.min(w, d) > 0.6) continue;                      // furniture and blocks: not walls
+      const len = thinX ? d : w, lo = thinX ? b.minZ : b.minX;
+      for (let s = 0.35; s < len - 0.3; s += 0.75) for (const dir of [1, -1]) {
+        const face = dir > 0 ? (thinX ? b.minX : b.minZ) : (thinX ? b.maxX : b.maxZ);
+        const start = { x: thinX ? face - dir * (r + 0.7) : lo + s, z: thinX ? lo + s : face - dir * (r + 0.7) };
+        const probe = { x: start.x, z: start.z };
+        map.resolve(probe, r, flyer);
+        if (Math.hypot(probe.x - start.x, probe.z - start.z) > 1e-9) continue;         // something stands there
+        // must be able to reach the face (nothing else in the way)
+        const reach = { x: start.x, z: start.z };
+        for (let i = 0; i < 80; i++) map.moveCircle(reach, thinX ? dir * 0.01 : 0, thinX ? 0 : dir * 0.01, r, flyer);
+        const gap = Math.abs((thinX ? reach.x : reach.z) - face);
+        if (b.kind !== 'door' || !flyer) { if (gap > r + 0.02 || Math.abs((thinX ? reach.z : reach.x) - (lo + s)) > 0.05) continue; }
+        for (const dt of frames) {
+          const p = { x: start.x, z: start.z };
+          for (let t = 0; t < 1.5; t += dt) step(map, p, thinX ? dir * speed * dt : 0, thinX ? 0 : dir * speed * dt, r, flyer);
+          const pos = thinX ? p.x : p.z, far = dir > 0 ? pos > (thinX ? b.maxX : b.maxZ) : pos < (thinX ? b.minX : b.minZ);
+          tests++;
+          if (far) { crossed++; if (where.length < 3) where.push(map.id + ' ' + b.kind + ' at ' + ((b.minX + b.maxX) / 2).toFixed(1) + ',' + ((b.minZ + b.maxZ) / 2).toFixed(1) + ' dt ' + dt.toFixed(3)); }
+          else passed++;
+        }
+      }
+    }
+    return { tests, crossed, where };
+  }
+  const now = (map, p, dx, dz, r, flyer) => map.moveCircle(p, dx, dz, r, flyer);
+  const old = (map, p, dx, dz, r, flyer) => { p.x += dx; p.z += dz; map.resolve(p, r, flyer); };     // one check per frame (the bug)
+  const FR = [1 / 144, 1 / 60, 1 / 30, 1 / 20, 1 / 15, 0.1];
+  let oldCross = 0, T = { drone: 0, body: 0, door: 0, doorPass: 0, dash: 0 }, bad = [];
+  for (const id of ['ranch', 'embassy', 'workshop', 'depot']) {
+    const map = new MatchMap(maps[id]);
+    oldCross += drive(map, old, DR, true, ['wall', 'soft', 'reinforced'], [1 / 15, 0.1], 6).crossed;
+    let r = drive(map, now, DR, true, ['wall', 'soft', 'reinforced'], FR, 6); T.drone += r.tests; bad.push(...r.where.map((w) => 'drone ' + w));
+    r = drive(map, now, DR, true, ['wall', 'soft', 'reinforced'], [1 / 60, 0.1], 30); T.drone += r.tests; bad.push(...r.where.map((w) => 'fast drone ' + w));
+    r = drive(map, now, BR, false, ['wall', 'soft', 'reinforced', 'door'], FR, 5.9); T.body += r.tests; bad.push(...r.where.map((w) => 'body ' + w));
+    r = drive(map, now, BR, false, ['wall', 'soft', 'reinforced', 'door'], [1 / 60, 0.1], 17.2); T.dash += r.tests; bad.push(...r.where.map((w) => 'dash ' + w));
+    // doors: a drone goes under the boards, from both sides
+    r = drive(map, now, DR, true, ['door'], [1 / 60, 0.1], 6); T.door += r.tests; T.doorPass += r.crossed;
+    // a broken soft wall lets a drone and a body through
+    const pn = map.panels.find((q) => q.kind === 'soft');
+    if (pn) { const c = [(pn.box.minX + pn.box.maxX) / 2, 1, (pn.box.minZ + pn.box.maxZ) / 2]; map.breakAt(c, 0.1); T.softOpen = (T.softOpen || 0) + (pn.alive ? 0 : 1); }
+    if (map.dispose) map.dispose();
+  }
+  check('the old one-check-per-frame move does tunnel at 10-15 FPS (' + oldCross + ' crossings): the test catches the bug', oldCross > 0);
+  check('drones never cross a wall, soft wall or reinforced wall (' + T.drone + ' drives, 6 and 30 m/s, 144 to 10 FPS)', !bad.some((w) => w.includes('drone')), bad.join('; '));
+  check('bodies never cross a wall, soft wall, reinforced wall or boarded door (' + T.body + ' drives at sprint speed)', !bad.some((w) => w.startsWith('body')), bad.join('; '));
+  check('a Charge Dash (17 m/s) never crosses one either (' + T.dash + ' drives)', !bad.some((w) => w.startsWith('dash')), bad.join('; '));
+  check('drones roll under boarded doors (' + T.doorPass + ' of ' + T.door + ' drives got through)', T.doorPass >= T.door * 0.9, T.doorPass + '/' + T.door);
+  // knockback and drone deployment stop at walls
+  const m = new Match({ map: new MatchMap(maps.ranch), mode: 'bomb', guns, ops, abilities, teamSize: 5, seed: 5, human: null, abilitiesOn: true });
+  while (m.rules.phase === 'prep') { m.step(); m.events.length = 0; }
+  const onyx = m.actors.find((a) => a.ab.id === 'charge_dash'), foe = m.actors.find((a) => a.team !== onyx.team);
+  for (const a of m.actors) { a.brain = null; if (a !== onyx && a !== foe) { a.x = 30; a.z = 20 - a.id; } }
+  // the west outer wall of Ranch is at x = -24 (0.4 thick): victim 0.6 m inside it, in the open kitchen corner, dashed at from the east
+  foe.x = -23.2; foe.z = -11; onyx.x = -21.6; onyx.z = -11; onyx.yaw = 270; foe.protectUntil = 0; foe.hp = 100; onyx.protectUntil = 0;
+  m.ab.startDash(onyx);
+  for (let i = 0; i < 40; i++) { m.ab.update(TICK); m.t += TICK; }
+  check('Charge Dash knockback stops at the wall (victim stays inside)', foe.x > -23.9 && foe.x < -20, 'victim x ' + foe.x.toFixed(2));
+  const att = m.actors.find((a) => m.rules.isAttacker(a) && a.ab.id !== 'spark_drone');
+  att.alive = true; att.x = -24.6; att.z = -6; att.yaw = 90;        // outside, nose to the west wall
+  const d = m.ab.launchDrone(att, true);
+  check('a drone deployed facing a wall stays on your side of it', d.x < -24.2, 'drone x ' + d.x.toFixed(2));
+}
+
 /* ---------- grenades ---------- */
 console.log('\nGrenades');
 {

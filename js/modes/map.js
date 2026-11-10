@@ -18,7 +18,7 @@
 //
 // Soft and reinforced walls are split into panels 1.5 m wide. The lower 2.2 m of a panel can
 // be destroyed (a hole); the part above stays.
-import { rayBox, pushCircleBox, circleHitsBox, segHitsBox } from './geom.js?v=97ee87f-mw7pvirk';
+import { rayBox, pushCircleBox, circleHitsBox, segHitsBox } from './geom.js?v=7de51ed-mwa42x51';
 
 export const PANEL_W = 1.5, HOLE_H = 2.2, BODY_R = 0.32, DOOR_HP = 100, STEP = 0.35, DOOR_GAP = 0.3;
 // Blocks a body at floor level (not a box overhead, not a tiny ledge you step over).
@@ -93,6 +93,17 @@ export class MatchMap {
   resolve(p, r = BODY_R, flyer = false) {
     const list = this.near(p.x, p.z, r + 0.1, this._rl || (this._rl = []));
     for (let k = 0; k < 2; k++) for (const b of list) if (flyer ? b.minY < DOOR_GAP - 0.05 && b.maxY > 0.05 : blocks(b)) pushCircleBox(p, r, b);
+    return p;
+  }
+  // Move a circle by (dx, dz) without ever passing through anything. One big step can carry
+  // the centre past a thin wall, and the push-out then finishes the job on the far side: that
+  // was the "drone through the wall" bug (a step is speed x frame time, so it showed at low
+  // frame rates). Here the move is cut into steps shorter than half the radius, each followed
+  // by the push-out, so the centre can never cross a face.
+  moveCircle(p, dx, dz, r = BODY_R, flyer = false) {
+    const n = Math.min(400, Math.max(1, Math.ceil(Math.hypot(dx, dz) / (r * 0.5))));
+    const sx = dx / n, sz = dz / n;
+    for (let i = 0; i < n; i++) { p.x += sx; p.z += sz; this.resolve(p, r, flyer); }
     return p;
   }
   free(x, z, r = BODY_R) {

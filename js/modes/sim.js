@@ -7,13 +7,13 @@
 //
 // Body for hits (actor frame, standing; crouching squashes y to 0.7): head sphere at 1.62 m
 // (r 0.13), torso capsule 0.95-1.34 m (r 0.24), legs capsule 0.1-0.9 m (r 0.19).
-import { mulberry32 } from '../core/prng.js?v=97ee87f-mw7pvirk';
-import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=97ee87f-mw7pvirk';
-import { BODY_R } from './map.js?v=97ee87f-mw7pvirk';
-import { Brain } from './bots.js?v=97ee87f-mw7pvirk';
-import { makeRules } from './rules.js?v=97ee87f-mw7pvirk';
-import { Nades } from './nades.js?v=97ee87f-mw7pvirk';
-import { Abilities } from './abilities.js?v=97ee87f-mw7pvirk';
+import { mulberry32 } from '../core/prng.js?v=7de51ed-mwa42x51';
+import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=7de51ed-mwa42x51';
+import { BODY_R } from './map.js?v=7de51ed-mwa42x51';
+import { Brain } from './bots.js?v=7de51ed-mwa42x51';
+import { makeRules } from './rules.js?v=7de51ed-mwa42x51';
+import { Nades } from './nades.js?v=7de51ed-mwa42x51';
+import { Abilities } from './abilities.js?v=7de51ed-mwa42x51';
 
 export const TICK = 1 / 60;
 export const EYE = 1.6, CROUCH_EYE = 1.1;
@@ -151,8 +151,8 @@ export class Match {
     return this._place(a, best, protect);
   }
   _place(a, best, protect) {
-    const p = { x: best[0] + this.r(-0.6, 0.6), z: best[1] + this.r(-0.6, 0.6) };
-    this.map.resolve(p);
+    // a little off the spot (so two never land on each other), without crossing a wall
+    const p = this.map.moveCircle({ x: best[0], z: best[1] }, this.r(-0.6, 0.6), this.r(-0.6, 0.6));
     Object.assign(a, { x: p.x, z: p.z, y: 0, vx: 0, vz: 0, yaw: best[2] || 0, pitch: 0, crouch: 0, hp: 100, alive: true, protectUntil: this.t + protect, lastHurt: -10,
       ammo: a.gun.magSize, reloadUntil: 0, nextShot: 0, stunUntil: 0, slowUntil: 0, shakeUntil: 0, wobbleUntil: 0, carry: null, hold: null, stuckFor: 0, _sx: p.x, _sz: p.z, _st: this.t });
     this.nades.refill(a);
@@ -227,7 +227,7 @@ export class Match {
   // K: the knife. Hits the closest enemy in front within reach (lethal from behind), else a
   // door in front. Returns what it hit: 'actor', 'door', or '' (a miss).
   knife(a) {
-    if (!a.alive || this.over || this.t < (a.knifeAt || 0) || this.rules.frozen(a)) return null;
+    if (!a.alive || this.over || this.t < (a.knifeAt || 0) || this.rules.frozen(a) || (a.ab && a.ab.busy)) return null;
     const peace = this.rules.noFire(a);          // prep: doors only
     a.knifeAt = this.t + KNIFE.every;
     if (this.t < a.protectUntil) a.protectUntil = this.t;
@@ -311,8 +311,7 @@ export class Match {
   moveActor(a, wx, wz, dt) {
     const k = 1 - Math.exp(-12 * dt);
     a.vx += (wx - a.vx) * k; a.vz += (wz - a.vz) * k;
-    const p = { x: a.x + a.vx * dt, z: a.z + a.vz * dt };
-    this.map.resolve(p);
+    const p = this.map.moveCircle({ x: a.x, z: a.z }, a.vx * dt, a.vz * dt);
     a.speed = Math.hypot(p.x - a.x, p.z - a.z) / dt;
     a.x = p.x; a.z = p.z;
   }

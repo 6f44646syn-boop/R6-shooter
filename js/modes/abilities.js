@@ -21,8 +21,9 @@
 //   Onyx   Charge Dash    hold Q 0.6 s, then dash 6 m: through soft walls, the first enemy hit
 //                         is stunned and knocked back for 1.5 s. 2 charges, 12 s each.
 // Gadgets die to one bullet. Bots use abilities too (see botThink).
-import { raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=97ee87f-mw7pvirk';
+import { raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=7de51ed-mwa42x51';
 
+export const DRONE_R = 0.15;           // a drone's collision radius
 export class Abilities {
   constructor(m, cfg) {
     this.m = m; this.cfg = cfg; this.on = !!m.o.abilitiesOn;
@@ -85,8 +86,9 @@ export class Abilities {
   plainDrone(a) { return a.ab && a.ab.prepDrones > 0 && !a.ab.drone && this.prepOK(a); }
   launchDrone(a, plain) {
     const m = this.m, ab = a.ab, c = this.cfg.spark_drone || {};
-    const g = this.add({ type: 'drone', basic: plain, team: a.team, owner: a.id, x: a.x + Math.sin(a.yaw * DEG) * 0.6, y: 0.15, z: a.z - Math.cos(a.yaw * DEG) * 0.6, yaw: a.yaw, pitch: 0, r: 0.22, end: plain ? m.rules.phaseEnd : m.t + (c.battery || 20), scanAt: 0 });
-    m.map.resolve(g, 0.15, true);
+    // set down at your feet and rolled 0.6 m forward (never placed straight through a wall)
+    const g = this.add({ type: 'drone', basic: plain, team: a.team, owner: a.id, x: a.x, y: 0.15, z: a.z, yaw: a.yaw, pitch: 0, r: 0.22, end: plain ? m.rules.phaseEnd : m.t + (c.battery || 20), scanAt: 0 });
+    m.map.moveCircle(g, Math.sin(a.yaw * DEG) * 0.6, -Math.cos(a.yaw * DEG) * 0.6, DRONE_R, true);
     ab.drone = g; ab.busy = true;
     if (plain) ab.prepDrones--; else ab.charges--;
     return g;
@@ -199,9 +201,7 @@ export class Abilities {
     const f = (inp.fwd ? 1 : 0) - (inp.back ? 1 : 0), s = (inp.right ? 1 : 0) - (inp.left ? 1 : 0);
     if (!f && !s) return;
     const y = d.yaw * DEG, L = Math.hypot(f, s);
-    d.x += (Math.sin(y) * f + Math.cos(y) * s) / L * sp * dt;
-    d.z += (-Math.cos(y) * f + Math.sin(y) * s) / L * sp * dt;
-    this.m.map.resolve(d, 0.15, true);
+    this.m.map.moveCircle(d, (Math.sin(y) * f + Math.cos(y) * s) / L * sp * dt, (-Math.cos(y) * f + Math.sin(y) * s) / L * sp * dt, DRONE_R, true);
   }
   mouse(a, dx, dy) {
     const d = a.ab && a.ab.drone;
@@ -341,8 +341,7 @@ export class Abilities {
     const sp = (c.distance || 6) / D.T, step = Math.min(D.left, sp * dt);
     const ahead = [a.x + D.dx * 0.6, 1, a.z + D.dz * 0.6];
     if (m.map.near(ahead[0], ahead[2], 0.5, []).some((b) => b.kind === 'soft' && b.alive)) m.map.breakAt(ahead, 0.3);
-    const p = { x: a.x + D.dx * step, z: a.z + D.dz * step };
-    m.map.resolve(p);
+    const p = m.map.moveCircle({ x: a.x, z: a.z }, D.dx * step, D.dz * step);
     a.x = p.x; a.z = p.z; if (a.human) a.forced = true;
     D.left -= step; D.t += dt;
     if (!D.hit && !m.rules.noFire(a)) {
@@ -351,9 +350,9 @@ export class Abilities {
         D.hit = true;
         e.stunUntil = m.t + (c.stun || 2);
         m.emit({ type: 'stun', id: e.id, by: a.id });
-        const k = { x: e.x + D.dx * (c.knockback || 2), z: e.z + D.dz * (c.knockback || 2) };
-        k.x = Math.max(-m.map.hx + 0.5, Math.min(m.map.hx - 0.5, k.x)); k.z = Math.max(-m.map.hz + 0.5, Math.min(m.map.hz - 0.5, k.z));
-        m.map.resolve(k); e.x = k.x; e.z = k.z; if (e.human) e.forced = true;
+        // knocked back along the dash, stopping at walls (never through them)
+        const k = m.map.moveCircle({ x: e.x, z: e.z }, D.dx * (c.knockback || 2), D.dz * (c.knockback || 2));
+        e.x = k.x; e.z = k.z; if (e.human) e.forced = true;
         m.hit(e, c.damage || 35, a, 'torso', 'ability');
         D.left = 0;
       }
@@ -506,7 +505,7 @@ export class Abilities {
     if (wp) {
       const dx = wp[0] - d.x, dz = wp[1] - d.z, L = Math.hypot(dx, dz);
       if (L < 0.6) d.path.shift();
-      else { const st = Math.min(L, (a.ab.c.speed || 6) / 15); d.x += dx / L * st; d.z += dz / L * st; d.yaw = yawTo(dx, dz); m.map.resolve(d, 0.15, true); }
+      else { const st = Math.min(L, (a.ab.c.speed || 6) / 15); m.map.moveCircle(d, dx / L * st, dz / L * st, DRONE_R, true); d.yaw = yawTo(dx, dz); }
     }
     if (m.t >= d.scanAt) this.scan(a);
     if (!wp && Math.hypot(goal.x - d.x, goal.z - d.z) < 3 && m.rng() < 0.1) { this.destroy(d); brain.droneAfter = m.t + 60; }

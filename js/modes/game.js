@@ -4,16 +4,16 @@
 //
 // Map: flat-shaded low poly from the map file; static walls merged into one mesh, breakable
 // panels in one instanced mesh, one directional light (a 1024 shadow map in High / Ultra).
-import * as THREE from '../../vendor/three/three.module.min.js?v=97ee87f-mw7pvirk';
-import { MatchMap } from './map.js?v=97ee87f-mw7pvirk';
-import { Match, TICK } from './sim.js?v=97ee87f-mw7pvirk';
-import { yawTo, wrap180, DEG } from './geom.js?v=97ee87f-mw7pvirk';
-import { Fighter } from '../battle/fighter.js?v=97ee87f-mw7pvirk';
-import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=97ee87f-mw7pvirk';
-import { buildMapLook, panelTextures } from './look.js?v=97ee87f-mw7pvirk';
-import { Arena } from '../battle/arena.js?v=97ee87f-mw7pvirk';
-import { Human } from '../battle/human.js?v=97ee87f-mw7pvirk';
-import { drawCrosshair } from '../ui/crosshair.js?v=97ee87f-mw7pvirk';
+import * as THREE from '../../vendor/three/three.module.min.js?v=7de51ed-mwa42x51';
+import { MatchMap } from './map.js?v=7de51ed-mwa42x51';
+import { Match, TICK } from './sim.js?v=7de51ed-mwa42x51';
+import { yawTo, wrap180, DEG } from './geom.js?v=7de51ed-mwa42x51';
+import { Fighter } from '../battle/fighter.js?v=7de51ed-mwa42x51';
+import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=7de51ed-mwa42x51';
+import { buildMapLook, panelTextures } from './look.js?v=7de51ed-mwa42x51';
+import { Arena } from '../battle/arena.js?v=7de51ed-mwa42x51';
+import { Human } from '../battle/human.js?v=7de51ed-mwa42x51';
+import { drawCrosshair } from '../ui/crosshair.js?v=7de51ed-mwa42x51';
 
 const TEAM_COLOR = { A: 0x5b8cff, B: 0xff7048 };
 const MAX_TRACERS = 64;
@@ -53,19 +53,44 @@ export class ModeGame {
     const d = this.deps;
     this.opts = o;
     this.map = new MatchMap(mapData);
-    this.m = new Match({ map: this.map, mode: o.mode, guns: d.guns, ops, abilities, teamSize: o.teamSize, difficulty: o.difficulty, abilitiesOn: o.abilities, minutes: o.minutes, headshot: o.headshot, seed: (Math.random() * 2 ** 31) | 0, human: { op: o.op, side: o.side } });
+    this.m = new Match({ map: this.map, mode: o.mode, guns: d.guns, ops, abilities, teamSize: o.teamSize, difficulty: o.difficulty, abilitiesOn: o.abilities, minutes: o.minutes, headshot: o.headshot, seed: o.seed ?? ((Math.random() * 2 ** 31) | 0), human: { op: o.op, side: o.side } });
     this.me = this.m.human();
     this._buildScene();
     this._buildActors();
     this.prevT = d.now(); this.acc = 0; this.mapVersion = -1;
-    this.rec = { frames: [], shots: [], hits: [] }; this.kc = null;
-    this.feed = []; this.points = 0; this._stepT = 0; this.fx = []; this.fx2 = []; this.vigT = -9; this.wasJammed = false;
+    this.rec = { frames: [], shots: [], hits: [] }; this.kc = null; this.hud.kcBox.hidden = true;
+    this.feed = []; this._renderFeed(); this.points = 0; this._stepT = 0; this.fx = []; this.fx2 = []; this.vigT = -9; this.wasJammed = false;
     this.active = true; this.paused = false; this.over = false;
     this.hud.root.hidden = false; this.hud.end.hidden = true;
     this._refreshPanels();
     return this;
   }
+  // Free what the last match put on the graphics card. Maps are rebuilt for every match, and
+  // without this each new match left its geometry, floor textures and shadow map behind.
+  _disposeScene() {
+    const drop = (root) => {
+      if (!root) return;
+      root.traverse((o) => {
+        if (o.geometry) o.geometry.dispose();
+        for (const m of o.material ? [].concat(o.material) : []) { if (m.map && m.map.userData.own) m.map.dispose(); m.dispose(); }
+        if (o.isInstancedMesh) o.dispose();
+      });
+      root.removeFromParent();
+    };
+    drop(this.lookGroup); this.lookGroup = null;
+    for (const im of Object.values(this.panelMeshes || {})) drop(im);
+    this.panelMeshes = {}; this.panelMesh = null;
+    drop(this.markerG); this.markerG = null;
+    this._ringGeo = null; this.fx = []; this.fx2 = [];
+    if (this.gMeshes) this.gMeshes.clear();
+    if (this.objMeshes) this.objMeshes.clear();
+    if (this.fig) { for (const f of this.fig.values()) f.dispose(); this.fig = null; }
+    if (this.sun && !this.arena) { this.sun.shadow.dispose(); this.sun.dispose(); this.hemi.dispose(); }
+    this.sun = this.hemi = null;
+    if (this.map && this.map.dispose) this.map.dispose();
+  }
   stop() {
+    if (this.scene) { this._disposeScene(); this.scene = null; }
     this.active = false; this.paused = false;
     if (this.hud) { this.hud.root.hidden = true; this.hud.board.hidden = true; }
     if (this.h) this.h.releaseAll();
@@ -92,7 +117,7 @@ export class ModeGame {
     this.sun.shadow.mapSize.set(1024, 1024); this.sun.shadow.bias = -0.001;
     scene.add(this.hemi, this.sun, this.sun.target);
     // ground, floors, walls, furniture, trees (look.js)
-    buildMapLook(scene, map, L);
+    this.lookGroup = buildMapLook(scene, map, L);
     // breakable panels: one instanced mesh per kind (a broken one is scaled to nothing)
     const tex = panelTextures(), c = new THREE.Color();
     this.panelLook = L;
@@ -160,7 +185,6 @@ export class ModeGame {
   /* ---------- actors ---------- */
   _buildActors() {
     const d = this.deps, m = this.m;
-    if (this.fig) for (const f of this.fig.values()) f.group.removeFromParent();   // a Battle map's scene is reused
     this.fig = new Map();
     for (const a of m.actors) {
       const f = new Fighter({ name: a.name, team: a.team, color: TEAM_COLOR[a.team], human: a.human });
@@ -378,7 +402,8 @@ export class ModeGame {
     for (const h of hits) { const a = m.actors.find((x) => x.id === h.by); const key = a ? a.name : 'the world'; const r = by.get(key) || { n: 0, head: 0, dmg: 0 }; r.n++; if (h.zone === 'head') r.head++; r.dmg += h.dmg; by.set(key, r); }
     const report = [...by.entries()].map(([n, r]) => n + ': ' + r.n + ' hit' + (r.n > 1 ? 's' : '') + (r.head ? ' (' + r.head + ' head)' : '') + ', ' + Math.round(r.dmg)).join(' · ');
     const dist = Math.hypot(k.x - me.x, k.z - me.z);
-    this.kc = { by: k.id, deathT: m.t, start: t + 0.35, from: m.t - 2.6, si: 0, fi: 0 };
+    // 0.3 s pause, then the last 2.1 s and 0.3 s after: over before the 3 s respawn
+    this.kc = { by: k.id, deathT: m.t, start: t + 0.3, from: m.t - 2.1, si: 0, fi: 0 };
     this.kc.si = this.rec.shots.findIndex((s) => s.t >= this.kc.from); if (this.kc.si < 0) this.kc.si = this.rec.shots.length;
     if (!this.kcCam) this.kcCam = new THREE.PerspectiveCamera(70, 1, 0.03, 300);
     const H = this.hud;
@@ -394,7 +419,7 @@ export class ModeGame {
     if (this.me.alive) { this._endKc(); return; }        // respawned
     if (t < kc.start) return;
     const rt = kc.from + (t - kc.start);
-    if (rt > kc.deathT + 0.5 || !R.frames.length) { this._endKc(); return; }
+    if (rt > kc.deathT + 0.3 || !R.frames.length) { this._endKc(); return; }
     // the recorded frames around the replay time
     let i = Math.min(kc.fi, R.frames.length - 1);
     while (i < R.frames.length - 1 && R.frames[i + 1].t <= rt) i++;
@@ -480,7 +505,8 @@ export class ModeGame {
     const g = cv.getContext('2d');
     g.fillStyle = 'rgba(10,12,16,0.6)'; g.beginPath(); g.arc(64, 64, 56, 0, 7); g.fill();
     g.fillStyle = '#' + new THREE.Color(color || 0xffffff).getHexString(); g.font = 'bold 72px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 64, 68);
-    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthTest: false, transparent: true }));
+    const tex = new THREE.CanvasTexture(cv); tex.userData.own = true;
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
     s.scale.set(1.2, 1.2, 1); s.renderOrder = 5;
     return s;
   }

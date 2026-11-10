@@ -992,6 +992,88 @@ try {
     await page.close();
   }
 
+  /* ---------- match modes in the browser ---------- */
+  console.log('\nMatch modes (Team Deathmatch, Capture the Flag, Bomb) in the browser');
+  {
+    const { page, errors } = await openPage('index.html?test');
+    await page.waitForFunction(() => window.__range && window.__range.ready);
+    const mm = await page.evaluate(async () => {
+      const R = window.__range, out = {};
+      R.manual(true); R.setGraphics('standard');
+      const maps = { tdm: 'containers', ctf: 'yard', bomb: 'ranch' };
+      // every mode starts, runs and draws
+      out.started = [];
+      for (const [mode, map] of [['tdm', 'containers'], ['tdm', 'casino'], ['ctf', 'winter'], ['ctf', 'school'], ['ctf', 'yard'], ['bomb', 'embassy'], ['bomb', 'workshop']]) {
+        const ok = await R.modeStart(mode, { map: { ...maps, [mode]: map }, seed: 3, side: 'attack', op: { tdm: 'glitch', ctf: 'dash', bomb: 'pace' }, abilities: { tdm: false, ctf: false, bomb: true } });
+        R.step(2, 60); R.renderFrame();
+        const G = R.modeGame();
+        out.started.push(mode + '/' + map + ':' + (ok && G.active && G.m.actors.length === 10 && !G.m.nan ? 'ok' : 'BAD'));
+      }
+      // Bomb on Ranch as an attacker with the plain prep drone
+      await R.modeStart('bomb', { map: maps, seed: 3, side: 'attack', op: { tdm: 'glitch', ctf: 'dash', bomb: 'pace' }, abilities: { tdm: false, ctf: false, bomb: true } });
+      const G = R.modeGame(), m = G.m, me = G.me;
+      out.feedAtStart = G.hud.feed.children.length;
+      // bots parked: no catcher zapping the drone, nobody opening the doors
+      for (const a of m.actors) if (a !== me) { a.brain = null; a.x = 30; a.z = 20 - a.id; }
+      R.step(0.5, 60);
+      G.key('KeyQ', true); G.key('KeyQ', false);
+      const d = me.ab.drone;
+      out.drone = !!d;
+      // at 10 and 15 FPS: straight at the west outer wall (x = -24) for 3 s, from outside
+      out.droneWall = [];
+      for (const fps of [10, 15, 30]) {
+        d.x = -25.4; d.z = -6; d.yaw = 90; d.pitch = 0;
+        G.key('KeyW', true); R.step(3, fps); G.key('KeyW', false);
+        out.droneWall.push(+d.x.toFixed(2));
+      }
+      // and at the reinforced wall of the site (x = -24, z 5..8) and under the west door (z -1.4..0)
+      d.x = -25.4; d.z = 6.5; d.yaw = 90; G.key('KeyW', true); R.step(3, 10); G.key('KeyW', false); out.droneReinforced = +d.x.toFixed(2);
+      d.x = -25.4; d.z = -0.7; d.yaw = 90; G.key('KeyW', true); R.step(1.2, 10); G.key('KeyW', false); out.droneUnderDoor = +d.x.toFixed(2);
+      G.key('KeyV', true); G.key('KeyV', false);
+      // the player: sprint at the wall and at the boarded door at 10 FPS
+      while (m.rules.phase === 'prep') R.step(1, 60);
+      const run = (x, z, secs, fps) => { G.h.f.x = x; G.h.f.z = z; G.h.f.vx = G.h.f.vz = 0; me.x = x; me.z = z; G.h.look.setAngles(90, 0); G.key('KeyW', true); G.key('ShiftLeft', true); R.step(secs, fps); G.key('KeyW', false); G.key('ShiftLeft', false); return +G.h.f.x.toFixed(2); };
+      out.bodyWall = run(-26.5, -6, 2, 10);
+      out.bodyDoor = run(-26.5, -0.7, 2, 10);
+      out.doorAlive = m.map.panels.filter((q) => q.kind === 'door').some((q) => q.alive && Math.abs((q.box.minZ + q.box.maxZ) / 2 + 0.7) < 0.1 && q.box.minX < -23.9);
+      // memory: the same match started again and again keeps the same amount on the graphics card
+      const ren = R.renderer(), geo = [];
+      for (let i = 0; i < 5; i++) { await R.modeStart('bomb', { map: maps, seed: 3 }); R.step(1, 60); R.renderFrame(); geo.push(ren.info.memory.geometries); }
+      out.geo = geo;
+      // death replay ends before the respawn in Team Deathmatch
+      await R.modeStart('tdm', { map: maps, seed: 3 });
+      const G2 = R.modeGame(), m2 = G2.m, me2 = G2.me;
+      R.step(1, 60);
+      const k = m2.actors.find((a) => a.team !== me2.team);
+      me2.protectUntil = 0; m2.hit(me2, 500, k, 'torso');
+      R.step(0.5, 60); out.kcOn = !!G2.kc;
+      R.step(2.35, 60); out.kcOffBeforeRespawn = !G2.kc && !me2.alive;
+      R.step(0.5, 60); out.respawned = me2.alive;
+      R.battleLeave();
+      // Battle: sprint at a thin wall of the Casino (0.25 m) at 10 FPS
+      R.battleStart({ opponent: 'bots', bots: 1, level: 'easy', kills: 99, map: 'casino' });
+      const B = R.battle(), h = B.humans[0];
+      for (const b of B.bots) { b.update = () => {}; b.f.x = 18; b.f.z = 12; }
+      R.step(0.2, 60);
+      h.f.x = -6.5; h.f.z = -13.9; h.f.y = 0; h.f.vx = h.f.vz = 0; h.f.protectUntil = 1e9; h.look.setAngles(270, 0);
+      B.key('KeyW', true); B.key('ShiftLeft', true); R.step(2, 10); B.key('KeyW', false); B.key('ShiftLeft', false);
+      out.casinoWall = +h.f.x.toFixed(2);
+      R.battleLeave();
+      return out;
+    });
+    check('every mode starts and runs on its maps', mm.started.every((s) => s.endsWith(':ok')), mm.started.join(' '));
+    check('a new match starts with an empty kill feed', mm.feedAtStart === 0, String(mm.feedAtStart));
+    check('a drone driven at a wall stays outside it at 10, 15 and 30 FPS (x ' + mm.droneWall.join(', ') + ')', mm.drone && mm.droneWall.every((x) => x < -24.2 && x > -24.6), JSON.stringify(mm.droneWall));
+    check('a drone cannot pass a reinforced wall at 10 FPS', mm.droneReinforced < -24.1, String(mm.droneReinforced));
+    check('a drone rolls under a boarded door', mm.droneUnderDoor > -23.6, String(mm.droneUnderDoor));
+    check('sprinting at a wall or a boarded door at 10 FPS does not get you through (x ' + mm.bodyWall + ', ' + mm.bodyDoor + ')', mm.bodyWall < -24.4 && mm.bodyDoor < -24.3 && mm.doorAlive, JSON.stringify(mm));
+    check('graphics memory is steady across match restarts (geometries ' + mm.geo.join(', ') + ')', Math.max(...mm.geo) - Math.min(...mm.geo) <= 6, mm.geo.join(','));
+    check('the death replay ends before the Team Deathmatch respawn', mm.kcOn && mm.kcOffBeforeRespawn && mm.respawned, JSON.stringify({ on: mm.kcOn, off: mm.kcOffBeforeRespawn, back: mm.respawned }));
+    check('Battle: sprinting at a thin Casino wall at 10 FPS does not get you through', mm.casinoWall > -7.9, String(mm.casinoWall));
+    check('no page errors', errors.length === 0, errors.join('\n'));
+    await page.close();
+  }
+
   // Network battle between two separate browser sessions (as two PCs would be): join codes,
   // positions both ways, shots both ways, kill feed, host ending the match.
   // Runs over direct join codes and, when a relay is running (RELAY=url, or wrangler dev on

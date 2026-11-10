@@ -8,16 +8,16 @@
 //                       B crouch, A vault, L3 sprint, LB/RB lean.
 //   keys  (player 2, no gamepad): I J K L move, arrow keys look, Enter fire,
 //                       Right Shift aim, Backspace reload, / crouch.
-import * as THREE from '../../vendor/three/three.module.min.js?v=97ee87f-mw7pvirk';
-import { Look, PITCH_LIMIT } from '../core/look.js?v=97ee87f-mw7pvirk';
-import { Weapon } from '../core/weapon.js?v=97ee87f-mw7pvirk';
-import { RecoilEngine } from '../core/recoil.js?v=97ee87f-mw7pvirk';
-import { Spread } from '../core/spread.js?v=97ee87f-mw7pvirk';
-import { focalRatio } from '../core/sensitivity.js?v=97ee87f-mw7pvirk';
-import { WeaponRig } from '../scene/viewmodel.js?v=97ee87f-mw7pvirk';
-import { EYE_Z, VIEW_H } from '../scene/sight-model.js?v=97ee87f-mw7pvirk';
-import { reticleTextures } from '../ui/reticle-tex.js?v=97ee87f-mw7pvirk';
-import { RETICLE_COLORS } from '../ui/scope.js?v=97ee87f-mw7pvirk';
+import * as THREE from '../../vendor/three/three.module.min.js?v=7de51ed-mwa42x51';
+import { Look, PITCH_LIMIT } from '../core/look.js?v=7de51ed-mwa42x51';
+import { Weapon } from '../core/weapon.js?v=7de51ed-mwa42x51';
+import { RecoilEngine } from '../core/recoil.js?v=7de51ed-mwa42x51';
+import { Spread } from '../core/spread.js?v=7de51ed-mwa42x51';
+import { focalRatio } from '../core/sensitivity.js?v=7de51ed-mwa42x51';
+import { WeaponRig } from '../scene/viewmodel.js?v=7de51ed-mwa42x51';
+import { EYE_Z, VIEW_H } from '../scene/sight-model.js?v=7de51ed-mwa42x51';
+import { reticleTextures } from '../ui/reticle-tex.js?v=7de51ed-mwa42x51';
+import { RETICLE_COLORS } from '../ui/scope.js?v=7de51ed-mwa42x51';
 
 const DEG = Math.PI / 180;
 const WALK = 3.4, SPRINT = 5.6, CROUCH_WALK = 1.6, ADS_WALK = 2.2;
@@ -260,8 +260,15 @@ export class Human {
       if (!f.alive) this.vault = null;
       const k = 1 - Math.exp(-14 * dt);
       f.vx += (tx - f.vx) * k; f.vz += (tz - f.vz) * k;
-      const p = arena.resolve({ x: f.x + f.vx * dt, y: f.y, z: f.z + f.vz * dt });
-      f.x = p.x; f.z = p.z;
+      // Move in steps shorter than half a body radius, each followed by the push-out (one big
+      // step on a slow frame could carry you through a thin wall or a door), stepping up
+      // stairs as you go.
+      const dist = Math.hypot(f.vx, f.vz) * dt, steps = Math.min(60, Math.max(1, Math.ceil(dist / 0.15)));
+      for (let i = 0; i < steps; i++) {
+        const p = arena.resolve({ x: f.x + f.vx * dt / steps, y: f.y, z: f.z + f.vz * dt / steps });
+        f.x = p.x; f.z = p.z;
+        if (steps > 1) { const gs = arena.groundAt(f.x, f.z, f.y); if (gs > f.y) f.y = gs; }
+      }
       // Stand on what is underneath (steps up stairs at once), or fall.
       const g = arena.groundAt(f.x, f.z, f.y);
       if (g >= f.y - 1e-4) { f.y = g; f.vy = 0; }

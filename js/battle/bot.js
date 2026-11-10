@@ -7,9 +7,9 @@
 //
 // Levels: Easy, Medium, Hard and Terminator (near-instant, precise, leads moving targets,
 // hears everything, always pushes on a callout).
-import { Weapon } from '../core/weapon.js?v=97ee87f-mw7pvirk';
-import { RecoilEngine } from '../core/recoil.js?v=97ee87f-mw7pvirk';
-import { mulberry32 } from '../core/prng.js?v=97ee87f-mw7pvirk';
+import { Weapon } from '../core/weapon.js?v=7de51ed-mwa42x51';
+import { RecoilEngine } from '../core/recoil.js?v=7de51ed-mwa42x51';
+import { mulberry32 } from '../core/prng.js?v=7de51ed-mwa42x51';
 
 // Per level: reaction (s), aim error sd (deg), turn rate when not fighting (deg/s), recoil
 // control (0..1), burst [min, max] shots, pause between bursts (s), head aim chance, strafes,
@@ -224,8 +224,12 @@ export class Bot {
     const k = 1 - Math.exp(-10 * dt);
     const sp = (this.crouchWanted ? Math.min(speed, 1.5) : speed) * (1 - 0.35 * this.adsE);
     f.vx += (mx * sp - f.vx) * k; f.vz += (mz * sp - f.vz) * k;
-    const p = { x: f.x + f.vx * dt, y: f.y, z: f.z + f.vz * dt };
-    arena.resolve(p);
+    const p = { x: f.x, y: f.y, z: f.z };
+    {
+      // in steps shorter than half a body radius (never through a thin wall on a long frame)
+      const dist = Math.hypot(f.vx, f.vz) * dt, steps = Math.min(60, Math.max(1, Math.ceil(dist / 0.15)));
+      for (let i = 0; i < steps; i++) { p.x += f.vx * dt / steps; p.z += f.vz * dt / steps; arena.resolve(p); }
+    }
     if (Math.hypot(p.x - (f.x + f.vx * dt), p.z - (f.z + f.vz * dt)) > 0.01 && this.mode !== 'fight') this.nextPath = Math.min(this.nextPath, t + 0.4);  // bumped: re-plan soon
     // Never walk into acid (strafing included).
     if (!arena.hazards.length || arena.hazardAt(p.x, arena.groundAt(p.x, p.z, f.y), p.z) === 0 || arena.hazardAt(f.x, f.y, f.z) > 0) { f.x = p.x; f.z = p.z; }

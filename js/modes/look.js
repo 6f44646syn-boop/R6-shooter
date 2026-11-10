@@ -1,7 +1,7 @@
 // How the match maps look (the Battle maps keep Battle's own scenery). Everything is drawn in
 // code on small canvases; no image files. Boxes are merged per look into a few meshes:
 // walls and floors tile in world space, furniture is fitted per face.
-import * as THREE from '../../vendor/three/three.module.min.js?v=97ee87f-mw7pvirk';
+import * as THREE from '../../vendor/three/three.module.min.js?v=7de51ed-mwa42x51';
 
 /* ---------- textures ---------- */
 const cache = new Map();
@@ -160,7 +160,7 @@ export function buildMapLook(scene, map, L) {
   group.add(dome);
   // ground (the area around), then each room's floor
   const gt = TEX[GROUND[data.ground] || (data.building ? 'grass' : 'concrete')]().clone();
-  gt.needsUpdate = true; gt.repeat.set(map.hx / 3, map.hz / 3);
+  gt.needsUpdate = true; gt.userData.own = true; gt.repeat.set(map.hx / 3, map.hz / 3);
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(map.hx * 2 + 40, map.hz * 2 + 40), new THREE.MeshLambertMaterial({ map: gt }));
   ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true;
   gt.repeat.set((map.hx * 2 + 40) / 6, (map.hz * 2 + 40) / 6);
@@ -168,7 +168,7 @@ export function buildMapLook(scene, map, L) {
   for (const c of data.callouts || []) {
     if (!c.floor || !TEX[c.floor]) continue;
     const w = c.x1 - c.x0, d = c.z1 - c.z0, t = TEX[c.floor]().clone();
-    t.needsUpdate = true;
+    t.needsUpdate = true; t.userData.own = true;
     const tile = c.floor === 'wood' ? 3 : c.floor.startsWith('carpet') ? 2 : c.floor === 'marble' || c.floor === 'stone' ? 3 : 1.6;
     t.repeat.set(w / tile, d / tile);
     const f = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshLambertMaterial({ map: t, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }));

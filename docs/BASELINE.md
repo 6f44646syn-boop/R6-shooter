@@ -122,3 +122,47 @@ Geometries grow by about 40 with every new match: a leak (bug B4 below).
 | B10 | Match modes on the Battle maps are ground floor only | The match engine has no heights | Milestone 3 |
 | B11 | Battle grenades are off in network games | Not sent to the other player | Later (relay only) |
 | B12 | Step label says "3 Weapon" where step 3 is the operator | Label | Milestone 7 (UI redesign) |
+
+## Milestone 1: bug fixes and drone collision
+
+### The drone bug, measured
+The cause was one collision check per frame. A drone moves 6 m/s, so at 10 to 15 FPS one step
+is 0.4 to 0.6 m: longer than a wall is thick. The step put the drone's centre past the middle
+of the wall and the push-out then moved it out on the far side. The fix cuts every move into
+steps shorter than half the mover's radius, each followed by the push-out, so the centre can
+never cross a face. Players, bots, Charge Dash, its knockback, drone deployment and spawn
+offsets all move this way now.
+
+Every wall, soft wall, reinforced wall and boarded door on Ranch, Embassy, Workshop and Depot,
+driven at from both sides every 0.75 m (`node tools/check-modes.mjs`):
+
+| Mover | Frame rates | Speed | Drives | Crossings before | Crossings after |
+|---|---|---|---|---|---|
+| Drone (old move) | 10 and 15 FPS | 6 m/s | — | 4,013 | — |
+| Drone | 144 to 10 FPS | 6 and 30 m/s | 16,128 | — | 0 |
+| Player body | 144 to 10 FPS | 5.9 m/s (sprint) | 12,198 | — | 0 |
+| Charge Dash | 60 and 10 FPS | 17.2 m/s | 4,066 | — | 0 |
+| Drone under boarded doors | 60 and 10 FPS | 6 m/s | 324 | — | 324 pass under, as intended |
+
+In the browser at 10 FPS (`npm test`): a drone held against the outer wall for 3 s stays
+outside; it cannot pass a reinforced wall; it rolls under a boarded door; a sprinting player
+stays outside a wall and a boarded door; in Battle a sprinting player stays on their side of a
+0.25 m Casino wall.
+
+### Memory across repeated match starts (Bomb, one page)
+| | Start 1 | Start 2 | Start 3 | Start 4 | Start 5 |
+|---|---|---|---|---|---|
+| Geometries before | 146 | 193 | 233 | 256 | 303 |
+| Geometries after | 382 | 382 | 382 | 382 | 382 |
+
+(The two rows come from different test pages, so compare the growth, not the absolute numbers:
+before, about +40 per match; after, none.)
+
+### Tests after milestone 1
+| Suite | Result |
+|---|---|
+| `npm test` | 166 passed, 0 failed (10 new: match modes in the browser) |
+| `node tools/check-modes.mjs` | 86 passed, 0 failed (7 new: collision) |
+| `node tools/play-through.mjs` | no page errors |
+
+Bugs B1 to B8 from the audit are fixed. B9 to B12 are scheduled in later milestones.

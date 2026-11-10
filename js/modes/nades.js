@@ -3,7 +3,7 @@
 // damage, lethal within 1.8 m, nothing behind solid cover. They break soft walls and boarded
 // doors close by and destroy gadgets. A Catcher zaps them out of the air.
 // Bots throw at enemies they know are behind cover, using a lob that lands on the spot.
-import { dirFrom } from './geom.js?v=97ee87f-mw7pvirk';
+import { dirFrom } from './geom.js?v=7de51ed-mwa42x51';
 
 export const NADE = { count: 2, fuse: 2.5, speed: 15, radius: 6, lethal: 1.8, damage: 130, gravity: 9.8, wallBreak: 1.4, every: 1.0 };
 
@@ -15,7 +15,7 @@ export class Nades {
   // Throw from a's eye along (yaw, pitch) at speed. Returns the grenade or null.
   throw(a, yaw = a.yaw, pitch = a.pitch, speed = NADE.speed) {
     const m = this.m;
-    if (!a.alive || m.over || (a.nades ?? NADE.count) <= 0 || m.t < (a.nadeAt || 0) || m.rules.frozen(a) || m.rules.noFire(a)) return null;
+    if (!a.alive || m.over || (a.nades ?? NADE.count) <= 0 || m.t < (a.nadeAt || 0) || m.rules.frozen(a) || m.rules.noFire(a) || (a.ab && a.ab.busy)) return null;
     if (a.nades === undefined) a.nades = NADE.count;
     a.nades--; a.nadeAt = m.t + NADE.every;
     if (m.t < a.protectUntil) a.protectUntil = m.t;
