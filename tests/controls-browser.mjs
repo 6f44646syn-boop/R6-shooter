@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
-import { chromium } from "playwright";
+import { createRequire } from "node:module";
 import { mkdirSync } from "node:fs";
 import { startServer } from "../tools/serve.mjs";
+// Playwright is external test tooling, loaded like the existing browser suite.
+const require = createRequire(import.meta.url);
+let chromium;
+try { ({ chromium } = require("playwright")); }
+catch { console.error("Playwright test tooling is unavailable. See docs/MILESTONE_7_HANDOFF.md for NODE_PATH setup."); process.exit(2); }
 const server = await startServer(8147);
 const browser = await chromium.launch({
   executablePath: process.env.PLAYWRIGHT_CHROMIUM || undefined,

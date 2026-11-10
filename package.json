@@ -11,8 +11,5 @@
     "placeholders": "node tools/make-placeholder-guns.mjs",
     "test:controls": "node tests/controls-wasm.mjs && node tests/controls-browser.mjs",
     "build:controls": "bash tools/build-controls.sh --test"
-  },
-  "devDependencies": {
-    "playwright": "1.65.0"
   }
 }
