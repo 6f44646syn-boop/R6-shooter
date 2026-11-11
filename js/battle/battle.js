@@ -1,3 +1,4 @@
+import { replayCamera } from '../replay/view.js?v=2bc20c5-mwb9w9ii';
 // Battle mode: you against bots (Easy / Medium / Hard), or two local players in split
 // screen (optionally with bots as a third side). First side to the kill target wins.
 //
@@ -236,6 +237,7 @@ export class Battle {
     if (this.active && this.net && this.net.role === 'host') this._broadcast({ k: 'stopped' });
     if (this.active && this.net && this.net.role === 'client') this.net.link.send({ k: 'left' });
     this.active = false;
+    this.rec = null; this.kc = null; this._meAlive = false;
     this.paused = false;
     this._frameN = 0;
     if (this.deps.voice) this.deps.voice.stop();
@@ -464,7 +466,7 @@ export class Battle {
   }
   // Positions, health and score of everyone, ~30 times a second (newest wins).
   _sendSnapshot(t) {
-    const f = this.fighters.map((g) => [g.id, r2(g.x), r2(g.z), r1(g.yaw + (g.viewDY || 0)), r1(g.pitch + (g.viewDP || 0)), r2(g.crouch), Math.ceil(Math.max(0, g.health)), g.alive ? 1 : 0, t < g.flashUntil ? 1 : 0, g.kills, g.deaths, r2(g.y), g.light ? 1 : 0, r2(g.ads || 0)]);
+    const f = this.fighters.map((g) => [g.id, r2(g.x), r2(g.z), r1(g.yaw + (g.viewDY || 0)), r1(g.pitch + (g.viewDP || 0)), r2(g.crouch), Math.ceil(Math.max(0, g.health)), g.alive ? 1 : 0, t < g.flashUntil ? 1 : 0, g.kills, g.deaths, r2(g.y), g.light ? 1 : 0, r2(g.ads || 0), r2(g.lean || 0), g.viewOptic || this.deps.opticFor(g.gun).id]);
     this._broadcast({ k: 'snap', f, s: this.teamScore }, true);
   }
   // A message from a player on another PC (host), or from the host (client).
@@ -480,6 +482,8 @@ export class Battle {
       f.y = Math.min(this.arena.wallH, Math.max(0, +m.y || 0));
       f.light = m.fl !== 0;
       f.ads = Math.min(1, Math.max(0, +m.a || 0));
+      f.lean = Number.isFinite(+m.l) ? Math.min(1, Math.max(-1, +m.l)) : 0;
+      f.viewOptic = this.deps.opticById(m.o, f.gun).id;
       this.arena.resolve(f);                      // never inside cover
     } else if (m.k === 'shot') {
       if (!f.alive || this.over) return;
@@ -584,7 +588,7 @@ export class Battle {
     const t = this.deps.now(), me = this.humans[0];
     if (m.k === 'snap') {
       for (const e of m.f) {
-        const [id, x, z, yaw, pitch, crouch, health, alive, flash, kills, deaths, y = 0, light = 1, ads = 0] = e;
+        const [id, x, z, yaw, pitch, crouch, health, alive, flash, kills, deaths, y = 0, light = 1, ads = 0, lean = 0, optic = null] = e;
         const f = this.fighters.find((g) => g.id === id);
         if (!f) continue;
         f.kills = kills; f.deaths = deaths;
@@ -593,7 +597,8 @@ export class Battle {
           if (f.alive && !alive) { f.alive = false; f.respawnAt = t + RESPAWN_S; }
           continue;
         }
-        f.health = health; f.alive = !!alive; f.light = !!light; f.ads = +ads || 0;
+        f.health = health; f.alive = !!alive; f.light = !!light; f.ads = +ads || 0; f.lean = Number.isFinite(+lean) ? Math.min(1, Math.max(-1, +lean)) : 0;
+        f.viewOptic = this.deps.opticById(optic, f.gun).id;
         if (flash) f.flashUntil = t + 0.05;
         const p = this.proxies.find((q) => q.f === f);
         if (p) { p.buf.push([t, x, z, yaw, pitch, crouch, y]); if (p.buf.length > 12) p.buf.shift(); }
@@ -662,7 +667,7 @@ export class Battle {
     if (me && me.f.alive && t >= this._nextSnap) {
       this._nextSnap = t + 1 / SNAP_HZ;
       const f = me.f;
-      this.net.link.send({ k: 'st', x: r2(f.x), z: r2(f.z), y: r2(f.y), yaw: r1(f.yaw + f.viewDY), pitch: r1(f.pitch + f.viewDP), crouch: r2(f.crouch), fl: f.light ? 1 : 0, a: r2(f.ads) }, true);
+      this.net.link.send({ k: 'st', x: r2(f.x), z: r2(f.z), y: r2(f.y), yaw: r1(f.yaw + f.viewDY), pitch: r1(f.pitch + f.viewDP), crouch: r2(f.crouch), fl: f.light ? 1 : 0, a: r2(f.ads), l: r2(this.humans[0].lean), o: this.humans[0].optic.id }, true);
     }
     for (const f of this.fighters) f.updateVisual(t);
     this._killCam(t);
@@ -798,7 +803,7 @@ export class Battle {
     if (!replaying) {
       const sh = (this.rec || (this.rec = { frames: [], shots: [] })).shots;
       sh.push({ t, a: [a.x, a.y, a.z], b: [b[0], b[1], b[2]], team, by });
-      while (sh.length && sh[0].t < t - 5) sh.shift();
+      while (sh.length && sh[0].t < t - 6) sh.shift();
     }
     const i = this.trI++ % MAX_TRACERS, p = this.trPos, c = this.trCol;
     p.set([a.x, a.y, a.z, b[0], b[1], b[2]], i * 6);
@@ -994,8 +999,18 @@ export class Battle {
      death those are played back. Space skips. */
   _record(t) {
     const rec = this.rec || (this.rec = { frames: [], shots: [] });
-    rec.frames.push({ t, d: this.fighters.map((f) => [f.id, f.x, f.y, f.z, f.yaw + (f.viewDY || 0), f.pitch + (f.viewDP || 0), f.crouch, f.alive ? 1 : 0, t < f.flashUntil ? 1 : 0, f.ads || 0]) });
-    while (rec.frames.length && rec.frames[0].t < t - 5) rec.frames.shift();
+    const last = rec.frames.at(-1);
+    if (last && t - last.t < 1 / 30 - 1e-6) return;
+    rec.version = 2;
+    // Keep the original ten fields first so legacy replay frames remain readable.
+    const actors = this.fighters.map(f => [
+      f.id, f.x, f.y, f.z, f.yaw + (f.viewDY || 0), f.pitch + (f.viewDP || 0),
+      f.crouch, f.alive ? 1 : 0, t < f.flashUntil ? 1 : 0, f.ads || 0,
+      f.lean || 0, slotIn(this.deps.guns, f.gun), f.gun?.attach || null,
+      f.skin ?? null, f.viewOptic || this.deps.opticFor(f.gun).id,
+    ]);
+    rec.frames.push({ version: 2, t, d: actors });
+    while (rec.frames.length && rec.frames[0].t < t - 6) rec.frames.shift();
   }
   _startKillCam(t) {
     const h = this.humans[0];
@@ -1003,18 +1018,22 @@ export class Battle {
     const rec = this.rec;
     if (!k || !rec || !rec.frames.length) { this.kc = null; return; }
     const from = Math.max(rec.frames[0].t, t - 2.3);
-    this.kc = { killer: k, start: t, from, until: t + (t - from) + 0.5, shot: rec.shots.findIndex((s) => s.t >= from), pov: this.kcPov !== false, prevT: t };
+    this.kc = { rec: { frames: rec.frames.slice(), shots: rec.shots.slice() }, killer: k, start: t, from, until: t + (t - from) + 0.5, shot: rec.shots.findIndex((s) => s.t >= from), pov: this.kcPov !== false, prevT: t };
     this.lastKillCam = { killer: k.name, frames: rec.frames.length, shots: rec.shots.filter((s) => s.t >= from).length };
     if (this.kc.shot < 0) this.kc.shot = rec.shots.length;
   }
   // A stand-in player that carries your killer's gun (with their skin) for the replay.
-  _puppet(k) {
+  _puppet(k, recorded) {
     if (!this.puppet) {
       const pf = new Fighter({ name: 'replay', team: 'bots', color: 0xffffff, human: true });
       this.puppet = new Human(pf, 'mouse', { ...this.deps }, this.deps.slotOf);
     }
-    const P = this.puppet, gun = k.gun || this.deps.guns[0], key = gun.id + '|' + k.skin;
-    if (P._key !== key) { P.rig.forceSkin = k.skin ?? null; P.setGun(gun); P._key = key; }
+    const P = this.puppet, base = recorded ? this.deps.guns[recorded[11]] : null;
+    const gun = base ? effectiveGun(base, recorded[12]) : k.gun || this.deps.guns[0];
+    const skin = recorded && recorded.length > 13 ? recorded[13] : k.skin;
+    const optic = this.deps.opticById?.(recorded?.[14], gun) || this.deps.opticFor(gun);
+    const key = gun.id + '|' + (gun.attach || '') + '|' + skin + '|' + optic.id;
+    if (P._key !== key) { P.deps = { ...this.deps, opticFor: () => optic }; P.rig.forceSkin = skin ?? null; P.setGun(gun); P._key = key; }
     return P;
   }
   _killCam(t) {
@@ -1028,12 +1047,12 @@ export class Battle {
     // outlines: everyone else, by day only
     for (const g of this.fighters) { const v = g !== f && g.alive && !this.night; g.outline.visible = v; for (const l of g.legs) l.o.visible = v; }
     if (!this.kc) return;
-    const kc = this.kc, rec = this.rec, rt = kc.from + (t - kc.start);
+    const kc = this.kc, rec = kc.rec || this.rec, rt = kc.from + (t - kc.start);
     // the recorded frames around the replay time
     const fr = rec.frames;
     let j = 1;
     while (j < fr.length - 1 && fr[j].t < rt) j++;
-    const A = fr[Math.max(0, j - 1)], B = fr[j];
+    const A = fr[Math.max(0, j - 1)], B = fr[Math.min(j, fr.length - 1)];
     const w = B.t === A.t ? 1 : Math.min(1, Math.max(0, (rt - A.t) / (B.t - A.t)));
     let kill = null;
     const dtR = Math.max(0, Math.min(0.1, t - kc.prevT)); kc.prevT = t;
@@ -1049,8 +1068,9 @@ export class Battle {
       g.gunG.rotation.x = -Math.max(-30, Math.min(30, L(5))) * DEG2RAD * 0.5;
       g.flash.visible = !!(w < 0.5 ? a[8] : b[8]);
       g.barBg.visible = g.barFg.visible = false;
-      if (g === kc.killer) kill = { x: L(1), y: L(2), z: L(3), yaw, pitch: L(5), eye: 1.6 + (1.12 - 1.6) * crouch, ads: a[9] === undefined ? 0 : L(9) };
+      if (g === kc.killer) kill = { x: L(1), y: L(2), z: L(3), yaw, pitch: L(5), eye: 1.6 + (1.12 - 1.6) * crouch, ads: a[9] === undefined ? 0 : L(9), lean: a[10] === undefined ? 0 : L(10), recorded: a };
     }
+    if (kill && kc.pov) this._puppet(kc.killer, kill.recorded);
     // shots fired in the replayed moment
     while (kc.shot < rec.shots.length && rec.shots[kc.shot].t <= rt) {
       const s = rec.shots[kc.shot++];
@@ -1061,14 +1081,10 @@ export class Battle {
     if (!kill) return;
     if (kc.pov) {
       // Their eyes: their aim (with recoil), their gun and sight, aiming in when they did.
-      const P = this._puppet(kc.killer), cam = h.camera, s = this.deps.settings;
+      const P = this._puppet(kc.killer, kill.recorded), cam = h.camera, s = this.deps.settings;
       kc.killer.group.visible = false;
-      cam.position.set(kill.x, kill.y + kill.eye, kill.z);
-      cam.rotation.set(Math.max(-89, Math.min(89, kill.pitch)) * DEG2RAD, -kill.yaw * DEG2RAD, 0);
       const ads = Math.max(0, Math.min(1, kill.ads));
-      const tH = Math.tan(s.fov * DEG2RAD / 2), tA = Math.tan(this.deps.adsVFov(P.optic) * DEG2RAD / 2);
-      const fov = 2 * Math.atan(tH + (tA - tH) * ads) / DEG2RAD;
-      if (Math.abs(cam.fov - fov) > 0.01) { cam.fov = fov; cam.updateProjectionMatrix(); }
+      replayCamera(cam, kill, s, this.deps.adsVFov(P.optic));
       P.rig.animations = s.animations; P.rig.reloadP = -1; P.rig.sprinting = false; P.rig.bobY = 0;
       P.rig.root.visible = true;
       P.rig.update(dtR, ads, t);

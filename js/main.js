@@ -880,7 +880,8 @@ async function boot(data) {
   function battleDeps() {
     return {
       renderer, settings, controls, guns: data.guns, sfx, worldPost,
-      opticFor: (g) => catalogue.byId.get(savedOptic(g)), adsVFov, baseDpc, now: clockNow,
+      opticFor: (g) => catalogue.byId.get(savedOptic(g)),
+      opticById: (id, g) => catalogue.byId.get(g.optics.includes(id) ? id : g.defaultOptic), adsVFov, baseDpc, now: clockNow,
       slotOf: (g) => slotIn(data.guns, g), onEnd: () => lock.exit(), hudRoot: $('app'),
       skinOf: (g) => equippedSkin(slotIn(data.guns, g)),
       voice: voices,

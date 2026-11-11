@@ -1,3 +1,4 @@
+import { replayCamera } from '../replay/view.js?v=2bc20c5-mwb9w9ii';
 import { applyMapArt } from '../render/pack-art.js?v=2bc20c5-mwb9w9ii';
 import { sensoryFor } from '../balance/bomb-utility.js?v=2bc20c5-mwb9w9ii';
 // Team Deathmatch, Capture the Flag and Bomb in the browser: draws the match simulation
@@ -12,7 +13,7 @@ import { initCore } from '../wasm/core.js?v=2bc20c5-mwb9w9ii';
 import { Match, TICK } from './sim.js?v=2bc20c5-mwb9w9ii';
 import { yawTo, wrap180, DEG } from './geom.js?v=2bc20c5-mwb9w9ii';
 import { Fighter } from '../battle/fighter.js?v=2bc20c5-mwb9w9ii';
-import { slotIn } from '../core/loadout.js?v=2bc20c5-mwb9w9ii';
+import { effectiveGun, slotIn } from '../core/loadout.js?v=2bc20c5-mwb9w9ii';
 import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=2bc20c5-mwb9w9ii';
 import { buildMapLook, panelTextures } from './look.js?v=2bc20c5-mwb9w9ii';
 import { Arena } from '../battle/arena.js?v=2bc20c5-mwb9w9ii';
@@ -65,7 +66,7 @@ export class ModeGame {
     this._buildScene();
     this._buildActors();
     this.prevT = d.now(); this.acc = 0; this.mapVersion = -1;
-    this.rec = { frames: [], shots: [], hits: [] }; this.kc = null; this.hud.kcBox.hidden = true;
+    this.rec = { version: 2, frames: [], shots: [], hits: [] }; this.kc = null; this.hud.kcBox.hidden = true;
     this.feed = []; this._renderFeed(); this.points = 0; this._stepT = 0; this.fx = []; this.fx2 = []; this.vigT = -9; this.wasJammed = false;
     this.active = true; this.paused = false; this.over = false;
     this.hud.root.hidden = false; this.hud.end.hidden = true;
@@ -99,7 +100,8 @@ export class ModeGame {
   stop() {
     this.deps.sfx.stopAll?.();
     if (this.scene) { this._disposeScene(); this.scene = null; }
-    this.active = false; this.paused = false;
+    this.active = false; this.paused = false; this.kc = null;
+    if (this.rec) { this.rec.frames.length = 0; this.rec.shots.length = 0; this.rec.hits.length = 0; }
     if (this.hud) { this.hud.root.hidden = true; this.hud.board.hidden = true; }
     if (this.h) this.h.releaseAll();
     if (this.deps.renderer) this.deps.renderer.shadowMap.autoUpdate = true;
@@ -283,10 +285,9 @@ export class ModeGame {
     // the simulation at 60 Hz
     this.acc += dt;
     let n = 0;
-    while (this.acc >= TICK && n < 8) { m.step(); this.acc -= TICK; n++; }
+    while (this.acc >= TICK && n < 8) { m.step(); this._record(); this.acc -= TICK; n++; }
     if (n === 8) this.acc = 0;
     this._events(t);
-    this._record();
     this._refreshPanels();
     // draw everyone where the simulation has them
     for (const a of m.actors) {
@@ -422,11 +423,19 @@ export class ModeGame {
   _record() {
     const m = this.m, R = this.rec;
     if (this.kc) return;
-    const s = new Float32Array(m.actors.length * 7);
-    m.actors.forEach((a, i) => { s.set([a.x, a.z, a.yaw, a.pitch, a.crouch, a.alive ? 1 : 0, a.y], i * 7); });
-    R.frames.push({ t: m.t, s });
-    while (R.frames.length && R.frames[0].t < m.t - 5) R.frames.shift();
-    while (R.shots.length && R.shots[0].t < m.t - 5) R.shots.shift();
+    const last = R.frames.at(-1);
+    if (last && m.t - last.t < 1 / 30 - 1e-6) return;
+    const stride = 13, s = new Float32Array(m.actors.length * stride);
+    const loadouts = m.actors.map((a, i) => {
+      const h = a === this.me ? this.h : null, gun = a.gunData;
+      s.set([a.x, a.z, a.yaw, a.pitch, a.crouch, a.alive ? 1 : 0, a.y,
+        h ? h.adsE : a.ads || 0, h ? h.lean : a.lean || 0, slotIn(this.deps.guns, gun),
+        m.events.some(e => e.type === 'shot' && e.id === a.id) ? 1 : 0, h ? h.offset[0] : 0, h ? h.offset[1] : 0], i * stride);
+      return { attach: gun.attach || null, skin: this.fig.get(a.id)?.skin ?? null, optic: a.op.sight };
+    });
+    R.frames.push({ version: 2, stride, t: m.t, s, loadouts });
+    while (R.frames.length && R.frames[0].t < m.t - 6) R.frames.shift();
+    while (R.shots.length && R.shots[0].t < m.t - 6) R.shots.shift();
     while (R.hits.length && R.hits[0].t < m.t - 10) R.hits.shift();
   }
   _recShot(e) { this.rec.shots.push({ t: this.m.t, id: e.id, to: e.to.slice(), team: e.team }); }
@@ -438,7 +447,7 @@ export class ModeGame {
     const report = [...by.entries()].map(([n, r]) => n + ': ' + r.n + ' hit' + (r.n > 1 ? 's' : '') + (r.head ? ' (' + r.head + ' head)' : '') + ', ' + Math.round(r.dmg)).join(' · ');
     const dist = Math.hypot(k.x - me.x, k.z - me.z);
     // 0.3 s pause, then the last 2.1 s and 0.3 s after: over before the 3 s respawn
-    this.kc = { by: k.id, deathT: m.t, start: t + 0.3, from: m.t - 2.1, si: 0, fi: 0 };
+    this.kc = { prevT: t + 0.3, by: k.id, deathT: m.t, start: t + 0.3, from: m.t - 2.1, si: 0, fi: 0 };
     this.kc.si = this.rec.shots.findIndex((s) => s.t >= this.kc.from); if (this.kc.si < 0) this.kc.si = this.rec.shots.length;
     if (!this.kcCam) this.kcCam = new THREE.PerspectiveCamera(70, 1, 0.03, 300);
     const H = this.hud;
@@ -463,7 +472,7 @@ export class ModeGame {
     const f = B.t > A.t ? Math.max(0, Math.min(1, (rt - A.t) / (B.t - A.t))) : 0;
     const lerpYaw = (a, b) => a + wrap180(b - a) * f;
     m.actors.forEach((a, k) => {
-      const fig = this.fig.get(a.id), o = k * 7;
+      const stride = A.stride || 7, fig = this.fig.get(a.id), o = k * stride;
       if (o + 6 >= A.s.length) return;
       fig.x = A.s[o] + (B.s[o] - A.s[o]) * f; fig.z = A.s[o + 1] + (B.s[o + 1] - A.s[o + 1]) * f;
       fig.yaw = lerpYaw(A.s[o + 2], B.s[o + 2]); fig.pitch = A.s[o + 3] + (B.s[o + 3] - A.s[o + 3]) * f; fig.crouch = A.s[o + 4];
@@ -473,15 +482,32 @@ export class ModeGame {
       if (a.id === kc.by) {
         // the killer's eyes
         fig.group.visible = false;
-        this.kcCam.position.set(fig.x, fig.y + 1.6 - 0.45 * fig.crouch, fig.z);
-        this.kcCam.rotation.set(fig.pitch * DEG, -fig.yaw * DEG, 0, 'YXZ');
+        const L = j => A.s[o + j] + (B.s[o + j] - A.s[o + j]) * f;
+        const ads = stride > 7 ? L(7) : 0, lean = stride > 7 ? L(8) : 0;
+        const loadout = A.loadouts?.[k];
+        const gun = loadout ? effectiveGun(this.deps.guns[A.s[o + 9]] || a.gunData, loadout.attach) : a.gunData;
+        const optic = this.deps.opticById(loadout?.optic || a.op.sight, gun);
+        if (!this.kcPuppet) this.kcPuppet = new Human(new Fighter({ name: 'replay', team: a.team, color: 0xffffff, human: true }), 'mouse', this.deps, this.deps.slotOf);
+        const P = this.kcPuppet, key = gun.id + '|' + (gun.attach || '') + '|' + optic.id + '|' + (loadout?.skin ?? '');
+        if (P._key !== key) {
+          P.deps = { ...this.deps, opticFor: () => optic };
+          P.rig.forceSkin = loadout?.skin ?? null; P.setGun(gun); P._key = key;
+        }
+        replayCamera(this.kcCam, { x: fig.x, y: fig.y, z: fig.z,
+          eye: 1.6 - 0.48 * fig.crouch, yaw: fig.yaw + (stride > 7 ? L(11) : 0),
+          pitch: fig.pitch + (stride > 7 ? L(12) : 0), ads, lean }, this.deps.settings, this.deps.adsVFov(optic));
+        P.rig.animations = this.deps.settings.animations; P.rig.reloadP = -1; P.rig.sprinting = false; P.rig.bobY = 0;
+        P.rig.update(Math.max(0, Math.min(0.1, t - kc.prevT)), ads, t);
+        if (P.reticle) P.reticle.material.opacity = Math.min(1, Math.max(0, (ads - 0.55) / 0.35));
       }
       if (a === this.me) { fig.outline.visible = true; for (const l of fig.legs) l.o.visible = true; }   // you, in red
     });
+    kc.prevT = t;
     // their shots, as they happened
     while (kc.si < R.shots.length && R.shots[kc.si].t <= rt) {
       const s = R.shots[kc.si++];
       if (s.id !== kc.by) continue;
+      this.kcPuppet?.rig.kick();
       const c = this.kcCam.position, d = new THREE.Vector3(0, -0.12, -0.6).applyQuaternion(this.kcCam.quaternion);
       this._tracer(new THREE.Vector3(c.x + d.x, c.y + d.y, c.z + d.z), s.to, t, s.team);
       this.deps.sfx.shot(this.m.actors.find((x) => x.id === s.id)?.gun.tone ?? 0.5, 0.5);
@@ -704,10 +730,9 @@ export class ModeGame {
     const wp = this.deps.worldPost;
     if (wp && wp.active) wp.draw(this.scene, cam); else r.render(this.scene, cam);
     h.f.group.visible = ownVis;
-    if (!this.camOverride) {
-      r.clearDepth();
-      h.rig.setAspect(aspect, sz.y);
-      r.render(h.rig.scene, h.rig.camera);
+    const rig = this.kc && this.camOverride === this.kcCam ? this.kcPuppet?.rig : !this.camOverride ? h.rig : null;
+    if (rig) {
+      r.clearDepth(); rig.setAspect(aspect, sz.y); r.render(rig.scene, rig.camera);
     }
   }
 

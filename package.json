@@ -20,6 +20,7 @@
     "build:bomb-utility": "bash tools/build-bomb-utility.sh --test",
     "test:bomb-utility": "node tests/bomb-utility.mjs && node tests/bomb-utility-browser.mjs",
     "test:enhanced-pack": "node tests/pack-assets.mjs && node tests/pack-anims.mjs && node tests/pack-integration.mjs",
-    "build:enhanced-surfaces": "node tools/build-hd.mjs --surfaces"
+    "build:enhanced-surfaces": "node tools/build-hd.mjs --surfaces",
+    "test:replay": "node tests/replay-browser.mjs"
   }
 }

@@ -276,6 +276,7 @@ export class Human {
     const lt = (this.in.leanR ? 1 : 0) - (this.in.leanL ? 1 : 0);
     this.lean += (lt - this.lean) * (1 - Math.exp(-14 * dt));
     f.yaw = this.look.yaw; f.pitch = this.look.pitch;
+    f.lean = this.lean; f.viewOptic = this.optic.id;
     f.viewDY = this.offset[0]; f.viewDP = this.offset[1];
 
     // Aim-down-sights blend and FOV (vertical FOV setting; sight's aimed FOV).
