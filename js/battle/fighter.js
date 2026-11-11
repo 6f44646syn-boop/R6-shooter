@@ -193,7 +193,9 @@ export class Fighter {
   }
   // Pack v5: the lighter soldier when far from the camera (d: metres). Cheap to call each frame.
   lodFor(d) {
-    const g = this._geo, far = !!(g && g.far) && d > (maxMode.on ? Infinity : 16);   // Max: full detail at any distance
+    const g = this._geo;
+    if (!g) return;                                  // no pack model on this fighter (Low / Standard, or not dressed yet)
+    const far = !!g.far && d > (maxMode.on ? Infinity : 16);   // Max: full detail at any distance
     if (far === this._far) return;
     this._far = far;
     const s = far ? g.far : g;
