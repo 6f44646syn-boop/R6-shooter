@@ -140,7 +140,12 @@ export const FACTORY = [
   { name: 'Concrete Splinter', pattern: 9, c: [L(0.58, 0.59, 0.6), L(0.34, 0.35, 0.37), L(0.13, 0.135, 0.145), L(0.22, 0.29, 0.38)], rm: [0.58, 0.12, 0.58, 0.12], clearcoat: 0, wear: 0.8 },
 ].map((s, i) => ({ id: 1000 + i, rarity: 'factory', p: [1, 1, 0, 0], glow: [0, 0, 0], ...s }));
 
+// Prototype (not in the catalogue): frozen glass, after the user's concept images. Emerald.
+export const GLASS = { id: 900, rarity: 'glass', name: 'Frozen Glass Emerald', pattern: 17, glass: true,
+  c: [[0.0, 0.05, 0.02], [0.02, 0.55, 0.2], [0.94, 0.98, 1.0], [0.25, 0.8, 0.5]], p: [1, 0.7, 0, 0],
+  rm: [0.05, 0.0, 0.62, 0.0], clearcoat: 1, wear: 0, glow: [0.03, 0.6, 0.24] };
 export function skinById(id) {
+  if (id === GLASS.id) return GLASS;
   if (id === LEGEND_ID) return LEGEND;
   if (id === LEGEND_GOLD_ID) return LEGEND_GOLD;
   if (id >= 1000) return FACTORY[(id - 1000) % FACTORY.length];

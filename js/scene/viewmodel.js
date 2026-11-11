@@ -104,8 +104,8 @@ function skinMaterial(def) {
     const coat = Math.max(sk.clearcoat || 0, { common: 0.25, rare: 0.55, epic: 0.9, blackice: 1, legendary: 1 }[r] || 0);
     m = new THREE.MeshPhysicalMaterial({
       color: 0xffffff, roughness: 1, metalness: 1, normalMap: hd ? null : gunMaps('metal').normal, normalScale: new THREE.Vector2(0.6, 0.6),
-      clearcoat: coat, clearcoatRoughness: r === 'epic' || r === 'blackice' ? 0.05 : 0.15, envMap: highEnv(), envMapIntensity: r === 'common' ? 1.1 : 1.4,
-      iridescence: r === 'blackice' ? 0.8 : r === 'legendary' ? 0.5 : r === 'epic' ? 0.45 : 0, iridescenceIOR: 1.6, iridescenceThicknessRange: [200, 600],
+      clearcoat: coat, clearcoatRoughness: r === 'glass' ? 0.02 : r === 'epic' || r === 'blackice' ? 0.05 : 0.15, envMap: highEnv(), envMapIntensity: r === 'common' ? 1.1 : 1.4,
+      iridescence: r === 'glass' ? 1 : r === 'blackice' ? 0.8 : r === 'legendary' ? 0.5 : r === 'epic' ? 0.45 : 0, iridescenceIOR: 1.6, iridescenceThicknessRange: [200, 600],
     });
     // Pack models: relief depth (parallax) on graphics cards with WebGL 2.
     const depth = hd && RENDERER && RENDERER.capabilities.isWebGL2 ? (def.rarity === 'blackice' ? 0.0022 : def.rarity === 'common' ? 0.0008 : 0.0014) : 0;
@@ -667,6 +667,142 @@ function iceCrystals(g, mg, def, type) {
   };
   build(g);
   build(mg);
+}
+
+/* ---------- Frozen glass (prototype): rime crust, icicles, a clear magazine, vapour ---------- */
+// A thick white crust of frost along every top edge (jagged chunks with taller spikes), icicles
+// hanging from the bottom edges of the handguard and receiver, a magazine of clear coloured
+// glass, and cold vapour curling off the muzzle.
+function glassFrost(g, mg, def, type, muzzle) {
+  const rng = mulberry32(def.id * 131 + type.length);
+  const rails = RAILS[type] || [];
+  const railFrom = Math.max(...rails.map((r) => r[1]), 0) + 0.03, railTo = Math.min(...rails.map((r) => r[2]), 0) - 0.03;
+  const tint = new THREE.Color(...def.glow);
+  const rimeM = new THREE.MeshStandardMaterial({ color: 0xeef6fb, roughness: 0.42, metalness: 0, flatShading: true, emissive: tint.clone().multiplyScalar(0.12), envMap: highEnv() || ENV, envMapIntensity: 1.2 });
+  const icM = new THREE.MeshPhysicalMaterial({ color: new THREE.Color(0.85, 0.97, 1).lerp(tint, 0.15), roughness: 0.04, metalness: 0, transparent: true, opacity: 0.78, flatShading: true,
+    clearcoat: 1, clearcoatRoughness: 0.02, iridescence: 0.4, envMap: highEnv() || ENV, envMapIntensity: 2.2, emissive: tint.clone().multiplyScalar(0.18) });
+  const rime = [], ice = [];
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), sc = new THREE.Vector3(), p = new THREE.Vector3();
+  const chunkGeo = new THREE.IcosahedronGeometry(1, 0), spikeGeo = new THREE.OctahedronGeometry(1, 0), cicle = new THREE.ConeGeometry(1, 1, 6, 1);
+  cicle.rotateX(Math.PI); cicle.translate(0, -0.5, 0);                   // tip down, base at 0
+  const put = (list, geo, part, x, y, z, sx, sy, sz, rx = 0, ry = 0, rz = 0) => {
+    const gg = geo.clone().toNonIndexed();
+    m4.compose(p.set(x, y, z), q.setFromEuler(e.set(rx, ry, rz)), sc.set(sx, sy, sz));
+    gg.applyMatrix4(m4).applyMatrix4(part.matrix);
+    list.push(gg);
+  };
+  for (const part of g.children) {
+    if (part.isMesh && part.userData.hd && part.material.userData.skinKey) {
+      // pack model: a dense crust on the skinned body's upward faces, icicles off its downward ones (front half)
+      // by triangle, so the crust is as dense on a big flat face as on a detailed one
+      const gp = part.geometry.attributes.position.array, idx = part.geometry.index ? part.geometry.index.array : null;
+      const nt = (idx ? idx.length : gp.length / 3) / 3;
+      const A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3(), nrm = new THREE.Vector3(), t1 = new THREE.Vector3(), t2 = new THREE.Vector3();
+      const vtx = (v, k) => v.fromArray(gp, (idx ? idx[k] : k) * 3);
+      part.updateMatrix();
+      for (let t = 0; t < nt; t++) {
+        vtx(A, t * 3); vtx(B, t * 3 + 1); vtx(C, t * 3 + 2);
+        nrm.crossVectors(t1.subVectors(B, A), t2.subVectors(C, A));
+        const area = nrm.length() / 2; if (area < 1e-9) continue;
+        nrm.normalize();
+        const up = nrm.y > 0.6, down = nrm.y < -0.7;
+        if (!up && !down) continue;
+        // chunks per triangle from its area (about one per 14 mm^2 on top), a random remainder
+        const want = area / (up ? 1.4e-5 : 9e-5), cnt = Math.floor(want) + (rng() < want % 1 ? 1 : 0);
+        for (let c = 0; c < cnt; c++) {
+          let u = rng(), v = rng(); if (u + v > 1) { u = 1 - u; v = 1 - v; }
+          const x = A.x + (B.x - A.x) * u + (C.x - A.x) * v, y = A.y + (B.y - A.y) * u + (C.y - A.y) * v, z = A.z + (B.z - A.z) * u + (C.z - A.z) * v;
+          const low = z < railFrom && z > railTo ? 0.3 : 1;
+          if (up) {
+            const r = (0.0024 + rng() * 0.0034) * (0.6 + 0.4 * low);
+            put(rime, chunkGeo, part, x, y + r * 0.15, z, r * (0.9 + rng() * 0.7), r * (0.6 + rng() * 1.1) * low, r * (0.9 + rng() * 0.7), rng() * 3, rng() * 3, rng() * 3);
+            if (rng() < 0.06 * low) { const L = 0.008 + rng() * 0.022; put(rime, spikeGeo, part, x, y + L * 0.45, z, 0.0024 + rng() * 0.002, L * 0.6, 0.0024 + rng() * 0.002, (rng() - 0.5) * 0.8, rng() * 3, (rng() - 0.5) * 0.8); }
+          } else if (z < 0.06) {
+            const L = 0.006 + Math.pow(rng(), 2) * 0.03, r = 0.0016 + rng() * 0.002;
+            put(ice, cicle, part, x, y + 0.001, z, r, L, r, (rng() - 0.5) * 0.25, 0, (rng() - 0.5) * 0.25);
+          }
+        }
+      }
+      continue;
+    }
+    if (!part.isMesh || !part.geometry.parameters || part.geometry.type !== 'BoxGeometry') continue;
+    if (!part.material.userData.skinKey) continue;                     // only the skinned body (not the black grip, rails)
+    const { width: w, height: h, depth: d } = part.geometry.parameters;
+    if (d < 0.04 || h < 0.015) continue;
+    part.updateMatrix();
+    // the crust: a ridge of chunks every few mm, taller spikes now and then
+    for (let z = -d / 2 + 0.004; z < d / 2 - 0.004; z += 0.0045 + rng() * 0.003) {
+      const zg = z + part.position.z, low = zg < railFrom && zg > railTo ? 0.3 : 1;   // low under the sight
+      const across = Math.max(1, Math.round(w / 0.012));
+      for (let a = 0; a < across; a++) {
+        const x = (a + 0.5) / across * w - w / 2 + (rng() - 0.5) * 0.004;
+        const r = (0.003 + rng() * 0.004) * (0.6 + 0.4 * low);
+        put(rime, chunkGeo, part, x, h / 2 + r * 0.25, z, r * (0.9 + rng() * 0.6), r * (0.7 + rng() * 0.9) * low, r * (0.9 + rng() * 0.6), rng() * 3, rng() * 3, rng() * 3);
+      }
+      // frost spilling over both side edges
+      for (const sx of [-1, 1]) if (rng() < 0.7) { const r = 0.002 + rng() * 0.003; put(rime, chunkGeo, part, sx * w / 2, h / 2 - r * 0.6, z, r, r * 1.4, r, rng() * 3, rng() * 3, rng() * 3); }
+      if (rng() < 0.28 * low) {
+        const L = 0.008 + rng() * 0.02;
+        put(rime, spikeGeo, part, (rng() - 0.5) * w * 0.7, h / 2 + L * 0.45, z, 0.0028 + rng() * 0.002, L * 0.6, 0.0028 + rng() * 0.002, (rng() - 0.5) * 0.7, rng() * 3, (rng() - 0.5) * 0.7);
+      }
+    }
+    // icicles under the front half of the gun (handguard and receiver)
+    if (part.position.z < 0.06 && d > 0.07) for (let z = -d / 2 + 0.006; z < d / 2 - 0.006; z += 0.006 + rng() * 0.008) {
+      const L = 0.006 + Math.pow(rng(), 2) * 0.032, r = 0.0018 + rng() * 0.0022;
+      put(ice, cicle, part, (rng() - 0.5) * w * 0.8, -h / 2 + 0.001, z, r, L, r, (rng() - 0.5) * 0.25, 0, (rng() - 0.5) * 0.25);
+      if (rng() < 0.6) put(rime, chunkGeo, part, (rng() - 0.5) * w * 0.8, -h / 2, z, 0.0025, 0.0018, 0.0025, rng() * 3, rng() * 3, rng() * 3);
+    }
+  }
+  const merge = (list, m, order) => {
+    if (!list.length) return;
+    let n = 0; for (const x of list) n += x.attributes.position.count;
+    const P = new Float32Array(n * 3), N = new Float32Array(n * 3); let o = 0;
+    for (const x of list) { P.set(x.attributes.position.array, o * 3); N.set(x.attributes.normal.array, o * 3); o += x.attributes.position.count; x.dispose(); }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(P, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(N, 3));
+    const mesh = new THREE.Mesh(geo, m); mesh.frustumCulled = false; mesh.renderOrder = order; g.add(mesh);
+  };
+  merge(rime, rimeM, 1); merge(ice, icM, 2);
+  // the magazine: clear coloured glass with a milky edge glow and the rounds showing through
+  const glassM = new THREE.MeshPhysicalMaterial({ color: new THREE.Color(...def.c[3]).lerp(new THREE.Color(1, 1, 1), 0.45), roughness: 0.03, metalness: 0, transparent: true, opacity: 0.55,
+    depthWrite: false, clearcoat: 1, clearcoatRoughness: 0.02, iridescence: 0.9, iridescenceIOR: 1.4, envMap: highEnv() || ENV, envMapIntensity: 2.6, side: THREE.DoubleSide,
+    emissive: tint.clone().multiplyScalar(0.12) });
+  const mb = new THREE.Box3();
+  mg.traverse((o) => { if (o.isMesh) { o.material = glassM; o.renderOrder = 3; } });
+  mb.setFromObject(mg);
+  // inside the glass: a smaller, softly glowing core, so the magazine has depth
+  if (!mb.isEmpty()) {
+    const c = mb.getCenter(new THREE.Vector3());
+    const coreM = new THREE.MeshBasicMaterial({ color: tint.clone().multiplyScalar(0.55), transparent: true, opacity: 0.35, depthWrite: false });
+    const cores = [];
+    mg.traverse((o) => { if (o.isMesh && o.material === glassM) cores.push(o); });
+    for (const o of cores) {
+      const k = o.clone(); k.material = coreM; k.renderOrder = 2;
+      k.position.sub(c).multiplyScalar(0.82).add(c); k.scale.multiplyScalar(0.82);
+      mg.add(k);
+    }
+  }
+  // vapour off the muzzle: soft puffs that rise, curl and fade, on a loop
+  const nV = 36, P = new Float32Array(nV * 3), R = new Float32Array(nV);
+  for (let i = 0; i < nV; i++) { P[i * 3] = muzzle[0]; P[i * 3 + 1] = muzzle[1]; P[i * 3 + 2] = muzzle[2]; R[i] = i / nV; }
+  const vg = new THREE.BufferGeometry();
+  vg.setAttribute('position', new THREE.BufferAttribute(P, 3)); vg.setAttribute('vRnd', new THREE.BufferAttribute(R, 1));
+  const vu = { vT: { value: 0 } };
+  const vm = new THREE.PointsMaterial({ map: snowTex(), color: 0xdfeff8, size: 0.05, transparent: true, opacity: 0.22, depthWrite: false, toneMapped: false });
+  vm.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, vu);
+    sh.vertexShader = 'attribute float vRnd; uniform float vT; varying float vA;\n' + sh.vertexShader
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+        float ph = fract(vT * 0.22 + vRnd);
+        transformed += vec3(sin(ph * 7.0 + vRnd * 30.0) * 0.012 * ph, ph * 0.11, -ph * 0.02 + cos(ph * 5.0 + vRnd * 9.0) * 0.008);
+        vA = sin(ph * 3.14159) * (0.6 + 0.4 * fract(vRnd * 13.7));`)
+      .replace('#include <logdepthbuf_vertex>', 'gl_PointSize *= 0.5 + ph * 1.5;\n#include <logdepthbuf_vertex>');
+    sh.fragmentShader = 'varying float vA;\n' + sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.a *= vA;');
+  };
+  const vp = new THREE.Points(vg, vm);
+  vp.frustumCulled = false; vp.renderOrder = 4;
+  vp.onBeforeRender = () => { vu.vT.value = performance.now() / 1000; };
+  g.add(vp);
 }
 
 /* ---------- moving parts and ultra detail (gun coordinates) ---------- */
@@ -1266,6 +1402,7 @@ export class WeaponRig {
       const keepSkin = SKIN_FORCE; SKIN_FORCE = null;
       const ext = attachParts(gunG, magG, type, gun.attach, my, mz);
       SKIN_FORCE = keepSkin;
+      if (sk && sk.glass) glassFrost(gunG, magG, sk, type, [0, my + 0.01, mz - 0.02 - ext]);
       // Pack guns with the pack's animations: the support hand is its own part (it reloads).
       const sup = hdm && packAnims.set && !this.noHands ? new THREE.Group() : null;
       let palm = null;

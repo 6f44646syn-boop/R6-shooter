@@ -266,6 +266,53 @@ void iceSkin(vec2 uv, float S, out vec3 col, out float m, out float g) {
   col = mix(col, c2, spark);
   m = max(crack, max(flake, fern * 0.5)); g = max(max(crack * 0.35, spark), max(flake * 0.85, fern * 0.3 + bubble * 0.2));
 }
+// Frozen glass (prototype): luminous coloured ice you can see into. Swirled depth from a dark
+// core to a bright body, chipped crystal facets each catching the light differently, milky
+// clouds frozen inside, white hairline fractures, rime patches and glints.
+//   c0 deep core, c1 luminous body, c2 rime white, c3 milky tint. m: rime (matt), g: glow.
+vec3 prism(float h) { return 0.5 + 0.5 * cos(6.2831853 * (h + vec3(0.0, 0.33, 0.67))); }
+void glassSkin(vec2 uv, float S, out vec3 col, out float m, out float g) {
+  vec2 w = uv + vec2(fbm(uv, 3.0, 5), fbm(uv + 3.1, 3.0, 5)) * 0.16;
+  float depth = fbm(w, 4.0 * S, 6);
+  col = mix(c0, c1, sstep(-0.12, 0.38, depth));
+  // facets: big chipped planes, each a little lighter or darker, with bright bevelled seams
+  vec3 v = voronoi(w, vec2(6.0, 4.0) * S);
+  float facet = v.z;
+  col *= 0.68 + 0.62 * facet;
+  float seam = sstep(0.05, 0.0, v.y - v.x);
+  col = mix(col, mix(c1, c3, 0.6) * 1.3, seam * 0.5);
+  // streaks of light running through the ice
+  float streak = pow(abs(sin((uv.x * 3.0 + uv.y * 1.0) * S * 6.2831853 + fbm(uv, 5.0 * S, 4) * 4.0)), 18.0);
+  col += c1 * streak * 0.35 * sstep(0.0, 0.3, depth);
+  // milky clouds frozen inside
+  float cloud = sstep(0.08, 0.42, fbm(uv + 8.0, 6.0 * S, 5));
+  col = mix(col, c3, cloud * 0.25);
+  // white hairline fractures, broken up so they start and stop
+  vec2 wq = uv + vec2(fbm(uv + 1.7, 9.0 * S, 4), fbm(uv + 4.2, 9.0 * S, 4)) * 0.02;
+  vec3 f = voronoi(wq, vec2(15.0, 10.0) * S);
+  float frac = sstep(0.022, 0.0, f.y - f.x) * sstep(-0.02, 0.18, fbm(uv + 6.6, 7.0 * S, 4));
+  col = mix(col, c2, frac * 0.85);
+  // rime: frosted white patches (matt), thickest in blotches
+  float rime = sstep(0.22, 0.42, fbm(uv + 13.0, 9.0 * S, 6));
+  float rimeGrain = 0.85 + 0.3 * fbm(uv, 160.0, 3);
+  col = mix(col, c2 * rimeGrain, rime * 0.92);
+  // glints
+  vec2 sp = uv * 220.0, sc = floor(sp);
+  float glint = sstep(0.14, 0.0, length(fract(sp) - 0.5 - 0.3 * hash2(mod(sc, vec2(220.0))))) * step(0.955, hash1(mod(sc, vec2(220.0)) + 5.0));
+  // rainbow streaks: light split by the ice into spectra, in long bands across some facets,
+  // the colours running along each band; glints catch a colour too
+  float bandA = pow(abs(sin(dot(w, vec2(2.0, 1.0)) * S * 6.2831853 * 1.5 + fbm(uv + 2.2, 4.0 * S, 4) * 2.5)), 26.0);
+  float bandB = pow(abs(sin(dot(w, vec2(-1.0, 3.0)) * S * 6.2831853 * 1.0 + fbm(uv + 5.5, 3.0 * S, 4) * 3.0)), 40.0);
+  float onF = sstep(0.45, 0.7, facet) * (1.0 - rime);
+  float hueA = fract(dot(uv, vec2(1.0, 2.0)) * 3.0 * S + fbm(uv + 7.7, 3.0 * S, 3) * 1.5);
+  float hueB = fract(dot(uv, vec2(3.0, -1.0)) * 2.0 * S + v.z * 3.0);
+  vec3 rain = prism(hueA) * bandA * onF + prism(hueB) * bandB * sstep(0.2, 0.5, facet) * (1.0 - rime) * 0.8;
+  col = col * (1.0 - clamp(bandA * onF, 0.0, 1.0) * 0.5) + rain * 1.1;
+  col = mix(col, mix(vec3(1.0), prism(hash1(sc + 9.0)), 0.6), glint);
+  m = max(rime, frac * 0.6);
+  g = (1.0 - rime) * pow(sstep(0.0, 0.45, depth), 2.0) * (0.4 + 0.6 * facet) * 0.7 + seam * 0.3 + streak * 0.4 + glint;
+  g = clamp(g, 0.0, 1.0);
+}
 void skinAt(vec2 uv, out vec3 col, out float m, out float g) {
   float S = max(1.0, floor(prm.x + 0.5)), W = prm.y, T = prm.z;
   float grain = fbm(uv, 128.0, 3) * 0.06;
@@ -392,6 +439,8 @@ void skinAt(vec2 uv, out vec3 col, out float m, out float g) {
     col = mix(col, c1 * (0.8 + 0.4 * fbm(uv + 2.0, 32.0, 3)), flower);
     col = mix(col, c2, centre * flower);
     m = flower; g = 0.0;
+  } else if (pattern == 17) {        // frozen glass (see glassSkin)
+    glassSkin(uv, S, col, m, g);
   } else if (pattern == 16) {        // breaking waves with foam lines
     float y = uv.y * 4.0 * S;
     float row = floor(y), fy = fract(y);
@@ -458,7 +507,7 @@ export function bakeSkin(renderer, def, size = 4096) {
     const hu = { ...skinUniforms(def), ...s2 };
     const h = bake(renderer, head + /* glsl */`
       void main() { vec3 col; float m, g; ${v2 ? 'float hh; skinAt2(vUv, col, m, g, hh);' : 'skinAt(vUv, col, m, g); float hh = 0.5;'} float lum = dot(col, vec3(0.3, 0.5, 0.2));
-        float h = pattern == 10 ? 0.75 - m * 0.7 + fbm(vUv, 48.0, 4) * 0.06 : ${v2 ? 'hh + fbm(vUv, 96.0, 3) * 0.04' : '0.5 + m * 0.35 - g * 0.25 + lum * 0.15 + fbm(vUv, 96.0, 3) * 0.08'};
+        float h = pattern == 10 ? 0.75 - m * 0.7 + fbm(vUv, 48.0, 4) * 0.06 : pattern == 17 ? 0.45 + m * 0.4 + fbm(vUv, 48.0, 4) * 0.05 : ${v2 ? 'hh + fbm(vUv, 96.0, 3) * 0.04' : '0.5 + m * 0.35 - g * 0.25 + lum * 0.15 + fbm(vUv, 96.0, 3) * 0.08'};
         gl_FragColor = vec4(vec3(h), 1.0); }`,
     Math.max(512, size >> 1), hu, { mip: false });
     normal = bakeNormalFromTexture(renderer, h, h.image.width, def.pattern === 10 ? 9.0 : 3.0);

@@ -87,7 +87,7 @@ void skinAt2(vec2 uv, out vec3 col, out float m, out float g, out float h) {
   // in a fixed place, at a size that reads on a gun
   float pick = h1s(uSeedS + 11.0);
   float has = uRarity >= 1.0 ? step(0.25, pick) : step(0.8, pick);
-  if (has > 0.5 && pattern != 10) {
+  if (has > 0.5 && pattern != 10 && pattern != 17) {
     float cell = floor(h1s(uSeedS + 13.0) * 16.0);
     vec2 cp = vec2(mod(cell, 4.0), floor(cell / 4.0));
     vec2 dc = vec2(0.3 + 0.4 * h1s(uSeedS + 17.0), 0.3 + 0.4 * h1s(uSeedS + 19.0));
