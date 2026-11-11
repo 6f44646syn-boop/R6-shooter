@@ -201,6 +201,71 @@ float iceCracks(vec2 uv, float S) {
   float star = rays * sstep(0.5, 0.0, length(d)) * step(0.6, hash1(mod(ci, vec2(9.0 * S)) + 4.0));
   return max(big, max(fine * 0.8, star * 0.9));
 }
+// Black Ice emblem: a six-armed snowflake, different per skin (seed). 0..1 = on a line.
+float iceFlake(vec2 q, float R, float seed) {
+  float r = length(q);
+  if (r > R * 1.15) return 0.0;
+  float a = mod(atan(q.y, q.x) + 6.2831853, 1.0471976);
+  a = abs(a - 0.5235988);                                    // fold into one twelfth
+  vec2 p = vec2(cos(a), sin(a)) * r;                         // the arm runs along +x
+  float w = R * 0.03;
+  float d = abs(p.y) + max(p.x - R, 0.0);                    // the arm
+  for (int i = 0; i < 4; i++) {
+    float fi = float(i);
+    float bx = R * (0.22 + 0.19 * fi + 0.05 * hash1(vec2(seed, fi)));
+    float bl = R * (0.12 + 0.3 * hash1(vec2(seed + 3.0, fi))) * (1.0 - 0.2 * fi);
+    vec2 o = p - vec2(bx, 0.0), dir = vec2(0.5, 0.8660254);  // a branch at 60 degrees
+    d = min(d, length(o - dir * clamp(dot(o, dir), 0.0, bl)));
+  }
+  d = min(d, abs(r - R * (0.1 + 0.06 * hash1(vec2(seed, 9.0)))));             // the centre ring
+  float tip = length(p - vec2(R, 0.0)) - R * 0.045;                         // a bead on each tip
+  return max(sstep(w, w * 0.35, d), sstep(0.004, 0.0, tip));
+}
+// Black Ice: a deep glossy colour with cloudy frozen depths, shattered cracks with lit and
+// shadowed edges, frost ferns feathering out from the big cracks, trapped air bubbles, sparkles
+// and an etched snowflake emblem. g (glow) lights the cracks, the ferns and the emblem.
+void iceSkin(vec2 uv, float S, out vec3 col, out float m, out float g) {
+  float seed = prm.w;
+  float mott = fbm(uv, 4.0, 6);
+  col = mix(c0, c3, sstep(-0.15, 0.35, mott));                           // lighter patches
+  // frozen depth: cloudy layers deep in the ice, lit from inside
+  float deep = fbm(uv + vec2(fbm(uv + 2.0, 3.0, 4), fbm(uv + 7.0, 3.0, 4)) * 0.12, 5.0, 6);
+  col = mix(col, c3 * 1.7 + c1 * 0.05, sstep(0.05, 0.45, deep) * 0.38);
+  col = mix(col, c3 * 1.4, sstep(0.25, 0.45, fbm(uv + 9.0, 7.0, 5)) * 0.4);
+  // cracks cut into the finish: a dark core, a lit upper edge and a shadowed lower edge
+  float crack = iceCracks(uv, S);
+  float e = 0.0022;
+  float bev = iceCracks(uv + vec2(-e, e), S) - iceCracks(uv + vec2(e, -e), S);
+  // frost ferns: fine parallel feathers growing from the big cracks, a direction per shard
+  vec2 wq = uv + vec2(fbm(uv, 8.0 * S, 4), fbm(uv + 5.0, 8.0 * S, 4)) * 0.025;
+  vec3 v1 = voronoi(wq, vec2(5.0 * S));
+  float near = sstep(0.32, 0.0, v1.y - v1.x + 0.12 * fbm(uv + 1.3, 12.0 * S, 4));
+  float k = floor(v1.z * 6.0);
+  vec2 kv = k < 1.0 ? vec2(1, 2) : k < 2.0 ? vec2(2, -1) : k < 3.0 ? vec2(1, -2) : k < 4.0 ? vec2(2, 1) : k < 5.0 ? vec2(1, 3) : vec2(3, -1);
+  float stripe = abs(sin(dot(uv, kv) * S * 6.2831853 * 34.0 + fbm(uv, 16.0 * S, 3) * 3.0));
+  float fern = pow(stripe, 10.0) * near * sstep(-0.1, 0.25, fbm(uv + 4.4, 9.0 * S, 4));
+  // trapped air bubbles: small bright rings with a dark heart
+  vec3 vb = voronoi(uv, vec2(36.0 * S));
+  float keep = step(0.86, vb.z), rr = vb.x;
+  float bubble = keep * sstep(0.16, 0.12, rr) * sstep(0.06, 0.1, rr);
+  float bubbleIn = keep * sstep(0.08, 0.04, rr);
+  // sparkles
+  vec2 sp = uv * 160.0, sc = floor(sp);
+  float spark = sstep(0.12, 0.0, length(fract(sp) - 0.5 - 0.3 * hash2(mod(sc, vec2(160.0))))) * step(0.93, hash1(mod(sc, vec2(160.0)) + 2.0));
+  // the emblem: one snowflake per tile, placed and drawn from the skin's seed
+  vec2 cen = vec2(0.3 + 0.4 * hash1(vec2(seed, 1.0)), 0.3 + 0.4 * hash1(vec2(seed, 2.0)));
+  float flake = seed > 0.0 ? iceFlake(fract(uv * S) - cen, 0.17, seed) : 0.0;
+  col = mix(col, c1 * 0.9 + c3 * 0.2, fern * 0.55);
+  col = mix(col, c1, crack * 0.9);
+  col = mix(col, c0 * 0.12, pow(crack, 2.5) * 0.9);
+  col += c2 * max(bev, 0.0) * 0.9;
+  col *= 1.0 - max(-bev, 0.0) * 0.7;
+  col = mix(col, c3 * 0.5, bubbleIn * 0.6);
+  col = mix(col, c2, bubble * 0.7);
+  col = mix(col, mix(c2, c1, 0.4), flake * 0.9);
+  col = mix(col, c2, spark);
+  m = max(crack, max(flake, fern * 0.5)); g = max(max(crack * 0.35, spark), max(flake * 0.85, fern * 0.3 + bubble * 0.2));
+}
 void skinAt(vec2 uv, out vec3 col, out float m, out float g) {
   float S = max(1.0, floor(prm.x + 0.5)), W = prm.y, T = prm.z;
   float grain = fbm(uv, 128.0, 3) * 0.06;
@@ -277,23 +342,8 @@ void skinAt(vec2 uv, out vec3 col, out float m, out float g) {
     col = v.z < 0.3 ? c0 : (v.z < 0.55 ? c1 : (v.z < 0.8 ? c2 : c3));
     col *= 1.0 - sstep(0.03, 0.0, v.y - v.x) * 0.5;
     m = v.z >= 0.8 ? 1.0 : 0.0;
-  } else if (pattern == 10) {        // black ice: deep glossy colour, deep shattered cracks, sparkles
-    float mott = fbm(uv, 4.0, 6);
-    col = mix(c0, c3, sstep(-0.15, 0.35, mott));                           // lighter patches
-    col = mix(col, c3 * 1.4, sstep(0.25, 0.45, fbm(uv + 9.0, 7.0, 5)) * 0.5);
-    // Cracks cut into the finish: a dark core, a lit upper edge and a shadowed lower edge
-    // (so they read as carved even without lighting), and deep grooves in the relief map.
-    float crack = iceCracks(uv, S);
-    float e = 0.0022;
-    float bev = iceCracks(uv + vec2(-e, e), S) - iceCracks(uv + vec2(e, -e), S);
-    vec2 sp = uv * 160.0, sc = floor(sp);
-    float spark = sstep(0.12, 0.0, length(fract(sp) - 0.5 - 0.3 * hash2(mod(sc, vec2(160.0))))) * step(0.93, hash1(mod(sc, vec2(160.0)) + 2.0));
-    col = mix(col, c1, crack * 0.9);
-    col = mix(col, c0 * 0.12, pow(crack, 2.5) * 0.9);
-    col += c2 * max(bev, 0.0) * 0.9;
-    col *= 1.0 - max(-bev, 0.0) * 0.7;
-    col = mix(col, c2, spark);
-    m = crack; g = max(crack * 0.35, spark);
+  } else if (pattern == 10) {        // black ice (see iceSkin)
+    iceSkin(uv, S, col, m, g);
   } else if (pattern == 11) {        // fade
     float t = sstep(0.15, 0.85, uv.y + fbm(uv, 4.0, 5) * 0.3 * W + T);
     float dith = step(hash1(floor(uv * 256.0)), t);

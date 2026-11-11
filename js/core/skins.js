@@ -98,7 +98,7 @@ function make(id) {
   const glow = hsl(hue, 0.9, 0.62);
   return { id, rarity: 'blackice', name: 'Black Ice ' + word, pattern: 10, ice: hsl(hue, 0.7, 0.78),
     c: [hsl(hue, 0.8, two ? 0.045 : 0.07), hsl(hue, 0.4, 0.88), [0.95, 0.97, 1], hsl(hue, 0.7, two ? 0.12 : 0.17)],
-    p: [1 + two, 0.6, 0, 0], rm: [0.14, 0.35, 0.3, 0.2], clearcoat: 1, wear: 0.1, glow: glow.map((v) => Math.round(v * 0.9 * 1000) / 1000) };
+    p: [1 + two, 0.6, 0, id - 191], rm: [0.14, 0.35, 0.3, 0.2], clearcoat: 1, wear: 0.1, glow: glow.map((v) => Math.round(v * 0.9 * 1000) / 1000) };
 }
 
 export const SKIN_COUNT = 201;      // 100 Common, 60 Rare, 32 Epic, 9 Black Ice
