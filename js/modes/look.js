@@ -1,7 +1,7 @@
 // How the match maps look (the Battle maps keep Battle's own scenery). Everything is drawn in
 // code on small canvases; no image files. Boxes are merged per look into a few meshes:
 // walls and floors tile in world space, furniture is fitted per face.
-import * as THREE from '../../vendor/three/three.module.min.js?v=2bc20c5-mwb9w9ii';
+import * as THREE from '../../vendor/three/three.module.min.js?v=3a5db4d-mwbgfx6u';
 
 /* ---------- textures ---------- */
 const cache = new Map();
@@ -50,6 +50,8 @@ const TEX = {
     g.fillStyle = '#b8ad98'; g.fillRect(0, 0, w, 8); g.fillStyle = 'rgba(0,0,0,0.12)'; g.fillRect(0, h * 0.55, w, 2);
   }),
   walltop: () => canvasTex('walltop', 64, 64, (g, w, h, r) => { fill(g, w, h, '#a49c8c'); noise(g, w, h, r, 300, ['#8a8270'], 2, 0.4); }),
+  // roofs: dark asphalt shingles in staggered rows
+  roof: () => canvasTex('roof', 128, 128, (g, w, h, r) => { fill(g, w, h, '#4a4744'); noise(g, w, h, r, 1600, ['#3e3b39', '#56524e', '#45413e'], 2, 0.5); g.fillStyle = 'rgba(0,0,0,0.35)'; for (let y = 0; y < h; y += 16) { g.fillRect(0, y, w, 2); for (let x = (y / 16) % 2 ? 0 : 16; x < w; x += 32) g.fillRect(x, y, 2, 16); } }),
   block: () => canvasTex('block', 256, 256, (g, w, h, r) => { fill(g, w, h, '#a9a49a'); for (let y = 0; y < 8; y++) for (let x = 0; x < 4; x++) { const l = 150 + r() * 25; g.fillStyle = 'rgb(' + (l | 0) + ',' + (l - 3 | 0) + ',' + (l - 8 | 0) + ')'; g.fillRect(x * 64 + (y % 2) * 32 + 2, y * 32 + 2, 60, 28); } }),
   crate: () => canvasTex('crate', 128, 128, (g, w, h, r) => { fill(g, w, h, '#8a6a43'); for (let y = 0; y < h; y += 16) { g.fillStyle = 'rgba(40,25,10,' + (0.2 + r() * 0.2) + ')'; g.fillRect(0, y, w, 2); } g.strokeStyle = '#5a4128'; g.lineWidth = 12; g.strokeRect(6, 6, w - 12, h - 12); g.beginPath(); g.moveTo(10, 10); g.lineTo(w - 10, h - 10); g.stroke(); }, false),
   carSide: () => canvasTex('carSide', 256, 128, (g, w, h) => {
@@ -112,6 +114,7 @@ const LOOKS = {
   container: { side: 'rust', top: 'rust', tile: [2.6, 2.6] },
   barn: { side: 'barn', top: 'walltop', tile: [2.4, 3.2] },
   stair: { side: 'wood', top: 'wood', tile: [1.2, 1.2] },
+  roof: { side: 'walltop', top: 'roof', bottom: 'ceiling', tile: [2, 2] },
   rail: { side: 'railTex', top: 'tableTop', fit: true },
 };
 // upper floors: the room's floor on top, a ceiling underneath
