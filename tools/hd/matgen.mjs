@@ -369,4 +369,136 @@ export const MATERIALS = {
     vec3 v = vor(uv, vec2(14)); float leaf = sstep(.5, .2, v.x); float vein = sstep(.02, .0, abs(v.x - .25)) * .3;
     s.c = mix(hex(40, 72, 30), mix(hex(64, 110, 44), hex(110, 150, 60), v.z), leaf) * (1. - vein);
     s.h = leaf * (.01 - v.x * .02); s.r = .7; s.ao = mix(.45, 1., leaf);` },
+
+  /* ---------- Battle maps (js/battle/maps.js: same layouts as their own textures) ---------- */
+  bContainer: { tile: [1, 1], size: [1024, 1024], glsl: `
+    // container steel, neutral (each box tints it): 8 ribs a metre, rust runs from the top
+    float k = fract(uv.x * 8.), rib = sin(k * PI * 2.); float n = fbm(uv, vec2(4), 6);
+    float run = sstep(.45, .85, fbm(vec2(uv.x * 8., uv.y * .6), vec2(64, 2), 5)) * sstep(.2, .9, uv.y);
+    float chip = sstep(.7, .76, fbm(uv + 3., vec2(10), 6));
+    s.c = vec3(.78 + .12 * rib * .5 + .06 * n); s.c = mix(s.c, hex(150, 92, 54), run * .45 + chip * .7);
+    s.h = rib * .012; s.r = mix(.5, .85, max(run, chip)); s.m = mix(.55, .2, chip); s.ao = .82 + .18 * rib;` },
+  bMetalpanel: { tile: [1.2, 3.6], size: [768, 2048], glsl: `
+    // perimeter wall: dark steel panels 1.2 m wide with louvred vents, ribs, bolted seams
+    float n = fbm(uv, vec2(3, 9), 6), br = fbm(vec2(uv.x * 40., uv.y), vec2(40, 9), 3);
+    float seam = groove(min(uv.x, 1. - uv.x) * 1.2, .004) * groove(abs(p.y - 1.8), .004);
+    float rib = sstep(.02, .0, abs(fract(uv.x * 3.) - .5) - .47);
+    vec2 vq = vec2((uv.x - .5) * 1.2, p.y - 2.45); float vent = step(abs(vq.x), .3) * step(abs(vq.y), .45);
+    float louvre = vent * (sin(p.y * 70.) * .5 + .5);
+    float kick = sstep(.42, .4, p.y);
+    vec3 col = hex(92, 98, 106) * (.85 + .15 * n + .05 * br) * mix(1., .78, kick) * (1. - grime(uv, .2) * sstep(1.4, 0., p.y));
+    s.c = mix(col, hex(28, 30, 34), vent * (1. - louvre * .6)) * mix(.75, 1., seam);
+    s.h = seam * .004 + rib * .006 + kick * .003 + louvre * .012 - vent * .01; s.r = .55 - br * .1 + kick * .15; s.m = .7; s.ao = mix(.5, 1., seam) * (1. - vent * (1. - louvre) * .6);` },
+  bYardfloor: { tile: [2, 2], size: [2048, 2048], big: true, glsl: `
+    // yard: 1 m concrete slabs with saw cuts, oil stains, tyre marks
+    vec2 f = fract(uv * 2.); float e = min(min(f.x, 1. - f.x), min(f.y, 1. - f.y)) * 1.; float j = groove(e - .003, .003);
+    float n = fbm(uv, vec2(6), 8), id = hash12(floor(uv * 2.));
+    float oil = sstep(.66, .86, fbm(uv + id, vec2(3), 5)) * .16; float pores = sstep(.1, .03, vor(uv, uTile * 80.).x);
+    s.c = hex(170, 166, 158) * (.82 + .2 * n + .06 * id) * (1. - oil) * (1. - pores * .2); s.c *= mix(.5, 1., j);
+    s.h = j * .003 + n * .001 - pores * .001; s.r = mix(.9, .55, oil); s.ao = mix(.5, 1., j);` },
+  bGrating: { tile: [.6, .6], size: [512, 512], glsl: `
+    // steel grating: bearing bars every 3.75 cm, cross bars every 7.5 cm, dark below
+    float bx = fract(uv.x * 16.), by = fract(uv.y * 8.);
+    float bar = sstep(.18, .12, abs(bx - .5) - .32 + .32) ; bar = sstep(.85, .9, bx) ; float cross = sstep(.9, .94, by);
+    float metal = max(sstep(.82, .88, bx), cross);
+    s.c = mix(hex(24, 26, 28), hex(150, 156, 162) * (.85 + .15 * fbm(uv, vec2(8), 4)), metal);
+    s.h = metal * .02; s.r = mix(.9, .45, metal); s.m = metal * .9; s.ao = mix(.2, 1., metal);` },
+  bSnow: { tile: [6, 6], size: [2048, 2048], big: true, glsl: `
+    // trodden snow: footprints in trails, drift ridges, blue shade in hollows, sparkle
+    float n = fbm(uv, vec2(3), 7), drift = ridge(uv + .3, vec2(2), 4), fine = fbm(uv + 1.3, vec2(24), 4);
+    // footprints: pairs along wandering trails
+    float trail = sstep(.05, .0, abs(fbm(vec2(uv.x * 2., 0.) + vec2(0., uv.y * 0.), vec2(4, 1), 3) - uv.y * 0. - .5 + (uv.y - .5) * .0));
+    vec2 q = uv * vec2(18, 18); vec2 c = fract(q) - .5, id2 = floor(q); float h1 = hash12(mod(id2, 18.));
+    float foot = step(.55, h1) * sstep(.18, .1, length(c * vec2(1.9, 1.) + vec2(h1 - .5, 0.) * .3));
+    float hollow = sstep(.4, .7, fbm(uv + 6., vec2(5), 5));
+    s.c = mix(hex(200, 214, 232), hex(248, 250, 253), n * .5 + drift * .3 + fine * .2) * mix(1., .9, hollow);
+    s.c = mix(s.c, hex(176, 192, 214), foot * .55);
+    s.c += sstep(.985, 1., hash12(floor(uv * 2048.))) * .25;
+    s.h = n * .04 + drift * .03 + fine * .004 - foot * .025; s.r = .6 - drift * .1; s.ao = 1. - foot * .35 - hollow * .1;` },
+  bLogs: { tile: [2.4, 2.4], size: [2048, 2048], big: true, glsl: `
+    // log wall: 8 logs per texture height, round in section, chinking between, snow on top
+    float row = floor(uv.y * 8.), v = fract(uv.y * 8.); float id = hash12(vec2(row, 3.));
+    float round_ = sqrt(max(0., 1. - pow(v * 2. - 1., 2.)));
+    float gr = fbm(vec2(uv.x * 2. + id * 5., uv.y * 8.), vec2(5, 64), 6);
+    vec3 wood = mix(hex(110, 70, 38), hex(160, 108, 62), id) * (.7 + .4 * gr) * (.55 + .45 * round_);
+    float chink = sstep(.1, .04, min(v, 1. - v)); float snow = sstep(.84, .9, v) * sstep(.55, .75, fbm(uv + row, vec2(6, 8), 4));
+    s.c = mix(wood, hex(190, 180, 160), chink); s.c = mix(s.c, hex(236, 242, 248), snow);
+    s.h = round_ * .06 + gr * .002 + snow * .01; s.r = mix(.85, .6, snow); s.ao = mix(.35, 1., round_);` },
+  bPlank: { tile: [2, 1.6], size: [2048, 1638], glsl: `
+    // weathered vertical planks 25 cm, nails top and bottom, snow along the top edge
+    float k = fract(uv.x * 8.), id = hash12(vec2(floor(uv.x * 8.), 7.));
+    float gr = fbm(vec2(uv.x * 8. + id * 3., uv.y), vec2(64, 4), 6);
+    vec3 w = mix(hex(98, 70, 46), hex(128, 94, 62), id) * (.75 + .35 * gr);
+    float gap = groove(min(k, 1. - k) * .25, .004);
+    vec2 nl = vec2(k, uv.y); float nail = sstep(.006, .004, length((nl - vec2(.5, .12)) * vec2(.25, 1.6))) + sstep(.006, .004, length((nl - vec2(.5, .88)) * vec2(.25, 1.6)));
+    float snow = sstep(.95, .97, uv.y) * sstep(.4, .6, fbm(uv, vec2(16, 2), 4) + .3);
+    s.c = mix(hex(30, 22, 14), w, gap); s.c = mix(s.c, vec3(.4), nail); s.c = mix(s.c, hex(238, 243, 248), snow);
+    s.h = gap * (.008 + gr * .002) + snow * .006; s.r = .88; s.m = nail * .7; s.ao = mix(.3, 1., gap);` },
+  bCasinocarpet: { tile: [2.5, 2.5], size: [2048, 2048], big: true, glsl: `
+    // casino carpet: deep red with a gold diamond lattice and navy medallions, worn paths
+    vec2 q = uv * 4.; vec2 c = fract(q) - .5; float d = abs(c.x) + abs(c.y);
+    float lattice = sstep(.025, .0, abs(d - .38)); float med = sstep(.1, .08, length(c));
+    vec2 c2 = fract(q + .5) - .5; float ring = sstep(.02, .0, abs(length(c2) - .16));
+    float tuft = ridge(uv, uTile * 100., 2), f = fbm(uv, uTile * 40., 3), wear = sstep(.6, .9, fbm(uv + 2., vec2(2), 5)) * .25;
+    vec3 col = hex(112, 16, 30) * (.85 + .2 * f + .1 * tuft);
+    col = mix(col, hex(222, 172, 70), lattice * .9 + ring * .5); col = mix(col, hex(30, 42, 92), med);
+    s.c = col * (1. - wear * .4) + wear * .05; s.h = tuft * .002; s.r = .97; s.ao = .8 + .2 * tuft;` },
+  bWoodpanel: { tile: [2, 5], size: [820, 2048], glsl: `
+    // casino walls: dark mahogany panelling in two raised fields, brass trim at the dado
+    float gr = fbm(vec2(uv.x * 3., uv.y * 1.), vec2(6, 5), 6), fig = fbm(vec2(uv.x * 10., uv.y * 2.), vec2(20, 10), 4);
+    vec3 wood = mix(hex(58, 28, 16), hex(96, 50, 28), gr * .6 + fig * .4);
+    float y = uv.y; float dado = sstep(.012, .008, abs(y - .5));
+    float f1 = sstep(.0, .01, min(min(uv.x - .06, .94 - uv.x), min(y - .55, .96 - y)));
+    float f2 = sstep(.0, .01, min(min(uv.x - .06, .94 - uv.x), min(y - .06, .45 - y)));
+    float field = max(f1, f2), edge = max(sstep(.006, .0, abs(min(min(uv.x - .06, .94 - uv.x), min(y - .55, .96 - y)))), sstep(.006, .0, abs(min(min(uv.x - .06, .94 - uv.x), min(y - .06, .45 - y)))));
+    s.c = wood * mix(.85, 1., field); s.c = mix(s.c, hex(200, 150, 60), max(dado, edge * .8));
+    s.h = field * .006 + dado * .01 + edge * .004; s.r = mix(.35, .25, field) ; s.m = max(dado, edge * .8) * .9; s.ao = mix(.6, 1., field);` },
+  bFelt: { tile: [1, 1], size: [1024, 1024], glsl: `
+    float f = fbm(uv, vec2(80), 3), nap = fbm(uv + 1., vec2(6), 5);
+    float arc = sstep(.006, .0, abs(length((uv - vec2(.5, .1)) * vec2(1., 1.)) - .6)) * step(.18, uv.x) * step(uv.x, .82);
+    s.c = hex(12, 104, 58) * (.8 + .15 * f + .1 * nap); s.c = mix(s.c, hex(236, 214, 150), arc * .8);
+    s.h = f * .0006; s.r = .95; s.ao = 1.;` },
+  bLino: { tile: [2, 2], size: [1024, 1024], glsl: `
+    // school linoleum: 50 cm tiles in two colours, terrazzo flecks, polished
+    vec2 q = uv * 4.; vec2 f = fract(q); float alt = mod(floor(q.x) + floor(q.y), 2.);
+    vec3 v = vor(uv, uTile * 70.); float fleck = sstep(.25, .1, v.x);
+    vec3 base = mix(hex(142, 154, 166), hex(216, 210, 194), alt);
+    s.c = mix(base, mix(hex(90, 90, 90), hex(244, 240, 230), v.z), fleck * .5);
+    float j = groove(min(min(f.x, 1. - f.x), min(f.y, 1. - f.y)) * .5, .0015);
+    s.c *= mix(.7, 1., j); s.h = j * .0015; s.r = mix(.6, .28, j); s.ao = mix(.7, 1., j);` },
+  bSchoolwall: { tile: [2, 4], size: [1024, 2048], glsl: `
+    // painted block wall: cream above, blue below, a yellow stripe (as the school's own)
+    vec4 b = cells(uv, vec2(5, 20), .5); float e = min(min(b.x, 1. - b.x) * .4, min(b.y, 1. - b.y) * .2); float j = groove(e - .002, .004);
+    float y = 1. - uv.y; float low = step(.62, y), stripe = step(.6, y) * step(y, .63);
+    vec3 paint = mix(hex(236, 228, 207), hex(63, 106, 154), low); paint = mix(paint, hex(232, 181, 48), stripe);
+    float n = fbm(uv, vec2(8, 16), 6);
+    s.c = paint * (.93 + .08 * n) * mix(.8, 1., j); s.h = j * .004 + n * .0008; s.r = .55; s.ao = mix(.65, 1., j);` },
+  bLockers: { tile: [1.2, 1.2], size: [1024, 1024], glsl: `
+    // lockers 30 cm wide: blue doors, vents, handles, a little rust at the bottom
+    float k = fract(uv.x * 4.); float e = min(k, 1. - k) * .3; float gap = groove(e, .003);
+    vec2 vt = vec2(k, uv.y); float vent = step(.25, k) * step(k, .75) * step(.75, uv.y) * step(uv.y, .92) * step(.5, fract(uv.y * 60.));
+    float handle = sstep(.02, .01, abs(k - .8) * .3) * step(.4, uv.y) * step(uv.y, .5);
+    float n = fbm(uv, vec2(6), 5), rust = sstep(.12, .0, uv.y) * sstep(.5, .7, fbm(uv + 3., vec2(12), 4));
+    s.c = hex(46, 111, 176) * (.85 + .15 * n) * mix(.4, 1., gap) * (1. - vent * .6); s.c = mix(s.c, hex(200, 204, 210), handle); s.c = mix(s.c, hex(120, 70, 40), rust * .6);
+    s.h = gap * .004 - vent * .002 + handle * .006; s.r = mix(.45, .8, rust); s.m = .6; s.ao = mix(.4, 1., gap) * (1. - vent * .4);` },
+  bBasement: { tile: [4, 4], size: [2048, 2048], big: true, glsl: `
+    // basement floor: dark damp concrete, stains, cracks, a joint grid every 2 m
+    float n = fbm(uv, vec2(8), 8), damp = sstep(.55, .8, fbm(uv + 4., vec2(3), 5));
+    float crack = sstep(.025, .0, abs(ridge(uv + 1., vec2(3), 5) - .85)) * sstep(.4, .6, fbm(uv + 7., vec2(3), 3));
+    vec2 f = fract(uv * 2.); float j = groove(min(min(f.x, 1. - f.x), min(f.y, 1. - f.y)) * 2., .004);
+    s.c = hex(80, 84, 78) * (.75 + .3 * n) * (1. - damp * .3) * (1. - crack * .5) * mix(.6, 1., j);
+    s.h = n * .002 - crack * .004 + j * .002; s.r = mix(.85, .35, damp); s.ao = mix(.6, 1., j) * (1. - crack * .4);` },
+  bBlockwall: { tile: [2, 3.4], size: [1204, 2048], glsl: `
+    // basement block wall: grey above, green-painted below a yellow line, damp drips
+    vec4 b = cells(uv, vec2(5, 17), .5); float e = min(min(b.x, 1. - b.x) * .4, min(b.y, 1. - b.y) * .2); float j = groove(e - .003, .004);
+    float y = 1. - uv.y; float low = step(.55, y), stripe = step(.53, y) * step(y, .55);
+    float n = fbm(uv, vec2(8, 14), 6), drip = sstep(.5, .9, fbm(vec2(uv.x * 6., uv.y * .5), vec2(12, 2), 5)) * sstep(.0, .6, uv.y);
+    vec3 paint = mix(hex(150, 150, 140) * (.85 + .2 * b.w), hex(46, 84, 60) * (.85 + .2 * b.w), low); paint = mix(paint, hex(232, 192, 64), stripe);
+    s.c = paint * (.85 + .2 * n) * (1. - drip * .3) * mix(.6, 1., j); s.h = j * .006 + n * .001; s.r = mix(.8, .5, drip); s.ao = mix(.55, 1., j);` },
+  bRustmetal: { tile: [1, 1], size: [1024, 1024], glsl: `
+    // boilers and barrels: grey painted steel going to rust, seams every 25 cm
+    float n = fbm(uv, vec2(6), 7), rust = sstep(.5, .75, fbm(uv + 2., vec2(5), 6));
+    float seam = sstep(.006, .0, abs(fract(uv.y * 4.) - .5) - .494);
+    s.c = mix(hex(90, 94, 96) * (.85 + .2 * n), mix(hex(122, 58, 26), hex(154, 90, 42), fbm(uv + 5., vec2(30), 4)), rust) * (1. - seam * .4);
+    s.h = seam * -.002 + rust * .0008 + n * .0005; s.r = mix(.55, .9, rust); s.m = mix(.7, .25, rust); s.ao = 1. - seam * .3;` },
 };

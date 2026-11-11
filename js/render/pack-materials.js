@@ -115,6 +115,14 @@ function place(src, base) {
 
 // root: the map's meshes. Resolves when the swap (or the revert) is done. Safe to call again on
 // every graphics change; a stale call (the map was replaced meanwhile) changes nothing.
+function revertMesh(o) {
+  const m = o.material, u = o.userData;
+  for (const t of [m.map, m.normalMap, m.aoMap, m.roughnessMap, m.metalnessMap]) if (t && t.userData.own) t.dispose();
+  m.dispose(); o.material = u.packLo; delete u.packLo;
+}
+// Put the original materials back now (before something else swaps materials, e.g. the Battle
+// arena's own quality tiers).
+export function revertPackMaterials(root) { if (root) root.traverse((o) => { if (o.isMesh && o.userData.packLo) revertMesh(o); }); }
 // opt.light: the map id whose baked light to use (match maps).
 export async function applyPackMaterials(roots, quality, renderer, opt = {}) {
   const list = [].concat(roots).filter(Boolean);
@@ -123,14 +131,7 @@ export async function applyPackMaterials(roots, quality, renderer, opt = {}) {
   const meshes = [];
   for (const root of list) root.traverse((o) => { if (o.isMesh && !o.userData.ownMaterial) meshes.push(o); });
   // revert first (quality changed, or the pack was removed)
-  for (const o of meshes) {
-    const u = o.userData;
-    if (u.packLo && (!high || u.packQuality !== quality || u.packRev !== packMats.revision)) {
-      const m = o.material;
-      for (const t of [m.map, m.normalMap, m.aoMap, m.roughnessMap, m.metalnessMap]) if (t && t.userData.own) t.dispose();
-      m.dispose(); o.material = u.packLo; delete u.packLo;
-    }
-  }
+  for (const o of meshes) { const u = o.userData; if (u.packLo && (!high || u.packQuality !== quality || u.packRev !== packMats.revision)) revertMesh(o); }
   packMats.lightActive = false;
   if (!names.size) return 0;
   const vol = opt.light ? await loadLightVolume(opt.light).catch(() => null) : null;
@@ -138,7 +139,7 @@ export async function applyPackMaterials(roots, quality, renderer, opt = {}) {
   for (const o of meshes) {
     if (o.userData.packLo) continue;
     const m = o.material, b = m && (m.userData.packBase || m.map), name = b && b.userData.surface;   // (packBase: the earlier pack's surface swap)
-    if (name && names.has(name)) { if (!wanted.has(name)) wanted.set(name, []); wanted.get(name).push(o); }
+    if (name && names.has(name) && (m.isMeshLambertMaterial || m.isMeshStandardMaterial)) { if (!wanted.has(name)) wanted.set(name, []); wanted.get(name).push(o); }
   }
   const loaded = new Map();
   await Promise.all([...wanted.keys()].map(async (n) => { try { loaded.set(n, await loadSet(n, quality)); } catch (e) { console.warn('pack material ' + n, e); } }));

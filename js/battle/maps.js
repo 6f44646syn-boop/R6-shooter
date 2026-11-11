@@ -22,7 +22,14 @@ function tex(cv, repeat = true) {
   if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping;
   return t;
 }
-const memo = (fn) => { let v = null; return () => (v = v || fn()); };
+// Enhanced Graphics pack v5: the pack's physically based material for each of these textures
+// (tools/hd/matgen.mjs; applied on High / Ultra by js/render/pack-materials.js).
+const PACK_SURFACE = {
+  crateTex: 'crate', containerTex: 'bContainer', concreteTex: 'concrete', snowTex: 'bSnow', logTex: 'bLogs', plankTex: 'bPlank', barkTex: 'bark',
+  carpetTex: 'bCasinocarpet', woodPanelTex: 'bWoodpanel', feltTex: 'bFelt', linoTex: 'bLino', schoolWallTex: 'bSchoolwall', lockerTex: 'bLockers',
+  deskTex: 'tableTop', basementFloorTex: 'bBasement', blockWallTex: 'bBlockwall', rustTex: 'bRustmetal', gratingTex: 'bGrating', shelfTex: 'shelf',
+};
+const memo = (name, fn) => { let v = null; return () => { if (!v) { v = fn(); if (v && v.isTexture && PACK_SURFACE[name]) v.userData.surface = PACK_SURFACE[name]; } return v; }; };
 function speckle(g, W, H, n, rng, cols, rMax = 3, aMax = 0.2) {
   for (let i = 0; i < n; i++) {
     g.globalAlpha = 0.05 + rng() * aMax; g.fillStyle = cols[(rng() * cols.length) | 0];
@@ -32,7 +39,7 @@ function speckle(g, W, H, n, rng, cols, rMax = 3, aMax = 0.2) {
 }
 
 /* ---------- Container Yard (original) ---------- */
-const crateTex = memo(() => {
+const crateTex = memo('crateTex', () => {
   const S = 256, [cv, g] = canvas(S, S), rng = mulberry32(5);
   g.fillStyle = '#8a6a43'; g.fillRect(0, 0, S, S);
   for (let y = 0; y < S; y += 32) { g.fillStyle = 'rgba(0,0,0,' + (0.05 + rng() * 0.1) + ')'; g.fillRect(0, y, S, 32); g.fillStyle = 'rgba(40,25,10,0.6)'; g.fillRect(0, y, S, 2); }
@@ -43,7 +50,7 @@ const crateTex = memo(() => {
   for (const [x, y] of [[11, 11], [S - 11, 11], [11, S - 11], [S - 11, S - 11]]) { g.beginPath(); g.arc(x, y, 5, 0, Math.PI * 2); g.fill(); }
   return tex(cv);
 });
-const containerTex = memo(() => {
+const containerTex = memo('containerTex', () => {
   const S = 256, [cv, g] = canvas(S, S), rng = mulberry32(9);
   for (let x = 0; x < S; x++) { const l = 190 + Math.sin((x / S) * Math.PI * 8) * 45; g.fillStyle = 'rgb(' + (l | 0) + ',' + (l | 0) + ',' + (l | 0) + ')'; g.fillRect(x, 0, 1, S); }
   for (let i = 0; i < 40; i++) {
@@ -52,7 +59,7 @@ const containerTex = memo(() => {
   }
   return tex(cv);
 });
-const concreteTex = memo(() => {
+const concreteTex = memo('concreteTex', () => {
   const S = 256, [cv, g] = canvas(S, S), rng = mulberry32(13);
   g.fillStyle = '#b9b5ad'; g.fillRect(0, 0, S, S);
   speckle(g, S, S, 900, rng, ['#8a867e', '#d8d4cc', '#a09a90'], 4, 0.25);
@@ -61,7 +68,7 @@ const concreteTex = memo(() => {
 });
 
 /* ---------- Winter Cabin ---------- */
-const snowTex = memo(() => {
+const snowTex = memo('snowTex', () => {
   const S = 512, [cv, g] = canvas(S, S), rng = mulberry32(21);
   g.fillStyle = '#e9eff6'; g.fillRect(0, 0, S, S);
   for (let i = 0; i < 60; i++) {                       // soft drifts
@@ -77,7 +84,7 @@ const snowTex = memo(() => {
   }
   return tex(cv);
 });
-const logTex = memo(() => {
+const logTex = memo('logTex', () => {
   const W = 256, H = 256, [cv, g] = canvas(W, H), rng = mulberry32(22);
   const n = 8, h = H / n;
   for (let i = 0; i < n; i++) {
@@ -89,7 +96,7 @@ const logTex = memo(() => {
   }
   return tex(cv);
 });
-const plankTex = memo(() => {
+const plankTex = memo('plankTex', () => {
   const W = 256, H = 256, [cv, g] = canvas(W, H), rng = mulberry32(23);
   for (let x = 0; x < W; x += 32) {
     const l = 0.85 + rng() * 0.3;
@@ -101,13 +108,13 @@ const plankTex = memo(() => {
   g.fillStyle = 'rgba(250,252,255,0.9)'; g.fillRect(0, 0, W, 10);
   return tex(cv);
 });
-const barkTex = memo(() => {
+const barkTex = memo('barkTex', () => {
   const W = 128, H = 256, [cv, g] = canvas(W, H), rng = mulberry32(24);
   g.fillStyle = '#4a3322'; g.fillRect(0, 0, W, H);
   for (let i = 0; i < 90; i++) { g.fillStyle = rng() < 0.5 ? 'rgba(25,16,10,0.6)' : 'rgba(110,80,55,0.4)'; g.fillRect(rng() * W, rng() * H, 2 + rng() * 4, 20 + rng() * 60); }
   return tex(cv);
 });
-const woodpileTex = memo(() => {
+const woodpileTex = memo('woodpileTex', () => {
   const S = 256, [cv, g] = canvas(S, S), rng = mulberry32(25);
   g.fillStyle = '#2a1a10'; g.fillRect(0, 0, S, S);
   for (let y = 16; y < S; y += 30) for (let x = 16 + ((y / 30) % 2) * 15; x < S; x += 30) {
@@ -119,7 +126,7 @@ const woodpileTex = memo(() => {
   }
   return tex(cv);
 });
-const winterSky = memo(() => {
+const winterSky = memo('winterSky', () => {
   const W = 512, H = 256, [cv, g] = canvas(W, H);
   const gr = g.createLinearGradient(0, 0, 0, H);
   gr.addColorStop(0, '#6f8fb8'); gr.addColorStop(0.45, '#b8cde4'); gr.addColorStop(0.52, '#dfe8f2'); gr.addColorStop(1, '#eef3f8');
@@ -130,7 +137,7 @@ const winterSky = memo(() => {
 });
 
 /* ---------- Jesse's Casino ---------- */
-const carpetTex = memo(() => {
+const carpetTex = memo('carpetTex', () => {
   const S = 256, [cv, g] = canvas(S, S), rng = mulberry32(31);
   g.fillStyle = '#6e0f1c'; g.fillRect(0, 0, S, S);
   g.strokeStyle = 'rgba(232,180,70,0.85)'; g.lineWidth = 3;
@@ -143,7 +150,7 @@ const carpetTex = memo(() => {
   speckle(g, S, S, 500, rng, ['#4a0a12', '#8a1a2a'], 2, 0.3);
   return tex(cv);
 });
-const woodPanelTex = memo(() => {
+const woodPanelTex = memo('woodPanelTex', () => {
   const W = 256, H = 512, [cv, g] = canvas(W, H), rng = mulberry32(32);
   g.fillStyle = '#3a1d10'; g.fillRect(0, 0, W, H);
   for (let i = 0; i < 160; i++) { g.fillStyle = 'rgba(' + (rng() < 0.5 ? '20,8,4' : '90,46,24') + ',0.3)'; g.fillRect(rng() * W, rng() * H, 1 + rng() * 2, 40 + rng() * 120); }
@@ -152,14 +159,14 @@ const woodPanelTex = memo(() => {
   g.fillStyle = '#d6a43a'; g.fillRect(0, H * 0.5 - 5, W, 10);
   return tex(cv);
 });
-const feltTex = memo(() => {
+const feltTex = memo('feltTex', () => {
   const S = 256, [cv, g] = canvas(S, S), rng = mulberry32(33);
   g.fillStyle = '#0d6a3a'; g.fillRect(0, 0, S, S);
   speckle(g, S, S, 900, rng, ['#0a5a30', '#118048'], 1.5, 0.3);
   g.strokeStyle = 'rgba(240,220,150,0.7)'; g.lineWidth = 3; g.beginPath(); g.arc(S / 2, S * 0.1, S * 0.6, 0.3, Math.PI - 0.3); g.stroke();
   return tex(cv);
 });
-const cabinetTex = memo(() => {
+const cabinetTex = memo('cabinetTex', () => {
   const S = 128, [cv, g] = canvas(S, S);
   const gr = g.createLinearGradient(0, 0, S, 0); gr.addColorStop(0, '#1a1c24'); gr.addColorStop(0.5, '#2c2f3a'); gr.addColorStop(1, '#1a1c24');
   g.fillStyle = gr; g.fillRect(0, 0, S, S); g.fillStyle = '#c9952e'; g.fillRect(0, 0, S, 4); g.fillRect(0, S - 4, S, 4);
@@ -185,13 +192,13 @@ function slotScreenTex(seed) {
 }
 // All slot screens on one texture sheet (4 x 4): one material, so every screen in a chunk of
 // the map merges into a single draw.
-const slotAtlas = memo(() => {
+const slotAtlas = memo('slotAtlas', () => {
   const W = 128, H = 160, [cv, g] = canvas(W * 4, H * 4);
   for (let i = 0; i < 16; i++) g.drawImage(slotScreenTex(1000 + i * 37).image, (i % 4) * W, Math.floor(i / 4) * H);
   return tex(cv, false);
 });
 const slotCell = (seed) => { const i = Math.abs(seed) % 16; return [(i % 4) / 4, 1 - (Math.floor(i / 4) + 1) / 4, (i % 4 + 1) / 4, 1 - Math.floor(i / 4) / 4]; };
-const neonSign = memo(() => neonTex("JESSE'S CASINO", '#ff2fa8'));
+const neonSign = memo('neonSign', () => neonTex("JESSE'S CASINO", '#ff2fa8'));
 function neonTex(text, color) {
   const W = 1024, H = 192, [cv, g] = canvas(W, H);
   g.fillStyle = '#05030a'; g.fillRect(0, 0, W, H);
@@ -203,7 +210,7 @@ function neonTex(text, color) {
 }
 
 /* ---------- School ---------- */
-const linoTex = memo(() => {
+const linoTex = memo('linoTex', () => {
   const S = 256, [cv, g] = canvas(S, S), rng = mulberry32(41);
   for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) { g.fillStyle = (x + y) % 2 ? '#d8d2c2' : '#8e9aa6'; g.fillRect(x * 64, y * 64, 64, 64); }
   speckle(g, S, S, 1200, rng, ['#6a6a6a', '#f4f0e6', '#a8a094'], 1.2, 0.3);
@@ -211,7 +218,7 @@ const linoTex = memo(() => {
   for (let i = 0; i <= 4; i++) { g.beginPath(); g.moveTo(i * 64, 0); g.lineTo(i * 64, S); g.moveTo(0, i * 64); g.lineTo(S, i * 64); g.stroke(); }
   return tex(cv);
 });
-const schoolWallTex = memo(() => {
+const schoolWallTex = memo('schoolWallTex', () => {
   const W = 256, H = 512, [cv, g] = canvas(W, H), rng = mulberry32(42);
   g.fillStyle = '#ece4cf'; g.fillRect(0, 0, W, H);
   g.fillStyle = '#3f6a9a'; g.fillRect(0, H * 0.62, W, H * 0.38);
@@ -220,7 +227,7 @@ const schoolWallTex = memo(() => {
   g.fillStyle = 'rgba(0,0,0,0.12)'; g.fillRect(W - 3, 0, 3, H);
   return tex(cv);
 });
-const lockerTex = memo(() => {
+const lockerTex = memo('lockerTex', () => {
   const W = 256, H = 256, [cv, g] = canvas(W, H);
   for (let x = 0; x < W; x += 64) {
     g.fillStyle = '#2e6fb0'; g.fillRect(x, 0, 64, H);
@@ -231,7 +238,7 @@ const lockerTex = memo(() => {
   }
   return tex(cv);
 });
-const deskTex = memo(() => {
+const deskTex = memo('deskTex', () => {
   const S = 128, [cv, g] = canvas(S, S), rng = mulberry32(43);
   g.fillStyle = '#c8a070'; g.fillRect(0, 0, S, S);
   for (let i = 0; i < 60; i++) { g.fillStyle = 'rgba(120,80,40,0.2)'; g.fillRect(0, rng() * S, S, 1); }
@@ -249,7 +256,7 @@ function boardTex(kind) {
   }
   return tex(cv, false);
 }
-const vendingTex = memo(() => {
+const vendingTex = memo('vendingTex', () => {
   const W = 128, H = 256, [cv, g] = canvas(W, H);
   g.fillStyle = '#c0202a'; g.fillRect(0, 0, W, H);
   g.fillStyle = '#101418'; g.fillRect(10, 20, 80, 180);
@@ -260,7 +267,7 @@ const vendingTex = memo(() => {
 });
 
 /* ---------- School Basement ---------- */
-const basementFloorTex = memo(() => {
+const basementFloorTex = memo('basementFloorTex', () => {
   const S = 512, [cv, g] = canvas(S, S), rng = mulberry32(51);
   g.fillStyle = '#4a4d48'; g.fillRect(0, 0, S, S);
   speckle(g, S, S, 3000, rng, ['#3a3c38', '#5a5d57', '#2e302c'], 3, 0.3);
@@ -273,7 +280,7 @@ const basementFloorTex = memo(() => {
   g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(0, S / 2 - 1, S, 2); g.fillRect(S / 2 - 1, 0, 2, S);
   return tex(cv);
 });
-const blockWallTex = memo(() => {
+const blockWallTex = memo('blockWallTex', () => {
   const W = 256, H = 512, [cv, g] = canvas(W, H), rng = mulberry32(52);
   for (let y = 0; y < H; y += 32) for (let x = -((y / 32) % 2) * 32; x < W; x += 64) {
     const l = 0.85 + rng() * 0.2, low = y > H * 0.55;
@@ -288,14 +295,14 @@ const blockWallTex = memo(() => {
   }
   return tex(cv);
 });
-const rustTex = memo(() => {
+const rustTex = memo('rustTex', () => {
   const S = 256, [cv, g] = canvas(S, S), rng = mulberry32(53);
   g.fillStyle = '#5a5e60'; g.fillRect(0, 0, S, S);
   speckle(g, S, S, 1400, rng, ['#7a3a1a', '#9a5a2a', '#3a3c3e', '#6a6e70'], 5, 0.35);
   g.fillStyle = 'rgba(0,0,0,0.3)'; for (let y = 0; y < S; y += 64) g.fillRect(0, y, S, 3);
   return tex(cv);
 });
-const gratingTex = memo(() => {
+const gratingTex = memo('gratingTex', () => {
   const S = 128, [cv, g] = canvas(S, S);
   g.fillStyle = '#2a2c2e'; g.fillRect(0, 0, S, S);
   g.strokeStyle = '#7a7e82'; g.lineWidth = 3;
@@ -303,7 +310,7 @@ const gratingTex = memo(() => {
   g.lineWidth = 2; for (let i = 0; i <= S; i += 32) { g.beginPath(); g.moveTo(0, i); g.lineTo(S, i); g.stroke(); }
   return tex(cv);
 });
-const shelfTex = memo(() => {
+const shelfTex = memo('shelfTex', () => {
   const W = 256, H = 256, [cv, g] = canvas(W, H), rng = mulberry32(54);
   g.fillStyle = '#1a1c1a'; g.fillRect(0, 0, W, H);
   for (let y = 0; y < H; y += 64) {
@@ -331,7 +338,7 @@ function acidTex(seed, bright) {
   }
   const t = tex(cv); return t;
 }
-const acidLook = memo(() => ({ map: acidTex(61, false), map2: acidTex(62, true) }));
+const acidLook = memo('acidLook', () => ({ map: acidTex(61, false), map2: acidTex(62, true) }));
 
 /* ---------- layout helpers ---------- */
 // A wall from a to b along x (at z) or along z (at x), thickness th, height h, with openings
@@ -450,8 +457,8 @@ export const MAPS = {
     name: 'Container Yard', hx: 26, hz: 20, wallH: 5,
     sky: duskSky, background: 0x241a16, fog: [0x5a4038, 45, 130],
     hemi: [0xc0c8dc, 0x4a3a30, 1.8], key: [0xffd8b0, 1.6, [-16, 26, 12]],
-    floor: () => { const t = concreteTiles(); return { map: t.map, normal: t.normal, rough: t.rough, tile: 2, color: 0xb8b4ae }; },
-    wall: () => { const t = wallPanels(); return { map: t.map, normal: t.normal, tileW: 1.2, tileH: 3.6, rough: 0.6, metal: 0.5 }; },
+    floor: () => { const t = concreteTiles(); t.map.userData.surface = 'bYardfloor'; return { map: t.map, normal: t.normal, rough: t.rough, tile: 2, color: 0xb8b4ae }; },
+    wall: () => { const t = wallPanels(); t.map.userData.surface = 'bMetalpanel'; return { map: t.map, normal: t.normal, tileW: 1.2, tileH: 3.6, rough: 0.6, metal: 0.5 }; },
     kinds: {
       container: { map: containerTex, tile: 1, rough: 0.55, metal: 0.6 },
       crate: { map: crateTex, tile: 1.2, rough: 0.85 },

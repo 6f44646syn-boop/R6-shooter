@@ -7,6 +7,7 @@
 //
 // Coordinates: metres, x right, y up, z towards the "A" side. Same yaw convention as the
 // range: yaw 0 looks along -z, positive turns right.
+import { applyPackMaterials, revertPackMaterials } from '../render/pack-materials.js?v=9dd0f7b-mwbioun8';
 import * as THREE from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
 import { MAPS } from './maps.js?v=9dd0f7b-mwbioun8';
 import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=9dd0f7b-mwbioun8';
@@ -524,6 +525,7 @@ export class Arena {
       for (const [lo, make] of this._spec) this._tiers.high.set(lo, make());
     }
     const map = tier ? this._tiers[tier] : null;
+    revertPackMaterials(this.scene);
     this.scene.traverse((o) => {
       if (!o.isMesh || o.userData.ownMaterial) return;
       const lo = o.userData.loMat || o.material;
@@ -537,6 +539,10 @@ export class Arena {
     const ks = q === 'ultra' ? 4096 : 2048;
     if (this.key.shadow.mapSize.x !== ks) { this.key.shadow.mapSize.set(ks, ks); if (this.key.shadow.map) { this.key.shadow.map.dispose(); this.key.shadow.map = null; } }
     this.quality = q;
+    // Enhanced Graphics pack v5: physically based materials and the map's baked light (the
+    // match-mode copies of these maps share their geometry and coordinates)
+    const scene = this.scene;
+    applyPackMaterials(scene, q, renderer, { light: { yard: 'containers', winter: 'winter', casino: 'casino', school: 'school' }[this.mapId] }).catch((e) => console.warn('pack materials', e));
     this._applyLights();
     this._fogBanks();
     this.scene.environment = high && !this.atm.night ? this.env : null;
