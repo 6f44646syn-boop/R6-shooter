@@ -64,7 +64,10 @@ try {
     const held = { shown: r.ghost.visible, built: r.walls.length - n, at: [r.ghost.position.x, r.ghost.position.z] };
     b.key('KeyB', false); R.step(.05);
     const w = r.walls[r.walls.length - 1];
-    return { held, built: r.walls.length - n, same: !!w && Math.abs(w.mesh.position.x - held.at[0]) < 1e-6 && Math.abs(w.mesh.position.z - held.at[1]) < 1e-6, hidden: !r.ghost.visible, spent: 3 - r.materials };
+    const out = { held, built: r.walls.length - n, same: !!w && Math.abs(w.mesh.position.x - held.at[0]) < 1e-6 && Math.abs(w.mesh.position.z - held.at[1]) < 1e-6, hidden: !r.ghost.visible, spent: 3 - r.materials };
+    if (w) { r.disposePiece(w); r.walls.splice(r.walls.indexOf(w), 1); r.syncWalls(); }   // leave the island as it was for the checks below
+    r.materials = 0;
+    return out;
   });
   assert.deepEqual(ghost, { held: { shown: true, built: 0, at: ghost.held.at }, built: 1, same: true, hidden: true, spent: 1 });
   console.log('PASS holding B shows the ghost where the piece will go; releasing builds it there');
