@@ -292,7 +292,7 @@ export class ModeGame {
     r.toneMappingExposure = high ? 1.15 : 1;
     const pal = this.palette;
     this.sun.intensity = high ? pal.sunI : pal.sunI * 0.55;
-    this.hemi.intensity = q === 'low' ? 2.2 : high ? 0.9 : 1.5;
+    this.hemi.intensity = q === 'low' ? 2.2 : high ? 1.35 : 1.6;
     // light from objects: spot lights handed to the nearest ceiling panels and wall lamps
     const want = high ? (maxMode.on ? 12 : q === 'ultra' ? 8 : 6) : 0;
     if (!this.pool || this.pool.lights.length !== want) {
