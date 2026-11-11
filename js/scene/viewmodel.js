@@ -1,18 +1,18 @@
-import { skinSheets } from '../render/skins2.js?v=6ac6c85-mwblm6td';
-import { packArt } from '../render/pack-art.js?v=6ac6c85-mwblm6td';
+import { skinSheets } from '../render/skins2.js?v=8d0c421-mwbwze4w';
+import { packArt } from '../render/pack-art.js?v=8d0c421-mwbwze4w';
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=6ac6c85-mwblm6td';
-import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=6ac6c85-mwblm6td';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=6ac6c85-mwblm6td';
-import { matcap } from './matcap.js?v=6ac6c85-mwblm6td';
-import { mulberry32 } from '../core/prng.js?v=6ac6c85-mwblm6td';
-import { gunMaps } from './range-tex.js?v=6ac6c85-mwblm6td';
-import { skinById, FACTORY } from '../core/skins.js?v=6ac6c85-mwblm6td';
-import { legendCanvas, onLegendChange } from '../core/legend.js?v=6ac6c85-mwblm6td';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=6ac6c85-mwblm6td';
-import { HDPack } from '../render/hd-pack.js?v=6ac6c85-mwblm6td';
+import * as THREE from '../../vendor/three/three.module.min.js?v=8d0c421-mwbwze4w';
+import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=8d0c421-mwbwze4w';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=8d0c421-mwbwze4w';
+import { matcap } from './matcap.js?v=8d0c421-mwbwze4w';
+import { mulberry32 } from '../core/prng.js?v=8d0c421-mwbwze4w';
+import { gunMaps } from './range-tex.js?v=8d0c421-mwbwze4w';
+import { skinById, FACTORY } from '../core/skins.js?v=8d0c421-mwbwze4w';
+import { legendCanvas, onLegendChange } from '../core/legend.js?v=8d0c421-mwbwze4w';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=8d0c421-mwbwze4w';
+import { HDPack } from '../render/hd-pack.js?v=8d0c421-mwbwze4w';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -326,16 +326,17 @@ function handMat(kind) {
     if (kind === 'skin') { m.emissive = new THREE.Color(0x4a1a0c); m.emissiveIntensity = 0.05; m.bumpMap = grainTex(); m.bumpScale = 0.12; m.bumpMap.repeat.set(9, 9); }   // pores; a little warmth in the shade
     if (kind === 'face') { m.map = watchFace(); m.emissiveMap = m.map; m.emissive = new THREE.Color(0x3a4a30); }
   }
+  m.userData.hand = true;
   handMats.set(key, m);
   return m;
 }
 const ell = (g, kind, sx, sy, sz, x, y, z, rx = 0, ry = 0, rz = 0) => {
-  const b = new THREE.Mesh(new THREE.SphereGeometry(1, 28, 20), handMat(kind));
+  const b = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), handMat(kind));
   b.scale.set(sx, sy, sz); b.position.set(x, y, z); b.rotation.set(rx, ry, rz); g.add(b); return b;
 };
 // A smooth tapering tube through points (radius r0 to r1): one piece, no ball joints.
 function taperTube(g, pts, r0, r1, kind) {
-  const curve = new THREE.CatmullRomCurve3(pts), seg = 20, rad = 14;
+  const curve = new THREE.CatmullRomCurve3(pts), seg = 14, rad = 10;
   const geo = new THREE.TubeGeometry(curve, seg, 1, rad, false), P = geo.attributes.position, c = new THREE.Vector3(), v = new THREE.Vector3();
   for (let i = 0; i < P.count; i++) {
     const t = Math.floor(i / (rad + 1)) / seg;

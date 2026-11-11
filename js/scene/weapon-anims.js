@@ -2,7 +2,7 @@
 // tools/hd/anims.mjs). Used by WeaponRig on High / Ultra with the pack's detailed guns; Low and
 // Standard keep the procedural animations. The clips use normalised time, played over the same
 // durations as before, so they change how reloads, draws and inspects look, never their timing.
-import { HDPack } from '../render/hd-pack.js?v=6ac6c85-mwblm6td';
+import { HDPack } from '../render/hd-pack.js?v=8d0c421-mwbwze4w';
 
 export const packAnims = { set: null, revision: 0 };
 const CLIPS = ['reload', 'reloadEmpty', 'draw', 'inspect'];
