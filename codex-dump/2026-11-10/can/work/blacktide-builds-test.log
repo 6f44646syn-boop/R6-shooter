@@ -1,0 +1,10 @@
+PASS deploy skips weapon selection and starts Blacktide Island with 20 unarmed rivals
+PASS solid trees and navigable hills are present on Blacktide
+PASS the starting pickaxe harvests materials, hits nearby rivals, and fires no bullets
+PASS Interact opens a chest once and equips its gun and wall stock
+PASS inventory retains guns, ammunition and the pickaxe across slot changes
+PASS wall placement, live edit preview, walkable door, safe reset, and bullet destruction
+PASS ramps and cones build and update collision after 2×2 edits
+PASS zone damage, permanent elimination, spectating, final-kill POV, and placements
+PASS the rare Pirate Token unlocks all nine Black Ice skins in storage and save codes
+PASS bots find guns in chests and the full match ends with exactly one survivor

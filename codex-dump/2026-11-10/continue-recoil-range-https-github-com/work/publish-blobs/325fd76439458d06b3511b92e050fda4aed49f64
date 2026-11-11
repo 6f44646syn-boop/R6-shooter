@@ -1,0 +1,174 @@
+{
+  "scenes": [
+    {
+      "map": "ranch",
+      "floor": "ground",
+      "room": "Master bedroom (site)",
+      "position": [
+        -27.2,
+        1.6,
+        13.2
+      ],
+      "warmupMs": 1374.5,
+      "frameMean": 25.2683333337307,
+      "frameP95": 30,
+      "cpuMedian": 3.5,
+      "calls": 238,
+      "triangles": 154115,
+      "memory": {
+        "geometries": 230,
+        "textures": 73
+      },
+      "textureBytes": 11354112.000000002,
+      "mapVertices": 7111,
+      "mapHash": "d70706aa2055066921d1ae9a930e3c641b8e8e3a79492d632c7c4e4fcc3a1510"
+    },
+    {
+      "map": "ranch",
+      "floor": "upper",
+      "room": "Loft",
+      "position": [
+        -11.2,
+        4.800000000000001,
+        13.2
+      ],
+      "warmupMs": 175.5,
+      "frameMean": 27.189166666567324,
+      "frameP95": 31,
+      "cpuMedian": 3.699999988079071,
+      "calls": 235,
+      "triangles": 154083,
+      "memory": {
+        "geometries": 229,
+        "textures": 73
+      },
+      "textureBytes": 11354112.000000002,
+      "mapVertices": 7111,
+      "mapHash": "d70706aa2055066921d1ae9a930e3c641b8e8e3a79492d632c7c4e4fcc3a1510"
+    },
+    {
+      "map": "embassy",
+      "floor": "ground",
+      "room": "Archives (site)",
+      "position": [
+        -27.2,
+        1.6,
+        17.2
+      ],
+      "warmupMs": 213,
+      "frameMean": 26.34666666686535,
+      "frameP95": 29.899999976158142,
+      "cpuMedian": 3.699999988079071,
+      "calls": 240,
+      "triangles": 158211,
+      "memory": {
+        "geometries": 233,
+        "textures": 77
+      },
+      "textureBytes": 12752213.33333334,
+      "mapVertices": 9707,
+      "mapHash": "a27e97ce2f561e5c062e95a7b66b8df7d6029b687fdf7e8c5972d0d344f3358f"
+    },
+    {
+      "map": "embassy",
+      "floor": "upper",
+      "room": "Ambassador's office",
+      "position": [
+        -27.2,
+        4.800000000000001,
+        17.2
+      ],
+      "warmupMs": 184,
+      "frameMean": 27.915833333631358,
+      "frameP95": 35,
+      "cpuMedian": 2.900000035762787,
+      "calls": 240,
+      "triangles": 158211,
+      "memory": {
+        "geometries": 233,
+        "textures": 77
+      },
+      "textureBytes": 12752213.33333334,
+      "mapVertices": 9707,
+      "mapHash": "a27e97ce2f561e5c062e95a7b66b8df7d6029b687fdf7e8c5972d0d344f3358f"
+    },
+    {
+      "map": "workshop",
+      "floor": "ground",
+      "room": "Garage (site)",
+      "position": [
+        -5.2,
+        1.6,
+        -4.8
+      ],
+      "warmupMs": 141.89999997615814,
+      "frameMean": 24.748333332935967,
+      "frameP95": 31.599999964237213,
+      "cpuMedian": 3,
+      "calls": 149,
+      "triangles": 95577,
+      "memory": {
+        "geometries": 224,
+        "textures": 74
+      },
+      "textureBytes": 9693866.666666668,
+      "mapVertices": 9079,
+      "mapHash": "40480122ce75805aba673b53b4cc0d11bb9beb4532438c6172fee41161030a6a"
+    },
+    {
+      "map": "workshop",
+      "floor": "upper",
+      "room": "Manager's office",
+      "position": [
+        -29.2,
+        4.800000000000001,
+        13.2
+      ],
+      "warmupMs": 163.39999997615814,
+      "frameMean": 25.309999999900658,
+      "frameP95": 35,
+      "cpuMedian": 4.300000011920929,
+      "calls": 232,
+      "triangles": 161979,
+      "memory": {
+        "geometries": 227,
+        "textures": 76
+      },
+      "textureBytes": 9693866.666666668,
+      "mapVertices": 9079,
+      "mapHash": "40480122ce75805aba673b53b4cc0d11bb9beb4532438c6172fee41161030a6a"
+    }
+  ],
+  "errors": [],
+  "startupMs": 1346,
+  "gpu": "ANGLE (Intel, Intel(R) UHD Graphics (0x0000468B) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "install": {
+    "ok": true,
+    "state": "installed",
+    "error": "",
+    "guns": true
+  },
+  "installMs": 1747,
+  "repeatMemory": [
+    {
+      "geometries": 246,
+      "textures": 77,
+      "heap": 39308501
+    },
+    {
+      "geometries": 246,
+      "textures": 77,
+      "heap": 38553909
+    },
+    {
+      "geometries": 222,
+      "textures": 76,
+      "heap": 38609801
+    },
+    {
+      "geometries": 246,
+      "textures": 77,
+      "heap": 38743741
+    }
+  ]
+}

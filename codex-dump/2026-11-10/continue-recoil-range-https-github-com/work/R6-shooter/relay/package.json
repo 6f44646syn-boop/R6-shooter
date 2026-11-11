@@ -1,0 +1,12 @@
+{
+  "name": "recoil-range-relay",
+  "private": true,
+  "description": "Message relay for Recoil Range internet battles (Cloudflare Worker + Durable Object).",
+  "scripts": {
+    "dev": "wrangler dev --port 8787",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "4.158.0"
+  }
+}

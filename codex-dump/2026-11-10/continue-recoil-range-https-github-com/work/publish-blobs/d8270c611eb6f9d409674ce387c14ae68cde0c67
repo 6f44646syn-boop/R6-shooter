@@ -1,0 +1,733 @@
+{
+  "version": 1,
+  "name": "Recoil Range original audio pack",
+  "sampleRate": 48000,
+  "channels": 1,
+  "format": "pcm_s16le",
+  "license": "Original synthesized Recoil Range sounds; no third-party recordings.",
+  "sourceSha256": "2236e450cdff64fbb202a213bd60be21809d92858a4617039fd6f226a0f2ebcf",
+  "profiles": {
+    "concrete": {
+      "material": "concrete",
+      "hz": 850,
+      "q": 0.9,
+      "duration": 0.1,
+      "ring": 95
+    },
+    "wood": {
+      "material": "wood",
+      "hz": 430,
+      "q": 1.8,
+      "duration": 0.13,
+      "ring": 145
+    },
+    "metal": {
+      "material": "metal",
+      "hz": 1750,
+      "q": 4,
+      "duration": 0.18,
+      "ring": 620
+    },
+    "carpet": {
+      "material": "carpet",
+      "hz": 290,
+      "q": 0.6,
+      "duration": 0.08,
+      "ring": 0
+    },
+    "snow": {
+      "material": "snow",
+      "hz": 2200,
+      "q": 0.5,
+      "duration": 0.16,
+      "ring": 0
+    },
+    "soil": {
+      "material": "soil",
+      "hz": 1150,
+      "q": 0.7,
+      "duration": 0.12,
+      "ring": 0
+    },
+    "stone": {
+      "material": "stone",
+      "hz": 1200,
+      "q": 1.4,
+      "duration": 0.1,
+      "ring": 185
+    },
+    "tile": {
+      "material": "tile",
+      "hz": 1450,
+      "q": 2,
+      "duration": 0.11,
+      "ring": 250
+    }
+  },
+  "clips": [
+    {
+      "id": "shot:0.020:0",
+      "key": "shot:0.020",
+      "variant": 0,
+      "frames": 9859,
+      "gain": 1.1649827567898499,
+      "offset": 0
+    },
+    {
+      "id": "shot:0.020:1",
+      "key": "shot:0.020",
+      "variant": 1,
+      "frames": 9852,
+      "gain": 1.142203442904414,
+      "offset": 19718
+    },
+    {
+      "id": "shot:0.020:2",
+      "key": "shot:0.020",
+      "variant": 2,
+      "frames": 9780,
+      "gain": 0.9835984025682722,
+      "offset": 39422
+    },
+    {
+      "id": "shot:0.050:0",
+      "key": "shot:0.050",
+      "variant": 0,
+      "frames": 9861,
+      "gain": 1.162661581623311,
+      "offset": 58982
+    },
+    {
+      "id": "shot:0.050:1",
+      "key": "shot:0.050",
+      "variant": 1,
+      "frames": 9851,
+      "gain": 1.2736393480884787,
+      "offset": 78704
+    },
+    {
+      "id": "shot:0.050:2",
+      "key": "shot:0.050",
+      "variant": 2,
+      "frames": 9783,
+      "gain": 1.0490456405951052,
+      "offset": 98406
+    },
+    {
+      "id": "shot:0.150:0",
+      "key": "shot:0.150",
+      "variant": 0,
+      "frames": 9804,
+      "gain": 1.1362170686527175,
+      "offset": 117972
+    },
+    {
+      "id": "shot:0.150:1",
+      "key": "shot:0.150",
+      "variant": 1,
+      "frames": 9805,
+      "gain": 1.018707971183621,
+      "offset": 137580
+    },
+    {
+      "id": "shot:0.150:2",
+      "key": "shot:0.150",
+      "variant": 2,
+      "frames": 9855,
+      "gain": 1.0421357592757867,
+      "offset": 157190
+    },
+    {
+      "id": "shot:0.200:0",
+      "key": "shot:0.200",
+      "variant": 0,
+      "frames": 9884,
+      "gain": 1.4595345574982312,
+      "offset": 176900
+    },
+    {
+      "id": "shot:0.200:1",
+      "key": "shot:0.200",
+      "variant": 1,
+      "frames": 9875,
+      "gain": 1.2190911234641562,
+      "offset": 196668
+    },
+    {
+      "id": "shot:0.200:2",
+      "key": "shot:0.200",
+      "variant": 2,
+      "frames": 9875,
+      "gain": 1.0764579383694395,
+      "offset": 216418
+    },
+    {
+      "id": "shot:0.250:0",
+      "key": "shot:0.250",
+      "variant": 0,
+      "frames": 9900,
+      "gain": 1.1359290200836805,
+      "offset": 236168
+    },
+    {
+      "id": "shot:0.250:1",
+      "key": "shot:0.250",
+      "variant": 1,
+      "frames": 9728,
+      "gain": 1.066736177522309,
+      "offset": 255968
+    },
+    {
+      "id": "shot:0.250:2",
+      "key": "shot:0.250",
+      "variant": 2,
+      "frames": 9781,
+      "gain": 1.1716661404590218,
+      "offset": 275424
+    },
+    {
+      "id": "shot:0.300:0",
+      "key": "shot:0.300",
+      "variant": 0,
+      "frames": 9883,
+      "gain": 0.9604312935653998,
+      "offset": 294986
+    },
+    {
+      "id": "shot:0.300:1",
+      "key": "shot:0.300",
+      "variant": 1,
+      "frames": 9863,
+      "gain": 1.1115750487969847,
+      "offset": 314752
+    },
+    {
+      "id": "shot:0.300:2",
+      "key": "shot:0.300",
+      "variant": 2,
+      "frames": 9805,
+      "gain": 1.0689486046226657,
+      "offset": 334478
+    },
+    {
+      "id": "shot:0.400:0",
+      "key": "shot:0.400",
+      "variant": 0,
+      "frames": 9880,
+      "gain": 1.2279566453427684,
+      "offset": 354088
+    },
+    {
+      "id": "shot:0.400:1",
+      "key": "shot:0.400",
+      "variant": 1,
+      "frames": 9879,
+      "gain": 1.151192431547204,
+      "offset": 373848
+    },
+    {
+      "id": "shot:0.400:2",
+      "key": "shot:0.400",
+      "variant": 2,
+      "frames": 9885,
+      "gain": 1.2301586112197564,
+      "offset": 393606
+    },
+    {
+      "id": "shot:0.450:0",
+      "key": "shot:0.450",
+      "variant": 0,
+      "frames": 9851,
+      "gain": 0.9428647707919685,
+      "offset": 413376
+    },
+    {
+      "id": "shot:0.450:1",
+      "key": "shot:0.450",
+      "variant": 1,
+      "frames": 9739,
+      "gain": 1.2925583489087162,
+      "offset": 433078
+    },
+    {
+      "id": "shot:0.450:2",
+      "key": "shot:0.450",
+      "variant": 2,
+      "frames": 9824,
+      "gain": 1.2715390750340054,
+      "offset": 452556
+    },
+    {
+      "id": "shot:0.500:0",
+      "key": "shot:0.500",
+      "variant": 0,
+      "frames": 9860,
+      "gain": 1.1811098273919554,
+      "offset": 472204
+    },
+    {
+      "id": "shot:0.500:1",
+      "key": "shot:0.500",
+      "variant": 1,
+      "frames": 9880,
+      "gain": 1.0515984223813426,
+      "offset": 491924
+    },
+    {
+      "id": "shot:0.500:2",
+      "key": "shot:0.500",
+      "variant": 2,
+      "frames": 9844,
+      "gain": 1.2183128571023747,
+      "offset": 511684
+    },
+    {
+      "id": "shot:0.550:0",
+      "key": "shot:0.550",
+      "variant": 0,
+      "frames": 9873,
+      "gain": 1.172503038328521,
+      "offset": 531372
+    },
+    {
+      "id": "shot:0.550:1",
+      "key": "shot:0.550",
+      "variant": 1,
+      "frames": 9879,
+      "gain": 1.105985471180507,
+      "offset": 551118
+    },
+    {
+      "id": "shot:0.550:2",
+      "key": "shot:0.550",
+      "variant": 2,
+      "frames": 9894,
+      "gain": 1.191330929191745,
+      "offset": 570876
+    },
+    {
+      "id": "shot:0.600:0",
+      "key": "shot:0.600",
+      "variant": 0,
+      "frames": 9776,
+      "gain": 1.1027895674413564,
+      "offset": 590664
+    },
+    {
+      "id": "shot:0.600:1",
+      "key": "shot:0.600",
+      "variant": 1,
+      "frames": 9822,
+      "gain": 1.1352127912093182,
+      "offset": 610216
+    },
+    {
+      "id": "shot:0.600:2",
+      "key": "shot:0.600",
+      "variant": 2,
+      "frames": 9878,
+      "gain": 0.9626800916632827,
+      "offset": 629860
+    },
+    {
+      "id": "shot:0.750:0",
+      "key": "shot:0.750",
+      "variant": 0,
+      "frames": 9857,
+      "gain": 0.9043942300640807,
+      "offset": 649616
+    },
+    {
+      "id": "shot:0.750:1",
+      "key": "shot:0.750",
+      "variant": 1,
+      "frames": 9859,
+      "gain": 1.084927271823494,
+      "offset": 669330
+    },
+    {
+      "id": "shot:0.750:2",
+      "key": "shot:0.750",
+      "variant": 2,
+      "frames": 9775,
+      "gain": 1.1421826420998087,
+      "offset": 689048
+    },
+    {
+      "id": "shot:0.900:0",
+      "key": "shot:0.900",
+      "variant": 0,
+      "frames": 9837,
+      "gain": 1.2026098309730997,
+      "offset": 708598
+    },
+    {
+      "id": "shot:0.900:1",
+      "key": "shot:0.900",
+      "variant": 1,
+      "frames": 9838,
+      "gain": 1.1737786993688466,
+      "offset": 728272
+    },
+    {
+      "id": "shot:0.900:2",
+      "key": "shot:0.900",
+      "variant": 2,
+      "frames": 9886,
+      "gain": 0.9630558442096321,
+      "offset": 747948
+    },
+    {
+      "id": "step:concrete:0",
+      "key": "step:concrete",
+      "variant": 0,
+      "frames": 5056,
+      "gain": 0.1721600032582575,
+      "offset": 767720
+    },
+    {
+      "id": "step:concrete:1",
+      "key": "step:concrete",
+      "variant": 1,
+      "frames": 5046,
+      "gain": 0.18128173387780483,
+      "offset": 777832
+    },
+    {
+      "id": "step:concrete:2",
+      "key": "step:concrete",
+      "variant": 2,
+      "frames": 5060,
+      "gain": 0.20155448998723713,
+      "offset": 787924
+    },
+    {
+      "id": "step:wood:0",
+      "key": "step:wood",
+      "variant": 0,
+      "frames": 6496,
+      "gain": 0.12624561026388284,
+      "offset": 798044
+    },
+    {
+      "id": "step:wood:1",
+      "key": "step:wood",
+      "variant": 1,
+      "frames": 6499,
+      "gain": 0.1262565124399808,
+      "offset": 811036
+    },
+    {
+      "id": "step:wood:2",
+      "key": "step:wood",
+      "variant": 2,
+      "frames": 6496,
+      "gain": 0.13866009456770761,
+      "offset": 824034
+    },
+    {
+      "id": "step:metal:0",
+      "key": "step:metal",
+      "variant": 0,
+      "frames": 8893,
+      "gain": 0.16137361526489258,
+      "offset": 837026
+    },
+    {
+      "id": "step:metal:1",
+      "key": "step:metal",
+      "variant": 1,
+      "frames": 8892,
+      "gain": 0.16845735360165032,
+      "offset": 854812
+    },
+    {
+      "id": "step:metal:2",
+      "key": "step:metal",
+      "variant": 2,
+      "frames": 8896,
+      "gain": 0.18951594829559326,
+      "offset": 872596
+    },
+    {
+      "id": "step:carpet:0",
+      "key": "step:carpet",
+      "variant": 0,
+      "frames": 4075,
+      "gain": 0.11523518027091513,
+      "offset": 890388
+    },
+    {
+      "id": "step:carpet:1",
+      "key": "step:carpet",
+      "variant": 1,
+      "frames": 4104,
+      "gain": 0.10736823386075546,
+      "offset": 898538
+    },
+    {
+      "id": "step:carpet:2",
+      "key": "step:carpet",
+      "variant": 2,
+      "frames": 4105,
+      "gain": 0.09628392147774599,
+      "offset": 906746
+    },
+    {
+      "id": "step:snow:0",
+      "key": "step:snow",
+      "variant": 0,
+      "frames": 7935,
+      "gain": 0.39570723869362656,
+      "offset": 914956
+    },
+    {
+      "id": "step:snow:1",
+      "key": "step:snow",
+      "variant": 1,
+      "frames": 7944,
+      "gain": 0.33646688169362593,
+      "offset": 930826
+    },
+    {
+      "id": "step:snow:2",
+      "key": "step:snow",
+      "variant": 2,
+      "frames": 7942,
+      "gain": 0.3201680219903284,
+      "offset": 946714
+    },
+    {
+      "id": "step:soil:0",
+      "key": "step:soil",
+      "variant": 0,
+      "frames": 6014,
+      "gain": 0.23874401742098283,
+      "offset": 962598
+    },
+    {
+      "id": "step:soil:1",
+      "key": "step:soil",
+      "variant": 1,
+      "frames": 6028,
+      "gain": 0.2500203647175614,
+      "offset": 974626
+    },
+    {
+      "id": "step:soil:2",
+      "key": "step:soil",
+      "variant": 2,
+      "frames": 6025,
+      "gain": 0.21209911424286512,
+      "offset": 986682
+    },
+    {
+      "id": "step:stone:0",
+      "key": "step:stone",
+      "variant": 0,
+      "frames": 5056,
+      "gain": 0.20671521826666228,
+      "offset": 998732
+    },
+    {
+      "id": "step:stone:1",
+      "key": "step:stone",
+      "variant": 1,
+      "frames": 5076,
+      "gain": 0.1589939606433012,
+      "offset": 1008844
+    },
+    {
+      "id": "step:stone:2",
+      "key": "step:stone",
+      "variant": 2,
+      "frames": 5056,
+      "gain": 0.17623852710334623,
+      "offset": 1018996
+    },
+    {
+      "id": "step:tile:0",
+      "key": "step:tile",
+      "variant": 0,
+      "frames": 5536,
+      "gain": 0.17429324133055552,
+      "offset": 1029108
+    },
+    {
+      "id": "step:tile:1",
+      "key": "step:tile",
+      "variant": 1,
+      "frames": 5536,
+      "gain": 0.15115795695051856,
+      "offset": 1040180
+    },
+    {
+      "id": "step:tile:2",
+      "key": "step:tile",
+      "variant": 2,
+      "frames": 5536,
+      "gain": 0.15725145230487902,
+      "offset": 1051252
+    },
+    {
+      "id": "knife:0",
+      "key": "knife",
+      "variant": 0,
+      "frames": 7932,
+      "gain": 0.13732720090418446,
+      "offset": 1062324
+    },
+    {
+      "id": "knife:1",
+      "key": "knife",
+      "variant": 1,
+      "frames": 7936,
+      "gain": 0.12181493244609054,
+      "offset": 1078188
+    },
+    {
+      "id": "zap:0",
+      "key": "zap",
+      "variant": 0,
+      "frames": 15616,
+      "gain": 0.6738458969155137,
+      "offset": 1094060
+    },
+    {
+      "id": "zap:1",
+      "key": "zap",
+      "variant": 1,
+      "frames": 15616,
+      "gain": 0.6138943287791038,
+      "offset": 1125292
+    },
+    {
+      "id": "crack:0",
+      "key": "crack",
+      "variant": 0,
+      "frames": 11528,
+      "gain": 0.12591760225441992,
+      "offset": 1156524
+    },
+    {
+      "id": "crack:1",
+      "key": "crack",
+      "variant": 1,
+      "frames": 11530,
+      "gain": 0.19464150679354766,
+      "offset": 1179580
+    },
+    {
+      "id": "jam:0",
+      "key": "jam",
+      "variant": 0,
+      "frames": 16105,
+      "gain": 0.25110787578991484,
+      "offset": 1202640
+    },
+    {
+      "id": "jam:1",
+      "key": "jam",
+      "variant": 1,
+      "frames": 16097,
+      "gain": 0.19944714648383005,
+      "offset": 1234850
+    },
+    {
+      "id": "radio:0",
+      "key": "radio",
+      "variant": 0,
+      "frames": 6504,
+      "gain": 0.10004643426865947,
+      "offset": 1267044
+    },
+    {
+      "id": "radio:1",
+      "key": "radio",
+      "variant": 1,
+      "frames": 6508,
+      "gain": 0.10070671536484543,
+      "offset": 1280052
+    },
+    {
+      "id": "click:0",
+      "key": "click",
+      "variant": 0,
+      "frames": 2176,
+      "gain": 0.14505570336264006,
+      "offset": 1293068
+    },
+    {
+      "id": "click:1",
+      "key": "click",
+      "variant": 1,
+      "frames": 2176,
+      "gain": 0.14505570336264006,
+      "offset": 1297420
+    },
+    {
+      "id": "reload:0",
+      "key": "reload",
+      "variant": 0,
+      "frames": 7936,
+      "gain": 0.23897817852545758,
+      "offset": 1301772
+    },
+    {
+      "id": "reload:1",
+      "key": "reload",
+      "variant": 1,
+      "frames": 7936,
+      "gain": 0.23897817852545758,
+      "offset": 1317644
+    },
+    {
+      "id": "vault:0",
+      "key": "vault",
+      "variant": 0,
+      "frames": 8893,
+      "gain": 0.07824311603088768,
+      "offset": 1333516
+    },
+    {
+      "id": "vault:1",
+      "key": "vault",
+      "variant": 1,
+      "frames": 8890,
+      "gain": 0.05832553974219731,
+      "offset": 1351302
+    },
+    {
+      "id": "switch:0",
+      "key": "switch",
+      "variant": 0,
+      "frames": 4581,
+      "gain": 0.26942564516651385,
+      "offset": 1369082
+    },
+    {
+      "id": "switch:1",
+      "key": "switch",
+      "variant": 1,
+      "frames": 4592,
+      "gain": 0.2749120702548903,
+      "offset": 1378244
+    },
+    {
+      "id": "wire:0",
+      "key": "wire",
+      "variant": 0,
+      "frames": 9862,
+      "gain": 0.07987581953710439,
+      "offset": 1387428
+    },
+    {
+      "id": "wire:1",
+      "key": "wire",
+      "variant": 1,
+      "frames": 9902,
+      "gain": 0.08455376539911542,
+      "offset": 1407152
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+import fs from 'node:fs';
+function edit(p,pairs){
+ let s=fs.readFileSync(p,'utf8');
+ for(const [a,b] of pairs){if(!s.includes(a))throw Error(a);s=s.replace(a,Array.isArray(b)?b.join('\n'):b);}
+ fs.writeFileSync(p,s);
+}
+edit('relay/src/index.js',[
+ ["const cors =",[
+ 'const RANK_SHARDS = 4;',
+ 'const RANK_TTL = 45_000;',
+ "const rankedStub = (env, shard) => env.ROOMS.get(env.ROOMS.idFromName('ranked-' + shard));",
+ 'const rankedShard = code => code.charCodeAt(0) % RANK_SHARDS;',
+ "const rankedHeaders = { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' };",
+ '',
+ 'const cors =']],
+ ["    if (url.pathname === '/' || url.pathname === '/health')",[
+ "    if (url.pathname === '/ranked' && req.method === 'GET') {",
+ '      const shards = await Promise.all(Array.from({ length: RANK_SHARDS }, async (_, index) => {',
+ "        const response = await rankedStub(env, index).fetch('https://relay.internal/directory');",
+ "        if (!response.ok) throw new Error('Ranked directory unavailable');",
+ '        return response.json();',
+ '      }));',
+ '      const games = shards.flat().sort((a, b) => b.players - a.players || a.code.localeCompare(b.code));',
+ '      return Response.json(games, { headers: rankedHeaders });',
+ '    }',
+ "    if (url.pathname === '/' || url.pathname === '/health')"]],
+ ['  constructor(state) {\n    this.state = state;', '  constructor(state, env) {\n    this.state = state;\n    this.env = env;'],
+ ["    const role = url.searchParams.get('role')", "    if (url.pathname === '/directory') return this._directory(req);\n    const role = url.searchParams.get('role')"],
+ ['server.serializeAttachment({ role, id });',[
+ "const code = url.pathname.split('/').at(-1).toUpperCase();",
+ "    server.serializeAttachment({ role, id, code, lease: role === 'host' ? crypto.randomUUID() : null });"]],
+ ['    if (me.role === \'host\') {\n      const players',[
+ "    if (me.role === 'host') {",
+ "      if (Object.hasOwn(m, 'ranked')) { await this._publish(me, m.ranked); return; }",
+ '      const players']],
+ ['  async webSocketClose(ws) { this._gone(ws); }\n  async webSocketError(ws) { this._gone(ws); }\n\n  _gone(ws) {',[
+ '  async _publish(host, listing) {',
+ '    if (!CODE.test(host.code || \'\') || !host.lease) return;',
+ "    await rankedStub(this.env, rankedShard(host.code)).fetch('https://relay.internal/directory', {",
+ "      method: 'PUT',",
+ '      body: JSON.stringify({ code: host.code, lease: host.lease, listing }),',
+ '    });',
+ '  }',
+ '',
+ '  async _directory(req) {',
+ '    const sql = this.state.storage.sql, now = Date.now();',
+ "    sql.exec('CREATE TABLE IF NOT EXISTS ranked (code TEXT PRIMARY KEY, lease TEXT, expires INTEGER, data TEXT)');",
+ "    sql.exec('DELETE FROM ranked WHERE expires <= ?', now);",
+ "    if (req.method === 'GET') {",
+ "      return Response.json(sql.exec('SELECT code, data FROM ranked ORDER BY expires DESC LIMIT 64').toArray()",
+ '        .map(row => ({ code: row.code, ...JSON.parse(row.data) })));',
+ '    }',
+ "    if (req.method !== 'PUT') return new Response(null, { status: 405 });",
+ '    const { code, lease, listing } = await req.json();',
+ "    if (!CODE.test(code || '') || typeof lease !== 'string' || lease.length > 40) return new Response(null, { status: 400 });",
+ '    if (listing === null) {',
+ "      sql.exec('DELETE FROM ranked WHERE code = ? AND lease = ?', code, lease);",
+ '    } else {',
+ '      const { average, low, high, players, capacity, map } = listing || {};',
+ '      const ratings = [low, average, high];',
+ '      if (!ratings.every(value => Number.isInteger(value) && value >= 0 && value <= 3000)',
+ '        || low > average || average > high || !Number.isInteger(players) || !Number.isInteger(capacity)',
+ "        || capacity < 2 || capacity > 8 || players < 1 || players >= capacity || !['ranch', 'embassy', 'workshop'].includes(map)) {",
+ '        return new Response(null, { status: 400 });',
+ '      }',
+ '      const data = JSON.stringify({ average, low, high, players, capacity, map });',
+ "      sql.exec('INSERT OR REPLACE INTO ranked VALUES (?, ?, ?, ?)', code, lease, now + RANK_TTL, data);",
+ "      sql.exec('DELETE FROM ranked WHERE code IN (SELECT code FROM ranked ORDER BY expires DESC LIMIT -1 OFFSET 64)');",
+ '    }',
+ '    return new Response(null, { status: 204 });',
+ '  }',
+ '',
+ '  async webSocketClose(ws) { await this._gone(ws); }',
+ '  async webSocketError(ws) { await this._gone(ws); }',
+ '',
+ '  async _gone(ws) {']],
+ ["      for (const { ws: s, a } of this._all()) if (a.role === 'player') { this._send(s, { t: 'end' }); try { s.close(4000, 'The host left.'); } catch (e) { /* closed */ } }", "      for (const { ws: s, a } of this._all()) if (a.role === 'player') { this._send(s, { t: 'end' }); try { s.close(4000, 'The host left.'); } catch (e) { /* closed */ } }\n      if (me.rankedListed) await this._publish(me, null);"],
+ ["      if (Object.hasOwn(m, 'ranked')) { await this._publish(me, m.ranked); return; }",[
+ "      if (Object.hasOwn(m, 'ranked')) {",
+ '        if (m.ranked || me.rankedListed) await this._publish(me, m.ranked);',
+ '        ws.serializeAttachment({ ...me, rankedListed: !!m.ranked });',
+ '        return;',
+ '      }']],
+]);
+edit('js/net/relay.js',[
+ ['  flush() {\n    const b = [];','  ranked(listing) { this._send({ ranked: listing }); }\n  flush() {\n    const b = [];'],
+ ['export async function pingRelay(base) {',[
+ 'export async function rankedGames(base) {',
+ "  const response = await fetch(base.replace(/\\/+$/, '') + '/ranked', { cache: 'no-store' });",
+ "  if (!response.ok) throw new Error('Ranked games are unavailable on this relay.');",
+ '  return response.json();',
+ '}',
+ '',
+ 'export async function pingRelay(base) {']],
+]);
+

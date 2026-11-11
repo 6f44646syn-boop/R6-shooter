@@ -1,0 +1,742 @@
+PASS controls WASM: source hash, ABI, profiles, transitions, collisions, sensitivity, fairness and storage recovery
+PASS audio WASM ABI and output buffer
+PASS far source quieter than near and right source pans right
+PASS left/right symmetry
+PASS height contributes to propagation distance
+PASS no minimum audible volume leaks faraway shots
+PASS occlusion lowers level and low-pass cutoff
+PASS invalid emitter creates finite silence
+PASS listener adapter preserves height and orientation
+PASS lean roll keeps listener up perpendicular to forward
+PASS breaking a real engine door clears sound occlusion immediately
+PASS footsteps use authored room floor texture metadata
+PASS actual metal container and wooden crate select different footsteps
+PASS airborne actors do not play floor contacts
+PASS real upper floor occludes footsteps from the floor below
+PASS footstep cadence derives from travelled distance
+PASS network teleport emits no footstep
+PASS engine silent noise budget remains silent
+PASS invalid footstep input is rejected before engine queries
+18 audio integration checks passed
+PASS non-Bomb modes retain original policy
+PASS reinforcement can start from the extended placement reach
+PASS reinforcement cannot finish before 2.5 seconds
+PASS reinforcement finishes and consumes one of two charges
+PASS bullets still cannot chip a reinforced wall
+PASS breaching still opens reinforced walls
+PASS barricade cannot finish before 1.5 seconds
+PASS completed Bomb barricade has 150 health
+PASS Bomb barricade survives one knife hit
+PASS second knife hit clears the barricade
+PASS round reset restores the same durability on boarded entries
+PASS wire still costs one of two rolls and now takes four bullets
+PASS wire survives three bullet impacts
+PASS fourth bullet clears wire
+PASS enemy wire applies 35% movement without changing unaffected defenders
+PASS one close-range knife still clears wire
+PASS side swap moves defensive utility to the new defenders
+PASS attack phase starts with exactly 120 seconds
+PASS defenders do not win before the deadline
+PASS unplanted bomb times out for a defender win at the deadline
+PASS plant duration remains five seconds
+PASS late successful plant still gets the full forty-second fuse
+PASS old attack deadline does not cut short a planted bomb
+PASS defuse duration remains six seconds
+PASS all five defender abilities gain coverage or uptime
+PASS ability damage, charges and attacker abilities stay unchanged
+PASS shared ability catalogue is never mutated
+PASS TDM and CTF keep their original ability configurations
+PASS Jolt triggers beyond the old 2.2 m radius
+PASS Jolt applies five-second disruption without added damage
+PASS Dread applies seven-second shake/reveal and six-second cloud
+PASS jammer covers enemies at nine metres and spares its team
+PASS catcher intercepts at 5.5 metres and recharges in eight seconds
+PASS overlapping disruption stays audible and avoids full blackout
+PASS expired or non-Bomb disruption restores normal perception
+PASS tdm retains original wire movement and barricade health
+PASS ctf retains original wire movement and barricade health
+37 Bomb utility integration checks passed
+PASS WASM is built from the current Rust source
+PASS measured loadout returns the catalogue gun (all guns)
+PASS measured codes come from the data (F2: flash hider, vertical grip, laser)
+PASS catalogue unchanged after building effective guns
+PASS removing the vertical grip adds 1/0.88 climb
+PASS ...and leaves sideways recoil alone
+PASS extended magazine: 25 -> 35 rounds, slower reload
+PASS suppressor: no flash, 40% noise reach, less damage
+PASS angled grip: faster to aim
+PASS LMG cannot take an extended magazine (Rust rejects it)
+PASS garbage codes fall back to the measured loadout
+PASS same code gives the same object (cached)
+PASS effective guns are frozen and point at their base
+PASS describe() lists the changes
+PASS four slots with the Rust option counts
+PASS Weapon: capacity from the effective magazine
+PASS Weapon: reload time from the effective gun
+PASS RecoilEngine: more climb without the grip
+PASS Spread: the laser tightens the hip-fire cone
+PASS match: the human gets their effective gun
+PASS match: bots keep the measured loadout
+PASS match: magazine size follows the attachment
+PASS match: a suppressed shot carries 40% as far
+23 loadout checks passed
+PASS hd/anims/weapons.json is valid
+PASS it matches tools/hd/anims.mjs (rebuilt)
+PASS listed in the pack manifest with its hash (pack version 4)
+PASS default: every clip ends at rest (hand on the handguard, magazine seated)
+PASS default: empty reload pulls the charging handle
+PASS default: the dropped magazine leaves, a new one comes in
+PASS default: tactical reload: the hand holds the magazine away from the gun
+PASS ak: every clip ends at rest (hand on the handguard, magazine seated)
+PASS ak: empty reload pulls the charging handle
+PASS ak: the dropped magazine leaves, a new one comes in
+PASS ak: tactical reload: the hand holds the magazine away from the gun
+PASS bullpup: every clip ends at rest (hand on the handguard, magazine seated)
+PASS bullpup: empty reload pulls the charging handle
+PASS bullpup: the dropped magazine leaves, a new one comes in
+PASS bullpup: tactical reload: the hand holds the magazine away from the gun
+PASS machinepistol: every clip ends at rest (hand on the handguard, magazine seated)
+PASS machinepistol: empty reload pulls the charging handle
+PASS machinepistol: the dropped magazine leaves, a new one comes in
+PASS machinepistol: tactical reload: the hand holds the magazine away from the gun
+PASS lmg: every clip ends at rest (hand on the handguard, magazine seated)
+PASS lmg: empty reload pulls the charging handle
+PASS lmg: the dropped magazine leaves, a new one comes in
+PASS lmg: tactical reload: the hand holds the magazine away from the gun
+23 pack animation checks passed
+PASS glitch (spark_drone): prep drone 6.00 m/s
+PASS dash (breach_rounds): prep drone 6.00 m/s
+PASS pace (wall_charge): prep drone 6.00 m/s
+PASS aiko (pulse_scanner): prep drone 6.00 m/s
+PASS huck (underbarrel): prep drone 6.00 m/s
+5 drone speed checks passed
+Rust core build
+  PASS wasm/recoil_core.wasm was built from the current Rust sources
+  PASS the core loads and reports its interface version
+
+Battle maps, every level: the old arena code and the Rust core (the body radius and limits the old code had)
+  PASS yard: identical floors, raycasts (with the face hit), sight lines, path nodes and paths
+  PASS winter: identical floors, raycasts (with the face hit), sight lines, path nodes and paths
+  PASS casino: identical floors, raycasts (with the face hit), sight lines, path nodes and paths
+  PASS school: identical floors, raycasts (with the face hit), sight lines, path nodes and paths
+  (26,837 nodes, 80,000 ground, 80,000 raycast, 40,000 sight, 80,000 nodeAt, 12,000 nearest node, 24,000 clearWalk, 6,000 path)
+  PASS movement: the same position as the old code in 99.49% of 224,400 steps (the rest are corners, where the core pushes out twice)
+  PASS movement: left overlapping a wall after a step less often than the old code (old 838, core 238)
+  PASS vaulting: the same answer as the old code in all but 119 of 80,000 tries (1,931 vaults)
+  PASS vaulting: every landing spot is free, on the ground there, and no higher than 1.5 m up
+
+Match maps, ground floor: the old map code and the Rust core (answers must be identical)
+  PASS yard: identical answers
+  PASS depot: identical answers, also with 5 panels and doors broken, and after a reset
+  PASS containers: identical answers
+  PASS winter: identical answers
+  PASS casino: identical answers
+  PASS school: identical answers
+  PASS ranch: identical answers, also with 29 panels and doors broken, and after a reset
+  PASS embassy: identical answers, also with 35 panels and doors broken, and after a reset
+  PASS workshop: identical answers, also with 40 panels and doors broken, and after a reset
+  (102,000 ray, 102,000 sight, 102,000 resolve, 12,000 move, 102,000 free, 102,000 walk, 25,500 near, 25,500 door)
+  PASS no worlds left in the core after dispose()
+
+Rust core checks passed
+Unit tests (tests/unit.html)
+  PASS cm/360 to deg/count: 800 DPI, 40 cm = 0.028575
+  PASS cm/360 to deg/count: 1 inch per 360 at 1600 DPI = 1600 counts
+  PASS deg/count scales inversely with DPI and cm/360
+  PASS N counts = exactly 360 degrees (400 DPI, 25.4 cm -> 4000 counts)
+  PASS Mixed event sizes sum exactly: 10 full turns at 800 DPI / 40 cm
+  PASS yaw wraps both ways, pitch clamps at +/-89.9
+  PASS glitch guard discards single events over 2000 counts
+  PASS FOV: vertical from horizontal, ADS zoom in tan-space
+  PASS sprayStep inside the path is the difference of neighbours
+  PASS sprayStep past the end = average of the last steps
+  PASS tail "hold": past the end the step is zero and the target stays on the last point
+  PASS validateSens: ADS multiplier = hip cm/360 / ADS cm/360
+  PASS validateSens reads the in-game sensitivity screen format
+  PASS sprayTarget extrapolates linearly past the end
+  PASS sampleSpray interpolation: eased over 40% of the interval
+  PASS path[0] offset is ignored (offsets are relative to bullet 0)
+  PASS smoothPath: keeps start and end, removes zig-zag in yaw
+  PASS RecoilEngine: with no jitter, bullet i leaves at sprayPath[i]
+  PASS RecoilEngine: shotIndex resets after resetSeconds
+  PASS RecoilEngine: recovery waits, then returns to zero at degPerSecond
+  PASS RecoilEngine: same seed gives the same jitter, another seed differs
+  PASS Gaussian PRNG: mean ~0, sd ~1, deterministic
+  PASS catalogue: good data validates; groups give zoom, bonus and sens key
+  PASS catalogue: duplicate id, bad zoom, unknown shape, fraction out of range are errors
+  PASS resolveGunOptics: @group expansion, exclude, default check
+  PASS validateGuns accepts a good gun and resolves its sights
+  PASS validateGuns names the gun and field for bad data
+  PASS validateGuns rejects duplicate ids and a missing guns array
+  PASS RecoilEngine: opticRecoilScale multiplies sprayPath steps
+  PASS settings sanitize clamps and fills defaults
+  PASS dummy raycast: head, chest, gap between legs, miss beside
+  PASS no page errors
+
+Measured sprays (data/guns.json) vs bullet-hole pixels at the aimed FOV
+  PASS slot 2 (mag_a, vFOV 34.86): spray = pixels, ends [1.56,10.56]
+  PASS slot 3 (mag_a, vFOV 34.86): spray = pixels, ends [2.28,11.09]
+  PASS slot 4 (dot_a, vFOV 74.7): spray = pixels, ends [-0.35,23.85]
+  PASS slot 5 (mag_a, vFOV 34.86): spray = pixels, ends [1.95,11.16]
+  PASS slot 6 (mag_b, vFOV 34.86): spray = pixels, ends [4.55,11.32]
+  PASS slot 7 (dot_a, vFOV 74.7): spray = pixels, ends [1.76,26.08]
+  PASS slot 8 (mag_a, vFOV 34.86): spray = pixels, ends [0.68,11.05]
+  PASS slot 9 (dot_c, vFOV 74.7): spray = pixels, ends [-1.11,26.15]
+  PASS slot 10 (dot_c, vFOV 74.7): spray = pixels, ends [0.64,26.07]
+
+Magazine simulation (index.html?test&seed=1234)
+  PASS slot 1 (placeholder): 30 holes = full magazine 30
+  PASS slot 1 (placeholder): holes match sprayPath (worst error 0.0000 mm)
+  PASS slot 4 (measured, tail hold): 17 holes = full magazine 17
+  PASS slot 4 (measured, tail hold): holes match sprayPath (worst error 0.0000 mm)
+  PASS slot 8 (measured, tail hold): 31 holes = full magazine 31
+  PASS slot 8 (measured, tail hold): holes match sprayPath (worst error 0.0000 mm)
+  PASS reload at the default 2x speed finishes in half the gun's reloadSeconds
+  PASS clear removes every hole and all shot data (5 holes, 5 shots before)
+  PASS chambered gun: starts 31, tactical reload 31, empty reload 30 (mag 30)
+  PASS seed 1234 used
+  PASS same seed -> identical hole positions
+  PASS jitter changes the spray
+  PASS 30 fps and 144 fps sprays match (worst 0.0000 mm)
+  FAIL 1080 rpm for 1 s = 19 shots
+       got 18
+  PASS recoil offset climbs while firing (12.631 deg)
+  PASS view does not drift back after firing (14.025 deg up, still 14.025 after 3 s)
+  PASS leftover recoil is folded into the aim after the spray
+  PASS aimed spray follows the measured path exactly by default (sprays were measured aimed)
+  PASS optional smoothing: aimed spray follows the smoothed path
+  PASS hip-fire spray follows the measured path exactly (smoothing never applies)
+  PASS smoothing keeps the measured end point
+  PASS hole cap 300 (shots 330)
+  PASS defender slot 1 starts on holo_a, attacker slot 2 on mag_a
+  PASS picker lists 11 sights for a defender slot, 14 for an attacker slot
+  PASS mag_a: zoom 2.5, sens key 2.5x, vertical ADS FOV 34.860 = 83 x 0.42
+  PASS holo_a: zoom 1, vertical ADS FOV 74.700 = 83 x 0.9 (wider than mag_a)
+  PASS ADS ease 120-180 ms (mag 158 ms, holo 150 ms)
+  PASS mid-ease: FOV 42.14 deg, eased 0.875 at half time (snappy ease-out: 87.5%)
+  PASS mid-ease sensitivity matches the FOV (0.4355 x hip)
+  PASS auto quality: 3 -> 2 (blur off) -> 1 (fringing off) -> 0 (glare off), stays down; also drops when aiming is >25% slower than hip: 3 > 2 > 1 > 0 > 0 > 0 > 2
+  PASS ADS slower with mag_a (0.1575 s) than holo_a (0.1500 s)
+  PASS focal sens: 2.5x / 1x = tan(34.86/2) / tan(74.7/2)
+  PASS game-values sens: 2.5x / 1.0x = 11.8 / 22.3 cm
+  PASS 0% monitor distance: 40 counts move the view 17.09 px at hip and 17.09 px aimed (1080p)
+  PASS 100% monitor distance: counts to reach the screen edge equal (1034.7 vs 1034.7)
+  PASS sensitivity follows the zoom continuously: monotonic, largest 240 fps step 7.73% of the change, responds on frame one (7.7%)
+  PASS frame one of aiming (blend 0.2851): reticle fully on at the exact screen centre
+  PASS zero parallax: camera position unchanged by aiming (zoom is FOV only)
+  PASS lens pass off at hip, on when aimed
+  PASS F4 gallery shows 15 sights
+  PASS W cannot move past the firing line (z stays 0.000)
+  PASS S / A stop at the box edge (2 m back, 1.5 m left)
+  PASS W walks back up to the line and stops there
+  PASS Space crouch lowers the eye to 1.05 m, standing back to 1.6
+  PASS Shift sprint is faster than walking (4.83 vs 2.63 m/s after 0.15 s)
+  PASS a level shot while crouched hits the dummy body, not the head
+  PASS holding Space crouches, releasing stands
+  PASS E leans right: eye 0.32 m right, view tilted 11 deg; the shot leaves from there (x 0.320 m)
+  PASS Q leans left, releasing returns upright
+  PASS - / + change the target distance (10 -> 5 -> 15)
+  PASS vertical sens 14 vs horizontal 7: same counts turn pitch twice as far
+  PASS sens 7 at 1600 DPI = 14.25 cm/360 (14.249)
+  PASS aim assist off: aim stays put; on: pulled towards the head (0.535 deg left)
+  PASS 6 still dots; shooting one scores 100 and respawns only that dot
+  PASS a shot away from every dot misses
+  PASS 12 moving dots travel 1.5 m/s to the right; dummy hidden in dot mode, back after
+  PASS paper target: centre scores 10, 0.18 m scores 6, card outside the rings 0, off the card misses
+  PASS dummy: head shot, chest shot, shot over the head = 2 hits, 1 headshot
+  PASS no page errors
+  PASS no third-party requests
+
+Sights: saved choice and a test sight added through data only
+  PASS chosen sight is remembered per slot after reload
+  PASS a saved sight the slot no longer allows falls back to defaultOptic
+  PASS no page errors
+  PASS test sight appears on slot 1 only (12 vs 14), selectable, zoom 4
+  PASS gallery shows 16 and the sens table gains a 4.0x row (rows: 1.0x, 2.5x, 3.5x, 4.0x, 8.0x)
+  PASS no page errors
+
+Attachments: effective guns in the Range, the armory, Battle and the match modes
+  PASS measured loadout is the catalogue gun (F2: flash hider, vertical grip, laser)
+  PASS extended magazine: 35 rounds fired from one magazine
+  PASS attachments are remembered per gun after reload
+  PASS armory: picking the suppressor changes the gun and lists its effects
+  PASS Battle: you carry your attachments (suppressor, extended magazine); bots the measured loadout
+  PASS match modes: your op's gun has your saved attachments (quick-change: faster reload)
+  PASS no page errors
+
+Pack weapon animations: keyframed reloads on High with the pack, same timing
+  PASS Standard keeps the procedural animations (no separate hand)
+  PASS High with the pack: the support hand is its own animated part
+  PASS empty reload: the hand leaves the handguard, the old magazine drops, the charging handle is pulled
+  PASS after the reload the hand and magazine are back at rest
+  PASS reload takes the same time with the pack clips as without (within one frame)
+  PASS no page errors
+
+Frame time at 1920x1080 (headless, software GPU: treat fps as a lower bound)
+  GPU: ANGLE (Intel, Intel(R) UHD Graphics (0x0000468B) Direct3D11 vs_5_0 ps_5_0, D3D11)
+  render 1920x1080, 36 draw calls, 31949 triangles
+  frames: 453, avg 11.07 ms (90 fps), p99 14.30 ms
+  CPU per frame (update + render submit): median 1.500 ms, p95 2.800 ms
+  JS heap change over 5 s of firing (after GC): -493.6 KB
+  PASS draw calls <= 38 (indoor hall, target, 3D weapon model and sight)
+  PASS render size 1920x1080 at devicePixelRatio 1
+  PASS CPU median under 3 ms
+  hip (no lens pass):       90.6 fps, 35 draw calls
+  aimed, lens quality 3:    26.1 fps, 34 draw calls
+  aimed, lens quality 0:    75.5 fps, 31 draw calls
+  PASS lens pass only while aiming
+  PASS aiming adds at most 4 draw calls (no second scene render)
+  PASS Enhanced Graphics pack installs (for High / Ultra)
+  PASS high graphics: tone mapping on, shadows cast (54 calls vs 35)
+  PASS back to standard graphics restores the original look
+  PASS ultra graphics: each slot has its own skin (Teal Hexcore, Carbon Weave)
+  PASS animations: shot -> flash, bolt back, brass; all gone 0.6 s later
+  PASS animations: reload drops the magazine and puts it back
+  PASS animations: a new gun is drawn (0 -> 1); animations off -> no flash or brass
+  PASS low graphics: flat colours (no decorative textures), one light, lens quality 0
+  PASS battle: paths across the arena; a tall wall blocks sight, a low wall hides a crouched head only
+  PASS battle: bots roam on their own, stay in bounds and never inside cover
+  PASS battle: tapping a bot at 10 m kills it (5 taps), scores, shows in the kill feed, it respawns at full health
+  PASS battle: first to the kill target wins, end screen shown, leaving returns to the range
+  PASS maps: Container Yard, Winter Cabin, Jesse's Casino and School Basement build; bots roam; paths cross; nobody inside cover
+  PASS bot levels: easy takes longer to kill you than hard (median 3.7 s vs 1.1 s)
+  PASS Terminator kills faster than Hard (median 0.65 s)
+  PASS hip fire: a spread cone (3.0 deg) that blooms while firing (4.8) and recovers; none when aimed
+  PASS hip fire recoil 1.8x the measured climb (1.24 m vs 0.69 m at 10 m)
+  PASS auto reload: an empty magazine reloads by itself
+  PASS packs: need 100 points; the reel lands on the won skin; reveal shows it
+  PASS equipped skin is on the gun and named in the HUD (Jade Weave)
+  PASS save code (71 characters) restores everything; a damaged code is refused; old codes load
+  PASS a headshot kill (+30) and the win (+50) earn points, shown on the end screen
+  PASS no page errors
+
+Enhanced Graphics pack, graphics screen, world post-processing, FPS counter
+  PASS no pack: nothing downloaded; High runs as Standard and the screen offers the download (Download Enhanced Graphics)
+  PASS a damaged download is refused (checked against the pack list)
+  PASS download with the button: every file checked and kept in the browser (31 files); High switches on
+  PASS the pack's gun is far more detailed (91k triangles vs 12k)
+  PASS the pack's soldier in battles (26k triangles vs 4k)
+  PASS High: ambient occlusion and TAA run; at 60% the world is upscaled and the screen stays full size (1280x720)
+  PASS FPS counter: frame rate, frame time, 1% low, CPU / GPU time, resolution and draw calls
+  PASS after a reload the pack loads from the browser (no download) and High is on
+  PASS remove: space freed, High back to needing the pack (Standard look)
+  PASS no page errors
+  PASS no third-party requests
+
+Legendary skin (your photo)
+  PASS Legendary: your photo becomes a skin for every gun; the save code keeps the choice but not the photo; others see gold
+  PASS no page errors
+
+Battle movement, hazards, night and weather
+  PASS vault (C) over low cover, climb onto a 1.4 m ledge, but not over a 2.6 m container
+  PASS casino: stairs and a ramp up to the second floor; bots can path up there; rails stop falls
+  PASS winter: walk into the cabin through its door
+  PASS school basement: acid kills, shown in the kill feed
+  PASS night: flashlights (yours toggles with F; others light the scene in Standard and up), beams on others; storm rain and thick plain fog; day has none
+  PASS others carry their real gun model (with a skin for bots)
+  PASS bots hear gunfire through cover and call it out on their radio
+  PASS legs swing when soldiers walk
+  PASS soldiers collide: six bots on one spot spread out (closest 0.66 m)
+  PASS radio lines are spoken (Bot voices on)
+  PASS red outline on other players by day, not at night
+  PASS kill cam on your killer with a hit report (head / body / limbs, damage both ways); Space skips
+  PASS no page errors
+
+Match modes (Team Deathmatch, Capture the Flag, Bomb) in the browser
+  PASS every mode starts and runs on its maps
+  PASS a new match starts with an empty kill feed
+  PASS a drone driven at a wall stays outside it at 10, 15 and 30 FPS (x -28.35, -28.35, -28.35)
+  PASS a drone cannot pass a reinforced wall at 10 FPS
+  PASS a drone rolls under a boarded door
+  PASS sprinting at a wall or a boarded door at 10 FPS does not get you through (x -28.52, -28.4)
+  PASS graphics memory is steady across match restarts (geometries 416, 416, 416, 416, 416)
+  PASS the Rust core (WebAssembly) is loaded and holds exactly the current map
+  PASS the death replay ends before the Team Deathmatch respawn
+  PASS Battle: sprinting at a thin Casino wall at 10 FPS does not get you through
+  PASS no page errors
+
+Match modes: stairs, upper floors, falling, vaulting, defenders kept inside (played with the keys)
+  PASS Casino in Team Deathmatch has its upper floors (19 levels, the top one 3.6 m up)
+  PASS you walk up the stairs to the top floor with W held (9.7 s; feet at 3.60 m)
+  PASS the camera is at eye height above the floor you stand on (1.6 m)
+  PASS a bot upstairs is drawn upstairs
+  PASS crouching works on the upper floor (Space)
+  PASS walking off the edge you fall and land on your feet below (from 3.6 m to 0.00 m)
+  PASS and you walk back down to the ground floor at 15 FPS (2.6 s)
+  PASS C vaults over low cover in a match mode (a 1.20 m obstacle; feet up to 1.41 m)
+  PASS C at a full-height wall does nothing
+  PASS Bomb defender: sprinting out of an opened outside door stops at the wall line, at 60 and 10 FPS (x -28.00, -28.00)
+  PASS a quiet warning shows there ("Defenders stay inside the building") and goes away inside
+  PASS a breached outside wall or an opened window (sprinting at it, then C to vault) does not let a defender out either (x -28.00)
+  PASS defender bots are held at the same line (x -28.00)
+  PASS an attacker walks out of the same door freely, with no warning (x -32.76)
+  PASS Battle uses the same body on the same stairs: up to the Casino top floor (10.7 s)
+  PASS no page errors
+
+Bomb: reinforcing, barricading, barbed wire, wall holes, windows (played with the keys)
+  PASS preparation time is a match option (45 s asked, 45 s given)
+  PASS a defender holding Interact at a soft wall reinforces it in 2.5 s (2 a round)
+  PASS interior doorways start open; holding Interact in one barricades it
+  PASS Caps Lock lays barbed wire for a Bomb defender (2 a round; the HUD says so)
+  PASS wire slows an attacker to under half speed and scratches (2.54 to 1.01 m/s, 2 damage)
+  PASS a knife clears the wire
+  PASS bullets chip a soft wall into a hole you can see through (cells 12 to 11 of 12)
+  PASS the knife breaks one more cell
+  PASS outside windows start boarded; knife it open and C vaults you in
+  PASS no page errors
+
+(relay not running at http://127.0.0.1:8787: skipping the relay network test; run "npx wrangler dev --port 8787" in relay/)
+
+Network matches (two browser sessions, join codes): Team Deathmatch and Bomb
+  PASS two sessions connect for a network match
+  PASS the host can choose Battle, Team Deathmatch, Capture the Flag or Bomb
+  PASS Battle online: hold follows the confirmed throw and release restores first person
+  PASS Battle online: a grenade from the player flies on both PCs and goes off on the player's PC too (B11 fixed)
+  PASS Battle online: a grenade death replays the host-confirmed projectile
+  PASS Team Deathmatch online: both PCs have the same roster (3 v 3, the player in a place of their own)
+  PASS the host sees the player where the player's PC put them
+  PASS the player sees the host's bots where the host has them
+  PASS the player's shots kill the bot on the host; both PCs show it (feed: "You" on the player's PC)
+  PASS Team Deathmatch online: hold follows the confirmed throw and release restores first person
+  PASS a grenade thrown on the player's PC flies on the host and both see it
+  PASS Team Deathmatch online: a grenade death follows the host-confirmed trajectory
+  PASS Team Deathmatch online: client sees the final kill, winning lineup and host leaderboard
+  PASS host leaving the match returns the player to the menu
+  PASS Capture the Flag online: a dropped flag is where the host has it on the player's PC
+  PASS Bomb online: the player defends as asked, the host attacks; both are in round 1 prep
+  PASS a door broken on the host is broken on the player's PC (collision too)
+  PASS the player holds Interact at a wall: the host reinforces it and both PCs show it reinforced
+  PASS no page errors in either session
+
+Network battle (two browser sessions, join codes)
+  PASS join codes connect two sessions (code 535 characters)
+  PASS positions sync both ways (host sees the player, the player sees the host and the bot)
+  PASS the player on the other PC kills the host; the kill feed shows on both
+  PASS the host kills the player; the player's PC shows its own death
+  PASS the player's PC replays the host shooting them (kill cam with recorded shots)
+  PASS network Battle sends the final kill, winning lineup and leaderboard
+  PASS host ending the match returns the player to the menu, still connected
+  PASS no page errors in either session
+
+1 FAILED
+PASS controls WASM: source hash, ABI, profiles, transitions, collisions, sensitivity, fairness and storage recovery
+PASS audio WASM ABI and output buffer
+PASS far source quieter than near and right source pans right
+PASS left/right symmetry
+PASS height contributes to propagation distance
+PASS no minimum audible volume leaks faraway shots
+PASS occlusion lowers level and low-pass cutoff
+PASS invalid emitter creates finite silence
+PASS listener adapter preserves height and orientation
+PASS lean roll keeps listener up perpendicular to forward
+PASS breaking a real engine door clears sound occlusion immediately
+PASS footsteps use authored room floor texture metadata
+PASS actual metal container and wooden crate select different footsteps
+PASS airborne actors do not play floor contacts
+PASS real upper floor occludes footsteps from the floor below
+PASS footstep cadence derives from travelled distance
+PASS network teleport emits no footstep
+PASS engine silent noise budget remains silent
+PASS invalid footstep input is rejected before engine queries
+18 audio integration checks passed
+PASS non-Bomb modes retain original policy
+PASS reinforcement can start from the extended placement reach
+PASS reinforcement cannot finish before 2.5 seconds
+PASS reinforcement finishes and consumes one of two charges
+PASS bullets still cannot chip a reinforced wall
+PASS breaching still opens reinforced walls
+PASS barricade cannot finish before 1.5 seconds
+PASS completed Bomb barricade has 150 health
+PASS Bomb barricade survives one knife hit
+PASS second knife hit clears the barricade
+PASS round reset restores the same durability on boarded entries
+PASS wire still costs one of two rolls and now takes four bullets
+PASS wire survives three bullet impacts
+PASS fourth bullet clears wire
+PASS enemy wire applies 35% movement without changing unaffected defenders
+PASS one close-range knife still clears wire
+PASS side swap moves defensive utility to the new defenders
+PASS attack phase starts with exactly 120 seconds
+PASS defenders do not win before the deadline
+PASS unplanted bomb times out for a defender win at the deadline
+PASS plant duration remains five seconds
+PASS late successful plant still gets the full forty-second fuse
+PASS old attack deadline does not cut short a planted bomb
+PASS defuse duration remains six seconds
+PASS all five defender abilities gain coverage or uptime
+PASS ability damage, charges and attacker abilities stay unchanged
+PASS shared ability catalogue is never mutated
+PASS TDM and CTF keep their original ability configurations
+PASS Jolt triggers beyond the old 2.2 m radius
+PASS Jolt applies five-second disruption without added damage
+PASS Dread applies seven-second shake/reveal and six-second cloud
+PASS jammer covers enemies at nine metres and spares its team
+PASS catcher intercepts at 5.5 metres and recharges in eight seconds
+PASS overlapping disruption stays audible and avoids full blackout
+PASS expired or non-Bomb disruption restores normal perception
+PASS tdm retains original wire movement and barricade health
+PASS ctf retains original wire movement and barricade health
+37 Bomb utility integration checks passed
+PASS WASM is built from the current Rust source
+PASS measured loadout returns the catalogue gun (all guns)
+PASS measured codes come from the data (F2: flash hider, vertical grip, laser)
+PASS catalogue unchanged after building effective guns
+PASS removing the vertical grip adds 1/0.88 climb
+PASS ...and leaves sideways recoil alone
+PASS extended magazine: 25 -> 35 rounds, slower reload
+PASS suppressor: no flash, 40% noise reach, less damage
+PASS angled grip: faster to aim
+PASS LMG cannot take an extended magazine (Rust rejects it)
+PASS garbage codes fall back to the measured loadout
+PASS same code gives the same object (cached)
+PASS effective guns are frozen and point at their base
+PASS describe() lists the changes
+PASS four slots with the Rust option counts
+PASS Weapon: capacity from the effective magazine
+PASS Weapon: reload time from the effective gun
+PASS RecoilEngine: more climb without the grip
+PASS Spread: the laser tightens the hip-fire cone
+PASS match: the human gets their effective gun
+PASS match: bots keep the measured loadout
+PASS match: magazine size follows the attachment
+PASS match: a suppressed shot carries 40% as far
+23 loadout checks passed
+PASS hd/anims/weapons.json is valid
+PASS it matches tools/hd/anims.mjs (rebuilt)
+PASS listed in the pack manifest with its hash (pack version 4)
+PASS default: every clip ends at rest (hand on the handguard, magazine seated)
+PASS default: empty reload pulls the charging handle
+PASS default: the dropped magazine leaves, a new one comes in
+PASS default: tactical reload: the hand holds the magazine away from the gun
+PASS ak: every clip ends at rest (hand on the handguard, magazine seated)
+PASS ak: empty reload pulls the charging handle
+PASS ak: the dropped magazine leaves, a new one comes in
+PASS ak: tactical reload: the hand holds the magazine away from the gun
+PASS bullpup: every clip ends at rest (hand on the handguard, magazine seated)
+PASS bullpup: empty reload pulls the charging handle
+PASS bullpup: the dropped magazine leaves, a new one comes in
+PASS bullpup: tactical reload: the hand holds the magazine away from the gun
+PASS machinepistol: every clip ends at rest (hand on the handguard, magazine seated)
+PASS machinepistol: empty reload pulls the charging handle
+PASS machinepistol: the dropped magazine leaves, a new one comes in
+PASS machinepistol: tactical reload: the hand holds the magazine away from the gun
+PASS lmg: every clip ends at rest (hand on the handguard, magazine seated)
+PASS lmg: empty reload pulls the charging handle
+PASS lmg: the dropped magazine leaves, a new one comes in
+PASS lmg: tactical reload: the hand holds the magazine away from the gun
+23 pack animation checks passed
+PASS glitch (spark_drone): prep drone 6.00 m/s
+PASS dash (breach_rounds): prep drone 6.00 m/s
+PASS pace (wall_charge): prep drone 6.00 m/s
+PASS aiko (pulse_scanner): prep drone 6.00 m/s
+PASS huck (underbarrel): prep drone 6.00 m/s
+5 drone speed checks passed
+Rust core build
+  PASS wasm/recoil_core.wasm was built from the current Rust sources
+  PASS the core loads and reports its interface version
+
+Battle maps, every level: the old arena code and the Rust core (the body radius and limits the old code had)
+  PASS yard: identical floors, raycasts (with the face hit), sight lines, path nodes and paths
+  PASS winter: identical floors, raycasts (with the face hit), sight lines, path nodes and paths
+  PASS casino: identical floors, raycasts (with the face hit), sight lines, path nodes and paths
+  PASS school: identical floors, raycasts (with the face hit), sight lines, path nodes and paths
+  (26,837 nodes, 80,000 ground, 80,000 raycast, 40,000 sight, 80,000 nodeAt, 12,000 nearest node, 24,000 clearWalk, 6,000 path)
+  PASS movement: the same position as the old code in 99.49% of 224,400 steps (the rest are corners, where the core pushes out twice)
+  PASS movement: left overlapping a wall after a step less often than the old code (old 838, core 238)
+  PASS vaulting: the same answer as the old code in all but 119 of 80,000 tries (1,931 vaults)
+  PASS vaulting: every landing spot is free, on the ground there, and no higher than 1.5 m up
+
+Match maps, ground floor: the old map code and the Rust core (answers must be identical)
+  PASS yard: identical answers
+  PASS depot: identical answers, also with 5 panels and doors broken, and after a reset
+  PASS containers: identical answers
+  PASS winter: identical answers
+  PASS casino: identical answers
+  PASS school: identical answers
+  PASS ranch: identical answers, also with 29 panels and doors broken, and after a reset
+  PASS embassy: identical answers, also with 35 panels and doors broken, and after a reset
+  PASS workshop: identical answers, also with 40 panels and doors broken, and after a reset
+  (102,000 ray, 102,000 sight, 102,000 resolve, 12,000 move, 102,000 free, 102,000 walk, 25,500 near, 25,500 door)
+  PASS no worlds left in the core after dispose()
+
+Rust core checks passed
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+browserType.launch: Target page, context or browser has been closed
+Browser logs:
+
+<launching> C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,BlockOriginHeaderModificationOnRedirect,Translate,AutoDeElevate,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-updater-scheduler --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --js-flags=--expose-gc --enable-precise-memory-info --autoplay-policy=no-user-gesture-required --user-data-dir=C:\Users\migue_2u2ek1d\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{1a9ed772-aa55-486a-91a1-b9eb628dec69}\Temp\playwright_chromiumdev_profile-XMfVNY --remote-debugging-pipe --no-startup-window
+<launched> pid=4416
+[pid=4416][err] [1110/201814.736:ERROR:third_party\crashpad\crashpad\util\win\registration_protocol_win.cc:136] TransactNamedPipe: The pipe has been ended. (0x6D)
+[pid=4416][err] [4416:21484:1110/201815.233:ERROR:chrome\browser\edge_dual_engine\dual_engine_sitelist_win.cc:1057] The temporary parsed site list JSON data failed to replace the permanent file. path = C:\Users\migue_2u2ek1d\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{1a9ed772-aa55-486a-91a1-b9eb628dec69}\Temp\playwright_chromiumdev_profile-XMfVNY\Default\DualEngine\SiteList-Enterprise.json temp_path = C:\Users\migue_2u2ek1d\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{1a9ed772-aa55-486a-91a1-b9eb628dec69}\Temp\playwright_chromiumdev_profile-XMfVNY\Default\DualEngine\356b467c-5a08-4a6b-961f-4ac59dd3b649.tmp error = -5
+[pid=4416][err] [4416:21484:1110/201815.239:ERROR:chrome\browser\edge_dual_engine\dual_engine_sitelist_win.cc:1057] The temporary parsed site list JSON data failed to replace the permanent file. path = C:\Users\migue_2u2ek1d\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{1a9ed772-aa55-486a-91a1-b9eb628dec69}\Temp\playwright_chromiumdev_profile-XMfVNY\Default\DualEngine\SiteList-Consumer.json temp_path = C:\Users\migue_2u2ek1d\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{1a9ed772-aa55-486a-91a1-b9eb628dec69}\Temp\playwright_chromiumdev_profile-XMfVNY\Default\DualEngine\3ad40c71-92d9-4aac-8c66-01bc50b70de0.tmp error = -5
+Call log:
+  - <launching> C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,BlockOriginHeaderModificationOnRedirect,Translate,AutoDeElevate,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-updater-scheduler --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --js-flags=--expose-gc --enable-precise-memory-info --autoplay-policy=no-user-gesture-required --user-data-dir=C:\Users\migue_2u2ek1d\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{1a9ed772-aa55-486a-91a1-b9eb628dec69}\Temp\playwright_chromiumdev_profile-XMfVNY --remote-debugging-pipe --no-startup-window
+  - <launched> pid=4416
+  - [pid=4416][err] [1110/201814.736:ERROR:third_party\crashpad\crashpad\util\win\registration_protocol_win.cc:136] TransactNamedPipe: The pipe has been ended. (0x6D)
+  - [pid=4416][err] [4416:21484:1110/201815.233:ERROR:chrome\browser\edge_dual_engine\dual_engine_sitelist_win.cc:1057] The temporary parsed site list JSON data failed to replace the permanent file. path = C:\Users\migue_2u2ek1d\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{1a9ed772-aa55-486a-91a1-b9eb628dec69}\Temp\playwright_chromiumdev_profile-XMfVNY\Default\DualEngine\SiteList-Enterprise.json temp_path = C:\Users\migue_2u2ek1d\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{1a9ed772-aa55-486a-91a1-b9eb628dec69}\Temp\playwright_chromiumdev_profile-XMfVNY\Default\DualEngine\356b467c-5a08-4a6b-961f-4ac59dd3b649.tmp error = -5
+  - [pid=4416][err] [4416:21484:1110/201815.239:ERROR:chrome\browser\edge_dual_engine\dual_engine_sitelist_win.cc:1057] The temporary parsed site list JSON data failed to replace the permanent file. path = C:\Users\migue_2u2ek1d\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{1a9ed772-aa55-486a-91a1-b9eb628dec69}\Temp\playwright_chromiumdev_profile-XMfVNY\Default\DualEngine\SiteList-Consumer.json temp_path = C:\Users\migue_2u2ek1d\AppData\Local\Packages\openai.codex_2p2nqsd0c76g0\AC\#!sandbox.{1a9ed772-aa55-486a-91a1-b9eb628dec69}\Temp\playwright_chromiumdev_profile-XMfVNY\Default\DualEngine\3ad40c71-92d9-4aac-8c66-01bc50b70de0.tmp error = -5
+  - [pid=4416] <gracefully close start>
+  - [pid=4416] <kill>
+  - [pid=4416] <will force kill>
+  - [pid=4416] taskkill stderr: ERROR: The user name or password is incorrect.
+  - [pid=4416] <process did exit: exitCode=0, signal=null>
+  - [pid=4416] starting temporary directories cleanup
+  - [pid=4416] finished temporary directories cleanup
+  - [pid=4416] <gracefully close end>
+
+    at C:\Users\migue_2u2ek1d\Documents\Codex\2026-11-10\continue-recoil-range-https-github-com\work\R6-shooter\tests\run.mjs:24:32 {
+  log: [
+    '  - <launching> C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,BlockOriginHeaderModificationOnRedirect,Translate,AutoDeElevate,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-updater-scheduler --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --js-flags=--expose-gc --enable-precise-memory-info --autoplay-policy=no-user-gesture-required --user-data-dir=C:\\Users\\migue_2u2ek1d\\AppData\\Local\\Packages\\openai.codex_2p2nqsd0c76g0\\AC\\#!sandbox.{1a9ed772-aa55-486a-91a1-b9eb628dec69}\\Temp\\playwright_chromiumdev_profile-XMfVNY --remote-debugging-pipe --no-startup-window',
+    '  - <launched> pid=4416',
+    '  - [pid=4416][err] [1110/201814.736:ERROR:third_party\\crashpad\\crashpad\\util\\win\\registration_protocol_win.cc:136] TransactNamedPipe: The pipe has been ended. (0x6D)',
+    '  - [pid=4416][err] [4416:21484:1110/201815.233:ERROR:chrome\\browser\\edge_dual_engine\\dual_engine_sitelist_win.cc:1057] The temporary parsed site list JSON data failed to replace the permanent file. path = C:\\Users\\migue_2u2ek1d\\AppData\\Local\\Packages\\openai.codex_2p2nqsd0c76g0\\AC\\#!sandbox.{1a9ed772-aa55-486a-91a1-b9eb628dec69}\\Temp\\playwright_chromiumdev_profile-XMfVNY\\Default\\DualEngine\\SiteList-Enterprise.json temp_path = C:\\Users\\migue_2u2ek1d\\AppData\\Local\\Packages\\openai.codex_2p2nqsd0c76g0\\AC\\#!sandbox.{1a9ed772-aa55-486a-91a1-b9eb628dec69}\\Temp\\playwright_chromiumdev_profile-XMfVNY\\Default\\DualEngine\\356b467c-5a08-4a6b-961f-4ac59dd3b649.tmp error = -5',
+    '  - [pid=4416][err] [4416:21484:1110/201815.239:ERROR:chrome\\browser\\edge_dual_engine\\dual_engine_sitelist_win.cc:1057] The temporary parsed site list JSON data failed to replace the permanent file. path = C:\\Users\\migue_2u2ek1d\\AppData\\Local\\Packages\\openai.codex_2p2nqsd0c76g0\\AC\\#!sandbox.{1a9ed772-aa55-486a-91a1-b9eb628dec69}\\Temp\\playwright_chromiumdev_profile-XMfVNY\\Default\\DualEngine\\SiteList-Consumer.json temp_path = C:\\Users\\migue_2u2ek1d\\AppData\\Local\\Packages\\openai.codex_2p2nqsd0c76g0\\AC\\#!sandbox.{1a9ed772-aa55-486a-91a1-b9eb628dec69}\\Temp\\playwright_chromiumdev_profile-XMfVNY\\Default\\DualEngine\\3ad40c71-92d9-4aac-8c66-01bc50b70de0.tmp error = -5',
+    '  - [pid=4416] <gracefully close start>',
+    '  - [pid=4416] <kill>',
+    '  - [pid=4416] <will force kill>',
+    '  - [pid=4416] taskkill stderr: ERROR: The user name or password is incorrect.',
+    '  - [pid=4416] <process did exit: exitCode=0, signal=null>',
+    '  - [pid=4416] starting temporary directories cleanup',
+    '  - [pid=4416] finished temporary directories cleanup',
+    '  - [pid=4416] <gracefully close end>'
+  ]
+}
+
+Node.js v24.22.1
+Hitscan
+  PASS ray hits a capsule side at 4.75 m
+  PASS ray passes a capsule 0.3 m off
+  PASS ray hits a head sphere
+  PASS a bullet at a head in the open is a headshot kill (lethal)
+  PASS torso hit does the gun damage
+  PASS limb hit does 0.8x
+  PASS the middle block stops the bullet
+  PASS no friendly fire: bullets pass teammates
+
+Flag state machine
+  PASS touching the enemy flag picks it up
+  PASS the carrier is 10% slower
+  PASS the flag drops where the carrier died
+  PASS a dropped flag is still out after 14 s
+  PASS a dropped flag returns home after 15 s
+  PASS the enemy takes our flag
+  PASS a teammate touching our dropped flag returns it at once
+  PASS no capture while our own flag is away
+  PASS bringing the enemy flag to our stand with our flag home captures
+
+Bomb state machine
+  PASS round 1: prep, one attacker carries the bomb
+  PASS no planting during prep
+  PASS the action phase starts after 30 s
+  PASS hold E inside a site starts planting
+  PASS damage cancels the plant
+  PASS a 5 s hold plants the bomb
+  PASS hold E beside the bomb starts defusing
+  PASS a 6 s hold defuses: the defenders win the round
+  PASS 5 s later round 2 starts with everyone alive
+  PASS the bomb goes off 40 s after the plant: attackers win
+  PASS the bomb drops when the carrier dies
+  PASS another attacker picks it up
+  PASS time runs out with no plant: the defenders win
+  PASS all defenders dead: the attackers win
+  PASS after a plant, the round goes on with all attackers dead
+  PASS sides swap after round 3 (ops change side too)
+
+Doors and the knife
+  PASS a whole door blocks walking through it
+  PASS one knife hit breaks a door
+  PASS bullets break a door after 5 hits
+  PASS a knife from behind is lethal
+  PASS a knife from the front does 60
+  PASS a knife does not reach 5 m
+
+Bomb: your bomb and the bots' jobs
+  PASS you carry the bomb when you attack
+  PASS attacker bots each have a job
+  PASS defenders: anchors, site control and a roamer
+  PASS one bomb site per map
+
+Collision: drones and bodies against every wall, soft wall, reinforced wall and door (Bomb maps)
+  PASS the old one-check-per-frame move does tunnel at 10-15 FPS (4806 crossings): the test catches the bug
+  PASS drones never cross a wall, soft wall or reinforced wall (19392 drives, 6 and 30 m/s, 144 to 10 FPS)
+  PASS bodies never cross a wall, soft wall, reinforced wall or boarded door (14010 drives at sprint speed)
+  PASS a Charge Dash (17 m/s) never crosses one either (4670 drives)
+  PASS drones roll under boarded doors (128 of 128 drives got through)
+  PASS Charge Dash knockback stops at the wall (victim stays inside)
+  PASS a drone deployed facing a wall stays on your side of it
+
+Grenades
+  PASS everyone starts with 2 grenades
+  PASS a throw uses one grenade
+  PASS it flies in an arc and goes off after 2.5 s
+  PASS it hurts someone 2.5 m from where it lands (95)
+  PASS a wall between you and the blast keeps you safe
+  PASS a blast at your feet is lethal
+  PASS bots throw grenades, but not all the time (68 in 4 matches)
+
+Drones
+  PASS every attacker has one prep drone
+  PASS Q in prep sends out the prep drone (any attacker)
+  PASS a drone rolls under a whole door
+  PASS a person cannot walk under it
+  PASS prep drones shut down when the action phase starts
+  PASS after prep, Q is not a drone for other attackers
+  PASS Glitch can still send his drone mid-round
+  PASS prep drones work with abilities off too
+
+Physics on every map: stairs, upper floors, falling, vaulting, doorways
+  PASS a body walks the game's own paths between random places on all 9 maps and arrives (540 walks, 60 and 15 FPS; 283 vaults on the way)
+  PASS up to every upper level and back down again by the stairs and ramps (96 climbs, 96 descents)
+  PASS walking off the edge of an upper level always lands standing on something inside the map (113 falls)
+  PASS every doorway of the Bomb buildings can be walked through, both ways (94 doorways)
+  PASS vaulting: 266 of 273 low obstacles (0.5 to 1.5 m) can be vaulted or climbed from at least one side (805 of 827 sides)
+  PASS vaulting: every landing spot is free and on its feet
+  PASS vaulting: never over a full-height wall, a soft or reinforced wall, or a boarded door (1009 sides tried)
+  (not vaultable from any side: containers low 1.20 m at 6.0,13.0; winter low 1.00 m at -4.3,-1.0; winter low 1.20 m at -3.9,-1.0; school low 0.78 m at -4.0,12.0; ranch counter 1.30 m at 0.5,13.3; ranch car 1.50 m at 16.0,-6.0; workshop car 1.50 m at 21.0,-12.0)
+
+Path planning cost (milestone 5)
+  PASS a route to a point inside furniture takes 1.3 ms (was 36 ms), under 8 ms
+
+Bomb: defenders stay inside the building
+  PASS a defender pushing out through every opened door and breached outside wall never gets past the wall line (77 openings on 3 maps)
+  PASS attackers walk out through the same openings freely (52 of 52; 6 with furniture against them inside not tried)
+
+TDM: 20 bot-only matches
+  PASS every match ends (5.8 s for 20)
+  PASS no bot stuck for more than 5 s (worst 3.0 s)
+  PASS no NaN positions
+  PASS nobody ever below the floor
+  PASS bots go up to the upper levels on the maps that have them (in 20 of 20 matches; highest 4.9 m)
+  PASS the same seed gives the same result
+  e.g. B {"A":34,"B":40} | A {"A":40,"B":31} | B {"A":36,"B":40} | B {"A":36,"B":40} | B {"A":26,"B":40} | B {"A":34,"B":40}
+  PASS every TDM match has kills; endings by kill limit or time
+
+CTF: 20 bot-only matches
+  PASS every match ends (23.6 s for 20)
+  PASS no bot stuck for more than 5 s (worst 3.0 s)
+  PASS no NaN positions
+  PASS nobody ever below the floor
+  PASS bots go up to the upper levels on the maps that have them (in 20 of 20 matches; highest 4.9 m)
+  PASS the same seed gives the same result
+  e.g. B 2-3 | B 2-3 | A 3-2 | draw 0-0 OT | A 3-0 | B 1-3
+  PASS CTF produces captures (64 in 20 matches; matches without: 3)
+
+BOMB: 20 bot-only matches
+  PASS every match ends (26.0 s for 20)
+  PASS no bot stuck for more than 5 s (worst 3.0 s)
+  PASS no NaN positions
+  PASS nobody ever below the floor
+  PASS no defender is outside the building at any step of any round
+  PASS the same seed gives the same result
+  e.g. A 4-3 [deeeeee] | A 4-3 [eeeeeee] | B 3-4 [eeeeede] | A 4-2 [eeeeee] | B 3-4 [eeeeeee] | A 4-3 [eeeeeee]
+  PASS Bomb bots: both sides win rounds (defenders 73 of 118)
+  PASS every Bomb round ends by one of the four rules (118 rounds: eliminated 114, detonated 0, defused 4, time 0)
+
+Abilities on in TDM and CTF (6 matches each)
+  PASS TDM with abilities: matches end, nobody stuck over 5 s, no NaN
+  PASS CTF with abilities: matches end, nobody stuck over 5 s, no NaN
+
+All mode checks passed

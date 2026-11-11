@@ -1,0 +1,57 @@
+
+Match modes: stairs, upper floors, falling, vaulting, defenders kept inside (played with the keys)
+  PASS Casino in Team Deathmatch has its upper floors (19 levels, the top one 3.6 m up)
+  PASS you walk up the stairs to the top floor with W held (9.7 s; feet at 3.60 m)
+  PASS the camera is at eye height above the floor you stand on (1.6 m)
+  PASS a bot upstairs is drawn upstairs
+  PASS crouching works on the upper floor (Space)
+  PASS walking off the edge you fall and land on your feet below (from 3.6 m to 0.00 m)
+  PASS and you walk back down to the ground floor at 15 FPS (2.6 s)
+  PASS C vaults over low cover in a match mode (a 1.20 m obstacle; feet up to 1.41 m)
+  PASS C at a full-height wall does nothing
+  PASS Bomb defender: sprinting out of an opened outside door stops at the wall line, at 60 and 10 FPS (x -28.00, -28.00)
+  PASS a quiet warning shows there ("Defenders stay inside the building") and goes away inside
+  PASS a breached outside wall or an opened window (sprinting at it, then C to vault) does not let a defender out either (x -28.00)
+  PASS defender bots are held at the same line (x -28.00)
+  PASS an attacker walks out of the same door freely, with no warning (x -32.76)
+{"want":3.6,"y":3.6,"spawn":[8.75,12.25,3.5999999046325684],"t":10.7}
+  PASS Battle uses the same body on the same stairs: up to the Casino top floor (10.7 s)
+  PASS no page errors
+
+Match modes: stairs, upper floors, falling, vaulting, defenders kept inside (played with the keys)
+  PASS Casino in Team Deathmatch has its upper floors (19 levels, the top one 3.6 m up)
+  PASS you walk up the stairs to the top floor with W held (9.7 s; feet at 3.60 m)
+  PASS the camera is at eye height above the floor you stand on (1.6 m)
+  PASS a bot upstairs is drawn upstairs
+  PASS crouching works on the upper floor (Space)
+  PASS walking off the edge you fall and land on your feet below (from 3.6 m to 0.00 m)
+  PASS and you walk back down to the ground floor at 15 FPS (2.6 s)
+  PASS C vaults over low cover in a match mode (a 1.20 m obstacle; feet up to 1.41 m)
+  PASS C at a full-height wall does nothing
+  PASS Bomb defender: sprinting out of an opened outside door stops at the wall line, at 60 and 10 FPS (x -28.00, -28.00)
+  PASS a quiet warning shows there ("Defenders stay inside the building") and goes away inside
+  PASS a breached outside wall or an opened window (sprinting at it, then C to vault) does not let a defender out either (x -28.00)
+  PASS defender bots are held at the same line (x -28.00)
+  PASS an attacker walks out of the same door freely, with no warning (x -32.76)
+{"want":3.6,"y":3.6,"spawn":[14.75,3.25,0],"t":10.7}
+  PASS Battle uses the same body on the same stairs: up to the Casino top floor (10.7 s)
+  PASS no page errors
+
+Match modes: stairs, upper floors, falling, vaulting, defenders kept inside (played with the keys)
+  PASS Casino in Team Deathmatch has its upper floors (19 levels, the top one 3.6 m up)
+  PASS you walk up the stairs to the top floor with W held (9.7 s; feet at 3.60 m)
+  PASS the camera is at eye height above the floor you stand on (1.6 m)
+  PASS a bot upstairs is drawn upstairs
+  PASS crouching works on the upper floor (Space)
+  PASS walking off the edge you fall and land on your feet below (from 3.6 m to 0.00 m)
+  PASS and you walk back down to the ground floor at 15 FPS (2.6 s)
+  PASS C vaults over low cover in a match mode (a 1.20 m obstacle; feet up to 1.41 m)
+  PASS C at a full-height wall does nothing
+  PASS Bomb defender: sprinting out of an opened outside door stops at the wall line, at 60 and 10 FPS (x -28.00, -28.00)
+  PASS a quiet warning shows there ("Defenders stay inside the building") and goes away inside
+  PASS a breached outside wall or an opened window (sprinting at it, then C to vault) does not let a defender out either (x -28.00)
+  PASS defender bots are held at the same line (x -28.00)
+  PASS an attacker walks out of the same door freely, with no warning (x -32.76)
+{"want":3.6,"y":3.6,"spawn":[-16.25,7.75,0],"t":10.7}
+  PASS Battle uses the same body on the same stairs: up to the Casino top floor (10.7 s)
+  PASS no page errors

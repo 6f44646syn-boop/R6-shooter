@@ -1,0 +1,8 @@
+PASS ranked Bomb uses fixed settings and the watcher occupies no player slot
+PASS watcher follows a teammate and sees only the filtered feed and team sightings
+PASS watcher can fly and open the overhead map without sending gameplay input
+PASS host and player apply the same signed match once and the watcher stays unrated
+PASS first-round departure voids the rating
+PASS departed player takes a rated loss even if their side wins
+PASS Battle supports a separate follow, free camera and overhead spectator slot
+PASS no page errors

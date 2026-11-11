@@ -1,0 +1,240 @@
+Unit tests (tests/unit.html)
+  PASS cm/360 to deg/count: 800 DPI, 40 cm = 0.028575
+  PASS cm/360 to deg/count: 1 inch per 360 at 1600 DPI = 1600 counts
+  PASS deg/count scales inversely with DPI and cm/360
+  PASS N counts = exactly 360 degrees (400 DPI, 25.4 cm -> 4000 counts)
+  PASS Mixed event sizes sum exactly: 10 full turns at 800 DPI / 40 cm
+  PASS yaw wraps both ways, pitch clamps at +/-89.9
+  PASS glitch guard discards single events over 2000 counts
+  PASS FOV: vertical from horizontal, ADS zoom in tan-space
+  PASS sprayStep inside the path is the difference of neighbours
+  PASS sprayStep past the end = average of the last steps
+  PASS tail "hold": past the end the step is zero and the target stays on the last point
+  PASS validateSens: ADS multiplier = hip cm/360 / ADS cm/360
+  PASS validateSens reads the in-game sensitivity screen format
+  PASS sprayTarget extrapolates linearly past the end
+  PASS sampleSpray interpolation: eased over 40% of the interval
+  PASS path[0] offset is ignored (offsets are relative to bullet 0)
+  PASS smoothPath: keeps start and end, removes zig-zag in yaw
+  PASS RecoilEngine: with no jitter, bullet i leaves at sprayPath[i]
+  PASS RecoilEngine: shotIndex resets after resetSeconds
+  PASS RecoilEngine: recovery waits, then returns to zero at degPerSecond
+  PASS RecoilEngine: same seed gives the same jitter, another seed differs
+  PASS Gaussian PRNG: mean ~0, sd ~1, deterministic
+  PASS catalogue: good data validates; groups give zoom, bonus and sens key
+  PASS catalogue: duplicate id, bad zoom, unknown shape, fraction out of range are errors
+  PASS resolveGunOptics: @group expansion, exclude, default check
+  PASS validateGuns accepts a good gun and resolves its sights
+  PASS validateGuns names the gun and field for bad data
+  PASS validateGuns rejects duplicate ids and a missing guns array
+  PASS RecoilEngine: opticRecoilScale multiplies sprayPath steps
+  PASS settings sanitize clamps and fills defaults
+  PASS dummy raycast: head, chest, gap between legs, miss beside
+  PASS no page errors
+
+Measured sprays (data/guns.json) vs bullet-hole pixels at the aimed FOV
+  PASS slot 2 (mag_a, vFOV 34.86): spray = pixels, ends [1.56,10.56]
+  PASS slot 3 (mag_a, vFOV 34.86): spray = pixels, ends [2.28,11.09]
+  PASS slot 4 (dot_a, vFOV 74.7): spray = pixels, ends [-0.35,23.85]
+  PASS slot 5 (mag_a, vFOV 34.86): spray = pixels, ends [1.95,11.16]
+  PASS slot 6 (mag_b, vFOV 34.86): spray = pixels, ends [4.55,11.32]
+  PASS slot 7 (dot_a, vFOV 74.7): spray = pixels, ends [1.76,26.08]
+  PASS slot 8 (mag_a, vFOV 34.86): spray = pixels, ends [0.68,11.05]
+  PASS slot 9 (dot_c, vFOV 74.7): spray = pixels, ends [-1.11,26.15]
+  PASS slot 10 (dot_c, vFOV 74.7): spray = pixels, ends [0.64,26.07]
+
+Magazine simulation (index.html?test&seed=1234)
+  PASS slot 1 (placeholder): 30 holes = full magazine 30
+  PASS slot 1 (placeholder): holes match sprayPath (worst error 0.0000 mm)
+  PASS slot 4 (measured, tail hold): 17 holes = full magazine 17
+  PASS slot 4 (measured, tail hold): holes match sprayPath (worst error 0.0000 mm)
+  PASS slot 8 (measured, tail hold): 31 holes = full magazine 31
+  PASS slot 8 (measured, tail hold): holes match sprayPath (worst error 0.0000 mm)
+  PASS reload at the default 2x speed finishes in half the gun's reloadSeconds
+  PASS clear removes every hole and all shot data (5 holes, 5 shots before)
+  PASS chambered gun: starts 31, tactical reload 31, empty reload 30 (mag 30)
+  PASS seed 1234 used
+  PASS same seed -> identical hole positions
+  PASS jitter changes the spray
+  PASS 30 fps and 144 fps sprays match (worst 0.0000 mm)
+  FAIL 1080 rpm for 1 s = 19 shots
+       got 18
+  PASS recoil offset climbs while firing (12.631 deg)
+  PASS view does not drift back after firing (14.025 deg up, still 14.025 after 3 s)
+  PASS leftover recoil is folded into the aim after the spray
+  PASS aimed spray follows the measured path exactly by default (sprays were measured aimed)
+  PASS optional smoothing: aimed spray follows the smoothed path
+  PASS hip-fire spray follows the measured path exactly (smoothing never applies)
+  PASS smoothing keeps the measured end point
+  PASS hole cap 300 (shots 330)
+  PASS defender slot 1 starts on holo_a, attacker slot 2 on mag_a
+  PASS picker lists 11 sights for a defender slot, 14 for an attacker slot
+  PASS mag_a: zoom 2.5, sens key 2.5x, vertical ADS FOV 34.860 = 83 x 0.42
+  PASS holo_a: zoom 1, vertical ADS FOV 74.700 = 83 x 0.9 (wider than mag_a)
+  PASS ADS ease 120-180 ms (mag 158 ms, holo 150 ms)
+  PASS mid-ease: FOV 42.14 deg, eased 0.875 at half time (snappy ease-out: 87.5%)
+  PASS mid-ease sensitivity matches the FOV (0.4355 x hip)
+  PASS auto quality: 3 -> 2 (blur off) -> 1 (fringing off) -> 0 (glare off), stays down; also drops when aiming is >25% slower than hip: 3 > 2 > 1 > 0 > 0 > 0 > 2
+  PASS ADS slower with mag_a (0.1575 s) than holo_a (0.1500 s)
+  PASS focal sens: 2.5x / 1x = tan(34.86/2) / tan(74.7/2)
+  PASS game-values sens: 2.5x / 1.0x = 11.8 / 22.3 cm
+  PASS 0% monitor distance: 40 counts move the view 17.09 px at hip and 17.09 px aimed (1080p)
+  PASS 100% monitor distance: counts to reach the screen edge equal (1034.7 vs 1034.7)
+  PASS sensitivity follows the zoom continuously: monotonic, largest 240 fps step 7.73% of the change, responds on frame one (7.7%)
+  PASS frame one of aiming (blend 0.2851): reticle fully on at the exact screen centre
+  PASS zero parallax: camera position unchanged by aiming (zoom is FOV only)
+  PASS lens pass off at hip, on when aimed
+  PASS F4 gallery shows 15 sights
+  PASS W cannot move past the firing line (z stays 0.000)
+  PASS S / A stop at the box edge (2 m back, 1.5 m left)
+  PASS W walks back up to the line and stops there
+  PASS Space crouch lowers the eye to 1.05 m, standing back to 1.6
+  PASS Shift sprint is faster than walking (4.83 vs 2.63 m/s after 0.15 s)
+  PASS a level shot while crouched hits the dummy body, not the head
+  PASS holding Space crouches, releasing stands
+  PASS E leans right: eye 0.32 m right, view tilted 11 deg; the shot leaves from there (x 0.320 m)
+  PASS Q leans left, releasing returns upright
+  PASS - / + change the target distance (10 -> 5 -> 15)
+  PASS vertical sens 14 vs horizontal 7: same counts turn pitch twice as far
+  PASS sens 7 at 1600 DPI = 14.25 cm/360 (14.249)
+  PASS aim assist off: aim stays put; on: pulled towards the head (0.535 deg left)
+  PASS 6 still dots; shooting one scores 100 and respawns only that dot
+  PASS a shot away from every dot misses
+  PASS 12 moving dots travel 1.5 m/s to the right; dummy hidden in dot mode, back after
+  PASS paper target: centre scores 10, 0.18 m scores 6, card outside the rings 0, off the card misses
+  PASS dummy: head shot, chest shot, shot over the head = 2 hits, 1 headshot
+  PASS no page errors
+  PASS no third-party requests
+
+Sights: saved choice and a test sight added through data only
+  PASS chosen sight is remembered per slot after reload
+  PASS a saved sight the slot no longer allows falls back to defaultOptic
+  PASS no page errors
+  PASS test sight appears on slot 1 only (12 vs 14), selectable, zoom 4
+  PASS gallery shows 16 and the sens table gains a 4.0x row (rows: 1.0x, 2.5x, 3.5x, 4.0x, 8.0x)
+  PASS no page errors
+
+Frame time at 1920x1080 (headless, software GPU: treat fps as a lower bound)
+  GPU: ANGLE (Intel, Intel(R) UHD Graphics (0x0000468B) Direct3D11 vs_5_0 ps_5_0, D3D11)
+  render 1920x1080, 36 draw calls, 31949 triangles
+  frames: 396, avg 12.66 ms (79 fps), p99 21.00 ms
+  CPU per frame (update + render submit): median 0.900 ms, p95 1.400 ms
+  JS heap change over 5 s of firing (after GC): -541.9 KB
+  PASS draw calls <= 38 (indoor hall, target, 3D weapon model and sight)
+  PASS render size 1920x1080 at devicePixelRatio 1
+  PASS CPU median under 3 ms
+  hip (no lens pass):       77.9 fps, 35 draw calls
+  aimed, lens quality 3:    22.5 fps, 34 draw calls
+  aimed, lens quality 0:    66.6 fps, 31 draw calls
+  PASS lens pass only while aiming
+  PASS aiming adds at most 4 draw calls (no second scene render)
+  PASS Enhanced Graphics pack installs (for High / Ultra)
+  PASS high graphics: tone mapping on, shadows cast (51 calls vs 35)
+  PASS back to standard graphics restores the original look
+  PASS ultra graphics: each slot has its own skin (Teal Hexcore, Carbon Weave)
+  PASS animations: shot -> flash, bolt back, brass; all gone 0.6 s later
+  PASS animations: reload drops the magazine and puts it back
+  PASS animations: a new gun is drawn (0 -> 1); animations off -> no flash or brass
+  PASS low graphics: flat colours (no decorative textures), one light, lens quality 0
+  PASS battle: paths across the arena; a tall wall blocks sight, a low wall hides a crouched head only
+  PASS battle: bots roam on their own, stay in bounds and never inside cover
+  PASS battle: tapping a bot at 10 m kills it (4 taps), scores, shows in the kill feed, it respawns at full health
+  PASS battle: first to the kill target wins, end screen shown, leaving returns to the range
+  PASS maps: Container Yard, Winter Cabin, Jesse's Casino and School Basement build; bots roam; paths cross; nobody inside cover
+  PASS bot levels: easy takes longer to kill you than hard (median 3.7 s vs 1.25 s)
+  PASS Terminator kills faster than Hard (median 0.7 s)
+  PASS hip fire: a spread cone (3.0 deg) that blooms while firing (4.8) and recovers; none when aimed
+  PASS hip fire recoil 1.8x the measured climb (1.24 m vs 0.69 m at 10 m)
+  PASS auto reload: an empty magazine reloads by itself
+  PASS packs: need 100 points; the reel lands on the won skin; reveal shows it
+  PASS equipped skin is on the gun and named in the HUD (Forest Shard)
+  PASS save code (71 characters) restores everything; a damaged code is refused; old codes load
+  PASS a headshot kill (+30) and the win (+50) earn points, shown on the end screen
+  PASS no page errors
+
+Enhanced Graphics pack, graphics screen, world post-processing, FPS counter
+  PASS no pack: nothing downloaded; High runs as Standard and the screen offers the download (Download Enhanced Graphics)
+  PASS a damaged download is refused (checked against the pack list)
+  PASS download with the button: every file checked and kept in the browser (10 files); High switches on
+  PASS the pack's gun is far more detailed (91k triangles vs 12k)
+  PASS High: ambient occlusion and TAA run; at 60% the world is upscaled and the screen stays full size (1280x720)
+  PASS FPS counter: frame rate, frame time, 1% low, CPU / GPU time, resolution and draw calls
+  PASS after a reload the pack loads from the browser (no download) and High is on
+  PASS remove: space freed, High back to needing the pack (Standard look)
+  PASS no page errors
+  PASS no third-party requests
+
+Legendary skin (your photo)
+  PASS Legendary: your photo becomes a skin for every gun; the save code keeps the choice but not the photo; others see gold
+  PASS no page errors
+
+Battle movement, hazards, night and weather
+  PASS vault (C) over low cover, climb onto a 1.4 m ledge, but not over a 2.6 m container
+  PASS casino: stairs and a ramp up to the second floor; bots can path up there; rails stop falls
+  PASS winter: walk into the cabin through its door
+  PASS school basement: acid kills, shown in the kill feed
+  PASS night: flashlights (yours toggles with F; others light the scene in Standard and up), beams on others; storm rain and thick plain fog; day has none
+  PASS others carry their real gun model (with a skin for bots)
+  PASS bots hear gunfire through cover and call it out on their radio
+  PASS legs swing when soldiers walk
+  PASS soldiers collide: six bots on one spot spread out (closest 0.66 m)
+  PASS radio lines are spoken (Bot voices on)
+  PASS red outline on other players by day, not at night
+  PASS kill cam on your killer with a hit report (head / body / limbs, damage both ways); Space skips
+  PASS no page errors
+
+Match modes (Team Deathmatch, Capture the Flag, Bomb) in the browser
+  PASS every mode starts and runs on its maps
+  PASS a new match starts with an empty kill feed
+  PASS a drone driven at a wall stays outside it at 10, 15 and 30 FPS (x -28.35, -28.35, -28.35)
+  PASS a drone cannot pass a reinforced wall at 10 FPS
+  PASS a drone rolls under a boarded door
+  PASS sprinting at a wall or a boarded door at 10 FPS does not get you through (x -28.52, -28.4)
+  PASS graphics memory is steady across match restarts (geometries 413, 413, 413, 413, 413)
+  PASS the Rust core (WebAssembly) is loaded and holds exactly the current map
+  PASS the death replay ends before the Team Deathmatch respawn
+  PASS Battle: sprinting at a thin Casino wall at 10 FPS does not get you through
+  PASS no page errors
+
+Match modes: stairs, upper floors, falling, vaulting, defenders kept inside (played with the keys)
+  PASS Casino in Team Deathmatch has its upper floors (19 levels, the top one 3.6 m up)
+  PASS you walk up the stairs to the top floor with W held (9.7 s; feet at 3.60 m)
+  PASS the camera is at eye height above the floor you stand on (1.6 m)
+  PASS a bot upstairs is drawn upstairs
+  PASS crouching works on the upper floor (Space)
+  PASS walking off the edge you fall and land on your feet below (from 3.6 m to 0.00 m)
+  PASS and you walk back down to the ground floor at 15 FPS (2.6 s)
+  PASS C vaults over low cover in a match mode (a 1.20 m obstacle; feet up to 1.41 m)
+  PASS C at a full-height wall does nothing
+  PASS Bomb defender: sprinting out of an opened outside door stops at the wall line, at 60 and 10 FPS (x -28.00, -28.00)
+  PASS a quiet warning shows there ("Defenders stay inside the building") and goes away inside
+  PASS a breached outside wall or an opened window (sprinting at it, then C to vault) does not let a defender out either (x -28.00)
+  PASS defender bots are held at the same line (x -28.00)
+  PASS an attacker walks out of the same door freely, with no warning (x -32.76)
+  PASS Battle uses the same body on the same stairs: up to the Casino top floor (7.3 s)
+  PASS no page errors
+
+Bomb: reinforcing, barricading, barbed wire, wall holes, windows (played with the keys)
+  PASS preparation time is a match option (45 s asked, 45 s given)
+  PASS a defender holding Interact at a soft wall reinforces it in 2.5 s (2 a round)
+  PASS interior doorways start open; holding Interact in one barricades it
+  PASS Caps Lock lays barbed wire for a Bomb defender (2 a round; the HUD says so)
+  PASS wire slows an attacker to under half speed and scratches (2.54 to 1.01 m/s, 2 damage)
+  PASS a knife clears the wire
+  PASS bullets chip a soft wall into a hole you can see through (cells 12 to 11 of 12)
+  PASS the knife breaks one more cell
+  PASS outside windows start boarded; knife it open and C vaults you in
+  PASS no page errors
+
+(relay not running at http://127.0.0.1:8787: skipping the relay network test; run "npx wrangler dev --port 8787" in relay/)
+
+Network battle (two browser sessions, join codes)
+  PASS join codes connect two sessions (code 535 characters)
+  PASS positions sync both ways (host sees the player, the player sees the host and the bot)
+  PASS the player on the other PC kills the host; the kill feed shows on both
+  PASS the host kills the player; the player's PC shows its own death
+  PASS the player's PC replays the host shooting them (kill cam with recorded shots)
+  PASS host ending the match returns the player to the menu, still connected
+  PASS no page errors in either session
+
+1 FAILED

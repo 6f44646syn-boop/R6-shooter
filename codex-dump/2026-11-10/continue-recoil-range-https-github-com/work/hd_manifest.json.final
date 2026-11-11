@@ -1,0 +1,152 @@
+{
+ "name": "Recoil Range Enhanced Graphics",
+ "version": 2,
+ "files": [
+  {
+   "path": "audio/recoil-range-audio-v1.rra",
+   "size": 1436728,
+   "sha256": "2491421d0fdc24366a623c59026f582489e3393bd49b6dd720bb70b3e2ab5ee2"
+  },
+  {
+   "path": "guns/ak.rrmz",
+   "size": 738978,
+   "sha256": "c77e86e2b4b372667638c1d1e3db90e8ae76af26b499c49c46f959e4c91eb96e"
+  },
+  {
+   "path": "guns/bullpup.rrmz",
+   "size": 602219,
+   "sha256": "67cb0ad672f400ea98fcba32e670f10d3a76b8a3e1d3cb8e29ea3cad88e4fc09"
+  },
+  {
+   "path": "guns/carbine.rrmz",
+   "size": 850901,
+   "sha256": "99cab7dc2364679a38f89d9fb1cb68290e47a9172e520a6c590ad4cd61f5134b"
+  },
+  {
+   "path": "guns/compact.rrmz",
+   "size": 370959,
+   "sha256": "13ac13ad9b8db0975a5ba2ca2bfd4c363aaa1020ccc38ea068768563c5bc4f7b"
+  },
+  {
+   "path": "guns/evo.rrmz",
+   "size": 529746,
+   "sha256": "eab70d7e988180e18da46841f2679010fb13f18a0a3ff94ba1bfcd44e151b32a"
+  },
+  {
+   "path": "guns/lmg.rrmz",
+   "size": 872407,
+   "sha256": "6313a774031010579b07ffd67ca221cb8417f3755525f42c9efdbd7cde83cfe6"
+  },
+  {
+   "path": "guns/machinepistol.rrmz",
+   "size": 285531,
+   "sha256": "4233f88e08ce16b746b9bdbd07844b9e53f9cf76cbb93b1aca9656f532e8c8a8"
+  },
+  {
+   "path": "guns/pdw.rrmz",
+   "size": 307958,
+   "sha256": "3434b1dd6989b4a885cdd6613b308fd4d83f442eff69c1197cb5c5335c8f7242"
+  },
+  {
+   "path": "guns/sfw.rrmz",
+   "size": 928737,
+   "sha256": "f288ce6bbdb39ea03d1b9161cd04a03425e0d173f6260c6c7d62229e8bb4bf78"
+  },
+  {
+   "path": "guns/smg.rrmz",
+   "size": 538211,
+   "sha256": "d4e4900f9f7023e6b0bda3060186c8a800eb4bd2cf8ea1e15cf3738d7c27f134"
+  },
+  {
+   "path": "materials/carpet-1024.png",
+   "size": 1226865,
+   "sha256": "c3d06b1da1abe543f4559220e037dddd452ad2771ed47831abadc25b3483f37e"
+  },
+  {
+   "path": "materials/carpet-512.png",
+   "size": 342163,
+   "sha256": "0fc9264da1cae413ff2b29a67a9dbc6ffc550fe099c765b2aa25ba7b530c385e"
+  },
+  {
+   "path": "materials/concrete-1024.png",
+   "size": 1175967,
+   "sha256": "73512da67ff84f978d8362d88eebf4b954b0882c7f82f7c44221174141c9389a"
+  },
+  {
+   "path": "materials/concrete-512.png",
+   "size": 313362,
+   "sha256": "2d62370350010037575a4a19324b40b3af2e9dc3aa89dd620a193f97e9e64985"
+  },
+  {
+   "path": "materials/deck-1024.png",
+   "size": 1103202,
+   "sha256": "d42483425764bacbc3537044936b492ce80fefe34dbf4b915caff4bc479f4113"
+  },
+  {
+   "path": "materials/deck-512.png",
+   "size": 281085,
+   "sha256": "195829d51002bdf8d7a47ecaebcab4a219961ebbe770e3486c97bb0e8b4d6093"
+  },
+  {
+   "path": "materials/finish.json",
+   "size": 94,
+   "sha256": "d46313e343b8b9e4c30a59b224791290efc293bbb764fca08e76201936c82256"
+  },
+  {
+   "path": "materials/house-1024.png",
+   "size": 998852,
+   "sha256": "455c61a113d3650a0a73ab9a8e93acd0d8bb53885df2be5a6cd0185480bd4d7b"
+  },
+  {
+   "path": "materials/house-512.png",
+   "size": 274607,
+   "sha256": "9d123bf91fdcad7621a69ada1fdb396162d46d61e7aece4a544ad24cb94b79b3"
+  },
+  {
+   "path": "materials/metal-1024.png",
+   "size": 1185938,
+   "sha256": "62f5ef4b12944a3450c833fe8fc3e9973e5919c965d1ae7681a9b6542d411dbe"
+  },
+  {
+   "path": "materials/metal-512.png",
+   "size": 322215,
+   "sha256": "6d82b68fb50dde82aa47c482b21f84e7e8eff73e3e65c672811c9b9dbf257cda"
+  },
+  {
+   "path": "materials/stone-1024.png",
+   "size": 1106502,
+   "sha256": "ed9252e5812d9adcf9601b54789d4e514075a36448f7dd73b25c1fc60978d44d"
+  },
+  {
+   "path": "materials/stone-512.png",
+   "size": 286809,
+   "sha256": "f34bf1f1a228031979aa6fd2220b89037b2fb67327d1c4f5879880271230af87"
+  },
+  {
+   "path": "materials/tiles-1024.png",
+   "size": 1085920,
+   "sha256": "2a1c7ae666896b9fa0cdf48f5cfc4b13a8f9b4c886fd191acc8adb677a3c6a50"
+  },
+  {
+   "path": "materials/tiles-512.png",
+   "size": 283380,
+   "sha256": "3373764287d73d72eac76acda8b391b2408cb3a08497962270dbbbb6509167e4"
+  },
+  {
+   "path": "materials/wood-1024.png",
+   "size": 1138312,
+   "sha256": "3c5220d7be67d09d6961de40ff18f6b76c00d10fd375406632d31a838157dbc5"
+  },
+  {
+   "path": "materials/wood-512.png",
+   "size": 305444,
+   "sha256": "2febb23e7284c411a58e8577afec9879ca8174221a8eada7a98ae323d3c9c619"
+  },
+  {
+   "path": "soldiers/equipment.rrmz",
+   "size": 5365,
+   "sha256": "082341fff02290cf3e857781cb1f686c8f3da4f23405bd140ddd3ef51b00895f"
+  }
+ ],
+ "total": 18898457
+}

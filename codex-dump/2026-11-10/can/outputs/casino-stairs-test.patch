@@ -1,0 +1,12 @@
+diff --git a/tests/run.mjs b/tests/run.mjs
+--- a/tests/run.mjs
++++ b/tests/run.mjs
+@@ -1291,6 +1291,8 @@
+       R.battleStart({ opponent: 'bots', bots: 1, level: 'easy', kills: 99, map: 'casino' });
+       const B = R.battle(), h = B.humans[0];
+       for (const b of B.bots) { b.update = () => {}; b.f.x = 18; b.f.z = 12; }
++      // Start downstairs so a random upper-floor spawn cannot bypass the stairs.
++      h.respawn(-19.25, 14.75, B.t, 0);
+       h.f.protectUntil = 1e9; R.step(0.2, 60);
+       const A = B.arena, topB = topY, goal = up;        // the same top-floor spot as in Team Deathmatch
+       let tB = 0;

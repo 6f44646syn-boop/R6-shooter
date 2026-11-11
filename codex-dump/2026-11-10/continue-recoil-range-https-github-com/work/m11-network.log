@@ -1,0 +1,36 @@
+
+(relay not running at http://127.0.0.1:8787: skipping the relay network test; run "npx wrangler dev --port 8787" in relay/)
+
+Network matches (two browser sessions, join codes): Team Deathmatch and Bomb
+  PASS two sessions connect for a network match
+  PASS the host can choose Battle, Team Deathmatch, Capture the Flag or Bomb
+  PASS Battle online: hold follows the confirmed throw and release restores first person
+  PASS Battle online: a grenade from the player flies on both PCs and goes off on the player's PC too (B11 fixed)
+  PASS Battle online: a grenade death replays the host-confirmed projectile
+  PASS Team Deathmatch online: both PCs have the same roster (3 v 3, the player in a place of their own)
+  PASS the host sees the player where the player's PC put them
+  PASS the player sees the host's bots where the host has them
+  PASS the player's shots kill the bot on the host; both PCs show it (feed: "You" on the player's PC)
+  PASS Team Deathmatch online: hold follows the confirmed throw and release restores first person
+  PASS a grenade thrown on the player's PC flies on the host and both see it
+  PASS Team Deathmatch online: a grenade death follows the host-confirmed trajectory
+  PASS Team Deathmatch online: client sees the final kill, winning lineup and host leaderboard
+  PASS host leaving the match returns the player to the menu
+  PASS Capture the Flag online: a dropped flag is where the host has it on the player's PC
+  PASS Bomb online: the player defends as asked, the host attacks; both are in round 1 prep
+  PASS a door broken on the host is broken on the player's PC (collision too)
+  PASS the player holds Interact at a wall: the host reinforces it and both PCs show it reinforced
+  PASS Bomb online: an eliminated player follows a living teammate in first person
+  PASS no page errors in either session
+
+Network battle (two browser sessions, join codes)
+  PASS join codes connect two sessions (code 535 characters)
+  PASS positions sync both ways (host sees the player, the player sees the host and the bot)
+  PASS the player on the other PC kills the host; the kill feed shows on both
+  PASS the host kills the player; the player's PC shows its own death
+  PASS the player's PC replays the host shooting them (kill cam with recorded shots)
+  PASS network Battle sends the final kill, winning lineup and leaderboard
+  PASS host ending the match returns the player to the menu, still connected
+  PASS no page errors in either session
+
+All checks passed

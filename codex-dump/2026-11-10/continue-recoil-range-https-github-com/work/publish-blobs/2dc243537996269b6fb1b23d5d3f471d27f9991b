@@ -1,0 +1,57 @@
+name: Controls, audio and Bomb utility
+on:
+  pull_request:
+    paths:
+      - 'rust/m7_controls/**'
+      - 'rust/m8_audio/**'
+      - 'rust/bomb_utility/**'
+      - 'wasm/bomb_utility.*'
+      - 'js/balance/**'
+      - 'js/modes/**'
+      - 'wasm/m8_audio.*'
+      - 'js/audio/**'
+      - 'packs/audio/**'
+      - 'hd/**'
+      - 'js/render/**'
+      - 'js/scene/**'
+      - 'js/core/settings.js'
+      - 'wasm/m7_controls.*'
+      - 'js/ui/**'
+      - 'js/main.js'
+      - 'js/battle/**'
+      - 'js/modes/game.js'
+      - 'index.html'
+      - 'css/**'
+      - 'tests/**'
+      - 'package*.json'
+      - '.github/workflows/m7-controls.yml'
+  push:
+    branches: [feature/m7-ui-controls]
+permissions:
+  contents: read
+jobs:
+  controls:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Test tooling lives outside the project; package.json has no dependencies.
+      - name: Prepare external browser test tooling
+        run: npm install --prefix "$RUNNER_TEMP/recoil-range-test-tools" --no-save --package-lock=false playwright@1.65.0
+      - name: Prepare test browser
+        run: '"$RUNNER_TEMP/recoil-range-test-tools/node_modules/.bin/playwright" install --with-deps chromium'
+      - run: cargo test --manifest-path rust/m7_controls/Cargo.toml
+      - run: cargo test --manifest-path rust/m8_audio/Cargo.toml
+      - name: Check controls with external test tooling
+        run: NODE_PATH="$RUNNER_TEMP/recoil-range-test-tools/node_modules" npm run test:controls
+      - name: Check spatial audio with external test tooling
+        run: NODE_PATH="$RUNNER_TEMP/recoil-range-test-tools/node_modules" npm run test:audio
+      - name: Check optional audio pack with external test tooling
+        run: NODE_PATH="$RUNNER_TEMP/recoil-range-test-tools/node_modules" npm run test:audio-pack
+      - run: cargo test --manifest-path rust/bomb_utility/Cargo.toml
+      - name: Check Bomb utility with external test tooling
+        run: NODE_PATH="$RUNNER_TEMP/recoil-range-test-tools/node_modules" npm run test:bomb-utility
+      - name: Check Enhanced Graphics integration
+        run: NODE_PATH="$RUNNER_TEMP/recoil-range-test-tools/node_modules" npm run test:enhanced-pack

@@ -1,0 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
+const norm=s=>s.replace(/\?v=[^'"\s]+/g,'?v=m6-integration');
+function walk(d){for(const f of fs.readdirSync(d)){const p=path.join(d,f);if(fs.statSync(p).isDirectory())walk(p);else if(/\.(js|css|html)$/.test(p)){let s=fs.readFileSync(p,'utf8');s=s.replace(/<<<<<<< HEAD\r?\n([\s\S]*?)=======\r?\n([\s\S]*?)>>>>>>> 5cafaa1\r?\n/g,(all,a,b)=>{a=norm(a);b=norm(b);if(a===b)return a;if(p.endsWith('style.css'))return a+b;if(a.trim().startsWith('import ')&&b.trim().startsWith('import '))return [...new Set((a+b).trim().split(/\r?\n/))].join('\n')+'\n';if(p.endsWith('main.js')&&a.includes('renderer, settings, controls'))return b.replace('renderer, settings,','renderer, settings, controls,');if(p.endsWith('index.html'))return a;console.log('UNRESOLVED',p,a,b);return all;});fs.writeFileSync(p,s);}}}
+walk('js');walk('css');let p='index.html',s=fs.readFileSync(p,'utf8');s=s.replace(/<<<<<<< HEAD\r?\n([\s\S]*?)=======\r?\n([\s\S]*?)>>>>>>> 5cafaa1\r?\n/g,(_,a)=>norm(a));fs.writeFileSync(p,s);

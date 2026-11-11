@@ -1,0 +1,1 @@
+import fs from 'node:fs';const root=process.argv[2], p=root+'/js/modes/game.js';let s=fs.readFileSync(p,'utf8');s=s.replace(/<<<<<<< HEAD\r?\n([\s\S]*?)=======\r?\n[\s\S]*?>>>>>>> origin\/main\r?\n/g,(_,ours)=>ours);fs.writeFileSync(p,s);

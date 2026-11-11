@@ -1,0 +1,1 @@
+import fs from 'node:fs';const p=process.argv[2]+'/tests/replay-browser.mjs';let s=fs.readFileSync(p,'utf8');s=s.replaceAll("await import('/js/core/loadout.js?v=2bc20c5-mwb9w9ii')", "await import('/js/core/loadout.js' + new URL(document.querySelector('script[src*=\"js/main.js\"]').src).search)");fs.writeFileSync(p,s);

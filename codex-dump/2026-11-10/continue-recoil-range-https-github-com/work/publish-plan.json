@@ -1,0 +1,1699 @@
+[
+  {
+    "ref": "6938f00",
+    "base": "5cafaa1",
+    "baseTree": "167b44a8756aa482a6eba2d184e806e5daa61134",
+    "tree": "b31ed01133cc459ee830163703c9e1d84c46babe",
+    "message": "merge: integrate Claude M6 preserving controls, spatial audio and Bomb policy",
+    "changes": [
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "197a5a042a32aa7f4a1feafe4e6832ebb39b958e",
+        "path": ".github/workflows/m7-controls.yml"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "eca98316e7233f6e8b96f0d2dae200fc7579aed2",
+        "path": ".gitignore"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f7ba4aaade409a3b16589314ce1fd93f3ff1d709",
+        "path": "css/style.css"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "8181cf4d55c43888b900bc138ed5d532e9bf396d",
+        "path": "docs/ARCHITECTURE.md"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5f0b025ca87b8befe5041a916ee0c7d9d9ae05c2",
+        "path": "docs/BOMB_BALANCE_HANDOFF.md"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "24457e7f0265d0784fb9bf8e0497c4a7fdbf0df6",
+        "path": "docs/DESKTOP_HANDOFF.md"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "92a225ad8a08f85f7ee2272a935466a4b6836e16",
+        "path": "docs/ENGINE_API.md"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "80d62cde161503153a7de853fac0a1a6d2dc7308",
+        "path": "docs/MILESTONE_7_HANDOFF.md"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "9ad2718db46574eedea1bbb60d352c9cb7929c4b",
+        "path": "docs/MILESTONE_8_HANDOFF.md"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "349b9473be1dd841b00a891e1397b6a55654338d",
+        "path": "index.html"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e78126d9362f2945d64d30723ee570a4183724c8",
+        "path": "js/audio/acoustics.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c287af59e81117c225c9e5bd50b5459a8bbaf5c4",
+        "path": "js/audio/audio-pack.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "4cfd7919a232300ec18873262c5f0e23e4d86fb6",
+        "path": "js/audio/hearing.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a282762b7d1eab69866416f0466f8c4fb03b157f",
+        "path": "js/audio/sfx.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3aee8a543ae81cd74893e8016e4e27a63f5cd565",
+        "path": "js/balance/bomb-utility.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "193b7d390b9353014aac08cb9a41e7773a2c9b4a",
+        "path": "js/battle/arena.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "65984bfbba957fcd1845e1ca8276c870be9dbdbd",
+        "path": "js/battle/battle.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "7daf13b40b9316c12ee27b5584d38398631cbb36",
+        "path": "js/battle/bot.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "020e5d979faea64d88828c817fa4e48db062a80b",
+        "path": "js/battle/fighter.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "79ab2704fe3a9a10647395691810bbf32ec9fd35",
+        "path": "js/battle/human.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "cbbf9ad6d18611c95d015bfbf7575d327d22a4cb",
+        "path": "js/battle/maps.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "215978ca03916823321d44004d86fc0b812b053f",
+        "path": "js/battle/nades.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "9931b46064734b0df364003e30292526555704d2",
+        "path": "js/battle/soldier.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "d77d73863630529c7732d695583cf6c0ea77cd0d",
+        "path": "js/core/guns.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "70724e3c093b793e45feab23c9c921311f73181c",
+        "path": "js/core/profile.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "bccb6e96a36977db83127c9ee40a84f80bebd12b",
+        "path": "js/core/recoil.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "1920a315619e1d81f15b1c64a8fbff96da98d746",
+        "path": "js/core/settings.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f45c5cc43ed014630101a051a5b6988181a64b11",
+        "path": "js/core/skins.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "fbedd0a1b5410f772561e7d5c0a2038dd4ed1ec8",
+        "path": "js/main.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "6ec58408506f469d32626241443a77ece5b1e10a",
+        "path": "js/modes/abilities.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "15e8c348ea39e4d675d47ba0d19e33725db230a9",
+        "path": "js/modes/bots.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2e83e4f103b3b7d7e77397ccff1054f5294c81d5",
+        "path": "js/modes/gadget-look.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "7663222638173dec867dbe9a301188504a535f23",
+        "path": "js/modes/game.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2d98f86c66fec91865cf25b8ce83e9ecefb2a439",
+        "path": "js/modes/look.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a516dc33caf806257a1107afe419a4988a654cba",
+        "path": "js/modes/map.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "8c3c8e33db2d5a5ae370c979c47dc500f7d94cd3",
+        "path": "js/modes/nades.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "4c0e1aa6d0eb092ca61fae0a7bc391a727522b0f",
+        "path": "js/modes/rules.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "cac45cd0daedd6a27ef15000511a13400f784999",
+        "path": "js/modes/sim.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "80ba63c508297ddf09b0a29bf1fa86e89999a1b5",
+        "path": "js/render/gpu-tex.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "64422c7207512c2cdc63691abe623eda4e052236",
+        "path": "js/render/hd-pack.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2d77af9a5ea41fa83ae5e58f58f253684635af1f",
+        "path": "js/render/lens-post.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "273b11ef8f1500fe475e51da88f897865e5f01b5",
+        "path": "js/render/quality.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c035a3688f02497f451a78eeb3649208f317793d",
+        "path": "js/render/world-post.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "15cc345d058176e7b005045db9ee2a4860304a09",
+        "path": "js/scene/dots.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2460173802db1cb6f51869c2e4379a3587e98c97",
+        "path": "js/scene/dummy.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "af4daa196b8a6161294e8aa084e35d74d150cda4",
+        "path": "js/scene/holes.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "59ea8a881a85e0607c1a8238aeaf4994d58a02ea",
+        "path": "js/scene/low.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "108dc04f9072d812b3a31cf4c23d09ca5857b95b",
+        "path": "js/scene/matcap.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "96af8df10527e98ba6267fd678d6da54fec58426",
+        "path": "js/scene/range-tex.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "81616e79b8cceda3870609547113ba92a8d2c82f",
+        "path": "js/scene/range.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f6ba20e5c676a7417f0e991e68d98dc3b82eeebd",
+        "path": "js/scene/sight-model.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "42ded5c45f4831aba74ce9f45cf029008f0a40c8",
+        "path": "js/scene/viewmodel.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "eb9478f7be55054b92fc1ceb526c191de9c7c09c",
+        "path": "js/ui/graphics-ui.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "30b04c79558902a5a3de692c74e825283dd5cef6",
+        "path": "js/ui/m7-menu.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "64d17908e4ee3787a1ffa8911a73d17fdb98ccdb",
+        "path": "js/ui/m7-raw-input.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "9f5a7727fb339ce9aa7373e4c7e1c47f10b712fc",
+        "path": "js/ui/packs.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3c19f344799bf2a6d0d50d9cff80ac1e1f02cb11",
+        "path": "js/ui/plot.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3312ab2acc4c3d4417fc8a67a1269117e9e0bcf7",
+        "path": "js/ui/reticle-tex.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "46717e11994beac80c84c5a6c9f34d33830fd4ee",
+        "path": "js/ui/settings-ui.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "d0f0fc61dbe00327adcbd9f69dee022b8c70d457",
+        "path": "js/wasm/world.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "dcca8709a03e2d99e5b3e4ad3aa4a771f878786f",
+        "path": "package.json"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "9904771901cfde4bf543d7ab982d96dca4bc044e",
+        "path": "packs/audio/README.md"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a774b9c08be14bb489af997e7371d5c5bd2d5f2e",
+        "path": "packs/audio/SHA256SUMS"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "ee5dd5cf1a32843174df4e52ff2b02ef89e4acca",
+        "path": "packs/audio/benchmark.json"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "1c86835cda7d5903ddd72835ef06d2fbe12b3a3e",
+        "path": "packs/audio/build.json"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3ed04b2befe5879c44ad5f2a9405710c96d7d5c5",
+        "path": "packs/audio/clips/click_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3ed04b2befe5879c44ad5f2a9405710c96d7d5c5",
+        "path": "packs/audio/clips/click_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "33d24e9a6e0b39e0dc6edf642bbd606a3a9b49ba",
+        "path": "packs/audio/clips/crack_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f9f2ab528dda3873b724b3b2ac1703b7432455d0",
+        "path": "packs/audio/clips/crack_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "20c8ede7577b78c2a1cdbf1753f8ec78b8b2c2d8",
+        "path": "packs/audio/clips/jam_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "05773c2329adef44f39c06d5b4ba1f44b9c1dffe",
+        "path": "packs/audio/clips/jam_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a5b09e1639ece8bd733733f5462699bdc07d5ed1",
+        "path": "packs/audio/clips/knife_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "d070b0a2da711345a2d82c70cf92bbbb376eb793",
+        "path": "packs/audio/clips/knife_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "78d429fc1e04bc967e527204a354568cbc8c50e5",
+        "path": "packs/audio/clips/radio_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3ae4187252e71f5e2a7bec2502bf97fb4f2e49eb",
+        "path": "packs/audio/clips/radio_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "8c831bdc50921b6e839973919c34cfff94115b6a",
+        "path": "packs/audio/clips/reload_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "8c831bdc50921b6e839973919c34cfff94115b6a",
+        "path": "packs/audio/clips/reload_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "9dd266826f84ffd2feaf90cd57cd02750ad70e3c",
+        "path": "packs/audio/clips/shot_0.020_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "ca53e6692dc0a68c7ade983b6579f742b40db5f4",
+        "path": "packs/audio/clips/shot_0.020_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "104178971cb226972a822b99e37ef0eab3921e2e",
+        "path": "packs/audio/clips/shot_0.020_2.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "1e46e7de1ce9311e73491850f6b79d801767bc1e",
+        "path": "packs/audio/clips/shot_0.050_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "40be0b5e8bdc7b46dec4f0ba7962b284e0885a99",
+        "path": "packs/audio/clips/shot_0.050_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "64935666709c6e6228c45ad93ec23429d2e56c7d",
+        "path": "packs/audio/clips/shot_0.050_2.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "d0e3e6597cd19d85fcbbffbff1c303d1d97292d9",
+        "path": "packs/audio/clips/shot_0.150_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e89e944e8daec57218b46aa7e476156a03ac51d8",
+        "path": "packs/audio/clips/shot_0.150_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "8f40f53f7e26639ed51f34c2a09703e1834171a7",
+        "path": "packs/audio/clips/shot_0.150_2.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "99c31cbc550dc2711049a50233aae074822f6465",
+        "path": "packs/audio/clips/shot_0.200_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "68dfb57141dcdc46cbaa34bf5a428b4dd173632e",
+        "path": "packs/audio/clips/shot_0.200_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "fe9058f6f60ad9fc9b462eada525e74a94e7fc02",
+        "path": "packs/audio/clips/shot_0.200_2.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "fb10d35305cfc794ae806425b35aed3539cada8b",
+        "path": "packs/audio/clips/shot_0.250_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "6cdff440c2306a6b1637571ca60c3266babf05e9",
+        "path": "packs/audio/clips/shot_0.250_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2dae8c8cc3148df769162988d5151062a09ae303",
+        "path": "packs/audio/clips/shot_0.250_2.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "ab561e709ce250bf68b2b21215780f174c7395c3",
+        "path": "packs/audio/clips/shot_0.300_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "72de0557a2d47f3fb331ea8df51e3d287c0a41bc",
+        "path": "packs/audio/clips/shot_0.300_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "8c69fb296756b7c5a25c8b828c16b3bd7c05ca4f",
+        "path": "packs/audio/clips/shot_0.300_2.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f79bad637c7195d7f9c5ea6e7cbed66675c3db22",
+        "path": "packs/audio/clips/shot_0.400_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a05391bfec0f3e1330bedacb4346b2943cccc26d",
+        "path": "packs/audio/clips/shot_0.400_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "0e703f2bad94a252ae1d3df0d735273bf21e6e70",
+        "path": "packs/audio/clips/shot_0.400_2.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "74d841ce9edbb18dde195bfc2f2716fdb6332ad0",
+        "path": "packs/audio/clips/shot_0.450_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "40abd96fb96e8fcef0faf92d68ba466fd4a94b9b",
+        "path": "packs/audio/clips/shot_0.450_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "beb7de870cc5d0d0a5b5cd9e368ca1da9a28ca83",
+        "path": "packs/audio/clips/shot_0.450_2.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3be8dd0bec17a764e9e40d5d7be804c1de4d79a4",
+        "path": "packs/audio/clips/shot_0.500_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "ae2ad6b8686fb1577e4e2ee8cd24a188540bbe95",
+        "path": "packs/audio/clips/shot_0.500_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a43928aafafbf6a875d54f5d56371869a912f347",
+        "path": "packs/audio/clips/shot_0.500_2.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "4dea070b96c45ed51dca4fd6fa5292618ccdffde",
+        "path": "packs/audio/clips/shot_0.550_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5a28886e4cb9b0f77b5b4aa4170abe581682f9a5",
+        "path": "packs/audio/clips/shot_0.550_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "ba28be37385c67eda5c74042f6a9d6568e80f5f9",
+        "path": "packs/audio/clips/shot_0.550_2.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "4dba87c56c2988ef9f4c812b0e8a23d380682948",
+        "path": "packs/audio/clips/shot_0.600_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a89a81112a95598660e0900fd7bb61b33d617c7f",
+        "path": "packs/audio/clips/shot_0.600_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "06abe809fe0acd680de613015d1d0b403d10d1a8",
+        "path": "packs/audio/clips/shot_0.600_2.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c5d3b37ef064598f8900e6a1be0fe4e001e2e6f2",
+        "path": "packs/audio/clips/shot_0.750_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f17c9c11d07208a44664569fdeef3b758130505a",
+        "path": "packs/audio/clips/shot_0.750_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3f2aed468fa188b5d174d1155c3eeb43191ab097",
+        "path": "packs/audio/clips/shot_0.750_2.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "645cdebe1ea4b2488781ee597890c6f138ff722e",
+        "path": "packs/audio/clips/shot_0.900_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "054cac9d3edbfc7103c156179b65be6590efa297",
+        "path": "packs/audio/clips/shot_0.900_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e7e4184b4b269d8d30af7616cc47e5284a999234",
+        "path": "packs/audio/clips/shot_0.900_2.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "010caaa0bd5da81c0336b67b3233753d06730c5e",
+        "path": "packs/audio/clips/step_carpet_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "45ed351c3e81fc1b89f052354470014ce1d39103",
+        "path": "packs/audio/clips/step_carpet_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "d0c45b0574cb5a28e6d699128f74fdf0ee7ae05c",
+        "path": "packs/audio/clips/step_carpet_2.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "46265904da8e34a5c2173dcf0fc20bcd053fd0f1",
+        "path": "packs/audio/clips/step_concrete_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "78cab845c588ecf9c78766f10984a8a30dd7303c",
+        "path": "packs/audio/clips/step_concrete_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b1a80890618aa18c699c1b16ab84761146625163",
+        "path": "packs/audio/clips/step_concrete_2.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "528db4ccb352ff2fec97827e43c68c60fc4df511",
+        "path": "packs/audio/clips/step_metal_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "99b54c184648a35a640893f270624d67db5ad3bd",
+        "path": "packs/audio/clips/step_metal_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "df47268851c3f608cdb00f8d5af0315d2c237197",
+        "path": "packs/audio/clips/step_metal_2.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "84a55a30d19673f86c07097665300c6626c4584a",
+        "path": "packs/audio/clips/step_snow_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "d4f266e8097690f06eb25c425cdbf915bcb0b654",
+        "path": "packs/audio/clips/step_snow_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b1ef6dd3be6624ce60f30fea9bb0782a7fd31bdd",
+        "path": "packs/audio/clips/step_snow_2.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "21a44ec81047104c1f57baee0ed132d4c46e4024",
+        "path": "packs/audio/clips/step_soil_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b40dddf0874d56389bdf8780dee94bd501c02509",
+        "path": "packs/audio/clips/step_soil_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "8e9452d99be320f82fc2eb5cc65410dfc4a1c241",
+        "path": "packs/audio/clips/step_soil_2.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c82ecdb15b2146417a314176c55c161e9552bf95",
+        "path": "packs/audio/clips/step_stone_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "ebec82731ab39a4727ff9a38491fb004a2127b72",
+        "path": "packs/audio/clips/step_stone_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "33938c0ea3f707e4899fd129ec23f332bca7253e",
+        "path": "packs/audio/clips/step_stone_2.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "0c8a9447e644674f5234fe31b19baa0df8c88287",
+        "path": "packs/audio/clips/step_tile_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "7abda7cf5e0ead7e4205ccd75c73e6629ce20667",
+        "path": "packs/audio/clips/step_tile_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "128accf400518835aeaad7ef7d460eb159579d73",
+        "path": "packs/audio/clips/step_tile_2.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "eb5125f2eb321176c51a8a482bf929a43cd6594a",
+        "path": "packs/audio/clips/step_wood_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a29fcf7166f23cc7eb3a2c4bd9ee2194745b7365",
+        "path": "packs/audio/clips/step_wood_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "550148c7745cd034ac592bc8f669a783576444e3",
+        "path": "packs/audio/clips/step_wood_2.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5fcae2a83d6e3dbbfc9c67a200d70cc5f1ca84d3",
+        "path": "packs/audio/clips/switch_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "7cd9caaf1cf89af86f278153d286ad20a8368495",
+        "path": "packs/audio/clips/switch_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5fccc36d136275aa8cb2761813f4d55d642aebab",
+        "path": "packs/audio/clips/vault_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a720799a6ef9a74cb673ad5105ca9195173d6373",
+        "path": "packs/audio/clips/vault_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "ebaf4761777e1d14578ac9a8b213fdc00dcce5e9",
+        "path": "packs/audio/clips/wire_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "9dd44f84ca602792cb0a563e9f102be8dd463f2f",
+        "path": "packs/audio/clips/wire_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c61a358843b3307121a6dc446c1c4ac04f79221f",
+        "path": "packs/audio/clips/zap_0.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "9234c74ba3220237a671e889a17f924ef2369e1c",
+        "path": "packs/audio/clips/zap_1.wav"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "d8270c611eb6f9d409674ce387c14ae68cde0c67",
+        "path": "packs/audio/manifest.json"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "0823d291c066176c0fc49fe3914811818d4768c3",
+        "path": "packs/audio/recoil-range-audio-v1.rra"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e9f6f5c8b0010c26ad6d9eb331a4d81592e99c6d",
+        "path": "packs/audio/recoil-range-audio-v1.zip"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f09d5f2c147e0f313d1f39f41031f1e2b1bd77b5",
+        "path": "reports/bomb-utility/baseline-m4.json"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "63acd5bf6a8a51d00f7da45642b7f064ddc12d39",
+        "path": "reports/bomb-utility/rejected-extra-reinforcement-m4.json"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "69d225a8a074bc617273132cec4f13aa7542472b",
+        "path": "reports/bomb-utility/rejected-fast-setup-m4.json"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "eaa9f06af3078583079a84a9fc87362c9a956d16",
+        "path": "reports/bomb-utility/rejected-utility-only-m4.json"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "11c9d6a26c097661fba15308812207312931efa4",
+        "path": "reports/bomb-utility/tuned-m4.json"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b987fdf42c262f93191b3bcf42268474e9eaa09d",
+        "path": "rust/bomb_utility/Cargo.toml"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "957bf2173873a8ef1f0700f2d4eacbdf91030008",
+        "path": "rust/bomb_utility/src/lib.rs"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "ac90e0b991c14cd14e74b3916cfd57199cd500df",
+        "path": "rust/m7_controls/Cargo.toml"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c9734c6fadcc970ebe25c670a5d372e4e5ea4b1d",
+        "path": "rust/m7_controls/src/lib.rs"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2a9b022781f5948d12c18939367610024fc97710",
+        "path": "rust/m8_audio/Cargo.toml"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2df77384a4437674bbb1ae7a1c81dd7cfe0ca9f7",
+        "path": "rust/m8_audio/src/lib.rs"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2989bb5b91f44129cb848ed7c012db12d6345e86",
+        "path": "tests/audio-browser.mjs"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "24da3fb201adac80cd5975bc28b0767f8f4d2486",
+        "path": "tests/audio-pack-browser.mjs"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "272f3fe7e2016daf705915e3cf66651c2410d315",
+        "path": "tests/audio-pack.mjs"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "7b62d57cb78ad801cc44c7d4f2ad1f830733fd9c",
+        "path": "tests/audio-wasm.mjs"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "1f8ffce268ad16e549aae723640394d8cf97aa1d",
+        "path": "tests/bomb-utility-browser.mjs"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "25f60ab29dbae1fd5214a3b2fe3a8583f87e0823",
+        "path": "tests/bomb-utility.mjs"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "82912932b598f06f67877fd6a2ae2fb65af21e06",
+        "path": "tests/controls-browser.mjs"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "0a0c2036c1b5329d25751ef08c054fab32094c12",
+        "path": "tests/controls-wasm.mjs"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3c4b9adf416c8a88fb797004dbe24c7ab2a92947",
+        "path": "tests/run.mjs"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "35071ab5d5a8cbd5174759e8a248aaae3f092fa1",
+        "path": "tests/unit.html"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "af2a5dad292d7421110ea69f39b484e98d56e5ce",
+        "path": "tools/bench-audio-pack.mjs"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "879e6f4aa73e23c6bef1587cee616d5746b7a743",
+        "path": "tools/build-audio-pack.mjs"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "702c075b8b73af909358237a9b0d76844f01e115",
+        "path": "tools/build-audio.sh"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "1404a7fddd94c2783cca089c72a61bd7579d3098",
+        "path": "tools/build-bomb-utility.sh"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f294c04f6c10e9848a6ba477782f7261ad98ef9b",
+        "path": "tools/build-controls.sh"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "782d7862319116e54580be276e4368d7dc922ee5",
+        "path": "tools/measure-bomb-balance.mjs"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c10c516d73a52e9d7b9d269d4b8ce129699675ef",
+        "path": "tools/package-audio-pack.py"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "dd7875ed69c00b4ceb582a93c67911ab1f0b893b",
+        "path": "tools/play-through.mjs"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "aa73b3eea6aa64374f609944c211a606be95e589",
+        "path": "wasm/bomb_utility.hash"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "8016b17893c6910fa9fe650dc01be6bfb9dc20ac",
+        "path": "wasm/bomb_utility.wasm"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "0b2776abc101dbd3095be9df10193b1011d4b98d",
+        "path": "wasm/m7_controls.hash"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "360f9fd981d9a0b7d81cd5783f97de29ddfc2e94",
+        "path": "wasm/m7_controls.wasm"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "45e857bb2d7b0e89960f9dfe450cb2268883e33d",
+        "path": "wasm/m8_audio.hash"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "ae3c406b98bebe6a3f655e022a7825eb02c4f0e3",
+        "path": "wasm/m8_audio.wasm"
+      }
+    ],
+    "upload": [
+      "f7ba4aaade409a3b16589314ce1fd93f3ff1d709",
+      "92a225ad8a08f85f7ee2272a935466a4b6836e16",
+      "349b9473be1dd841b00a891e1397b6a55654338d",
+      "a282762b7d1eab69866416f0466f8c4fb03b157f",
+      "193b7d390b9353014aac08cb9a41e7773a2c9b4a",
+      "65984bfbba957fcd1845e1ca8276c870be9dbdbd",
+      "7daf13b40b9316c12ee27b5584d38398631cbb36",
+      "020e5d979faea64d88828c817fa4e48db062a80b",
+      "79ab2704fe3a9a10647395691810bbf32ec9fd35",
+      "cbbf9ad6d18611c95d015bfbf7575d327d22a4cb",
+      "215978ca03916823321d44004d86fc0b812b053f",
+      "9931b46064734b0df364003e30292526555704d2",
+      "d77d73863630529c7732d695583cf6c0ea77cd0d",
+      "70724e3c093b793e45feab23c9c921311f73181c",
+      "bccb6e96a36977db83127c9ee40a84f80bebd12b",
+      "1920a315619e1d81f15b1c64a8fbff96da98d746",
+      "f45c5cc43ed014630101a051a5b6988181a64b11",
+      "fbedd0a1b5410f772561e7d5c0a2038dd4ed1ec8",
+      "6ec58408506f469d32626241443a77ece5b1e10a",
+      "15e8c348ea39e4d675d47ba0d19e33725db230a9",
+      "2e83e4f103b3b7d7e77397ccff1054f5294c81d5",
+      "7663222638173dec867dbe9a301188504a535f23",
+      "2d98f86c66fec91865cf25b8ce83e9ecefb2a439",
+      "a516dc33caf806257a1107afe419a4988a654cba",
+      "8c3c8e33db2d5a5ae370c979c47dc500f7d94cd3",
+      "4c0e1aa6d0eb092ca61fae0a7bc391a727522b0f",
+      "cac45cd0daedd6a27ef15000511a13400f784999",
+      "80ba63c508297ddf09b0a29bf1fa86e89999a1b5",
+      "64422c7207512c2cdc63691abe623eda4e052236",
+      "2d77af9a5ea41fa83ae5e58f58f253684635af1f",
+      "273b11ef8f1500fe475e51da88f897865e5f01b5",
+      "c035a3688f02497f451a78eeb3649208f317793d",
+      "15cc345d058176e7b005045db9ee2a4860304a09",
+      "2460173802db1cb6f51869c2e4379a3587e98c97",
+      "af4daa196b8a6161294e8aa084e35d74d150cda4",
+      "59ea8a881a85e0607c1a8238aeaf4994d58a02ea",
+      "108dc04f9072d812b3a31cf4c23d09ca5857b95b",
+      "96af8df10527e98ba6267fd678d6da54fec58426",
+      "81616e79b8cceda3870609547113ba92a8d2c82f",
+      "f6ba20e5c676a7417f0e991e68d98dc3b82eeebd",
+      "42ded5c45f4831aba74ce9f45cf029008f0a40c8",
+      "eb9478f7be55054b92fc1ceb526c191de9c7c09c",
+      "30b04c79558902a5a3de692c74e825283dd5cef6",
+      "9f5a7727fb339ce9aa7373e4c7e1c47f10b712fc",
+      "3c19f344799bf2a6d0d50d9cff80ac1e1f02cb11",
+      "3312ab2acc4c3d4417fc8a67a1269117e9e0bcf7",
+      "46717e11994beac80c84c5a6c9f34d33830fd4ee",
+      "d0f0fc61dbe00327adcbd9f69dee022b8c70d457",
+      "1c86835cda7d5903ddd72835ef06d2fbe12b3a3e",
+      "3ed04b2befe5879c44ad5f2a9405710c96d7d5c5",
+      "33d24e9a6e0b39e0dc6edf642bbd606a3a9b49ba",
+      "f9f2ab528dda3873b724b3b2ac1703b7432455d0",
+      "20c8ede7577b78c2a1cdbf1753f8ec78b8b2c2d8",
+      "05773c2329adef44f39c06d5b4ba1f44b9c1dffe",
+      "a5b09e1639ece8bd733733f5462699bdc07d5ed1",
+      "d070b0a2da711345a2d82c70cf92bbbb376eb793",
+      "78d429fc1e04bc967e527204a354568cbc8c50e5",
+      "3ae4187252e71f5e2a7bec2502bf97fb4f2e49eb",
+      "8c831bdc50921b6e839973919c34cfff94115b6a",
+      "9dd266826f84ffd2feaf90cd57cd02750ad70e3c",
+      "ca53e6692dc0a68c7ade983b6579f742b40db5f4",
+      "104178971cb226972a822b99e37ef0eab3921e2e",
+      "1e46e7de1ce9311e73491850f6b79d801767bc1e",
+      "40be0b5e8bdc7b46dec4f0ba7962b284e0885a99",
+      "64935666709c6e6228c45ad93ec23429d2e56c7d",
+      "d0e3e6597cd19d85fcbbffbff1c303d1d97292d9",
+      "e89e944e8daec57218b46aa7e476156a03ac51d8",
+      "8f40f53f7e26639ed51f34c2a09703e1834171a7",
+      "99c31cbc550dc2711049a50233aae074822f6465",
+      "68dfb57141dcdc46cbaa34bf5a428b4dd173632e",
+      "fe9058f6f60ad9fc9b462eada525e74a94e7fc02",
+      "fb10d35305cfc794ae806425b35aed3539cada8b",
+      "6cdff440c2306a6b1637571ca60c3266babf05e9",
+      "2dae8c8cc3148df769162988d5151062a09ae303",
+      "ab561e709ce250bf68b2b21215780f174c7395c3",
+      "72de0557a2d47f3fb331ea8df51e3d287c0a41bc",
+      "8c69fb296756b7c5a25c8b828c16b3bd7c05ca4f",
+      "f79bad637c7195d7f9c5ea6e7cbed66675c3db22",
+      "a05391bfec0f3e1330bedacb4346b2943cccc26d",
+      "0e703f2bad94a252ae1d3df0d735273bf21e6e70",
+      "74d841ce9edbb18dde195bfc2f2716fdb6332ad0",
+      "40abd96fb96e8fcef0faf92d68ba466fd4a94b9b",
+      "beb7de870cc5d0d0a5b5cd9e368ca1da9a28ca83",
+      "3be8dd0bec17a764e9e40d5d7be804c1de4d79a4",
+      "ae2ad6b8686fb1577e4e2ee8cd24a188540bbe95",
+      "a43928aafafbf6a875d54f5d56371869a912f347",
+      "4dea070b96c45ed51dca4fd6fa5292618ccdffde",
+      "5a28886e4cb9b0f77b5b4aa4170abe581682f9a5",
+      "ba28be37385c67eda5c74042f6a9d6568e80f5f9",
+      "4dba87c56c2988ef9f4c812b0e8a23d380682948",
+      "a89a81112a95598660e0900fd7bb61b33d617c7f",
+      "06abe809fe0acd680de613015d1d0b403d10d1a8",
+      "c5d3b37ef064598f8900e6a1be0fe4e001e2e6f2",
+      "f17c9c11d07208a44664569fdeef3b758130505a",
+      "3f2aed468fa188b5d174d1155c3eeb43191ab097",
+      "645cdebe1ea4b2488781ee597890c6f138ff722e",
+      "054cac9d3edbfc7103c156179b65be6590efa297",
+      "e7e4184b4b269d8d30af7616cc47e5284a999234",
+      "010caaa0bd5da81c0336b67b3233753d06730c5e",
+      "45ed351c3e81fc1b89f052354470014ce1d39103",
+      "d0c45b0574cb5a28e6d699128f74fdf0ee7ae05c",
+      "46265904da8e34a5c2173dcf0fc20bcd053fd0f1",
+      "78cab845c588ecf9c78766f10984a8a30dd7303c",
+      "b1a80890618aa18c699c1b16ab84761146625163",
+      "528db4ccb352ff2fec97827e43c68c60fc4df511",
+      "99b54c184648a35a640893f270624d67db5ad3bd",
+      "df47268851c3f608cdb00f8d5af0315d2c237197",
+      "84a55a30d19673f86c07097665300c6626c4584a",
+      "d4f266e8097690f06eb25c425cdbf915bcb0b654",
+      "b1ef6dd3be6624ce60f30fea9bb0782a7fd31bdd",
+      "21a44ec81047104c1f57baee0ed132d4c46e4024",
+      "b40dddf0874d56389bdf8780dee94bd501c02509",
+      "8e9452d99be320f82fc2eb5cc65410dfc4a1c241",
+      "c82ecdb15b2146417a314176c55c161e9552bf95",
+      "ebec82731ab39a4727ff9a38491fb004a2127b72",
+      "33938c0ea3f707e4899fd129ec23f332bca7253e",
+      "0c8a9447e644674f5234fe31b19baa0df8c88287",
+      "7abda7cf5e0ead7e4205ccd75c73e6629ce20667",
+      "128accf400518835aeaad7ef7d460eb159579d73",
+      "eb5125f2eb321176c51a8a482bf929a43cd6594a",
+      "a29fcf7166f23cc7eb3a2c4bd9ee2194745b7365",
+      "550148c7745cd034ac592bc8f669a783576444e3",
+      "5fcae2a83d6e3dbbfc9c67a200d70cc5f1ca84d3",
+      "7cd9caaf1cf89af86f278153d286ad20a8368495",
+      "5fccc36d136275aa8cb2761813f4d55d642aebab",
+      "a720799a6ef9a74cb673ad5105ca9195173d6373",
+      "ebaf4761777e1d14578ac9a8b213fdc00dcce5e9",
+      "9dd44f84ca602792cb0a563e9f102be8dd463f2f",
+      "c61a358843b3307121a6dc446c1c4ac04f79221f",
+      "9234c74ba3220237a671e889a17f924ef2369e1c",
+      "d8270c611eb6f9d409674ce387c14ae68cde0c67",
+      "0823d291c066176c0fc49fe3914811818d4768c3",
+      "3c4b9adf416c8a88fb797004dbe24c7ab2a92947"
+    ]
+  },
+  {
+    "ref": "993e675",
+    "base": "6938f00",
+    "baseTree": "b31ed01133cc459ee830163703c9e1d84c46babe",
+    "tree": "2629590357bd56b5aab9a80b3dfb8b73973f6506",
+    "message": "feat(audio): join 83-clip addon to Enhanced Graphics pack lifecycle",
+    "changes": [
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "0710624808af6b5cee9a09ec033ad34ded7f1a99",
+        "path": "hd/audio/recoil-range-audio-v1.rra"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "ab4d63ca7eeb971ed59f1b41f9d705eb9b7aeaf7",
+        "path": "hd/manifest.json"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "931f7d49d4a90ea4794c1bfcfd973ff1ad72ee40",
+        "path": "js/audio/pack-bridge.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "e25a89d47794c812d2148510733fea76d5d985a6",
+        "path": "js/audio/sfx.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "26019bcb3024d9f19e891baeece249663f55eadf",
+        "path": "js/main.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "275438021249ef52eed3d12b1bdb1f35daea09b1",
+        "path": "js/render/hd-pack.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "9aaa40d3bedfa4c8163843a1f352df6887da7ec3",
+        "path": "js/ui/graphics-ui.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "ca4a0e9d4420a95c088a79e17429ec9394b12151",
+        "path": "packs/audio/SHA256SUMS"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "fbc89b34e18104ac23773a7677231ab79cb75fa7",
+        "path": "packs/audio/build.json"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "61d4ebe099599d4e8bf1734f4bbd4299a43b63f4",
+        "path": "packs/audio/manifest.json"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "0710624808af6b5cee9a09ec033ad34ded7f1a99",
+        "path": "packs/audio/recoil-range-audio-v1.rra"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a8aa579405b037950a0c9d14782c8d5ce6c54497",
+        "path": "packs/audio/recoil-range-audio-v1.zip"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f35ebf416dfe0abd66d8ea6cf6a146dc95b5634b",
+        "path": "tools/build-hd.mjs"
+      }
+    ],
+    "upload": [
+      "0710624808af6b5cee9a09ec033ad34ded7f1a99",
+      "ab4d63ca7eeb971ed59f1b41f9d705eb9b7aeaf7",
+      "931f7d49d4a90ea4794c1bfcfd973ff1ad72ee40",
+      "e25a89d47794c812d2148510733fea76d5d985a6",
+      "26019bcb3024d9f19e891baeece249663f55eadf",
+      "275438021249ef52eed3d12b1bdb1f35daea09b1",
+      "9aaa40d3bedfa4c8163843a1f352df6887da7ec3",
+      "ca4a0e9d4420a95c088a79e17429ec9394b12151",
+      "fbc89b34e18104ac23773a7677231ab79cb75fa7",
+      "61d4ebe099599d4e8bf1734f4bbd4299a43b63f4",
+      "a8aa579405b037950a0c9d14782c8d5ce6c54497",
+      "f35ebf416dfe0abd66d8ea6cf6a146dc95b5634b"
+    ]
+  },
+  {
+    "ref": "fee4f9e",
+    "base": "993e675",
+    "baseTree": "2629590357bd56b5aab9a80b3dfb8b73973f6506",
+    "tree": "cba07cf2c4c6dc6177c800c2e754927fb8df399e",
+    "message": "feat(graphics): add bounded map surfaces, soldier equipment and skin finishes to pack",
+    "changes": [
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "713f677e35ce0d1eb42c0295ac8634241a5aeea4",
+        "path": "hd/manifest.json"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "4ea938974fa3fad11240a98ac36b127a1ee8908a",
+        "path": "hd/materials/carpet-1024.png"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "d0b91947796f019b410efbdc18897ef6b446c95e",
+        "path": "hd/materials/carpet-512.png"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "cc08ab616840883d5ea6f667375988e794daf604",
+        "path": "hd/materials/concrete-1024.png"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "80e3b241ed312c4613266b3c224f550fd291962e",
+        "path": "hd/materials/concrete-512.png"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "05ca5299a1f3edb705ced59e5d2b0ea629dce424",
+        "path": "hd/materials/deck-1024.png"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "be96b789b87c80c154694acc48782ae689c776e6",
+        "path": "hd/materials/deck-512.png"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "79fe0bf684e1422aa753cf450cbfa9e440e0aa1c",
+        "path": "hd/materials/finish.json"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2e59fde148cf5c936cb309fd2a2bdc935f6d4158",
+        "path": "hd/materials/house-1024.png"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "8e07c7a11a7d0819b59cf305ca73d8fb100e96c3",
+        "path": "hd/materials/house-512.png"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "3ea7947af0f01f9b2346154744351803e326e9c1",
+        "path": "hd/materials/metal-1024.png"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "85771b61790d5b8eca7343ff190f771074bf9821",
+        "path": "hd/materials/metal-512.png"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b48fa9b4c618f356ea51871f0383203ad3daa82c",
+        "path": "hd/materials/stone-1024.png"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "6a6824896abfd2b47e1a2e37759385a025033937",
+        "path": "hd/materials/stone-512.png"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c1ae75b69c64f69c6c7baf3d99d0e9ec00550311",
+        "path": "hd/materials/tiles-1024.png"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "9570731d1161badcfc7fedb63f48132b7c6daee0",
+        "path": "hd/materials/tiles-512.png"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "1f2ff24234277d9672ccb34a0d31cc3a9f320869",
+        "path": "hd/materials/wood-1024.png"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b3cebea3626ef8f639238dd10fefdfc38b8f6b9e",
+        "path": "hd/materials/wood-512.png"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "1290a571e0ee492967704127bf1c2cd94c17cf60",
+        "path": "hd/soldiers/equipment.rrmz"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "6e596091d2b805e646561037bb01488a1e9f73b3",
+        "path": "js/battle/battle.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "bbabe54e4724207a9b295f39a66ea0cee74bac8d",
+        "path": "js/battle/fighter.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "83a1b2d4361fb8e60b0be3c04657051f4ac9486f",
+        "path": "js/battle/soldier.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "681da80275eef308a36cb0e3e76951c924edcf47",
+        "path": "js/main.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "8c75552a36cd9273d05eece60e63a75a716dd498",
+        "path": "js/modes/game.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "1923df82e6f2e8cce89f13d720feeaee14142a94",
+        "path": "js/modes/look.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "9d9e88c92e7cf2527d7dfe7d50544ac512dbdeb1",
+        "path": "js/render/gpu-tex.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b441fae29a0e91442c6593588bf71226a8140a9e",
+        "path": "js/render/pack-art.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "12533a477aa9a66b6cf3dd7bdd20614df5493c2e",
+        "path": "js/scene/viewmodel.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "c7616684c6dfa06d44dde77f79a064a5f1d34765",
+        "path": "js/ui/graphics-ui.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "9e6cfdbcbfb4608bc957cc2899185b425fd7be94",
+        "path": "tools/build-hd.mjs"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "d3e326b4d2ee8462c3e239c0f339f20d08a5eeaa",
+        "path": "tools/build-pack-surfaces.mjs"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "608034ca5b889be47943d3749c024405523fed37",
+        "path": "tools/hd/soldier.mjs"
+      }
+    ],
+    "upload": [
+      "713f677e35ce0d1eb42c0295ac8634241a5aeea4",
+      "4ea938974fa3fad11240a98ac36b127a1ee8908a",
+      "d0b91947796f019b410efbdc18897ef6b446c95e",
+      "cc08ab616840883d5ea6f667375988e794daf604",
+      "80e3b241ed312c4613266b3c224f550fd291962e",
+      "05ca5299a1f3edb705ced59e5d2b0ea629dce424",
+      "be96b789b87c80c154694acc48782ae689c776e6",
+      "79fe0bf684e1422aa753cf450cbfa9e440e0aa1c",
+      "2e59fde148cf5c936cb309fd2a2bdc935f6d4158",
+      "8e07c7a11a7d0819b59cf305ca73d8fb100e96c3",
+      "3ea7947af0f01f9b2346154744351803e326e9c1",
+      "85771b61790d5b8eca7343ff190f771074bf9821",
+      "b48fa9b4c618f356ea51871f0383203ad3daa82c",
+      "6a6824896abfd2b47e1a2e37759385a025033937",
+      "c1ae75b69c64f69c6c7baf3d99d0e9ec00550311",
+      "9570731d1161badcfc7fedb63f48132b7c6daee0",
+      "b3cebea3626ef8f639238dd10fefdfc38b8f6b9e",
+      "1290a571e0ee492967704127bf1c2cd94c17cf60",
+      "6e596091d2b805e646561037bb01488a1e9f73b3",
+      "bbabe54e4724207a9b295f39a66ea0cee74bac8d",
+      "83a1b2d4361fb8e60b0be3c04657051f4ac9486f",
+      "681da80275eef308a36cb0e3e76951c924edcf47",
+      "8c75552a36cd9273d05eece60e63a75a716dd498",
+      "1923df82e6f2e8cce89f13d720feeaee14142a94",
+      "9d9e88c92e7cf2527d7dfe7d50544ac512dbdeb1",
+      "b441fae29a0e91442c6593588bf71226a8140a9e",
+      "12533a477aa9a66b6cf3dd7bdd20614df5493c2e",
+      "c7616684c6dfa06d44dde77f79a064a5f1d34765",
+      "9e6cfdbcbfb4608bc957cc2899185b425fd7be94",
+      "d3e326b4d2ee8462c3e239c0f339f20d08a5eeaa",
+      "608034ca5b889be47943d3749c024405523fed37"
+    ]
+  },
+  {
+    "ref": "4ab7a0c",
+    "base": "fee4f9e",
+    "baseTree": "cba07cf2c4c6dc6177c800c2e754927fb8df399e",
+    "tree": "641c933f15ed034cb821dd51c82945d4ff7f4359",
+    "message": "test: record pack integration, paired Intel GPU results and Claude handoff",
+    "changes": [
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "2dc243537996269b6fb1b23d5d3f471d27f9991b",
+        "path": ".github/workflows/m7-controls.yml"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "361065a00f06499f2e05ff91039bd7be1310a881",
+        "path": "docs/DESKTOP_HANDOFF.md"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "bf7404d7a1571e67961cc487a76268479956c12a",
+        "path": "docs/ENGINE_API.md"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "4ccf40f98d95d72cfbfc4fb8709284b7fcb63cb2",
+        "path": "docs/PACK_INTEGRATION.md"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "325fd76439458d06b3511b92e050fda4aed49f64",
+        "path": "docs/reports/pack-v2/after.json"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "55ed08ff81817016411bc705786efd6186007e7a",
+        "path": "docs/reports/pack-v2/before.json"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "77a46548548bb7ca7b13a546c3977dc773d14911",
+        "path": "docs/reports/pack-v2/overview.jpg"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5b4640fd2bbeba91a232a88755654a9fba0f127b",
+        "path": "js/render/gpu-tex.js"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "b5afade648b93ef98aa4652a6bc2ed7797bc3123",
+        "path": "package.json"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "5f4bec0caa0b24eb42f5ed00c3d9d82eb8196f07",
+        "path": "packs/audio/README.md"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "faa1e188bebfa4ac2bd34b225ff62744b250f771",
+        "path": "tests/pack-assets.mjs"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "a3dba4d05ae74b41c37182f1593582ddf3d3e5e8",
+        "path": "tests/pack-integration.mjs"
+      },
+      {
+        "mode": "100644",
+        "type": "blob",
+        "sha": "ba859f5c87bfa031afe6e1ca283e7f7ca0f890ae",
+        "path": "tools/compare-pack.mjs"
+      }
+    ],
+    "upload": [
+      "2dc243537996269b6fb1b23d5d3f471d27f9991b",
+      "361065a00f06499f2e05ff91039bd7be1310a881",
+      "bf7404d7a1571e67961cc487a76268479956c12a",
+      "4ccf40f98d95d72cfbfc4fb8709284b7fcb63cb2",
+      "325fd76439458d06b3511b92e050fda4aed49f64",
+      "55ed08ff81817016411bc705786efd6186007e7a",
+      "77a46548548bb7ca7b13a546c3977dc773d14911",
+      "5b4640fd2bbeba91a232a88755654a9fba0f127b",
+      "b5afade648b93ef98aa4652a6bc2ed7797bc3123",
+      "5f4bec0caa0b24eb42f5ed00c3d9d82eb8196f07",
+      "faa1e188bebfa4ac2bd34b225ff62744b250f771",
+      "a3dba4d05ae74b41c37182f1593582ddf3d3e5e8",
+      "ba859f5c87bfa031afe6e1ca283e7f7ca0f890ae"
+    ]
+  }
+]

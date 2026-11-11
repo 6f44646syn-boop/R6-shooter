@@ -1,0 +1,134 @@
+Hitscan
+  PASS ray hits a capsule side at 4.75 m
+  PASS ray passes a capsule 0.3 m off
+  PASS ray hits a head sphere
+  PASS a bullet at a head in the open is a headshot kill (lethal)
+  PASS torso hit does the gun damage
+  PASS limb hit does 0.8x
+  PASS the middle block stops the bullet
+  PASS no friendly fire: bullets pass teammates
+
+Flag state machine
+  PASS touching the enemy flag picks it up
+  PASS the carrier is 10% slower
+  PASS the flag drops where the carrier died
+  PASS a dropped flag is still out after 14 s
+  PASS a dropped flag returns home after 15 s
+  PASS the enemy takes our flag
+  PASS a teammate touching our dropped flag returns it at once
+  PASS no capture while our own flag is away
+  PASS bringing the enemy flag to our stand with our flag home captures
+
+Bomb state machine
+  PASS round 1: prep, one attacker carries the bomb
+  PASS no planting during prep
+  PASS the action phase starts after 30 s
+  PASS hold E inside a site starts planting
+  PASS damage cancels the plant
+  PASS a 5 s hold plants the bomb
+  PASS hold E beside the bomb starts defusing
+  PASS a 6 s hold defuses: the defenders win the round
+  PASS 5 s later round 2 starts with everyone alive
+  PASS the bomb goes off 40 s after the plant: attackers win
+  PASS the bomb drops when the carrier dies
+  PASS another attacker picks it up
+  PASS time runs out with no plant: the defenders win
+  PASS all defenders dead: the attackers win
+  PASS after a plant, the round goes on with all attackers dead
+  PASS sides swap after round 3 (ops change side too)
+
+Doors and the knife
+  PASS a whole door blocks walking through it
+  PASS one knife hit breaks a door
+  PASS bullets break a door after 5 hits
+  PASS a knife from behind is lethal
+  PASS a knife from the front does 60
+  PASS a knife does not reach 5 m
+
+Bomb: your bomb and the bots' jobs
+  PASS you carry the bomb when you attack
+  PASS attacker bots each have a job
+  PASS defenders: anchors, site control and a roamer
+  PASS one bomb site per map
+
+Collision: drones and bodies against every wall, soft wall, reinforced wall and door (Bomb maps)
+  PASS the old one-check-per-frame move does tunnel at 10-15 FPS (4806 crossings): the test catches the bug
+  PASS drones never cross a wall, soft wall or reinforced wall (19392 drives, 6 and 30 m/s, 144 to 10 FPS)
+  PASS bodies never cross a wall, soft wall, reinforced wall or boarded door (14010 drives at sprint speed)
+  PASS a Charge Dash (17 m/s) never crosses one either (4670 drives)
+  PASS drones roll under boarded doors (128 of 128 drives got through)
+  PASS Charge Dash knockback stops at the wall (victim stays inside)
+  PASS a drone deployed facing a wall stays on your side of it
+
+Grenades
+  PASS everyone starts with 2 grenades
+  PASS a throw uses one grenade
+  PASS it flies in an arc and goes off after 2.5 s
+  PASS it hurts someone 2.5 m from where it lands (95)
+  PASS a wall between you and the blast keeps you safe
+  PASS a blast at your feet is lethal
+  PASS bots throw grenades, but not all the time (62 in 4 matches)
+
+Drones
+  PASS every attacker has one prep drone
+  PASS Q in prep sends out the prep drone (any attacker)
+  PASS a drone rolls under a whole door
+  PASS a person cannot walk under it
+  PASS prep drones shut down when the action phase starts
+  PASS after prep, Q is not a drone for other attackers
+  PASS Glitch can still send his drone mid-round
+  PASS prep drones work with abilities off too
+
+Physics on every map: stairs, upper floors, falling, vaulting, doorways
+  PASS a body walks the game's own paths between random places on all 9 maps and arrives (540 walks, 60 and 15 FPS; 283 vaults on the way)
+  PASS up to every upper level and back down again by the stairs and ramps (96 climbs, 96 descents)
+  PASS walking off the edge of an upper level always lands standing on something inside the map (113 falls)
+  PASS every doorway of the Bomb buildings can be walked through, both ways (94 doorways)
+  PASS vaulting: 266 of 273 low obstacles (0.5 to 1.5 m) can be vaulted or climbed from at least one side (805 of 827 sides)
+  PASS vaulting: every landing spot is free and on its feet
+  PASS vaulting: never over a full-height wall, a soft or reinforced wall, or a boarded door (1009 sides tried)
+  (not vaultable from any side: containers low 1.20 m at 6.0,13.0; winter low 1.00 m at -4.3,-1.0; winter low 1.20 m at -3.9,-1.0; school low 0.78 m at -4.0,12.0; ranch counter 1.30 m at 0.5,13.3; ranch car 1.50 m at 16.0,-6.0; workshop car 1.50 m at 21.0,-12.0)
+
+Path planning cost (milestone 5)
+  PASS a route to a point inside furniture takes 1.2 ms (was 36 ms), under 8 ms
+
+Bomb: defenders stay inside the building
+  PASS a defender pushing out through every opened door and breached outside wall never gets past the wall line (77 openings on 3 maps)
+  PASS attackers walk out through the same openings freely (52 of 52; 6 with furniture against them inside not tried)
+
+TDM: 20 bot-only matches
+  PASS every match ends (5.5 s for 20)
+  PASS no bot stuck for more than 5 s (worst 3.0 s)
+  PASS no NaN positions
+  PASS nobody ever below the floor
+  PASS bots go up to the upper levels on the maps that have them (in 20 of 20 matches; highest 4.9 m)
+  PASS the same seed gives the same result
+  e.g. B {"A":34,"B":40} | A {"A":40,"B":31} | B {"A":36,"B":40} | B {"A":36,"B":40} | B {"A":26,"B":40} | B {"A":34,"B":40}
+  PASS every TDM match has kills; endings by kill limit or time
+
+CTF: 20 bot-only matches
+  PASS every match ends (22.1 s for 20)
+  PASS no bot stuck for more than 5 s (worst 3.0 s)
+  PASS no NaN positions
+  PASS nobody ever below the floor
+  PASS bots go up to the upper levels on the maps that have them (in 20 of 20 matches; highest 4.9 m)
+  PASS the same seed gives the same result
+  e.g. B 2-3 | B 2-3 | A 3-2 | draw 0-0 OT | A 3-0 | B 1-3
+  PASS CTF produces captures (64 in 20 matches; matches without: 3)
+
+BOMB: 20 bot-only matches
+  PASS every match ends (24.9 s for 20)
+  PASS no bot stuck for more than 5 s (worst 3.0 s)
+  PASS no NaN positions
+  PASS nobody ever below the floor
+  PASS no defender is outside the building at any step of any round
+  PASS the same seed gives the same result
+  e.g. A 4-3 [deeeeee] | B 2-4 [edeeee] | B 1-4 [eeeee] | B 0-4 [eeee] | B 3-4 [eeeeeee] | B 2-4 [eeeede]
+  PASS Bomb bots: both sides win rounds (defenders 69 of 119)
+  PASS every Bomb round ends by one of the four rules (119 rounds: eliminated 112, detonated 0, defused 7, time 0)
+
+Abilities on in TDM and CTF (6 matches each)
+  PASS TDM with abilities: matches end, nobody stuck over 5 s, no NaN
+  PASS CTF with abilities: matches end, nobody stuck over 5 s, no NaN
+
+All mode checks passed

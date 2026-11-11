@@ -1,0 +1,4 @@
+{"preset":"low","effective":"low","instances":32}
+{"preset":"standard","effective":"standard","instances":860}
+{"preset":"high","effective":"high","instances":2200}
+{"preset":"ultra","effective":"ultra","instances":4140}

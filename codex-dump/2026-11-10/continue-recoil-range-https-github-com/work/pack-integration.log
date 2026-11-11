@@ -1,0 +1,18 @@
+PASS no addon requests at startup
+PASS audio is locked before player gesture
+PASS one manager installs the whole pack
+PASS download does not create an AudioContext
+PASS audio decodes after unlock
+PASS all 83 clips active
+PASS cached reload remains locked
+PASS cached audio starts without a new fetch
+PASS remove restores procedural fallback
+PASS corrupt cached audio falls back without crashing
+PASS missing addon refuses incomplete pack
+PASS map geometry is identical across presets
+PASS map textures activate and restore
+PASS soldier detail adds under 1200 triangles
+PASS pack never changes cosmetic ownership
+PASS no browser exceptions
+{"before":[7111,752079.5942264646],"after":[7111,752079.5942264646],"enhanced":15,"fallback":0,"high":11640,"low":8724,"profileSame":true}
+16 pack integration checks passed

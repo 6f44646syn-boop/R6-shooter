@@ -1,0 +1,44 @@
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { startServer } from '../tools/serve.mjs';
+const {chromium}=createRequire(import.meta.url)('playwright');
+const server=await startServer(8155), browser=await chromium.launch({executablePath:process.env.PLAYWRIGHT_CHROMIUM||undefined});
+let count=0;const check=(n,c)=>{assert.ok(c,n);console.log('PASS '+n);count++;};
+try{
+ const page=await browser.newPage();const errors=[],requests=[];page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>requests.push(r.url()));
+ await page.goto('http://127.0.0.1:8155/index.html?test');await page.waitForFunction(()=>window.__range?.ready);await page.locator('[data-first-profile=mouse]').click();
+ const state=()=>page.evaluate(()=>window.__range.audioPackState());
+ check('no addon requests at startup',!requests.some(u=>/\/hd\//.test(u)));
+ check('audio is locked before player gesture',!(await state()).unlocked);
+ check('one manager installs the whole pack',(await page.evaluate(()=>__range.hdInstall())).ok);
+ check('download does not create an AudioContext',!(await state()).unlocked);
+ check('audio decodes after unlock',await page.evaluate(()=>__range.audioPackSync()));
+ check('all 83 clips active',(await state()).clips===83);
+ await page.reload();await page.waitForFunction(()=>window.__range?.hdState().ready);
+ check('cached reload remains locked',!(await state()).unlocked);
+ const requestCount=requests.length;await page.evaluate(()=>__range.audioPackSync());
+ check('cached audio starts without a new fetch',(await state()).clips===83&&requests.length===requestCount);
+ await page.evaluate(()=>__range.hdRemove());check('remove restores procedural fallback',(await state()).clips===0);
+ await page.evaluate(async()=>{const {HDPack}=await import('/js/render/hd-pack.js?v=m6-integration');await HDPack.install(); const c=await caches.open('recoil-range-hd');const u=new URL('/hd/audio/recoil-range-audio-v1.rra',location).href;await c.put(u,new Response(new Uint8Array(12)));__range.audio.removePack();});
+ await page.reload();await page.waitForFunction(()=>window.__range?.hdState().ready);await page.evaluate(()=>__range.audioPackSync());
+ check('corrupt cached audio falls back without crashing',(await state()).clips===0);
+ await page.evaluate(()=>__range.hdRemove());await page.route('**/hd/audio/*.rra',route=>route.fulfill({status:404,body:'missing'}));
+ check('missing addon refuses incomplete pack',!(await page.evaluate(()=>__range.hdInstall())).ok);
+ await page.unroute('**/hd/audio/*.rra');await page.evaluate(()=>__range.hdRemove());await page.evaluate(()=>__range.hdInstall());
+ const result=await page.evaluate(async()=>{
+  const r=__range;r.setGraphics('high');const profile=JSON.stringify(r.profile().data||r.profile());
+  await r.modeStart('bomb',{map:{bomb:'ranch'},teamSize:2,side:'defend',seed:42});const m=r.modeGame();m.paused=true;
+  const geo=()=>{let v=0,sum=0; m.lookGroup.traverse(o=>{const a=o.geometry?.attributes.position;if(a){v+=a.count;for(let i=0;i<a.array.length;i++)sum+=a.array[i];}});return [v,sum];};
+  const before=geo();let enhanced=0;m.lookGroup.traverse(o=>{if(o.material?.userData.packBase)enhanced++;});
+  const f=[...m.fig.values()][0], high=f.body.geometry.attributes.position.count;
+  r.setSetting('graphics','standard');m.refreshGraphics();const low=f.body.geometry.attributes.position.count;
+  let fallback=0;m.lookGroup.traverse(o=>{if(o.material?.userData.packBase)fallback++;});
+  return {before,after:geo(),enhanced,fallback,high,low,profileSame:profile===JSON.stringify(r.profile().data||r.profile())};
+ });
+ check('map geometry is identical across presets',JSON.stringify(result.before)===JSON.stringify(result.after));
+ check('map textures activate and restore',result.enhanced>0&&result.fallback===0);
+ check('pack soldier is used on High (Claude\'s detailed soldier, under 30k triangles)',result.high>result.low&&result.high/3<=30000);
+ check('pack never changes cosmetic ownership',result.profileSame);
+ check('no browser exceptions',errors.length===0);
+ console.log(JSON.stringify(result));console.log(count+' pack integration checks passed');
+}finally{await browser.close();server.close();}

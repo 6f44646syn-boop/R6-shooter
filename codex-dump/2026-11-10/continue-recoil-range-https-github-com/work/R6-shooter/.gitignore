@@ -1,0 +1,15 @@
+node_modules/
+tests/output/
+.DS_Store
+reference/
+rust/core/target/
+rust/core/Cargo.lock
+rust/m7_controls/target/
+rust/m7_controls/Cargo.lock
+rust/m8_audio/target/
+rust/m8_audio/Cargo.lock
+work/audio-pack/
+rust/bomb_utility/target/
+rust/bomb_utility/Cargo.lock
+rust/loadout/target/
+rust/loadout/Cargo.lock

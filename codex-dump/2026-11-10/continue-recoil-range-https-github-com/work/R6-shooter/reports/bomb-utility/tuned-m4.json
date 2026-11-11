@@ -1,0 +1,1052 @@
+{
+  "method": "Normal difficulty, 5v5, abilities enabled, 30 s prep, lethal headshots. Same consecutive seeds on all three maps; full matches with side swaps. Bot rounds are clustered within matches, not independent human games.",
+  "engineAndDataSha256": "2dd54c5fc1a9a1ff03a2b08a04084bba3a0218cc6017628f4cf8e27a4e73e538",
+  "matchesPerMap": 8,
+  "variant": "all",
+  "appliedPolicy": {
+    "reinforceSeconds": 2.5,
+    "barricadeSeconds": 1.5,
+    "barricadeHp": 150,
+    "wireHp": 4,
+    "wireSpeed": 0.35,
+    "actionSeconds": 120,
+    "reinforceReach": 1.8
+  },
+  "maps": {
+    "ranch": {
+      "defenderWins": 9,
+      "rounds": 45,
+      "defenderWinPercent": 20,
+      "matches": [
+        {
+          "seed": 1,
+          "seconds": 416.95,
+          "defenderWins": 2,
+          "rounds": 7
+        },
+        {
+          "seed": 2,
+          "seconds": 468.8,
+          "defenderWins": 0,
+          "rounds": 7
+        },
+        {
+          "seed": 3,
+          "seconds": 375.517,
+          "defenderWins": 1,
+          "rounds": 6
+        },
+        {
+          "seed": 4,
+          "seconds": 425.3,
+          "defenderWins": 1,
+          "rounds": 6
+        },
+        {
+          "seed": 5,
+          "seconds": 244.75,
+          "defenderWins": 1,
+          "rounds": 4
+        },
+        {
+          "seed": 6,
+          "seconds": 329.133,
+          "defenderWins": 2,
+          "rounds": 5
+        },
+        {
+          "seed": 7,
+          "seconds": 317.017,
+          "defenderWins": 1,
+          "rounds": 4
+        },
+        {
+          "seed": 8,
+          "seconds": 412.167,
+          "defenderWins": 1,
+          "rounds": 6
+        }
+      ],
+      "roundResults": [
+        {
+          "seed": 1,
+          "round": 1,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 1,
+          "round": 2,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 1,
+          "round": 3,
+          "side": "defend",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 1,
+          "round": 4,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 1,
+          "round": 5,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 1,
+          "round": 6,
+          "side": "defend",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 1,
+          "round": 7,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 2,
+          "round": 1,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 2,
+          "round": 2,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 2,
+          "round": 3,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 2,
+          "round": 4,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 2,
+          "round": 5,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 2,
+          "round": 6,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 2,
+          "round": 7,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 3,
+          "round": 1,
+          "side": "defend",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 3,
+          "round": 2,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 3,
+          "round": 3,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 3,
+          "round": 4,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 3,
+          "round": 5,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 3,
+          "round": 6,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 4,
+          "round": 1,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 4,
+          "round": 2,
+          "side": "defend",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 4,
+          "round": 3,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 4,
+          "round": 4,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 4,
+          "round": 5,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 4,
+          "round": 6,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 5,
+          "round": 1,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 5,
+          "round": 2,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 5,
+          "round": 3,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 5,
+          "round": 4,
+          "side": "defend",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 6,
+          "round": 1,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 6,
+          "round": 2,
+          "side": "defend",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 6,
+          "round": 3,
+          "side": "defend",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 6,
+          "round": 4,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 6,
+          "round": 5,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 7,
+          "round": 1,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 7,
+          "round": 2,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 7,
+          "round": 3,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 7,
+          "round": 4,
+          "side": "defend",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 8,
+          "round": 1,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 8,
+          "round": 2,
+          "side": "defend",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 8,
+          "round": 3,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 8,
+          "round": 4,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 8,
+          "round": 5,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 8,
+          "round": 6,
+          "side": "attack",
+          "reason": "eliminated"
+        }
+      ]
+    },
+    "embassy": {
+      "defenderWins": 17,
+      "rounds": 48,
+      "defenderWinPercent": 35.42,
+      "matches": [
+        {
+          "seed": 1,
+          "seconds": 474.583,
+          "defenderWins": 5,
+          "rounds": 6
+        },
+        {
+          "seed": 2,
+          "seconds": 291.517,
+          "defenderWins": 1,
+          "rounds": 4
+        },
+        {
+          "seed": 3,
+          "seconds": 445.217,
+          "defenderWins": 2,
+          "rounds": 7
+        },
+        {
+          "seed": 4,
+          "seconds": 528.817,
+          "defenderWins": 2,
+          "rounds": 7
+        },
+        {
+          "seed": 5,
+          "seconds": 336.067,
+          "defenderWins": 3,
+          "rounds": 6
+        },
+        {
+          "seed": 6,
+          "seconds": 412.5,
+          "defenderWins": 0,
+          "rounds": 7
+        },
+        {
+          "seed": 7,
+          "seconds": 289.267,
+          "defenderWins": 3,
+          "rounds": 4
+        },
+        {
+          "seed": 8,
+          "seconds": 640.317,
+          "defenderWins": 1,
+          "rounds": 7
+        }
+      ],
+      "roundResults": [
+        {
+          "seed": 1,
+          "round": 1,
+          "side": "defend",
+          "reason": "defused"
+        },
+        {
+          "seed": 1,
+          "round": 2,
+          "side": "attack",
+          "reason": "detonated"
+        },
+        {
+          "seed": 1,
+          "round": 3,
+          "side": "defend",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 1,
+          "round": 4,
+          "side": "defend",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 1,
+          "round": 5,
+          "side": "defend",
+          "reason": "defused"
+        },
+        {
+          "seed": 1,
+          "round": 6,
+          "side": "defend",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 2,
+          "round": 1,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 2,
+          "round": 2,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 2,
+          "round": 3,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 2,
+          "round": 4,
+          "side": "defend",
+          "reason": "defused"
+        },
+        {
+          "seed": 3,
+          "round": 1,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 3,
+          "round": 2,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 3,
+          "round": 3,
+          "side": "defend",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 3,
+          "round": 4,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 3,
+          "round": 5,
+          "side": "defend",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 3,
+          "round": 6,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 3,
+          "round": 7,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 4,
+          "round": 1,
+          "side": "defend",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 4,
+          "round": 2,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 4,
+          "round": 3,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 4,
+          "round": 4,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 4,
+          "round": 5,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 4,
+          "round": 6,
+          "side": "defend",
+          "reason": "defused"
+        },
+        {
+          "seed": 4,
+          "round": 7,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 5,
+          "round": 1,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 5,
+          "round": 2,
+          "side": "defend",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 5,
+          "round": 3,
+          "side": "defend",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 5,
+          "round": 4,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 5,
+          "round": 5,
+          "side": "defend",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 5,
+          "round": 6,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 6,
+          "round": 1,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 6,
+          "round": 2,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 6,
+          "round": 3,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 6,
+          "round": 4,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 6,
+          "round": 5,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 6,
+          "round": 6,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 6,
+          "round": 7,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 7,
+          "round": 1,
+          "side": "defend",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 7,
+          "round": 2,
+          "side": "defend",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 7,
+          "round": 3,
+          "side": "defend",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 7,
+          "round": 4,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 8,
+          "round": 1,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 8,
+          "round": 2,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 8,
+          "round": 3,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 8,
+          "round": 4,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 8,
+          "round": 5,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 8,
+          "round": 6,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 8,
+          "round": 7,
+          "side": "defend",
+          "reason": "eliminated"
+        }
+      ]
+    },
+    "workshop": {
+      "defenderWins": 13,
+      "rounds": 51,
+      "defenderWinPercent": 25.49,
+      "matches": [
+        {
+          "seed": 1,
+          "seconds": 371.1,
+          "defenderWins": 2,
+          "rounds": 7
+        },
+        {
+          "seed": 2,
+          "seconds": 331.567,
+          "defenderWins": 2,
+          "rounds": 5
+        },
+        {
+          "seed": 3,
+          "seconds": 417.783,
+          "defenderWins": 3,
+          "rounds": 7
+        },
+        {
+          "seed": 4,
+          "seconds": 319.433,
+          "defenderWins": 1,
+          "rounds": 6
+        },
+        {
+          "seed": 5,
+          "seconds": 390.367,
+          "defenderWins": 2,
+          "rounds": 7
+        },
+        {
+          "seed": 6,
+          "seconds": 380.767,
+          "defenderWins": 0,
+          "rounds": 7
+        },
+        {
+          "seed": 7,
+          "seconds": 276.917,
+          "defenderWins": 1,
+          "rounds": 5
+        },
+        {
+          "seed": 8,
+          "seconds": 354.85,
+          "defenderWins": 2,
+          "rounds": 7
+        }
+      ],
+      "roundResults": [
+        {
+          "seed": 1,
+          "round": 1,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 1,
+          "round": 2,
+          "side": "defend",
+          "reason": "defused"
+        },
+        {
+          "seed": 1,
+          "round": 3,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 1,
+          "round": 4,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 1,
+          "round": 5,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 1,
+          "round": 6,
+          "side": "defend",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 1,
+          "round": 7,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 2,
+          "round": 1,
+          "side": "defend",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 2,
+          "round": 2,
+          "side": "defend",
+          "reason": "defused"
+        },
+        {
+          "seed": 2,
+          "round": 3,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 2,
+          "round": 4,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 2,
+          "round": 5,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 3,
+          "round": 1,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 3,
+          "round": 2,
+          "side": "defend",
+          "reason": "defused"
+        },
+        {
+          "seed": 3,
+          "round": 3,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 3,
+          "round": 4,
+          "side": "defend",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 3,
+          "round": 5,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 3,
+          "round": 6,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 3,
+          "round": 7,
+          "side": "defend",
+          "reason": "defused"
+        },
+        {
+          "seed": 4,
+          "round": 1,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 4,
+          "round": 2,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 4,
+          "round": 3,
+          "side": "defend",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 4,
+          "round": 4,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 4,
+          "round": 5,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 4,
+          "round": 6,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 5,
+          "round": 1,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 5,
+          "round": 2,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 5,
+          "round": 3,
+          "side": "defend",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 5,
+          "round": 4,
+          "side": "defend",
+          "reason": "defused"
+        },
+        {
+          "seed": 5,
+          "round": 5,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 5,
+          "round": 6,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 5,
+          "round": 7,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 6,
+          "round": 1,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 6,
+          "round": 2,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 6,
+          "round": 3,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 6,
+          "round": 4,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 6,
+          "round": 5,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 6,
+          "round": 6,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 6,
+          "round": 7,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 7,
+          "round": 1,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 7,
+          "round": 2,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 7,
+          "round": 3,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 7,
+          "round": 4,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 7,
+          "round": 5,
+          "side": "defend",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 8,
+          "round": 1,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 8,
+          "round": 2,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 8,
+          "round": 3,
+          "side": "defend",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 8,
+          "round": 4,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 8,
+          "round": 5,
+          "side": "attack",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 8,
+          "round": 6,
+          "side": "defend",
+          "reason": "eliminated"
+        },
+        {
+          "seed": 8,
+          "round": 7,
+          "side": "attack",
+          "reason": "eliminated"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,61 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>HD gun viewer</title>
+<style>html,body{margin:0;height:100%;background:#20232a;overflow:hidden}canvas{display:block}</style></head>
+<body><canvas id="c"></canvas>
+<script type="module">
+// Dev viewer for the Enhanced Graphics pack's guns:
+//   tools/hd/view.html?gun=carbine&mode=shaded|ao|edge&lod=0&yaw=0.6&pitch=0.15&zoom=1
+import * as THREE from '../../vendor/three/three.module.min.js';
+import { parseRRM } from '../../js/render/hd-mesh.js';
+import { makeEnvMap } from '../../js/scene/sight-model.js';
+const q = new URLSearchParams(location.search);
+const name = q.get('gun') || 'carbine', mode = q.get('mode') || 'shaded', lod = +(q.get('lod') || 0);
+const r = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true });
+r.setSize(innerWidth, innerHeight, false);
+r.toneMapping = THREE.ACESFilmicToneMapping;
+r.outputColorSpace = THREE.SRGBColorSpace;
+r.toneMappingExposure = +(q.get('exp') || 1.5);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x30343c);
+const env = makeEnvMap(r);
+scene.environment = env;
+const cam = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.01, 10);
+const key = new THREE.DirectionalLight(0xffffff, 3.2); key.position.set(-1, 1.5, 1); scene.add(key);
+scene.add(new THREE.HemisphereLight(0xdde4ee, 0x30302a, 0.6));
+const ROLE = { finish: [0x4a5058, 0.45, 0.6], polymer: [0x1e2023, 0.7, 0.05], steel: [0x5a5e64, 0.35, 1], dark: [0x060607, 0.9, 0.2], rubber: [0x161718, 0.95, 0] };
+const res = await fetch('../../hd/guns/' + name + '.rrmz');
+const ab = await new Response(res.body.pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+const { header, lods } = parseRRM(ab);
+const g = new THREE.Group();
+let tris = 0;
+for (const p of lods[lod]) {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(p.position, 3));
+  geo.setAttribute('normal', new THREE.BufferAttribute(p.normal, 3));
+  const col = new Float32Array(p.position.length);
+  for (let i = 0; i < p.detail.length / 4; i++) {
+    const ao = p.detail[i * 4] / 255, e = p.detail[i * 4 + 1] / 255, c = p.detail[i * 4 + 2] / 255;
+    const v = mode === 'edge' ? [e, c * 0.3, c] : mode === 'ao' ? [ao, ao, ao] : [ao, ao, ao];
+    col.set(v, i * 3);
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geo.setIndex(new THREE.BufferAttribute(p.index, 1));
+  tris += p.index.length / 3;
+  const [c, ro, me] = ROLE[p.role];
+  const m = mode === 'shaded'
+    ? new THREE.MeshStandardMaterial({ color: c, roughness: ro, metalness: me, vertexColors: true, envMapIntensity: 1 })
+    : new THREE.MeshBasicMaterial({ vertexColors: true });
+  g.add(new THREE.Mesh(geo, m));
+}
+scene.add(g);
+const box = new THREE.Box3().setFromObject(g), ctr = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3()).length();
+const yaw = +(q.get('yaw') ?? 0.9), pitch = +(q.get('pitch') ?? 0.12), zoom = +(q.get('zoom') || 1);
+const fx = +(q.get('fx') ?? 0), fz = +(q.get('fz') ?? 0);
+const tgt = ctr.clone().add(new THREE.Vector3(0, 0, fz)); tgt.x += fx;
+const dist = size * 1.9 / zoom;
+cam.position.set(tgt.x + Math.sin(yaw) * Math.cos(pitch) * dist, tgt.y + Math.sin(pitch) * dist, tgt.z + Math.cos(yaw) * Math.cos(pitch) * dist);
+cam.lookAt(tgt);
+r.render(scene, cam);
+document.title = 'ready ' + tris;
+window.__info = { tris, header };
+</script></body></html>

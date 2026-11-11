@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recoil Range</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="css/style.css?v=m6-integration">
+</head>
+<body>
+<div id="app">
+  <canvas id="view"></canvas>
+
+  <div id="hud">
+    <canvas id="crosshair"></canvas>
+    <div id="hud-gun" class="hud-box">
+      <div><span id="gun-slot">1</span> <strong id="gun-name">-</strong> <span id="gun-tag" class="tag-placeholder" hidden>PLACEHOLDER RECOIL</span></div>
+      <div class="hud-sub"><span id="gun-info">-</span></div>
+    </div>
+    <div id="hud-range" class="hud-box">
+      <div>Target <strong id="hud-distance">10 m</strong> <span class="hud-sub">- / +</span></div>
+      <div class="hud-sub">Shots <span id="hud-shots">0</span> &middot; Hits <span id="hud-hits">0</span> <span id="hud-acc"></span></div>
+      <div id="hud-score" hidden>Score <strong id="hud-score-val">0</strong></div>
+    </div>
+    <div id="hud-ammo" class="hud-box">
+      <div id="ammo-count">30</div>
+      <div class="hud-sub" id="ammo-sub">/ 30</div>
+    </div>
+    <div id="hud-plot" class="hud-box" hidden>
+      <canvas id="plot" width="220" height="250"></canvas>
+    </div>
+    <div id="notice" hidden></div>
+    <div id="reload-bar" hidden><i></i></div>
+  </div>
+
+  <pre id="debug" hidden></pre>
+
+  <div id="gallery" hidden>
+    <div class="gallery-head">
+      <h1>Sight gallery</h1>
+      <span class="small">Each sight rendered in game at 1920x1080: hip, aimed and mid-recoil. F4 or Esc closes.</span>
+      <button id="gallery-close" type="button">Close</button>
+    </div>
+    <div id="gallery-grid"></div>
+  </div>
+
+  <div id="menu">
+    <div id="menu-panel">
+      <header class="menu-head">
+        <div>
+          <h1>Recoil Range</h1>
+          <p class="menu-lead" id="menu-crumbs">Choose a mode</p>
+        </div>
+        <div class="steps" aria-hidden="true"><span data-step="1">1 Mode</span><span data-step="2">2 Settings</span><span data-step="3">3 Weapon</span></div>
+      </header>
+      <nav class="row" aria-label="Main menu"><button type="button" id="go-play">Play</button><button type="button" id="go-settings">Settings</button><button type="button" id="go-controls">Controls</button><button type="button" id="go-packs">Customisation <span id="mini-points"></span></button></nav>
+      <p id="lock-hint" class="hint" hidden></p>
+      <p id="menu-note" class="hint" hidden role="status"></p>
+      <p id="data-errors" class="errors" hidden></p>
+
+      <section class="page" id="page-mode">
+        <div class="row" role="group" aria-label="Filter game modes"><button type="button" data-mode-filter="all" aria-pressed="true">All modes</button><button type="button" data-mode-filter="training" aria-pressed="false">Training</button><button type="button" data-mode-filter="combat" aria-pressed="false">Bot matches</button><button type="button" data-mode-filter="online" aria-pressed="false">Online</button></div>
+        <div class="modes">
+          <button type="button" class="mode-card" data-mode="range"><b>Shooting range</b><span>Practise spray control on a dummy, a paper target or red dots. Measured sprays, every sight.</span></button>
+          <button type="button" class="mode-card" data-mode="bots"><b>Battle vs bots</b><span>An arena with cover against 1-6 bots: Easy, Medium or Hard. Kills earn points for packs.</span></button>
+          <button type="button" class="mode-card mode-new" data-mode="tdm"><b>Team Deathmatch</b><span>Your team against bots, 3v3 or 5v5. First team to 40 kills, or the most kills after the time.</span></button>
+          <button type="button" class="mode-card mode-new" data-mode="ctf"><b>Capture the Flag</b><span>Take the enemy flag to your own stand while yours is home. First to 3 captures.</span></button>
+          <button type="button" class="mode-card mode-new" data-mode="bomb"><b>Bomb</b><span>Attackers plant, defenders stop them. One life a round, abilities on, first to 4 rounds.</span></button>
+          <button type="button" class="mode-card" data-mode="net"><b>Network battle</b><span>Play friends on other PCs: over the internet with a short game code, or on the same network. Bots optional.</span></button>
+        </div>
+
+      </section>
+
+      <section class="page" id="page-pause" hidden>
+        <h2 id="pause-title">Paused</h2>
+        <div class="pause-grid">
+          <button id="start-btn" type="button" class="primary">Resume</button>
+          <button id="pause-loadout" type="button">Change weapon</button>
+          <button id="pause-settings" type="button">Settings</button>
+          <button id="pause-packs" type="button">Skins &amp; packs</button>
+          <button id="clear-btn" type="button">Clear bullet holes and data (C)</button>
+          <button id="pause-quit" type="button">Main menu</button>
+        </div>
+      </section>
+
+      <section class="page" id="page-setup" hidden>
+        <h2 id="setup-title">Settings</h2>
+        <div id="match-settings">
+        <section class="set-group" id="range-setup">
+          <p class="small">Target type, distance and red-dot options are in the <b>Settings → Range</b> tab (M and - / + change them in game too).</p>
+        </section>
+        <section class="set-group battle-setup" id="battle-setup">
+          <div class="set-grid">
+            <label class="field" for="b-map"><span>Map</span>
+              <select id="b-map"><option value="yard">Container Yard</option><option value="winter">Winter Cabin</option><option value="casino">Jesse's Casino</option><option value="school">School Basement</option></select></label>
+            <label class="field" for="b-time"><span>Time</span>
+              <select id="b-time"><option value="day">Day</option><option value="night">Night (use your flashlight: F)</option></select></label>
+            <label class="field" for="b-weather"><span>Weather</span>
+              <select id="b-weather"><option value="auto">Map default</option><option value="clear">Clear</option><option value="rain">Rain</option><option value="storm">Storm (rain and lightning)</option><option value="snow">Snow</option></select></label>
+            <label class="field" for="b-fog"><span>Fog</span>
+              <select id="b-fog"><option value="off">Off</option><option value="on">On (thick fog banks in High and Ultra)</option></select></label>
+            <label class="field" for="b-voices"><span>Bot voices</span>
+              <select id="b-voices"><option value="on">On (bots read their radio out loud)</option><option value="off">Off (text only)</option></select></label>
+            <label class="field" for="b-bots"><span>Bots</span>
+              <select id="b-bots"><option>0</option><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option></select></label>
+            <label class="field" for="b-level"><span>Bot level</span>
+              <select id="b-level"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option><option value="terminator">Terminator (much harder)</option></select></label>
+            <label class="field" for="b-kills"><span>Kills to win</span>
+              <select id="b-kills"><option>5</option><option selected>10</option><option>20</option><option>30</option></select></label>
+          </div>
+          <div id="net-panel" class="net-box" hidden>
+            <div class="row seg" role="radiogroup" aria-label="Connection">
+              <button id="net-via-relay" type="button" role="radio" class="seg-btn">Internet (game code)</button>
+              <button id="net-via-lan" type="button" role="radio" class="seg-btn">Same network (copy codes)</button>
+            </div>
+            <div class="row">
+              <button id="net-host" type="button">Host a game</button>
+              <button id="net-join" type="button">Join a game</button>
+              <button id="net-reset" type="button" hidden>Disconnect</button>
+            </div>
+            <div id="relay-host-box" class="net-box" hidden>
+              <p class="small">Tell your friends this game code:</p>
+              <p id="relay-code" class="game-code">....</p>
+              <div class="row"><button id="relay-copy" type="button">Copy code</button></div>
+              <p class="small">Players: <span id="relay-players">none yet</span>. When everyone is in, choose your weapon and Deploy. Bots (if any) join as a third side.</p>
+            </div>
+            <div id="relay-join-box" class="net-box" hidden>
+              <label class="field" for="relay-in"><span>Game code from the host</span><input id="relay-in" class="code-in" maxlength="8" autocomplete="off" spellcheck="false" placeholder="K7QD"></label>
+              <div class="row"><button id="relay-connect" type="button">Join</button></div>
+            </div>
+            <div id="net-host-box" class="net-box" hidden>
+              <p class="small">You are hosting. Players: <span id="net-players">none yet</span>. For each player:</p>
+              <label class="field" for="net-in-h"><span>1. Paste the join code they send you</span><textarea id="net-in-h" spellcheck="false"></textarea></label>
+              <div class="row"><button id="net-accept" type="button">Make reply code</button></div>
+              <div id="net-reply-box" class="net-box" hidden>
+                <label class="field" for="net-out-h"><span>2. Send this reply code back to them</span><textarea id="net-out-h" readonly spellcheck="false"></textarea></label>
+                <div class="row"><button id="net-copy-h" type="button">Copy reply code</button></div>
+              </div>
+              <p class="small">When everyone is connected, choose your weapon and Deploy. Bots (if any) join as a third side.</p>
+            </div>
+            <div id="net-join-box" class="net-box" hidden>
+              <label class="field" for="net-out-j"><span>1. Send this join code to the host (chat, email...)</span><textarea id="net-out-j" readonly spellcheck="false"></textarea></label>
+              <div class="row"><button id="net-copy-j" type="button">Copy join code</button></div>
+              <label class="field" for="net-in-j"><span>2. Paste the reply code the host sends back</span><textarea id="net-in-j" spellcheck="false"></textarea></label>
+              <div class="row"><button id="net-connect" type="button">Connect</button></div>
+            </div>
+            <p id="net-status" class="small" role="status"></p>
+            <p id="net-note-relay" class="small">Games go through the relay server, so friends can be anywhere. The network has to allow the relay's address.</p>
+            <p id="net-note-lan" class="small">Every PC must be on the same network (some school or public Wi-Fi blocks direct connections between PCs).</p>
+            <details id="relay-cfg">
+              <summary>Relay server</summary>
+              <label class="field" for="relay-url"><span>Relay address</span><input id="relay-url" autocomplete="off" spellcheck="false" placeholder="https://recoil-range-relay.recoil-range-relay.workers.dev"></label>
+              <div class="row"><button id="relay-save" type="button">Save and test</button></div>
+            </details>
+          </div>
+          <button id="battle-btn" type="button" hidden>Start battle</button>
+          <button id="battle-leave" type="button" hidden>Leave battle</button>
+        </section>
+        <section class="set-group" id="modes-setup" hidden>
+          <div class="set-grid">
+            <label class="field" for="md-map"><span>Map</span><select id="md-map"></select></label>
+            <label class="field" for="md-diff"><span>Bot difficulty</span>
+              <select id="md-diff"><option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option><option value="terminator">Terminator</option></select></label>
+            <label class="field" for="md-size"><span>Teams</span>
+              <select id="md-size"><option value="3">3v3</option><option value="5" selected>5v5</option></select></label>
+            <label class="field" for="md-ab"><span>Abilities</span>
+              <select id="md-ab"><option value="on">On (operator ability)</option><option value="off">Off</option></select></label>
+            <label class="field" for="md-len"><span>Match length</span>
+              <select id="md-len"><option value="5">5 minutes</option><option value="10" selected>10 minutes</option><option value="15">15 minutes</option></select></label>
+            <label class="field" for="md-prep"><span>Preparation</span>
+              <select id="md-prep"><option value="15">15 seconds</option><option value="30" selected>30 seconds</option><option value="45">45 seconds</option><option value="60">60 seconds</option><option value="90">90 seconds</option></select></label>
+            <label class="field" for="md-head"><span>Headshots</span>
+              <select id="md-head"><option value="lethal">Lethal (one hit)</option><option value="x2">Double damage</option></select></label>
+          </div>
+          <p class="small" id="md-note"></p>
+        </section>
+        </div>
+        <section class="all-settings" id="all-settings">
+          <div id="settings-root"></div>
+        </section>
+        <div class="row nav">
+          <button type="button" id="setup-back">Back</button>
+          <button type="button" id="setup-next" class="primary">Next: choose your weapon</button>
+        </div>
+      </section>
+
+      <section class="page" id="page-ops" hidden>
+        <h2 id="ops-title">Choose your operator</h2>
+        <div class="row ops-side" id="ops-side" hidden>
+          <span class="small">Side:</span>
+          <button type="button" class="seg-btn" data-side="attack" role="radio">Attackers</button>
+          <button type="button" class="seg-btn" data-side="defend" role="radio">Defenders</button>
+        </div>
+        <input type="search" id="ops-search" class="m7-search" aria-label="Search operators" placeholder="Search operators, weapons or abilities">
+        <div id="ops-grid" class="ops-grid"></div>
+        <p class="small" id="ops-note"></p>
+        <div class="row nav">
+          <button type="button" id="ops-back">Back</button>
+          <button type="button" id="ops-go" class="primary">Deploy</button>
+        </div>
+      </section>
+
+      <section class="page" id="page-packs" hidden>
+        <section class="set-group packs" id="packs-root"></section>
+        <div class="row nav"><button type="button" class="back-btn" data-back="prev">Back</button></div>
+      </section>
+
+      <section class="keys page" id="page-controls" hidden>
+        <h2>Controls</h2>
+        <div id="controls-root"></div>
+        <details><summary>Range shortcuts and mode notes</summary>
+        <dl>
+          <dt>Mouse / trackpad</dt><dd>Look</dd>
+          <dt>W A S D</dt><dd>Move (small area behind the firing line)</dd>
+          <dt>Shift</dt><dd>Sprint (hold)</dd>
+          <dt>Space</dt><dd>Crouch (hold)</dd>
+          <dt>Interact (F)</dt><dd>Bomb: plant / defuse. Battle at night: flashlight on / off (bots spot a lit flashlight from far away)</dd>
+          <dt>X</dt><dd>Back to the firing line</dd>
+          <dt>Left button</dt><dd>Fire (hold for automatic)</dd>
+          <dt>Middle button</dt><dd>Default operator ability; Q/E remain lean</dd>
+          <dt>R</dt><dd>Reload</dd>
+          <dt>[ / ]</dt><dd>Previous / next sight (while not aiming)</dd>
+          <dt>1-9, 0</dt><dd>Select gun 1-10</dd>
+          <dt>Q / E</dt><dd>Lean left / right (hold; also the mouse side buttons)</dd>
+          <dt>- / +</dt><dd>Target closer / further (5, 10, 15, 20 m)</dd>
+          <dt>I</dt><dd>Inspect the weapon (shows its skin in Ultra)</dd>
+          <dt>K</dt><dd>Knife (Team Deathmatch, Capture the Flag, Bomb): lethal from behind, opens boarded doors in one hit</dd>
+          <dt>Caps Lock / G</dt><dd>Throw a frag grenade (Battle against bots, Team Deathmatch, Capture the Flag, Bomb): two a life, goes off 2.5 s after the throw; cover protects you</dd>
+          <dt>C</dt><dd>Range: clear all bullet holes and shot data. Battle and the match modes: vault over low cover or climb onto a ledge (up to 1.5 m)</dd>
+          <dt>M</dt><dd>Target: dummy, paper (ring score), red dots (still), red dots (moving)</dd>
+          <dt>F3</dt><dd>Debug readout (Z zeroes its counters)</dd>
+          <dt>F4</dt><dd>Sight gallery (every sight side by side)</dd>
+          <dt>Esc</dt><dd>Pause (resume, change weapon, settings, skins, main menu)</dd>
+        </dl></details>
+        <div class="row nav"><button type="button" class="back-btn" data-back="mode">Back</button></div>
+      </section>
+    </div>
+  </div>
+
+  <div id="armory" hidden>
+    <aside class="arm-col arm-left">
+      <h2>Sight</h2>
+      <div id="sight-row" class="sight-row"></div>
+      <p id="sight-note" class="small"></p>
+    </aside>
+    <div class="arm-mid">
+      <div class="arm-gun">
+        <button type="button" id="arm-prev" aria-label="Previous gun">&#8249;</button>
+        <div class="arm-title"><h1 id="arm-name">-</h1><p id="arm-info" class="small"></p></div>
+        <button type="button" id="arm-next" aria-label="Next gun">&#8250;</button>
+      </div>
+      <div class="arm-bottom">
+        <input type="search" id="weapon-search" class="m7-search" aria-label="Search weapons" placeholder="Search weapons">
+      <div id="loadout" class="loadout arm-slots" role="list"></div>
+        <div class="row arm-actions">
+          <button type="button" id="arm-back">Back</button>
+          <button type="button" id="arm-deploy" class="primary">Deploy</button>
+        </div>
+      </div>
+    </div>
+    <aside class="arm-col arm-right">
+      <h2>Skins</h2>
+      <div id="arm-skins" class="arm-skins"></div>
+      <p class="small" id="arm-skins-note"></p>
+    </aside>
+  </div>
+
+  <div id="embedded" hidden>
+    <div class="embedded-box">
+      <h1>Recoil Range</h1>
+      <p>This page is shown inside another site, which may block mouse capture. Open it in its own tab to play.</p>
+      <a id="open-tab" class="primary" href="./" target="_blank" rel="noopener">Open in a full tab</a>
+      <button id="play-here" type="button">Play here</button>
+      <p class="small">"Play here" only works if this frame allows mouse capture.</p>
+    </div>
+  </div>
+</div>
+<script type="module" src="js/main.js?v=m6-integration"></script>
+</body>
+</html>

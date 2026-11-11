@@ -1,0 +1,28 @@
+{
+  "name": "recoil-range",
+  "private": true,
+  "description": "Browser recoil-control trainer. Static site; these scripts are dev-only helpers.",
+  "type": "module",
+  "scripts": {
+    "serve": "node tools/serve.mjs 8080",
+    "test": "node tests/controls-wasm.mjs && node tests/audio-wasm.mjs && node tests/bomb-utility.mjs && node tests/loadout.mjs && node tests/pack-anims.mjs && node tests/drone-speed.mjs && node tools/check-core.mjs && node tests/run.mjs",
+    "build:wasm": "bash tools/build-wasm.sh --test",
+    "check": "node tools/check-data.mjs",
+    "placeholders": "node tools/make-placeholder-guns.mjs",
+    "test:controls": "node tests/controls-wasm.mjs && node tests/controls-browser.mjs",
+    "build:controls": "bash tools/build-controls.sh --test",
+    "test:audio": "node tests/audio-wasm.mjs && node tests/audio-browser.mjs",
+    "build:audio": "bash tools/build-audio.sh --test",
+    "build:audio-pack": "node tools/build-audio-pack.mjs",
+    "test:audio-pack": "node tests/audio-pack.mjs && node tests/audio-pack-browser.mjs",
+    "build:loadout": "bash tools/build-loadout.sh --test",
+    "test:loadout": "node tests/loadout.mjs",
+    "build:bomb-utility": "bash tools/build-bomb-utility.sh --test",
+    "test:bomb-utility": "node tests/bomb-utility.mjs && node tests/bomb-utility-browser.mjs",
+    "test:enhanced-pack": "node tests/pack-assets.mjs && node tests/pack-anims.mjs && node tests/pack-integration.mjs",
+    "build:enhanced-surfaces": "node tools/build-hd.mjs --surfaces",
+    "test:replay": "node tests/replay-browser.mjs",
+    "test:finale": "node tests/finale-browser.mjs",
+    "test:ranked": "node tests/ranked.mjs && node tests/ranked-browser.mjs"
+  }
+}

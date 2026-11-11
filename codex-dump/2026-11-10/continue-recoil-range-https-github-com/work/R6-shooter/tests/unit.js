@@ -1,0 +1,291 @@
+// Unit tests for the pure modules. Runs in the browser (tests/unit.html) so it uses exactly
+// the same JS engine as the game. Results go to window.__results for tests/run.mjs.
+import { degPerCount, countsPer360, inchesPer360, verticalFovDeg, zoomedFovDeg } from '../js/core/sensitivity.js';
+import { Look, MAX_EVENT_COUNTS } from '../js/core/look.js';
+import { sprayStep, sprayTarget, sampleSpray, easeOutCubic, RecoilEngine, EASE_FRACTION, smoothPath } from '../js/core/recoil.js';
+import { GaussianRng, mulberry32 } from '../js/core/prng.js';
+import { validateGuns, validateSens } from '../js/core/guns.js';
+import { validateCatalogue, resolveGunOptics, sensKeys } from '../js/core/optics.js';
+import { sanitize } from '../js/core/settings.js';
+import { raycastDummy } from '../js/scene/dummy.js';
+
+const results = [];
+function test(name, fn) {
+  try { fn(); results.push({ name, ok: true }); }
+  catch (e) { results.push({ name, ok: false, msg: String(e && e.message || e) }); }
+}
+function near(a, b, eps, what) {
+  if (!(Math.abs(a - b) <= eps)) throw new Error((what || 'value') + ': expected ' + b + ', got ' + a + ' (eps ' + eps + ')');
+}
+function eq(a, b, what) {
+  if (a !== b) throw new Error((what || 'value') + ': expected ' + JSON.stringify(b) + ', got ' + JSON.stringify(a));
+}
+
+/* ---------- sensitivity ---------- */
+test('cm/360 to deg/count: 800 DPI, 40 cm = 0.028575', () => {
+  near(degPerCount(800, 40), 0.028575, 1e-15, 'deg/count');
+  near(countsPer360(800, 40), 800 * 40 / 2.54, 1e-9, 'counts/360');
+  near(inchesPer360(40), 15.748031496062993, 1e-12, 'in/360');
+});
+test('cm/360 to deg/count: 1 inch per 360 at 1600 DPI = 1600 counts', () => {
+  near(countsPer360(1600, 2.54), 1600, 1e-9);
+  near(degPerCount(1600, 2.54), 0.225, 1e-15);
+});
+test('deg/count scales inversely with DPI and cm/360', () => {
+  near(degPerCount(400, 40) / degPerCount(800, 40), 2, 1e-12);
+  near(degPerCount(800, 20) / degPerCount(800, 40), 2, 1e-12);
+});
+test('N counts = exactly 360 degrees (400 DPI, 25.4 cm -> 4000 counts)', () => {
+  const L = new Look();
+  const dpc = degPerCount(400, 25.4);
+  for (let i = 0; i < 4000; i++) L.apply(1, 0, dpc);
+  near(L.unwrappedYaw, 360, 1e-9, 'unwrapped yaw');
+  eq(L.countsX, 4000, 'counts');
+  if (!(L.yaw < 1e-9 || L.yaw > 360 - 1e-9)) throw new Error('wrapped yaw should be ~0, got ' + L.yaw);
+});
+test('Mixed event sizes sum exactly: 10 full turns at 800 DPI / 40 cm', () => {
+  const L = new Look();
+  const dpc = degPerCount(800, 40);
+  const total = 125984; // counts; 125984 * 0.028575 = 3599.9928 deg
+  let left = total, k = 0;
+  while (left > 0) { const s = Math.min(left, 1 + (k++ * 7) % 23); L.apply(s, 0, dpc); left -= s; }
+  near(L.unwrappedYaw, total * dpc, 1e-8, 'unwrapped yaw');
+  eq(L.countsX, total);
+});
+test('yaw wraps both ways, pitch clamps at +/-89.9', () => {
+  const L = new Look();
+  L.apply(-10, 0, 1);
+  near(L.yaw, 350, 1e-12, 'yaw');
+  near(L.unwrappedYaw, -10, 1e-12, 'unwrapped');
+  L.apply(0, -1000, 1); // mouse forward = look up
+  near(L.pitch, 89.9, 1e-12, 'pitch up clamp');
+  L.apply(0, 1500, 1);
+  near(L.pitch, -89.9, 1e-12, 'pitch down clamp');
+});
+test('glitch guard discards single events over 2000 counts', () => {
+  const L = new Look();
+  eq(L.apply(MAX_EVENT_COUNTS, 0, 0.01), true, '2000 accepted');
+  eq(L.apply(MAX_EVENT_COUNTS + 1, 0, 0.01), false, '2001 discarded');
+  eq(L.apply(0, -2500, 0.01), false, 'y discarded');
+  eq(L.discarded, 2);
+  eq(L.countsX, 2000);
+});
+test('FOV: vertical from horizontal, ADS zoom in tan-space', () => {
+  near(verticalFovDeg(90, 16 / 9), 2 * Math.atan(9 / 16) * 180 / Math.PI, 1e-12);
+  near(zoomedFovDeg(90, 1), 90, 1e-12);
+  near(zoomedFovDeg(90, 2), 53.13010235415598, 1e-10);
+  near(Math.tan(zoomedFovDeg(100, 3.5) * Math.PI / 360), Math.tan(50 * Math.PI / 180) / 3.5, 1e-12);
+});
+
+/* ---------- spray path ---------- */
+const P = [[0, 0], [0, 1], [1, 3]];
+test('sprayStep inside the path is the difference of neighbours', () => {
+  const o = sprayStep(P, 2, [0, 0]);
+  eq(o[0], 1); eq(o[1], 2);
+});
+test('sprayStep past the end = average of the last steps', () => {
+  const o = sprayStep(P, 5, [0, 0]); // k = min(3, 2) = 2 -> ([1,3]-[0,0]) / 2
+  near(o[0], 0.5, 1e-12); near(o[1], 1.5, 1e-12);
+});
+test('tail "hold": past the end the step is zero and the target stays on the last point', () => {
+  const o = sprayStep(P, 5, [9, 9], 'hold');
+  eq(o[0], 0); eq(o[1], 0);
+  const t = sprayTarget(P, 7, [0, 0], 'hold');
+  eq(t[0], 1); eq(t[1], 3);
+});
+test('validateSens: ADS multiplier = hip cm/360 / ADS cm/360', () => {
+  const r = validateSens({ hipCm360: 14.25, adsCm360: { '1.0x': 11.8, '2.5x': 22.3 } });
+  eq(r.errors.length, 0, r.errors.join('; '));
+  near(r.ads['1.0x'], 14.25 / 11.8, 1e-12); near(r.ads['2.5x'], 14.25 / 22.3, 1e-12);
+});
+test('validateSens reads the in-game sensitivity screen format', () => {
+  const r = validateSens({ horizontal: 7, vertical: 7, aimMode: 'custom', magnifications: [{ key: '1.0x', slider: 70 }, { key: '8.0x', slider: 97 }] });
+  eq(r.errors.length, 0, r.errors.join('; '));
+  eq(r.magnifications.map((m) => m.key).join(','), '1.0x,8.0x');
+  eq(r.game.horizontal, 7); eq(Object.keys(r.ads).length, 0, 'no multipliers given');
+  eq(validateSens({ magnifications: [{ key: 'eight' }] }).errors.length, 1, 'bad key');
+});
+test('sprayTarget extrapolates linearly past the end', () => {
+  const a = sprayTarget(P, 3, [0, 0]), b = sprayTarget(P, 4, [0, 0]);
+  near(a[0], 1.5, 1e-12); near(a[1], 4.5, 1e-12);
+  near(b[0], 2, 1e-12); near(b[1], 6, 1e-12);
+});
+test('sampleSpray interpolation: eased over 40% of the interval', () => {
+  const o = [0, 0];
+  sampleSpray(P, 0, 0, o); near(o[1], 0, 1e-12, 'start');
+  sampleSpray(P, 0, EASE_FRACTION / 2, o); near(o[1], easeOutCubic(0.5), 1e-12, 'halfway through ease');
+  near(easeOutCubic(0.5), 0.875, 1e-12);
+  sampleSpray(P, 0, EASE_FRACTION, o); near(o[1], 1, 1e-12, 'end of ease');
+  sampleSpray(P, 0, 0.9, o); near(o[1], 1, 1e-12, 'held until next shot');
+  sampleSpray(P, 1, 0.2, o); near(o[0], 0.875, 1e-12, 'yaw'); near(o[1], 1 + 2 * 0.875, 1e-12, 'pitch');
+});
+test('path[0] offset is ignored (offsets are relative to bullet 0)', () => {
+  const a = sprayTarget([[1, 1], [1, 2]], 1, [0, 0]);
+  eq(a[0], 0); eq(a[1], 1);
+});
+
+function testGun(over) {
+  return Object.assign({
+    rpm: 600, resetSeconds: 0.3, sprayPath: [[0, 0], [0.1, 0.5], [0.3, 0.9], [0.2, 1.2]],
+    jitter: { yawDeg: 0, pitchDeg: 0 }, recovery: { delaySeconds: 0.2, degPerSecond: 10 },
+  }, over);
+}
+test('smoothPath: keeps start and end, removes zig-zag in yaw', () => {
+  const zig = [[0, 0]];
+  for (let i = 1; i < 20; i++) zig.push([zig[i - 1][0] + (i % 2 ? 0.4 : -0.3), zig[i - 1][1] + 1]);
+  const sm = smoothPath(zig);
+  eq(sm[0][0], 0); eq(sm[0][1], 0);
+  near(sm[19][0], zig[19][0], 1e-9, 'end yaw'); near(sm[19][1], zig[19][1], 1e-9, 'end pitch');
+  const wob = (p) => p.slice(2).reduce((a, q, i) => a + Math.abs((q[0] - p[i + 1][0]) - (p[i + 1][0] - p[i][0])), 0);
+  if (!(wob(sm) < wob(zig) * 0.3)) throw new Error('not smoother: ' + wob(sm) + ' vs ' + wob(zig));
+});
+test('RecoilEngine: with no jitter, bullet i leaves at sprayPath[i]', () => {
+  const g = testGun();
+  const r = new RecoilEngine(); r.setGun(g); r.newMagazine(1);
+  const o = [0, 0];
+  for (let i = 0; i < 4; i++) {
+    r.fire(10 + i * 0.1, o);
+    near(o[0], g.sprayPath[i][0], 1e-12, 'yaw ' + i);
+    near(o[1], g.sprayPath[i][1], 1e-12, 'pitch ' + i);
+  }
+  r.fire(10.4, o); // extrapolated: avg of last 3 steps = ([0.2,1.2]-[0,0])/3
+  near(o[0], 0.2 + 0.2 / 3, 1e-12); near(o[1], 1.2 + 0.4, 1e-12);
+});
+test('RecoilEngine: shotIndex resets after resetSeconds', () => {
+  const r = new RecoilEngine(); r.setGun(testGun()); r.newMagazine(1);
+  const o = [0, 0];
+  r.fire(0, o); r.fire(0.1, o);
+  eq(r.shotIndex, 2);
+  r.fire(0.1 + 0.31, o);
+  eq(r.shotIndex, 1);
+});
+test('RecoilEngine: recovery waits, then returns to zero at degPerSecond', () => {
+  const g = testGun({ sprayPath: [[0, 0], [0, 2]] });
+  const r = new RecoilEngine(); r.setGun(g); r.newMagazine(1);
+  const o = [0, 0];
+  r.fire(0, o);
+  near(r.offsetAt(0.15, o)[1], 2, 1e-12, 'held during delay');
+  near(r.offsetAt(0.25, o)[1], 1.5, 1e-12, '0.05 s into recovery at 10 deg/s');
+  near(r.offsetAt(1, o)[1], 0, 1e-12, 'fully recovered');
+});
+test('RecoilEngine: same seed gives the same jitter, another seed differs', () => {
+  const g = testGun({ jitter: { yawDeg: 0.1, pitchDeg: 0.1 } });
+  const run = (seed) => {
+    const r = new RecoilEngine(); r.setGun(g); r.newMagazine(seed);
+    const o = [0, 0], out = [];
+    for (let i = 0; i < 10; i++) { r.fire(i * 0.1, o); out.push(o[0], o[1]); }
+    return out.join(',');
+  };
+  eq(run(42), run(42), 'same seed');
+  if (run(42) === run(43)) throw new Error('different seeds gave identical sprays');
+});
+test('Gaussian PRNG: mean ~0, sd ~1, deterministic', () => {
+  const g = new GaussianRng(7);
+  let s = 0, s2 = 0;
+  const n = 20000;
+  for (let i = 0; i < n; i++) { const v = g.next(); s += v; s2 += v * v; }
+  near(s / n, 0, 0.03, 'mean');
+  near(Math.sqrt(s2 / n), 1, 0.03, 'sd');
+  eq(mulberry32(5)(), mulberry32(5)());
+});
+
+/* ---------- sight catalogue ---------- */
+const CAT = {
+  groups: {
+    iron: { label: 'Iron', zoom: 1, adsSpeedBonus: 0.1 },
+    sight: { label: '1x', zoom: 1, adsSpeedBonus: 0.05 },
+    magnified: { label: 'Mag', zoom: 2.5, adsSpeedBonus: 0 },
+  },
+  optics: [
+    { id: 'iron', group: 'iron', housing: { shape: 'round', w: 0.1, h: 0.1 }, reticle: { shapes: [{ t: 'dot', r: 2 }] } },
+    { id: 'holo', group: 'sight', housing: { shape: 'rect', w: 0.3, h: 0.2 }, reticle: { shapes: [{ t: 'ring', r: 20 }] } },
+    { id: 'dot', group: 'sight', housing: { shape: 'round', w: 0.2, h: 0.2 }, reticle: { shapes: [{ t: 'dot', r: 2 }] } },
+    { id: 'mag', group: 'magnified', housing: { shape: 'round', w: 0.4, h: 0.36 }, reticle: { shapes: [{ t: 'line', x1: 0, y1: 0, x2: 0, y2: 9 }] } },
+    { id: 'mag35', group: 'magnified', zoom: 3.5, housing: { shape: 'round', w: 0.3, h: 0.3 }, reticle: { shapes: [{ t: 'poly', pts: [[0, 0], [1, 1]] }] } },
+  ],
+};
+const cat = validateCatalogue(CAT);
+test('catalogue: good data validates; groups give zoom, bonus and sens key', () => {
+  eq(cat.errors.length, 0, cat.errors.join('; '));
+  eq(cat.byId.get('holo').zoom, 1); eq(cat.byId.get('holo').adsSpeedBonus, 0.05);
+  eq(cat.byId.get('mag').sensKey, '2.5x');
+  eq(cat.byId.get('mag35').sensKey, '3.5x', 'zoom override');
+  eq(sensKeys(cat).join(','), '1.0x,2.5x,3.5x');
+});
+test('catalogue: duplicate id, bad zoom, unknown shape, fraction out of range are errors', () => {
+  const bad = JSON.parse(JSON.stringify(CAT));
+  bad.optics.push({ ...bad.optics[0] });                                   // duplicate id
+  bad.optics.push({ ...bad.optics[1], id: 'z', zoom: 0.5 });               // zoom < 1
+  bad.optics.push({ ...bad.optics[1], id: 'h', housing: { shape: 'hex', w: 0.3, h: 0.2 } });
+  bad.optics.push({ ...bad.optics[1], id: 'f', housing: { shape: 'rect', w: 1.4, h: 0.2 } });
+  bad.optics.push({ ...bad.optics[1], id: 'r', reticle: { shapes: [{ t: 'star' }] } });
+  const e = validateCatalogue(bad).errors.join('\n');
+  for (const f of ['duplicate optic id', '(z).zoom', '(h).housing.shape', '(f).housing.w', '(r).reticle.shapes[0].t']) {
+    if (!e.includes(f)) throw new Error('missing "' + f + '" in:\n' + e);
+  }
+});
+test('resolveGunOptics: @group expansion, exclude, default check', () => {
+  const r = resolveGunOptics({ optics: ['@iron', '@sight', 'mag'], opticsExclude: ['dot'], defaultOptic: 'mag' }, cat);
+  eq(r.errors.length, 0, r.errors.join('; '));
+  eq(r.ids.join(','), 'iron,holo,mag');
+  const bad = resolveGunOptics({ optics: ['@nope', 'ghost'], defaultOptic: 'holo' }, cat);
+  if (!bad.errors.some((m) => m.includes('"@nope"')) || !bad.errors.some((m) => m.includes('"ghost"'))) throw new Error(bad.errors.join('; '));
+  const empty = resolveGunOptics({ optics: ['dot'], opticsExclude: ['dot'], defaultOptic: 'dot' }, cat);
+  if (!empty.errors.some((m) => m.includes('empty'))) throw new Error('empty list not reported');
+  const def = resolveGunOptics({ optics: ['@iron'], defaultOptic: 'mag' }, cat);
+  if (!def.errors.some((m) => m.startsWith('defaultOptic'))) throw new Error('bad default not reported');
+});
+
+/* ---------- data validation ---------- */
+const goodGun = {
+  id: 'g1', name: 'Gun', placeholder: true, rpm: 600, magSize: 30, reloadSeconds: 2,
+  hipMultiplier: 1, adsMultiplier: 1, resetSeconds: 0.3, optics: ['@iron', '@sight'], defaultOptic: 'holo',
+  jitter: { yawDeg: 0, pitchDeg: 0 }, recovery: { delaySeconds: 0.2, degPerSecond: 5 }, sprayPath: [[0, 0], [0, 1]],
+};
+test('validateGuns accepts a good gun and resolves its sights', () => {
+  const r = validateGuns({ guns: [goodGun] }, cat);
+  eq(r.errors.length, 0, r.errors.join('; ')); eq(r.guns.length, 1);
+  eq(r.guns[0].optics.length, 3);
+});
+test('validateGuns names the gun and field for bad data', () => {
+  const bad = { ...goodGun, id: 'bad', rpm: -5, optics: ['@nope'], sprayPath: [[0, 0], [1]], jitter: { yawDeg: 'x', pitchDeg: 0 } };
+  const r = validateGuns({ guns: [goodGun, bad] }, cat);
+  eq(r.guns.length, 1, 'good gun still loads');
+  const all = r.errors.join('\n');
+  for (const f of ['(bad).rpm', '(bad).optics', '(bad).sprayPath[1]', '(bad).jitter.yawDeg']) {
+    if (!all.includes(f)) throw new Error('missing error for ' + f + ' in:\n' + all);
+  }
+});
+test('validateGuns rejects duplicate ids and a missing guns array', () => {
+  eq(validateGuns({ guns: [goodGun, goodGun] }, cat).guns.length, 1);
+  eq(validateGuns({}, cat).errors.length, 1);
+});
+test('RecoilEngine: opticRecoilScale multiplies sprayPath steps', () => {
+  const r = new RecoilEngine(); r.setGun(testGun()); r.newMagazine(1); r.setScale(2);
+  const o = [0, 0];
+  r.fire(0, o); r.fire(0.1, o);
+  near(o[1], 1.0, 1e-12, 'pitch doubled'); near(o[0], 0.2, 1e-12, 'yaw doubled');
+});
+
+/* ---------- settings and target ---------- */
+test('settings sanitize clamps and fills defaults', () => {
+  const s = sanitize({ dpi: 99999, cm360: 'abc', fov: 200, crosshair: { color: 'red', size: 5 } });
+  eq(s.dpi, 32000); near(s.cm360, 360 * 2.54 / (32000 * 7 * 0.00572958), 1e-9, 'cm/360 follows DPI and sens'); eq(s.fov, 90); eq(sanitize({}).fov, 83, 'default vertical FOV'); eq(sanitize({ fov: 40 }).fov, 60);
+  eq(s.crosshair.color, '#3dff9a'); eq(s.crosshair.size, 5);
+  eq(sanitize(null).dpi, 1600, 'default DPI'); near(sanitize(null).cm360, 14.25, 0.01, 'default hip cm/360 (sens 7 at 1600 DPI)');
+});
+test('dummy raycast: head, chest, gap between legs, miss beside', () => {
+  const out = { t: 0, p: [0, 0, 0], n: [0, 0, 0], zone: null };
+  const ray = (x, y) => { const o = [0, 1.6, 10], d = [x, y - 1.6, -10], l = Math.hypot(...d); return raycastDummy(o, d.map((v) => v / l), out); };
+  eq(ray(0, 1.6), true, 'head centre'); eq(out.zone, 'head');
+  near(out.p[2], 0.105, 1e-6, 'hits the front of the head sphere');
+  eq(ray(0, 1.15), true, 'chest'); eq(out.zone, 'body');
+  eq(ray(0, 0.3), false, 'between the shins');
+  eq(ray(0.6, 1.2), false, 'beside the arm');
+  eq(ray(0.28, 0.95), true, 'forearm'); eq(out.zone, 'limb');
+});
+
+window.__results = results;
+const fails = results.filter((r) => !r.ok);
+document.getElementById('out').textContent = results.map((r) => (r.ok ? 'PASS ' : 'FAIL ') + r.name + (r.ok ? '' : '\n     ' + r.msg)).join('\n') +
+  '\n\n' + (results.length - fails.length) + '/' + results.length + ' passed';

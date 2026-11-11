@@ -1,0 +1,5 @@
+PASS menu starts a four-player free-for-all and a normal roll has no Pirate Token
+PASS Interact opens a chest once and equips its gun and wall stock
+PASS wall placement, live edit preview, walkable door, safe reset, and bullet destruction
+PASS zone damage, permanent elimination, spectating, final-kill POV, and placements
+PASS the rare Pirate Token unlocks all nine Black Ice skins in storage and save codes

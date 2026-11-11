@@ -1,0 +1,19 @@
+PASS Battle replay reproduces ADS and right lean
+PASS Battle interpolates across the yaw wrap
+PASS Battle retains recorded attachment and skin
+PASS existing snapshots carry view state and reject invalid lean
+PASS five replays reuse one rig without texture growth
+PASS Battle keeps six seconds at 30 Hz and clears on stop
+PASS legacy Battle frames still play
+PASS tdm replay reproduces ADS, lean and attachment
+PASS tdm legacy match frames still play
+PASS ctf replay reproduces ADS, lean and attachment
+PASS ctf legacy match frames still play
+PASS bomb replay reproduces ADS, lean and attachment
+PASS bomb legacy match frames still play
+PASS Bomb spectates teammate ADS and lean
+PASS Bomb spectating cycles both ways and accepts number keys
+PASS spectating hides the followed body and occluded enemy visuals during render
+PASS spectating recovers after teammate death, team wipe, and respawn
+PASS no browser errors
+18 replay checks passed

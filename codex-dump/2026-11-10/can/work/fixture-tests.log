@@ -1,0 +1,38 @@
+
+Frame time at 1920x1080 (headless, software GPU: treat fps as a lower bound)
+  GPU: ANGLE (Intel, Intel(R) UHD Graphics (0x0000468B) Direct3D11 vs_5_0 ps_5_0, D3D11)
+  render 1920x1080, 36 draw calls, 31949 triangles
+  frames: 450, avg 11.17 ms (90 fps), p99 27.70 ms
+  CPU per frame (update + render submit): median 0.900 ms, p95 2.300 ms
+  JS heap change over 5 s of firing (after GC): -507.1 KB
+  PASS draw calls <= 38 (indoor hall, target, 3D weapon model and sight)
+  PASS render size 1920x1080 at devicePixelRatio 1
+  PASS CPU median under 3 ms
+  hip (no lens pass):       84.2 fps, 35 draw calls
+  aimed, lens quality 3:    24.2 fps, 34 draw calls
+  aimed, lens quality 0:    75.0 fps, 31 draw calls
+  PASS lens pass only while aiming
+  PASS aiming adds at most 4 draw calls (no second scene render)
+  PASS Enhanced Graphics pack installs (for High / Ultra)
+  PASS high graphics: tone mapping on, shadows cast (54 calls vs 35)
+  PASS back to standard graphics restores the original look
+  PASS ultra graphics: each slot has its own skin (Teal Hexcore, Carbon Weave)
+  PASS animations: shot -> flash, bolt back, brass; all gone 0.6 s later
+  PASS animations: reload drops the magazine and puts it back
+  PASS animations: a new gun is drawn (0 -> 1); animations off -> no flash or brass
+  PASS low graphics: flat colours (no decorative textures), one light, lens quality 0
+  PASS battle: paths across the arena; a tall wall blocks sight, a low wall hides a crouched head only
+  PASS battle: bots roam on their own, stay in bounds and never inside cover
+  PASS battle: tapping a bot at 10 m kills it (5 taps), scores, shows in the kill feed, it respawns at full health
+  PASS battle: first to the kill target wins, end screen shown, leaving returns to the range
+  PASS maps: Container Yard, Winter Cabin, Jesse's Casino and School Basement build; bots roam; paths cross; nobody inside cover
+  PASS bot levels: easy takes longer to kill you than hard (median 2.5 s vs 0.9 s)
+  PASS Terminator kills faster than Hard (median 0.6 s)
+  PASS hip fire: a spread cone (3.0 deg) that blooms while firing (4.8) and recovers; none when aimed
+  PASS hip fire recoil 1.8x the measured climb (1.24 m vs 0.69 m at 10 m)
+  PASS auto reload: an empty magazine reloads by itself
+  PASS packs: need 100 points; the reel lands on the won skin; reveal shows it
+  PASS equipped skin is on the gun and named in the HUD (Solar Flare Circuit)
+  PASS save code (71 characters) restores everything; a damaged code is refused; old codes load
+  PASS a headshot kill (+30) and the win (+50) earn points, shown on the end screen
+  PASS no page errors

@@ -1,0 +1,30 @@
+PASS Battle grenade held
+PASS Battle grenade released
+PASS Battle grenade death
+PASS Battle grenade blast
+PASS Battle grenade skipped
+PASS tdm held
+PASS tdm released
+PASS tdm attributed
+PASS tdm replay
+PASS tdm results
+PASS tdm leaderboard
+PASS tdm winning lineup has the team
+PASS ctf held
+PASS ctf released
+PASS ctf attributed
+PASS ctf replay
+PASS ctf results
+PASS ctf leaderboard
+PASS ctf winning lineup has the team
+PASS bomb held
+PASS bomb released
+PASS bomb attributed
+PASS bomb replay
+PASS bomb results
+PASS bomb leaderboard
+PASS bomb winning lineup has the team
+PASS Battle final kill, winner lineup and leaderboard
+PASS Battle can skip finale and leave cleanly
+PASS Draw with no kills shows lineup and scores immediately
+PASS No page errors
