@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "serve": "node tools/serve.mjs 8080",
-    "test": "node tests/controls-wasm.mjs && node tests/audio-wasm.mjs && node tests/bomb-utility.mjs && node tests/loadout.mjs && node tests/pack-anims.mjs && node tools/check-core.mjs && node tests/run.mjs",
+    "test": "node tests/controls-wasm.mjs && node tests/audio-wasm.mjs && node tests/bomb-utility.mjs && node tests/loadout.mjs && node tests/pack-anims.mjs && node tests/drone-speed.mjs && node tools/check-core.mjs && node tests/run.mjs",
     "build:wasm": "bash tools/build-wasm.sh --test",
     "check": "node tools/check-data.mjs",
     "placeholders": "node tools/make-placeholder-guns.mjs",

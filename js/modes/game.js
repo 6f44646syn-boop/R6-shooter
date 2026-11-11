@@ -1,26 +1,26 @@
-import { applyMapArt } from '../render/pack-art.js?v=1ab6120-mwbhzb5p';
-import { sensoryFor } from '../balance/bomb-utility.js?v=1ab6120-mwbhzb5p';
+import { applyMapArt } from '../render/pack-art.js?v=9dd0f7b-mwbioun8';
+import { sensoryFor } from '../balance/bomb-utility.js?v=9dd0f7b-mwbioun8';
 // Team Deathmatch, Capture the Flag and Bomb in the browser: draws the match simulation
 // (sim.js) and runs your player with the range's own systems (look, sensitivity, recoil,
 // spread, sights, weapon model: battle/human.js), at a fixed 60 Hz simulation.
 //
 // Map: flat-shaded low poly from the map file; static walls merged into one mesh, breakable
 // panels in one instanced mesh, one directional light (a 1024 shadow map in High / Ultra).
-import * as THREE from '../../vendor/three/three.module.min.js?v=1ab6120-mwbhzb5p';
-import { MatchMap } from './map.js?v=1ab6120-mwbhzb5p';
-import { initCore } from '../wasm/core.js?v=1ab6120-mwbhzb5p';
-import { Match, TICK } from './sim.js?v=1ab6120-mwbhzb5p';
-import { yawTo, wrap180, DEG } from './geom.js?v=1ab6120-mwbhzb5p';
-import { Fighter } from '../battle/fighter.js?v=1ab6120-mwbhzb5p';
-import { slotIn } from '../core/loadout.js?v=1ab6120-mwbhzb5p';
-import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=1ab6120-mwbhzb5p';
-import { buildMapLook, panelTextures } from './look.js?v=1ab6120-mwbhzb5p';
-import { Arena } from '../battle/arena.js?v=1ab6120-mwbhzb5p';
-import { Human } from '../battle/human.js?v=1ab6120-mwbhzb5p';
-import { drawCrosshair } from '../ui/crosshair.js?v=1ab6120-mwbhzb5p';
-import { effectiveGraphics } from '../render/quality.js?v=1ab6120-mwbhzb5p';
-import { MatchHost, MatchClient } from './net-match.js?v=1ab6120-mwbhzb5p';
-import { Brain } from './bots.js?v=1ab6120-mwbhzb5p';
+import * as THREE from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
+import { MatchMap } from './map.js?v=9dd0f7b-mwbioun8';
+import { initCore } from '../wasm/core.js?v=9dd0f7b-mwbioun8';
+import { Match, TICK } from './sim.js?v=9dd0f7b-mwbioun8';
+import { yawTo, wrap180, DEG } from './geom.js?v=9dd0f7b-mwbioun8';
+import { Fighter } from '../battle/fighter.js?v=9dd0f7b-mwbioun8';
+import { slotIn } from '../core/loadout.js?v=9dd0f7b-mwbioun8';
+import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=9dd0f7b-mwbioun8';
+import { buildMapLook, panelTextures } from './look.js?v=9dd0f7b-mwbioun8';
+import { Arena } from '../battle/arena.js?v=9dd0f7b-mwbioun8';
+import { Human } from '../battle/human.js?v=9dd0f7b-mwbioun8';
+import { drawCrosshair } from '../ui/crosshair.js?v=9dd0f7b-mwbioun8';
+import { effectiveGraphics } from '../render/quality.js?v=9dd0f7b-mwbioun8';
+import { MatchHost, MatchClient } from './net-match.js?v=9dd0f7b-mwbioun8';
+import { Brain } from './bots.js?v=9dd0f7b-mwbioun8';
 
 const reducedMotion = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 const TEAM_COLOR = { A: 0x5b8cff, B: 0xff7048 };
