@@ -243,8 +243,8 @@ for propagation and underfoot material lookup, preserving all physics ownership.
   poses; no new message, transport or backend was added.
 - Room floor textures come from `data.callouts[].floor`; Arena material kinds
   come from `arena.boxes`. The built Arena match maps preserve that box order.
-- The existing seven-float replay stride is unchanged. Replay audio remains a
-  later extension of the existing recorder.
+- Replay audio remains a later extension of the existing recorder. See the
+  Replays section for the versioned view-state layout.
 
 ### Requests for the engine owner
 

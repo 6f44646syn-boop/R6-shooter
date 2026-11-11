@@ -1,6 +1,8 @@
 # M10 first-person replay increment
 
 Based on Claude's M8 commit `3a5db4d`, fast-forwarded into `feature/m7-ui-controls`.
+Claude's subsequent Bomb roof update `1ab6120` is also merged. Import versions use
+that update's stamp, preserving its existing audio rebake.
 
 The existing Battle and match recorders now retain six seconds at up to 30 Hz with
 versioned view state. Kill cams reproduce ADS and lean, use the recorded attachment,
@@ -21,16 +23,15 @@ attachment/animation implementations stay with Claude.
   loadout and does not establish a memory bound across every possible loadout.
 - `tools/check-modes.mjs` passes 99 checks.
 - The exact `package.json` test sequence was executed with bundled Node because
-  this desktop has no npm executable. Node/WASM suites completed. The initial
-  browser pass reported shot count, a shooting fixture and a skin fixture.
-- A browser repeat passed all except the 1080-rpm one-second check (18 shots
-  versus 19). The same shot-count failure occurs on unchanged M8 `3a5db4d`.
-  Both runs passed the two-session direct WebRTC kill-cam checks. Relay coverage
-  was skipped because no relay was running.
+  this desktop has no npm executable. Node/WASM suites pass. The final browser
+  run after the roof merge passes 237 checks, with one failure on the 1080-rpm
+  one-second shot count (18 shots versus 19). The same failure occurs on unchanged
+  M8 `3a5db4d`. Direct WebRTC kill cams pass. Relay coverage was skipped because
+  no relay was running.
 - The shooting fixture now respawns the player before its scripted shots,
   resetting weapon state left by the roaming combat. The skin fixture selects a
   compatible gun when the random reward is gun-specific. Both original gameplay
-  assertions pass in a separate run of their containing browser section.
+  assertions pass in the final browser run.
 - Syntax and whitespace checks pass.
 
 ## Remaining scope

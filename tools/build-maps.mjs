@@ -139,6 +139,7 @@ function building(spec) {
     }
   }
   for (const [x0, z0, x1, z1, y0 = H] of spec.rails || []) walls.push({ x0, z0, x1, z1, y0, h: 1.0, kind: 'rail', look: 'rail', ns: 1 });
+  walls.push(...roofs(spec));
   // the ways into each site: doorways, windows and openings of its room (ground floor)
   const sites = spec.data.sites.map((st) => ({ ...st, entries: openings.filter((o) => !o.y0).map((o) => (o.axis === 'x' ? [o.c, o.at] : [o.at, o.c])).filter((e) => {
     const room = (spec.data.callouts || []).find((c) => c.floor && !c.y && st.x > c.x0 && st.x < c.x1 && st.z > c.z0 && st.z < c.z1);
@@ -147,6 +148,42 @@ function building(spec) {
   // the defenders' area: the rooms (callouts with a floor), both storeys
   const inside = (spec.data.callouts || []).filter((c) => c.floor).map((c) => [c.x0, c.z0, c.x1, c.z1]);
   return { ...spec.data, open: true, sites, inside, wallH: H, walls: [...walls, ...spec.data.walls], doors, soft, reinforced, openings };
+}
+
+// Roofs: every room indoors gets one on top of its walls. Rooms under an upper storey, and
+// double-height rooms (spec.roof.tall), get it at 2H; the others at H. Open-air rooms
+// (spec.roof.open, e.g. a courtyard), balconies and decks stay open. The roof is solid (it stops
+// bullets and grenades) and cannot be stood on. At the building's outside walls it overhangs.
+const ROOF_T = 0.25, EAVE = 0.45;
+function roofs(spec) {
+  const d = spec.data, B = d.building, opt = spec.roof || {}, C = d.callouts || [];
+  const rooms = C.filter((c) => c.floor && !c.y && !(opt.open || []).includes(c.name));
+  const uppers = C.filter((c) => c.y >= H - 0.01 && c.x0 >= B[0] && c.x1 <= B[2] && c.z0 >= B[1] && c.z1 <= B[3]);
+  // tall: room names, or [x0, z0, x1, z1] parts of rooms (both storeys)
+  const tall = (opt.tall || []).map((t) => (Array.isArray(t) ? { x0: t[0], z0: t[1], x1: t[2], z1: t[3] } : C.find((c) => c.name === t))).filter(Boolean);
+  const xs = [...new Set([...rooms, ...uppers, ...tall].flatMap((c) => [c.x0, c.x1]))].sort((a, b) => a - b);
+  const zs = [...new Set([...rooms, ...uppers, ...tall].flatMap((c) => [c.z0, c.z1]))].sort((a, b) => a - b);
+  const inside = (c, x, z) => x > c.x0 && x < c.x1 && z > c.z0 && z < c.z1;
+  // height of each cell (0: no roof)
+  const hgt = xs.slice(0, -1).map((x0, i) => zs.slice(0, -1).map((z0, j) => {
+    const x = (x0 + xs[i + 1]) / 2, z = (z0 + zs[j + 1]) / 2;
+    if (!rooms.some((c) => inside(c, x, z))) return 0;
+    return uppers.some((c) => inside(c, x, z)) || tall.some((c) => inside(c, x, z)) ? 2 * H : H;
+  }));
+  // merge cells into rectangles: runs along z, then equal runs along x
+  const used = hgt.map((col) => col.map(() => false)), out = [];
+  for (let i = 0; i < xs.length - 1; i++) for (let j = 0; j < zs.length - 1; j++) {
+    const y = hgt[i][j];
+    if (!y || used[i][j]) continue;
+    let j1 = j; while (j1 + 1 < zs.length - 1 && hgt[i][j1 + 1] === y && !used[i][j1 + 1]) j1++;
+    let i1 = i; while (i1 + 1 < xs.length - 1 && [...Array(j1 - j + 1).keys()].every((k) => hgt[i1 + 1][j + k] === y && !used[i1 + 1][j + k])) i1++;
+    for (let a = i; a <= i1; a++) for (let b = j; b <= j1; b++) used[a][b] = true;
+    let x0 = xs[i], x1 = xs[i1 + 1], z0 = zs[j], z1 = zs[j1 + 1];
+    // over the outside walls: eaves
+    if (x0 === B[0]) x0 -= EAVE; if (x1 === B[2]) x1 += EAVE; if (z0 === B[1]) z0 -= EAVE; if (z1 === B[3]) z1 += EAVE;
+    out.push({ x0, z0, x1, z1, y0: y, h: ROOF_T, kind: 'roof', look: 'roof', ns: 1 });
+  }
+  return out;
 }
 
 // Ranch: a long single-storey house with a loft. A hallway runs east-west between the south
@@ -274,6 +311,7 @@ const embassy = building({
   },
   slabs: [[-28, 7, 28, 18, 'wood'], [-14, -7, -8, 7, 'carpet'], [-16, 0.5, -14, 7, 'carpet'], [-16, -7, -14, -5.5, 'carpet'], [8, -7, 14, 7, 'carpet'], [14, 5.5, 16, 7, 'carpet'], [14, -7, 16, -0.5, 'carpet'], [28, 3.5, 31.2, 10.5, 'deck']],
   stairs: [[-15.8, -5.5, -14.4, 0.5, '+z'], [14.4, -0.5, 15.8, 5.5, '-z'], [29.8, -2.5, 31.2, 3.5, '+z']],
+  roof: { open: ['Courtyard'] },
   rails: [[-14.1, -5.5, -14, 0.5], [-15.8, -5.6, -14, -5.5], [14, -0.5, 14.1, 5.5], [14, 5.5, 15.8, 5.6], [28, 10.4, 31.2, 10.5], [31.2, 3.5, 31.3, 10.5], [28.2, 3.5, 29.8, 3.6]],
   data: {
     id: 'embassy', name: 'Embassy', hx: 42, hz: 32, building: [-28, -18, 28, 18], ground: 'lawn',
@@ -355,6 +393,8 @@ const workshop = building({
   slabs: [[-30, -2, -14, 14, 'wood'], [-14, -2, 8, 1, 'carpet2'], [-14, 7, 8, 14, 'carpet2'], [-10.2, 1, 8, 7, 'carpet2'], [-14, 1, -12, 7, 'carpet2'],
     [0, -4.2, 2, -2, 'concrete'], [-5.8, -6.6, 15.8, -4.2, 'concrete'], [-33.2, 4, -30, 12, 'deck']],
   stairs: [[-11.8, 1, -10.4, 7, '+z'], [14, -13, 15.4, -6.6, '+z'], [-32.8, -2, -31.6, 4, '+z']],
+  // the corridor between the garage's tall wall and the upstairs offices: up to the high roof
+  roof: { tall: ['Garage (site)', [-6, -4, 8, -2]] },
   rails: [[-10.2, 1, -10.1, 7], [-11.8, 0.9, -10.2, 1], [-0.1, -4.2, 0, -2], [2, -4.2, 2.1, -2], [-5.8, -6.7, 13.9, -6.6], [-33.3, 4, -33.2, 12], [-31.6, 4, -30, 4.1], [-33.2, 11.9, -30, 12]],
   data: {
     id: 'workshop', name: 'Workshop', hx: 42, hz: 32, building: [-30, -20, 26, 14], ground: 'dirt',
