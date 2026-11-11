@@ -1,6 +1,6 @@
 import * as THREE from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
 import { ROYALE_BOTS } from './royale-map.js?v=blacktide-detail';
-import { PLATFORM_HALF, PLATFORM_MASK, platformHeight, platformMeshes, platformSolids } from './royale-platform.js?v=blacktide-builds';
+import { PLATFORM_HALF, PLATFORM_MASK, RAMP_RISE, platformHeight, platformMeshes, platformSolids } from './royale-platform.js?v=blacktide-edit';
 
 const TOKEN_CHANCE = 0.001;
 const CHEST_MATERIALS = 6;
@@ -9,8 +9,21 @@ const WALL_HEIGHT = 2.7;
 const GRID = 3;
 const FULL_WALL = (1 << GRID ** 2) - 1;
 const PIECES = ['wall', 'ramp', 'cone'];
-const overlaps = (a, b) => a.minX < b.maxX && a.maxX > b.minX
-  && a.minY < b.maxY && a.maxY > b.minY && a.minZ < b.maxZ && a.maxZ > b.minZ;
+const MAX_RAMPS = 10;
+const EDIT_PRESETS = {
+  wall: [
+    ['Door', FULL_WALL ^ 18], ['Window', FULL_WALL ^ 16], ['Side opening', FULL_WALL ^ 36], ['Low wall', 63],
+  ],
+  ramp: [
+    ['Left half', 5], ['Right half', 10], ['Reverse', PLATFORM_MASK, 2], ['Full ramp', PLATFORM_MASK],
+  ],
+  cone: [
+    ['Front half', 3], ['Side half', 5], ['One corner', 1], ['Flat', 0],
+  ],
+};
+const SEAM = .001;
+const overlaps = (a, b) => a.minX < b.maxX - SEAM && a.maxX > b.minX + SEAM
+  && a.minY < b.maxY - SEAM && a.maxY > b.minY + SEAM && a.minZ < b.maxZ - SEAM && a.maxZ > b.minZ + SEAM;
 
 export class BattleRoyale {
   constructor(battle, rng = Math.random) {
@@ -256,24 +269,35 @@ export class BattleRoyale {
     const { arena } = this;
     const kind = this.piece, isWall = kind === 'wall';
     const angle = yaw * Math.PI / 180, dx = Math.sin(angle), dz = -Math.cos(angle);
-    const distance = isWall ? 2.5 : 2.8;
-    const x = Math.round((f.x + dx * distance) * 2) / 2, z = Math.round((f.z + dz * distance) * 2) / 2;
+    const distance = isWall ? 1.7 : (PLATFORM_HALF+.78) / Math.max(Math.abs(dx),Math.abs(dz));
+    const dir = -Math.round(yaw / 90);
+    const forwardX = -Math.round(Math.sin(dir * Math.PI/2)), forwardZ = -Math.round(Math.cos(dir * Math.PI/2));
+    const previous = kind === 'ramp' && this.walls.find(ramp => {
+      if (ramp.kind !== 'ramp' || (ramp.dir-dir)%4 !== 0) return false;
+      const p = ramp.mesh.position, px = f.x - p.x, pz = f.z - p.z;
+      const forward = px*forwardX + pz*forwardZ;
+      return forward >= .15 && forward <= PLATFORM_HALF+.08
+        && Math.abs(px*forwardZ-pz*forwardX) < PLATFORM_HALF+.2
+        && Math.abs(f.y - (p.y+RAMP_RISE)) <= .55;
+    });
+    if (previous && previous.level >= MAX_RAMPS) { this.notify('10-ramp height limit'); return; }
+    const x = previous ? previous.mesh.position.x + forwardX * PLATFORM_HALF*2 : Math.round((f.x + dx * distance) * 2) / 2;
+    const z = previous ? previous.mesh.position.z + forwardZ * PLATFORM_HALF*2 : Math.round((f.z + dz * distance) * 2) / 2;
     const w = isWall ? (Math.abs(dx) > Math.abs(dz) ? .32 : 2.8) : PLATFORM_HALF * 2;
     const d = isWall ? (w > 1 ? .32 : 2.8) : w;
-    const y = arena.groundAt(x, z, f.y);
+    const y = previous ? previous.mesh.position.y + RAMP_RISE : arena.groundAt(x, z, f.y);
     const box = { minX:x-w/2, maxX:x+w/2, minY:y, maxY:y+(isWall ? WALL_HEIGHT : platformHeight(kind)), minZ:z-d/2, maxZ:z+d/2 };
-    const blocked = Math.abs(y - f.y) > .45 || box.maxY >= (arena.map.ceiling ? arena.wallH : Infinity)
+    const blocked = (!previous && Math.abs(y - f.y) > .45) || box.maxY >= (arena.map.ceiling ? arena.wallH : Infinity)
       || box.minX <= -arena.hx || box.maxX >= arena.hx || box.minZ <= -arena.hz || box.maxZ >= arena.hz
       || arena.boxes.some(other => overlaps(box, other))
       || !arena.sightLine([f.x, f.y + 1.2, f.z], [x, y + .7, z])
-      || this.occupied(box);
+      || this.occupied(box, previous ? f : null);
     if (blocked) { this.notify('Build needs clear space'); return; }
     const mesh = new THREE.Group();
     const bounds = new THREE.Box3(new THREE.Vector3(box.minX, box.minY, box.minZ),
       new THREE.Vector3(box.maxX, box.maxY, box.maxZ));
     arena.scene.add(mesh);
-    const dir = -Math.round(yaw / 90);
-    const piece = { kind, box, bounds, mesh, hp:WALL_HP, dir, startDir:dir, mask:isWall ? FULL_WALL : PLATFORM_MASK };
+    const piece = { kind, box, bounds, mesh, hp:WALL_HP, dir, startDir:dir, level:(previous?.level || 0)+1, mask:isWall ? FULL_WALL : PLATFORM_MASK };
     if (isWall) this.makeWall(piece, x, y, z, w, d);
     else {
       mesh.position.set(x,y,z);
@@ -327,8 +351,8 @@ export class BattleRoyale {
     this.arena.setBuilds(solids);
   }
 
-  occupied(box) {
-    return this.battle.fighters.some(g => g.alive && overlaps(box, {
+  occupied(box, builder = null) {
+    return this.battle.fighters.some(g => g !== builder && g.alive && overlaps(box, {
       minX:g.x-.45, maxX:g.x+.45, minZ:g.z-.45, maxZ:g.z+.45, minY:g.y, maxY:g.y+1.75,
     }));
   }
@@ -355,17 +379,20 @@ export class BattleRoyale {
   }
 
   edit(human) {
-    if (!this.editing) {
-      this.editing = this.walls.find(wall => this.aimAt(wall, human));
-      if (!this.editing) { this.notify('Aim at a build to edit'); return; }
-      this.editMask = this.editing.mask;
-      this.editDir = this.editing.dir;
-      human.in.fire = human.in.ads = false;
-      human.weapon.releaseTrigger();
-      this.previewEdit();
-      return;
-    }
+    if (this.editing) { this.cancelEdit(); return; }
+    this.editing = this.walls.find(wall => this.aimAt(wall, human));
+    if (!this.editing) { this.notify('Aim at a build to edit'); return; }
+    this.editMask = this.editing.mask;
+    this.editDir = this.editing.dir;
+    this.noticeUntil = 0;
+    human.in.fire = human.in.ads = false;
+    human.weapon.releaseTrigger();
+    this.previewEdit();
+  }
+
+  applyEdit() {
     const wall = this.editing;
+    if (!wall) return;
     if (!this.editMask && wall.kind !== 'cone') { this.notify('Keep at least one panel'); return; }
     const added = this.editMask & ~wall.mask;
     const changed = wall.mask !== this.editMask || wall.dir !== this.editDir;
@@ -396,6 +423,13 @@ export class BattleRoyale {
   }
 
   dragEdit(down) {
+    if (!down) {
+      if (!this.editDragging) return;
+      this.previewEdit();
+      this.editDragging = false;
+      if (this.draggedPanels) this.applyEdit();
+      return;
+    }
     this.editDragging = down;
     this.draggedPanels = 0;
     this.previewEdit();
@@ -404,10 +438,19 @@ export class BattleRoyale {
   resetEdit() {
     this.editMask = this.editing.kind === 'wall' ? FULL_WALL : PLATFORM_MASK;
     this.editDir = this.editing.startDir;
-    this.previewEdit();
+    this.applyEdit();
   }
 
-  rotateEdit() { if (this.editing.kind === 'ramp') { this.editDir = (this.editDir + 1) % 4; this.previewEdit(); } }
+  rotateEdit() { if (this.editing.kind === 'ramp') { this.editDir = (this.editDir + 1) % 4; this.applyEdit(); } }
+
+  editPreset(index) {
+    const preset = EDIT_PRESETS[this.editing.kind][index];
+    if (!preset) return;
+    const [,mask,turn=0] = preset;
+    this.editMask = mask;
+    this.editDir = (this.editing.dir + turn) % 4;
+    this.applyEdit();
+  }
 
   previewEdit() {
     const wall = this.editing, human = this.battle.humans[0];
@@ -459,8 +502,9 @@ export class BattleRoyale {
     const hint = p ? ' · ' + direction(p.x, p.z) + ' Chest ' + Math.round(Math.hypot(p.x - f.x, p.z - f.z)) + ' m' : '';
     this.previewEdit();
     const status = !f.alive ? 'Eliminated · Waiting for the last survivor' : this.elapsed < this.noticeUntil ? this.notice
-      : this.editing ? bind('fire') + ' Select / drag · ' + bind('ability') + ' Confirm · ' + bind('recall') + ' Reset · ' + bind('ads') + ' Cancel'
+      : this.editing ? bind('fire') + ' Drag, release to apply · ' + bind('recall') + ' Reset · ' + bind('ads') + ' Cancel'
         + (this.editing.kind === 'ramp' ? ' · ' + bind('reload') + ' Rotate' : '')
+        + '\n' + EDIT_PRESETS[this.editing.kind].map(([name],i) => (i+1) + ' ' + name).join(' · ')
       : chest ? bind('interact') + ' Open ' + (chest.pirate ? 'Pirate Chest' : 'chest')
       : (b.humans[0].gun ? bind('knife') : bind('fire')) + ' Pickaxe · ' + bind('underbarrel') + ' Build ' + this.piece
         + ' · ' + bind('zero') + ' Change piece · ' + bind('ability') + ' Edit' + hint;

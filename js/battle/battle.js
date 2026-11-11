@@ -13,7 +13,7 @@ import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=9dd0
 import { Bot, LEVELS } from './bot.js?v=blacktide-builds';
 import { Human } from './human.js?v=blacktide';
 import { BattleNades } from './nades.js?v=9dd0f7b-mwbioun8';
-import { BattleRoyale } from './royale.js?v=blacktide-detail';
+import { BattleRoyale } from './royale.js?v=blacktide-edit';
 import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=blacktide-detail';
 import { drawCrosshair } from '../ui/crosshair.js?v=9dd0f7b-mwbioun8';
 import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=9dd0f7b-mwbioun8';
@@ -917,7 +917,11 @@ export class Battle {
     const p1 = this.humans[0], p2 = this.humans[1];
     if (this.viewOnly) return !this.over && this.watch.key(code, down, p1.f);
     if (this.royale && /^Digit[1-5]$/.test(code)) {
-      if (down && p1.f.alive && !this.over && !this.paused && !this.royale.editing) this.royale.equip(Number(code.at(-1)) - 1);
+      if (down && p1.f.alive && !this.over && !this.paused) {
+        const index = Number(code.at(-1)) - 1;
+        if (this.royale.editing) this.royale.editPreset(index);
+        else this.royale.equip(index);
+      }
       return true;
     }
     if (p2 && p2.controls !== 'mouse' && p2.key(code, down)) return true;

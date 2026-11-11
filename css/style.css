@@ -157,7 +157,7 @@ fieldset, .xh-wrap { min-width: 0; }
 .b-top { position: absolute; left: 0; right: 0; top: 10px; display: flex; justify-content: center; }
 .b-score { display: flex; gap: 14px; padding: 6px 14px; background: rgba(10, 12, 14, 0.75); border-radius: 6px; font-weight: 700; font-size: 16px; }
 .b-top:has(.b-royale:not([hidden])) { flex-direction: column; align-items: center; gap: 6px; }
-.b-royale { color: #ebd8ff; text-align: center; font-size: 13px; }
+.b-royale { color: #ebd8ff; text-align: center; font-size: 13px; white-space: pre-line; max-width: calc(100% - 24px); }
 .royale-hotbar {
   position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
   display: flex; justify-content: center; gap: 5px; width: max-content; max-width: 94vw;

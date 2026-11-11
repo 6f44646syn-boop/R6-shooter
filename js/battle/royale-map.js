@@ -1,6 +1,7 @@
 import { wallPanels, duskSky } from '../scene/range-tex.js?v=9dd0f7b-mwbioun8';
 import { BoxGeometry, CanvasTexture, ConeGeometry, IcosahedronGeometry, RepeatWrapping, SRGBColorSpace } from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
 import { addBlacktideDetails, blacktideTrails } from './royale-details.js?v=blacktide-detail';
+import { MAPS } from './maps.js?v=9dd0f7b-mwbioun8';
 
 export const ROYALE_MAP_ID = 'blacktide';
 export const ROYALE_BOTS = 20;
@@ -74,10 +75,10 @@ export const BLACKTIDE = {
   kinds: {
     wall: { color: 0x707b70, rough: .9 },
     low: { color: 0x928576, rough: .95 },
-    plank: { color: 0x74503a, rough: .9 },
-    roof: { color: 0x4d3831, rough: .95 },
+    plank: { map:MAPS.yard.kinds.plank.map, tile:1.8, color:0xa88162, rough:.9 },
+    roof: { map:MAPS.yard.kinds.plank.map, tile:2.1, color:0x6f5546, rough:.95 },
     dock: { color: 0x829292, rough: .85 },
-    container: { color: 0x385b62, metal: .45, rough: .65 },
+    container: { map:MAPS.yard.kinds.container.map, tile:1.5, color:0x486d74, metal:.45, rough:.65 },
     crate: { color: 0x9b6944, rough: .9 },
     barrier: { color: 0xc6a175, rough: .9 },
     hill: { color: 0x718355, rough: 1 },

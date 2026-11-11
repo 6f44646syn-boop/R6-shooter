@@ -98,13 +98,16 @@ is selected. Default controls:
 | Left mouse while unarmed, or K at any time | Swing the pickaxe |
 | 1–5 | Equip the pickaxe or a gun from the hotbar |
 | Z / B | Cycle wall, ramp and cone / place the selected piece |
-| Middle mouse while aiming at your build | Open the editor or confirm an edit |
-| Left mouse in the editor | Select or drag across panels |
+| Middle mouse while aiming at your build | Open the editor |
+| Left mouse in the editor | Hold to select or drag across panels, then release to apply |
+| 1–4 in the editor | Apply the listed preset shape |
 | R in the ramp editor | Rotate the ramp a quarter-turn |
 | V / right mouse in the editor | Reset the grid / cancel the edit |
 
 Walls have a 3×3 grid for windows and doorways. The ramp's 2×2 grid can remove
 sections, and the cone's 2×2 grid can raise or flatten individual quarters.
+Aim along a ramp near its top and place another ramp to snap it to the climb.
+A connected climb supports ten ramps.
 
 The graphics presets keep the same terrain, trails, landmarks, and collision. Low
 keeps the landmark detail with sparse ground clutter. Standard adds grass and stones.

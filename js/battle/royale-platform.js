@@ -3,7 +3,8 @@ import * as THREE from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun
 export const PLATFORM_HALF = 1.6;
 export const PLATFORM_MASK = 15;
 const THICKNESS = .14;
-const RISE = { ramp:1.7, cone:1.25 };
+export const RAMP_RISE = 1.7;
+const RISE = { ramp:RAMP_RISE, cone:1.25 };
 export const platformHeight = kind => THICKNESS + RISE[kind];
 
 function height(kind, x, z, raised) {

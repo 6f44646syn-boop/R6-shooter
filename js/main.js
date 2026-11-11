@@ -40,7 +40,7 @@ function sensRows(catalogue, sens) {
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
 import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=9dd0f7b-mwbioun8';
-import { Battle } from './battle/battle.js?v=blacktide-detail';
+import { Battle } from './battle/battle.js?v=blacktide-edit';
 import { initCore, coreLoaded } from './wasm/core.js?v=9dd0f7b-mwbioun8';
 import { createJoinRequest, acceptJoin } from './net/link.js?v=9dd0f7b-mwbioun8';
 import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt } from './net/relay.js?v=m11-ranked';

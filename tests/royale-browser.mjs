@@ -129,29 +129,32 @@ try {
     h.camera.lookAt(wall.mesh.position.x, wall.box.minY + .45, wall.mesh.position.z);
     r.previewEdit();
     r.previewEdit();
-    b.mouseButton(0, false);
     const preview = r.editing === wall && !h.in.fire && a.raycast(start, [0,0,-1], 2) < 2;
-    b.key('OperatorAbility', true);
+    b.mouseButton(0, false);
     const edited = !r.editing && a.raycast(start, [0,0,-1], 1.4) === Infinity
       && a.world.free(wall.mesh.position.x, wall.mesh.position.z);
     b.key('OperatorAbility', true);
-    b.key('KeyV', true);
     const original = { x:h.f.x, y:h.f.y, z:h.f.z };
     Object.assign(h.f, { x:wall.mesh.position.x, y:wall.box.minY, z:wall.mesh.position.z });
-    b.key('OperatorAbility', true);
+    b.key('KeyV', true);
     const safeRestore = r.editing === wall && a.world.free(h.f.x, h.f.z);
     Object.assign(h.f, original);
-    b.key('OperatorAbility', true);
+    b.key('KeyV', true);
     const restored = !r.editing && a.raycast(start, [0,0,-1], 2) < 2;
+    b.key('OperatorAbility', true);
+    b.key('Digit2',true);
+    const preset = !r.editing && wall.mask === (511 ^ 16) && !a.world.free(wall.mesh.position.x,wall.mesh.position.z);
+    b.key('OperatorAbility', true);
+    b.key('KeyV',true);
     h.eye = o => { o.splice(0, 3, ...start); };
     h.shotDirection = (_t, d) => { d.splice(0, 3, 0, 0, -1); };
     for (let i = 0; i < 20 && r.walls.length; i++) b.fire(h, b.t);
     delete h.eye;
     delete h.shotDirection;
-    return { blocked, solid, spent, preview, edited, safeRestore, restored, navReused, removed: r.walls.length === 0 && a.boxes.length === a.baseBoxCount };
+    return { blocked, solid, spent, preview, edited, safeRestore, restored, preset, navReused, removed: r.walls.length === 0 && a.boxes.length === a.baseBoxCount };
   });
-  assert.deepEqual(build, {blocked:true, solid:true, spent:loot[0]+5, preview:true, edited:true, safeRestore:true, restored:true, navReused:true, removed:true});
-  console.log('PASS wall placement, live edit preview, walkable door, safe reset, and bullet destruction');
+  assert.deepEqual(build, {blocked:true, solid:true, spent:loot[0]+5, preview:true, edited:true, safeRestore:true, restored:true, preset:true, navReused:true, removed:true});
+  console.log('PASS wall release-to-edit, window preset, safe reset, and bullet destruction');
 
   const platforms = await page.evaluate(() => {
     const b = __range.battle(), r = b.royale, h = b.humans[0], a = b.arena;
@@ -174,8 +177,9 @@ try {
     b.key('OperatorAbility',true);
     if (r.editing !== ramp) return {missing:'ramp edit'};
     b.mouseButton(0,true); b.mouseButton(0,false);
-    b.key('KeyR',true);
+    aimTile(ramp,.7,-.7);
     b.key('OperatorAbility',true);
+    b.key('KeyR',true);
     const rampEdited = !r.editing && ramp.mask === 14 && ramp.dir === 1;
     b.key('KeyZ',true);
     const cone = place(-14,16);
@@ -186,12 +190,35 @@ try {
     b.key('OperatorAbility',true);
     if (r.editing !== cone) return {missing:'cone edit'};
     b.mouseButton(0,true); b.mouseButton(0,false);
-    b.key('OperatorAbility',true);
     const coneEdited = !r.editing && cone.mask === 14 && a.groundAt(cp.x-.4,cp.z-.4,2) < raised;
     return {rampSlope,rampEdited,coneEdited};
   });
   assert.deepEqual(platforms, {rampSlope:true,rampEdited:true,coneEdited:true});
   console.log('PASS ramps and cones build and update collision after 2×2 edits');
+
+  const climb = await page.evaluate(() => {
+    const b = __range.battle(), r = b.royale, a = b.arena, h = b.humans[0];
+    Object.assign(h.f,{x:-73,y:0,z:38,vx:0,vy:0,vz:0});
+    h.look.yaw = 0;
+    b.key('KeyZ',true);
+    b.key('KeyZ',true);
+    r.materials = 11;
+    const before = r.walls.length;
+    for (let level = 1; level <= 10; level++) {
+      b.key('KeyB',true);
+      const ramp = r.walls.at(-1);
+      if (r.walls.length !== before+level || ramp.level !== level) return {stuck:level, y:h.f.y, notice:r.notice};
+      const top = ramp.box.minZ+.15;
+      for (let tick = 0; h.f.z > top+.01 && tick < 85; tick++) {
+        a.stepBody(h.f,0,-Math.min(.085,h.f.z-top),1/60);
+      }
+      if (h.f.z > top+.03 || h.f.y < ramp.box.minY+1.5) return {stuck:level, y:h.f.y,z:h.f.z,top};
+    }
+    b.key('KeyB',true);
+    return {ramps:r.walls.length-before,climbed:h.f.y>16,blockedAtTen:r.notice==='10-ramp height limit',mats:r.materials};
+  });
+  assert.deepEqual(climb, {ramps:10,climbed:true,blockedAtTen:true,mats:1});
+  console.log('PASS connected ramps can be walked up ten levels and refuse an eleventh');
 
   const result = await page.evaluate(() => {
     const b = __range.battle(), r = b.royale, h = b.humans[0].f;
