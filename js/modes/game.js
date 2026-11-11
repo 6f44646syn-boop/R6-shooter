@@ -9,6 +9,7 @@ import { sensoryFor } from '../balance/bomb-utility.js?v=6ac6c85-mwblm6td';
 // Map: flat-shaded low poly from the map file; static walls merged into one mesh, breakable
 // panels in one instanced mesh, one directional light (a 1024 shadow map in High / Ultra).
 import * as THREE from '../../vendor/three/three.module.min.js?v=6ac6c85-mwblm6td';
+import { BulletHoles, crackTexture } from '../scene/holes.js?v=6ac6c85-mwblm6td';
 import { MatchMap } from './map.js?v=6ac6c85-mwblm6td';
 import { initCore } from '../wasm/core.js?v=6ac6c85-mwblm6td';
 import { Match, TICK } from './sim.js?v=6ac6c85-mwblm6td';
@@ -20,7 +21,7 @@ import { buildMapLook, panelTextures } from './look.js?v=6ac6c85-mwblm6td';
 import { Arena } from '../battle/arena.js?v=6ac6c85-mwblm6td';
 import { Human } from '../battle/human.js?v=6ac6c85-mwblm6td';
 import { drawCrosshair } from '../ui/crosshair.js?v=6ac6c85-mwblm6td';
-import { effectiveGraphics } from '../render/quality.js?v=6ac6c85-mwblm6td';
+import { effectiveGraphics, maxMode } from '../render/quality.js?v=6ac6c85-mwblm6td';
 import { MatchHost, MatchClient } from './net-match.js?v=6ac6c85-mwblm6td';
 import { Brain } from './bots.js?v=6ac6c85-mwblm6td';
 
@@ -168,6 +169,7 @@ export class ModeGame {
     if (map.data.arena) return this._buildArenaScene();
     this.arena = null;
     const scene = this.scene = new THREE.Scene();
+    this._clearImpacts();
     scene.background = new THREE.Color(L.sky);
     scene.fog = new THREE.Fog(...L.fog);
     this.hemi = new THREE.HemisphereLight(0xe8eeff, 0x6a5e50, 1.7);
@@ -204,7 +206,13 @@ export class ModeGame {
     this._applyGraphics();
   }
   // The Battle maps: the same scenery as Battle (the arena's own scene, lights and weather).
+  _clearImpacts() {   // Max impacts belong to the last match's scene (arena scenes are kept)
+    if (this.holes) this.holes.mesh.removeFromParent();
+    if (this.debris) this.debris.pts.removeFromParent();
+    this.holes = this.debris = null;
+  }
   _buildArenaScene() {
+    this._clearImpacts();
     if (!ModeGame.arenas) ModeGame.arenas = {};
     const id = this.map.data.arena;
     const ar = this.arena = ModeGame.arenas[id] || (ModeGame.arenas[id] = new Arena(id));
@@ -258,6 +266,10 @@ export class ModeGame {
     if (this.arena) { this.arena.setGraphics(effectiveGraphics(this.deps.settings), this.deps.renderer); return; }
     const q = effectiveGraphics(this.deps.settings), high = q === 'high' || q === 'ultra', r = this.deps.renderer;
     this.sun.castShadow = high;
+    // Max: a sharper sun shadow, and the sun and fog for the post passes
+    const ks = maxMode.on ? 4096 : 1024;
+    if (this.sun.shadow.mapSize.x !== ks) { this.sun.shadow.mapSize.set(ks, ks); if (this.sun.shadow.map) { this.sun.shadow.map.dispose(); this.sun.shadow.map = null; } }
+    this.scene.userData.maxEnv = maxMode.on ? { sun: this.sun, fog: this.scene.fog ? this.scene.fog.color : null, fogK: 0.008, wet: 0 } : null;
     r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
     r.toneMapping = THREE.NoToneMapping;
     this.hemi.intensity = q === 'low' ? 2.2 : 1.7;
@@ -424,6 +436,7 @@ export class ModeGame {
     const m = this.m, me = this.me, sfx = this.deps.sfx;
     for (const e of m.events) {
       if (e.type === 'shot') this._recShot(e);
+      if (e.type === 'shot' && e.wall && maxMode.on) this._impact(e.from, e.to);
       if (e.type === 'hit' && e.id === me.id) this.rec.hits.push({ t: m.t, by: e.by, zone: e.zone, dmg: e.dmg, kind: e.kind });
       if (e.type === 'shot' && e.id !== me.id) {
         const f = this.fig.get(e.id);
@@ -872,7 +885,53 @@ export class ModeGame {
     this.trBorn[i] = t;
     this.tracers.geometry.attributes.position.needsUpdate = true; this.tracers.geometry.attributes.color.needsUpdate = true;
   }
+  // Max graphics: a cracked bullet hole where a shot hits a wall, and chips and dust thrown off
+  // it (one pool of points, simulated here).
+  _impact(from, to) {
+    const m = this.m, d = [to[0] - from[0], to[1] - from[1], to[2] - from[2]], L = Math.hypot(...d) || 1;
+    for (let i = 0; i < 3; i++) d[i] /= L;
+    const w = m.map.raycast(from, d, L + 0.5);
+    if (!w || w.axis === undefined || w.axis < 0) return;
+    const n = [0, 0, 0]; n[w.axis] = d[w.axis] > 0 ? -1 : 1;
+    const p = [from[0] + d[0] * w.t, from[1] + d[1] * w.t, from[2] + d[2] * w.t];
+    if (!this.holes) { this.holes = new BulletHoles(this.scene, crackTexture()); this.holes.setSize(0.07); }
+    this.holes.add(p[0], p[1], p[2], n[0], n[1], n[2]);
+    if (!this.debris) {
+      const N = 240, geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 3).fill(-999), 3));
+      geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(N * 3), 3));
+      const pts = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.035, vertexColors: true, transparent: true, opacity: 0.9, depthWrite: false }));
+      pts.frustumCulled = false; this.scene.add(pts);
+      this.debris = { pts, v: new Float32Array(N * 3), life: new Float32Array(N), next: 0, N };
+    }
+    const D = this.debris, P = D.pts.geometry.attributes.position.array, C = D.pts.geometry.attributes.color.array;
+    for (let k = 0; k < 10; k++) {
+      const i = D.next; D.next = (i + 1) % D.N;
+      const dust = k >= 7, sp = dust ? 0.6 : 2.2 + Math.random() * 2;
+      P[i * 3] = p[0] + n[0] * 0.02; P[i * 3 + 1] = p[1] + n[1] * 0.02; P[i * 3 + 2] = p[2] + n[2] * 0.02;
+      for (let a = 0; a < 3; a++) D.v[i * 3 + a] = (n[a] * (0.6 + Math.random()) + (Math.random() - 0.5) * 1.2) * sp;
+      const g = dust ? 0.75 : 0.35 + Math.random() * 0.25;
+      C[i * 3] = g; C[i * 3 + 1] = g * 0.95; C[i * 3 + 2] = g * 0.88;
+      D.life[i] = dust ? 0.9 : 0.6 + Math.random() * 0.5;
+    }
+    D.pts.geometry.attributes.color.needsUpdate = true;
+  }
+  _updateDebris(dt) {
+    const D = this.debris;
+    if (!D) return;
+    const P = D.pts.geometry.attributes.position.array;
+    for (let i = 0; i < D.N; i++) {
+      if (D.life[i] <= 0) continue;
+      D.life[i] -= dt;
+      if (D.life[i] <= 0) { P[i * 3 + 1] = -999; continue; }
+      D.v[i * 3 + 1] -= 9.8 * dt;
+      for (let a = 0; a < 3; a++) P[i * 3 + a] += D.v[i * 3 + a] * dt;
+      if (P[i * 3 + 1] < 0.02) { P[i * 3 + 1] = 0.02; D.v[i * 3 + 1] *= -0.3; D.v[i * 3] *= 0.5; D.v[i * 3 + 2] *= 0.5; }
+    }
+    D.pts.geometry.attributes.position.needsUpdate = true;
+  }
   _updateTracers(t) {
+    this._updateDebris(Math.min(0.05, Math.max(0, t - (this._dbT ?? t)))); this._dbT = t;
     let ch = false;
     for (let i = 0; i < MAX_TRACERS; i++) {
       if (this.trBorn[i] < -5 || t - this.trBorn[i] < 0.07) continue;

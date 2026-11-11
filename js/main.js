@@ -50,7 +50,7 @@ import { Profile, WIN_POINTS } from './core/profile.js?v=6ac6c85-mwblm6td';
 import { skinFits, skinById } from './core/skins.js?v=6ac6c85-mwblm6td';
 import { PackUI } from './ui/packs.js?v=6ac6c85-mwblm6td';
 import { HDPack } from './render/hd-pack.js?v=6ac6c85-mwblm6td';
-import { effectiveGraphics, needsPack } from './render/quality.js?v=6ac6c85-mwblm6td';
+import { effectiveGraphics, needsPack, maxMode } from './render/quality.js?v=6ac6c85-mwblm6td';
 import { GraphicsUI } from './ui/graphics-ui.js?v=6ac6c85-mwblm6td';
 import { PerfHud } from './ui/perf-hud.js?v=6ac6c85-mwblm6td';
 import { WorldPost } from './render/world-post.js?v=6ac6c85-mwblm6td';
@@ -130,11 +130,13 @@ async function boot(data) {
     const g = gfx(), enhanced = g === 'high' || g === 'ultra', webgl2 = renderer.capabilities.isWebGL2;
     // High: a map with the pack's baked sky light needs no screen-space occlusion (cheaper)
     const baked = g === 'high' && packMats.lightActive && cur() && cur().active;
-    const o = { ao: enhanced && settings.ao && !baked, taa: enhanced && settings.taa, sharpen: settings.sharpen, scale: worldScale };
+    // Max: SSAO on top of the baked light, and its own passes (bloom, shafts, reflections, fog, grading)
+    const max = enhanced && maxMode.on;
+    const o = { ao: enhanced && (settings.ao || max) && !(baked && !max), taa: enhanced && settings.taa, sharpen: settings.sharpen, scale: worldScale, max };
     worldPost.set(o);
     // Low / Standard: only when upscaling (it costs a full-screen pass, which a school PC
     // feels); High / Ultra: whenever one of its effects is on.
-    worldPost.on = webgl2 && !testNoPost && (worldScale < 0.999 ? g !== 'low' : enhanced && (o.ao || o.taa || o.sharpen > 0));
+    worldPost.on = webgl2 && !testNoPost && (worldScale < 0.999 ? g !== 'low' : enhanced && (o.ao || o.taa || o.sharpen > 0 || max));
   }
   let testNoPost = false;
   const dots = range.dots;

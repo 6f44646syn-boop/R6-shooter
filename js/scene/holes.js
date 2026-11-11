@@ -6,6 +6,29 @@ import * as THREE from '../../vendor/three/three.module.min.js?v=6ac6c85-mwblm6t
 
 export const MAX_HOLES = 300;
 
+// Max graphics, walls in the match modes: a dark hole, a chipped pale rim and radial cracks.
+export function crackTexture() {
+  const s = 128, c = s / 2, cv = document.createElement('canvas'); cv.width = cv.height = s;
+  const g = cv.getContext('2d');
+  let seed = 3; const r = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  g.lineCap = 'round';
+  for (let i = 0; i < 9; i++) {
+    let a = r() * Math.PI * 2, x = c, y = c, w = 3.2;
+    g.beginPath(); g.moveTo(x, y);
+    const len = 22 + r() * 36;
+    for (let k = 0; k < 6; k++) { a += (r() - 0.5) * 0.7; x += Math.cos(a) * len / 6; y += Math.sin(a) * len / 6; g.lineTo(x, y); }
+    g.strokeStyle = 'rgba(30,26,22,0.95)'; g.lineWidth = w; g.stroke();
+  }
+  const rim = g.createRadialGradient(c, c, 6, c, c, 20);
+  rim.addColorStop(0, 'rgba(210,200,184,1)'); rim.addColorStop(1, 'rgba(190,180,164,0)');
+  g.fillStyle = rim; g.beginPath(); g.arc(c, c, 20, 0, 7); g.fill();
+  g.fillStyle = '#0b0a09'; g.beginPath();
+  for (let i = 0; i <= 12; i++) { const a = i / 12 * Math.PI * 2, rr = 7 + r() * 3.5; g[i ? 'lineTo' : 'moveTo'](c + Math.cos(a) * rr, c + Math.sin(a) * rr); }
+  g.fill();
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
 function holeTexture() {
   const s = 128, c = s / 2;
   const cv = document.createElement('canvas');
@@ -25,7 +48,7 @@ function holeTexture() {
 }
 
 export class BulletHoles {
-  constructor(parent) {
+  constructor(parent, tex = null) {
     this.data = new Float32Array(MAX_HOLES * 6); // x y z nx ny nz
     this.next = 0;     // ring buffer write index
     this.count = 0;
@@ -38,7 +61,7 @@ export class BulletHoles {
     this.z = new THREE.Vector3(0, 0, 1);
 
     const mat = new THREE.MeshBasicMaterial({
-      map: holeTexture(), alphaTest: 0.5, transparent: false,
+      map: tex || holeTexture(), alphaTest: 0.5, transparent: false,
       polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4,
     });
     this.mesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), mat, MAX_HOLES);

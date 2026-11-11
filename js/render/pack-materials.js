@@ -6,6 +6,7 @@
 // big surfaces), High half that, so integrated graphics keep their memory.
 import * as THREE from '../../vendor/three/three.module.min.js?v=6ac6c85-mwblm6td';
 import { HDPack } from './hd-pack.js?v=6ac6c85-mwblm6td';
+import { maxMode } from './quality.js?v=6ac6c85-mwblm6td';
 
 export const packMats = { revision: 0, lightActive: false };
 const sets = new Map();          // name|quality -> Promise<{ map, normal, orm }>
@@ -25,7 +26,7 @@ async function texture(path, quality, color) {
   if (!bytes) throw Error('missing ' + path);
   const blob = new Blob([bytes], { type: 'image/webp' });
   let bmp = await createImageBitmap(blob, { imageOrientation: 'flipY', colorSpaceConversion: 'none' });
-  if (quality !== 'ultra' && bmp.width > 256) {
+  if (quality !== 'ultra' && quality !== 'max' && bmp.width > 256) {
     const w = Math.max(256, bmp.width >> 1), h = Math.max(128, bmp.height >> 1);
     const small = await createImageBitmap(bmp, { resizeWidth: w, resizeHeight: h, resizeQuality: 'high' });
     bmp.close(); bmp = small;
@@ -40,7 +41,9 @@ async function texture(path, quality, color) {
 function loadSet(name, quality) {
   const key = name + '|' + quality;
   if (!sets.has(key)) {
-    const p = Promise.all([texture('mat/' + name + '-albedo.webp', quality, true), texture('mat/' + name + '-normal.webp', quality, false), texture('mat/' + name + '-orm.webp', quality, false)])
+    // Max: the 4K version of a large surface when the pack has one
+    const k4 = quality === 'max' && (HDPack.installed.files || []).some((f) => f.path === 'mat/' + name + '-albedo-4k.webp') ? '-4k' : '';
+    const p = Promise.all([texture('mat/' + name + '-albedo' + k4 + '.webp', quality, true), texture('mat/' + name + '-normal' + k4 + '.webp', quality, false), texture('mat/' + name + '-orm' + k4 + '.webp', quality, false)])
       .then(([map, normal, orm]) => ({ map, normal, orm }));
     p.catch(() => sets.delete(key));
     sets.set(key, p);
@@ -125,8 +128,9 @@ function revertMesh(o) {
 export function revertPackMaterials(root) { if (root) root.traverse((o) => { if (o.isMesh && o.userData.packLo) revertMesh(o); }); }
 // opt.light: the map id whose baked light to use (match maps).
 export async function applyPackMaterials(roots, quality, renderer, opt = {}) {
+  if (quality === 'ultra' && maxMode.on) quality = 'max';
   const list = [].concat(roots).filter(Boolean);
-  const high = quality === 'high' || quality === 'ultra';
+  const high = quality === 'high' || quality === 'ultra' || quality === 'max';
   const names = high ? packMaterialNames() : new Set();
   const meshes = [];
   for (const root of list) root.traverse((o) => { if (o.isMesh && !o.userData.ownMaterial) meshes.push(o); });
@@ -144,7 +148,7 @@ export async function applyPackMaterials(roots, quality, renderer, opt = {}) {
   const loaded = new Map();
   await Promise.all([...wanted.keys()].map(async (n) => { try { loaded.set(n, await loadSet(n, quality)); } catch (e) { console.warn('pack material ' + n, e); } }));
   const env = envMap(renderer);
-  const aniso = Math.min(quality === 'ultra' ? 8 : 4, renderer.capabilities.getMaxAnisotropy());
+  const aniso = Math.min(quality === 'max' ? 16 : quality === 'ultra' ? 8 : 4, renderer.capabilities.getMaxAnisotropy());
   let n = 0;
   for (const [name, objs] of wanted) {
     const s = loaded.get(name);

@@ -8,6 +8,7 @@
 // Coordinates: metres, x right, y up, z towards the "A" side. Same yaw convention as the
 // range: yaw 0 looks along -z, positive turns right.
 import { applyPackMaterials, revertPackMaterials } from '../render/pack-materials.js?v=6ac6c85-mwblm6td';
+import { maxMode } from '../render/quality.js?v=6ac6c85-mwblm6td';
 import * as THREE from '../../vendor/three/three.module.min.js?v=6ac6c85-mwblm6td';
 import { MAPS } from './maps.js?v=6ac6c85-mwblm6td';
 import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=6ac6c85-mwblm6td';
@@ -421,7 +422,22 @@ export class Arena {
     this.key.color.set(a.night ? 0x8aa0ff : map.key[0]);
     this.hemi.color.set(a.night ? 0x6a7aa8 : map.hemi[0]);
     a.nextFlash = 3 + Math.random() * 6;
-    if (this.quality) { this._applyLights(); this._fogBanks(); }
+    if (this.quality) { this._applyLights(); this._fogBanks(); this._maxEnv(); }
+  }
+  // Max graphics: the sun and fog for the post passes, and wet surfaces in rain (glossier, a
+  // little darker; the floor reflections get stronger in world-post.js).
+  _maxEnv() {
+    const a = this.atm, wet = maxMode.on && (a.w === 'rain' || a.w === 'storm') && !this.map.indoor ? 1 : 0;
+    this.scene.userData.maxEnv = maxMode.on ? { sun: a.night ? null : this.key, fog: this.scene.fog ? this.scene.fog.color : null, fogK: a.fog ? 0.03 : 0.006, wet } : null;
+    if (wet === this._wet) return;
+    this._wet = wet;
+    this.scene.traverse((o) => {
+      const m = o.isMesh && o.material;
+      if (!m || !m.isMeshStandardMaterial) return;
+      const u = m.userData;
+      if (wet && u.dry === undefined) { u.dry = [m.roughness, m.color.getHex(), m.envMapIntensity]; m.roughness *= 0.35; m.color.multiplyScalar(0.8); m.envMapIntensity *= 1.8; }
+      else if (!wet && u.dry !== undefined) { [m.roughness] = u.dry; m.color.setHex(u.dry[1]); m.envMapIntensity = u.dry[2]; delete u.dry; }
+    });
   }
   // Drifting fog banks low over the ground: soft sprites, more of them in High / Ultra.
   _fogBanks() {
@@ -542,7 +558,7 @@ export class Arena {
     // Enhanced Graphics pack v5: physically based materials and the map's baked light (the
     // match-mode copies of these maps share their geometry and coordinates)
     const scene = this.scene;
-    applyPackMaterials(scene, q, renderer, { light: { yard: 'containers', winter: 'winter', casino: 'casino', school: 'school' }[this.mapId] }).catch((e) => console.warn('pack materials', e));
+    applyPackMaterials(scene, q, renderer, { light: { yard: 'containers', winter: 'winter', casino: 'casino', school: 'school' }[this.mapId] }).then(() => { if (this.scene === scene) { this._wet = undefined; this._maxEnv(); } }).catch((e) => console.warn('pack materials', e));
     this._applyLights();
     this._fogBanks();
     this.scene.environment = high && !this.atm.night ? this.env : null;
@@ -551,6 +567,7 @@ export class Arena {
     renderer.toneMapping = high ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
     renderer.toneMappingExposure = high ? 1.3 : 1;
     this.quality = q;
+    this._wet = undefined; this._maxEnv();
   }
 
   /* ---------- the map inside the Rust core ---------- */

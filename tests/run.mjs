@@ -695,6 +695,17 @@ try {
       return f ? { far: f._far, near: f._geo && f.body.geometry === f._geo.upper, hasFar: !!(f._geo && f._geo.far) } : null;
     });
     check('distant soldiers use the lighter model', lod && lod.hasFar && lod.far === true, JSON.stringify(lod));
+    // Max: Ultra plus its own passes, SSAO with the baked light, full-detail soldiers, wall impacts
+    await page.evaluate(() => { window.__range.setGraphics('max'); window.__range.modeGame().refreshGraphics(); window.__range.setPost({}); });   // (as the Graphics screen does: graphicsChanged -> resize)
+    await page.waitForTimeout(800);
+    const mx = await page.evaluate(() => {
+      const R = window.__range, G = R.modeGame(), me = G.me; R.step(0.1, 60); R.renderFrame();
+      const w = R.worldPost(), far = G.m.actors.find((a) => a !== me && Math.hypot(a.x - me.x, a.z - me.z) > 20), f = far && G.fig.get(far.id);
+      G._impact([me.x, 1.4, me.z], [me.x + 60, 1.4, me.z + 0.3]); G._impact([me.x, 1.4, me.z], [me.x - 60, 1.2, me.z]); R.step(0.1, 60);
+      return { on: w.on, max: w.max, ao: w.ao, env: !!G.scene.userData.maxEnv, sun: G.sun.shadow.mapSize.x, far: f ? f._far : null, holes: G.holes ? G.holes.count : 0, debris: G.debris ? [...G.debris.life].filter((v) => v > 0).length : 0 };
+    });
+    check('Max: bloom, shafts, reflections, fog and grading on, SSAO with the baked light, sharper shadows, full-detail soldiers', mx.on && mx.max && mx.ao && mx.env && mx.sun === 4096 && mx.far === false, JSON.stringify(mx));
+    check('Max: shots leave cracked holes in walls and throw debris', mx.holes >= 1 && mx.debris > 0, JSON.stringify(mx));
     await page.evaluate(() => { window.__range.setGraphics('standard'); window.__range.modeGame().refreshGraphics(); });
     await page.waitForTimeout(400);
     const back = await look();
@@ -1076,7 +1087,7 @@ try {
     check('a damaged download is refused (checked against the pack list)', bad.st.state === 'error' && !bad.st.ready && /damaged/.test(bad.status), JSON.stringify(bad));
     await page.unroute('**/hd/guns/ak.rrmz');
     await page.click('#gx-download');
-    await page.waitForFunction(() => window.__range.hdState().loaded, null, { timeout: 60000 });
+    await page.waitForFunction(() => window.__range.hdState().loaded, null, { timeout: 180000 });   // (pack v6: ~100 MB)
     const p1 = await page.evaluate(async () => {
       const R = window.__range;
       R.step(0.2); R.renderFrame();

@@ -5,6 +5,7 @@
 import * as THREE from '../../vendor/three/three.module.min.js?v=6ac6c85-mwblm6td';
 import { soldierGeometry, raycastSoldier, GRIP_HAND, HIP_X, HIP_Y } from './soldier.js?v=6ac6c85-mwblm6td';
 import { buildWorldGun } from '../scene/viewmodel.js?v=6ac6c85-mwblm6td';
+import { maxMode } from '../render/quality.js?v=6ac6c85-mwblm6td';
 
 export const STAND_EYE = 1.6, CROUCH_EYE = 1.12;
 export const CROUCH_SCALE = 0.7;
@@ -192,7 +193,7 @@ export class Fighter {
   }
   // Pack v5: the lighter soldier when far from the camera (d: metres). Cheap to call each frame.
   lodFor(d) {
-    const g = this._geo, far = !!(g && g.far) && d > 16;
+    const g = this._geo, far = !!(g && g.far) && d > (maxMode.on ? Infinity : 16);   // Max: full detail at any distance
     if (far === this._far) return;
     this._far = far;
     const s = far ? g.far : g;

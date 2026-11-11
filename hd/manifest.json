@@ -1,6 +1,6 @@
 {
  "name": "Recoil Range Enhanced Graphics",
- "version": 5,
+ "version": 6,
  "files": [
   {
    "path": "anims/weapons.json",
@@ -108,9 +108,19 @@
    "sha256": "2205e09827c594e2dc1aa81a7d72d683b3b28914efcd6bb2f85ea03ca6937516"
   },
   {
+   "path": "mat/ashlar-albedo-4k.webp",
+   "size": 365232,
+   "sha256": "4d307629d89664dd01a11d2cf05cdbbd617375eb8a89db352f13ac4da7aa5f9c"
+  },
+  {
    "path": "mat/ashlar-albedo.webp",
    "size": 157934,
    "sha256": "877ba70ecf2904c41fb53779d27f205dff153c3563375ef25a405d6ce9e8b5d8"
+  },
+  {
+   "path": "mat/ashlar-normal-4k.webp",
+   "size": 1910748,
+   "sha256": "7fa0876a32427d8da16861ace5aaa77901628bada1c8341344864fdf464a2518"
   },
   {
    "path": "mat/ashlar-normal.webp",
@@ -118,9 +128,19 @@
    "sha256": "d0e9c1f020fc557f157b8202f7e5c8e940b9293f7739c8fb3e8bbf4bcf1383bf"
   },
   {
+   "path": "mat/ashlar-orm-4k.webp",
+   "size": 153040,
+   "sha256": "0d7f7e338fedf0a26160a5b6e566ef508c47ed0656d82778c71a02b4d809b02d"
+  },
+  {
    "path": "mat/ashlar-orm.webp",
    "size": 55164,
    "sha256": "3efa554768ad22e7471f8a513360d8a95da4bc6ebac1e1a578bbfb019ef2d56e"
+  },
+  {
+   "path": "mat/asphalt-albedo-4k.webp",
+   "size": 804872,
+   "sha256": "8b1ae0e76ee37caef7923ed8910f4ec09517fd4c3e4b20234e4aebda98964239"
   },
   {
    "path": "mat/asphalt-albedo.webp",
@@ -128,9 +148,19 @@
    "sha256": "1dff8141f8a684b8c5035b776a3e3ddaac3ea74d15518447262ef48627bad106"
   },
   {
+   "path": "mat/asphalt-normal-4k.webp",
+   "size": 2992046,
+   "sha256": "5af91f6aa031c0b18670bca54b92e6ae7ee469b9006f2a8564e037bfd65baeb2"
+  },
+  {
    "path": "mat/asphalt-normal.webp",
    "size": 1122324,
    "sha256": "60fee58c7bd903cd6aaef74fed37c765a2a681923d0e3aa6591803e5cfe5c64c"
+  },
+  {
+   "path": "mat/asphalt-orm-4k.webp",
+   "size": 527092,
+   "sha256": "739ba85948d65d10a72cac65f775bbc357da6e056e56fc3dce951bbf097fbade"
   },
   {
    "path": "mat/asphalt-orm.webp",
@@ -138,14 +168,29 @@
    "sha256": "506bdd1ed3f15ff9c0763ba50c2034c129f97a1eff7ba292753201a4c096c82f"
   },
   {
+   "path": "mat/bBasement-albedo-4k.webp",
+   "size": 146360,
+   "sha256": "033123e624e4733887a0b0466f2d10a544cd8f2ec0dcc3637be26b396629059a"
+  },
+  {
    "path": "mat/bBasement-albedo.webp",
    "size": 56852,
    "sha256": "580e1d680eb8d826e14cca77efafe6cc3722d5dd59bcb9413d616b80c8e5ea68"
   },
   {
+   "path": "mat/bBasement-normal-4k.webp",
+   "size": 327534,
+   "sha256": "799851aaecefcdcd3d9108f7749b3372604c6b75964c0f9953ba3138e7fe5b8f"
+  },
+  {
    "path": "mat/bBasement-normal.webp",
    "size": 114048,
    "sha256": "99436aea08fdf139e7be2f87227a08e22b06d725e9683e06daa364f92d2335dd"
+  },
+  {
+   "path": "mat/bBasement-orm-4k.webp",
+   "size": 238808,
+   "sha256": "8e9d66b4d1226e5364d35a5358f3b9d429c0d7b0a7f1cd303aa18bfd37aeb5d1"
   },
   {
    "path": "mat/bBasement-orm.webp",
@@ -168,14 +213,29 @@
    "sha256": "60945b2a9bc9bcaa9230d9e3319ca9db6394ec218c58ed5095b50f8a474f3756"
   },
   {
+   "path": "mat/bCasinocarpet-albedo-4k.webp",
+   "size": 447062,
+   "sha256": "0545d501459322ceae7980f5cd7aa4370aebe509a120a99def2a696679ab3708"
+  },
+  {
    "path": "mat/bCasinocarpet-albedo.webp",
    "size": 177072,
    "sha256": "23a620bdd01ab38962f203dc1383ad0e5a2966d1963f84bea5945606be16e62b"
   },
   {
+   "path": "mat/bCasinocarpet-normal-4k.webp",
+   "size": 5432346,
+   "sha256": "459a53a7dc1b91c4e259898615694d1599eba5bd11ec946cd72b40d43531e00c"
+  },
+  {
    "path": "mat/bCasinocarpet-normal.webp",
    "size": 1701024,
    "sha256": "845884a032b4a0b1f0a651e63ab2b50dd4e153c7b5bbdd0bd08319f58d345f87"
+  },
+  {
+   "path": "mat/bCasinocarpet-orm-4k.webp",
+   "size": 1344782,
+   "sha256": "d0a4b4c1d11a22f9c6e3c75cdf57f164d8211840c868a5e707e01c8aa5b3cf3e"
   },
   {
    "path": "mat/bCasinocarpet-orm.webp",
@@ -258,14 +318,29 @@
    "sha256": "7d012e9c54dc33c230514e91f55b4d12dc723dae7c037218a0a1e3f50a9b04e3"
   },
   {
+   "path": "mat/bLogs-albedo-4k.webp",
+   "size": 486610,
+   "sha256": "98ea7561395e9261c1ef55f4f04e9311a993d3bf6f51758af21bbae1e82df125"
+  },
+  {
    "path": "mat/bLogs-albedo.webp",
    "size": 204780,
    "sha256": "0c86f9691ac61e3646fc25a57de4b61d1f3bf73ff6a17ac7dff0d197bfb5df5f"
   },
   {
+   "path": "mat/bLogs-normal-4k.webp",
+   "size": 1922330,
+   "sha256": "aafa45b3e9b6496582382cb6f13e002742fd3651b006a33f879ccf75681c2af2"
+  },
+  {
    "path": "mat/bLogs-normal.webp",
    "size": 539982,
    "sha256": "f756d62d107a1a4160939bc5795c8bed2bc68281635568fc25549635348d3872"
+  },
+  {
+   "path": "mat/bLogs-orm-4k.webp",
+   "size": 236996,
+   "sha256": "15298e33fbda996377dee132cb684a7e9727c7a062c66f00440f93ee152b2acb"
   },
   {
    "path": "mat/bLogs-orm.webp",
@@ -333,14 +408,29 @@
    "sha256": "54ec699643ac022f9c437cab45dd51f42ef60e7500fd24c0530e354a6b0dabef"
   },
   {
+   "path": "mat/bSnow-albedo-4k.webp",
+   "size": 466216,
+   "sha256": "90ec7815f2359cc3400163a0c563d2e2c1dd85e390e00961254787a8dae84b94"
+  },
+  {
    "path": "mat/bSnow-albedo.webp",
    "size": 257410,
    "sha256": "b09f7aa12bf77f9b1625194049191a5c34187b0c3bfc35547d9ad00bdd75f7cd"
   },
   {
+   "path": "mat/bSnow-normal-4k.webp",
+   "size": 604466,
+   "sha256": "86b781d858512fd8475d361d235ac4ec70a56e02b5da422526313901d588127e"
+  },
+  {
    "path": "mat/bSnow-normal.webp",
    "size": 242428,
    "sha256": "cfd460f620d190267f58e8eea5ee7555f3609c47c15234d0807c7327c890f340"
+  },
+  {
+   "path": "mat/bSnow-orm-4k.webp",
+   "size": 223584,
+   "sha256": "a900780644292cd45d186f31cdd57308a7c76d9a8a90930e336a87dc685b3346"
   },
   {
    "path": "mat/bSnow-orm.webp",
@@ -363,14 +453,29 @@
    "sha256": "52dc7854bc7cd1086d486b3d9f734a3e627293fcab373b9fba06051696988cba"
   },
   {
+   "path": "mat/bYardfloor-albedo-4k.webp",
+   "size": 414884,
+   "sha256": "773fa404878ffdd200d9ee785b0deafa0c9d9cbe269867af39d5a4c71a4ca626"
+  },
+  {
    "path": "mat/bYardfloor-albedo.webp",
    "size": 227180,
    "sha256": "f28b2c09a3d814dd42001db6edcc87860ff67fed0eaa42fbefbb8fab2d3da55f"
   },
   {
+   "path": "mat/bYardfloor-normal-4k.webp",
+   "size": 1661770,
+   "sha256": "ff2ac2e36d915e3c229f2ed8780df0612f9156cdd14fae29c41c32e988b15116"
+  },
+  {
    "path": "mat/bYardfloor-normal.webp",
    "size": 771078,
    "sha256": "ed10729dd1f9088749893f4de9b11bd86d03373910102186a670b2b559d6a1ad"
+  },
+  {
+   "path": "mat/bYardfloor-orm-4k.webp",
+   "size": 279896,
+   "sha256": "46f03e2082a0b97e29d37c24d8cecc00a98dd1dfdffd3fb6e7da16c7a4050a8a"
   },
   {
    "path": "mat/bYardfloor-orm.webp",
@@ -393,14 +498,29 @@
    "sha256": "ef52e09d366b29773f4e5275e8ee33ea31285e842c0685d904c7e1c2770ec8db"
   },
   {
+   "path": "mat/barn-albedo-4k.webp",
+   "size": 230608,
+   "sha256": "48250a8c929d879ebd828f008b5f191c98a54bc4abb156ef38fb08709ca0471a"
+  },
+  {
    "path": "mat/barn-albedo.webp",
    "size": 81584,
    "sha256": "a6a8729a25c29ed75c8870181e3680c712d9d37d768ba5aed79e1112fa0037c4"
   },
   {
+   "path": "mat/barn-normal-4k.webp",
+   "size": 652496,
+   "sha256": "1b9718fd86cb6b460bc2ad6e8dc0a7cf65508eef9672ead04ebe002463fb7cb2"
+  },
+  {
    "path": "mat/barn-normal.webp",
    "size": 171856,
    "sha256": "3d4643417a90fe790530bd41a6ec5586be22d0bbb694cf79ee2b0ffcf1a7896d"
+  },
+  {
+   "path": "mat/barn-orm-4k.webp",
+   "size": 153456,
+   "sha256": "85851376ef9cc6563569093bc3900846bda37bb7d3acdb33b4d6eb996bdc71fa"
   },
   {
    "path": "mat/barn-orm.webp",
@@ -438,14 +558,29 @@
    "sha256": "6d7758f1d9ea9a91de094fc501cbf2362b763b57ded4162b9bf637a77d58ae8a"
   },
   {
+   "path": "mat/block-albedo-4k.webp",
+   "size": 339998,
+   "sha256": "1f3fa69984ff57148581065568ae36283bf4bcc2f77ddbc051f4352622da61c3"
+  },
+  {
    "path": "mat/block-albedo.webp",
    "size": 205304,
    "sha256": "87d854d6134de8db5c3e710157fd1183bd4a081d1238d02da489f58936e2d628"
   },
   {
+   "path": "mat/block-normal-4k.webp",
+   "size": 1682810,
+   "sha256": "ce9fe5f23ca46669f5e5013350c8270f8463814a441902cbfe09d027a4c7cd1e"
+  },
+  {
    "path": "mat/block-normal.webp",
    "size": 769160,
    "sha256": "0c4826e831f082bdff14d32120c63c43536d395efe0ec6307668ff27f747882f"
+  },
+  {
+   "path": "mat/block-orm-4k.webp",
+   "size": 611222,
+   "sha256": "8549dd8c6f7743ab8deecbe5e4034419ef67a1581008f6f52e684ec08e3799f8"
   },
   {
    "path": "mat/block-orm.webp",
@@ -468,14 +603,29 @@
    "sha256": "a07b9a8f6f5eda17af47d2bfad3fada896c9125f07786b9fc3a6782df3b9302b"
   },
   {
+   "path": "mat/brick-albedo-4k.webp",
+   "size": 751156,
+   "sha256": "7c5053e94d845930a582261836b75312c47018f1713ca8978cb8f0199190e172"
+  },
+  {
    "path": "mat/brick-albedo.webp",
    "size": 335370,
    "sha256": "e266590e13c38de4cb34aa7706be651524ada71c26711f9d68ccbb22791032cd"
   },
   {
+   "path": "mat/brick-normal-4k.webp",
+   "size": 1945150,
+   "sha256": "fefc512a724d2ccaf07c0f68743703bac158d4480d49b9e33db954e206dbca02"
+  },
+  {
    "path": "mat/brick-normal.webp",
    "size": 582366,
    "sha256": "4be43a5082d248b85e2beff8c754d6fef51312a0134d59f4066fae1efc59b946"
+  },
+  {
+   "path": "mat/brick-orm-4k.webp",
+   "size": 345338,
+   "sha256": "00cfd6529e8385c62fa1370bf6d262261d4117c3ca4010d373ae33fa45a825e2"
   },
   {
    "path": "mat/brick-orm.webp",
@@ -573,14 +723,29 @@
    "sha256": "ade5c355500a705b789e55c5acf938e90a33af2a91cb36219acf1b6cd442ec45"
   },
   {
+   "path": "mat/concrete-albedo-4k.webp",
+   "size": 565496,
+   "sha256": "d985a860449c3bf1e4fd86fd42ac66cc7ead1dadf33384e32e5c909f87a80a97"
+  },
+  {
    "path": "mat/concrete-albedo.webp",
    "size": 302224,
    "sha256": "775fd670e16235c309a380226fa9c579be7081e8d414256de0346a779c2bd8e5"
   },
   {
+   "path": "mat/concrete-normal-4k.webp",
+   "size": 2168708,
+   "sha256": "f0310399638d8f8e9dba5294900bc84dedbe0a5033bf9e58dbb59c46ed215bb7"
+  },
+  {
    "path": "mat/concrete-normal.webp",
    "size": 1052834,
    "sha256": "02fd8b24496692bdea2b20aa575e038bf6a227da661d642f4d655f43d562d3b1"
+  },
+  {
+   "path": "mat/concrete-orm-4k.webp",
+   "size": 1012452,
+   "sha256": "a79ba675aec520927bbfa82fc42c9f43d3b13dcb965c718593b75e5e0ebd4e68"
   },
   {
    "path": "mat/concrete-orm.webp",
@@ -603,9 +768,19 @@
    "sha256": "eac98f1f51e93aa2f5be5c65f81764a960d4bfbb8a27e377b396cf6fa1c8cc6e"
   },
   {
+   "path": "mat/deck-albedo-4k.webp",
+   "size": 772144,
+   "sha256": "a413f2435c88aa53186bfde8bdb86f25879ee6df82835da7877741e0741afb03"
+  },
+  {
    "path": "mat/deck-albedo.webp",
    "size": 272692,
    "sha256": "b612e9bc130415683355f29e1890a9af2b93992528b6807964d7d90900bd4cc6"
+  },
+  {
+   "path": "mat/deck-normal-4k.webp",
+   "size": 2229234,
+   "sha256": "81552b2800d813c8668afa66caade73a9745b1b3138bb1a03662a2aa522f7ccc"
   },
   {
    "path": "mat/deck-normal.webp",
@@ -613,9 +788,19 @@
    "sha256": "457d25306060881b2f4b4021dc0bc8f8b73134fb735cee8cd4beb7535da9de56"
   },
   {
+   "path": "mat/deck-orm-4k.webp",
+   "size": 141190,
+   "sha256": "5a50b92a8b3836d5cac0d57801a46df6cd0f40f045323c4ad8a9a4f3ecbcb560"
+  },
+  {
    "path": "mat/deck-orm.webp",
    "size": 43076,
    "sha256": "9e8f3c8a712620207c3ea35d8acdeca69f389046d9f11e989f09b6f801413f56"
+  },
+  {
+   "path": "mat/dirt-albedo-4k.webp",
+   "size": 149990,
+   "sha256": "bb316700b14c6dd46a9bdd4ac33841943dccca43dcdab75ec100bc4b2d413236"
   },
   {
    "path": "mat/dirt-albedo.webp",
@@ -623,9 +808,19 @@
    "sha256": "456290d544b9c2d6ff2f91c908d689e75baff86e9d485971ec3520291b1809d5"
   },
   {
+   "path": "mat/dirt-normal-4k.webp",
+   "size": 573140,
+   "sha256": "9fd43423b4bf02c73fde4f247bb36eba9903dd74308cf56d43bf3e970eee0bdf"
+  },
+  {
    "path": "mat/dirt-normal.webp",
    "size": 220818,
    "sha256": "4593d03307ac7102dc50e833b2d53eb7febc786e92830261761c9e7edb2b044f"
+  },
+  {
+   "path": "mat/dirt-orm-4k.webp",
+   "size": 234076,
+   "sha256": "2d6c15adb2980a55351528a17c471d919f132fa55d039a2c7656a4f77861e15c"
   },
   {
    "path": "mat/dirt-orm.webp",
@@ -678,9 +873,19 @@
    "sha256": "965f5793f317bd3c9776c5c67bc16dc98e65fac53835ff9b333981c3f94906bc"
   },
   {
+   "path": "mat/grass-albedo-4k.webp",
+   "size": 380668,
+   "sha256": "f565e90a431f685610d35546f3545a9e79f0f5cd8260f84faba7262b01ab9f7a"
+  },
+  {
    "path": "mat/grass-albedo.webp",
    "size": 159958,
    "sha256": "127a7015c66d5f5bae72efee53d5614c2f147d7b1b369ac88f7df0fcaf4f2bdd"
+  },
+  {
+   "path": "mat/grass-normal-4k.webp",
+   "size": 2525256,
+   "sha256": "f9fb0542653576eaded6dd8d13d1525da04bdeeb4ece16921c44de44490d5b0f"
   },
   {
    "path": "mat/grass-normal.webp",
@@ -688,9 +893,19 @@
    "sha256": "0dc7de0c13941be6d2924183a0ebfa8fcc68d720da46de6e8118257963a65cec"
   },
   {
+   "path": "mat/grass-orm-4k.webp",
+   "size": 702388,
+   "sha256": "295cec02010136f732336306b87bd01a5319900bfbf6f8fc2ada3d3e63b27e4a"
+  },
+  {
    "path": "mat/grass-orm.webp",
    "size": 296244,
    "sha256": "816750e8eb103802c08b536db52dbbcb98234a44cc3e331682835dfd605b5f9e"
+  },
+  {
+   "path": "mat/house-albedo-4k.webp",
+   "size": 65530,
+   "sha256": "2567da53ea565874a3842c16e72bc55a35b9f36057fb2ab2553748705d7c9780"
   },
   {
    "path": "mat/house-albedo.webp",
@@ -698,9 +913,19 @@
    "sha256": "60a0a06bff0825f113aba0ebd33710887a4044c10011bebcdeabfa095b96b0b5"
   },
   {
+   "path": "mat/house-normal-4k.webp",
+   "size": 117232,
+   "sha256": "bf8f6830e3c610c73cb39a7c5ae86e62e597ce6e5e09a91d1723464557ae2aed"
+  },
+  {
    "path": "mat/house-normal.webp",
    "size": 31818,
    "sha256": "e1255be88b89cef1413640e7f5cc54ead12174f2250a945d6f3d85090de1e314"
+  },
+  {
+   "path": "mat/house-orm-4k.webp",
+   "size": 74284,
+   "sha256": "a87d652a6b397b2d679a57cc620a6d91a43ae4f9a7906d201b0a60195f3504ed"
   },
   {
    "path": "mat/house-orm.webp",
@@ -708,14 +933,29 @@
    "sha256": "038262fcb53020c842cfe57db3c3ef5695e5843c1aad732a284f78797fe23f55"
   },
   {
+   "path": "mat/lawn-albedo-4k.webp",
+   "size": 391100,
+   "sha256": "a552fdc16769ec416aea155cad33fe9d3e2337da031f02dee6d0244f8a019da3"
+  },
+  {
    "path": "mat/lawn-albedo.webp",
    "size": 168930,
    "sha256": "016b6788e3ff30c777e65051feeaea38c8568272a67cee9953b51640f9349443"
   },
   {
+   "path": "mat/lawn-normal-4k.webp",
+   "size": 2572770,
+   "sha256": "da33ae743f62ecf03f1b66fb35e3342328afdce1dc8f839121f11ba68ceff8f5"
+  },
+  {
    "path": "mat/lawn-normal.webp",
    "size": 935370,
    "sha256": "c9e1d1c76580d97a3061a74ebcd55cca7ae62f825120d3dbf197050321468289"
+  },
+  {
+   "path": "mat/lawn-orm-4k.webp",
+   "size": 785468,
+   "sha256": "6fe43da2136603004edef1a1e2fa643dc6197d5e1b4818a25670a454581c675d"
   },
   {
    "path": "mat/lawn-orm.webp",
@@ -738,14 +978,29 @@
    "sha256": "29d4507c2970dc10a8d9756b69f9c27d26c84c3524d6e7543e24315e0e810bdf"
   },
   {
+   "path": "mat/marble-albedo-4k.webp",
+   "size": 268442,
+   "sha256": "91ca89d21e36914bab89a9575b91421d3e88648698c59c31b17fc74d79881f92"
+  },
+  {
    "path": "mat/marble-albedo.webp",
    "size": 113990,
    "sha256": "badb47d85941f87f106f29a236055c225bd84ea9ac9843adc5031b2ce55b563c"
   },
   {
+   "path": "mat/marble-normal-4k.webp",
+   "size": 48278,
+   "sha256": "8fc0b0d001cfdfa34aa26caa98bfbbf0e66779f52aa35742ddcb2c18a25e9fb6"
+  },
+  {
    "path": "mat/marble-normal.webp",
    "size": 16286,
    "sha256": "25a37d9343c1925b0d5d6a035be9863ba7a634a90e92fecc451beb3f8a3e2383"
+  },
+  {
+   "path": "mat/marble-orm-4k.webp",
+   "size": 38882,
+   "sha256": "a20a7cfc83d8de51d0e699604b5bfab8b4f1de0af79878fff386ee86ea062e2c"
   },
   {
    "path": "mat/marble-orm.webp",
@@ -798,9 +1053,19 @@
    "sha256": "0dfd2f4c94f56df845cd005656d12ba17434e4c575787f1b72da318bb2ac911b"
   },
   {
+   "path": "mat/roof-albedo-4k.webp",
+   "size": 780098,
+   "sha256": "6df1a67e9a793b74f0e300cb634ff3a1ea21dc5e63e12cbf429883042776926d"
+  },
+  {
    "path": "mat/roof-albedo.webp",
    "size": 286816,
    "sha256": "4cf2b5d23dba221319e4ee64cfdaf6a47f0b12719aa74ef231bf765daab5e0a1"
+  },
+  {
+   "path": "mat/roof-normal-4k.webp",
+   "size": 2398310,
+   "sha256": "228e1ff062926ba9913ec3bb039f23ed73095cea245375b80b36b1483ad7c055"
   },
   {
    "path": "mat/roof-normal.webp",
@@ -808,9 +1073,19 @@
    "sha256": "e9b82455dfc851b7cb26d6d968a042defc1050f794c2ee7ff38117de42e1e6d6"
   },
   {
+   "path": "mat/roof-orm-4k.webp",
+   "size": 220280,
+   "sha256": "1e92407ce3569e7cd093ccc3461057a96a3f3e55a2b5fef479942e050a5027df"
+  },
+  {
    "path": "mat/roof-orm.webp",
    "size": 73126,
    "sha256": "ca4d238b8ab3dbb6c1cc1578498bd5ab2470809e28286087389b7c7a4461cba4"
+  },
+  {
+   "path": "mat/rust-albedo-4k.webp",
+   "size": 236754,
+   "sha256": "9de353c774e83c48e1c7a32b0a2db99fa730b3f133c4457bac71c9f3bb5d42b6"
   },
   {
    "path": "mat/rust-albedo.webp",
@@ -818,9 +1093,19 @@
    "sha256": "bfa4cd44ba387e420525cfa03264ae3aa70e6194de52f405240de0597676b998"
   },
   {
+   "path": "mat/rust-normal-4k.webp",
+   "size": 210300,
+   "sha256": "0f98e0882003578bf104c645125476052b6ec7e6c4f3d61f67ce0b404651c0f6"
+  },
+  {
    "path": "mat/rust-normal.webp",
    "size": 69260,
    "sha256": "8cf5b13424bb1a66f9a482dad8cb3905048ecbb52f8ab597b5c6d646c818939d"
+  },
+  {
+   "path": "mat/rust-orm-4k.webp",
+   "size": 232582,
+   "sha256": "e13f794d09c3eeb9d93f83a95213e981a8bc3bffcde6f12f82ddd8c4e4a357e0"
   },
   {
    "path": "mat/rust-orm.webp",
@@ -843,14 +1128,29 @@
    "sha256": "0d1a80126e3a75116cbcf2b12d9dfd2eedf25ed79a36bba74108f546677166e1"
   },
   {
+   "path": "mat/siding-albedo-4k.webp",
+   "size": 385142,
+   "sha256": "3f98a195845a2baa5bf11620f5db8b234e90da8198c10c325c0d9daf69dab9a6"
+  },
+  {
    "path": "mat/siding-albedo.webp",
    "size": 137520,
    "sha256": "7fd72748dc9789c31be13eb1b61bee9e7fce92f830992edc4b002ee95baa8de9"
   },
   {
+   "path": "mat/siding-normal-4k.webp",
+   "size": 1121014,
+   "sha256": "29a1e661ce328c36b802ea97fb3949c7c6cdb100c52b69bbc27f4af8a61db0a9"
+  },
+  {
    "path": "mat/siding-normal.webp",
    "size": 251448,
    "sha256": "eb0ee45975b42925ff79dc1681e133494c4ecd9e853bdad492ae39376db2dfd8"
+  },
+  {
+   "path": "mat/siding-orm-4k.webp",
+   "size": 122398,
+   "sha256": "2ce113c3184cae3592835f47da5225199cf9e375e13c5ec3ddc7b8688bea175e"
   },
   {
    "path": "mat/siding-orm.webp",
@@ -873,14 +1173,29 @@
    "sha256": "15db0fa8150a6dfe924c281f64620e8324d738fbc81a1a2bf0fcf4ec5ebc52b9"
   },
   {
+   "path": "mat/stone-albedo-4k.webp",
+   "size": 197502,
+   "sha256": "7404c803302cdb2debd700b5920db337149b2395b4a0455d8b9df9cec7aae4b9"
+  },
+  {
    "path": "mat/stone-albedo.webp",
    "size": 79974,
    "sha256": "103cd379e7563250241bdc2224bcb6c39ddf63f4427d0e506df864f521d05c59"
   },
   {
+   "path": "mat/stone-normal-4k.webp",
+   "size": 1021916,
+   "sha256": "8db53537827bfae91c6cf3c67ef10744f30cd1ee1fd32cae7eaf9ebde3f29fc2"
+  },
+  {
    "path": "mat/stone-normal.webp",
    "size": 324506,
    "sha256": "facd5de72f402a49c77e8635498bfc8be2c5c05a3e2b6e1d069066aa19cda70f"
+  },
+  {
+   "path": "mat/stone-orm-4k.webp",
+   "size": 276516,
+   "sha256": "e75b8ea741db4545ad8973ce6d1956d50dd508fbfabc406207c8c7e51721d64d"
   },
   {
    "path": "mat/stone-orm.webp",
@@ -963,14 +1278,29 @@
    "sha256": "5772133f491eaa810b2d377ac8d2fbbf6146bd5f063bb49c911d3a04202d0753"
   },
   {
+   "path": "mat/wood-albedo-4k.webp",
+   "size": 1085690,
+   "sha256": "fbaa5e02ff9deab2cb53cad731a4c625432442b892fc87110ffbb9ea386e0182"
+  },
+  {
    "path": "mat/wood-albedo.webp",
    "size": 352840,
    "sha256": "e6d7ff1b0389865acb73b1ba8dd2aceca90d0bd138d3f7e1ea1b81bd447aee5d"
   },
   {
+   "path": "mat/wood-normal-4k.webp",
+   "size": 1978230,
+   "sha256": "d20f28995ea91510cdb487eba561dca92fd6899716c73de23dbe4910c734b73a"
+  },
+  {
    "path": "mat/wood-normal.webp",
    "size": 421264,
    "sha256": "d386907d68ee5c2e103bb9deee1a848c39521cdd2b77580e459d6dd289a280ff"
+  },
+  {
+   "path": "mat/wood-orm-4k.webp",
+   "size": 678498,
+   "sha256": "a4f6e18c3122fafb3f4e6ab7e833e4037bd26eb35eef124c7b08f600deb01382"
   },
   {
    "path": "mat/wood-orm.webp",
@@ -1173,5 +1503,5 @@
    "sha256": "44732c2e04c815cb6b645ca86497933122c7372e2cd40e80b782dedda70110ad"
   }
  ],
- "total": 47827994
+ "total": 102288860
 }

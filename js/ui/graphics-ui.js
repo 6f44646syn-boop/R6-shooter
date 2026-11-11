@@ -21,6 +21,7 @@ export const LEVELS = [
   { key: 'standard', name: 'Standard', tag: 'Browser', text: 'Fast, clear and light. Runs in any browser with nothing to download.' },
   { key: 'high', name: 'High', tag: 'Enhanced', text: 'Detailed gun models, realistic lighting, shadows, ambient occlusion, textured surfaces.' },
   { key: 'ultra', name: 'Ultra', tag: 'Enhanced', text: 'High plus 4K weapon skins with depth and lacquer, finer detail and supersampling. For graphics cards.' },
+  { key: 'max', name: 'Max', tag: 'Enhanced', text: 'Ultra plus 4K map surfaces, bloom and colour grading, sun shafts and fog, floor reflections, bullet holes with debris, wet surfaces in rain. For fast graphics cards.' },
 ];
 // Performance profiles: a set of settings in one click. 'enhanced' levels fall back to
 // Standard without the pack.
@@ -31,6 +32,8 @@ export const PROFILES = {
     set: { graphics: 'high', fpsTarget: 60, lensQuality: 'auto', ao: true, taa: false, sharpen: 0.25, renderScale: 0 } },
   quality: { name: 'Quality', text: 'The best picture: Ultra graphics, ambient occlusion, temporal anti-aliasing.',
     set: { graphics: 'ultra', fpsTarget: 60, lensQuality: '3', ao: true, taa: true, sharpen: 0.25, renderScale: 0 } },
+  max: { name: 'Max', text: 'Everything on: Max graphics, ambient occlusion and temporal anti-aliasing.',
+    set: { graphics: 'max', fpsTarget: 60, lensQuality: '3', ao: true, taa: true, sharpen: 0.2, renderScale: 0 } },
 };
 export function currentProfile(s) {
   for (const [k, p] of Object.entries(PROFILES)) if (Object.entries(p.set).every(([a, v]) => s[a] === v)) return k;
@@ -146,7 +149,7 @@ export class GraphicsUI {
     }
     const need = needsPack(g) && !ready;
     this.prompt.hidden = !need;
-    if (need) this.prompt.textContent = (g === 'ultra' ? 'Ultra' : 'High') + ' needs the Enhanced Graphics pack' + (HDPack.size ? ' (' + MB(HDPack.size) + ')' : '') + '. Until you download it the game runs on Standard. You can stay on Standard; nothing is downloaded unless you press Download.';
+    if (need) this.prompt.textContent = ({ ultra: 'Ultra', max: 'Max' }[g] || 'High') + ' needs the Enhanced Graphics pack' + (HDPack.size ? ' (' + MB(HDPack.size) + ')' : '') + '. Until you download it the game runs on Standard. You can stay on Standard; nothing is downloaded unless you press Download.';
     const st = HDPack.state, p = HDPack.progress;
     this.bar.hidden = st !== 'downloading';
     if (st === 'downloading') this.bar.firstChild.style.width = (p.total ? p.done / p.total * 100 : 0).toFixed(1) + '%';

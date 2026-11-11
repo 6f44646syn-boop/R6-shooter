@@ -109,7 +109,7 @@ export function sanitize(input) {
   out.targetMode = ['dots', 'dummy', 'paper'].includes(s.targetMode) ? s.targetMode : (s.movingTarget === true ? 'dots' : DEFAULTS.targetMode);
   out.dotMoving = typeof s.dotMoving === 'boolean' ? s.dotMoving : (s.movingTarget === true ? true : DEFAULTS.dotMoving);
   out.dotCount = Number.isInteger(s.dotCount) ? Math.min(12, Math.max(1, s.dotCount)) : DEFAULTS.dotCount;
-  out.graphics = ['low', 'high', 'ultra'].includes(s.graphics) ? s.graphics : 'standard';
+  out.graphics = ['low', 'high', 'ultra', 'max'].includes(s.graphics) ? s.graphics : 'standard';
   out.animations = typeof s.animations === 'boolean' ? s.animations : DEFAULTS.animations;
   out.weaponShading = s.weaponShading === 'detailed' ? 'detailed' : 'fast';
   out.lensQuality = ['auto', '3', '2', '1', '0'].includes(String(s.lensQuality)) ? String(s.lensQuality) : DEFAULTS.lensQuality;

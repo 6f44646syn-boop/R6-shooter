@@ -11,11 +11,32 @@ updated, and how to measure frame rate.
 | Standard | any browser, nothing to download | the fast textured look; upscaling with sharpening when dynamic resolution lowers the world's resolution |
 | High | the Enhanced Graphics pack | detailed gun models, PBR lighting, shadows, tone mapping, ambient occlusion, optional TAA |
 | Ultra | the Enhanced Graphics pack | High plus 4K weapon skins with relief and lacquer, micro-detail, supersampling |
+| Max | the Enhanced Graphics pack | Ultra plus the extras below |
 
 High and Ultra stay selectable without the pack: the saved choice is kept and the game runs
 as Standard (`effectiveGraphics()` in `js/render/quality.js`) until the pack is installed.
 Choosing High or Ultra without it opens the Graphics screen with the download prompt. Nothing
 is downloaded unless the player presses **Download**.
+
+## Max
+
+Max draws as Ultra everywhere (`effectiveGraphics()` returns `'ultra'`), and `maxMode.on`
+(`js/render/quality.js`) switches on the extras:
+
+| Feature | How |
+|---|---|
+| 4K PBR textures | the large map surfaces (`big: true`) at 4096 px, `hd/mat/<name>-<map>-4k.webp` (`node tools/build-materials.mjs --4k`); 16x anisotropic filtering. Weapon skins are already 4K on Ultra. |
+| Lighting | baked sky and room light **and** SSAO together; a 4096 px sun shadow map in the match modes (Battle's is already 4096 on Ultra) |
+| Reflections | screen-space reflections on upward-facing surfaces (floors, tables), marched through the depth, with Fresnel and edge fade (`world-post.js`, SSR pass) |
+| Volumetric effects | sun shafts (a radial march over the sky in the depth, half resolution) and distance and height fog; thicker with the fog setting |
+| Post-processing | bloom (bright parts, quarter resolution, two blur passes), then after ACES: colour grading (saturation, contrast, warm highlights, cool shadows) and a vignette |
+| Destruction | in the match modes, shots that hit a wall leave cracked holes (300, oldest reused) and throw chips and dust (`game.js` `_impact`) |
+| Weather | in rain or storms on Battle's outdoor maps, surfaces turn wet: glossier, darker, stronger reflections (`arena.js` `_maxEnv`) |
+| Models | full-detail soldiers at every distance (no far model) |
+
+The scene tells the post passes its sun, fog and wetness through `scene.userData.maxEnv`.
+Animations are the same on every level: reloads, the draw and the inspect come from the pack,
+and Black Ice skins have their own inspect.
 
 ## The Graphics screen (`js/ui/graphics-ui.js`)
 

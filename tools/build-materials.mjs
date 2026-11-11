@@ -11,8 +11,10 @@ import { LIB, MATERIALS } from './hd/matgen.mjs';
 const { chromium } = createRequire(import.meta.url)('playwright');
 const OUT = new URL('../hd/mat/', import.meta.url);
 mkdirSync(OUT, { recursive: true });
-const only = process.argv.slice(2);
-const list = Object.entries(MATERIALS).filter(([n]) => !only.length || only.includes(n));
+// --4k: the large surfaces (big: true) again at twice the size, as <name>-<map>-4k.webp, for Max
+const K4 = process.argv.includes('--4k'), only = process.argv.slice(2).filter((a) => a !== '--4k');
+const list = Object.entries(MATERIALS).filter(([n, d]) => (!only.length || only.includes(n)) && (!K4 || d.big))
+  .map(([n, d]) => [n, K4 ? { ...d, size: d.size.map((v) => v * 2) } : d]);
 
 const PASS1 = (body) => `#version 300 es
 ${LIB}
@@ -96,7 +98,7 @@ for (const [name, def] of list) {
     return out;
   }, { name, def: { size: def.size, tile: def.tile, glsl: def.glsl, seed: def.seed }, FS1: PASS1(def.glsl), PASS2, VS }).catch((e) => { throw Error(name + ': ' + e.message); });
   let bytes = 0;
-  for (const [k, b64] of Object.entries(res)) { const b = Buffer.from(b64, 'base64'); bytes += b.length; writeFileSync(new URL(name + '-' + k + '.webp', OUT), b); }
+  for (const [k, b64] of Object.entries(res)) { const b = Buffer.from(b64, 'base64'); bytes += b.length; writeFileSync(new URL(name + '-' + k + (K4 ? '-4k' : '') + '.webp', OUT), b); }
   total += bytes;
   console.log(name.padEnd(12), def.size.join('x').padEnd(10), (bytes / 1048576).toFixed(2) + ' MB', ((Date.now() - t0) / 1000).toFixed(1) + ' s');
   // a fresh canvas per material (each context was lost)
