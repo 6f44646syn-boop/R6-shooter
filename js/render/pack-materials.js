@@ -90,7 +90,7 @@ export function useLightVolume(mat, vol) {
 
 // A soft sky for reflections (the match maps have no environment map of their own).
 let ENV = null;
-function envMap(renderer) {
+export function envMap(renderer) {
   if (ENV) return ENV;
   const scene = new THREE.Scene();
   const sky = new THREE.Mesh(new THREE.SphereGeometry(10, 32, 16), new THREE.ShaderMaterial({

@@ -119,6 +119,8 @@ const LOOKS = {
 };
 // upper floors: the room's floor on top, a ceiling underneath
 for (const f of ['wood', 'carpet', 'carpet2', 'tiles', 'tiles2', 'concrete', 'marble', 'stone', 'deck']) LOOKS['slab-' + f] = { side: 'walltop', top: f, bottom: 'ceiling', tile: [f === 'wood' || f === 'deck' ? 3 : f.startsWith('carpet') ? 2 : 1.6, 1.6] };
+// fitted looks the Enhanced Graphics pack has detailed props for (js/render/pack-props.js)
+const PROP_NAMES = ['crate', 'car', 'desk', 'table', 'sofa', 'bed', 'shelf', 'counter', 'bench', 'barrier', 'planter', 'fountain'];
 const PAINTS = [0xb03a2e, 0x2e5ea8, 0xe8e4dc, 0x2a2c30, 0x6a7a3a, 0xc8a040, 0x707880];
 const GROUND = { grass: 'grass', lawn: 'lawn', dirt: 'dirt', asphalt: 'asphalt' };
 
@@ -196,6 +198,7 @@ export function buildMapLook(scene, map, L) {
   }
   // solids by look
   const acc = {}, col = new THREE.Color();
+  group.userData.propBoxes = {};
   let k = 0;
   for (const b of map.solids) {
     if (b.panel !== undefined) continue;
@@ -205,10 +208,12 @@ export function buildMapLook(scene, map, L) {
     else col.multiplyScalar(0.94 + ((b.i * 7) % 5) * 0.025);
     const a = acc[name] || (acc[name] = {});
     addBox(a, b, look, col);
+    // pack v5: where the detailed props go (and the car's paint)
+    if (PROP_NAMES.includes(name)) (group.userData.propBoxes[name] || (group.userData.propBoxes[name] = [])).push({ b: [b.minX, Math.max(0, b.minY), b.minZ, b.maxX, b.maxY, b.maxZ], tint: col.getHex() });
   }
   for (const [name, parts] of Object.entries(acc)) {
     const look = LOOKS[name];
-    for (const [part, a] of Object.entries(parts)) group.add(meshFrom(a, TEX[part === 'top' ? look.top : part === 'bottom' ? look.bottom || 'ceiling' : look.side](), name !== 'edge'));
+    for (const [part, a] of Object.entries(parts)) { const mesh = meshFrom(a, TEX[part === 'top' ? look.top : part === 'bottom' ? look.bottom || 'ceiling' : look.side](), name !== 'edge'); if (PROP_NAMES.includes(name)) mesh.userData.propLook = name; group.add(mesh); }
   }
   // outside: trees and bushes where nothing is in the way, a fence round the edge
   if (data.building) {
@@ -237,6 +242,8 @@ export function buildMapLook(scene, map, L) {
     trunk.castShadow = crown.castShadow = true;
     const bush = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.7, 1), new THREE.MeshLambertMaterial({ map: TEX.leaves(), flatShading: true }), bushes.length);
     bushes.forEach(([x, z], i) => bush.setMatrixAt(i, mtx.compose(p.set(x, 0.35, z), q, sc.set(1.2, 0.7, 1.2))));
+    trunk.userData.propLook = crown.userData.propLook = 'tree'; bush.userData.propLook = 'bush';
+    group.userData.trees = trees; group.userData.bushes = bushes;
     group.add(trunk, crown, bush);
   }
   scene.add(group);

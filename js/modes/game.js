@@ -1,5 +1,6 @@
 import { applyMapArt } from '../render/pack-art.js?v=9dd0f7b-mwbioun8';
-import { applyPackMaterials, packMats } from '../render/pack-materials.js?v=9dd0f7b-mwbioun8';
+import { applyPackMaterials, packMats, envMap } from '../render/pack-materials.js?v=9dd0f7b-mwbioun8';
+import { applyPackProps } from '../render/pack-props.js?v=9dd0f7b-mwbioun8';
 import { sensoryFor } from '../balance/bomb-utility.js?v=9dd0f7b-mwbioun8';
 // Team Deathmatch, Capture the Flag and Bomb in the browser: draws the match simulation
 // (sim.js) and runs your player with the range's own systems (look, sensitivity, recoil,
@@ -251,6 +252,7 @@ export class ModeGame {
     applyMapArt(this.lookGroup, artQuality, this.deps.renderer);
     // pack v5: physically based materials for the map, the panels (walls, doors) included
     const scene = this.scene;
+    if (!this.arena) applyPackProps(this.lookGroup, artQuality, this.deps.renderer, this.opts.map, (artQuality === 'high' || artQuality === 'ultra') ? envMap(this.deps.renderer) : null).catch((e) => console.warn('pack props', e));
     applyPackMaterials([this.lookGroup, ...Object.values(this.panelMeshes || {})], artQuality, this.deps.renderer, { light: this.arena ? null : this.opts.map }).then(() => { if (this.scene === scene && this.deps.renderer.shadowMap) this.deps.renderer.shadowMap.needsUpdate = true; }).catch((e) => console.warn('pack materials', e));
     if (this.fig) for (const f of this.fig.values()) f.setDetail(artQuality);
     if (this.arena) { this.arena.setGraphics(effectiveGraphics(this.deps.settings), this.deps.renderer); return; }

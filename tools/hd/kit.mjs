@@ -23,7 +23,10 @@ export function setDetail(lod) {
 //           skin when one is equipped, so a skin wraps the whole gun
 export const ROLES = ['finish', 'polymer', 'steel', 'dark', 'rubber', 'shell',
   // soldier parts (coloured per team at runtime)
-  'cloth', 'clothDark', 'patch', 'vest', 'gear', 'black', 'skin', 'helmet'];
+  'cloth', 'clothDark', 'patch', 'vest', 'gear', 'black', 'skin', 'helmet',
+  // props (tools/hd/props.mjs: PROP_ROLES)
+  'wood', 'wood2', 'woodDark', 'fabric', 'fabric2', 'fabric3', 'mattress', 'paper', 'metal', 'metalRed', 'chrome', 'glass', 'screen', 'plastic', 'paint', 'tyre', 'light',
+  'tail', 'stone', 'stone2', 'concrete', 'redPaint', 'white', 'soil', 'leaf', 'leaf2', 'flower', 'bark', 'water', 'book1', 'book2', 'book3', 'book4'];
 export const GROUPS = ['gun', 'mag', 'bolt', 'upper', 'legL', 'legR'];
 
 export class Model {
