@@ -1,5 +1,6 @@
 import { loadPackArt } from './render/pack-art.js?v=9dd0f7b-mwbioun8';
 import { loadPackAnims } from './scene/weapon-anims.js?v=9dd0f7b-mwbioun8';
+import { packMats } from './render/pack-materials.js?v=9dd0f7b-mwbioun8';
 import { connectAudioPack } from './audio/pack-bridge.js?v=9dd0f7b-mwbioun8';
 import { initBombUtility, utilityFor } from './balance/bomb-utility.js?v=9dd0f7b-mwbioun8';
 import { createAcoustics } from './audio/acoustics.js?v=9dd0f7b-mwbioun8';
@@ -126,7 +127,9 @@ async function boot(data) {
   post.world = worldPost;
   function applyPost(worldScale) {
     const g = gfx(), enhanced = g === 'high' || g === 'ultra', webgl2 = renderer.capabilities.isWebGL2;
-    const o = { ao: enhanced && settings.ao, taa: enhanced && settings.taa, sharpen: settings.sharpen, scale: worldScale };
+    // High: a map with the pack's baked sky light needs no screen-space occlusion (cheaper)
+    const baked = g === 'high' && packMats.lightActive && cur() && cur().active;
+    const o = { ao: enhanced && settings.ao && !baked, taa: enhanced && settings.taa, sharpen: settings.sharpen, scale: worldScale };
     worldPost.set(o);
     // Low / Standard: only when upscaling (it costs a full-screen pass, which a school PC
     // feels); High / Ultra: whenever one of its effects is on.
