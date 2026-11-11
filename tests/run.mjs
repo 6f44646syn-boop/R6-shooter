@@ -663,12 +663,12 @@ try {
     const fx = await page.evaluate(() => {
       const R = window.__range, G = R.modeGame(), out = { ext: 0, extTris: 0, fenceTop: 0, flashing: 0, sky: 0 };
       G.lookGroup.traverse((o) => {
+        if (o.userData.sky && o.onBeforeRender) out.sky++;
         if (!o.isMesh || !o.material || !o.material.map) return;
         const k = o.material.map.userData.surface;
         if (k === 'siding') { out.ext++; out.extTris += o.geometry.attributes.position.count / 3; }
         if (k === 'flashing') out.flashing++;
         if (k === 'fence') { o.geometry.computeBoundingBox(); out.fenceTop = Math.max(out.fenceTop, o.geometry.boundingBox.max.y); }
-        if (o.userData.sky && o.onBeforeRender) out.sky++;
       });
       const H = G.hud; R.step(0.05, 60);
       out.ally = H.allyOps.children.length; out.enemy = H.enemyOps.children.length; out.clock = H.clockT.textContent; out.sub = H.clockSub.textContent;

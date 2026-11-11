@@ -417,7 +417,7 @@ export class Arena {
     const map = this.map, a = this.atm, outdoor = !map.indoor;
     if (weather === 'fog') { weather = 'auto'; fog = true; }
     a.night = !!night; a.weather = weather; a.fog = !!fog;
-    if (this.pool) this.pool.setFixtures(a.night ? [] : this._fixtures);
+    if (this.pool) this.pool.setFixtures(a.night && map.indoor ? [] : this._fixtures);   // power cut indoors; lanterns stay lit outside
     const w = weather === 'auto' ? (map.snow ? 'snow' : 'clear') : weather;
     a.w = w;
     const snow = outdoor && w === 'snow', rain = outdoor && (w === 'rain' || w === 'storm');
@@ -591,7 +591,7 @@ export class Arena {
     if ((this.pool ? this.pool.lights.length : 0) !== want) {
       if (this.pool) this.pool.dispose();
       this.pool = want ? new LightPool(this.scene, want) : null;
-      if (this.pool) this.pool.setFixtures(this.atm.night ? [] : this._fixtures);
+      if (this.pool) this.pool.setFixtures(this.atm.night && this.map.indoor ? [] : this._fixtures);
     }
     const ks = q === 'ultra' ? 4096 : 2048;
     if (this.key.shadow.mapSize.x !== ks) { this.key.shadow.mapSize.set(ks, ks); if (this.key.shadow.map) { this.key.shadow.map.dispose(); this.key.shadow.map = null; } }
