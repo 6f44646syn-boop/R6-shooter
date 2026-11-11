@@ -85,7 +85,7 @@ export function useLightVolume(mat, vol) {
     sh.uniforms.uVol = { value: vol.tex }; sh.uniforms.uVolMin = { value: vol.min }; sh.uniforms.uVolN = { value: vol.n }; sh.uniforms.uVolCell = { value: vol.cell };
     sh.vertexShader = 'varying vec3 vVolP;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n{ vec4 vp = vec4(transformed, 1.0);\n#ifdef USE_INSTANCING\nvp = instanceMatrix * vp;\n#endif\nvVolP = (modelMatrix * vp).xyz; }');
     sh.fragmentShader = 'uniform highp sampler3D uVol; uniform vec3 uVolMin, uVolN; uniform float uVolCell; varying vec3 vVolP;\n' + sh.fragmentShader.replace('#include <lights_fragment_end>',
-      '{ vec3 vc = ((vVolP - uVolMin) / uVolCell + 0.5) / uVolN; vec2 vol = texture(uVol, vc).rg;\n irradiance = irradiance * vol.r + vol.g * vec3(1.0, 0.88, 0.72) * 1.55;\n iblIrradiance *= max(vol.r, vol.g * 0.5);\n#ifdef RE_IndirectSpecular\n radiance *= max(vol.r, vol.g * 0.35);\n#endif\n}\n#include <lights_fragment_end>');
+      '{ vec3 vc = ((vVolP - uVolMin) / uVolCell + 0.5) / uVolN; vec2 vol = texture(uVol, vc).rg;\n irradiance = irradiance * vol.r + vol.g * vec3(1.0, 0.86, 0.68) * 0.85;   // darker rooms: the lamps (light-pool.js) do the rest\n iblIrradiance *= max(vol.r, vol.g * 0.5);\n#ifdef RE_IndirectSpecular\n radiance *= max(vol.r, vol.g * 0.35);\n#endif\n}\n#include <lights_fragment_end>');
   };
   mat.customProgramCacheKey = () => 'rrvol';
   mat.needsUpdate = true;

@@ -2,6 +2,7 @@
 // code on small canvases; no image files. Boxes are merged per look into a few meshes:
 // walls and floors tile in world space, furniture is fitted per face.
 import * as THREE from '../../vendor/three/three.module.min.js?v=6ac6c85-mwblm6td';
+import { makeSky, skyPalette } from '../render/sky.js';
 
 /* ---------- textures ---------- */
 const cache = new Map();
@@ -213,14 +214,10 @@ function lookOf(b) {
 // Builds the ground, room floors, walls and furniture, and some trees and a fence outside.
 export function buildMapLook(scene, map, L) {
   const data = map.data, group = new THREE.Group();
-  // sky: a vertical gradient on a big sphere
-  const sky = canvasTex('sky' + L.sky, 4, 256, (g, w, h) => { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#5a86c0'); gr.addColorStop(0.55, '#' + new THREE.Color(L.sky).getHexString()); gr.addColorStop(1, '#e8ecef'); g.fillStyle = gr; g.fillRect(0, 0, w, h); }, false);
-  const dome = new THREE.Mesh(new THREE.SphereGeometry(180, 24, 12), new THREE.MeshBasicMaterial({ map: sky, side: THREE.BackSide, fog: false, depthWrite: false }));
-  dome.renderOrder = -1;
-  // centred on whichever camera draws it, so it never reaches past the far plane (200 m)
-  dome.frustumCulled = false;
-  dome.onBeforeRender = (r, sc, cam) => { dome.position.copy(cam.position); dome.updateMatrixWorld(); };
-  group.add(dome);
+  // sky: scattering, the sun's disc and glow, drifting clouds (render/sky.js); the map's
+  // lighting takes its colours from the same palette (game.js)
+  const dome = makeSky(L.palette || skyPalette(L.time));
+  group.add(dome); group.userData.sky = dome;
   // ground (the area around), then each room's floor
   const gt = TEX[GROUND[data.ground] || (data.building ? 'grass' : 'concrete')]().clone();
   gt.needsUpdate = true; gt.userData.own = true; gt.repeat.set(map.hx / 3, map.hz / 3);

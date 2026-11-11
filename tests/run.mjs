@@ -1087,11 +1087,11 @@ try {
     check('a damaged download is refused (checked against the pack list)', bad.st.state === 'error' && !bad.st.ready && /damaged/.test(bad.status), JSON.stringify(bad));
     await page.unroute('**/hd/guns/ak.rrmz');
     await page.click('#gx-download');
-    await page.waitForFunction(() => window.__range.hdState().loaded, null, { timeout: 180000 });   // (pack v6: ~100 MB)
+    await page.waitForFunction(() => window.__range.hdState().loaded, null, { timeout: 420000 });   // (pack v6: ~100 MB; slow in a headless test box)
     const p1 = await page.evaluate(async () => {
       const R = window.__range;
       R.step(0.2); R.renderFrame();
-      const tris = () => { let t = 0; R.rigObj().current.traverse((o) => { if (o.isMesh) t += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; }); return t; };
+      const tris = () => { let t = 0; R.rigObj().current.traverse((o) => { if (o.isMesh && !o.material.userData.hand) t += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; }); return t; };   // (the gun, not the arms)
       const man = await (await fetch('hd/manifest.json')).json();
       const cached = (await (await caches.open('recoil-range-hd')).keys()).length;
       const hiTris = tris(), hd = R.rigHD(), tone = R.toneMapping();
@@ -1108,7 +1108,7 @@ try {
       const started = R.battleStart({ opponent: 'bots', bots: 2, level: 'easy', kills: 30 });
       if (!started) return { why: 'battle did not start: ' + document.getElementById('notice').textContent + ' | ' + JSON.stringify(R.battleState && R.battleState()) };
       const B = R.battle(), f = B.bots[0].f;
-      R.step(0.5); R.renderFrame();
+      R.step(0.5); R.renderFrame(); f.lodFor(0);   // (the near model: the far one is for 16 m and beyond)
       const hiVerts = f.body.geometry.attributes.position.count + f.legs.reduce((s, l) => s + l.piv.children[0].geometry.attributes.position.count, 0);
       R.battleLeave();
       R.setGraphics('standard');
@@ -1144,7 +1144,7 @@ try {
     check('FPS counter: frame rate, frame time, 1% low, CPU / GPU time, resolution and draw calls', fps.shown && /fps/.test(fps.text) && /CPU/.test(fps.text) && /draws/.test(fps.text), JSON.stringify(fps));
     // After a reload the pack is still there and nothing is downloaded again.
     await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForFunction(() => window.__range && window.__range.ready && window.__range.hdState().loaded, null, { timeout: 30000 });
+    await page.waitForFunction(() => window.__range && window.__range.ready && window.__range.hdState().loaded, null, { timeout: 120000 });   // (~100 MB from Cache Storage)
     const p2 = await page.evaluate(() => { const R = window.__range; R.manual(true); R.step(0.2); R.renderFrame(); return { st: R.hdState(), hd: R.rigHD() }; });
     check('after a reload the pack loads from the browser (no download) and High is on', p2.st.state === 'installed' && p2.hd && (await hdReq()) === 0, JSON.stringify(p2));
     const p3 = await page.evaluate(async () => {

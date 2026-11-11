@@ -10,6 +10,10 @@ import { sensoryFor } from '../balance/bomb-utility.js?v=6ac6c85-mwblm6td';
 // panels in one instanced mesh, one directional light (a 1024 shadow map in High / Ultra).
 import * as THREE from '../../vendor/three/three.module.min.js?v=6ac6c85-mwblm6td';
 import { BulletHoles, crackTexture } from '../scene/holes.js?v=6ac6c85-mwblm6td';
+import { skyPalette } from '../render/sky.js';
+import { dressMap } from './dressing.js';
+import { LightPool } from '../render/light-pool.js';
+import { Footprints } from '../scene/footprints.js';
 import { MatchMap } from './map.js?v=6ac6c85-mwblm6td';
 import { initCore } from '../wasm/core.js?v=6ac6c85-mwblm6td';
 import { Match, TICK } from './sim.js?v=6ac6c85-mwblm6td';
@@ -38,11 +42,12 @@ const fmt = (s) => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStar
 
 // Map looks per map id: floor, walls, cover, sky.
 const LOOK = {
-  yard: { floor: 0x8d877c, wall: 0xb9b2a4, low: 0x7f6a4e, edge: 0x6f6b66, soft: 0xa47a52, reinf: 0x5b6672, sky: 0xaec4d8, fog: [0xc0ccd6, 40, 140] },
-  ranch: { floor: 0x9a8a70, wall: 0xd8d0c0, low: 0x6a5a44, edge: 0x6f6b66, soft: 0xb48a62, reinf: 0x56606c, door: 0x7a5434, sky: 0xb8cce0, fog: [0xc8d2dc, 50, 160] },
-  embassy: { floor: 0x8e8a80, wall: 0xe4dccc, low: 0x5e5244, edge: 0x6f6b66, soft: 0xb08860, reinf: 0x56606c, door: 0x6a4a30, sky: 0xa8c0d8, fog: [0xbcc8d4, 50, 160] },
-  workshop: { floor: 0x75706a, wall: 0xa8a49c, low: 0x5a5048, edge: 0x5f5b56, soft: 0xa47a52, reinf: 0x4e5864, door: 0x6e4c30, sky: 0x9fb2c4, fog: [0xa8b2bc, 45, 150] },
-  depot: { floor: 0x6f6a62, wall: 0xa9a196, low: 0x6a5a44, edge: 0x5f5b56, soft: 0xa47a52, reinf: 0x56606c, sky: 0x9fb0c2, fog: [0xaab4be, 35, 120] },
+  // time: the sky and its lighting (render/sky.js: golden, morning, dusk)
+  yard: { time: 'morning', floor: 0x8d877c, wall: 0xb9b2a4, low: 0x7f6a4e, edge: 0x6f6b66, soft: 0xa47a52, reinf: 0x5b6672, sky: 0xaec4d8, fog: [0xc0ccd6, 40, 140] },
+  ranch: { time: 'golden', floor: 0x9a8a70, wall: 0xd8d0c0, low: 0x6a5a44, edge: 0x6f6b66, soft: 0xb48a62, reinf: 0x56606c, door: 0x7a5434, sky: 0xb8cce0, fog: [0xc8d2dc, 50, 160] },
+  embassy: { time: 'morning', floor: 0x8e8a80, wall: 0xe4dccc, low: 0x5e5244, edge: 0x6f6b66, soft: 0xb08860, reinf: 0x56606c, door: 0x6a4a30, sky: 0xa8c0d8, fog: [0xbcc8d4, 50, 160] },
+  workshop: { time: 'dusk', floor: 0x75706a, wall: 0xa8a49c, low: 0x5a5048, edge: 0x5f5b56, soft: 0xa47a52, reinf: 0x4e5864, door: 0x6e4c30, sky: 0x9fb2c4, fog: [0xa8b2bc, 45, 150] },
+  depot: { time: 'golden', floor: 0x6f6a62, wall: 0xa9a196, low: 0x6a5a44, edge: 0x5f5b56, soft: 0xa47a52, reinf: 0x56606c, sky: 0x9fb0c2, fog: [0xaab4be, 35, 120] },
 };
 
 export class ModeGame {
@@ -137,6 +142,7 @@ export class ModeGame {
       root.removeFromParent();
     };
     drop(this.lookGroup); this.lookGroup = null;
+    if (this.pool) { this.pool.dispose(); this.pool = null; }
     for (const im of Object.values(this.panelMeshes || {})) drop(im);
     this.panelMeshes = {}; this.panelMesh = null;
     drop(this.markerG); this.markerG = null;
@@ -170,17 +176,25 @@ export class ModeGame {
     this.arena = null;
     const scene = this.scene = new THREE.Scene();
     this._clearImpacts();
-    scene.background = new THREE.Color(L.sky);
-    scene.fog = new THREE.Fog(...L.fog);
-    this.hemi = new THREE.HemisphereLight(0xe8eeff, 0x6a5e50, 1.7);
-    this.sun = new THREE.DirectionalLight(0xfff0dc, 1.6);
-    this.sun.position.set(-18, 30, 12); this.sun.target.position.set(0, 0, 0);
+    // Lighting from the sky (render/sky.js): a low, warm sun (never white) at a raking angle,
+    // a cool sky fill and a warm ground bounce (shadows read slate blue, not grey), and fog and
+    // background in the horizon's colour so the far planes melt into the sky.
+    const pal = this.palette = skyPalette(L.time);
+    scene.background = pal.horizon.clone();
+    scene.fog = new THREE.Fog(pal.fog, L.fog[1], L.fog[2] * 1.2);
+    this.hemi = new THREE.HemisphereLight(pal.hemiSky, pal.hemiGround, 1.7);
+    this.sun = new THREE.DirectionalLight(pal.sun, pal.sunI);
+    this.sun.position.copy(pal.dir).multiplyScalar(70); this.sun.target.position.set(0, 0, 0);
     const S = Math.max(map.hx, map.hz) + 4;
-    Object.assign(this.sun.shadow.camera, { left: -S, right: S, top: S, bottom: -S, near: 1, far: 80 });
-    this.sun.shadow.mapSize.set(1024, 1024); this.sun.shadow.bias = -0.001;
+    Object.assign(this.sun.shadow.camera, { left: -S, right: S, top: S, bottom: -S, near: 1, far: 160 });
+    this.sun.shadow.mapSize.set(1024, 1024); this.sun.shadow.bias = -0.0008; this.sun.shadow.normalBias = 0.02;
     scene.add(this.hemi, this.sun, this.sun.target);
-    // ground, floors, walls, furniture, trees (look.js)
-    this.lookGroup = buildMapLook(scene, map, L);
+    // ground, floors, walls, furniture, trees (look.js), then the set dressing and footprints
+    this.lookGroup = buildMapLook(scene, map, { ...L, palette: pal });
+    dressMap(this.lookGroup, map, effectiveGraphics(this.deps.settings));
+    const hills = this.lookGroup.userData.hills;
+    if (hills) hills.material.color.copy(pal.fog).lerp(new THREE.Color(0x4a5a3e), 0.35);
+    this.prints = new Footprints(scene);
     // breakable walls, cell by cell: every wall cell has a slot in the soft mesh and in the
     // reinforced mesh (it shows in the one matching its kind now: defenders reinforce soft
     // walls in prep); barricades one each. A broken one is scaled to nothing.
@@ -206,7 +220,8 @@ export class ModeGame {
     this._applyGraphics();
   }
   // The Battle maps: the same scenery as Battle (the arena's own scene, lights and weather).
-  _clearImpacts() {   // Max impacts belong to the last match's scene (arena scenes are kept)
+  _clearImpacts() {   // impacts and footprints belong to the last match's scene (arena scenes are kept)
+    if (this.prints) { this.prints.dispose(); this.prints = null; }
     if (this.holes) this.holes.mesh.removeFromParent();
     if (this.debris) this.debris.pts.removeFromParent();
     this.holes = this.debris = null;
@@ -217,6 +232,7 @@ export class ModeGame {
     const id = this.map.data.arena;
     const ar = this.arena = ModeGame.arenas[id] || (ModeGame.arenas[id] = new Arena(id));
     this.scene = ar.scene;
+    this.prints = new Footprints(this.scene);
     ar.setAtmosphere(false, 'auto', !!this.deps.settings.fog);
     ar.setGraphics(effectiveGraphics(this.deps.settings), this.deps.renderer);
     this.panelMesh = null; this.panelMeshes = {};
@@ -271,8 +287,19 @@ export class ModeGame {
     if (this.sun.shadow.mapSize.x !== ks) { this.sun.shadow.mapSize.set(ks, ks); if (this.sun.shadow.map) { this.sun.shadow.map.dispose(); this.sun.shadow.map = null; } }
     this.scene.userData.maxEnv = maxMode.on ? { sun: this.sun, fog: this.scene.fog ? this.scene.fog.color : null, fogK: 0.008, wet: 0 } : null;
     r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
-    r.toneMapping = THREE.NoToneMapping;
-    this.hemi.intensity = q === 'low' ? 2.2 : 1.7;
+    // High and up: filmic tone mapping (the sun's disc and lamps can go past white and bloom)
+    r.toneMapping = high ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
+    r.toneMappingExposure = high ? 1.15 : 1;
+    const pal = this.palette;
+    this.sun.intensity = high ? pal.sunI : pal.sunI * 0.55;
+    this.hemi.intensity = q === 'low' ? 2.2 : high ? 0.9 : 1.5;
+    // light from objects: spot lights handed to the nearest ceiling panels and wall lamps
+    const want = high ? (maxMode.on ? 12 : q === 'ultra' ? 8 : 6) : 0;
+    if (!this.pool || this.pool.lights.length !== want) {
+      if (this.pool) this.pool.dispose();
+      this.pool = new LightPool(this.scene, want);
+      this.pool.setFixtures(this.lookGroup.userData.fixtures);
+    }
   }
 
   /* ---------- actors ---------- */
@@ -429,6 +456,9 @@ export class ModeGame {
     if (!this.paused && !this.over && !this.kc) this._steps();
     this._updateTracers(t);
     if (this.arena) this.arena.update(dt, t, h.camera.position);
+    if (this.pool) this.pool.update((this.camOverride || h.camera).position);
+    if (this.lookGroup && this.lookGroup.userData.sky) this.lookGroup.userData.sky.userData.tick(t);
+    if (this.prints) this.prints.update(t);
     this._hud(t);
   }
 
@@ -521,7 +551,11 @@ export class ModeGame {
     const m = this.m, me = this.me, camera = this.camOverride || this.h.camera;
     // Preserve the engine's audibility policy, including silent crouch walking.
     for (const n of m.noises) {
-      if (n.kind !== 'steps' || n.id === me.id || n.t <= (this._stepT || 0)) continue;
+      if (n.kind !== 'steps' || n.t <= (this._stepT || 0)) continue;
+      // footprints (darker on soil and grass outside, faint on hard floors)
+      const a = this.prints && m.actors.find((x) => x.id === n.id);
+      if (a) { const b = m.map.data.building, inside = n.y > 0.1 || (b && n.x > b[0] && n.x < b[2] && n.z > b[1] && n.z < b[3]); this.prints.add(n.id, n.x, n.y || 0, n.z, a.yaw, this.prevT || 0, inside ? 0.25 : 0.5); }
+      if (n.id === me.id) continue;
       const y = n.y || 0;
       this.deps.sfx.stepAt({x:n.x,y:y+.12,z:n.z,feetY:y}, camera, this.map, this.arena, n.range, n.team === me.team);
     }

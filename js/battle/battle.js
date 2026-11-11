@@ -5,6 +5,7 @@
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
 import * as THREE from '../../vendor/three/three.module.min.js?v=6ac6c85-mwblm6td';
 import { Arena } from './arena.js?v=6ac6c85-mwblm6td';
+import { Footprints } from '../scene/footprints.js';
 import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=6ac6c85-mwblm6td';
 import { Bot, LEVELS } from './bot.js?v=6ac6c85-mwblm6td';
 import { Human } from './human.js?v=6ac6c85-mwblm6td';
@@ -64,6 +65,7 @@ export class Battle {
     if (!this.arenas[id]) this.arenas[id] = new Arena(id);
     this.arena = this.arenas[id];
     if (this.tracers) this.arena.scene.add(this.tracers);     // moves them to this map's scene
+    if (!this.arena.prints) this.arena.prints = new Footprints(this.arena.scene);   // footprints stay with their map
     if (this.torches) for (const l of this.torches) this.arena.scene.add(l, l.target);
     return this.arena;
   }
@@ -297,7 +299,7 @@ export class Battle {
     const ears = this.humans[0];
     if (ears) { this.deps.sfx.listen(ears.camera); if (!this.kc && !this.over) this.deps.sfx.observeSteps(this.fighters, ears.camera, this.arena, t, null, ears.f.id); }
     this._updateTorches();
-    this.arena.update(dt, t, this.humans[0] ? this.humans[0].camera.position : null);
+    this.arena.update(dt, t, this.humans[0] ? this.humans[0].camera.position : null); if (this.arena.prints) this.arena.prints.update(t);
     this._updateTracers(t);
     this._updateHud(t);
     if (this.net && t >= this._nextSnap) { this._nextSnap = t + 1 / SNAP_HZ; this._sendSnapshot(t); }
@@ -678,7 +680,7 @@ export class Battle {
     const ears = this.humans[0];
     if (ears) { this.deps.sfx.listen(ears.camera); if (!this.kc && !this.over) this.deps.sfx.observeSteps(this.fighters, ears.camera, this.arena, t, null, ears.f.id); }
     this._updateTorches();
-    this.arena.update(dt, t, me ? me.camera.position : null);
+    this.arena.update(dt, t, me ? me.camera.position : null); if (this.arena.prints) this.arena.prints.update(t);
     this._updateTracers(t);
     this._updateHud(t);
   }
@@ -936,7 +938,11 @@ export class Battle {
     f._sx = f.x; f._sz = f.z;
     if (sp < 12 && t >= (f._nextStep || 0)) {
       const range = sp > 4.2 ? 16 : sp > 2.2 ? 8 : sp > 0.8 ? 3 : 0;
-      if (range) { this._noise(f, 'steps', range, t); f._nextStep = t + 0.32; }
+      if (range) {
+        this._noise(f, 'steps', range, t); f._nextStep = t + 0.32;
+        const a = this.arena;
+        if (a.prints) a.prints.add(f, f.x, f.y || 0, f.z, f.yaw, t, a.map.snow ? 0.7 : a.map.indoor ? 0.22 : (a.atm.w === 'rain' || a.atm.w === 'storm') ? 0.55 : 0.4);
+      }
     }
     const c = this._ctl(f);
     const vaulting = !!(c && c.vault);
