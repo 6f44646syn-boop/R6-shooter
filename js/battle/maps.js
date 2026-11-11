@@ -463,6 +463,54 @@ const cabinWalls = (() => {
   ];
 })();
 
+// What Winter Cabin and the School Basement gained when they grew (the small versions below
+// leave these out).
+const WINTER_RING = [
+  // the outer ring (the map grew): north - a woodshed, woodpile, fence, rocks
+  { x: -20, z: 19.5, w: 3.2, d: 2.6, h: 2.4, kind: 'shed' }, { x: -4, z: 19, w: 2.4, d: 0.8, h: 1.0, kind: 'logs' },
+  { x: 10, z: 19, w: 5, d: 0.25, h: 1.1, kind: 'fence' }, { x: 22, z: 21, w: 3, d: 1.1, h: 1.0, kind: 'snowbank' },
+  { x: -28, z: 20, w: 1.6, d: 1.4, h: 1.1, kind: 'rock' }, { x: 24, z: 17.5, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' },
+  { x: -30, z: 15, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' }, { x: 6, z: 21, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' },
+  // south - a dead truck, the frozen pond's banks, rocks
+  { x: -27, z: -18, w: 2.2, d: 5, h: 1.0, kind: 'truck' }, { x: -27, z: -19.7, w: 2.2, d: 1.6, h: 0.9, y: 1.0, kind: 'cab' }, { x: 6, z: -20, w: 3, d: 1.1, h: 1.0, kind: 'snowbank' },
+  { x: 22, z: -19, w: 1.6, d: 1.4, h: 1.1, kind: 'rock' }, { x: -2, z: -21, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' },
+  { x: 10.2, z: -21, w: 0.9, d: 3, h: 0.9, kind: 'snowbank' }, { x: 17.8, z: -23.2, w: 3, d: 0.9, h: 0.9, kind: 'snowbank' },
+  // west - a hut, a fence line, trees
+  { x: -29, z: 4, w: 3.5, d: 3, h: 2.4, kind: 'shed' }, { x: -25, z: -8, w: 0.25, d: 5, h: 1.1, kind: 'fence' },
+  { x: -31, z: -6, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' }, { x: -26, z: 12, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' },
+  { x: -30, z: -12, w: 1.6, d: 1.4, h: 1.1, kind: 'rock' }, { x: -27, z: -1, w: 1, d: 2.4, h: 1.0, kind: 'logs' },
+  // east - a hunting stand with stairs, rocks, a sled, woodpile
+  { x: 29, z: -4, w: 3, d: 3, h: 2.4, kind: 'deck' },
+  { stairs: '+x', x: 26.1, z: -4, w: 2.8, d: 1.6, y1: 2.4, kind: 'deck' },
+  rail(29, -2.5, 3, 0.12, 2.4), rail(30.5, -4, 0.12, 3, 2.4), rail(29, -5.5, 3, 0.12, 2.4),
+  { x: 31, z: 8, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' }, { x: 26, z: -12, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' },
+  { x: 28, z: 3, w: 1.6, d: 1.4, h: 1.1, kind: 'rock' }, { x: 31, z: -12, w: 3, d: 1.1, h: 1.0, kind: 'snowbank' },
+  { x: 27, z: 9, w: 1.6, d: 0.9, h: 0.7, kind: 'sled' }, { x: 31, z: 14, w: 1, d: 2.4, h: 1.0, kind: 'logs' },
+];
+const SCHOOL_MORE = [
+  // the outer ring and more cover (the basement grew): concrete columns, half walls,
+  // locker rows, shelving, crate stacks, piled desks, stacked mattresses, a vending machine
+  { x: -14, z: -3, w: 0.7, d: 0.7, h: 3.4, kind: 'column' }, { x: 14, z: 2, w: 0.7, d: 0.7, h: 3.4, kind: 'column' },
+  { x: -6, z: -6.5, w: 0.7, d: 0.7, h: 3.4, kind: 'column' }, { x: 6, z: 7, w: 0.7, d: 0.7, h: 3.4, kind: 'column' },
+  { x: -22, z: 6, w: 0.7, d: 0.7, h: 3.4, kind: 'column' }, { x: 22, z: -8, w: 0.7, d: 0.7, h: 3.4, kind: 'column' },
+  { x: -22, z: -6, w: 0.7, d: 0.7, h: 3.4, kind: 'column' }, { x: 22, z: 8, w: 0.7, d: 0.7, h: 3.4, kind: 'column' },
+  { x: -1, z: 6, w: 3, d: 0.4, h: 1.1, kind: 'wall' }, { x: 1, z: -8, w: 0.4, d: 3, h: 1.1, kind: 'wall' },
+  { x: -17, z: 4, w: 3, d: 0.4, h: 1.1, kind: 'wall' }, { x: 17, z: -5, w: 3, d: 0.4, h: 1.1, kind: 'wall' },
+  { x: -15, z: 0, w: 1.4, d: 0.8, h: 0.78, kind: 'desk' }, { x: -15, z: 0, w: 1.4, d: 0.8, h: 0.78, y: 0.78, kind: 'desk' },
+  { x: 16, z: -1.5, w: 0.8, d: 1.4, h: 0.78, kind: 'desk' }, { x: 16.9, z: -1.5, w: 0.8, d: 1.4, h: 0.78, kind: 'desk' },
+  // west flank
+  { x: -25, z: 3, w: 0.6, d: 5, h: 2.0, kind: 'lockers' }, { x: -25, z: -6, w: 1.2, d: 1.2, h: 1.2, kind: 'crate' }, { x: -25, z: -7.2, w: 1.2, d: 1.2, h: 2.4, kind: 'crate' },
+  { x: -26, z: 14, w: 0.8, d: 4, h: 2.2, kind: 'shelf' }, { x: -24, z: -12, w: 2, d: 1, h: 0.9, kind: 'mattress' }, { x: -24, z: -12, w: 2, d: 1, h: 0.3, y: 0.9, kind: 'mattress', color: 0x9a8a7a },
+  { x: -20, z: 10, w: 1.2, d: 1.2, h: 1.2, kind: 'crate' },
+  // east flank
+  { x: 25, z: 8, w: 0.8, d: 5, h: 2.2, kind: 'shelf' }, { x: 25, z: -3, w: 1.2, d: 1.2, h: 1.2, kind: 'crate' }, { x: 24, z: -12, w: 0.3, d: 4, h: 2.6, kind: 'cage' },
+  { x: 26.9, z: 1.5, w: 0.8, d: 0.9, h: 1.9, kind: 'vending' }, { x: 21, z: 14, w: 2, d: 1, h: 1.2, kind: 'mattress' },
+  // cover by both spawns
+  { x: -6, z: 16.5, w: 4, d: 0.6, h: 2.0, kind: 'lockers' }, { x: 8, z: 17, w: 1.2, d: 1.2, h: 1.2, kind: 'crate' }, { x: 9.2, z: 17, w: 1.2, d: 1.2, h: 2.4, kind: 'crate' },
+  { x: -18, z: 17, w: 3, d: 0.4, h: 1.1, kind: 'wall' },
+  { x: -4, z: -17, w: 4, d: 0.8, h: 2.2, kind: 'shelf' }, { x: 6, z: -16.5, w: 1.2, d: 1.2, h: 1.2, kind: 'crate' }, { x: 18, z: -17, w: 3, d: 0.4, h: 1.1, kind: 'wall' },
+];
+
 export const MAPS = {
   yard: {
     name: 'Container Yard', hx: 26, hz: 20, wallH: 5,
@@ -608,33 +656,14 @@ export const MAPS = {
       { x: -10, z: 15, w: 3.5, d: 1.2, h: 1.0, kind: 'snowbank' }, { x: 20, z: 4, w: 3, d: 1.1, h: 0.95, kind: 'snowbank' },
       { x: -22, z: 8, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' }, { x: -3, z: 13, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' }, { x: 9, z: 5, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' },
       { x: -15, z: 1, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' },
-      // the outer ring (the map grew): north - a woodshed, woodpile, fence, rocks
-      { x: -20, z: 19.5, w: 3.2, d: 2.6, h: 2.4, kind: 'shed' }, { x: -4, z: 19, w: 2.4, d: 0.8, h: 1.0, kind: 'logs' },
-      { x: 10, z: 19, w: 5, d: 0.25, h: 1.1, kind: 'fence' }, { x: 22, z: 21, w: 3, d: 1.1, h: 1.0, kind: 'snowbank' },
-      { x: -28, z: 20, w: 1.6, d: 1.4, h: 1.1, kind: 'rock' }, { x: 24, z: 17.5, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' },
-      { x: -30, z: 15, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' }, { x: 6, z: 21, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' },
-      // south - a dead truck, the frozen pond's banks, rocks
-      { x: -27, z: -18, w: 2.2, d: 5, h: 1.0, kind: 'truck' }, { x: -27, z: -19.7, w: 2.2, d: 1.6, h: 0.9, y: 1.0, kind: 'cab' }, { x: 6, z: -20, w: 3, d: 1.1, h: 1.0, kind: 'snowbank' },
-      { x: 22, z: -19, w: 1.6, d: 1.4, h: 1.1, kind: 'rock' }, { x: -2, z: -21, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' },
-      { x: 10.2, z: -21, w: 0.9, d: 3, h: 0.9, kind: 'snowbank' }, { x: 17.8, z: -23.2, w: 3, d: 0.9, h: 0.9, kind: 'snowbank' },
-      // west - a hut, a fence line, trees
-      { x: -29, z: 4, w: 3.5, d: 3, h: 2.4, kind: 'shed' }, { x: -25, z: -8, w: 0.25, d: 5, h: 1.1, kind: 'fence' },
-      { x: -31, z: -6, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' }, { x: -26, z: 12, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' },
-      { x: -30, z: -12, w: 1.6, d: 1.4, h: 1.1, kind: 'rock' }, { x: -27, z: -1, w: 1, d: 2.4, h: 1.0, kind: 'logs' },
-      // east - a hunting stand with stairs, rocks, a sled, woodpile
-      { x: 29, z: -4, w: 3, d: 3, h: 2.4, kind: 'deck' },
-      { stairs: '+x', x: 26.1, z: -4, w: 2.8, d: 1.6, y1: 2.4, kind: 'deck' },
-      rail(29, -2.5, 3, 0.12, 2.4), rail(30.5, -4, 0.12, 3, 2.4), rail(29, -5.5, 3, 0.12, 2.4),
-      { x: 31, z: 8, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' }, { x: 26, z: -12, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' },
-      { x: 28, z: 3, w: 1.6, d: 1.4, h: 1.1, kind: 'rock' }, { x: 31, z: -12, w: 3, d: 1.1, h: 1.0, kind: 'snowbank' },
-      { x: 27, z: 9, w: 1.6, d: 0.9, h: 0.7, kind: 'sled' }, { x: 31, z: 14, w: 1, d: 2.4, h: 1.0, kind: 'logs' },
+      ...WINTER_RING,
     ],
     spawns: [[-26, 24], [-12, 24.5], [2, 24.5], [16, 24.5], [30, 22]],
     spawnsB: [[-26, -24], [-12, -24.5], [2, -24.5], [16, -24.5], [30, -22]],
     // the cabin's lamp, a lantern at its door and on both decks (on at night too)
-    fixtures: [[CABIN.x, 2.7, CABIN.z, 0xffc070, 8, 7, 1.2], [CABIN.x - 2.2, 2.5, CABIN.z + CABIN.d / 2 + 0.45, 0xffb060, 7, 8, 1.1], [15, 4.4, 12, 0xffb060, 9, 9, 1.1], [29, 4.4, -4, 0xffb060, 9, 9, 1.1]],
+    fixtures: (map) => [[CABIN.x, 2.7, CABIN.z, 0xffc070, 8, 7, 1.2], [CABIN.x - 2.2, 2.5, CABIN.z + CABIN.d / 2 + 0.45, 0xffb060, 7, 8, 1.1], [15, 4.4, 12, 0xffb060, 9, 9, 1.1], ...(map.small ? [] : [[29, 4.4, -4, 0xffb060, 9, 9, 1.1]])],
     snow: true,
-    extra: (ctx) => {
+    extra: (ctx, map) => {
       // Cabin roof (two snowy slopes), chimney, plank floor, door frames, lit windows.
       const { x, z, w, d, h } = CABIN, rh = 1.6, len = Math.hypot(w / 2 + 0.5, rh);
       for (const s of [-1, 1]) {
@@ -653,19 +682,21 @@ export const MAPS = {
       ctx.box({ color: 0x2a1a10, rough: 0.8 }, 0.02, 0.4, 0.02, x, 2.85, z); ctx.cone({ color: 0x3a2a1a, rough: 0.6, metal: 0.3 }, 0.22, 0.18, x, 2.62, z); ctx.cylinder({ emissive: 0xffc070 }, 0.07, 0.08, x, 2.52, z);
       const lantern = (lx, ly, lz) => { ctx.box({ color: 0x1a1a1a, rough: 0.5, metal: 0.7 }, 0.2, 0.3, 0.2, lx, ly, lz); ctx.box({ emissive: 0xffb060 }, 0.14, 0.2, 0.14, lx, ly, lz); };
       lantern(x - 2.2, 2.55, z + d / 2 + 0.45);
-      for (const [lx, lz] of [[15, 12], [29, -4]]) { ctx.cylinder({ color: 0x5a4a3a, rough: 0.9 }, 0.05, 1.8, lx + 1.8, 2.4 + 0.9, lz + 1.8, 8); lantern(lx + 1.8, 4.3, lz + 1.8); }
+      for (const [lx, lz] of map.small ? [[15, 12]] : [[15, 12], [29, -4]]) { ctx.cylinder({ color: 0x5a4a3a, rough: 0.9 }, 0.05, 1.8, lx + 1.8, 2.4 + 0.9, lz + 1.8, 8); lantern(lx + 1.8, 4.3, lz + 1.8); }
       // the frozen pond (walk on it), stumps, a chopping block with an axe
-      ctx.floorPlane({ color: 0xbcd8ea, rough: 0.05, metal: 0.1 }, 7, 4, 14, 0.02, -21);
-      ctx.floorPlane({ color: 0x9ac0d8, rough: 0.1, metal: 0.1 }, 5.6, 2.8, 14, 0.025, -21);
-      for (const [sx, sz] of [[-8, 18], [18, 6], [-22, -14], [24, -22], [-16, 23]]) { ctx.cylinder({ map: barkTex, rough: 0.95 }, 0.28, 0.45, sx, 0.22, sz, 10); ctx.cylinder({ color: 0xf2f6fb, rough: 0.8 }, 0.28, 0.04, sx, 0.46, sz, 10); }
+      if (!map.small) {
+        ctx.floorPlane({ color: 0xbcd8ea, rough: 0.05, metal: 0.1 }, 7, 4, 14, 0.02, -21);
+        ctx.floorPlane({ color: 0x9ac0d8, rough: 0.1, metal: 0.1 }, 5.6, 2.8, 14, 0.025, -21);
+      }
+      for (const [sx, sz] of [[-8, 18], [18, 6], [-22, -14], ...(map.small ? [] : [[24, -22], [-16, 23]])]) { ctx.cylinder({ map: barkTex, rough: 0.95 }, 0.28, 0.45, sx, 0.22, sz, 10); ctx.cylinder({ color: 0xf2f6fb, rough: 0.8 }, 0.28, 0.04, sx, 0.46, sz, 10); }
       ctx.cylinder({ map: barkTex, rough: 0.95 }, 0.35, 0.6, -6.8, 0.3, 17.5, 10);
       const ax = ctx.box({ color: 0x6a4a2a, rough: 0.8 }, 0.05, 0.7, 0.05, -6.8, 0.85, 17.5); ax.rotation.z = 0.5;
       ctx.box({ color: 0x9aa0a6, rough: 0.3, metal: 0.9 }, 0.18, 0.12, 0.03, -6.62, 0.66, 17.5);
     },
-    outside: (ctx) => {             // pines beyond the fence
+    outside: (ctx, map) => {        // pines beyond the fence
       const rng = mulberry32(77);
       for (let i = 0; i < 46; i++) {
-        const a = rng() * Math.PI * 2, r = 1 + rng() * 0.75, x = Math.cos(a) * r * 38, z = Math.sin(a) * r * 30;   // beyond the fence all round
+        const a = rng() * Math.PI * 2, r = 1 + rng() * 0.75, x = Math.cos(a) * r * (map.hx + 4), z = Math.sin(a) * r * (map.hz + 4);   // beyond the fence all round
         const h = 5 + rng() * 6;
         ctx.cone({ color: 0x1b3f28, rough: 0.9 }, 1.6 + rng(), h, x, h / 2, z);
         ctx.cone({ color: 0xeef3f8, rough: 0.9 }, 1.0, h * 0.3, x, h * 0.86, z);
@@ -764,7 +795,7 @@ export const MAPS = {
     floor: () => ({ map: basementFloorTex(), tile: 4, rough: 0.8 }),
     wall: () => ({ map: blockWallTex(), tileW: 2, tileH: 3.4, rough: 0.9 }),
     ceiling: { color: 0x2a2c28, lights: 0xd8e8d0, lightsAt: SCHOOL_LIGHTS },
-    fixtures: (map) => SCHOOL_LIGHTS.map(([x, z]) => [x, map.wallH - 0.08, z, 0xd8ecd8, 9, 8, 1.15]),
+    fixtures: (map) => map.ceiling.lightsAt.map(([x, z]) => [x, map.wallH - 0.08, z, 0xd8ecd8, 9, 8, 1.15]),
     glows: [[0x40ff50, 2.2, -8, 0.9, 6, 9], [0x40ff50, 2.2, 10, 0.9, -5, 9], [0x40ff50, 1.6, 15, 0.9, 10, 7], [0xffd0a0, 1.2, -1, 2.8, -1, 10]],
     acid: [{ x: -8, z: 6, w: 8, d: 4 }, { x: 10, z: -5, w: 5, d: 7 }, { x: 15, z: 10, w: 4, d: 3 }],
     acidLook,
@@ -795,27 +826,7 @@ export const MAPS = {
       mattress: { color: 0x8a8a7a, rough: 0.95 },
     },
     layout: [
-      // the outer ring and more cover (the basement grew): concrete columns, half walls,
-      // locker rows, shelving, crate stacks, piled desks, stacked mattresses, a vending machine
-      { x: -14, z: -3, w: 0.7, d: 0.7, h: 3.4, kind: 'column' }, { x: 14, z: 2, w: 0.7, d: 0.7, h: 3.4, kind: 'column' },
-      { x: -6, z: -6.5, w: 0.7, d: 0.7, h: 3.4, kind: 'column' }, { x: 6, z: 7, w: 0.7, d: 0.7, h: 3.4, kind: 'column' },
-      { x: -22, z: 6, w: 0.7, d: 0.7, h: 3.4, kind: 'column' }, { x: 22, z: -8, w: 0.7, d: 0.7, h: 3.4, kind: 'column' },
-      { x: -22, z: -6, w: 0.7, d: 0.7, h: 3.4, kind: 'column' }, { x: 22, z: 8, w: 0.7, d: 0.7, h: 3.4, kind: 'column' },
-      { x: -1, z: 6, w: 3, d: 0.4, h: 1.1, kind: 'wall' }, { x: 1, z: -8, w: 0.4, d: 3, h: 1.1, kind: 'wall' },
-      { x: -17, z: 4, w: 3, d: 0.4, h: 1.1, kind: 'wall' }, { x: 17, z: -5, w: 3, d: 0.4, h: 1.1, kind: 'wall' },
-      { x: -15, z: 0, w: 1.4, d: 0.8, h: 0.78, kind: 'desk' }, { x: -15, z: 0, w: 1.4, d: 0.8, h: 0.78, y: 0.78, kind: 'desk' },
-      { x: 16, z: -1.5, w: 0.8, d: 1.4, h: 0.78, kind: 'desk' }, { x: 16.9, z: -1.5, w: 0.8, d: 1.4, h: 0.78, kind: 'desk' },
-      // west flank
-      { x: -25, z: 3, w: 0.6, d: 5, h: 2.0, kind: 'lockers' }, { x: -25, z: -6, w: 1.2, d: 1.2, h: 1.2, kind: 'crate' }, { x: -25, z: -7.2, w: 1.2, d: 1.2, h: 2.4, kind: 'crate' },
-      { x: -26, z: 14, w: 0.8, d: 4, h: 2.2, kind: 'shelf' }, { x: -24, z: -12, w: 2, d: 1, h: 0.9, kind: 'mattress' }, { x: -24, z: -12, w: 2, d: 1, h: 0.3, y: 0.9, kind: 'mattress', color: 0x9a8a7a },
-      { x: -20, z: 10, w: 1.2, d: 1.2, h: 1.2, kind: 'crate' },
-      // east flank
-      { x: 25, z: 8, w: 0.8, d: 5, h: 2.2, kind: 'shelf' }, { x: 25, z: -3, w: 1.2, d: 1.2, h: 1.2, kind: 'crate' }, { x: 24, z: -12, w: 0.3, d: 4, h: 2.6, kind: 'cage' },
-      { x: 26.9, z: 1.5, w: 0.8, d: 0.9, h: 1.9, kind: 'vending' }, { x: 21, z: 14, w: 2, d: 1, h: 1.2, kind: 'mattress' },
-      // cover by both spawns
-      { x: -6, z: 16.5, w: 4, d: 0.6, h: 2.0, kind: 'lockers' }, { x: 8, z: 17, w: 1.2, d: 1.2, h: 1.2, kind: 'crate' }, { x: 9.2, z: 17, w: 1.2, d: 1.2, h: 2.4, kind: 'crate' },
-      { x: -18, z: 17, w: 3, d: 0.4, h: 1.1, kind: 'wall' },
-      { x: -4, z: -17, w: 4, d: 0.8, h: 2.2, kind: 'shelf' }, { x: 6, z: -16.5, w: 1.2, d: 1.2, h: 1.2, kind: 'crate' }, { x: 18, z: -17, w: 3, d: 0.4, h: 1.1, kind: 'wall' },
+      ...SCHOOL_MORE,
       // middle: the boiler and pipes
       { x: 0, z: -1, w: 2.4, d: 2.4, h: 2.2, kind: 'boiler' },
       { x: -3.5, z: 2.5, w: 0.8, d: 0.8, h: 1.0, kind: 'barrel' }, { x: 3.2, z: -4.5, w: 0.8, d: 0.8, h: 1.0, kind: 'barrel' },
@@ -855,7 +866,7 @@ export const MAPS = {
       for (const [x, z, ry] of [[-map.hx + 0.02, 6, Math.PI / 2], [map.hx - 0.02, -5, -Math.PI / 2]]) ctx.plane({ map: hazardStripes, basic: true }, 2.4, 0.5, x, 2.2, z, ry);
       // light housings round the tubes, a whiteboard, fuse boxes with LEDs, green exit signs,
       // fire extinguishers, a mop bucket, papers and puddles on the floor, wall pipes
-      for (const [x, z] of SCHOOL_LIGHTS) ctx.box({ color: 0x8a8c88, rough: 0.5, metal: 0.6 }, 2.0, 0.08, 0.62, x, map.wallH - 0.08, z);
+      for (const [x, z] of map.ceiling.lightsAt) ctx.box({ color: 0x8a8c88, rough: 0.5, metal: 0.6 }, 2.0, 0.08, 0.62, x, map.wallH - 0.08, z);
       ctx.plane({ map: boardTex('white'), rough: 0.3 }, 3.2, 1.6, -10, 1.7, map.hz - 0.03, Math.PI);
       for (const [x, z, ry] of [[map.hx - 0.06, 11, -Math.PI / 2], [-map.hx + 0.06, -10, Math.PI / 2], [12, -map.hz + 0.06, 0]]) {
         const f = ctx.box({ color: 0x5a5e5a, rough: 0.5, metal: 0.7 }, 0.6, 0.8, 0.12, x, 1.6, z); f.rotation.y = ry;
@@ -872,3 +883,13 @@ export const MAPS = {
   },
 };
 export const MAP_IDS = Object.keys(MAPS);
+
+// Small versions for small fights (2 to 4 fighters, chosen in js/battle/battle.js): Winter Cabin
+// and the School Basement at their old size and layout, with the same look and lamps.
+export const SMALL = {
+  winter: { ...MAPS.winter, small: true, hx: 26, hz: 20, layout: MAPS.winter.layout.filter((e) => !WINTER_RING.includes(e)),
+    spawns: [[-20, 18], [-8, 18.5], [3, 18.5], [21, 18], [23, 6]], spawnsB: [[-18, -18, 2], [-11, -18, 2], [4, -18.5], [16, -18], [23, -10]] },
+  school: { ...MAPS.school, small: true, hx: 22, hz: 16, layout: MAPS.school.layout.filter((e) => !SCHOOL_MORE.includes(e)),
+    ceiling: { ...MAPS.school.ceiling, lightsAt: [[-14, 12], [6, 12], [-6, -1], [12, -2], [-16, -10], [8, -13]] },
+    spawns: [[-18, 13], [-8, 14.5], [5, 15], [17, 14], [20, 2]], spawnsB: [[-19, -10.5, 1.2], [-7, -14.5], [8, -14.5], [19, -14.5], [20, -7]] },
+};

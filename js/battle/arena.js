@@ -10,7 +10,7 @@
 import { applyPackMaterials, revertPackMaterials } from '../render/pack-materials.js?v=25db2c9-mwbx9yjs';
 import { maxMode } from '../render/quality.js?v=25db2c9-mwbx9yjs';
 import * as THREE from '../../vendor/three/three.module.min.js?v=25db2c9-mwbx9yjs';
-import { MAPS } from './maps.js?v=25db2c9-mwbx9yjs';
+import { MAPS, SMALL } from './maps.js?v=25db2c9-mwbx9yjs';
 import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=25db2c9-mwbx9yjs';
 import { flatMaterial } from '../scene/low.js?v=25db2c9-mwbx9yjs';
 import { BulletHoles } from '../scene/holes.js?v=25db2c9-mwbx9yjs';
@@ -143,9 +143,10 @@ function mergeChunks(group, size = 22, bounds = null) {
 }
 
 export class Arena {
-  // mapId: a key of MAPS (maps.js).
-  constructor(mapId = 'yard') {
-    const map = this.map = mapId === ROYALE_MAP_ID ? BLACKTIDE : MAPS[mapId] || MAPS.yard;
+  // mapId: a key of MAPS (maps.js). small: its small version if it has one (SMALL, for 2 to 4 fighters).
+  constructor(mapId = 'yard', small = false) {
+    this.small = !!(small && SMALL[mapId]);
+    const map = this.map = mapId === ROYALE_MAP_ID ? BLACKTIDE : this.small ? SMALL[mapId] : MAPS[mapId] || MAPS.yard;
     this.mapId = map === BLACKTIDE || MAPS[mapId] ? mapId : 'yard';
     this.hx = map.hx; this.hz = map.hz; this.wallH = map.wallH;
     const HX = this.hx, HZ = this.hz, WH = this.wallH;
@@ -598,7 +599,8 @@ export class Arena {
     // Enhanced Graphics pack v5: physically based materials and the map's baked light (the
     // match-mode copies of these maps share their geometry and coordinates)
     const scene = this.scene;
-    applyPackMaterials(scene, q, renderer, { light: { yard: 'containers', winter: 'winter', casino: 'casino', school: 'school' }[this.mapId] }).then(() => { if (this.scene === scene) { this._wet = undefined; this._maxEnv(); } }).catch((e) => console.warn('pack materials', e));
+    const lightId = { yard: 'containers', winter: 'winter', casino: 'casino', school: 'school' }[this.mapId];
+    applyPackMaterials(scene, q, renderer, { light: lightId && lightId + (this.small ? 'Small' : '') }).then(() => { if (this.scene === scene) { this._wet = undefined; this._maxEnv(); } }).catch((e) => console.warn('pack materials', e));
     this._applyLights();
     this._fogBanks();
     this.scene.environment = high && !this.atm.night ? this.env : null;

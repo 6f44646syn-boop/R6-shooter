@@ -3,7 +3,7 @@
 // Run: node tools/build-maps.mjs
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { MatchMap } from '../js/modes/map.js';
-import { MAPS as BATTLE } from '../js/battle/maps.js';
+import { MAPS as BATTLE, SMALL } from '../js/battle/maps.js';
 import { layoutSolids } from '../js/battle/solids.js';
 
 const H = 3.2;
@@ -439,8 +439,7 @@ const workshop = building({
 // Same layouts and the same solids as Battle (js/battle/maps.js, js/battle/solids.js): the
 // floors, stairs, ramps and upper levels all work in the match modes.
 const yawTo = (dx, dz) => Math.atan2(dx, -dz) * 180 / Math.PI;
-function fromBattle(id, key, name) {
-  const M = BATTLE[key];
+function fromBattle(id, key, name, M = BATTLE[key]) {
   const walls = layoutSolids(M).map((b) => ({ x0: b.minX, z0: b.minZ, x1: b.maxX, z1: b.maxZ, y0: b.minY, h: b.maxY - b.minY }));
   const mirror = (l) => l.map((p) => [-p[0], -p[1], p[2]]);
   const raw = { A: M.spawns, B: M.spawnsB || mirror(M.spawns) };
@@ -533,5 +532,7 @@ function finish(data) {
 }
 
 mkdirSync(new URL('../data/maps/', import.meta.url), { recursive: true });
-const battle = [fromBattle('containers', 'yard', 'Container Yard'), fromBattle('winter', 'winter', 'Winter Cabin'), fromBattle('casino', 'casino', "Jesse's Casino"), fromBattle('school', 'school', 'School Basement')];
+const battle = [fromBattle('containers', 'yard', 'Container Yard'), fromBattle('winter', 'winter', 'Winter Cabin'), fromBattle('casino', 'casino', "Jesse's Casino"), fromBattle('school', 'school', 'School Basement'),
+  // the small versions (Battle with 2 to 4 fighters): only their baked light is used
+  fromBattle('winterSmall', 'winter', 'Winter Cabin', SMALL.winter), fromBattle('schoolSmall', 'school', 'School Basement', SMALL.school)];
 for (const m of [yard, depot, ranch, embassy, workshop, ...battle]) writeFileSync(new URL('../data/maps/' + m.id + '.json', import.meta.url), JSON.stringify(finish(m)));

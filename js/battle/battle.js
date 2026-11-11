@@ -71,9 +71,11 @@ export class Battle {
     this.humanPool = [];         // reused between matches (each has a weapon rig)
   }
 
-  _useArena(id) {
-    if (!this.arenas[id]) this.arenas[id] = new Arena(id);
-    this.arena = this.arenas[id];
+  // small: the map's small version if it has one (Winter Cabin, School Basement)
+  _useArena(id, small = false) {
+    const key = id + (small ? ':small' : '');
+    if (!this.arenas[key]) this.arenas[key] = new Arena(id, small);
+    this.arena = this.arenas[key];
     if (this.tracers) this.arena.scene.add(this.tracers);     // moves them to this map's scene
     if (!this.arena.prints) this.arena.prints = new Footprints(this.arena.scene);   // footprints stay with their map
     if (this.torches) for (const l of this.torches) this.arena.scene.add(l, l.target);
@@ -150,7 +152,9 @@ export class Battle {
     if (!this.nadesB) this.nadesB = new BattleNades(this);
     this.nadesB.reset();
     for (const f of this.fighters) f.group.removeFromParent();
-    this._useArena(opts.map || 'yard');
+    // 2 to 4 fighters (1v1, 1v2, 2v2) play the small Winter Cabin and School Basement
+    const total = (opts.opponent === 'p2' ? 2 : 1) + (opts.remotes?.length || 0) + (opts.royale ? 99 : Math.max(0, Math.min(6, opts.bots | 0)));
+    this._useArena(opts.map || 'yard', total <= 4);
     this.atmo = { night: !!opts.night, weather: opts.weather || 'auto', fog: !!opts.fog };
     this.remotes = []; this.proxies = [];
     this._nextSnap = 0;
@@ -201,11 +205,11 @@ export class Battle {
     this.t = t; this.prevT = t;
     // Network game: tell every remote player who is in the match before the spawns go out.
     for (const r of this.remotes) {
-      r.link.send({ k: 'start', you: r.f.id, killsToWin: opts.killsToWin, map: this.arena.mapId, night: this.atmo.night, weather: this.atmo.weather, fog: this.atmo.fog, roster: this._roster() });
+      r.link.send({ k: 'start', you: r.f.id, killsToWin: opts.killsToWin, map: this.arena.mapId, small: this.arena.small, night: this.atmo.night, weather: this.atmo.weather, fog: this.atmo.fog, roster: this._roster() });
     }
     for (const link of this.watchers) {
       link.send({ k: 'start', spectator: true, you: this.humans[0].f.id, killsToWin: opts.killsToWin,
-        map: this.arena.mapId, ...this.atmo, roster: this._roster() });
+        map: this.arena.mapId, small: this.arena.small, ...this.atmo, roster: this._roster() });
     }
     if (opts.royale) this.royale = new BattleRoyale(this);
     for (const f of this.fighters) this._spawn(f, t);
@@ -659,7 +663,7 @@ export class Battle {
     this.opts = { opponent: 'net', killsToWin: m.killsToWin };
     this.net = { role: 'client', link, myId: m.you };
     for (const f of this.fighters) f.group.removeFromParent();
-    this._useArena(m.map || 'yard');
+    this._useArena(m.map || 'yard', !!m.small);
     this.arena.setGraphics(effectiveGraphics(d.settings), d.renderer);
     this.arena.holes.clear();
     for (const f of this.fighters) f.group.removeFromParent();

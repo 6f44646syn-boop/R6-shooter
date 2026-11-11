@@ -945,26 +945,30 @@ try {
     check('maps: Container Yard, Winter Cabin, Jesse\'s Casino and School Basement build; bots roam; paths cross; nobody inside cover',
       Object.entries(mp).every(([k, v]) => v.id === k && v.cover > 10 && v.path > 1 && v.moved >= 2 && v.inCover === 0), JSON.stringify(mp));
 
-    // Battle maps' detail: Winter and School grew (68 x 52, 56 x 40), School has more cover, and on
-    // High each map's lamps (floodlights, chandeliers, strip lights, lanterns) light it; indoors at night they go out.
+    // Battle maps' detail: Winter and School grew (68 x 52, 56 x 40) for 5 or more fighters and keep
+    // their small versions for 2 to 4; School has more cover; on High each map's lamps (floodlights,
+    // chandeliers, strip lights, lanterns) light it; indoors at night they go out.
     const bm = await page.evaluate(() => {
       const R = window.__range, out = {};
       R.setGraphics('high');
       for (const map of ['yard', 'winter', 'casino', 'school']) {
-        R.battleStart({ opponent: 'bots', bots: 1, level: 'easy', kills: 99, map });
+        R.battleStart({ opponent: 'bots', bots: 3, level: 'easy', kills: 99, map });
+        const small = [R.battle().arena.hx * 2, R.battle().arena.hz * 2];
+        R.battleLeave();
+        R.battleStart({ opponent: 'bots', bots: 4, level: 'easy', kills: 99, map });
         const B = R.battle(), A = B.arena, f = B.humans[0].f;
         f.x = 2; f.z = 4; f.protectUntil = 1e9;          // stand near the middle (lamps within 30 m)
         R.step(0.5, 30);
         const lit = () => A.pool ? A.pool.lights.filter((l) => l.intensity > 0).length : 0;
-        out[map] = { size: [A.hx * 2, A.hz * 2], cover: A.boxes.length, fixtures: A._fixtures.length, lit: lit() };
+        out[map] = { small, size: [A.hx * 2, A.hz * 2], cover: A.boxes.length, fixtures: A._fixtures.length, lit: lit() };
         A.setAtmosphere(true); R.step(0.3, 30); out[map].litNight = lit(); A.setAtmosphere(false);
         R.battleLeave();
       }
       R.setGraphics('standard');
       return out;
     });
-    check('battle maps: Winter 68 x 52 and School 56 x 40 with more cover; lamps light every map on High; indoor lamps go out at night',
-      bm.winter.size.join() === '68,52' && bm.school.size.join() === '56,40' && bm.school.cover >= 60 &&
+    check('battle maps: Winter 68 x 52 and School 56 x 40 with more cover for 5+ fighters, small (52 x 40, 44 x 32) for 2 to 4; lamps light every map on High; indoor lamps go out at night',
+      bm.winter.size.join() === '68,52' && bm.school.size.join() === '56,40' && bm.winter.small.join() === '52,40' && bm.school.small.join() === '44,32' && bm.yard.small.join() === '52,40' && bm.school.cover >= 60 &&
       Object.values(bm).every((v) => v.fixtures >= 4 && v.lit >= 3) && bm.casino.litNight === 0 && bm.school.litNight === 0 && bm.winter.litNight > 0, JSON.stringify(bm));
 
     // Bot levels: time for one bot to kill you standing in the open at 12 m.

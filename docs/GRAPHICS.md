@@ -58,8 +58,9 @@ and Black Ice skins have their own inspect.
   Battle maps carry their own in each map's `extra` and kinds: drums, tyres, pallets and bay
   lines in the Yard; icicles, lanterns, a frozen pond, a truck and a hunting stand at Winter
   Cabin; sconces, palms, ropes, chips and cards in the Casino; columns, half walls, lockers,
-  a whiteboard, exit signs and extinguishers in the School. Winter Cabin is 68 x 52 m and the
-  School Basement 56 x 40 m.
+  a whiteboard, exit signs and extinguishers in the School. With 5 or more fighters Winter Cabin
+  is 68 x 52 m and the School Basement 56 x 40 m (more cover); 1v1, 1v2 and 2v2 fights keep their
+  small versions (52 x 40, 44 x 32: `SMALL` in `js/battle/maps.js`, each with its own baked light).
 
 ## The Graphics screen (`js/ui/graphics-ui.js`)
 
