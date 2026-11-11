@@ -305,7 +305,7 @@ export class Battle {
     f.health = MAX_HEALTH; f.alive = true; f.crouch = 0;
     f.protectUntil = t + PROTECT_S; f.lastHurt = -10;
     if (this.nadesB) this.nadesB.refill(f);
-    if (this.royale) f.nades = 0;
+    if (this.royale) { f.nades = 0; this.royale.startDrop(f, t); }
     f.yaw = Math.atan2(-p.x, p.z) * 180 / Math.PI; f.pitch = 0;
     const c = this._ctl(f);
     if (c instanceof Human) { c.respawn(p.x, p.z, t, p.y); if (c === this.humans[0]) this._resetReport(); }
@@ -327,6 +327,7 @@ export class Battle {
       this.royale?.advance(dt);
       for (const b of this.bots) {
         if (this.over) break;
+        if (b.f.drop) continue;          // Battle Royale: still parachuting in
         b.update(t, dt, this);
         if (!this.over && b.gun) this.nadesB.botThink(b, t);
       }
@@ -343,6 +344,7 @@ export class Battle {
       }
     }
     for (const h of this.humans) h.update(t, dt, this);
+    if (this.royale) { this.royale.glide(this.over ? 0 : dt, t); this.royale.updateGhost(this.humans[0]); }
     this._separate();
     for (const f of this.fighters) { f.updateVisual(t); if (f.lodFor && this.humans[0]) { const cp = this.humans[0].camera.position; f.lodFor(Math.hypot(f.x - cp.x, f.z - cp.z)); } }
     this.nadesB.update(this.over ? 0 : dt, t);
@@ -903,6 +905,7 @@ export class Battle {
     if (this.viewOnly) return;
     const h = this.humans[0];
     if (!h) return;
+    if (h.f.drop && (b === 0 || b === 2)) { h.in.fire = h.in.ads = false; return; }     // no shooting from the parachute
     if (this.royale?.editing && (b === 0 || b === 2)) {
       if (b === 0) this.royale.dragEdit(down);
       if (down && b === 2) this.royale.cancelEdit();
@@ -946,11 +949,12 @@ export class Battle {
       return true;
     }
     if (this.royale && code === 'KeyK') {
-      if (down && !this.paused && !this.over) this.royale.swing(p1);
+      if (down && !this.paused && !this.over && !p1.f.drop) this.royale.swing(p1);
       return true;
     }
-    if (this.royale && code === 'KeyB') {
-      if (down && !this.paused && !this.over) this.royale.build(p1.f, p1.look.yaw);
+    if (this.royale && code === 'KeyB') {                  // hold: the ghost shows where it goes; release: build
+      if (down) this.royale.preview = !this.paused && !this.over;
+      else if (this.royale.preview) { this.royale.preview = false; if (!this.paused && !this.over) this.royale.build(p1.f, p1.look.yaw); }
       return true;
     }
     if (this.royale && (code === 'Interact' || code === 'KeyF') && down
@@ -1509,7 +1513,7 @@ export class Battle {
       if (t > v.ptsUntil && v.pts.classList.contains('on')) v.pts.className = 'b-points';
       const deadMsg = f.alive || this.royale ? '' : 'Eliminated by ' + (h.killedBy || '?') + ' · back in ' + Math.max(0, Math.ceil(f.respawnAt - t));
       const back = Math.max(0, Math.ceil(f.respawnAt - t));
-      const prot = f.alive && t < f.protectUntil ? 'Spawn protection ' + Math.ceil(f.protectUntil - t) + ' · shooting ends it' : '';
+      const prot = !f.alive || t >= f.protectUntil ? '' : f.drop ? 'Parachuting · protected until you land · W A S D to steer' : 'Spawn protection ' + Math.ceil(f.protectUntil - t) + ' · shooting ends it';
       if (L.prot !== prot) { L.prot = prot; v.prot.hidden = !prot; v.prot.textContent = prot; }
       const repKey = !this.royale && i === 0 && !f.alive && this.humans.length === 1 ? (h.killerId || 0) + '|' + (this.kc ? 1 : 0) + '|' + this._repVer + '|' + back : '';
       const showDead = deadMsg && !repKey ? deadMsg : '';
