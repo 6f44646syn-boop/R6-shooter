@@ -292,28 +292,60 @@ function capsule(g, color, r, a, b) {
   g.add(m);
   return m;
 }
+// The support forearm for pack guns: a tapered sleeve with a rolled cuff, laid each frame from
+// the wrist to a shoulder point fixed in view space (bottom left, off screen).
+const SHOULDER = new THREE.Vector3(-0.4, -0.4, 0.1);
+function supportArm() {
+  const geo = new THREE.CylinderGeometry(0.023, 0.03, 1, 20, 24, true);
+  geo.translate(0, 0.5, 0);
+  // fabric folds: soft rings bunched near the wrist, a seam down one side
+  const P = geo.attributes.position;
+  for (let i = 0; i < P.count; i++) {
+    const x = P.getX(i), y = P.getY(i), z = P.getZ(i), a = Math.atan2(z, x);
+    const fold = 1 + 0.07 * Math.sin(y * 70 + Math.sin(a * 3) * 1.2) * Math.exp(-y * 4) + 0.025 * Math.sin(y * 23 + a * 2) - 0.03 * Math.exp(-Math.pow((a - 2.2) * 6, 2));
+    P.setX(i, x * fold); P.setZ(i, z * fold);
+  }
+  geo.computeVertexNormals();
+  const arm = new THREE.Group(), sleeve = new THREE.Mesh(geo, mat(SLEEVE, 'cloth'));
+  const roll = new THREE.Mesh(new THREE.TorusGeometry(0.024, 0.006, 8, 18), mat(SLEEVE, 'cloth'));
+  roll.rotation.x = Math.PI / 2; roll.position.y = 0.035;
+  arm.add(sleeve, roll);
+  arm.userData.sleeve = sleeve;
+  return arm;
+}
 // sup (optional): a group for the support hand, so the pack's animations can move it. Its
 // origin is the palm (returned), and its parts are placed relative to that.
 function hands(g0, type, sup) {
-  // Support hand: palm under the handguard, fingers wrapping up the left side, thumb on the right.
+  // Support hand: a rounded palm under the handguard, three-jointed fingers wrapping up the left
+  // side, the thumb along the right, a padded knuckle guard, and a cuffed wrist.
   const hz = HAND_Z[type];
   let g = sup || g0;
-  const palm = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.022, 0.085), mat(GLOVE, 'cloth'));
-  palm.position.set(-0.004, -0.04, hz);
-  palm.rotation.z = 0.25;
-  g.add(palm);
+  const blob = (color, sx, sy, sz, x, y, z, rz = 0) => {
+    const b = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), mat(color, 'cloth'));
+    b.scale.set(sx, sy, sz); b.position.set(x, y, z); b.rotation.z = rz; g.add(b); return b;
+  };
+  blob(GLOVE, 0.027, 0.013, 0.046, -0.004, -0.042, hz, 0.25);                         // palm
+  blob(GLOVE, 0.022, 0.012, 0.022, 0.012, -0.046, hz + 0.028, 0.2);                   // heel of the thumb
+  const LEN = [0.92, 1, 0.96, 0.8];                                                   // index .. little
   for (let i = 0; i < 4; i++) {
-    const z = hz - 0.03 + i * 0.02;
-    capsule(g, GLOVE, 0.0085, [-0.03, -0.04, z], [-0.036, -0.005, z - 0.004]);
-    capsule(g, GLOVE, 0.0075, [-0.036, -0.005, z - 0.004], [-0.022, 0.018, z - 0.006]);
+    const z = hz - 0.03 + i * 0.02, k = LEN[i], r = 0.0085 - i * 0.0004;
+    const p0 = [-0.026, -0.044, z], p1 = [-0.037, -0.024, z - 0.002], p2 = [-0.038, -0.003 * k, z - 0.004], p3 = [-0.027, 0.012 * k, z - 0.006];
+    capsule(g, GLOVE, r, p0, p1); capsule(g, GLOVE, r * 0.92, p1, p2); capsule(g, GLOVE, r * 0.85, p2, p3);
+    blob(GLOVE_BACK, 0.007, 0.006, 0.008, -0.04, -0.024, z - 0.002);                 // knuckle pad
   }
-  capsule(g, GLOVE, 0.009, [0.022, -0.04, hz + 0.03], [0.03, -0.005, hz - 0.01]);
-  const back = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.04, 0.07), mat(GLOVE_BACK, 'cloth'));
-  back.position.set(-0.034, -0.03, hz);
-  back.rotation.z = -0.3;
-  g.add(back);
-  capsule(g, GLOVE, 0.024, [-0.01, -0.06, hz + 0.04], [-0.05, -0.1, hz + 0.1]);       // wrist
-  capsule(g, SLEEVE, 0.036, [-0.05, -0.1, hz + 0.1], [-0.16, -0.36, hz + 0.32]);      // forearm
+  capsule(g, GLOVE, 0.0095, [0.016, -0.046, hz + 0.03], [0.028, -0.026, hz + 0.008]);   // thumb
+  capsule(g, GLOVE, 0.0085, [0.028, -0.026, hz + 0.008], [0.029, -0.006, hz - 0.014]);
+  const guard = blob(GLOVE_BACK, 0.009, 0.024, 0.036, -0.036, -0.034, hz, -0.3);       // knuckle guard
+  guard.rotation.x = 0.05;
+  capsule(g, GLOVE, 0.022, [-0.01, -0.06, hz + 0.04], [-0.034, -0.085, hz + 0.075]);    // wrist
+  const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.027, 0.028, 0.03, 16), mat(GLOVE_BACK, 'cloth'));
+  cuff.position.set(-0.03, -0.08, hz + 0.068);
+  cuff.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(-0.024, -0.025, 0.035).normalize());
+  g.add(cuff);
+  // forearm: fixed under the gun when the hand never moves; pack guns get a sleeve that runs
+  // from the wrist to the shoulder every frame (supportArm), so it never swings through the gun
+  if (!sup) capsule(g, SLEEVE, 0.036, [-0.05, -0.1, hz + 0.1], [-0.16, -0.36, hz + 0.32]);
+  else sup.userData.wrist = new THREE.Vector3(-0.034 + 0.004, -0.085 + 0.04, 0.075);   // palm-relative
   const palm0 = new THREE.Vector3(-0.004, -0.04, hz);
   if (sup) { for (const c of sup.children) c.position.sub(palm0); sup.position.copy(palm0); }
   g = g0;
@@ -343,7 +375,7 @@ function iceMaterial(def) {
     iridescence: 0.35, iridescenceIOR: 1.5, envMap: highEnv(), envMapIntensity: 2.4, emissive: c.clone().multiplyScalar(0.22) });
   // Inspect: the shards shoot off along their own direction (and fall), then regrow from
   // their bases. iceT is the inspect progress 0..1 (1 = resting).
-  const u = { iceT: { value: 1 } };
+  const u = { iceT: { value: 1 }, iceGlow: { value: 0 } };
   m.userData.ice = u;
   m.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, u);
@@ -357,23 +389,103 @@ function iceMaterial(def) {
         vec3 off = flying ? iceDir * fly * (0.15 + iceRnd * 0.3) + vec3(0.0, -0.35, 0.0) * fly * fly : vec3(0.0);
         if (flying && fly > 0.98) sc = 0.0;
         transformed = iceBase + (transformed - iceBase) * sc + off;`);
+    // freshly regrown crystals glow from inside, then settle
+    sh.fragmentShader = 'uniform float iceGlow;\n' + sh.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n totalEmissiveRadiance = totalEmissiveRadiance * (1.0 + iceGlow * 5.0) + diffuseColor.rgb * iceGlow * 0.6;');
   };
   m.customProgramCacheKey = () => 'ice' + sh;
   iceMats.set(key, m);
   return m;
 }
+// Inspect: a burst of frost glitter thrown off with the shards (iceT 0.12..0.5), drifting and falling.
+let SNOW = null;
+function snowTex() {
+  if (SNOW) return SNOW;
+  const c = document.createElement('canvas'); c.width = c.height = 32;
+  const g = c.getContext('2d'), gr = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(220,240,255,0.8)'); gr.addColorStop(1, 'rgba(200,230,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 32, 32);
+  g.strokeStyle = 'rgba(255,255,255,0.9)'; g.lineWidth = 1.5;
+  for (let i = 0; i < 3; i++) { const a = i * Math.PI / 3; g.beginPath(); g.moveTo(16 - 14 * Math.cos(a), 16 - 14 * Math.sin(a)); g.lineTo(16 + 14 * Math.cos(a), 16 + 14 * Math.sin(a)); g.stroke(); }
+  return (SNOW = new THREE.CanvasTexture(c));
+}
+function frostBurst(seeds, def, rng) {
+  const n = Math.min(260, seeds.length / 6 * 3), P = [], D = [], R = [];
+  for (let i = 0; i < n; i++) {
+    const k = Math.floor(rng() * seeds.length / 6) * 6;
+    P.push(seeds[k], seeds[k + 1], seeds[k + 2]);
+    D.push(seeds[k + 3] + (rng() - 0.5) * 1.2, seeds[k + 4] + (rng() - 0.5) * 1.2 + 0.4, seeds[k + 5] + (rng() - 0.5) * 1.2);
+    R.push(rng());
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+  geo.setAttribute('iceDir', new THREE.Float32BufferAttribute(D, 3));
+  geo.setAttribute('iceRnd', new THREE.Float32BufferAttribute(R, 1));
+  const c = new THREE.Color(...def.ice).lerp(new THREE.Color(1, 1, 1), 0.5);
+  const m = new THREE.PointsMaterial({ map: snowTex(), color: c, size: 0.012, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
+  const u = { iceT: { value: 1 }, iceGlow: { value: 0 } };
+  m.userData.ice = u;
+  m.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, u);
+    sh.vertexShader = 'attribute vec3 iceDir; attribute float iceRnd; uniform float iceT;\n' + sh.vertexShader
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+        float t0 = 0.12 + iceRnd * 0.08, life = 0.22 + iceRnd * 0.16;
+        float a = clamp((iceT - t0) / life, 0.0, 1.0);
+        float on = step(t0, iceT) * step(iceT, t0 + life) * step(iceT, 0.999);
+        transformed += iceDir * (0.05 + iceRnd * 0.18) * (1.0 - (1.0 - a) * (1.0 - a)) + vec3(0.0, -0.12, 0.0) * a * a;
+        float burstK = on * (1.0 - a) * (0.6 + iceRnd);`)
+      .replace('#include <logdepthbuf_vertex>', 'gl_PointSize *= burstK;\n#include <logdepthbuf_vertex>');
+  };
+  m.customProgramCacheKey = () => 'iceburst';
+  const pts = new THREE.Points(geo, m);
+  pts.frustumCulled = false; pts.renderOrder = 2;
+  return pts;
+}
 const IDENT = { matrix: new THREE.Matrix4() };
+
+// Black Ice inspect, 4 s (every quality): raised to show the top, a full barrel roll while the
+// shards fly off (iceT 0.12..0.42) and frost spreads, the support hand wipes the frost off along
+// the left side (the wave; the side nearest the support shoulder, so the arm never crosses the
+// gun), the crystals regrow glowing on the right side, a tap on the magazine. The support hand
+// (pack guns) lets go and is out of view during the roll.
+const TAU = Math.PI * 2;
+const R_ = (t, x = 0, y = 0, z = 0, p = 0, yw = 0, r = 0) => [t, x, y, z, p, yw, r];
+const H_ = (t, at, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) => [t, at, x, y, z, rx, ry, rz];
+export const ICE_INSPECT = {
+  root: [
+    R_(0), R_(0.08, -0.07, 0.07, -0.13, 0.3, 0.2, 0), R_(0.13, -0.07, 0.075, -0.14, 0.18, 0.1, 0),
+    R_(0.2, -0.07, 0.08, -0.15, 0.12, 0.05, TAU * 0.25), R_(0.27, -0.07, 0.085, -0.15, 0.1, 0, TAU * 0.5), R_(0.34, -0.07, 0.08, -0.15, 0.12, -0.05, TAU * 0.75), R_(0.42, -0.07, 0.075, -0.14, 0.15, 0, TAU),
+    R_(0.48, -0.075, 0.075, -0.11, 0.12, 1.1, TAU + 0.18), R_(0.62, -0.075, 0.075, -0.11, 0.14, 1.15, TAU + 0.15),
+    R_(0.7, -0.06, 0.07, -0.1, 0.22, -0.95, TAU - 0.2), R_(0.82, -0.06, 0.065, -0.1, 0.26, -1.0, TAU - 0.22),
+    R_(0.88, -0.05, 0.05, -0.08, 0.2, -0.4, TAU + 0.1), R_(0.95, -0.01, 0.01, -0.02, 0.03, -0.05, TAU), R_(1, 0, 0, 0, 0, 0, TAU),
+  ],
+  hand: [
+    H_(0, 'rest'), H_(0.08, 'rest'), H_(0.13, 'rest', 0, -0.06, 0.32), H_(0.42, 'rest', 0, -0.06, 0.32),
+    H_(0.46, 'rest', -0.07, 0.02, 0.16, 0, 0, -1.4), H_(0.48, 'rest', -0.062, 0.034, 0.14, 0, 0.1, -1.45), H_(0.62, 'rest', -0.062, 0.034, -0.12, 0, -0.1, -1.45), H_(0.65, 'rest', -0.075, 0.02, -0.1, 0, 0, -1.2),
+    H_(0.68, 'rest', 0, -0.01, 0.01), H_(0.82, 'rest'), H_(0.86, 'magBottom', -0.004, -0.008, 0.005, 0.1, 0, 0.1), H_(0.92, 'rest', -0.01, -0.02, 0.02), H_(1, 'rest'),
+  ],
+  events: [[0.86, 'slap']],
+};
+// The frost and glow on the skin over the same timeline (p: inspect progress 0..1).
+const sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+export function iceInspectFx(p) {
+  if (p < 0 || p >= 1) return { frost: 0, wave: 9, glow: 0 };
+  return { frost: sm(0.14, 0.32, p) * (1 - sm(0.62, 0.66, p)), wave: p < 0.47 ? 9 : 0.3 - 1.05 * sm(0.47, 0.62, p), glow: sm(0.55, 0.66, p) * (1 - sm(0.84, 1, p)) * (0.75 + 0.25 * Math.sin(p * 60)) };
+}
 function iceCrystals(g, mg, def, type) {
   const rng = mulberry32(def.id * 977 + type.length * 31);
   const rails = RAILS[type] || [];
   const railFrom = Math.max(...rails.map((r) => r[1]), 0) + 0.03, railTo = Math.min(...rails.map((r) => r[2]), 0) - 0.03;
   const build = (group) => {
-    const pos = [], nor = [], base = [], dirs = [], rnds = [];
+    const pos = [], nor = [], base = [], dirs = [], rnds = [], seeds = [];
     const tmp = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1);
     const b = new THREE.Vector3(), dv = new THREE.Vector3();
     const spike = (part, x, y, z, dir, len, r) => {
-      const geo = new THREE.ConeGeometry(r, len, rng() < 0.5 ? 4 : 5, 1).toNonIndexed();
-      geo.translate(0, len / 2, 0);                                    // base on the surface
+      // a real ice crystal: a six-sided column, a little wider at the shoulder, with a pyramid tip
+      // (some with a second, shorter tip facet), base on the surface
+      const sh = 0.55 + rng() * 0.2, tw = rng() < 0.3;
+      const prof = [new THREE.Vector2(0, 0), new THREE.Vector2(r * 0.82, 0), new THREE.Vector2(r, len * sh * 0.5), new THREE.Vector2(r * 1.04, len * sh),
+        ...(tw ? [new THREE.Vector2(r * 0.55, len * (sh + 0.18))] : []), new THREE.Vector2(0, len)];
+      const geo = new THREE.LatheGeometry(prof, 6, rng() * 1.05).toNonIndexed();
       // dir: 0 up, 1 down, 2 forward (-z); with a random lean.
       const lean = () => (rng() - 0.5) * 0.9;
       if (dir === 0) e.set(lean(), rng() * 6.28, lean());
@@ -388,6 +500,7 @@ function iceCrystals(g, mg, def, type) {
       dv.set(0, 1, 0).applyQuaternion(q).transformDirection(part.matrix);
       const rr = rng(), n = geo.attributes.position.count;
       for (let k = 0; k < n; k++) { base.push(b.x, b.y, b.z); dirs.push(dv.x, dv.y, dv.z); rnds.push(rr); }
+      seeds.push(b.x, b.y, b.z, dv.x, dv.y, dv.z);
       geo.dispose();
     };
     for (const part of group.children) {
@@ -438,6 +551,7 @@ function iceCrystals(g, mg, def, type) {
     mesh.frustumCulled = false;
     mesh.renderOrder = 1;
     group.add(mesh);
+    group.add(frostBurst(seeds, def, rng));
   };
   build(g);
   build(mg);
@@ -874,15 +988,16 @@ export class WeaponRig {
     }
     // Inspect: bring the gun to the middle, show the right side, then the left, then back.
     if (this.inspectHold >= 0) this.inspectT = this.inspectHold;
-    else if (this.inspectT >= 0) { this.inspectT += dt / 3.2; if (this.inspectT >= 1) this.inspectT = -1; }
-    if (this.inspectT >= 0 && style) {
+    else if (this.inspectT >= 0) { this.inspectT += dt / (u && u.ice ? 4.0 : 3.2); if (this.inspectT >= 1) this.inspectT = -1; }
+    const insClip = u && u.ice ? ICE_INSPECT : style && style.inspect;
+    if (this.inspectT >= 0 && insClip) {
       const p = this.inspectT, k = 1 - e;
-      sampleClip(style.inspect, p, u.anchors, S);
+      sampleClip(insClip, p, style ? u.anchors : null, S);
       if (S.root) { a.x += S.root[0] * k; a.y += S.root[1] * k; a.z += S.root[2] * k; a.p += S.root[3] * k; a.yw += S.root[4] * k; a.r += S.root[5] * k; }
       if (S.hand) hand = S.hand.slice();
       if (S.mag) magK = S.mag.slice();
       boltK = S.bolt;
-      for (const ev of eventsBetween(style.inspect, this._lastI ?? -1, p)) this._clipEvent(ev);
+      for (const ev of eventsBetween(insClip, this._lastI ?? -1, p)) this._clipEvent(ev);
       this._lastI = p;
     } else if (this.inspectT >= 0) {
       const p = this.inspectT;
@@ -918,6 +1033,7 @@ export class WeaponRig {
       const an = u.anchors.rest, sup = u.support;
       if (hand) { sup.position.set(hand[0], hand[1], hand[2]); sup.rotation.set(hand[3], hand[4], hand[5]); }
       else { sup.position.set(an[0], an[1], an[2]); sup.rotation.set(0, 0, 0); }
+      sup.visible = !(u.ice && this.inspectT > 0.12 && this.inspectT < 0.44);   // off the gun for the Black Ice barrel roll
     } else if (u && u.mag) {
       // Reload: tilt the gun, old magazine drops out, new one goes in, slap, charge.
       const p = this.reloadP;
@@ -993,7 +1109,9 @@ export class WeaponRig {
     for (const mat of u.skinMats) { const tu = mat.userData.tri; tu.triAnim.value = amount; tu.triTime.value = t; }
     // Black Ice shards: shoot off and regrow with the inspect (resting otherwise).
     const iceT = this.inspectT >= 0 && this.inspectHold < 0 ? this.inspectT : this.inspectHold >= 0 ? this.inspectHold : 1;
-    for (const mat of u.iceMats || []) mat.userData.ice.iceT.value = iceT;
+    const fx = iceInspectFx(u.ice && iceT < 1 ? iceT : -1);
+    for (const mat of u.iceMats || []) { mat.userData.ice.iceT.value = iceT; mat.userData.ice.iceGlow.value = fx.glow; }
+    if (u.ice) for (const mat of u.skinMats) { const tu = mat.userData.tri; tu.iceFrost.value = fx.frost; tu.iceWave.value = fx.wave; tu.iceGlow.value = fx.glow; }
   }
 
   // Light levels for the current shading (also used by a second rig, e.g. battle player 2).
@@ -1042,7 +1160,7 @@ export class WeaponRig {
       if (!this.noHands) palm = hands(gunG, type, sup);
       SKIN_FORCE = undefined;
       mergeStatic(gunG);
-      if (sup) { mergeStatic(sup); gunG.add(sup); }
+      if (sup) { mergeStatic(sup); gunG.add(sup); sup.userData.arm = supportArm(); m.add(sup.userData.arm); }
       const mb = new THREE.Box3().setFromObject(magG);
       mergeStatic(magG);
       gunG.add(magG);
@@ -1072,7 +1190,8 @@ export class WeaponRig {
       gunG.traverse((o) => { if (o.isMesh && o.material.userData.tri && o.material.userData.skinKey) skinMats.add(o.material); });
       m.userData.skinMats = [...skinMats];
       const iceSet = new Set();
-      m.traverse((o) => { if (o.isMesh && o.material.userData.ice) iceSet.add(o.material); });
+      m.traverse((o) => { if ((o.isMesh || o.isPoints) && o.material.userData.ice) iceSet.add(o.material); });
+      m.userData.ice = !!(sk && sk.rarity === 'blackice');
       m.userData.iceMats = [...iceSet];
       const s = 0.62;
       gunG.scale.setScalar(s);
@@ -1119,6 +1238,22 @@ export class WeaponRig {
   }
 
   // Pack clip events: the magazine slap and the charging handle nudge the gun.
+  // Lay the pack support forearm from the wrist to the shoulder (see supportArm).
+  _layArm() {
+    const u = this.current && this.current.userData, sup = u && u.support, arm = sup && sup.userData.arm;
+    if (!arm) return;
+    arm.visible = sup.visible;
+    if (!sup.visible) return;
+    this.root.updateMatrixWorld(true);
+    const m = this.current, w = this._aw || (this._aw = new THREE.Vector3()), sh = this._as || (this._as = new THREE.Vector3());
+    m.worldToLocal(sup.localToWorld(w.copy(sup.userData.wrist)));
+    m.worldToLocal(this.root.parent ? this.root.parent.localToWorld(sh.copy(SHOULDER)) : sh.copy(SHOULDER));
+    const d = sh.sub(w), len = d.length();
+    arm.position.copy(w);
+    arm.quaternion.setFromUnitVectors(this._ay || (this._ay = new THREE.Vector3(0, 1, 0)), d.divideScalar(len));
+    arm.userData.sleeve.scale.y = len;
+  }
+
   _clipEvent(name) {
     if (name === 'slap') { this.vp += 0.6; this.vz += 0.15; }
     else if (name === 'charge') { this.vp += 0.35; this.vz += 0.1; }
@@ -1198,6 +1333,7 @@ export class WeaponRig {
       pv.applyQuaternion(this.root.quaternion);
       this.root.position.add(before.sub(pv));
     }
+    this._layArm();
     if (this.meleeT >= 0) {
       this.meleeT += Math.min(dt, 0.1) / 0.38;
       if (this.meleeT >= 1) this.meleeT = -1;

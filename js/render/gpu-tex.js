@@ -239,11 +239,11 @@ void iceSkin(vec2 uv, float S, out vec3 col, out float m, out float g) {
   // frost ferns: fine parallel feathers growing from the big cracks, a direction per shard
   vec2 wq = uv + vec2(fbm(uv, 8.0 * S, 4), fbm(uv + 5.0, 8.0 * S, 4)) * 0.025;
   vec3 v1 = voronoi(wq, vec2(5.0 * S));
-  float near = sstep(0.32, 0.0, v1.y - v1.x + 0.12 * fbm(uv + 1.3, 12.0 * S, 4));
+  float near = sstep(0.22, 0.0, v1.y - v1.x + 0.12 * fbm(uv + 1.3, 12.0 * S, 4));
   float k = floor(v1.z * 6.0);
   vec2 kv = k < 1.0 ? vec2(1, 2) : k < 2.0 ? vec2(2, -1) : k < 3.0 ? vec2(1, -2) : k < 4.0 ? vec2(2, 1) : k < 5.0 ? vec2(1, 3) : vec2(3, -1);
-  float stripe = abs(sin(dot(uv, kv) * S * 6.2831853 * 34.0 + fbm(uv, 16.0 * S, 3) * 3.0));
-  float fern = pow(stripe, 10.0) * near * sstep(-0.1, 0.25, fbm(uv + 4.4, 9.0 * S, 4));
+  float stripe = abs(sin(dot(uv, kv) * S * 6.2831853 * 18.0 + fbm(uv, 16.0 * S, 3) * 3.0));
+  float fern = pow(stripe, 6.0) * near * sstep(-0.1, 0.25, fbm(uv + 4.4, 9.0 * S, 4));
   // trapped air bubbles: small bright rings with a dark heart
   vec3 vb = voronoi(uv, vec2(36.0 * S));
   float keep = step(0.86, vb.z), rr = vb.x;
@@ -253,9 +253,9 @@ void iceSkin(vec2 uv, float S, out vec3 col, out float m, out float g) {
   vec2 sp = uv * 160.0, sc = floor(sp);
   float spark = sstep(0.12, 0.0, length(fract(sp) - 0.5 - 0.3 * hash2(mod(sc, vec2(160.0))))) * step(0.93, hash1(mod(sc, vec2(160.0)) + 2.0));
   // the emblem: one snowflake per tile, placed and drawn from the skin's seed
-  vec2 cen = vec2(0.3 + 0.4 * hash1(vec2(seed, 1.0)), 0.3 + 0.4 * hash1(vec2(seed, 2.0)));
-  float flake = seed > 0.0 ? iceFlake(fract(uv * S) - cen, 0.17, seed) : 0.0;
-  col = mix(col, c1 * 0.9 + c3 * 0.2, fern * 0.55);
+  vec2 cen = vec2(0.35 + 0.3 * hash1(vec2(seed, 1.0)), 0.35 + 0.3 * hash1(vec2(seed, 2.0)));
+  float flake = seed > 0.0 ? iceFlake(fract(uv * S) - cen, 0.3, seed) : 0.0;
+  col = mix(col, mix(c1, c2, 0.3), fern * 0.6);
   col = mix(col, c1, crack * 0.9);
   col = mix(col, c0 * 0.12, pow(crack, 2.5) * 0.9);
   col += c2 * max(bev, 0.0) * 0.9;
@@ -521,6 +521,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
     reliefK: { value: (skin && skin.def && skin.def.pattern === 10 ? 2.2 : 0.9) * (hd ? 1.5 : 1) },
     triAO: { value: hd ? 1 : 0 }, hdEdge: { value: hdEdge }, hdEdgeCol: { value: new THREE.Vector3(...hdEdgeCol) }, hdEdgeMetal: { value: hdEdgeMetal },
     reliefDepth: { value: depth },
+    iceFrost: { value: 0 }, iceWave: { value: 9 }, iceGlow: { value: 0 },   // Black Ice inspect (viewmodel animateSkins)
   };
   const def = skin && skin.def;
   if (def) {
@@ -556,7 +557,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       uniform vec3 skinGlow, fadeA, fadeB, sweepCol;
       uniform float fadeAmt, triTime, triAnim, animFlow, reliefK;
       uniform sampler2D skinAlbedo, skinRM, skinNormal, detailMap;
-      uniform float triAO, hdEdge, hdEdgeMetal, reliefDepth;
+      uniform float triAO, hdEdge, hdEdgeMetal, reliefDepth, iceFrost, iceWave, iceGlow;
       uniform vec3 hdEdgeCol;
       #ifdef TRI_HD
         varying vec4 vDet;
@@ -620,6 +621,9 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         float sweepX = mod(triTime * 0.55, 1.7) - 0.95;
         float sweep = exp(-pow(vTriPos.z - sweepX + vTriPos.y * 0.6, 2.0) * 90.0) * triAnim;
         diffuseColor.rgb += sweepCol * sweep * (1.0 - triWear) * 0.9;
+        // Black Ice inspect: frost spreads over the gun, the wipe (iceWave, moving to the muzzle) clears it
+        float frost = iceFrost * step(vTriPos.z, iceWave) * sstep(0.25, 0.75, sk.a + 0.15);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.78, 0.86, 0.95), frost * 0.75);
       #endif
       #ifdef TRI_DETAIL
         vec4 dt = triTex(detailMap, vTriPos * detScale, tw);
@@ -641,7 +645,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
     f = f.replace('#include <roughnessmap_fragment>', /* glsl */`#include <roughnessmap_fragment>
       #ifdef TRI_SKIN
         vec4 skrm = triTex(skinRM, triP, tw);
-        roughnessFactor = mix(skrm.g, 0.3, triWear);
+        roughnessFactor = mix(mix(skrm.g, 0.3, triWear), 0.85, iceFrost * step(vTriPos.z, iceWave) * 0.8);
       #endif
       #ifdef TRI_DETAIL
         roughnessFactor = clamp(roughnessFactor * mix(1.0, dt.a * 2.0, detStrength), 0.04, 1.0);
@@ -674,6 +678,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         // Glowing lines; they pulse while inspecting.
         totalEmissiveRadiance += skinGlow * skrm.r * (1.0 - triWear) * (1.0 + triAnim * (0.9 + 0.9 * sin(triTime * 5.0)));
         totalEmissiveRadiance += sweepCol * sweep * (1.0 - triWear) * 0.6;
+        totalEmissiveRadiance += (skinGlow * skrm.r * iceGlow * 3.0 + sweepCol * exp(-pow(vTriPos.z - iceWave, 2.0) * 900.0) * step(0.001, iceFrost + iceGlow) * 1.5) * (1.0 - triWear);
       #endif`);
     f = f.replace('#include <normal_fragment_maps>', /* glsl */`#include <normal_fragment_maps>
       #ifdef TRI_SKIN_NORMAL

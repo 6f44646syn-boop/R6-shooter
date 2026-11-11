@@ -619,6 +619,24 @@ try {
     await page.close();
   }
 
+  /* ---------- 2d2. Black Ice: inspect (barrel roll, frost wipe, regrow) and the support arm ---------- */
+  console.log('\nBlack Ice inspect');
+  {
+    const { page, errors } = await openPage('index.html?test');
+    await page.evaluate(() => window.__range.hdInstall());
+    const r = await page.evaluate(() => {
+      const R = window.__range, rig = R.rigObj(); R.manual(true); R.selectGun(4); rig.forceSkin = 192; R.setGraphics('ultra'); R.step(0.5);
+      const u = rig.current.userData, at = (p) => { R.inspectAt(p); R.step(0.02); const tu = u.skinMats[0].userData.tri;
+        return { frost: tu.iceFrost.value, wave: tu.iceWave.value, glow: tu.iceGlow.value, sup: u.support ? u.support.visible : null, arm: !!(u.support && u.support.userData.arm && u.support.userData.arm.visible) }; };
+      const out = { ice: u.ice, burst: 0, roll: at(0.3), wipe: at(0.55), regrow: at(0.75), end: at(-1) };
+      rig.current.traverse((o) => { if (o.isPoints && o.material.userData.ice) out.burst++; });
+      return out;
+    });
+    check('Black Ice: frost over the gun in the roll (hand off the gun), wiped away along the side, crystals regrow glowing', r.ice && r.burst > 0 && r.roll.frost > 0.5 && r.roll.sup === false && r.wipe.wave < 0.3 && r.wipe.arm && r.regrow.frost === 0 && r.regrow.glow > 0.3 && r.end.frost === 0, JSON.stringify(r));
+    check('no page errors', errors.length === 0, errors.join('\n'));
+    await page.close();
+  }
+
   /* ---------- 2e. Enhanced Graphics pack v5 (materials, baked light, props, skins, far soldier) ---------- */
   console.log('\nEnhanced Graphics pack v5: map materials, baked light, props, redrawn skins, far soldiers');
   {

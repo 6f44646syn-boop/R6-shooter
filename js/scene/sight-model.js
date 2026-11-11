@@ -245,6 +245,7 @@ export function mergeStatic(group) {
   const inv = new THREE.Matrix4().copy(group.matrixWorld).invert();
   const byMat = new Map(), keep = [], rel = new THREE.Matrix4();
   group.traverse((o) => {
+    if (o.isPoints) { keep.push(o); return; }                // particles (Black Ice frost burst) stay as they are
     if (!o.isMesh) return;
     if (o.material.transparent || o.userData.hd) { keep.push(o); return; }   // pack models are merged already (and carry extra data)
     rel.multiplyMatrices(inv, o.matrixWorld);
