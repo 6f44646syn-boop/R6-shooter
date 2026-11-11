@@ -122,12 +122,11 @@ export class Bot {
     /* perception */
     if (this.gun && t >= this.nextLook) {
       this.nextLook = t + 0.12;
-      let best = null, bd = Infinity;
+      let best = null, bd = royale ? 62 ** 2 : Infinity;
       for (const e of battle.enemiesOf(f)) {
         if (!e.alive || t < e.protectUntil) continue;
-        if (!this.canSee(e, arena, t)) continue;
-        const d = Math.hypot(e.x - f.x, e.z - f.z);
-        if (d < bd) { bd = d; best = e; }
+        const d = (e.x - f.x) ** 2 + (e.z - f.z) ** 2;
+        if (d < bd && this.canSee(e, arena, t)) { bd = d; best = e; }
       }
       if (best !== this.target) {
         if (!best && this.target && this.target.alive) this.say(battle, t, 'Lost them.');

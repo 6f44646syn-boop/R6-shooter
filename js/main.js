@@ -25,7 +25,7 @@ import { LensPost } from './render/lens-post.js?v=9dd0f7b-mwbioun8';
 import { reticleTextures } from './ui/reticle-tex.js?v=9dd0f7b-mwbioun8';
 import { DOT_POINTS } from './scene/dots.js?v=9dd0f7b-mwbioun8';
 import { Voices } from './audio/voice.js?v=9dd0f7b-mwbioun8';
-import { ModeGame } from './modes/game.js?v=blacktide';
+import { ModeGame } from './modes/game.js?v=blacktide-builds';
 import { Sfx } from './audio/sfx.js?v=9dd0f7b-mwbioun8';
 import { DebugHud } from './ui/debug-hud.js?v=9dd0f7b-mwbioun8';
 import { drawCrosshair } from './ui/crosshair.js?v=9dd0f7b-mwbioun8';
@@ -40,7 +40,7 @@ function sensRows(catalogue, sens) {
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
 import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=9dd0f7b-mwbioun8';
-import { Battle } from './battle/battle.js?v=blacktide';
+import { Battle } from './battle/battle.js?v=blacktide-builds';
 import { initCore, coreLoaded } from './wasm/core.js?v=9dd0f7b-mwbioun8';
 import { createJoinRequest, acceptJoin } from './net/link.js?v=9dd0f7b-mwbioun8';
 import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt } from './net/relay.js?v=m11-ranked';

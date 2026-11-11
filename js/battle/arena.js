@@ -9,13 +9,13 @@
 // range: yaw 0 looks along -z, positive turns right.
 import * as THREE from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
 import { MAPS } from './maps.js?v=9dd0f7b-mwbioun8';
-import { BLACKTIDE, ROYALE_MAP_ID } from './royale-map.js?v=blacktide';
+import { BLACKTIDE, ROYALE_MAP_ID } from './royale-map.js?v=blacktide-builds';
 import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=9dd0f7b-mwbioun8';
 import { flatMaterial } from '../scene/low.js?v=9dd0f7b-mwbioun8';
 import { BulletHoles } from '../scene/holes.js?v=9dd0f7b-mwbioun8';
 import { mulberry32 } from '../core/prng.js?v=9dd0f7b-mwbioun8';
 import { layoutSolids, layoutPieces, edgeSolids, span, piece, stairCount, rampCount } from './solids.js?v=9dd0f7b-mwbioun8';
-import { CoreWorld, BODY_R, STEP, BODY_H, VAULT_MAX } from '../wasm/world.js?v=9dd0f7b-mwbioun8';
+import { CoreWorld, BODY_R, STEP, BODY_H, VAULT_MAX } from '../wasm/world.js?v=blacktide-builds';
 
 export const HALF_X = 18, HALF_Z = 14, WALL_H = 4.5;
 // Landmark names for callouts, by kind of cover.
@@ -248,6 +248,17 @@ export class Arena {
       },
       floorPlane: (m, w, d, x, y, z) => { const p = add(new THREE.PlaneGeometry(w, d), m, x, y + yo, z); p.rotation.x = -Math.PI / 2; return p; },
       cone: (m, r, h, x, y, z, rx = 0) => { const c = add(new THREE.ConeGeometry(r, h, 10), m, x, y + yo, z); c.rotation.x = rx; return c; },
+      scatter: (geometry, m, placements) => {
+        const mesh = new THREE.InstancedMesh(geometry, material(m), placements.length);
+        const transform = new THREE.Matrix4();
+        placements.forEach(([x,y,z,sx,sy,sz], i) => {
+          mesh.setMatrixAt(i, transform.makeScale(sx,sy,sz).setPosition(x,y + yo,z));
+        });
+        mesh.computeBoundingSphere();
+        mesh.castShadow = !!m.castShadow;
+        mesh.receiveShadow = true;
+        scene.add(mesh);
+      },
       cylinder: (m, r, h, x, y, z, seg = 16) => add(new THREE.CylinderGeometry(r, r, h, seg), m, x, y + yo, z),
       tubeX: (m, r, len, x, y, z) => { const c = add(new THREE.CylinderGeometry(r, r, len, 10), m, x, y + yo, z); c.rotation.z = Math.PI / 2; return c; },
       tubeZ: (m, r, len, x, y, z) => { const c = add(new THREE.CylinderGeometry(r, r, len, 10), m, x, y + yo, z); c.rotation.x = Math.PI / 2; return c; },
@@ -551,10 +562,10 @@ export class Arena {
 
   /* ---------- the map inside the Rust core ---------- */
   setBuilds(boxes) {
-    this.boxes.splice(this.baseBoxCount, this.boxes.length, ...boxes);
-    this._world?.dispose();
-    this._world = null;
     void this.world;
+    this.boxes.splice(this.baseBoxCount, this.boxes.length, ...boxes);
+    if (this._world !== this._baseWorld) this._world.dispose();
+    this._world = boxes.length ? this._makeWorld(false) : this._baseWorld;
   }
 
   // Collision, standing, vaulting, raycasts and pathfinding are answered by the core
@@ -562,13 +573,17 @@ export class Arena {
   // use, so an arena that is only looked at (a match mode's backdrop) never needs one.
   get world() {
     if (this._world) return this._world;
-    const map = this.map;
-    const code = (b) => ({ minX: b.minX, maxX: b.maxX, minY: b.minY, maxY: b.maxY, minZ: b.minZ, maxZ: b.maxZ });
-    // Nothing is stood on within 1.6 m of a ceiling; outdoors there is no such limit.
-    this._world = new CoreWorld({ hx: this.hx, hz: this.hz, wallH: map.ceiling ? this.wallH : Infinity, ceil: map.ceiling ? this.wallH : 0, solids: [...this.boxes.map(code), ...edgeSolids(this.hx, this.hz)], hazards: this.hazards });
+    this._world = this._baseWorld = this._makeWorld(true);
     const n = this._world.navNodes();
     this.nodeX = n.x; this.nodeZ = n.z; this.nodeY = n.y; this.nodeCount = this._world.nodeCount;
     return this._world;
+  }
+  _makeWorld(nav) {
+    const map = this.map;
+    const code = (b) => ({ minX: b.minX, maxX: b.maxX, minY: b.minY, maxY: b.maxY, minZ: b.minZ, maxZ: b.maxZ });
+    // Nothing is stood on within 1.6 m of a ceiling; outdoors there is no such limit.
+    return new CoreWorld({ hx: this.hx, hz: this.hz, wallH: map.ceiling ? this.wallH : Infinity,
+      ceil: map.ceiling ? this.wallH : 0, solids: [...this.boxes.map(code), ...edgeSolids(this.hx, this.hz)], hazards: this.hazards, nav });
   }
   // Boxes in the grid cells within r of a point (each once).
   near(x, z, r, out = []) {
@@ -630,14 +645,38 @@ export class Arena {
   // The core keeps one node per 0.5 m cell and level you can stand on (the floor, a box top,
   // a stair tread, a ramp, an upper floor); nodeX / nodeZ / nodeY are copies of them.
   // The node at (x, z) you would stand on with feet near y (or -1).
-  nodeAt(x, z, y = 0) { return this.world.nodeAt(x, z, y); }
+  nodeAt(x, z, y = 0) { void this.world; return this._baseWorld.nodeAt(x, z, y); }
   walkable(x, z, y = 0) { return this.nodeAt(x, z, y) >= 0; }
   _nearestNode(x, z, y = 0) { return this.world.nearestNode(x, z, y); }
   // Can a body walk straight from a to b (each [x, z, y]), stepping and dropping as it goes?
   clearWalk(a, b) { return this.world.clearWalk(a, b); }
   // A* over the nodes, then string-pulled. Returns waypoints [[x, z, y], ...] ending at the
   // goal (or [] if unreachable).
-  findPath(ax, az, bx, bz, ay = 0, by = 0) { return this.world.path(ax, az, ay, bx, bz, by); }
+  findPath(ax, az, bx, bz, ay = 0, by = 0) {
+    const world = this.world;
+    if (this.mapId !== ROYALE_MAP_ID) return world.path(ax, az, ay, bx, bz, by);
+    const base = this._baseWorld;
+    if (base.clearWalk([ax, az, ay], [bx, bz, by]) &&
+      (world === base || (Math.abs(ay - by) < .1 && world.walkClear(ax, az, bx, bz, BODY_R + .08, ay)))) return [[bx,bz,by,0]];
+    if (world.nodeCount) return world.path(ax, az, ay, bx, bz, by);
+    const path = base.path(ax, az, ay, bx, bz, by);
+    const builds = this.boxes.slice(this.baseBoxCount);
+    let from = [ax,az,ay];
+    for (const to of path) {
+      const [x,z,y] = from;
+      const crossesBuild = builds.some(b =>
+        b.minX < Math.max(x,to[0]) + BODY_R && b.maxX > Math.min(x,to[0]) - BODY_R &&
+        b.minZ < Math.max(z,to[1]) + BODY_R && b.maxZ > Math.min(z,to[1]) - BODY_R &&
+        b.minY < Math.max(y,to[2]) + BODY_H && b.maxY > Math.min(y,to[2]) + STEP);
+      if (crossesBuild) {
+        // Keep edits cheap. Build fresh navigation only when an actual route may cross a piece.
+        world.buildNavigation();
+        return world.path(ax, az, ay, bx, bz, by);
+      }
+      from = to;
+    }
+    return path;
+  }
 
   /* ---------- cover spots and spawns ---------- */
   // Spots beside cover a bot can stand at: { x, z, y, low (crouch-high cover), bx, bz }.

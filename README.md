@@ -81,27 +81,37 @@ Then open http://localhost:8080/. (Any static server works, e.g. `python -m http
 Keep this mode on `feature/battle-royale`, separate from `main` and the live release.
 In the local game, choose **Battle Royale** and deploy directly to **Blacktide Island**,
 a 160 × 128 m map exclusive to the mode. One human and 20 bots compete individually.
-Each fighter has one life, and the safe zone shrinks until one remains.
+Each fighter has one life, and the safe zone shrinks until one remains. The island has
+five climbable hills, solid tree trunks and rock cover, and bushes for visual concealment.
 
 Deployment skips weapon selection. Every fighter starts without a gun or grenades and
 gets them from the island's 33 chests. The player's starting pickaxe harvests wall
-materials, damages nearby opponents, and breaks built cover. Default controls:
+materials, damages nearby opponents, and breaks built cover. The hotbar holds the pickaxe
+and up to four guns, retains each gun's loaded ammo, and shows remaining materials.
+With a full hotbar, a new gun replaces the equipped gun or the last slot if the pickaxe
+is selected. Default controls:
 
 | Input | Action |
 |---|---|
 | F | Open a nearby chest |
 | Left mouse while unarmed, or K at any time | Swing the pickaxe |
-| B | Build a destructible wall |
-| Middle mouse while aiming at your wall | Open the 3×3 editor or confirm an edit |
+| 1–5 | Equip the pickaxe or a gun from the hotbar |
+| Z / B | Cycle wall, ramp and cone / place the selected piece |
+| Middle mouse while aiming at your build | Open the editor or confirm an edit |
 | Left mouse in the editor | Select or drag across panels |
+| R in the ramp editor | Rotate the ramp a quarter-turn |
 | V / right mouse in the editor | Reset the grid / cancel the edit |
+
+Walls have a 3×3 grid for windows and doorways. The ramp's 2×2 grid can remove
+sections, and the cone's 2×2 grid can raise or flatten individual quarters.
 
 One chest has a chance to hold the Pirate Token in 1 in 1,000 matches. Collecting it
 unlocks all nine Black Ice skins on the local profile and in its save code. A completed
 match shows the final recorded kill, winner lineup, and placement leaderboard.
 
 Run `npm run test:royale` with Playwright installed to check deployment, chest-only
-loadouts, pickaxe hits and harvesting, wall editing, the token unlock, and a full bot match.
+loadouts, inventory switching, pickaxe hits and harvesting, all three build editors,
+the token unlock, and a full bot match.
 
 ## Deploy to GitHub Pages
 

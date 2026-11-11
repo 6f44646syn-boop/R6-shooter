@@ -38,6 +38,13 @@ try {
   });
   assert.deepEqual(started, {teams:21, chests:33, pirate:0, map:'blacktide', size:[160,128], unarmed:true, skippedArmory:true});
   console.log('PASS deploy skips weapon selection and starts Blacktide Island with 20 unarmed rivals');
+  assert.ok(await page.evaluate(() => {
+    const a = __range.battle().arena;
+    return a.boxes.filter(b => b.kind === 'tree').length === 42
+      && a.groundAt(-42,0,2.5) > 2
+      && a.findPath(-55,0,-42,0,0,2.5).length > 0;
+  }));
+  console.log('PASS solid trees and navigable hills are present on Blacktide');
 
   const pickaxe = await page.evaluate(() => {
     const R = __range, b = R.battle(), r = b.royale, h = b.humans[0], a = b.arena;
@@ -65,7 +72,7 @@ try {
 
   const loot = await page.evaluate(() => {
     const b = __range.battle(), r = b.royale, h = b.humans[0], chest = r.chests[0];
-    const { x, y, z } = chest.group.position;
+    const { x, y, z } = chest.position;
     Object.assign(h.f, { x, y:y-.31, z });
     return [r.materials, chest.gun.id];
   });
@@ -76,6 +83,17 @@ try {
     return [b.royale.materials, b.humans[0].gun.id, b.royale.chests[0].opened];
   }), [loot[0] + 2, loot[1], true]);
   console.log('PASS Interact opens a chest once and equips its gun and wall stock');
+  assert.ok(await page.evaluate(() => {
+    const b = __range.battle(), h = b.humans[0], r = b.royale, gun = h.gun;
+    h.weapon.ammo = 2;
+    r.lootGun(b.deps.guns.find(g => g.id !== gun.id));
+    b.key('Digit1',true);
+    const pickaxe = !h.gun;
+    b.key('Digit2',true);
+    return pickaxe && h.gun === gun && h.weapon.ammo === 2
+      && r.hotbar.textContent.includes(gun.name) && r.matCount.textContent.includes('mats');
+  }));
+  console.log('PASS inventory retains guns, ammunition and the pickaxe across slot changes');
 
   const build = await page.evaluate(() => {
     const b = __range.battle(), r = b.royale, h = b.humans[0], a = b.arena;
@@ -89,6 +107,7 @@ try {
     if (!wall) return null;
     const start = [wall.mesh.position.x, wall.mesh.position.y, wall.box.maxZ + 1];
     const blocked = a.raycast(start, [0,0,-1], 2) < 2 && a.world.hit === a.baseBoxCount;
+    const navReused = a.world !== a._baseWorld && a.world.nodeCount === 0;
     const solid = !a.world.free(wall.mesh.position.x, wall.mesh.position.z);
     b.key('KeyB', true);
     const spent = r.materials;
@@ -118,10 +137,50 @@ try {
     for (let i = 0; i < 20 && r.walls.length; i++) b.fire(h, b.t);
     delete h.eye;
     delete h.shotDirection;
-    return { blocked, solid, spent, preview, edited, safeRestore, restored, removed: r.walls.length === 0 && a.boxes.length === a.baseBoxCount };
+    return { blocked, solid, spent, preview, edited, safeRestore, restored, navReused, removed: r.walls.length === 0 && a.boxes.length === a.baseBoxCount };
   });
-  assert.deepEqual(build, {blocked:true, solid:true, spent:loot[0]+1, preview:true, edited:true, safeRestore:true, restored:true, removed:true});
+  assert.deepEqual(build, {blocked:true, solid:true, spent:loot[0]+1, preview:true, edited:true, safeRestore:true, restored:true, navReused:true, removed:true});
   console.log('PASS wall placement, live edit preview, walkable door, safe reset, and bullet destruction');
+
+  const platforms = await page.evaluate(() => {
+    const b = __range.battle(), r = b.royale, h = b.humans[0], a = b.arena;
+    const place = (x,z) => {
+      Object.assign(h.f,{x,y:0,z});
+      h.look.yaw = 0;
+      b.key('KeyB',true);
+      return r.walls.at(-1);
+    };
+    const aimTile = (piece,x,z) => {
+      h.camera.position.set(piece.mesh.position.x + x, 4, piece.mesh.position.z + z);
+      h.camera.lookAt(piece.mesh.position.x + x, 0, piece.mesh.position.z + z);
+    };
+    b.key('KeyZ',true);
+    const ramp = place(14,16);
+    if (ramp?.kind !== 'ramp') return {missing:'ramp'};
+    const at = ramp.mesh.position;
+    const rampSlope = a.groundAt(at.x+.5,at.z-1,2) > a.groundAt(at.x+.5,at.z+1,2);
+    aimTile(ramp,-.7,-.7);
+    b.key('OperatorAbility',true);
+    if (r.editing !== ramp) return {missing:'ramp edit'};
+    b.mouseButton(0,true); b.mouseButton(0,false);
+    b.key('KeyR',true);
+    b.key('OperatorAbility',true);
+    const rampEdited = !r.editing && ramp.mask === 14 && ramp.dir === 1;
+    b.key('KeyZ',true);
+    const cone = place(-14,16);
+    if (cone?.kind !== 'cone') return {missing:'cone'};
+    const cp = cone.mesh.position;
+    const raised = a.groundAt(cp.x-.4,cp.z-.4,2);
+    aimTile(cone,-.4,-.4);
+    b.key('OperatorAbility',true);
+    if (r.editing !== cone) return {missing:'cone edit'};
+    b.mouseButton(0,true); b.mouseButton(0,false);
+    b.key('OperatorAbility',true);
+    const coneEdited = !r.editing && cone.mask === 14 && a.groundAt(cp.x-.4,cp.z-.4,2) < raised;
+    return {rampSlope,rampEdited,coneEdited};
+  });
+  assert.deepEqual(platforms, {rampSlope:true,rampEdited:true,coneEdited:true});
+  console.log('PASS ramps and cones build and update collision after 2×2 edits');
 
   const result = await page.evaluate(() => {
     const b = __range.battle(), r = b.royale, h = b.humans[0].f;
@@ -159,7 +218,7 @@ try {
     try { Math.random = () => 0.0001; b.start(opts); }
     finally { Math.random = random; }
     const r = b.royale, pirate = r.chests.filter(c => c.pirate);
-    const p = pirate[0].group.position;
+    const p = pirate[0].position;
     const h = b.humans[0].f;
     Object.assign(h, {x:p.x, y:p.y-.31, z:p.z});
     b.key('Interact', true);

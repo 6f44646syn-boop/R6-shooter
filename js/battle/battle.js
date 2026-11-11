@@ -8,13 +8,13 @@ import { replayCamera } from '../replay/view.js?v=9dd0f7b-mwbioun8';
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
 import * as THREE from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
-import { Arena } from './arena.js?v=blacktide';
+import { Arena } from './arena.js?v=blacktide-builds';
 import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=9dd0f7b-mwbioun8';
-import { Bot, LEVELS } from './bot.js?v=blacktide';
+import { Bot, LEVELS } from './bot.js?v=blacktide-builds';
 import { Human } from './human.js?v=blacktide';
 import { BattleNades } from './nades.js?v=9dd0f7b-mwbioun8';
-import { BattleRoyale } from './royale.js?v=blacktide';
-import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=blacktide';
+import { BattleRoyale } from './royale.js?v=blacktide-builds';
+import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=blacktide-builds';
 import { drawCrosshair } from '../ui/crosshair.js?v=9dd0f7b-mwbioun8';
 import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=9dd0f7b-mwbioun8';
 import { effectiveGraphics } from '../render/quality.js?v=9dd0f7b-mwbioun8';
@@ -223,6 +223,12 @@ export class Battle {
     const h = this.humans[0];
     if (!h) return;
     h.setGun(gun);
+    if (!gun) {
+      if (h.f._gunModel) h.f._gunModel.removeFromParent();
+      h.f._lookKey = '';
+      this.hud.views[0].box.querySelector('.b-name').textContent = h.f.name + ' · Pickaxe';
+      return;
+    }
     const skin = this.deps.skinOf ? this.deps.skinOf(gun) : null;
     this._look(h.f, gun, skin);
     if (this.net && this.net.role === 'client') this.net.link.send({ k: 'gun', i: slotIn(this.deps.guns, gun), s: skin, at: gun.attach || null });
@@ -910,6 +916,10 @@ export class Battle {
     if (!this.active) return false;
     const p1 = this.humans[0], p2 = this.humans[1];
     if (this.viewOnly) return !this.over && this.watch.key(code, down, p1.f);
+    if (this.royale && /^Digit[1-5]$/.test(code)) {
+      if (down && p1.f.alive && !this.over && !this.paused && !this.royale.editing) this.royale.equip(Number(code.at(-1)) - 1);
+      return true;
+    }
     if (p2 && p2.controls !== 'mouse' && p2.key(code, down)) return true;
     if (code === 'Space' && this.kc && !p1.f.alive) { if (down) this.kc = null; return true; }
     if (this.royale && code === 'OperatorAbility') {
@@ -918,7 +928,12 @@ export class Battle {
     }
     if (this.royale?.editing) {
       if (down && code === 'KeyV') this.royale.resetEdit();
-      if (code === 'KeyV' || code === 'KeyB' || code === 'KeyG' || code === 'CapsLock' || code === 'KeyK') return true;
+      if (down && code === 'KeyR') this.royale.rotateEdit();
+      if (['KeyV','KeyB','KeyG','CapsLock','KeyK','KeyZ','KeyR'].includes(code)) return true;
+    }
+    if (this.royale && code === 'KeyZ') {
+      if (down && !this.paused && !this.over && p1.f.alive) this.royale.cyclePiece();
+      return true;
     }
     if (this.royale && code === 'KeyK') {
       if (down && !this.paused && !this.over) this.royale.swing(p1);
@@ -981,7 +996,7 @@ export class Battle {
     // Shadows are redrawn every other frame (the map never moves; people move a little).
     r.shadowMap.autoUpdate = false;
     this._frameN = (this._frameN || 0) + 1;
-    if (this._frameN % 2 === 0 || this._frameN < 3) r.shadowMap.needsUpdate = true;
+    if (this._frameN % (this.royale ? 3 : 2) === 0 || this._frameN < 3) r.shadowMap.needsUpdate = true;
     r.autoClear = false;
     r.setRenderTarget(null);
     const vps = this.viewports();

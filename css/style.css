@@ -158,6 +158,15 @@ fieldset, .xh-wrap { min-width: 0; }
 .b-score { display: flex; gap: 14px; padding: 6px 14px; background: rgba(10, 12, 14, 0.75); border-radius: 6px; font-weight: 700; font-size: 16px; }
 .b-top:has(.b-royale:not([hidden])) { flex-direction: column; align-items: center; gap: 6px; }
 .b-royale { color: #ebd8ff; text-align: center; font-size: 13px; }
+.royale-hotbar {
+  position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
+  display: flex; justify-content: center; gap: 5px; width: max-content; max-width: 94vw;
+}
+.royale-slot {
+  padding: 7px 9px; background: #101a23ed; border: 1px solid #476071; border-radius: 5px;
+  color: #e0edf6; font-size: 12px; line-height: 1.2;
+}
+.royale-slot.selected { background: #274b65; border-color: #8ad1ff; color: #fff; }
 .b-goal { color: #9aa3ae; font-weight: 400; }
 .b-feed { position: absolute; right: 16px; top: 52px; display: grid; gap: 4px; justify-items: end; }
 .b-feedrow { padding: 3px 8px; background: rgba(10, 12, 14, 0.7); border-radius: 4px; font-size: 13px; }
