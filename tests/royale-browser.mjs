@@ -56,6 +56,16 @@ try {
   });
   assert.deepEqual(tiers, {counts:[32,860,2200,4140],sharedCollision:true});
   console.log('PASS all graphics presets scale map detail with shared collision');
+  assert.ok(await page.evaluate(() => {
+    const R = __range, b = R.battle(), world = b.arena.world, h = b.humans[0];
+    const slider = document.getElementById('set-royale-distance');
+    const set = value => { slider.value = String(value); slider.dispatchEvent(new Event('input')); R.renderFrame(); };
+    set(45);
+    const near = h.camera.far === 45 && b.arena.scene.fog.far === 45 && b.arena.world === world;
+    set(200);
+    return near && h.camera.far === 200 && b.arena.scene.fog.far > 45;
+  }));
+  console.log('PASS render-distance setting clips the view and preserves collision');
 
   const pickaxe = await page.evaluate(() => {
     const R = __range, b = R.battle(), r = b.royale, h = b.humans[0], a = b.arena;
@@ -155,6 +165,37 @@ try {
   });
   assert.deepEqual(build, {blocked:true, solid:true, spent:loot[0]+5, preview:true, edited:true, safeRestore:true, restored:true, preset:true, navReused:true, removed:true});
   console.log('PASS wall release-to-edit, window preset, safe reset, and bullet destruction');
+
+  const botCover = await page.evaluate(() => {
+    const b = __range.battle(), r = b.royale, h = b.humans[0], bot = b.bots[0], f = bot.f;
+    const update = Object.getPrototypeOf(bot).update.bind(bot), t = b.t;
+    Object.assign(h.f,{x:5.5,y:0,z:1,vx:0,vz:0,protectUntil:0});
+    Object.assign(f,{x:5.5,y:0,z:-6,yaw:180,vx:0,vz:0,protectUntil:0});
+    bot.ay = 180;
+    bot.setGun(b.deps.guns[1]);
+    update(t,1/60,b);
+    const sawPlayer = bot.visibleContact?.actor === h.f;
+    const mats = r.materials;
+    const wall = r.build(h.f,0);
+    if (!wall) return {missing:'player wall'};
+    const hp = wall.hp;
+    for (let i = 1; i <= 90 && wall.hp === hp; i++) update(t+i/60,1/60,b);
+    const shotCover = wall.hp < hp && !bot.target;
+    if (wall.hp > 0) r.damageWall(wall,999);
+    Object.assign(f,{x:5.5,y:0,z:-6,vx:0,vz:0,health:67,buildMaterials:2});
+    r.piece = 'cone';
+    bot.onHurt(h.f,t+2);
+    update(t+2,1/60,b);
+    const defense = r.walls.at(-1);
+    const builtWall = defense?.kind === 'wall' && defense.owner === f && f.buildMaterials === 1
+      && r.materials === mats-1 && bot.mode === 'hold';
+    if (defense) r.damageWall(defense,999);
+    f.health = 100;
+    r.piece = 'wall';
+    return {sawPlayer,shotCover,builtWall};
+  });
+  assert.deepEqual(botCover,{sawPlayer:true,shotCover:true,builtWall:true});
+  console.log('PASS bots build defensive walls from their own stock and shoot walls after losing sight of a player');
 
   const platforms = await page.evaluate(() => {
     const b = __range.battle(), r = b.royale, h = b.humans[0], a = b.arena;

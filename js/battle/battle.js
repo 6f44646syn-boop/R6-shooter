@@ -8,13 +8,13 @@ import { replayCamera } from '../replay/view.js?v=9dd0f7b-mwbioun8';
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
 import * as THREE from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
-import { Arena } from './arena.js?v=blacktide-detail';
+import { Arena } from './arena.js?v=blacktide-cover';
 import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=9dd0f7b-mwbioun8';
-import { Bot, LEVELS } from './bot.js?v=blacktide-builds';
+import { Bot, LEVELS } from './bot.js?v=blacktide-cover';
 import { Human } from './human.js?v=blacktide';
 import { BattleNades } from './nades.js?v=9dd0f7b-mwbioun8';
-import { BattleRoyale } from './royale.js?v=blacktide-edit';
-import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=blacktide-detail';
+import { BattleRoyale } from './royale.js?v=blacktide-cover';
+import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=blacktide-cover';
 import { drawCrosshair } from '../ui/crosshair.js?v=9dd0f7b-mwbioun8';
 import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=9dd0f7b-mwbioun8';
 import { effectiveGraphics } from '../render/quality.js?v=9dd0f7b-mwbioun8';
@@ -1013,7 +1013,25 @@ export class Battle {
       const aspect = v.w / v.h;
       const grenadeCam = i === 0 && this.grenadeCam;
       const camera = this.watchCam || grenadeCam || h.camera;
-      if (camera.aspect !== aspect) { camera.aspect = aspect; camera.updateProjectionMatrix(); }
+      if (this.royale) {
+        camera.userData.originalFar ??= camera.far;
+        const distance = this.deps.settings.royaleRenderDistance ?? 200;
+        camera.far = Math.min(camera.userData.originalFar,distance);
+        const a = this.arena;
+        a.scene.fog.near = Math.min(a.atm.fogNear,camera.far*.72);
+        a.scene.fog.far = Math.min(a.atm.fogFar,camera.far);
+        if (a.sky) {
+          a.sky.position.copy(camera.position);
+          a.sky.scale.setScalar(camera.far*.92/110);
+          a.sky.updateMatrix();
+        }
+      } else if (camera.userData.originalFar !== undefined) {
+        camera.far = camera.userData.originalFar;
+        delete camera.userData.originalFar;
+      }
+      if (camera.aspect !== aspect || camera.userData.projectionFar !== camera.far) {
+        camera.aspect = aspect; camera.userData.projectionFar = camera.far; camera.updateProjectionMatrix();
+      }
       const ownVis = h.f.group.visible;
       const royaleFocus = this.watchCam && this.royale?.focus;
       if (this.viewOnly ? !!this.watchFocus : !(this.kc && i === 0)) h.f.group.visible = false;      // not your own body (except in the replay)

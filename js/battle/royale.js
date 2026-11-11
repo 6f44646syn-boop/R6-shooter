@@ -1,5 +1,5 @@
 import * as THREE from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
-import { ROYALE_BOTS } from './royale-map.js?v=blacktide-detail';
+import { ROYALE_BOTS } from './royale-map.js?v=blacktide-cover';
 import { PLATFORM_HALF, PLATFORM_MASK, RAMP_RISE, platformHeight, platformMeshes, platformSolids } from './royale-platform.js?v=blacktide-edit';
 
 const TOKEN_CHANCE = 0.001;
@@ -200,6 +200,7 @@ export class BattleRoyale {
     const chest = this.nearby(bot.f, true);
     if (!chest) return;
     this.takeChest(chest, bot.f);
+    bot.f.buildMaterials = 2;
     bot.setGun(chest.gun);
     this.battle._look(bot.f, chest.gun, null);
     bot.goal = null;
@@ -227,6 +228,37 @@ export class BattleRoyale {
       bot._setGoal(p.x, p.z, this.arena, t, p.y - .31);
     }
     return true;
+  }
+
+  defend(bot, t) {
+    const f = bot.f, attacker = bot.attacker;
+    if (!f.buildMaterials || !attacker?.alive || t - bot.attackedAt > 1.2 ||
+        t < (bot.nextWall || 0) || f.health > 75 || this.outside(f, 1)) return;
+    const dx = attacker.x - f.x, dz = attacker.z - f.z;
+    const distance = Math.hypot(dx, dz);
+    if (distance < 4 || distance > 36) return;
+    bot.nextWall = t + 6;
+    if (!this.arena.sightLine(f.chest([0,0,0]), attacker.chest([0,0,0]))) return;
+    if (this.build(f, Math.atan2(dx,-dz) * 180 / Math.PI, 'wall')) {
+      bot.mode = 'hold';
+      bot.holdUntil = t + 1.35;
+      bot.crouchWanted = true;
+    }
+  }
+
+  coverTarget(f, contact, t) {
+    if (!contact?.actor.alive || t - contact.t > 2.2) return null;
+    const origin = f.eye([0,0,0]), lead = Math.min(.65, t - contact.t);
+    for (const dt of [lead, 0]) {
+      const target = [contact.x + contact.vx * dt, contact.y, contact.z + contact.vz * dt];
+      const delta = target.map((value, i) => value - origin[i]), distance = Math.hypot(...delta);
+      if (distance < 2 || distance > 40) continue;
+      const ray = delta.map(value => value / distance);
+      const hit = this.arena.raycast(origin, ray, distance);
+      const wall = this.impactWalls[this.arena.world.hit - this.arena.baseBoxCount];
+      if (wall?.kind === 'wall' && wall.owner !== f) return { wall, point:origin.map((v,i) => v + ray[i]*hit) };
+    }
+    return null;
   }
 
   swing(human) {
@@ -264,10 +296,11 @@ export class BattleRoyale {
     this.pickaxe.rotation.set(.25 - swing * 1.2, -.35, -.33 + swing * .92);
   }
 
-  build(f, yaw) {
-    if (!this.materials || !f.alive) return;
+  build(f, yaw, selected = this.piece) {
+    const player = f === this.battle.humans[0].f;
+    if (!(player ? this.materials : f.buildMaterials) || !f.alive) return;
     const { arena } = this;
-    const kind = this.piece, isWall = kind === 'wall';
+    const kind = player ? selected : 'wall', isWall = kind === 'wall';
     const angle = yaw * Math.PI / 180, dx = Math.sin(angle), dz = -Math.cos(angle);
     const distance = isWall ? 1.7 : (PLATFORM_HALF+.78) / Math.max(Math.abs(dx),Math.abs(dz));
     const dir = -Math.round(yaw / 90);
@@ -292,20 +325,22 @@ export class BattleRoyale {
       || arena.boxes.some(other => overlaps(box, other))
       || !arena.sightLine([f.x, f.y + 1.2, f.z], [x, y + .7, z])
       || this.occupied(box, previous ? f : null);
-    if (blocked) { this.notify('Build needs clear space'); return; }
+    if (blocked) { if (player) this.notify('Build needs clear space'); return; }
     const mesh = new THREE.Group();
     const bounds = new THREE.Box3(new THREE.Vector3(box.minX, box.minY, box.minZ),
       new THREE.Vector3(box.maxX, box.maxY, box.maxZ));
     arena.scene.add(mesh);
-    const piece = { kind, box, bounds, mesh, hp:WALL_HP, dir, startDir:dir, level:(previous?.level || 0)+1, mask:isWall ? FULL_WALL : PLATFORM_MASK };
+    const piece = { kind, box, bounds, mesh, owner:f, hp:WALL_HP, dir, startDir:dir, level:(previous?.level || 0)+1, mask:isWall ? FULL_WALL : PLATFORM_MASK };
     if (isWall) this.makeWall(piece, x, y, z, w, d);
     else {
       mesh.position.set(x,y,z);
       platformMeshes(piece,this.wallMat);
     }
     this.walls.push(piece);
-    this.materials--;
+    if (player) this.materials--;
+    else f.buildMaterials--;
     this.syncWalls();
+    return piece;
   }
 
   cyclePiece() {
@@ -380,7 +415,7 @@ export class BattleRoyale {
 
   edit(human) {
     if (this.editing) { this.cancelEdit(); return; }
-    this.editing = this.walls.find(wall => this.aimAt(wall, human));
+    this.editing = this.walls.find(wall => wall.owner === human.f && this.aimAt(wall, human));
     if (!this.editing) { this.notify('Aim at a build to edit'); return; }
     this.editMask = this.editing.mask;
     this.editDir = this.editing.dir;

@@ -1,6 +1,6 @@
 import { wallPanels, duskSky } from '../scene/range-tex.js?v=9dd0f7b-mwbioun8';
 import { BoxGeometry, CanvasTexture, ConeGeometry, IcosahedronGeometry, RepeatWrapping, SRGBColorSpace } from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
-import { addBlacktideDetails, blacktideTrails } from './royale-details.js?v=blacktide-detail';
+import { addBlacktideDetails, blacktideTrails, villageHouse, villageHouses } from './royale-details.js?v=blacktide-cover';
 import { MAPS } from './maps.js?v=9dd0f7b-mwbioun8';
 
 export const ROYALE_MAP_ID = 'blacktide';
@@ -11,13 +11,16 @@ const spawns = Array.from({ length: ROYALE_BOTS + 1 }, (_, i) => {
   return [63 * Math.cos(a), 49 * Math.sin(a)];
 });
 const box = (x, z, w, d, h, kind = 'wall', y = 0) => ({ x, z, w, d, h, kind, y });
-const shack = (x, z) => [
-  box(x, z - 3, 8, .4, 3, 'plank'), box(x - 4, z, .4, 6, 3, 'plank'),
-  box(x + 4, z, .4, 6, 3, 'plank'), box(x - 2.6, z + 3, 2.8, .4, 3, 'plank'),
-  box(x + 2.6, z + 3, 2.8, .4, 3, 'plank'), box(x, z, 8.4, 6.4, .25, 'plank', 3),
-  { ramp:'+x', x:x-2.15, z, w:4.3, d:6.4, y:3.25, y1:4.6, base:3.25, kind:'roof' },
-  { ramp:'-x', x:x+2.15, z, w:4.3, d:6.4, y:3.25, y1:4.6, base:3.25, kind:'roof' },
-];
+function building(x,z,{w,d,h,door},kind='plank') {
+  const wall = (w-door)/2, offset = (w+door)/4, roofW = (w+.55)/2, roofD = d+.5, eave = h+.25;
+  return [
+    box(x-w/2,z,.4,d,h,kind), box(x+w/2,z,.4,d,h,kind),
+    ...[-1,1].flatMap(face => [-1,1].map(side => box(x+side*offset,z+face*d/2,wall,.4,h,kind))),
+    box(x,z,w+.5,roofD,.25,kind,h),
+    {ramp:'+x',x:x-roofW/2,z,w:roofW,d:roofD,y:eave,y1:eave+1.45,base:eave,kind:'roof'},
+    {ramp:'-x',x:x+roofW/2,z,w:roofW,d:roofD,y:eave,y1:eave+1.45,base:eave,kind:'roof'},
+  ];
+}
 
 const hill = (x, z, w, d, y) => {
   const rise = 6;
@@ -96,7 +99,11 @@ export const BLACKTIDE = {
     box(-45, -29, 26, 1, 2.8, 'plank'), box(-45, -37, 20, .8, 2.2, 'plank'),
     box(-57, -33, 2, 7, 1.2, 'plank'), box(-34, -33, 4, 5, 1.2, 'dock'),
     box(-45, -24, 13, 5, .8, 'dock'), box(-38, -19, 4, 2.6, 1.2, 'crate'),
-    ...shack(-51, 29), ...shack(-38, 29), ...shack(-44, 42), ...shack(-31, 42),
+    ...villageHouses.flatMap(([x,z]) => building(x,z,villageHouse)),
+    ...building(42,-15,{w:17,d:10,h:5.1,door:4.6},'container'),
+    ...building(17,-40,{w:13,d:9,h:4.2,door:3.8},'wall'),
+    box(39,-14,2.4,1.9,1.65,'crate'), box(46,-17,2.2,3.3,1.25,'crate'),
+    box(14,-41,2,2.8,1.1,'crate'), box(21,-39,1.8,2.6,1.35,'crate'),
     box(36, -29, 16, 2.8, 2.8, 'container'), box(55, -30, 2.8, 19, 2.8, 'container'),
     box(45, -43, 13, 3, 2.8, 'container'), box(34, -40, 2.8, 9, 2.8, 'container'),
     box(46, -34, 3, 3, 1.2, 'crate'), box(49, -23, 9, 3, 1.2, 'dock'),
@@ -116,6 +123,11 @@ export const BLACKTIDE = {
     ...groves.flatMap(([x,z], i) => [
       box(x - 5, z + 1, 3.2, 2.4, i % 3 ? 1.3 : 2.3, 'rock'),
       box(x + 2, z + 5, i % 2 ? 2.1 : 4.6, i % 2 ? 4.6 : 2.1, 1.1, 'low'),
+    ]),
+    ...[[-56,-9],[-54,18],[-22,-48],[-33,-26],[-28,-7],[-27,14],[-19,35],[-19,52],
+      [5,-35],[23,-54],[27,-25],[26,6],[29,24],[24,39],[33,53],[55,4],[53,44],[68,-34]].flatMap(([x,z],i) => [
+      box(x,z,i%2?3.8:1.2,i%2?1.2:3.8,1.15,'barrier'),
+      box(x+2.8,z-2.5,1.7,1.55,i%3?1.3:1.9,'crate'),
     ]),
   ],
   extra: (ctx, _map, solids) => {

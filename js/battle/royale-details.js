@@ -10,6 +10,8 @@ export const blacktideTrails = [
   [[54,-46],[61,-28],[58,-16],[54,-6],[58,10],[52,21]],
   [[-38,48],[-26,50],[-14,47],[-8,37],[-6,26],[-5,13]],
 ];
+export const villageHouses = [[-51,29],[-38,29],[-44,42],[-31,42]];
+export const villageHouse = {w:11,d:8,h:3.65,door:3.2};
 
 function landmarkDetails(ctx) {
   const timber = { color:0x543c2a, rough:.98 };
@@ -17,14 +19,15 @@ function landmarkDetails(ctx) {
   const steel = { color:0x6a8486, rough:.75, metal:.45 };
   const canvas = { color:0x79382d, rough:.95 };
   const hatches = [];
-  for (const [x,z] of [[-51,29],[-38,29],[-44,42],[-31,42]]) {
-    ctx.box(fadedWood,8.7,.17,.21,x,3.25,z+3.26);
-    ctx.box(fadedWood,8.7,.17,.21,x,3.25,z-3.26);
+  const {w,d,h,door} = villageHouse;
+  for (const [x,z] of villageHouses) {
+    ctx.box(fadedWood,w+.55,.17,.21,x,h+.25,z+d/2+.26);
+    ctx.box(fadedWood,w+.55,.17,.21,x,h+.25,z-d/2-.26);
     for (const side of [-1,1]) {
-      hatches.push([x+side*2.45,1.62,z+3.22,.92,.9,.08,0,0x34403c]);
-      hatches.push([x+side*2.45,1.62,z+3.27,.095,1.02,.06,0,0xbc9871]);
+      hatches.push([x+side*3.45,1.82,z+d/2+.22,1.12,1.06,.08,0,0x34403c]);
+      hatches.push([x+side*3.45,1.82,z+d/2+.27,.11,1.17,.06,0,0xbc9871]);
     }
-    ctx.box(timber,2.6,.22,1.4,x,.11,z+3.4);
+    ctx.box(timber,door,.22,1.4,x,.11,z+d/2+.4);
   }
 
   ctx.cylinder(timber,.18,7.2,-45,3.6,-29,8);

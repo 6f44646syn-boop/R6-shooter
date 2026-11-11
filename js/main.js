@@ -10,7 +10,7 @@ import * as THREE from '../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
 import { Look, PITCH_LIMIT } from './core/look.js?v=9dd0f7b-mwbioun8';
 import { Player } from './core/player.js?v=9dd0f7b-mwbioun8';
 import { PointerLock } from './core/pointer-lock.js?v=9dd0f7b-mwbioun8';
-import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=9dd0f7b-mwbioun8';
+import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=blacktide-cover';
 import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=9dd0f7b-mwbioun8';
 import { Weapon } from './core/weapon.js?v=blacktide';
 import { RecoilEngine } from './core/recoil.js?v=9dd0f7b-mwbioun8';
@@ -25,13 +25,13 @@ import { LensPost } from './render/lens-post.js?v=9dd0f7b-mwbioun8';
 import { reticleTextures } from './ui/reticle-tex.js?v=9dd0f7b-mwbioun8';
 import { DOT_POINTS } from './scene/dots.js?v=9dd0f7b-mwbioun8';
 import { Voices } from './audio/voice.js?v=9dd0f7b-mwbioun8';
-import { ModeGame } from './modes/game.js?v=blacktide-detail';
+import { ModeGame } from './modes/game.js?v=blacktide-cover';
 import { Sfx } from './audio/sfx.js?v=9dd0f7b-mwbioun8';
 import { DebugHud } from './ui/debug-hud.js?v=9dd0f7b-mwbioun8';
 import { drawCrosshair } from './ui/crosshair.js?v=9dd0f7b-mwbioun8';
 import { Hud } from './ui/hud.js?v=9dd0f7b-mwbioun8';
 import { MagPlot } from './ui/plot.js?v=9dd0f7b-mwbioun8';
-import { SettingsUI } from './ui/settings-ui.js?v=9dd0f7b-mwbioun8';
+import { SettingsUI } from './ui/settings-ui.js?v=blacktide-cover';
 import { sensKeys, zoomKey } from './core/optics.js?v=9dd0f7b-mwbioun8';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
@@ -40,7 +40,7 @@ function sensRows(catalogue, sens) {
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
 import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=9dd0f7b-mwbioun8';
-import { Battle } from './battle/battle.js?v=blacktide-edit';
+import { Battle } from './battle/battle.js?v=blacktide-cover';
 import { initCore, coreLoaded } from './wasm/core.js?v=9dd0f7b-mwbioun8';
 import { createJoinRequest, acceptJoin } from './net/link.js?v=9dd0f7b-mwbioun8';
 import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt } from './net/relay.js?v=m11-ranked';

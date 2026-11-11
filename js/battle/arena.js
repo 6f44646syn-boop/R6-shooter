@@ -9,7 +9,7 @@
 // range: yaw 0 looks along -z, positive turns right.
 import * as THREE from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
 import { MAPS } from './maps.js?v=9dd0f7b-mwbioun8';
-import { BLACKTIDE, ROYALE_MAP_ID } from './royale-map.js?v=blacktide-detail';
+import { BLACKTIDE, ROYALE_MAP_ID } from './royale-map.js?v=blacktide-cover';
 import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=9dd0f7b-mwbioun8';
 import { flatMaterial } from '../scene/low.js?v=9dd0f7b-mwbioun8';
 import { BulletHoles } from '../scene/holes.js?v=9dd0f7b-mwbioun8';
@@ -424,6 +424,7 @@ export class Arena {
     if (rain) { near = Math.min(near, 12); far = Math.min(far, 60); col.lerp(new THREE.Color(0x6a7078), 0.6); }
     if (a.night) { col.multiplyScalar(map.indoor ? 0.15 : 0.12).lerp(new THREE.Color(0x05070d), 0.5); near = Math.min(near, 4); far = Math.min(far, 45); }
     this.scene.fog.color.copy(col); this.scene.fog.near = near; this.scene.fog.far = far;
+    a.fogNear = near; a.fogFar = far;
     const bg = new THREE.Color(map.background);
     if (rain || a.fog) bg.lerp(col, 0.7);
     if (a.night) bg.copy(col);

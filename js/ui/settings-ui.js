@@ -1,7 +1,7 @@
 import { tabs } from './m7-menu.js?v=9dd0f7b-mwbioun8';
 // Settings panel inside the Esc menu. Every change is sanitised, saved to localStorage and
 // handed to main.js through onChange(key) so it takes effect immediately.
-import { sanitize, saveSettings, clearSavedSettings, DEFAULTS, DISTANCES, CROSSHAIR_STYLES, RETICLE_COLOR_NAMES } from '../core/settings.js?v=9dd0f7b-mwbioun8';
+import { sanitize, saveSettings, clearSavedSettings, DEFAULTS, DISTANCES, CROSSHAIR_STYLES, RETICLE_COLOR_NAMES } from '../core/settings.js?v=blacktide-cover';
 import { degPerCount, countsPer360, inchesPer360, horizontalFovDeg } from '../core/sensitivity.js?v=9dd0f7b-mwbioun8';
 import { drawCrosshair } from './crosshair.js?v=9dd0f7b-mwbioun8';
 
@@ -176,6 +176,7 @@ export class SettingsUI {
         this.range('set-fov', 'Vertical FOV', { min: 60, max: 90, step: 1, fmt: (v) => v + '\u00b0' }, () => this.s.fov, (v) => { this.s.fov = v; }, 'fov'),
         this.select('set-scale', 'Render resolution', [['0', 'Auto (screen sharpness)'], ['2', '200% (supersampled)'], ['1.5', '150% (supersampled)'], ['1', '100%'], ['0.85', '85%'], ['0.75', '75%'], ['0.5', '50%']], () => String(this.s.renderScale), (v) => { this.s.renderScale = Number(v); }, 'scale'),
         this.select('set-graphics', 'Graphics quality', [['low', 'Low: flat colours (slowest PCs)'], ['standard', 'Standard (fast, no download)'], ['high', 'High: detailed guns, lighting (Enhanced pack)'], ['ultra', 'Ultra: 4K skins with depth (Enhanced pack)']], () => this.s.graphics, (v) => { this.s.graphics = v; }, 'graphics'),
+        this.range('set-royale-distance', 'Battle Royale render distance', {min:45,max:200,step:5,fmt:v=>v+' m'}, () => this.s.royaleRenderDistance, v => { this.s.royaleRenderDistance = v; }, 'royaleRenderDistance'),
         this.select('set-shading', 'Gun and sight shading (Standard graphics)', [['fast', 'Fast (recommended)'], ['detailed', 'Detailed metal (slower)']], () => this.s.weaponShading, (v) => { this.s.weaponShading = v; }, 'shading'),
         this.select('set-lens', 'Lens effects when aiming', [['auto', 'Auto (drops if aiming is slow)'], ['3', 'High: blur, fringing, glare'], ['2', 'Medium: no blur'], ['1', 'Low (fast): glare, darkening, reticle'], ['0', 'Off (fast): darkening and reticle']], () => this.s.lensQuality, (v) => { this.s.lensQuality = v; }, 'lens'),
       ),
