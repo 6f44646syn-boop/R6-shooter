@@ -10,6 +10,10 @@ const GRID = 3;
 const FULL_WALL = (1 << GRID ** 2) - 1;
 const PIECES = ['wall', 'ramp', 'cone'];
 const MAX_RAMPS = 10;
+// The drop: everyone starts this high over their spawn and parachutes down (steer with W A S D),
+// protected while gliding and for a few seconds after landing (shooting ends it, as at any spawn).
+const DROP_H = 55, GLIDE = 5.5, LAND_PROTECT = 5;
+const CHUTE_COLORS = [0xe8553e, 0xf2c14e, 0x4fa3e0, 0x63c26b, 0xb46ad8, 0xf28c38];
 const EDIT_PRESETS = {
   wall: [
     ['Door', FULL_WALL ^ 18], ['Window', FULL_WALL ^ 16], ['Side opening', FULL_WALL ^ 36], ['Low wall', 63],
@@ -298,34 +302,11 @@ export class BattleRoyale {
 
   build(f, yaw, selected = this.piece) {
     const player = f === this.battle.humans[0].f;
-    if (!(player ? this.materials : f.buildMaterials) || !f.alive) return;
-    const { arena } = this;
-    const kind = player ? selected : 'wall', isWall = kind === 'wall';
-    const angle = yaw * Math.PI / 180, dx = Math.sin(angle), dz = -Math.cos(angle);
-    const distance = isWall ? 1.7 : (PLATFORM_HALF+.78) / Math.max(Math.abs(dx),Math.abs(dz));
-    const dir = -Math.round(yaw / 90);
-    const forwardX = -Math.round(Math.sin(dir * Math.PI/2)), forwardZ = -Math.round(Math.cos(dir * Math.PI/2));
-    const previous = kind === 'ramp' && this.walls.find(ramp => {
-      if (ramp.kind !== 'ramp' || (ramp.dir-dir)%4 !== 0) return false;
-      const p = ramp.mesh.position, px = f.x - p.x, pz = f.z - p.z;
-      const forward = px*forwardX + pz*forwardZ;
-      return forward >= .15 && forward <= PLATFORM_HALF+.08
-        && Math.abs(px*forwardZ-pz*forwardX) < PLATFORM_HALF+.2
-        && Math.abs(f.y - (p.y+RAMP_RISE)) <= .55;
-    });
-    if (previous && previous.level >= MAX_RAMPS) { this.notify('10-ramp height limit'); return; }
-    const x = previous ? previous.mesh.position.x + forwardX * PLATFORM_HALF*2 : Math.round((f.x + dx * distance) * 2) / 2;
-    const z = previous ? previous.mesh.position.z + forwardZ * PLATFORM_HALF*2 : Math.round((f.z + dz * distance) * 2) / 2;
-    const w = isWall ? (Math.abs(dx) > Math.abs(dz) ? .32 : 2.8) : PLATFORM_HALF * 2;
-    const d = isWall ? (w > 1 ? .32 : 2.8) : w;
-    const y = previous ? previous.mesh.position.y + RAMP_RISE : arena.groundAt(x, z, f.y);
-    const box = { minX:x-w/2, maxX:x+w/2, minY:y, maxY:y+(isWall ? WALL_HEIGHT : platformHeight(kind)), minZ:z-d/2, maxZ:z+d/2 };
-    const blocked = (!previous && Math.abs(y - f.y) > .45) || box.maxY >= (arena.map.ceiling ? arena.wallH : Infinity)
-      || box.minX <= -arena.hx || box.maxX >= arena.hx || box.minZ <= -arena.hz || box.maxZ >= arena.hz
-      || arena.boxes.some(other => overlaps(box, other))
-      || !arena.sightLine([f.x, f.y + 1.2, f.z], [x, y + .7, z])
-      || this.occupied(box, previous ? f : null);
-    if (blocked) { if (player) this.notify('Build needs clear space'); return; }
+    if (!(player ? this.materials : f.buildMaterials) || !f.alive || f.drop) return;
+    const p = this.plan(f, yaw, selected);
+    if (p.limit) { if (player) this.notify('10-ramp height limit'); return; }
+    if (p.blocked) { if (player) this.notify('Build needs clear space'); return; }
+    const { kind, isWall, previous, dir, box, x, y, z, w, d } = p, { arena } = this;
     const mesh = new THREE.Group();
     const bounds = new THREE.Box3(new THREE.Vector3(box.minX, box.minY, box.minZ),
       new THREE.Vector3(box.maxX, box.maxY, box.maxZ));
@@ -341,6 +322,111 @@ export class BattleRoyale {
     else f.buildMaterials--;
     this.syncWalls();
     return piece;
+  }
+  // Where a piece would go (no side effects): the build and its ghost use the same answer.
+  plan(f, yaw, selected = this.piece) {
+    const player = f === this.battle.humans[0].f;
+    const { arena } = this;
+    const kind = player ? selected : 'wall', isWall = kind === 'wall';
+    const angle = yaw * Math.PI / 180, dx = Math.sin(angle), dz = -Math.cos(angle);
+    const distance = isWall ? 1.7 : (PLATFORM_HALF+.78) / Math.max(Math.abs(dx),Math.abs(dz));
+    const dir = -Math.round(yaw / 90);
+    const forwardX = -Math.round(Math.sin(dir * Math.PI/2)), forwardZ = -Math.round(Math.cos(dir * Math.PI/2));
+    const previous = kind === 'ramp' && this.walls.find(ramp => {
+      if (ramp.kind !== 'ramp' || (ramp.dir-dir)%4 !== 0) return false;
+      const p = ramp.mesh.position, px = f.x - p.x, pz = f.z - p.z;
+      const forward = px*forwardX + pz*forwardZ;
+      return forward >= .15 && forward <= PLATFORM_HALF+.08
+        && Math.abs(px*forwardZ-pz*forwardX) < PLATFORM_HALF+.2
+        && Math.abs(f.y - (p.y+RAMP_RISE)) <= .55;
+    });
+    if (previous && previous.level >= MAX_RAMPS) return { limit: true };
+    const x = previous ? previous.mesh.position.x + forwardX * PLATFORM_HALF*2 : Math.round((f.x + dx * distance) * 2) / 2;
+    const z = previous ? previous.mesh.position.z + forwardZ * PLATFORM_HALF*2 : Math.round((f.z + dz * distance) * 2) / 2;
+    const w = isWall ? (Math.abs(dx) > Math.abs(dz) ? .32 : 2.8) : PLATFORM_HALF * 2;
+    const d = isWall ? (w > 1 ? .32 : 2.8) : w;
+    const y = previous ? previous.mesh.position.y + RAMP_RISE : arena.groundAt(x, z, f.y);
+    const box = { minX:x-w/2, maxX:x+w/2, minY:y, maxY:y+(isWall ? WALL_HEIGHT : platformHeight(kind)), minZ:z-d/2, maxZ:z+d/2 };
+    const blocked = (!previous && Math.abs(y - f.y) > .45) || box.maxY >= (arena.map.ceiling ? arena.wallH : Infinity)
+      || box.minX <= -arena.hx || box.maxX >= arena.hx || box.minZ <= -arena.hz || box.maxZ >= arena.hz
+      || arena.boxes.some(other => overlaps(box, other))
+      || !arena.sightLine([f.x, f.y + 1.2, f.z], [x, y + .7, z])
+      || this.occupied(box, previous ? f : null);
+    return { kind, isWall, previous, dir, box, x, y, z, w, d, blocked };
+  }
+  // The ghost: while B is held, a see-through copy of the piece where it will go (blue: it fits,
+  // red: no room). Releasing B builds it there.
+  updateGhost(h) {
+    const want = this.preview && h.f.alive && !h.f.drop && !this.editing && !this.battle.paused;
+    let p = want ? this.plan(h.f, h.look.yaw, this.piece) : null;
+    if (p && p.limit) p = null;
+    if (!this.ghost) {
+      this.ghostOk = new THREE.MeshBasicMaterial({ color: 0x64c7ff, transparent: true, opacity: .32, depthWrite: false });
+      this.ghostBad = new THREE.MeshBasicMaterial({ color: 0xff5a4a, transparent: true, opacity: .32, depthWrite: false });
+      this.ghost = new THREE.Group(); this.ghostKey = '';
+      this.arena.scene.add(this.ghost);
+      this.resources.push(this.ghostOk, this.ghostBad);
+    }
+    const g = this.ghost;
+    g.visible = !!p;
+    if (!p) return;
+    const mat = p.blocked || !this.materials ? this.ghostBad : this.ghostOk;
+    const key = p.kind + (p.isWall ? (p.w > 1 ? 'x' : 'z') : p.dir);
+    if (key !== this.ghostKey) {
+      for (const c of g.children.slice()) { c.geometry.dispose(); c.removeFromParent(); }
+      g.rotation.set(0, 0, 0);
+      if (p.isWall) g.add(new THREE.Mesh(new THREE.BoxGeometry(p.w, WALL_HEIGHT, p.d), mat));
+      else platformMeshes({ kind: p.kind, dir: p.dir, mask: PLATFORM_MASK, mesh: g }, mat);
+      this.ghostKey = key;
+    }
+    for (const c of g.children) { c.material = mat; c.castShadow = c.receiveShadow = false; }
+    g.position.set(p.x, p.y + (p.isWall ? WALL_HEIGHT / 2 : 0), p.z);
+  }
+
+  /* ---------- the drop ---------- */
+  startDrop(f, t) {
+    if (!this.chuteGeo) {
+      this.chuteGeo = new THREE.SphereGeometry(1.9, 16, 6, 0, Math.PI * 2, 0, Math.PI / 2.6);
+      this.lineGeo = new THREE.CylinderGeometry(.012, .012, 3.1, 4);
+      this.lineMat = new THREE.MeshBasicMaterial({ color: 0x2a2a2a });
+      this.chuteMats = CHUTE_COLORS.map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: .8, side: THREE.DoubleSide }));
+      this.resources.push(this.chuteGeo, this.lineGeo, this.lineMat, ...this.chuteMats);
+    }
+    const chute = new THREE.Group(), canopy = new THREE.Mesh(this.chuteGeo, this.chuteMats[(f.id || 0) % this.chuteMats.length]);
+    canopy.scale.y = .55; canopy.position.y = 3.2; canopy.castShadow = true; chute.add(canopy);
+    const own = f === this.battle.humans[0].f;        // your own lines would cut across your view: canopy only
+    if (!own) for (const [x, z] of [[1.4, 1.4], [-1.4, 1.4], [1.4, -1.4], [-1.4, -1.4]]) {   // lines from the canopy rim to the harness
+      const l = new THREE.Mesh(this.lineGeo, this.lineMat);
+      l.position.set(x / 2, 1.85, z / 2); l.rotation.set(Math.atan2(z, 3.1) * .9, 0, -Math.atan2(x, 3.1) * .9); chute.add(l);
+    }
+    this.arena.scene.add(chute);
+    f.drop = { y: f.y + DROP_H, chute, sway: (f.id || 0) * 1.7 };
+    f.y = f.drop.y; f.vy = 0;
+    f.protectUntil = Infinity;
+  }
+  // Every frame, after the bodies moved: gliders sink at a steady rate and land.
+  glide(dt, t) {
+    const h = this.battle.humans[0];
+    for (const f of this.battle.fighters) {
+      const d = f.drop;
+      if (!d) continue;
+      if (!f.alive) { this.land(f, t); continue; }
+      d.y -= GLIDE * dt;
+      const ground = this.arena.groundAt(f.x, f.z, d.y);
+      if (d.y <= ground + .02) { f.y = ground; this.land(f, t); }
+      else {
+        f.y = d.y; f.vy = 0;
+        d.chute.position.set(f.x, f.y, f.z);
+        d.chute.rotation.z = Math.sin(t * 1.3 + d.sway) * .07; d.chute.rotation.x = Math.cos(t * 1.1 + d.sway) * .05;
+      }
+      if (h && h.f === f) h.camY = f.y;
+    }
+  }
+  land(f, t) {
+    const d = f.drop;
+    d.chute.removeFromParent();
+    f.drop = null; f.vy = 0;
+    if (f.alive) f.protectUntil = t + LAND_PROTECT;
   }
 
   cyclePiece() {
@@ -541,7 +627,7 @@ export class BattleRoyale {
         + (this.editing.kind === 'ramp' ? ' · ' + bind('reload') + ' Rotate' : '')
         + '\n' + EDIT_PRESETS[this.editing.kind].map(([name],i) => (i+1) + ' ' + name).join(' · ')
       : chest ? bind('interact') + ' Open ' + (chest.pirate ? 'Pirate Chest' : 'chest')
-      : (b.humans[0].gun ? bind('knife') : bind('fire')) + ' Pickaxe · ' + bind('underbarrel') + ' Build ' + this.piece
+      : (b.humans[0].gun ? bind('knife') : bind('fire')) + ' Pickaxe · ' + 'hold ' + bind('underbarrel') + ' Build ' + this.piece
         + ' · ' + bind('zero') + ' Change piece · ' + bind('ability') + ' Edit' + hint;
     const score = alive + ' left · ' + zone;
     const mats = this.materials + ' mats';
@@ -555,6 +641,8 @@ export class BattleRoyale {
     this.ring.removeFromParent();
     this.pickaxe.removeFromParent();
     this.hotbar.remove();
+    if (this.ghost) { for (const c of this.ghost.children) c.geometry.dispose(); this.ghost.removeFromParent(); }
+    for (const f of this.battle.fighters) if (f.drop) { f.drop.chute.removeFromParent(); f.drop = null; }
     for (const mesh of [this.chestBodies,this.chestStraps]) { mesh.removeFromParent(); mesh.dispose(); }
     for (const piece of this.walls) this.disposePiece(piece);
     if (this.walls.length) this.arena.setBuilds([]);
