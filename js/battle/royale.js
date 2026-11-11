@@ -1,8 +1,9 @@
 import * as THREE from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
-import { ROYALE_BOTS } from './royale-map.js?v=blacktide-builds';
+import { ROYALE_BOTS } from './royale-map.js?v=blacktide-detail';
 import { PLATFORM_HALF, PLATFORM_MASK, platformHeight, platformMeshes, platformSolids } from './royale-platform.js?v=blacktide-builds';
 
 const TOKEN_CHANCE = 0.001;
+const CHEST_MATERIALS = 6;
 const WALL_HP = 130;
 const WALL_HEIGHT = 2.7;
 const GRID = 3;
@@ -123,13 +124,14 @@ export class BattleRoyale {
     const chest = this.nearby(f);
     if (!chest) return false;
     this.takeChest(chest, f);
-    this.materials += 2;
+    this.materials += CHEST_MATERIALS;
     this.lootGun(chest.gun);
     if (chest.pirate) {
       this.token = true;
       this.battle.deps.onPirateToken();
     }
-    this.notify(chest.pirate ? 'Pirate Token found · All Black Ice skins unlocked' : chest.gun.name + ' · +2 materials');
+    const reward = chest.pirate ? 'Pirate Token found · All Black Ice skins unlocked' : chest.gun.name;
+    this.notify(reward + ' · +' + CHEST_MATERIALS + ' materials');
     return true;
   }
 

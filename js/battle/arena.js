@@ -9,7 +9,7 @@
 // range: yaw 0 looks along -z, positive turns right.
 import * as THREE from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
 import { MAPS } from './maps.js?v=9dd0f7b-mwbioun8';
-import { BLACKTIDE, ROYALE_MAP_ID } from './royale-map.js?v=blacktide-builds';
+import { BLACKTIDE, ROYALE_MAP_ID } from './royale-map.js?v=blacktide-detail';
 import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=9dd0f7b-mwbioun8';
 import { flatMaterial } from '../scene/low.js?v=9dd0f7b-mwbioun8';
 import { BulletHoles } from '../scene/holes.js?v=9dd0f7b-mwbioun8';
@@ -150,6 +150,7 @@ export class Arena {
     scene.background = new THREE.Color(map.background);
     scene.fog = new THREE.Fog(...map.fog);
     this.quality = null;
+    this.detailBatches = [];
     this._tiers = { low: new Map(), high: new Map() };
     this._spec = new Map();     // standard material -> () => high material
     const L = (lo, hi) => { if (hi) this._spec.set(lo, hi); return lo; };
@@ -207,10 +208,14 @@ export class Arena {
     /* floor */
     const fl = map.floor();
     const roughTex = fl.rough && fl.rough.isTexture ? fl.rough : null;
-    for (const t of [fl.map, fl.normal, roughTex]) if (t) { t.repeat.set(HX * 2 / (fl.tile || 2), HZ * 2 / (fl.tile || 2)); t.needsUpdate = true; }
+    for (const t of [fl.map, fl.normal, roughTex]) if (t) {
+      t.repeat.set(HX * 2 / (fl.tileX || fl.tile || 2), HZ * 2 / (fl.tileZ || fl.tile || 2));
+      t.needsUpdate = true;
+    }
     const floorMat = L(new THREE.MeshLambertMaterial({ map: fl.map, color: fl.color ?? 0xffffff }),
       () => std({ map: fl.map, color: fl.color ?? 0xffffff, normalMap: fl.normal || null, roughnessMap: roughTex, roughness: roughTex ? 1 : (typeof fl.rough === 'number' ? fl.rough : 0.9), metalness: 0 }));
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(HX * 2, HZ * 2), floorMat);
+    floorMat.userData.keepInLow = !!fl.keepInLow;
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     scene.add(floor);
@@ -248,16 +253,19 @@ export class Arena {
       },
       floorPlane: (m, w, d, x, y, z) => { const p = add(new THREE.PlaneGeometry(w, d), m, x, y + yo, z); p.rotation.x = -Math.PI / 2; return p; },
       cone: (m, r, h, x, y, z, rx = 0) => { const c = add(new THREE.ConeGeometry(r, h, 10), m, x, y + yo, z); c.rotation.x = rx; return c; },
-      scatter: (geometry, m, placements) => {
+      scatter: (geometry, m, placements, counts) => {
         const mesh = new THREE.InstancedMesh(geometry, material(m), placements.length);
         const transform = new THREE.Matrix4();
-        placements.forEach(([x,y,z,sx,sy,sz], i) => {
-          mesh.setMatrixAt(i, transform.makeScale(sx,sy,sz).setPosition(x,y + yo,z));
+        const scale = new THREE.Vector3(), tint = new THREE.Color();
+        placements.forEach(([x,y,z,sx,sy,sz,yaw=0,color], i) => {
+          mesh.setMatrixAt(i, transform.makeRotationY(yaw).scale(scale.set(sx,sy,sz)).setPosition(x,y + yo,z));
+          if (color !== undefined) mesh.setColorAt(i, tint.setHex(color));
         });
         mesh.computeBoundingSphere();
         mesh.castShadow = !!m.castShadow;
         mesh.receiveShadow = true;
         scene.add(mesh);
+        if (counts) this.detailBatches.push({mesh,counts});
       },
       cylinder: (m, r, h, x, y, z, seg = 16) => add(new THREE.CylinderGeometry(r, r, h, seg), m, x, y + yo, z),
       tubeX: (m, r, len, x, y, z) => { const c = add(new THREE.CylinderGeometry(r, r, len, 10), m, x, y + yo, z); c.rotation.z = Math.PI / 2; return c; },
@@ -318,7 +326,7 @@ export class Arena {
       cover.add(new THREE.Mesh(wedgeGeo({ ...s, dir: b.dir, y0, y1: b.y1, base }, k.tile || 1), material({ ...k, color: b.color ?? k.color })));
     };
     for (const e of layoutPieces(map)) (e.stairs ? addStairs : e.ramp ? addRamp : addBox)(e);
-    if (map.extra) map.extra(ctx, map);
+    if (map.extra) map.extra(ctx, map, this.boxes);
     if (map.outside) map.outside(ctx, map);
     mergeChunks(cover);
     cover.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
@@ -528,6 +536,11 @@ export class Arena {
   /* ---------- graphics quality ---------- */
   setGraphics(q, renderer) {
     if (!['low', 'high', 'ultra'].includes(q)) q = 'standard';
+    const detail = ['low','standard','high','ultra'].indexOf(q);
+    for (const {mesh,counts} of this.detailBatches) {
+      mesh.count = Math.min(counts[detail], mesh.instanceMatrix.count);
+      mesh.visible = mesh.count > 0;
+    }
     const tier = q === 'low' ? 'low' : (q === 'high' || q === 'ultra') ? 'high' : null;
     if (tier === 'low' && !this._tiers.low.size) {
       this.scene.traverse((o) => { if (o.isMesh && !o.userData.ownMaterial) { const lo = o.userData.loMat || o.material; const f = flatMaterial(lo); if (f) this._tiers.low.set(lo, f); } });

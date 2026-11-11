@@ -45,6 +45,17 @@ try {
       && a.findPath(-55,0,-42,0,0,2.5).length > 0;
   }));
   console.log('PASS solid trees and navigable hills are present on Blacktide');
+  const tiers = await page.evaluate(() => {
+    const b = __range.battle(), a = b.arena, world = a.world;
+    const counts = ['low','standard','high','ultra'].map(q => {
+      a.setGraphics(q,b.deps.renderer);
+      return a.detailBatches.reduce((sum,batch) => sum + (batch.mesh.visible ? batch.mesh.count : 0), 0);
+    });
+    a.setGraphics('standard',b.deps.renderer);
+    return { counts, sharedCollision:world === a.world };
+  });
+  assert.deepEqual(tiers, {counts:[32,860,2200,4140],sharedCollision:true});
+  console.log('PASS all graphics presets scale map detail with shared collision');
 
   const pickaxe = await page.evaluate(() => {
     const R = __range, b = R.battle(), r = b.royale, h = b.humans[0], a = b.arena;
@@ -81,7 +92,7 @@ try {
   assert.deepEqual(await page.evaluate(() => {
     const b = __range.battle();
     return [b.royale.materials, b.humans[0].gun.id, b.royale.chests[0].opened];
-  }), [loot[0] + 2, loot[1], true]);
+  }), [loot[0] + 6, loot[1], true]);
   console.log('PASS Interact opens a chest once and equips its gun and wall stock');
   assert.ok(await page.evaluate(() => {
     const b = __range.battle(), h = b.humans[0], r = b.royale, gun = h.gun;
@@ -139,7 +150,7 @@ try {
     delete h.shotDirection;
     return { blocked, solid, spent, preview, edited, safeRestore, restored, navReused, removed: r.walls.length === 0 && a.boxes.length === a.baseBoxCount };
   });
-  assert.deepEqual(build, {blocked:true, solid:true, spent:loot[0]+1, preview:true, edited:true, safeRestore:true, restored:true, navReused:true, removed:true});
+  assert.deepEqual(build, {blocked:true, solid:true, spent:loot[0]+5, preview:true, edited:true, safeRestore:true, restored:true, navReused:true, removed:true});
   console.log('PASS wall placement, live edit preview, walkable door, safe reset, and bullet destruction');
 
   const platforms = await page.evaluate(() => {

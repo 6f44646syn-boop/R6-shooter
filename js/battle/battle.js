@@ -8,13 +8,13 @@ import { replayCamera } from '../replay/view.js?v=9dd0f7b-mwbioun8';
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
 import * as THREE from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
-import { Arena } from './arena.js?v=blacktide-builds';
+import { Arena } from './arena.js?v=blacktide-detail';
 import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=9dd0f7b-mwbioun8';
 import { Bot, LEVELS } from './bot.js?v=blacktide-builds';
 import { Human } from './human.js?v=blacktide';
 import { BattleNades } from './nades.js?v=9dd0f7b-mwbioun8';
-import { BattleRoyale } from './royale.js?v=blacktide-builds';
-import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=blacktide-builds';
+import { BattleRoyale } from './royale.js?v=blacktide-detail';
+import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=blacktide-detail';
 import { drawCrosshair } from '../ui/crosshair.js?v=9dd0f7b-mwbioun8';
 import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=9dd0f7b-mwbioun8';
 import { effectiveGraphics } from '../render/quality.js?v=9dd0f7b-mwbioun8';

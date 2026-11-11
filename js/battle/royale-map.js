@@ -1,5 +1,6 @@
 import { wallPanels, duskSky } from '../scene/range-tex.js?v=9dd0f7b-mwbioun8';
 import { BoxGeometry, CanvasTexture, ConeGeometry, IcosahedronGeometry, RepeatWrapping, SRGBColorSpace } from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
+import { addBlacktideDetails, blacktideTrails } from './royale-details.js?v=blacktide-detail';
 
 export const ROYALE_MAP_ID = 'blacktide';
 export const ROYALE_BOTS = 20;
@@ -13,6 +14,8 @@ const shack = (x, z) => [
   box(x, z - 3, 8, .4, 3, 'plank'), box(x - 4, z, .4, 6, 3, 'plank'),
   box(x + 4, z, .4, 6, 3, 'plank'), box(x - 2.6, z + 3, 2.8, .4, 3, 'plank'),
   box(x + 2.6, z + 3, 2.8, .4, 3, 'plank'), box(x, z, 8.4, 6.4, .25, 'plank', 3),
+  { ramp:'+x', x:x-2.15, z, w:4.3, d:6.4, y:3.25, y1:4.6, base:3.25, kind:'roof' },
+  { ramp:'-x', x:x+2.15, z, w:4.3, d:6.4, y:3.25, y1:4.6, base:3.25, kind:'roof' },
 ];
 
 const hill = (x, z, w, d, y) => {
@@ -35,21 +38,31 @@ const brush = groves.flatMap(([x,z], i) => [[-6,-2], [0,5], [3,-6], [7,1]].map((
   [x+dx, z+dz, .8 + ((i+j)%3)*.18]));
 
 function groundTexture() {
-  const canvas = document.createElement('canvas'), size = 128;
-  canvas.width = canvas.height = size;
-  const ctx = canvas.getContext('2d'), pixels = ctx.createImageData(size,size);
+  const canvas = document.createElement('canvas'), w = 640, h = 512;
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d'), pixels = ctx.createImageData(w,h);
   let seed = 71;
-  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     seed = (Math.imul(1664525,seed)+1013904223) >>> 0;
-    const u = x * 2*Math.PI/size, v = y * 2*Math.PI/size;
-    const shade = 8*Math.sin(u+v) + 4*Math.cos(3*u-2*v) + (seed/4294967296-.5)*21;
-    pixels.data.set([118+shade,125+shade,87+shade,255], (y*size+x)*4);
+    const u = x * 2*Math.PI/w, v = y * 2*Math.PI/h;
+    const shade = 9*Math.sin(3*u+v) + 5*Math.cos(7*u-4*v) + (seed/4294967296-.5)*23;
+    const at = (y*w+x)*4;
+    pixels.data[at] = 113+shade; pixels.data[at+1] = 125+shade;
+    pixels.data[at+2] = 82+shade; pixels.data[at+3] = 255;
   }
   ctx.putImageData(pixels,0,0);
+  ctx.lineCap = ctx.lineJoin = 'round';
+  for (const trail of blacktideTrails) {
+    ctx.beginPath();
+    trail.forEach(([x,z],i) => ctx[i ? 'lineTo' : 'moveTo']((x+80)*4,(z+64)*4));
+    ctx.strokeStyle = '#8a80614d'; ctx.lineWidth = 17; ctx.stroke();
+    ctx.strokeStyle = '#aea080ad'; ctx.lineWidth = 12; ctx.stroke();
+    ctx.strokeStyle = '#c9b89125'; ctx.lineWidth = 7; ctx.stroke();
+  }
   const map = new CanvasTexture(canvas);
   map.wrapS = map.wrapT = RepeatWrapping;
   map.colorSpace = SRGBColorSpace;
-  return { map, tile:9, rough:.97 };
+  return { map, tileX:160, tileZ:128, rough:.97, keepInLow:true };
 }
 
 export const BLACKTIDE = {
@@ -62,6 +75,7 @@ export const BLACKTIDE = {
     wall: { color: 0x707b70, rough: .9 },
     low: { color: 0x928576, rough: .95 },
     plank: { color: 0x74503a, rough: .9 },
+    roof: { color: 0x4d3831, rough: .95 },
     dock: { color: 0x829292, rough: .85 },
     container: { color: 0x385b62, metal: .45, rough: .65 },
     crate: { color: 0x9b6944, rough: .9 },
@@ -103,7 +117,7 @@ export const BLACKTIDE = {
       box(x + 2, z + 5, i % 2 ? 2.1 : 4.6, i % 2 ? 4.6 : 2.1, 1.1, 'low'),
     ]),
   ],
-  extra: ctx => {
+  extra: (ctx, _map, solids) => {
     ctx.scatter(new BoxGeometry(1,1,1), {color:0x5d4931, rough:1, castShadow:true},
       trees.map(b => [b.x,b.h/2,b.z,b.w,b.h,b.d]));
     ctx.scatter(new ConeGeometry(1,1,9), {color:0x375646, rough:.95, castShadow:true},
@@ -114,5 +128,6 @@ export const BLACKTIDE = {
       brush.map(([x,z,s]) => [x,.55*s,z,s,.65*s,s]));
     ctx.scatter(new IcosahedronGeometry(1,0), {color:0x4c6c4b, rough:1},
       brush.map(([x,z,s]) => [x+.7*s,.4*s,z+.25*s,.72*s,.48*s,.72*s]));
+    addBlacktideDetails(ctx,solids);
   },
 };
