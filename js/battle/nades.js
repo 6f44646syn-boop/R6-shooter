@@ -71,13 +71,14 @@ export class BattleNades {
   }
   explode(n, t) {
     const B = this.b, A = B.arena, p = [n.x, n.y + 0.2, n.z], by = n.f;
+    const replay = B.grenadeView.explode(n, t);
     for (const g of B.fighters) {
       if (!g.alive || g.team === by.team) continue;
       const chest = [g.x, g.y + 1.0 - 0.3 * (g.crouch || 0), g.z], d = Math.hypot(chest[0] - p[0], chest[1] - p[1], chest[2] - p[2]);
       if (d > NADE.radius) continue;
       if (!A.sightLine(p, chest) && !A.sightLine(p, [g.x, g.y + 1.6, g.z])) continue;
       const dmg = d < NADE.lethal ? 300 : NADE.damage * Math.pow(1 - (d - NADE.lethal) / (NADE.radius - NADE.lethal), 1.4);
-      if (dmg > 1) B._damage(g, dmg, by, 'torso', t);
+      if (dmg > 1) B._damage(g, dmg, by, 'torso', t, replay);
     }
     B._noise(by, 'blast', 40, t);
     B._blast(n.x, n.y, n.z, t);

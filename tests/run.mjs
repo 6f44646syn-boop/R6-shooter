@@ -1599,6 +1599,21 @@ try {
       const r2 = await B.evaluate(() => { const Bt = window.__range.battle(); return { myDeaths: Bt.fighters.find((f) => f.id === Bt.net.myId).deaths, kc: Bt.lastKillCam }; });
       check('the host kills the player; the player\'s PC shows its own death', r2.myDeaths >= 1, JSON.stringify(r2));
       check('the player\'s PC replays the host shooting them (kill cam with recorded shots)', r2.kc && r2.kc.killer === 'Host' && r2.kc.frames > 20 && r2.kc.shots >= 1, JSON.stringify(r2.kc));
+      await A.evaluate(() => {
+        const battle = window.__range.battle(), host = battle.humans[0].f, bot = battle.bots[0].f;
+        battle.opts.killsToWin = battle.teamScore[host.team] + 1;
+        bot.protectUntil = 0;
+        battle._damage(bot, 500, host, 'head', battle.t);
+      });
+      await B.waitForFunction(() => window.__range.battle().hud.end.dataset.finale === 'replay');
+      const finale = await B.evaluate(() => {
+        const battle = window.__range.battle();
+        const killer = battle.kc?.killer.name;
+        battle.hud.end.querySelector('.b-finale-replay button').click();
+        return { killer, results: battle.hud.end.dataset.finale === 'results',
+          rows: battle.hud.endTable.children.length, lineup: battle.finale.lineup.children.length };
+      });
+      check('network Battle sends the final kill, winning lineup and leaderboard', finale.killer === 'Host' && finale.results && finale.rows === 3 && finale.lineup === 1, JSON.stringify(finale));
       await A.evaluate(() => window.__range.battleLeave());
       await run(0.3);
       const end = await B.evaluate(() => ({ active: window.__range.battle().active, status: document.getElementById('net-status').textContent }));

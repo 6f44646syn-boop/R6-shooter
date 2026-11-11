@@ -164,7 +164,9 @@ fieldset, .xh-wrap { min-width: 0; }
 .b-end-box { min-width: 320px; max-width: calc(100vw - 32px); padding: 20px 24px; background: var(--panel, #14181d); border: 1px solid var(--panel-edge, #2a313a); border-radius: 8px; display: grid; gap: 12px; }
 .b-end-box h1 { margin: 0; font-size: 26px; }
 .b-table { display: grid; gap: 4px; }
-.b-row { display: grid; grid-template-columns: 1fr auto auto; gap: 16px; }
+.b-row { display: grid; grid-template-columns: minmax(0, 1fr) 76px 76px; gap: 12px; }
+.b-row > .b-name { position: static; overflow-wrap: anywhere; }
+.b-row > :nth-child(n+2) { text-align: right; }
 .battle-setup .row { display: flex; gap: 8px; flex-wrap: wrap; }
 .battle-hud .t-p3 { color: #d7a6ff; } .battle-hud .t-p4 { color: #ffe27a; } .battle-hud .t-p5 { color: #7ee8ef; } .battle-hud .t-p6 { color: #ff9ccb; }
 .net-box { display: grid; gap: 8px; }
@@ -447,3 +449,21 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 .attach-fx span { font: 12px/1.5 var(--mono); white-space: nowrap; padding: 2px 6px; border-radius: 3px; border: 1px solid var(--panel-edge); }
 .attach-fx .good { color: #8fe3a0; border-color: #2f5a3a; }
 .attach-fx .bad { color: var(--warn); border-color: #5a3a2f; }
+
+.battle-hud:has(> .b-end[data-finale]:not([hidden])) > :not(.b-end) { visibility: hidden; }
+.b-end[data-finale="replay"] { background: none; pointer-events: none; }
+.b-end[data-finale="replay"] .b-end-box { visibility: hidden; }
+.b-finale-replay {
+  position: absolute; inset: 20px 20px auto; display: flex; align-items: center;
+  justify-content: space-between; gap: 12px; padding: 10px 14px;
+  background: rgba(12, 17, 23, 0.86); border-radius: 8px; pointer-events: auto;
+}
+.b-finale-replay[hidden] { display: none; }
+.b-end[data-finale="results"] {
+  align-items: end; padding: 0 16px 16px;
+  background: linear-gradient(transparent 42%, rgba(6, 8, 10, 0.8));
+}
+.b-end[data-finale="results"] .b-end-box {
+  width: min(560px, 100%); min-width: 0; max-height: 49vh; overflow: auto;
+}
+.b-lineup-names { margin: 0; font-size: 13px; }

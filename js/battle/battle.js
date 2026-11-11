@@ -1,3 +1,5 @@
+import { MatchFinale } from '../replay/finale.js?v=3a5db4d-mwbgfx6u';
+import { GrenadeReplay } from '../replay/grenade.js?v=3a5db4d-mwbgfx6u';
 import { replayCamera } from '../replay/view.js?v=3a5db4d-mwbgfx6u';
 // Battle mode: you against bots (Easy / Medium / Hard), or two local players in split
 // screen (optionally with bots as a third side). First side to the kill target wins.
@@ -57,7 +59,9 @@ export class Battle {
     this._lastBotSound = 0;
     this._buildTracers();
     this._buildTorches();
+    this.grenadeView = new GrenadeReplay();
     this._buildHud();
+    this.finale = new MatchFinale(this.hud.end, this.hud.endTable);
     this.humanPool = [];         // reused between matches (each has a weapon rig)
   }
 
@@ -238,6 +242,9 @@ export class Battle {
     if (this.active && this.net && this.net.role === 'client') this.net.link.send({ k: 'left' });
     this.active = false;
     this.rec = null; this.kc = null; this._meAlive = false;
+    this.grenadeView.reset();
+    this.finale.reset();
+    this.grenadeDeath = null; this.grenadeCam = null;
     this.paused = false;
     this._frameN = 0;
     if (this.deps.voice) this.deps.voice.stop();
@@ -245,7 +252,7 @@ export class Battle {
     if (this.hud) this.hud.root.hidden = true;
     for (const h of this.humans) h.releaseAll();
   }
-  pause() { if (!this.active) return; this.paused = true; for (const h of this.humans) h.releaseAll(); }
+  pause() { if (!this.active) return; this.grenadeView.release(); this.paused = true; for (const h of this.humans) h.releaseAll(); }
   resume(t) { this.paused = false; this.prevT = t; }
 
   _side(f) {
@@ -273,6 +280,7 @@ export class Battle {
   /* ---------- simulation ---------- */
   update(t) {
     if (!this.active) return;
+    if (this.over && this.finale.active) { this._updateFinale(t); return; }
     if (this.net && this.net.role === 'client') { this._clientUpdate(t); return; }
     let dt = Math.min(0.1, Math.max(0, t - this.prevT));
     this.prevT = t;
@@ -294,10 +302,14 @@ export class Battle {
     this._separate();
     for (const f of this.fighters) f.updateVisual(t);
     this.nadesB.update(this.over ? 0 : dt, t);
+    this.grenadeView.sample(this.nadesB.live, t);
     this._updateBlasts(t);
     this._killCam(t);
+    if (!this.kc && !this.paused && !this.over && this.humans[0]?.f.alive) {
+      this.grenadeCam = this.grenadeView.live(t, this.arena.world);
+    }
     const ears = this.humans[0];
-    if (ears) { this.deps.sfx.listen(ears.camera); if (!this.kc && !this.over) this.deps.sfx.observeSteps(this.fighters, ears.camera, this.arena, t, null, ears.f.id); }
+    if (ears) { this.deps.sfx.listen(this.grenadeCam || ears.camera); if (!this.kc && !this.over) this.deps.sfx.observeSteps(this.fighters, ears.camera, this.arena, t, null, ears.f.id); }
     this._updateTorches();
     this.arena.update(dt, t, this.humans[0] ? this.humans[0].camera.position : null);
     this._updateTracers(t);
@@ -385,7 +397,7 @@ export class Battle {
     if (hv) { hv.killedBy = 'the acid'; hv.killerId = null; }
   }
 
-  _damage(g, dmg, by, zone, t) {
+  _damage(g, dmg, by, zone, t, grenade = null) {
     if (t < g.protectUntil) dmg = 0;
     if (dmg <= 0) return;
     const applied = Math.min(dmg, Math.max(0, g.health));
@@ -419,25 +431,30 @@ export class Battle {
     this._renderFeed();
     this._updateScore();
     if (hv) { hv.killedBy = by.name; hv.killerId = by.id; }
+    if (hv === this.humans[0]) this.grenadeDeath = grenade;
     const goal = this.opts.killsToWin;
-    if (this.teamScore[by.team] >= goal) this._end(by.team);
+    if (this.teamScore[by.team] >= goal) this._end(by.team, by);
   }
 
-  _end(team) {
+  _end(team, killer = null) {
     this.over = true;
     const two = this.opts.opponent === 'p2';
     const names = { p1: two ? 'Player 1 wins' : 'You win', p2: 'Player 2 wins', bots: 'The bots win' };
     let title = names[team];
     if (this.net) { const w = this.fighters.find((f) => f.team === team); title = team === 'bots' ? 'The bots win' : (w ? w.name : 'Someone') + ' wins'; }
     const rows = this.fighters.slice().sort((a, b) => b.kills - a.kills || a.deaths - b.deaths).map((f) => [f.name, f.team, f.kills, f.deaths]);
-    if (this.net) this._broadcast({ k: 'end', title, rows, team });
+    if (this.net) {
+      const lastShot = this.rec?.shots.at(-1);
+      const shot = killer && lastShot?.by === killer.id && Math.abs(lastShot.t - this.t) < 0.1 ? lastShot : null;
+      this._broadcast({ k: 'end', title, rows, team, killerId: killer?.id, shot });
+    }
     if (this.humans[0] && this.humans[0].f.team === team) this._earn('win');
-    this._showEnd(title, rows, true);
+    this._showEnd(title, rows, true, team, this.t, killer);
     for (const h of this.humans) h.releaseAll();
     this.deps.onEnd();
   }
 
-  _showEnd(title, rows, canRestart) {
+  _showEnd(title, rows, canRestart, team, t, killer) {
     this.over = true;
     this.hud.endTitle.textContent = title;
     this.hud.endTable.replaceChildren(...rows.map(([name, team, kills, deaths]) => {
@@ -449,6 +466,15 @@ export class Battle {
     this.hud.endNote.textContent = (this.matchPoints ? 'You earned ' + this.matchPoints + ' points this match. ' : '') +
       (canRestart ? 'Click "Play again" for a rematch with the same settings.' : 'The host can start a rematch; you will join it automatically.');
     this.hud.end.hidden = false;
+    this.kc = null;
+    if (killer) {
+      this._record(t, true);
+      this._startKillCam(t, killer);
+    }
+    const lineup = this.fighters.filter(f => !team || f.team === team)
+      .sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
+    this.finale.begin(t, lineup.map(f => ({ name: f.name, figure: f })),
+      this.kc ? { name: killer.name, seconds: this.kc.until - t } : null);
   }
 
   // Points for you (player 1 on this PC): a kill or a win. Shows "+N" under the crosshair.
@@ -639,7 +665,15 @@ export class Battle {
     } else if (m.k === 'end') {
       for (const h of this.humans) h.releaseAll();
       if (me && m.team === me.f.team) this._earn('win');
-      this._showEnd(m.title, m.rows, false);
+      const killer = this.fighters.find(f => f.id === m.killerId);
+      const shot = m.shot;
+      const last = this.rec?.shots.at(-1);
+      if (killer && shot?.by === killer.id && this.rec
+        && [shot.a, shot.b].every(point => Array.isArray(point) && point.length === 3 && point.every(Number.isFinite))
+        && !(last?.by === killer.id && t - last.t < 0.15 && last.b.every((value, i) => Math.abs(value - shot.b[i]) < 0.05))) {
+        this.rec.shots.push({ ...shot, t });
+      }
+      this._showEnd(m.title, m.rows, false, m.team, t, killer);
       this.deps.onEnd();
     }
   }
@@ -725,17 +759,23 @@ export class Battle {
     const p1 = this.humans[0], p2 = this.humans[1];
     if (p2 && p2.controls !== 'mouse' && p2.key(code, down)) return true;
     if (code === 'Space' && this.kc && !p1.f.alive) { if (down) this.kc = null; return true; }
-    if (code === 'KeyV' && this.kc && !p1.f.alive) { if (down) { this.kc.pov = this.kcPov = !this.kc.pov; this._repVer++; } return true; }
+    if (code === 'KeyV' && this.kc && !this.kc.grenade && !p1.f.alive) { if (down) { this.kc.pov = this.kcPov = !this.kc.pov; this._repVer++; } return true; }
     const map = { KeyW: 'fwd', KeyS: 'back', KeyA: 'left', KeyD: 'right', ShiftLeft: 'sprint', Space: 'crouch', KeyQ: 'leanL', KeyE: 'leanR', KeyC: 'vault' };
     if (!p2) map.ShiftRight = 'sprint';
     if (map[code]) { p1.in[map[code]] = down; return true; }
     if (code === 'KeyR') { if (down) p1.reload(); return true; }
     // Caps Lock (or G): a grenade (games against bots). On a Mac Caps Lock sends only key-up every other press.
     if (code === 'CapsLock' || code === 'KeyG') {
+      if (!down) this.grenadeView.release();
       if (this.net || this.paused || this.over) return true;
       if (down || (code === 'CapsLock' && this.t - (this._capsDown || -9) > 0.6)) {
         if (down) this._capsDown = this.t;
-        if (this.nadesB.throw(p1.f, p1.look.yaw, p1.look.pitch, this.t)) { if (p1.rig.melee) p1.rig.melee(); this.deps.sfx.knife(0.6); }
+        const grenade = this.nadesB.throw(p1.f, p1.look.yaw, p1.look.pitch, this.t);
+        if (grenade) {
+          if (down && code === 'KeyG') this.grenadeView.hold(grenade, this.t);
+          if (p1.rig.melee) p1.rig.melee();
+          this.deps.sfx.knife(0.6);
+        }
       }
       return true;
     }
@@ -753,7 +793,7 @@ export class Battle {
     return [{ x: 0, y: 0, w: hw, h: H }, { x: hw, y: 0, w: W - hw, h: H }];
   }
   render() {
-    if (!this.active) return;
+    if (!this.active || this.finale.render(this.deps.renderer)) return;
     const r = this.deps.renderer;
     r.info.reset();
     // Shadows are redrawn every other frame (the map never moves; people move a little).
@@ -770,12 +810,15 @@ export class Battle {
       r.setScissor(v.x, v.y, v.w, v.h);
       r.clear();
       const aspect = v.w / v.h;
-      if (h.camera.aspect !== aspect) { h.camera.aspect = aspect; h.camera.updateProjectionMatrix(); }
+      const grenadeCam = i === 0 && this.grenadeCam;
+      const camera = grenadeCam || h.camera;
+      if (camera.aspect !== aspect) { camera.aspect = aspect; camera.updateProjectionMatrix(); }
       const ownVis = h.f.group.visible;
       if (!(this.kc && i === 0)) h.f.group.visible = false;      // not your own body (except in the replay)
       const wp = this.deps.worldPost;
-      if (wp && wp.active) wp.draw(this.arena.scene, h.camera); else r.render(this.arena.scene, h.camera);
+      if (wp && wp.active) wp.draw(this.arena.scene, camera); else r.render(this.arena.scene, camera);
       h.f.group.visible = ownVis;
+      if (grenadeCam) return;
       r.clearDepth();
       const rig = this.kc && this.kc.pov && i === 0 && this.puppet ? this.puppet.rig : h.rig;
       rig.setAspect(aspect, v.h);
@@ -997,10 +1040,13 @@ export class Battle {
      shoulder, aiming the way they aimed (bots and real players alike). Every PC records
      everyone's position, aim, crouch, muzzle flash and tracers for a few seconds; on your
      death those are played back. Space skips. */
-  _record(t) {
+  _record(t, force = false) {
     const rec = this.rec || (this.rec = { frames: [], shots: [] });
     const last = rec.frames.at(-1);
-    if (last && t - last.t < 1 / 30 - 1e-6) return;
+    if (last && t - last.t < 1 / 30 - 1e-6) {
+      if (!force) return;
+      rec.frames.pop();
+    }
     rec.version = 2;
     // Keep the original ten fields first so legacy replay frames remain readable.
     const actors = this.fighters.map(f => [
@@ -1012,13 +1058,16 @@ export class Battle {
     rec.frames.push({ version: 2, t, d: actors });
     while (rec.frames.length && rec.frames[0].t < t - 6) rec.frames.shift();
   }
-  _startKillCam(t) {
+  _startKillCam(t, finalKiller = null) {
     const h = this.humans[0];
-    const k = this.fighters.find((g) => g.id === h.killerId && g !== h.f);
+    const k = finalKiller || this.fighters.find((g) => g.id === h.killerId && g !== h.f);
     const rec = this.rec;
+    const grenade = finalKiller ? null : this.grenadeDeath;
+    this.grenadeDeath = null;
     if (!k || !rec || !rec.frames.length) { this.kc = null; return; }
     const from = Math.max(rec.frames[0].t, t - 2.3);
-    this.kc = { rec: { frames: rec.frames.slice(), shots: rec.shots.slice() }, killer: k, start: t, from, until: t + (t - from) + 0.5, shot: rec.shots.findIndex((s) => s.t >= from), pov: this.kcPov !== false, prevT: t };
+    this.kc = { rec: { frames: rec.frames.slice(), shots: rec.shots.slice() }, killer: k, start: t, from, until: t + (t - from) + 0.5, shot: rec.shots.findIndex((s) => s.t >= from), pov: !!finalKiller || this.kcPov !== false, prevT: t };
+    if (grenade) { this.kc.grenade = grenade; this.kc.until = t + this.grenadeView.duration(grenade) + 1; }
     this.lastKillCam = { killer: k.name, frames: rec.frames.length, shots: rec.shots.filter((s) => s.t >= from).length };
     if (this.kc.shot < 0) this.kc.shot = rec.shots.length;
   }
@@ -1036,7 +1085,21 @@ export class Battle {
     if (P._key !== key) { P.deps = { ...this.deps, opticFor: () => optic }; P.rig.forceSkin = skin ?? null; P.setGun(gun); P._key = key; }
     return P;
   }
+  _updateFinale(t) {
+    this.grenadeCam = null;
+    this.grenadeView.hide();
+    if (this.finale.replaying(t) && this.kc) {
+      this._playKillCam(t);
+      this.deps.sfx.listen(this.grenadeCam || this.humans[0].camera);
+      this._updateTracers(t);
+    } else {
+      this.kc = null;
+    }
+  }
   _killCam(t) {
+    if (this.over && this.finale.active) { this._updateFinale(t); return; }
+    this.grenadeCam = null;
+    this.grenadeView.hide();
     const h = this.humans[0];
     if (!h || this.humans.length > 1) return;
     const f = h.f;
@@ -1046,7 +1109,15 @@ export class Battle {
     if (f.alive || (this.kc && t > this.kc.until)) this.kc = null;
     // outlines: everyone else, by day only
     for (const g of this.fighters) { const v = g !== f && g.alive && !this.night; g.outline.visible = v; for (const l of g.legs) l.o.visible = v; }
-    if (!this.kc) return;
+    if (!f.alive) this.grenadeView.release();
+    if (this.kc) this._playKillCam(t);
+  }
+  _playKillCam(t) {
+    const h = this.humans[0];
+    if (this.kc.grenade) {
+      this.grenadeCam = this.grenadeView.replay(this.kc.grenade, t - this.kc.start, this.arena.scene, this.arena.world);
+      return;
+    }
     const kc = this.kc, rec = kc.rec || this.rec, rt = kc.from + (t - kc.start);
     // the recorded frames around the replay time
     const fr = rec.frames;
@@ -1131,8 +1202,8 @@ export class Battle {
     else title.textContent = 'Eliminated by ' + (h.killedBy || '?');
     const body = el('div', 'b-rep-body'); body.append(svg, stats);
     const back = Math.max(0, Math.ceil(h.f.respawnAt - this.t));
-    const foot = el('div', 'b-rep-skip', 'Back in ' + back + (this.kc ? ' · V: ' + (this.kc.pov ? 'shoulder view' : 'their view') + ' · Space: skip' : ''));
-    box.replaceChildren(...[this.kc ? el('div', 'b-rep-cam', 'KILL CAM · ' + (this.kc.pov ? 'THEIR VIEW' : 'REPLAY')) : null, title, body, foot].filter(Boolean));
+    const foot = el('div', 'b-rep-skip', 'Back in ' + back + (this.kc ? (this.kc.grenade ? '' : ' · V: ' + (this.kc.pov ? 'shoulder view' : 'their view')) + ' · Space: skip' : ''));
+    box.replaceChildren(...[this.kc ? el('div', 'b-rep-cam', 'KILL CAM · ' + (this.kc.grenade ? 'GRENADE' : this.kc.pov ? 'THEIR VIEW' : 'REPLAY')) : null, title, body, foot].filter(Boolean));
   }
 
   _hitMarker(h, kind, t) {
