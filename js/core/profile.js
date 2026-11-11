@@ -56,6 +56,12 @@ export class Profile {
   ownedIds() { const out = []; for (let i = 0; i < SKIN_COUNT; i++) if (this.has(i)) out.push(i); return out; }
   _own(id) { this.owned[id >> 3] |= 1 << (id & 7); }
 
+  unlockBlackIce() {
+    const locked = CATALOGUE.filter(skin => skin.rarity === 'blackice' && !this.has(skin.id));
+    for (const skin of locked) this._own(skin.id);
+    if (locked.length) this._changed();
+  }
+
   equippedFor(slot) { const id = this.equipped[slot]; return id !== null && this.has(id) ? id : null; }
   equip(slot, id) {
     if (slot < 0 || slot >= SLOTS) return false;

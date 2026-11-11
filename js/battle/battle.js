@@ -8,17 +8,18 @@ import { replayCamera } from '../replay/view.js?v=9dd0f7b-mwbioun8';
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
 import * as THREE from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
-import { Arena } from './arena.js?v=9dd0f7b-mwbioun8';
+import { Arena } from './arena.js?v=battle-royale';
 import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=9dd0f7b-mwbioun8';
-import { Bot, LEVELS } from './bot.js?v=9dd0f7b-mwbioun8';
+import { Bot, LEVELS } from './bot.js?v=battle-royale';
 import { Human } from './human.js?v=9dd0f7b-mwbioun8';
 import { BattleNades } from './nades.js?v=9dd0f7b-mwbioun8';
+import { BattleRoyale } from './royale.js?v=battle-royale';
 import { drawCrosshair } from '../ui/crosshair.js?v=9dd0f7b-mwbioun8';
 import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=9dd0f7b-mwbioun8';
 import { effectiveGraphics } from '../render/quality.js?v=9dd0f7b-mwbioun8';
 import { effectiveGun, slotIn } from '../core/loadout.js?v=9dd0f7b-mwbioun8';
 
-const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, bots: 0xff7048 };
+const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, p7: 0xff7048, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
 const INTERP_DELAY = 0.1;      // clients draw others this far in the past (smooth movement)
 const r2 = (v) => Math.round(v * 100) / 100, r1 = (v) => Math.round(v * 10) / 10;
@@ -181,7 +182,8 @@ export class Battle {
     });
     const n = Math.max(0, Math.min(6, opts.bots | 0));
     for (let i = 0; i < n; i++) {
-      const f = new Fighter({ name: BOT_NAMES[i] + ' (' + LEVELS[opts.level].name + ')', team: 'bots', color: TEAM_COLOR.bots });
+      const team = opts.royale ? 'p' + (i + 2) : 'bots';
+      const f = new Fighter({ name: BOT_NAMES[i] + ' (' + LEVELS[opts.level].name + ')', team, color: TEAM_COLOR[team] });
       const gun = d.guns[(i * 3 + 1) % d.guns.length];
       const b = new Bot(f, opts.level, gun, 1000 + i * 7919 + Math.floor(Math.random() * 1e6));
       this._look(f, gun, botSkin(slotIn(d.guns, gun)));
@@ -201,9 +203,11 @@ export class Battle {
         map: this.arena.mapId, ...this.atmo, roster: this._roster() });
     }
     for (const f of this.fighters) this._spawn(f, t);
+    if (opts.royale) this.royale = new BattleRoyale(this);
     this.active = true; this.paused = false; this.over = false;
     this.hud.root.hidden = false;
     this.hud.end.hidden = true;
+    this.hud.leave.textContent = opts.royale ? 'Back to modes' : 'Back to the range';
     this._layoutHud();
     this._updateScore();
     this._renderFeed();
@@ -246,6 +250,9 @@ export class Battle {
   }
 
   stop() {
+    this.royale?.dispose();
+    this.royale = null;
+    this.hud.leave.textContent = 'Back to the range';
     this.deps.sfx.stopAll?.();
     if (this.active && this.net && this.net.role === 'host') this._broadcast({ k: 'stopped' });
     if (this.active && this.net?.role === 'client' && !this.viewOnly) this.net.link.send({ k: 'left' });
@@ -262,10 +269,11 @@ export class Battle {
     if (this.hud) this.hud.root.hidden = true;
     for (const h of this.humans) h.releaseAll();
   }
-  pause() { if (!this.active) return; this.grenadeView.release(); this.watch.release(); this.paused = true; for (const h of this.humans) h.releaseAll(); }
+  pause() { if (!this.active) return; this.royale?.cancelEdit(); this.grenadeView.release(); this.watch.release(); this.paused = true; for (const h of this.humans) h.releaseAll(); }
   resume(t) { this.paused = false; this.prevT = t; }
 
   _side(f) {
+    if (this.opts.royale) return null;
     if (f.team === 'p1') return 'A';
     if (f.team === 'p2') return 'B';
     if (f.team === 'bots') return this.opts.opponent === 'bots' ? 'B' : null;
@@ -298,13 +306,21 @@ export class Battle {
     if ((this.paused && !this.net) || this.over) dt = 0;
     this.t = t;
     if (dt > 0) {
-      for (const b of this.bots) { b.update(t, dt, this); if (!this.over) this.nadesB.botThink(b, t); }
+      this.royale?.advance(dt);
+      for (const b of this.bots) {
+        if (this.over) break;
+        b.update(t, dt, this);
+        if (!this.over) this.nadesB.botThink(b, t);
+      }
       while (this.intelQ.length && this.intelQ[0].at <= t) { const q = this.intelQ.shift(); for (const b of this.bots) if (b.f.team === q.team) b.onCallout(q.intel, t, this); }
       for (const f of this.fighters) {
-        if (!f.alive && t >= f.respawnAt) this._spawn(f, t);
+        if (!this.royale && !f.alive && t >= f.respawnAt) this._spawn(f, t);
         if (f.alive && f.health < MAX_HEALTH && t - f.lastHurt > REGEN_DELAY) f.health = Math.min(MAX_HEALTH, f.health + REGEN_PER_S * dt);
         const acid = f.alive && !this.over ? this.arena.hazardAt(f.x, f.y, f.z) : 0;
         if (acid) this._acid(f, acid * dt, t);
+        if (f.alive && !this.over && this.royale?.outside(f)) {
+          this._acid(f, (this.royale.radius < 3 ? 30 : 8) * dt, t, 'Zone');
+        }
         this._sounds(f, t, dt);
       }
     }
@@ -315,15 +331,24 @@ export class Battle {
     this.grenadeView.sample(this.nadesB.live, t);
     this._updateBlasts(t);
     this._killCam(t);
+    if (this.royale && !this.over && !this.kc && !this.humans[0].f.alive) {
+      const f = this.royale.focus = this.fighters.find(g => g.alive);
+      if (f) {
+        this.watchCam = this.watch.camera;
+        replayCamera(this.watchCam, { x:f.x, y:f.y, z:f.z, yaw:f.yaw, pitch:f.pitch, eye:1.6 - .5 * f.crouch },
+          this.deps.settings, this.deps.settings.fov);
+      }
+    }
     if (!this.kc && !this.paused && !this.over && this.humans[0]?.f.alive) {
       this.grenadeCam = this.grenadeView.live(t, this.arena.world);
     }
     const ears = this.humans[0];
-    if (ears) { this.deps.sfx.listen(this.grenadeCam || ears.camera); if (!this.kc && !this.over) this.deps.sfx.observeSteps(this.fighters, ears.camera, this.arena, t, null, ears.f.id); }
+    if (ears) { this.deps.sfx.listen(this.grenadeCam || this.watchCam || ears.camera); if (!this.kc && !this.over) this.deps.sfx.observeSteps(this.fighters, this.watchCam || ears.camera, this.arena, t, null, ears.f.id); }
     this._updateTorches();
     this.arena.update(dt, t, this.humans[0] ? this.humans[0].camera.position : null);
     this._updateTracers(t);
     this._updateHud(t);
+    if (this.royale && !this.over) this.royale.updateHud();
     if (this.net && t >= this._nextSnap) { this._nextSnap = t + 1 / SNAP_HZ; this._sendSnapshot(t); }
   }
 
@@ -358,6 +383,7 @@ export class Battle {
     f.flashUntil = shotT + 0.05;
     // Nearest hit: cover / walls / floor, or an enemy's body.
     const tw = this.arena.raycast(o, d, 200, this._hit);
+    const wall = this.royale?.impactWalls[this.arena.world.hit - this.arena.baseBoxCount];
     let best = null, bt = tw;
     for (const g of this.fighters) {
       if (g === f || g.team === f.team || !g.alive) continue;
@@ -374,6 +400,7 @@ export class Battle {
     this._addTracer(from, [o[0] + d[0] * end, o[1] + d[1] * end, o[2] + d[2] * end], shotT, f.team, false, f.id);
     let hole = null;
     if (best) this._damage(best.g, gunDamage(f.gun) * (ZONE_DAMAGE[best.r.zone] || 1), f, best.r.zone, shotT);
+    else if (wall) this.royale.damageWall(wall, gunDamage(f.gun));
     else if (tw !== Infinity) {
       const n = this._hit.n;
       hole = [r2(o[0] + d[0] * tw), r2(o[1] + d[1] * tw), r2(o[2] + d[2] * tw), n[0], n[1], n[2]];
@@ -390,7 +417,7 @@ export class Battle {
   }
 
   // Acid: damage with no shooter (spawn protection does not help; a death scores for no one).
-  _acid(g, dmg, t) {
+  _acid(g, dmg, t, cause = 'Acid') {
     g.health -= dmg;
     g.lastHurt = t;
     const hv = this.humans.find((h) => h.f === g), rv = this.remotes.find((r) => r.f === g);
@@ -398,16 +425,18 @@ export class Battle {
     if (rv && (!rv.acidMsg || t > rv.acidMsg)) { rv.acidMsg = t + 0.3; rv.link.send({ k: 'hurt', from: null, by: 'Acid' }); }
     if (g.health > 0) return;
     g.health = 0; g.alive = false; g.deaths++; g.respawnAt = t + RESPAWN_S;
-    const entry = { k: 'Acid', kc: 'env', v: g.name, vc: g.team, vid: g.id, head: false, t };
+    const entry = { k: cause, kc: 'env', v: g.name, vc: g.team, vid: g.id, head: false, t };
     this.feed.unshift(entry);
     this.feed.length = Math.min(this.feed.length, 5);
     if (this.net) this._broadcast({ k: 'feed', e: entry });
     this._renderFeed();
     this._updateScore();
-    if (hv) { hv.killedBy = 'the acid'; hv.killerId = null; }
+    if (hv) { hv.killedBy = cause === 'Zone' ? 'the zone' : 'the acid'; hv.killerId = null; }
+    if (this.royale) this._royaleElimination(g);
   }
 
   _damage(g, dmg, by, zone, t, grenade = null) {
+    if (this.royale && this.over) return;
     if (t < g.protectUntil) dmg = 0;
     if (dmg <= 0) return;
     const applied = Math.min(dmg, Math.max(0, g.health));
@@ -429,7 +458,7 @@ export class Battle {
     if (!dead) return;
     g.health = 0; g.alive = false; g.deaths++; g.respawnAt = t + RESPAWN_S;
     by.kills++;
-    this.teamScore[by.team]++;
+    this.teamScore[by.team] = (this.teamScore[by.team] || 0) + 1;
     const kb = this.bots.find((b) => b.f === by);
     if (kb) kb.say(this, t, ['Enemy down!', 'Got one!', 'Target down.', 'One less.'][Math.floor(Math.random() * 4)], true);
     const mates = this.bots.filter((b) => b.f !== g && b.f.team === g.team && b.f.alive);
@@ -442,8 +471,20 @@ export class Battle {
     this._updateScore();
     if (hv) { hv.killedBy = by.name; hv.killerId = by.id; }
     if (hv === this.humans[0]) this.grenadeDeath = grenade;
-    const goal = this.opts.killsToWin;
-    if (this.teamScore[by.team] >= goal) this._end(by.team, by);
+    if (this.royale) this._royaleElimination(g, by);
+    else if (this.teamScore[by.team] >= this.opts.killsToWin) this._end(by.team, by);
+  }
+
+  _royaleElimination(f, killer = null) {
+    const royale = this.royale;
+    royale.eliminated.push(f);
+    if (f === this.humans[0].f) royale.cancelEdit();
+    if (killer) {
+      this._record(this.t, true);
+      royale.lastKill = { killer, at: this.t, frames: this.rec.frames.slice(), shots: this.rec.shots.slice() };
+    }
+    const live = this.fighters.filter(g => g.alive);
+    if (live.length === 1) this._end(live[0].team, royale.lastKill?.killer);
   }
 
   _end(team, killer = null) {
@@ -452,7 +493,11 @@ export class Battle {
     const names = { p1: two ? 'Player 1 wins' : 'You win', p2: 'Player 2 wins', bots: 'The bots win' };
     let title = names[team];
     if (this.net) { const w = this.fighters.find((f) => f.team === team); title = team === 'bots' ? 'The bots win' : (w ? w.name : 'Someone') + ' wins'; }
-    const rows = this.fighters.slice().sort((a, b) => b.kills - a.kills || a.deaths - b.deaths).map((f) => [f.name, f.team, f.kills, f.deaths]);
+    const winner = this.fighters.find(f => f.team === team);
+    const rows = this.royale
+      ? [winner, ...this.royale.eliminated.slice().reverse()].map((f, i) => [f.name, f.team, f.kills, f.deaths, i + 1])
+      : this.fighters.slice().sort((a, b) => b.kills - a.kills || a.deaths - b.deaths).map(f => [f.name, f.team, f.kills, f.deaths]);
+    if (this.royale) { title = team === 'p1' ? 'You win Battle Royale' : winner.name + ' wins Battle Royale'; this.watchCam = null; }
     if (this.net) {
       const lastShot = this.rec?.shots.at(-1);
       const shot = killer && lastShot?.by === killer.id && Math.abs(lastShot.t - this.t) < 0.1 ? lastShot : null;
@@ -468,19 +513,22 @@ export class Battle {
     this.over = true;
     this.watch.reset();
     this.hud.endTitle.textContent = title;
-    this.hud.endTable.replaceChildren(...rows.map(([name, team, kills, deaths]) => {
+    this.hud.endTable.replaceChildren(...rows.map(([name, team, kills, deaths, place]) => {
       const r = el('div', 'b-row');
-      r.append(el('span', 'b-name t-' + team, name), el('span', '', kills + ' kills'), el('span', '', deaths + ' deaths'));
+      r.append(el('span', 'b-name t-' + team, (place ? '#' + place + ' ' : '') + name), el('span', '', kills + ' kills'), el('span', '', deaths + ' deaths'));
       return r;
     }));
     this.hud.again.hidden = !canRestart;
     this.hud.endNote.textContent = (this.matchPoints ? 'You earned ' + this.matchPoints + ' points this match. ' : '') +
       (canRestart ? 'Click "Play again" for a rematch with the same settings.' : 'The host can start a rematch; you will join it automatically.');
+    if (this.royale?.token) this.hud.endNote.textContent += ' Pirate Token collected · All Black Ice skins unlocked.';
+    this.hud.royale.hidden = true;
     this.hud.end.hidden = false;
     this.kc = null;
     if (killer) {
-      this._record(t, true);
-      this._startKillCam(t, killer);
+      const recorded = this.royale?.lastKill;
+      if (!recorded) this._record(t, true);
+      this._startKillCam(t, killer, recorded);
     }
     const lineup = this.fighters.filter(f => !team || f.team === team)
       .sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
@@ -837,6 +885,11 @@ export class Battle {
     if (this.viewOnly) return;
     const h = this.humans[0];
     if (!h) return;
+    if (this.royale?.editing && (b === 0 || b === 2)) {
+      if (b === 0) this.royale.dragEdit(down);
+      if (down && b === 2) this.royale.cancelEdit();
+      return;
+    }
     if (b === 0) h.in.fire = down;
     else if (b === 2) h.in.ads = down;
     else if (b === 3) h.in.leanL = down;
@@ -849,6 +902,20 @@ export class Battle {
     if (this.viewOnly) return !this.over && this.watch.key(code, down, p1.f);
     if (p2 && p2.controls !== 'mouse' && p2.key(code, down)) return true;
     if (code === 'Space' && this.kc && !p1.f.alive) { if (down) this.kc = null; return true; }
+    if (this.royale && code === 'OperatorAbility') {
+      if (down && !this.paused && !this.over && p1.f.alive) this.royale.edit(p1);
+      return true;
+    }
+    if (this.royale?.editing) {
+      if (down && code === 'KeyV') this.royale.resetEdit();
+      if (code === 'KeyV' || code === 'KeyB' || code === 'KeyG' || code === 'CapsLock') return true;
+    }
+    if (this.royale && code === 'KeyB') {
+      if (down && !this.paused && !this.over) this.royale.build(p1.f, p1.look.yaw);
+      return true;
+    }
+    if (this.royale && (code === 'Interact' || code === 'KeyF') && down
+      && !this.paused && !this.over && this.royale.open(p1.f)) return true;
     if (code === 'KeyV' && this.kc && !this.kc.grenade && !p1.f.alive) { if (down) { this.kc.pov = this.kcPov = !this.kc.pov; this._repVer++; } return true; }
     const map = { KeyW: 'fwd', KeyS: 'back', KeyA: 'left', KeyD: 'right', ShiftLeft: 'sprint', Space: 'crouch', KeyQ: 'leanL', KeyE: 'leanR', KeyC: 'vault' };
     if (!p2) map.ShiftRight = 'sprint';
@@ -915,11 +982,14 @@ export class Battle {
       const camera = this.watchCam || grenadeCam || h.camera;
       if (camera.aspect !== aspect) { camera.aspect = aspect; camera.updateProjectionMatrix(); }
       const ownVis = h.f.group.visible;
+      const royaleFocus = this.watchCam && this.royale?.focus;
       if (this.viewOnly ? !!this.watchFocus : !(this.kc && i === 0)) h.f.group.visible = false;      // not your own body (except in the replay)
+      if (royaleFocus) royaleFocus.group.visible = false;
       const wp = this.deps.worldPost;
       if (wp && wp.active) wp.draw(this.arena.scene, camera); else r.render(this.arena.scene, camera);
       h.f.group.visible = ownVis;
-      if (grenadeCam || this.viewOnly && !this.watchFocus) return;
+      if (royaleFocus) royaleFocus.group.visible = true;
+      if (grenadeCam || royaleFocus || this.viewOnly && !this.watchFocus) return;
       r.clearDepth();
       const rig = this.watchFocus || (this.kc && this.kc.pov && i === 0 && this.puppet) ? this.puppet.rig : h.rig;
       rig.setAspect(aspect, v.h);
@@ -977,7 +1047,9 @@ export class Battle {
     const score = el('div', 'b-score');
     const feed = el('div', 'b-feed');
     const comms = el('div', 'b-comms');
-    top.append(score);
+    const royale = el('div', 'b-score b-royale');
+    royale.hidden = true;
+    top.append(score, royale);
     root.append(top, feed, comms);
     const end = el('div', 'b-end');
     end.hidden = true;
@@ -993,7 +1065,7 @@ export class Battle {
     end.append(box);
     root.append(end);
     this.deps.hudRoot.insertBefore(root, this.deps.hudRoot.querySelector('#menu'));   // under the menu
-    this.hud = { root, score, feed, comms, end, endTitle, endTable, endNote, again, leave, views: [] };
+    this.hud = { root, score, royale, feed, comms, end, endTitle, endTable, endNote, again, leave, views: [] };
   }
   _layoutHud() {
     for (const v of this.hud.views) v.box.remove();
@@ -1159,15 +1231,15 @@ export class Battle {
     rec.frames.push({ version: 2, t, d: actors });
     while (rec.frames.length && rec.frames[0].t < t - 6) rec.frames.shift();
   }
-  _startKillCam(t, finalKiller = null) {
+  _startKillCam(t, finalKiller = null, recorded = null) {
     const h = this.humans[0];
     const k = finalKiller || this.fighters.find((g) => g.id === h.killerId && g !== h.f);
-    const rec = this.rec;
+    const rec = recorded || this.rec;
     const grenade = finalKiller ? null : this.grenadeDeath;
     this.grenadeDeath = null;
     if (!k || !rec || !rec.frames.length) { this.kc = null; return; }
-    const from = Math.max(rec.frames[0].t, t - 2.3);
-    this.kc = { rec: { frames: rec.frames.slice(), shots: rec.shots.slice() }, killer: k, start: t, from, until: t + (t - from) + 0.5, shot: rec.shots.findIndex((s) => s.t >= from), pov: !!finalKiller || this.kcPov !== false, prevT: t };
+    const at = recorded?.at ?? t, from = Math.max(rec.frames[0].t, at - 2.3);
+    this.kc = { rec: { frames: rec.frames.slice(), shots: rec.shots.slice() }, killer: k, start: t, from, until: t + (at - from) + 0.5, shot: rec.shots.findIndex((s) => s.t >= from), pov: !!finalKiller || this.kcPov !== false, prevT: t };
     if (grenade) { this.kc.grenade = grenade; this.kc.until = t + this.grenadeView.duration(grenade) + 1; }
     this.lastKillCam = { killer: k.name, frames: rec.frames.length, shots: rec.shots.filter((s) => s.t >= from).length };
     if (this.kc.shot < 0) this.kc.shot = rec.shots.length;
@@ -1325,6 +1397,7 @@ export class Battle {
     v.hurt.className = 'b-hurt on ' + (Math.abs(rel) < 45 ? 'front' : Math.abs(rel) > 135 ? 'back' : rel > 0 ? 'right' : 'left');
   }
   _updateScore() {
+    if (this.royale) { this.royale.updateHud(); return; }
     const o = this.opts, two = o.opponent === 'p2';
     const parts = [];
     const seen = new Set();
@@ -1365,11 +1438,11 @@ export class Battle {
       const nt = f.alive && i === 0 ? ('● '.repeat(f.nades ?? 2).trim() || 'no grenades') + ' · Caps Lock' : '';
       if (L.nt !== nt) { L.nt = nt; v.nades.textContent = nt; }
       if (t > v.ptsUntil && v.pts.classList.contains('on')) v.pts.className = 'b-points';
-      const deadMsg = f.alive ? '' : 'Eliminated by ' + (h.killedBy || '?') + ' · back in ' + Math.max(0, Math.ceil(f.respawnAt - t));
+      const deadMsg = f.alive || this.royale ? '' : 'Eliminated by ' + (h.killedBy || '?') + ' · back in ' + Math.max(0, Math.ceil(f.respawnAt - t));
       const back = Math.max(0, Math.ceil(f.respawnAt - t));
       const prot = f.alive && t < f.protectUntil ? 'Spawn protection ' + Math.ceil(f.protectUntil - t) + ' · shooting ends it' : '';
       if (L.prot !== prot) { L.prot = prot; v.prot.hidden = !prot; v.prot.textContent = prot; }
-      const repKey = i === 0 && !f.alive && this.humans.length === 1 ? (h.killerId || 0) + '|' + (this.kc ? 1 : 0) + '|' + this._repVer + '|' + back : '';
+      const repKey = !this.royale && i === 0 && !f.alive && this.humans.length === 1 ? (h.killerId || 0) + '|' + (this.kc ? 1 : 0) + '|' + this._repVer + '|' + back : '';
       const showDead = deadMsg && !repKey ? deadMsg : '';
       if (L.dead !== showDead) { L.dead = showDead; v.dead.hidden = !showDead; v.dead.textContent = showDead; }
       if (L.rep !== repKey) { L.rep = repKey; v.rep.hidden = !repKey; if (repKey) this._renderReport(v.rep, h); }

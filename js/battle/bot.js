@@ -175,7 +175,12 @@ export class Bot {
       if (spot) { this.mode = 'retreat'; this._setGoal(spot.x, spot.z, arena, t, spot.y); this.crouchWanted = spot.low; this.say(battle, t, "I'm hit, falling back!"); }
     }
     if (this.mode === 'hold' && t > this.holdUntil) this.mode = 'roam';
-    if (this.mode !== 'retreat' && this.mode !== 'hold') this.mode = tgt ? 'fight' : 'roam';
+    const royale = battle.royale;
+    if (royale?.outside(f, 1)) {
+      if (this.mode !== 'zone' || t >= this.nextPath) this._setGoal(royale.x, royale.z, arena, t, royale.y);
+      this.mode = 'zone';
+      this.crouchWanted = false;
+    } else if (this.mode !== 'retreat' && this.mode !== 'hold') this.mode = tgt ? 'fight' : 'roam';
 
     /* movement target velocity */
     let mx = 0, mz = 0, speed = L.speed;

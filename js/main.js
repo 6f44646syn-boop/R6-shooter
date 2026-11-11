@@ -25,7 +25,7 @@ import { LensPost } from './render/lens-post.js?v=9dd0f7b-mwbioun8';
 import { reticleTextures } from './ui/reticle-tex.js?v=9dd0f7b-mwbioun8';
 import { DOT_POINTS } from './scene/dots.js?v=9dd0f7b-mwbioun8';
 import { Voices } from './audio/voice.js?v=9dd0f7b-mwbioun8';
-import { ModeGame } from './modes/game.js?v=m11-ranked';
+import { ModeGame } from './modes/game.js?v=battle-royale';
 import { Sfx } from './audio/sfx.js?v=9dd0f7b-mwbioun8';
 import { DebugHud } from './ui/debug-hud.js?v=9dd0f7b-mwbioun8';
 import { drawCrosshair } from './ui/crosshair.js?v=9dd0f7b-mwbioun8';
@@ -40,14 +40,14 @@ function sensRows(catalogue, sens) {
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
 import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=9dd0f7b-mwbioun8';
-import { Battle } from './battle/battle.js?v=m11-ranked';
+import { Battle } from './battle/battle.js?v=battle-royale';
 import { initCore, coreLoaded } from './wasm/core.js?v=9dd0f7b-mwbioun8';
 import { createJoinRequest, acceptJoin } from './net/link.js?v=9dd0f7b-mwbioun8';
 import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt } from './net/relay.js?v=m11-ranked';
 import { rankOf, rankedSummary, ratingOf, rankedChange, validRankedTicket, verifyRankedResult } from './core/ranked.js?v=m11-ranked';
-import { Profile, WIN_POINTS } from './core/profile.js?v=m11-ranked';
+import { Profile, WIN_POINTS } from './core/profile.js?v=battle-royale';
 import { skinFits, skinById } from './core/skins.js?v=9dd0f7b-mwbioun8';
-import { PackUI } from './ui/packs.js?v=m11-ranked';
+import { PackUI } from './ui/packs.js?v=battle-royale';
 import { HDPack } from './render/hd-pack.js?v=9dd0f7b-mwbioun8';
 import { effectiveGraphics, needsPack } from './render/quality.js?v=9dd0f7b-mwbioun8';
 import { GraphicsUI } from './ui/graphics-ui.js?v=9dd0f7b-mwbioun8';
@@ -886,6 +886,7 @@ async function boot(data) {
       slotOf: (g) => slotIn(data.guns, g), onEnd: () => lock.exit(), hudRoot: $('app'),
       skinOf: (g) => equippedSkin(slotIn(data.guns, g)),
       voice: voices,
+      onPirateToken: () => profile.unlockBlackIce(),
       onNetLost: (msg) => { netReset(); leaveBattle(); netStatus(msg, 'bad'); },
       onPoints: (kind, head) => (kind === 'kill' ? profile.addKill(head) : profile.addPoints(WIN_POINTS)),
     };
@@ -901,7 +902,8 @@ async function boot(data) {
   function startBattle() {
     if (needCore(startBattle)) return;
     controls.release();
-    const B = settings.battle;
+    const royale = flow.mode === 'royale';
+    const B = royale ? { ...settings.battle, opponent: 'bots', bots: Math.max(1, settings.battle.bots) } : settings.battle;
     if (B.opponent === 'bots' && B.bots < 1) { flashNotice('Choose at least one bot.'); return; }
     if (B.opponent === 'net') {
       if (net.role === 'client') { flashNotice('Only the host can start a network battle.'); return; }
@@ -920,11 +922,11 @@ async function boot(data) {
     if (!battle) {
       battle = new Battle(battleDeps());
       battle.hud.again.addEventListener('click', () => { startBattle(); });
-      battle.hud.leave.addEventListener('click', leaveBattle);
+      battle.hud.leave.addEventListener('click', leaveBattleResults);
     }
     weapon.releaseTrigger(); setAds(false); player.releaseKeys();
     try {
-      battle.start({ opponent: B.opponent, bots: B.bots, level: B.level, killsToWin: B.kills, map: B.map, night: B.night, weather: B.weather, fog: B.fog, p1Gun: state.gun, p2Gun: data.guns[Math.min(B.p2Gun, data.guns.length - 1)],
+      battle.start({ royale, opponent: B.opponent, bots: B.bots, level: B.level, killsToWin: B.kills, map: B.map, night: B.night, weather: B.weather, fog: B.fog, p1Gun: state.gun, p2Gun: data.guns[Math.min(B.p2Gun, data.guns.length - 1)],
         hostName: 'Host', spectators: B.opponent === 'net' ? net.peers.filter(e => e.spectator).map(e => e.link) : [],
         remotes: B.opponent === 'net' ? net.peers.filter(e => !e.spectator).map((e) => ({ link: e.link, name: e.name, gunIndex: e.gunIndex, attach: e.attach, skin: e.skin })) : [] });
     } catch (err) {
@@ -936,7 +938,7 @@ async function boot(data) {
     }
     $('hud').hidden = true;
     flow.inGame = true;
-    $('pause-title').textContent = 'Battle paused';
+    $('pause-title').textContent = royale ? 'Battle Royale paused' : 'Battle paused';
     if (!testMode) startLock();
   }
   // The match modes (Team Deathmatch, Capture the Flag, Bomb) run in their own game.
@@ -964,6 +966,11 @@ async function boot(data) {
     applyGraphics();
     rig.setGun(state.gun, state.gunIndex, state.optic);
     resize();
+  }
+  function leaveBattleResults() {
+    const royale = !!battle?.royale;
+    leaveBattle();
+    if (royale) { flow.inGame = false; showPage('mode'); $('menu').hidden = false; }
   }
   $('battle-btn').addEventListener('click', startBattle);
 
@@ -1273,7 +1280,7 @@ async function boot(data) {
     if (!battle) {
       battle = new Battle(battleDeps());
       battle.hud.again.addEventListener('click', () => { startBattle(); });
-      battle.hud.leave.addEventListener('click', leaveBattle);
+      battle.hud.leave.addEventListener('click', leaveBattleResults);
     }
     weapon.releaseTrigger(); setAds(false); player.releaseKeys();
     battle.startClient(m, net.link);
@@ -1292,10 +1299,10 @@ async function boot(data) {
     flow.page = name;
     for (const p of document.querySelectorAll('#menu .page')) p.hidden = p.id !== 'page-' + name;
     const step = name === 'mode' ? 1 : name === 'setup' && !flow.setupFromPause ? 2 : name === 'ops' ? 3 : 0;
-    $('pause-loadout').hidden = MATCH_MODES.includes(flow.mode);
+    $('pause-loadout').hidden = MATCH_MODES.includes(flow.mode) || flow.mode === 'royale';
     $('menu').querySelector('.steps').hidden = !step;
     for (const sp of $('menu').querySelectorAll('.steps span')) sp.classList.toggle('on', Number(sp.dataset.step) === step);
-    const names = { range: 'Shooting range', bots: 'Battle vs bots', net: 'Network battle', tdm: 'Team Deathmatch', ctf: 'Capture the Flag', bomb: 'Bomb' };
+    const names = { range: 'Shooting range', bots: 'Battle vs bots', royale: 'Battle Royale', net: 'Network battle', tdm: 'Team Deathmatch', ctf: 'Capture the Flag', bomb: 'Bomb' };
     $('menu-crumbs').textContent = name === 'mode' ? 'Choose a mode' : name === 'pause' ? names[flow.mode] + ' (paused)' :
       name === 'setup' ? names[flow.mode] + ': settings' : name === 'ops' ? names[flow.mode] + ': operator' : name === 'packs' ? 'Skins & packs' : 'Controls';
     document.querySelectorAll('[aria-label="Main menu"] button').forEach(b=>b.setAttribute('aria-current', b.id === ({mode:'go-play',pause:'go-play',setup:'go-settings',controls:'go-controls',packs:'go-packs'}[name]) ? 'page' : 'false'));
@@ -1303,6 +1310,10 @@ async function boot(data) {
     if (name === 'setup') {
       $('range-setup').hidden = flow.mode !== 'range';
       $('battle-setup').hidden = flow.mode === 'range' || MATCH_MODES.includes(flow.mode);
+      $('b-kills-field').hidden = flow.mode === 'royale';
+      $('royale-rules').hidden = flow.mode !== 'royale';
+      $('b-bots').options[0].disabled = flow.mode === 'royale';
+      $('b-bots').value = String(flow.mode === 'royale' ? Math.max(1, settings.battle.bots) : settings.battle.bots);
       $('modes-setup').hidden = !MATCH_MODES.includes(flow.mode);
       if (MATCH_MODES.includes(flow.mode)) modesUi();
       $('net-panel').hidden = flow.mode !== 'net';
@@ -1319,7 +1330,7 @@ async function boot(data) {
     // Setup starts with match options for each newly selected mode.
     selectSetupTab(0);
     if (modeGame && modeGame.active) leaveMode();
-    if (m !== 'range' && !MATCH_MODES.includes(m)) settings.battle.opponent = m;
+    if (m !== 'range' && m !== 'royale' && !MATCH_MODES.includes(m)) settings.battle.opponent = m;
     saveSettings(settings);
     showPage('setup');
   }
@@ -1626,7 +1637,7 @@ async function boot(data) {
   $('go-play').addEventListener('click', () => showPage(flow.inGame ? 'pause' : 'mode'));
   for (const button of document.querySelectorAll('[data-mode-filter]')) button.addEventListener('click', () => {
     for (const b of document.querySelectorAll('[data-mode-filter]')) b.setAttribute('aria-pressed',String(b === button));
-    const groups = {training:['range'],combat:['bots','tdm','ctf','bomb'],online:['net']};
+    const groups = {training:['range'],combat:['bots','royale','tdm','ctf','bomb'],online:['net']};
     for (const card of document.querySelectorAll('.mode-card')) card.hidden = button.dataset.modeFilter !== 'all' && !groups[button.dataset.modeFilter].includes(card.dataset.mode);
   });
   const opSearch = $('ops-search');

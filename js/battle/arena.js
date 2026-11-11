@@ -273,6 +273,7 @@ export class Arena {
 
     /* solids: boxes, stair steps, ramp slices (js/battle/solids.js); here, how they look */
     this.boxes = layoutSolids(map);
+    this.baseBoxCount = this.boxes.length;
     const cover = new THREE.Group(), noShadow = new THREE.Group();
     const kindOf = (b) => map.kinds[b.kind] || {};
     const addBox = (b) => {
@@ -548,6 +549,13 @@ export class Arena {
   }
 
   /* ---------- the map inside the Rust core ---------- */
+  setBuilds(boxes) {
+    this.boxes.splice(this.baseBoxCount, this.boxes.length, ...boxes);
+    this._world?.dispose();
+    this._world = null;
+    void this.world;
+  }
+
   // Collision, standing, vaulting, raycasts and pathfinding are answered by the core
   // (rust/core, through js/wasm/world.js): the same code the match modes use. Made on first
   // use, so an arena that is only looked at (a match mode's backdrop) never needs one.

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recoil Range</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="css/style.css?v=m11-ranked">
+<link rel="stylesheet" href="css/style.css?v=battle-royale">
 </head>
 <body>
 <div id="app">
@@ -63,6 +63,7 @@
         <div class="modes">
           <button type="button" class="mode-card" data-mode="range"><b>Shooting range</b><span>Practise spray control on a dummy, a paper target or red dots. Measured sprays, every sight.</span></button>
           <button type="button" class="mode-card" data-mode="bots"><b>Battle vs bots</b><span>An arena with cover against 1-6 bots: Easy, Medium or Hard. Kills earn points for packs.</span></button>
+          <button type="button" class="mode-card" data-mode="royale"><b>Battle Royale</b><span>One life. Loot chests, build cover, and outlast the bots as the safe zone closes.</span></button>
           <button type="button" class="mode-card mode-new" data-mode="tdm"><b>Team Deathmatch</b><span>Your team against bots, 3v3 or 5v5. First team to 40 kills, or the most kills after the time.</span></button>
           <button type="button" class="mode-card mode-new" data-mode="ctf"><b>Capture the Flag</b><span>Take the enemy flag to your own stand while yours is home. First to 3 captures.</span></button>
           <button type="button" class="mode-card mode-new" data-mode="bomb"><b>Bomb</b><span>Attackers plant, defenders stop them. One life a round, abilities on, first to 4 rounds.</span></button>
@@ -90,6 +91,7 @@
           <p class="small">Target type, distance and red-dot options are in the <b>Settings → Range</b> tab (M and - / + change them in game too).</p>
         </section>
         <section class="set-group battle-setup" id="battle-setup">
+          <p id="royale-rules" class="small" hidden>Open chests for guns and walls. Aim at your wall to edit its 3×3 grid. The Pirate Token has a 1 in 1,000 chance to appear each match and unlocks all nine Black Ice skins.</p>
           <div class="set-grid">
             <label class="field" for="b-map"><span>Map</span>
               <select id="b-map"><option value="yard">Container Yard</option><option value="winter">Winter Cabin</option><option value="casino">Jesse's Casino</option><option value="school">School Basement</option></select></label>
@@ -105,7 +107,7 @@
               <select id="b-bots"><option>0</option><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option></select></label>
             <label class="field" for="b-level"><span>Bot level</span>
               <select id="b-level"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option><option value="terminator">Terminator (much harder)</option></select></label>
-            <label class="field" for="b-kills"><span>Kills to win</span>
+            <label id="b-kills-field" class="field" for="b-kills"><span>Kills to win</span>
               <select id="b-kills"><option>5</option><option selected>10</option><option>20</option><option>30</option></select></label>
           </div>
           <div id="net-panel" class="net-box" hidden>
@@ -297,6 +299,6 @@
     </div>
   </div>
 </div>
-<script type="module" src="js/main.js?v=m11-ranked"></script>
+<script type="module" src="js/main.js?v=battle-royale"></script>
 </body>
 </html>

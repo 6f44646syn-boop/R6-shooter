@@ -23,6 +23,7 @@
     "build:enhanced-surfaces": "node tools/build-hd.mjs --surfaces",
     "test:replay": "node tests/replay-browser.mjs",
     "test:finale": "node tests/finale-browser.mjs",
-    "test:ranked": "node tests/ranked.mjs && node tests/ranked-browser.mjs"
+    "test:ranked": "node tests/ranked.mjs && node tests/ranked-browser.mjs",
+    "test:royale": "node tests/royale-browser.mjs"
   }
 }
