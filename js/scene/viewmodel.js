@@ -3,16 +3,18 @@ import { packArt } from '../render/pack-art.js?v=6419a29-mwcpnaz0';
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=6419a29-mwcpnaz0';
-import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=6419a29-mwcpnaz0';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=6419a29-mwcpnaz0';
-import { matcap } from './matcap.js?v=6419a29-mwcpnaz0';
-import { mulberry32 } from '../core/prng.js?v=6419a29-mwcpnaz0';
-import { gunMaps } from './range-tex.js?v=6419a29-mwcpnaz0';
-import { skinById, FACTORY } from '../core/skins.js?v=6419a29-mwcpnaz0';
-import { legendCanvas, onLegendChange } from '../core/legend.js?v=6419a29-mwcpnaz0';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=6419a29-mwcpnaz0';
-import { HDPack } from '../render/hd-pack.js?v=6419a29-mwcpnaz0';
+import * as THREE from '../../vendor/three/three.module.min.js?v=a37f22c-mwcnqhgi';
+import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=a37f22c-mwcnqhgi';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=a37f22c-mwcnqhgi';
+import { matcap } from './matcap.js?v=a37f22c-mwcnqhgi';
+import { mulberry32 } from '../core/prng.js?v=a37f22c-mwcnqhgi';
+import { gunMaps } from './range-tex.js?v=a37f22c-mwcnqhgi';
+import { skinById, FACTORY, SAKURA_ID } from '../core/skins.js?v=a37f22c-mwcnqhgi';
+import { legendCanvas, onLegendChange } from '../core/legend.js?v=a37f22c-mwcnqhgi';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=a37f22c-mwcnqhgi';
+import { HDPack } from '../render/hd-pack.js?v=a37f22c-mwcnqhgi';
+import { epicRelief, giltPatches } from './skin-relief.js?v=a37f22c-mwcnqhgi';
+import { prepareFrost, frostInspect, sakuraInspect } from './inspect-effects.js?v=a37f22c-mwcnqhgi';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -22,8 +24,18 @@ const FINISHES = [0x3a3d42, 0x6b5b45, 0x46523b, 0x2f3540, 0x5a5048, 0x4a4f57, 0x
 const mats = new Map();
 let ENV = null;
 let RENDERER = null;
+const sakuraEnvironments = new WeakMap();
+function sakuraEnv() {
+  let env = sakuraEnvironments.get(RENDERER);
+  if (!env) {
+    env = makeEnvMap(RENDERER, true);
+    sakuraEnvironments.set(RENDERER, env);
+  }
+  return env;
+}
 let SKIN_SLOT = 0;              // slot being built (its equipped skin, or its factory skin in ultra)
 let ULTRA_TEX = 4096;           // largest skin size (tests use less: software rendering)
+let INSPECT_QUALITY = 'standard';   // shared graphics preset, independent of the optional gun shading
 export function setUltraTexSize(n) { ULTRA_TEX = n; }
 // Which skin a slot wears: (slot) -> skin id or null (set by main.js from your profile).
 let RESOLVE = () => null;
@@ -89,13 +101,16 @@ function ultraDetail(kind) {
 // small on screen and there can be a dozen of them.
 function shading() { const s = sightShading(); return WORLD && (s === 'high' || s === 'ultra') ? 'detailed' : s; }
 function skinMaterial(def) {
-  const sh = shading(), sk = bakedSkin(def), hd = HD;
+  const sh = shading(), hd = HD;
+  const sakura = def.id === SAKURA_ID;
+  const sk = sakura ? { def, clearcoat: def.clearcoat } : bakedSkin(def);
   let m;
   if (sh === 'fast') {
     m = new THREE.MeshMatcapMaterial({ color: 0xffffff, matcap: matcap('metal') });
     triplanar(m, { skin: sk, scale: sk.scale || 2.8, gain: 1.7 });
   } else if (sh === 'detailed') {
-    m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 1, envMap: hd ? highEnv() || ENV : ENV, envMapIntensity: 0.9 });
+    m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 1,
+      envMap: sakura ? sakuraEnv() : hd ? highEnv() || ENV : ENV, envMapIntensity: 0.9 });
     triplanar(m, { skin: sk, scale: sk.scale || 2.8, hd });
   } else {
     // Shine by rarity: every skin gets some lacquer; Epic and Black Ice also a colour-shifting
@@ -103,14 +118,17 @@ function skinMaterial(def) {
     const r = def.rarity;
     const coat = Math.max(sk.clearcoat || 0, { common: 0.25, rare: 0.55, epic: 0.9, blackice: 1, legendary: 1 }[r] || 0);
     m = new THREE.MeshPhysicalMaterial({
-      color: 0xffffff, roughness: 1, metalness: 1, normalMap: hd ? null : gunMaps('metal').normal, normalScale: new THREE.Vector2(0.6, 0.6),
-      clearcoat: coat, clearcoatRoughness: r === 'epic' || r === 'blackice' ? 0.05 : 0.15, envMap: highEnv(), envMapIntensity: r === 'common' ? 1.1 : 1.4,
-      iridescence: r === 'blackice' ? 0.8 : r === 'legendary' ? 0.5 : r === 'epic' ? 0.45 : 0, iridescenceIOR: 1.6, iridescenceThicknessRange: [200, 600],
+      color: 0xffffff, roughness: 1, metalness: 1, normalMap: hd || sakura ? null : gunMaps('metal').normal, normalScale: new THREE.Vector2(0.6, 0.6),
+      clearcoat: coat, clearcoatRoughness: sakura ? 0.035 : r === 'epic' || r === 'blackice' ? 0.05 : 0.15,
+      envMap: sakura ? sakuraEnv() : highEnv(), envMapIntensity: r === 'common' ? 1.1 : sakura ? 1.22 : 1.4,
+      iridescence: r === 'blackice' ? 0.64 : sakura ? 0 : r === 'legendary' ? 0.32 : r === 'epic' ? 0.45 : 0,
+      iridescenceIOR: 1.6, iridescenceThicknessRange: [200, 600],
     });
     // Pack models: relief depth (parallax) on graphics cards with WebGL 2.
-    const depth = hd && RENDERER && RENDERER.capabilities.isWebGL2 ? (def.rarity === 'blackice' ? 0.0022 : def.rarity === 'common' ? 0.0008 : 0.0014) : 0;
-    triplanar(m, sh === 'ultra' ? { skin: sk, scale: sk.scale || 2.8, detail: ultraDetail('paint'), detailScale: 9, detailStrength: hd ? 0.35 : 0.5, hd, depth }
-      : { skin: sk, scale: sk.scale || 2.8, hd, depth, detail: hd ? ultraDetail('paint') : null, detailScale: 9, detailStrength: 0.3 });
+    const depth = !sakura && hd && RENDERER && RENDERER.capabilities.isWebGL2 ? (r === 'blackice' ? 0.0028 : r === 'common' ? 0.0008 : 0.0014) : 0;
+    const detailStrength = r === 'legendary' || r === 'blackice' ? 0.16 : hd ? 0.35 : 0.5;
+    const detail = !sakura && (hd || sh === 'ultra') ? ultraDetail('paint') : null;
+    triplanar(m, { skin: sk, scale: sk.scale || 2.8, hd, depth, detail, detailScale: 9, detailStrength });
   }
   m.userData.skinKey = def.id + ':' + (packArt.finish ? packArt.revision : 0) + 's' + skinSheets.rev + '@' + skinSize();
   return m;
@@ -188,7 +206,8 @@ function buildHD(g, mg, bg, model, lod, finish) {
       geo.setAttribute('aDetail', new THREE.BufferAttribute(p.detail, 4, true));
       geo.setIndex(new THREE.BufferAttribute(p.index, 1));
       geo.computeBoundingSphere();
-      const [c, kind] = HD_KIND[p.role](finish);
+      const role = p.group === 'mag' && p.role === 'shell' && currentSkin()?.id === SAKURA_ID ? 'polymer' : p.role;
+      const [c, kind] = HD_KIND[role](finish);
       const mesh = new THREE.Mesh(geo, mat(c, kind));
       mesh.userData.hd = true;
       (p.group === 'mag' ? mg : p.group === 'bolt' && bg ? bg : g).add(mesh);
@@ -228,10 +247,17 @@ const BUILDERS = {
     for (let i = 0; i < 4; i++) box(g, BLACK, 0.052, 0.006, 0.018, 0, 0.034, -0.17 - i * 0.03); // rail teeth
     tube(g, BLACK, 0.01, 0.12, 0, 0.012, -0.35);
     box(g, BLACK, 0.012, 0.022, 0.03, 0, 0.018, -0.42);    // muzzle brake
-    box(g, BLACK, 0.034, 0.1, 0.045, 0, -0.08, 0.05, 0.25);
+    box(g, currentSkin()?.id === SAKURA_ID ? c : BLACK, 0.034, 0.1, 0.045, 0, -0.08, 0.05, 0.25);
     box(mg, BLACK, 0.03, 0.13, 0.05, 0, -0.09, -0.07, -0.08);  // straight mag
     box(g, STEEL, 0.012, 0.012, 0.18, 0, 0.012, 0.24);     // collapsible stock tube
-    box(g, c, 0.04, 0.08, 0.04, 0, -0.01, 0.33);           // butt pad
+    if (currentSkin()?.id === SAKURA_ID) {
+      box(g, c, 0.042, 0.02, 0.108, 0, 0.016, 0.272);     // cheekpiece
+      box(g, c, 0.029, 0.013, 0.101, 0, -0.019, 0.279, 0.33);
+      box(g, BLACK, 0.041, 0.075, 0.019, 0, -0.012, 0.333);
+      for (const side of [-1, 1]) for (let i = 0; i < 5; i++) {
+        box(g, BLACK, 0.002, 0.017, 0.008, side * 0.0248, 0.001, -0.175 - i * 0.022);
+      }
+    } else box(g, c, 0.04, 0.08, 0.04, 0, -0.01, 0.33);
   },
   smg(g, c, mg) {
     box(g, c, 0.048, 0.075, 0.24, 0, 0, 0);
@@ -473,200 +499,217 @@ function hands(g0, type, sup) {
 
 
 /* ---------- Black Ice: 3D ice crystals ---------- */
-// Clusters of faceted shards growing off the top and bottom edges of the gun's parts and the
-// magazine's front edge. Short near the sight rail so they never get in the way of aiming.
+// A short ridge of faceted frost follows the top edges and wraps around the muzzle.
 const iceMats = new Map();
-function iceMaterial(def) {
-  const sh = sightShading(), key = sh + def.id;
-  if (iceMats.has(key)) return iceMats.get(key);
+const TAU = Math.PI * 2;
+function iceMaterial(def, inspect) {
+  const level = sightShading();
+  const sh = !inspect && (level === 'high' || level === 'ultra') ? 'detailed' : level;
+  const key = sh + '|' + def.id;
+  if (!inspect && iceMats.has(key)) return iceMats.get(key);
   const c = new THREE.Color(...def.ice);
+  const surface = { vertexColors: true, transparent: true, flatShading: true };
   let m;
-  if (sh === 'fast') m = new THREE.MeshMatcapMaterial({ color: c.clone().multiplyScalar(1.6), matcap: matcap('metal'), transparent: true, opacity: 0.86, flatShading: true });
-  else if (sh === 'detailed') m = new THREE.MeshStandardMaterial({ color: c, roughness: 0.08, metalness: 0.1, transparent: true, opacity: 0.84, flatShading: true, envMap: ENV, envMapIntensity: 2, emissive: c.clone().multiplyScalar(0.2) });
-  else m = new THREE.MeshPhysicalMaterial({ color: c, roughness: 0.05, metalness: 0, transparent: true, opacity: 0.8, flatShading: true, clearcoat: 1, clearcoatRoughness: 0.03,
-    iridescence: 0.35, iridescenceIOR: 1.5, envMap: highEnv(), envMapIntensity: 2.4, emissive: c.clone().multiplyScalar(0.22) });
-  // Inspect: the shards shoot off along their own direction (and fall), then regrow from
-  // their bases. iceT is the inspect progress 0..1 (1 = resting).
-  const u = { iceT: { value: 1 }, iceGlow: { value: 0 } };
+  if (sh === 'fast') m = new THREE.MeshMatcapMaterial({ ...surface, matcap: matcap('metal'), opacity: 0.90 });
+  else if (sh === 'detailed') m = new THREE.MeshStandardMaterial({ ...surface, roughness: 0.13, metalness: 0.04, opacity: 0.87, envMap: ENV, envMapIntensity: 2, emissive: c.clone().multiplyScalar(0.07) });
+  else m = new THREE.MeshPhysicalMaterial({ ...surface, roughness: 0.13, metalness: 0.04, opacity: 0.83, clearcoat: 1, clearcoatRoughness: 0.035,
+    ior: 1.31, iridescence: 0.19, iridescenceIOR: 1.35, envMap: highEnv(), envMapIntensity: 2.4, emissive: c.clone().multiplyScalar(0.065) });
+  if (!inspect) { iceMats.set(key, m); return m; }
+  // Each rig grows its own crystals along the frost front, then returns to the resting ridge.
+  const u = { iceT: { value: 1 }, iceGlow: { value: 0 }, iceFront: { value: 0 } };
   m.userData.ice = u;
   m.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, u);
-    sh.vertexShader = 'attribute vec3 iceBase; attribute vec3 iceDir; attribute float iceRnd; uniform float iceT;\n' +
-      'float iceS(float a, float b, float x) { float t = clamp((x - a) / (b - a), 0.0, 1.0); return t * t * (3.0 - 2.0 * t); }\n' +
+    sh.vertexShader = 'attribute vec3 iceBase; attribute float iceRnd; uniform float iceT, iceFront; varying float vIceSpark;\n' +
       sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
-        float fly = iceS(0.12 + iceRnd * 0.06, 0.42, iceT);
-        float grow = iceS(0.5 + iceRnd * 0.12, 0.88, iceT);
-        bool flying = iceT < 0.46;
-        float sc = flying ? 1.0 - fly * 0.6 : grow * (1.0 + 0.3 * sin(grow * 3.14159));
-        vec3 off = flying ? iceDir * fly * (0.15 + iceRnd * 0.3) + vec3(0.0, -0.35, 0.0) * fly * fly : vec3(0.0);
-        if (flying && fly > 0.98) sc = 0.0;
-        transformed = iceBase + (transformed - iceBase) * sc + off;`);
-    // freshly regrown crystals glow from inside, then settle
-    sh.fragmentShader = 'uniform float iceGlow;\n' + sh.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n totalEmissiveRadiance = totalEmissiveRadiance * (1.0 + iceGlow * 5.0) + diffuseColor.rgb * iceGlow * 0.6;');
+        float grow = smoothstep(0.10 + iceRnd * 0.07, 0.44, iceT) * (1.0 - smoothstep(0.70, 1.0, iceT));
+        grow *= smoothstep(-0.025, 0.075, iceFront - iceBase.z);
+        transformed = iceBase + (transformed - iceBase) * (1.0 + grow * (0.24 + 0.33 * iceRnd));
+        vIceSpark = grow * (0.1 + pow(max(0.0, sin(iceT * 27.0 + iceRnd * 76.0)), 10.0));`);
+    sh.fragmentShader = 'uniform float iceGlow; varying float vIceSpark;\n' + sh.fragmentShader.replace('#include <opaque_fragment>',
+      'outgoingLight += vec3(0.53, 0.78, 1.0) * vIceSpark * (0.38 + iceGlow * 0.72);\n#include <opaque_fragment>');
   };
-  m.customProgramCacheKey = () => 'ice' + sh;
-  iceMats.set(key, m);
+  m.customProgramCacheKey = () => 'ice-inspect-' + sh;
   return m;
 }
-// Inspect: a burst of frost glitter thrown off with the shards (iceT 0.12..0.5), drifting and falling.
-let SNOW = null;
-function snowTex() {
-  if (SNOW) return SNOW;
-  const c = document.createElement('canvas'); c.width = c.height = 32;
-  const g = c.getContext('2d'), gr = g.createRadialGradient(16, 16, 0, 16, 16, 16);
-  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(220,240,255,0.8)'); gr.addColorStop(1, 'rgba(200,230,255,0)');
-  g.fillStyle = gr; g.fillRect(0, 0, 32, 32);
-  g.strokeStyle = 'rgba(255,255,255,0.9)'; g.lineWidth = 1.5;
-  for (let i = 0; i < 3; i++) { const a = i * Math.PI / 3; g.beginPath(); g.moveTo(16 - 14 * Math.cos(a), 16 - 14 * Math.sin(a)); g.lineTo(16 + 14 * Math.cos(a), 16 + 14 * Math.sin(a)); g.stroke(); }
-  return (SNOW = new THREE.CanvasTexture(c));
-}
-function frostBurst(seeds, def, rng) {
-  const n = Math.min(260, seeds.length / 6 * 3), P = [], D = [], R = [];
-  for (let i = 0; i < n; i++) {
-    const k = Math.floor(rng() * seeds.length / 6) * 6;
-    P.push(seeds[k], seeds[k + 1], seeds[k + 2]);
-    D.push(seeds[k + 3] + (rng() - 0.5) * 1.2, seeds[k + 4] + (rng() - 0.5) * 1.2 + 0.4, seeds[k + 5] + (rng() - 0.5) * 1.2);
-    R.push(rng());
-  }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
-  geo.setAttribute('iceDir', new THREE.Float32BufferAttribute(D, 3));
-  geo.setAttribute('iceRnd', new THREE.Float32BufferAttribute(R, 1));
-  const c = new THREE.Color(...def.ice).lerp(new THREE.Color(1, 1, 1), 0.5);
-  const m = new THREE.PointsMaterial({ map: snowTex(), color: c, size: 0.012, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
-  const u = { iceT: { value: 1 }, iceGlow: { value: 0 } };
-  m.userData.ice = u;
-  m.onBeforeCompile = (sh) => {
-    Object.assign(sh.uniforms, u);
-    sh.vertexShader = 'attribute vec3 iceDir; attribute float iceRnd; uniform float iceT;\n' + sh.vertexShader
-      .replace('#include <begin_vertex>', `#include <begin_vertex>
-        float t0 = 0.12 + iceRnd * 0.08, life = 0.22 + iceRnd * 0.16;
-        float a = clamp((iceT - t0) / life, 0.0, 1.0);
-        float on = step(t0, iceT) * step(iceT, t0 + life) * step(iceT, 0.999);
-        transformed += iceDir * (0.05 + iceRnd * 0.18) * (1.0 - (1.0 - a) * (1.0 - a)) + vec3(0.0, -0.12, 0.0) * a * a;
-        float burstK = on * (1.0 - a) * (0.6 + iceRnd);`)
-      .replace('#include <logdepthbuf_vertex>', 'gl_PointSize *= burstK;\n#include <logdepthbuf_vertex>');
-  };
-  m.customProgramCacheKey = () => 'iceburst';
-  const pts = new THREE.Points(geo, m);
-  pts.frustumCulled = false; pts.renderOrder = 2;
-  return pts;
-}
-const IDENT = { matrix: new THREE.Matrix4() };
+const FROST_FACETS = [
+  [[0, 0], [0.82, 0], [1, 0.24], [0.63, 0.64], [0, 1]],
+  [[0, 0], [0.76, 0], [1, 0.32], [0.37, 0.85], [0, 1]],
+].map((profile, i) => {
+  const indexed = new THREE.LatheGeometry(profile.map(([r, h]) => new THREE.Vector2(r, h)), 5 + i);
+  const facets = indexed.toNonIndexed();
+  const vertices = facets.attributes.position;
+  indexed.dispose(); facets.dispose();
+  return vertices;
+});
 
-// Black Ice inspect, 4 s (every quality): raised to show the top, a full barrel roll while the
-// shards fly off (iceT 0.12..0.42) and frost spreads, the support hand wipes the frost off along
-// the left side (the wave; the side nearest the support shoulder, so the arm never crosses the
-// gun), the crystals regrow glowing on the right side, a tap on the magazine. The support hand
-// (pack guns) lets go and is out of view during the roll.
-const TAU = Math.PI * 2;
-const R_ = (t, x = 0, y = 0, z = 0, p = 0, yw = 0, r = 0) => [t, x, y, z, p, yw, r];
-const H_ = (t, at, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) => [t, at, x, y, z, rx, ry, rz];
-export const ICE_INSPECT = {
-  root: [
-    R_(0), R_(0.08, -0.07, 0.07, -0.13, 0.3, 0.2, 0), R_(0.13, -0.07, 0.075, -0.14, 0.18, 0.1, 0),
-    R_(0.2, -0.07, 0.08, -0.15, 0.12, 0.05, TAU * 0.25), R_(0.27, -0.07, 0.085, -0.15, 0.1, 0, TAU * 0.5), R_(0.34, -0.07, 0.08, -0.15, 0.12, -0.05, TAU * 0.75), R_(0.42, -0.07, 0.075, -0.14, 0.15, 0, TAU),
-    R_(0.48, -0.075, 0.075, -0.11, 0.12, 1.1, TAU + 0.18), R_(0.62, -0.075, 0.075, -0.11, 0.14, 1.15, TAU + 0.15),
-    R_(0.7, -0.06, 0.07, -0.1, 0.22, -0.95, TAU - 0.2), R_(0.82, -0.06, 0.065, -0.1, 0.26, -1.0, TAU - 0.22),
-    R_(0.88, -0.05, 0.05, -0.08, 0.2, -0.4, TAU + 0.1), R_(0.95, -0.01, 0.01, -0.02, 0.03, -0.05, TAU), R_(1, 0, 0, 0, 0, 0, TAU),
-  ],
-  hand: [
-    H_(0, 'rest'), H_(0.08, 'rest'), H_(0.13, 'rest', 0, -0.06, 0.32), H_(0.42, 'rest', 0, -0.06, 0.32),
-    H_(0.46, 'rest', -0.07, 0.02, 0.16, 0.5, 0, -1.3), H_(0.48, 'rest', -0.062, 0.034, 0.14, 0.6, 0.1, -1.35), H_(0.62, 'rest', -0.062, 0.034, -0.12, 0.6, -0.1, -1.35), H_(0.65, 'rest', -0.075, 0.02, -0.1, 0.4, 0, -1.1),
-    H_(0.68, 'rest', 0, -0.01, 0.01), H_(0.82, 'rest'), H_(0.86, 'magBottom', -0.004, -0.008, 0.005, 0.1, 0, 0.1), H_(0.92, 'rest', -0.01, -0.02, 0.02), H_(1, 'rest'),
-  ],
-  events: [[0.86, 'slap']],
-};
-// The frost and glow on the skin over the same timeline (p: inspect progress 0..1).
-const sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
-export function iceInspectFx(p) {
-  if (p < 0 || p >= 1) return { frost: 0, wave: 9, glow: 0 };
-  return { frost: sm(0.14, 0.32, p) * (1 - sm(0.62, 0.66, p)), wave: p < 0.47 ? 9 : 0.3 - 1.05 * sm(0.47, 0.62, p), glow: sm(0.55, 0.66, p) * (1 - sm(0.84, 1, p)) * (0.75 + 0.25 * Math.sin(p * 60)) };
-}
-function iceCrystals(g, mg, def, type) {
+function iceCrystals(g, def, type, muzzle, inspect = true) {
   const rng = mulberry32(def.id * 977 + type.length * 31);
-  const rails = RAILS[type] || [];
-  const railFrom = Math.max(...rails.map((r) => r[1]), 0) + 0.03, railTo = Math.min(...rails.map((r) => r[2]), 0) - 0.03;
-  const build = (group) => {
-    const pos = [], nor = [], base = [], dirs = [], rnds = [], seeds = [];
-    const tmp = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1);
-    const b = new THREE.Vector3(), dv = new THREE.Vector3();
-    const spike = (part, x, y, z, dir, len, r) => {
-      // a real ice crystal: a six-sided column, a little wider at the shoulder, with a pyramid tip
-      // (some with a second, shorter tip facet), base on the surface
-      const sh = 0.55 + rng() * 0.2, tw = rng() < 0.3;
-      const prof = [new THREE.Vector2(0, 0), new THREE.Vector2(r * 0.82, 0), new THREE.Vector2(r, len * sh * 0.5), new THREE.Vector2(r * 1.04, len * sh),
-        ...(tw ? [new THREE.Vector2(r * 0.55, len * (sh + 0.18))] : []), new THREE.Vector2(0, len)];
-      const geo = new THREE.LatheGeometry(prof, 6, rng() * 1.05).toNonIndexed();
-      // dir: 0 up, 1 down, 2 forward (-z); with a random lean.
-      const lean = () => (rng() - 0.5) * 0.9;
-      if (dir === 0) e.set(lean(), rng() * 6.28, lean());
-      else if (dir === 1) e.set(Math.PI + lean(), rng() * 6.28, lean());
-      else e.set(-Math.PI / 2 + lean() * 0.6, 0, lean());
-      q.setFromEuler(e);
-      tmp.compose(v.set(x, y, z), q, one);
-      geo.applyMatrix4(tmp).applyMatrix4(part.matrix);
-      pos.push(...geo.attributes.position.array); nor.push(...geo.attributes.normal.array);
-      // Base point and pointing direction (gun space) for the inspect animation.
-      b.set(x, y, z).applyMatrix4(part.matrix);
-      dv.set(0, 1, 0).applyQuaternion(q).transformDirection(part.matrix);
-      const rr = rng(), n = geo.attributes.position.count;
-      for (let k = 0; k < n; k++) { base.push(b.x, b.y, b.z); dirs.push(dv.x, dv.y, dv.z); rnds.push(rr); }
-      seeds.push(b.x, b.y, b.z, dv.x, dv.y, dv.z);
-      geo.dispose();
-    };
-    for (const part of group.children) {
-      if (part.isMesh && part.userData.hd) {
-        // Pack model: grow from points on the skinned body's top and bottom faces.
-        if (!part.material.userData.skinKey) continue;
-        const P = part.geometry.attributes.position.array, N = part.geometry.attributes.normal.array, n = P.length / 3;
-        const want = Math.round(n / 160);
-        for (let i = 0; i < want; i++) {
-          const k = Math.floor(rng() * n), ny = N[k * 3 + 1];
-          if (Math.abs(ny) < 0.8) continue;
-          const top = ny > 0, zg = P[k * 3 + 2];
-          const nearSight = top && zg < railFrom && zg > railTo;
-          const kk = nearSight ? 0.25 : top ? 1 : 0.8;
-          const cluster = 1 + Math.floor(rng() * 3);
-          for (let c = 0; c < cluster; c++) spike(IDENT, P[k * 3] + (rng() - 0.5) * 0.006, P[k * 3 + 1], zg + (rng() - 0.5) * 0.012, top ? 0 : 1, (0.012 + rng() * 0.04) * kk, 0.003 + rng() * 0.004);
-        }
-        continue;
-      }
-      if (!part.isMesh || !part.geometry.parameters || part.geometry.type !== 'BoxGeometry') continue;
-      const { width: w, height: h, depth: d } = part.geometry.parameters;
-      if (d < 0.04 || h < 0.02) continue;                              // skip small bits (rail teeth, pins)
-      part.updateMatrix();
-      const isMag = group === mg;
-      for (const top of [true, false]) {
-        const n = Math.round(d / 0.035 * (0.6 + rng() * 0.8));
-        for (let i = 0; i < n; i++) {
-          const z = (rng() - 0.5) * d * 0.9;
-          const zg = z + part.position.z;
-          const nearSight = top && zg < railFrom && zg > railTo;        // under the sight: keep them tiny
-          const k = nearSight ? 0.25 : top ? 1 : 0.8;
-          const cluster = 1 + Math.floor(rng() * 3);
-          for (let c = 0; c < cluster; c++) {
-            spike(part, (rng() - 0.5) * w * 0.85, top ? h / 2 : -h / 2, z + (rng() - 0.5) * 0.012, top ? 0 : 1, (0.012 + rng() * 0.04) * k, 0.003 + rng() * 0.004);
-          }
-        }
-      }
-      if (isMag) for (let i = 0; i < 4; i++) spike(part, (rng() - 0.5) * w * 0.6, (rng() - 0.5) * h * 0.8, -d / 2, 2, 0.015 + rng() * 0.03, 0.003 + rng() * 0.003);
+  const pos = [], col = [], base = [], rnds = [], anchors = [];
+  const parts = g.children.filter(o => o.isMesh);
+  const bounds = new THREE.Box3().setFromObject(g);
+  const length = bounds.max.z - bounds.min.z;
+  const [my, mz] = muzzle;
+  const ray = new THREE.Raycaster(), hits = [];
+  const normalMatrix = new THREE.Matrix3();
+  const up = new THREE.Vector3(0, 1, 0), normal = new THREE.Vector3(), axis = new THREE.Vector3();
+  const point = new THREE.Vector3(), origin = new THREE.Vector3(), scale = new THREE.Vector3();
+  const turn = new THREE.Quaternion(), spin = new THREE.Quaternion();
+  const tint = new THREE.Color(...def.ice).lerp(new THREE.Color(0xe5f5ff), 0.44);
+  const white = new THREE.Color(0xf6fcff), color = new THREE.Color();
+
+  function grow(hit, height, width) {
+    const frost = FROST_FACETS[rng() < 0.58 ? 0 : 1];
+    const rand = rng(), shade = 0.84 + rng() * 0.16;
+    origin.copy(hit.point).addScaledVector(normal, -0.00095);
+    axis.copy(normal).add(point.set((rng() - 0.5) * 0.52, (rng() - 0.5) * 0.32, (rng() - 0.5) * 0.52)).normalize();
+    turn.setFromUnitVectors(up, axis).multiply(spin.setFromAxisAngle(up, rng() * TAU));
+    scale.set(width, height, width);
+    for (let i = 0; i < frost.count; i++) {
+      color.copy(tint).lerp(white, frost.getY(i) * 0.9).multiplyScalar(shade);
+      point.fromBufferAttribute(frost, i).multiply(scale).applyQuaternion(turn).add(origin);
+      pos.push(point.x, point.y, point.z); col.push(color.r, color.g, color.b);
+      if (inspect) { base.push(origin.x, origin.y, origin.z); rnds.push(rand); }
     }
-    if (!pos.length) return;
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    if (inspect) anchors.push({ point: origin.clone().addScaledVector(axis, height * 0.35), normal: axis.clone() });
+  }
+
+  function surface() {
+    hits.length = 0;
+    const hit = ray.intersectObjects(parts, false, hits)[0];
+    if (hit) normal.copy(hit.face.normal).applyNormalMatrix(normalMatrix.getNormalMatrix(hit.object.matrixWorld));
+    return hit;
+  }
+
+  // Trace the exposed crown on either side of the rail, with denser frost up front.
+  const lane = Math.min(0.016, SPEC[type].hw * 0.65);
+  const stride = inspect ? 0.007 : 0.018;
+  for (let z = Math.max(bounds.min.z + 0.011, mz + 0.012); z < bounds.max.z - 0.012; z += stride) {
+    const front = 1 - smooth01(mz + length * 0.19, mz + length * 0.58, z);
+    for (const side of [-1, 1]) {
+      if (rng() > 0.59 + front * 0.37) continue;
+      ray.ray.origin.set(side * lane * (0.58 + rng() * 0.67), bounds.max.y + 0.025, z + (rng() - 0.5) * stride * 0.72);
+      ray.ray.direction.set(0, -1, 0);
+      const hit = surface();
+      if (!hit || hit.point.y < 0.016 || normal.y < 0.34) continue;
+      const height = Math.min(0.013, (0.0034 + rng() * 0.0063) * def.crystalShape * (0.74 + front * 0.36));
+      grow(hit, height, 0.0027 + rng() * 0.0026);
+    }
+  }
+
+  // Two uneven frost patches hug the muzzle collar and the forward housing.
+  const reach = Math.min(0.145, length * 0.24);
+  const bands = [[0.008, Math.min(0.035, reach * 0.44), inspect ? 62 : 19],
+    [reach * 0.68, reach * 0.29, inspect ? 42 : 14]];
+  for (const [offset, width, count] of bands) {
+    for (let i = 0; i < count; i++) {
+      const angle = rng() * TAU, nx = Math.cos(angle), ny = Math.sin(angle);
+      if (ny < -0.22 && offset > 0.04 && rng() < 0.43) continue;
+      ray.ray.origin.set(nx * 0.095, my + ny * 0.095, bounds.min.z + offset + rng() * width);
+      ray.ray.direction.set(-nx, -ny, 0);
+      const hit = surface();
+      if (!hit || normal.dot(ray.ray.direction) > -0.36 || Math.hypot(hit.point.x, hit.point.y - my) > 0.046) continue;
+      grow(hit, Math.min(0.0118, (0.0032 + rng() * 0.006) * def.crystalShape), 0.0025 + rng() * 0.0026);
+    }
+  }
+
+  if (!pos.length) return;
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  geo.computeVertexNormals();
+  if (inspect) {
     geo.setAttribute('iceBase', new THREE.Float32BufferAttribute(base, 3));
-    geo.setAttribute('iceDir', new THREE.Float32BufferAttribute(dirs, 3));
     geo.setAttribute('iceRnd', new THREE.Float32BufferAttribute(rnds, 1));
-    const mesh = new THREE.Mesh(geo, iceMaterial(def));
-    mesh.frustumCulled = false;
-    mesh.renderOrder = 1;
-    group.add(mesh);
-    group.add(frostBurst(seeds, def, rng));
-  };
-  build(g);
-  build(mg);
+  }
+  const mesh = new THREE.Mesh(geo, iceMaterial(def, inspect));
+  mesh.frustumCulled = !inspect;
+  mesh.renderOrder = 1;
+  g.add(mesh);
+  return { mesh, anchors };
+}
+
+const sakuraMats = new Map();
+const epicMats = new Map();
+const PETAL = new THREE.SphereGeometry(1, 8, 6);
+function epicInlays(gun, skin) {
+  const sh = shading(), key = sh + '|' + skin.id;
+  if (!epicMats.has(key)) {
+    const colors = skin.c.map(c => new THREE.Color(...c));
+    const dark = colors[0].lerp(new THREE.Color(0x171d29), 0.58);
+    const enamel = colors[1].lerp(colors[2], 0.20);
+    const trim = colors[3].lerp(new THREE.Color(0xded9bd), 0.38);
+    epicMats.set(key, [dark, enamel, trim].map((color, i) => {
+      const name = 'Epic inlay';
+      if (sh === 'fast') return new THREE.MeshMatcapMaterial({ name, color, matcap: matcap('metal') });
+      return new THREE.MeshStandardMaterial({ name, color, metalness: [0.46, 0.28, 0.68][i], roughness: [0.39, 0.25, 0.24][i],
+        envMap: highEnv() || ENV, envMapIntensity: 1.45 });
+    }));
+  }
+  epicRelief(gun, skin, epicMats.get(key));
+}
+
+function sakuraInlays(gun, inspect = false) {
+  const sh = shading();
+  if (!sakuraMats.has(sh)) {
+    const enamel = (color, roughness, metalness) => {
+      if (sh === 'fast') return new THREE.MeshMatcapMaterial({ color, matcap: matcap('metal') });
+      const finish = { color, roughness, metalness, envMap: sakuraEnv(), envMapIntensity: 1.1 };
+      return sh === 'detailed' ? new THREE.MeshStandardMaterial(finish)
+        : new THREE.MeshPhysicalMaterial({ ...finish, clearcoat: 1, clearcoatRoughness: 0.065 });
+    };
+    sakuraMats.set(sh, [enamel(0xe37ba2, 0.13, 0.43), enamel(0xbb4f7b, 0.13, 0.48), enamel(0xffd36f, 0.15, 0.85), enamel(0x8b6136, 0.42, 0.68)]);
+  }
+  const [pink, rose, gold, agedGold] = sakuraMats.get(sh);
+  agedGold.name = 'Tarnished gilt';
+  giltPatches(gun, gold, agedGold);
+  const surfaces = [...gun.children];
+  gun.updateMatrixWorld(true);
+  const ray = new THREE.Raycaster();
+  const zAxis = new THREE.Vector3(0, 0, 1);
+  const normalMatrix = new THREE.Matrix3();
+  const blossoms = [];
+  // Sample the real exterior at the receiver, grip, handguard and stock on each model LOD.
+  for (const side of [-1, 1]) {
+    for (const [y, z, size] of [[-0.021, -0.057, 0.014], [-0.028, -0.093, 0.006],
+      [0.014, -0.263, 0.010], [0.016, -0.23, 0.005], [-0.09, 0.052, 0.010],
+      [-0.104, 0.068, 0.005], [0.018, 0.264, 0.009], [0.02, 0.292, 0.006]]) {
+      ray.ray.origin.set(side * 0.09, y, z);
+      ray.ray.direction.set(-side, 0, 0);
+      const hit = ray.intersectObjects(surfaces, false)[0];
+      if (!hit) continue;
+      const n = hit.face.normal.clone().applyNormalMatrix(normalMatrix.getNormalMatrix(hit.object.matrixWorld));
+      if (Math.abs(n.x) < 0.65) continue;
+      const flower = new THREE.Group();
+      flower.position.copy(hit.point).addScaledVector(n, 0.0007);
+      flower.quaternion.setFromUnitVectors(zAxis, n);
+      if (inspect) blossoms.push({ point: flower.position.clone(), normal: n, rotation: flower.quaternion.clone(), size });
+      for (let i = 0; i < 5; i++) {
+        const a = i * TAU / 5 + z * 14;
+        const petal = new THREE.Mesh(PETAL, i % 2 ? rose : pink);
+        petal.position.set(Math.cos(a) * size * 0.50, Math.sin(a) * size * 0.50, size * 0.12);
+        petal.rotation.z = a;
+        petal.scale.set(size * 0.56, size * 0.34, size * 0.16);
+        flower.add(petal);
+      }
+      const centre = new THREE.Mesh(PETAL, gold);
+      centre.scale.set(size * 0.24, size * 0.24, size * 0.22);
+      flower.add(centre);
+      gun.add(flower);
+    }
+    for (const row of [-1, 1]) for (let i = 0; i < 12; i++) {
+      ray.ray.origin.set(side * 0.019, row * 0.07, -0.154 - i * 0.0114);
+      ray.ray.direction.set(0, -row, 0);
+      const hit = ray.intersectObjects(surfaces, false)[0];
+      if (!hit) continue;
+      const bead = new THREE.Mesh(PETAL, i % 3 ? pink : gold);
+      bead.position.copy(hit.point);
+      const size = 0.0012 + (i * 7 % 5) * 0.00033;
+      bead.scale.set(size, size * 1.15, size * 1.38);
+      gun.add(bead);
+    }
+  }
+  return blossoms;
 }
 
 /* ---------- moving parts and ultra detail (gun coordinates) ---------- */
@@ -978,7 +1021,9 @@ const worldGuns = new Map();
 export function buildWorldGun(gun, slot, skinId) {
   const type = MODEL_FOR[gun.id] || (MODEL_TYPES.includes(gun.model) ? gun.model : 'rifle');
   const hdm = hdModel(type);
+  const muzzle = hdm?.header.anchors?.muzzle || SPEC[type].muzzle;
   const at = gun.attach || null;
+  const skin = skinById(skinId);
   const key = sightShading() + '|' + gun.id + '|' + slot + '|' + (skinId ?? '-') + (hdm ? '|hd' : '') + (at ? '|a' + at : '');
   if (!worldGuns.has(key)) {
     const g = new THREE.Group(), mg = new THREE.Group();
@@ -986,11 +1031,14 @@ export function buildWorldGun(gun, slot, skinId) {
     try {
       if (hdm) buildHD(g, mg, null, hdm, 1, FINISHES[slot % FINISHES.length]);     // the pack's lighter model
       else BUILDERS[type](g, FINISHES[slot % FINISHES.length], mg);
-      if (at) { const [my, mz] = (hdm && hdm.header.anchors && hdm.header.anchors.muzzle) || SPEC[type].muzzle; SKIN_FORCE = null; attachParts(g, mg, type, at, my, mz); }
+      if (skinId === SAKURA_ID) sakuraInlays(g);
+      if (skin?.rarity === 'epic') epicInlays(g, skin);
+      if (at) { SKIN_FORCE = null; attachParts(g, mg, type, at, ...muzzle); }
     } finally { SKIN_FORCE = undefined; WORLD = false; }
     g.add(mg);
     mergeStatic(g);
     const box = new THREE.Box3().setFromObject(g);
+    if (skin?.rarity === 'blackice') iceCrystals(g, skin, type, muzzle, false);
     worldGuns.set(key, { g, gripZ: GRIP_Z[type] ?? 0.06, front: box.min.z, top: box.max.y });
   }
   const w = worldGuns.get(key), out = new THREE.Group();
@@ -1098,10 +1146,10 @@ export class WeaponRig {
       const d = 1 - Math.pow(1 - this.drawT, 3);
       a.y -= 0.11 * (1 - d); a.p -= 0.7 * (1 - d); a.r += 0.25 * (1 - d);
     }
-    // Inspect: bring the gun to the middle, show the right side, then the left, then back.
+    // Premium finishes use their own reveal pose and timing. Other skins use the usual inspect.
     if (this.inspectHold >= 0) this.inspectT = this.inspectHold;
-    else if (this.inspectT >= 0) { this.inspectT += dt / (u && u.ice ? 4.0 : 3.2); if (this.inspectT >= 1) this.inspectT = -1; }
-    const insClip = u && u.ice ? ICE_INSPECT : style && style.inspect;
+    else if (this.inspectT >= 0) { this.inspectT += dt / (u?.inspectFx?.seconds ?? 3.2); if (this.inspectT >= 1) this.inspectT = -1; }
+    const insClip = u?.inspectFx?.clip || style?.inspect;
     if (this.inspectT >= 0 && insClip) {
       const p = this.inspectT, k = 1 - e;
       sampleClip(insClip, p, style ? u.anchors : null, S);
@@ -1145,7 +1193,6 @@ export class WeaponRig {
       const an = u.anchors.rest, sup = u.support;
       if (hand) { sup.position.set(hand[0], hand[1], hand[2]); sup.rotation.set(hand[3], hand[4], hand[5]); }
       else { sup.position.set(an[0], an[1], an[2]); sup.rotation.set(0, 0, 0); }
-      sup.visible = !(u.ice && this.inspectT > 0.12 && this.inspectT < 0.44);   // off the gun for the Black Ice barrel roll
     } else if (u && u.mag) {
       // Reload: tilt the gun, old magazine drops out, new one goes in, slap, charge.
       const p = this.reloadP;
@@ -1196,34 +1243,39 @@ export class WeaponRig {
 
   // 'fast' (matcap), 'detailed' (PBR) or 'high' (textured PBR, high graphics). Rebuilds the
   // cached models on change.
-  setShading(mode) {
-    if (mode === sightShading()) return;
+  setShading(mode, graphics = INSPECT_QUALITY) {
+    if (mode === sightShading() && graphics === INSPECT_QUALITY) return;
+    INSPECT_QUALITY = graphics;
     setSightShading(mode);
     this.applyLights();
-    for (const m of this.models.values()) this.root.remove(m);
-    this.models.clear();
-    this.current = null;
+    this._dropModels();
   }
 
   // Drop the cached models (after a shading change made through another rig).
   rebuild() {
-    for (const m of this.models.values()) this.root.remove(m);
-    this.models.clear();
-    this.current = null;
+    this._dropModels();
     this.gunId = undefined;
     this.applyLights();
   }
 
+  _dropModels() {
+    this.cancelInspect();
+    for (const m of this.models.values()) {
+      this.root.remove(m);
+      m.userData.inspectFx?.dispose();
+    }
+    this.models.clear();
+    this.current = null;
+  }
+
   // Skin animation amount (0..1) and clock for the current gun's skin materials.
   animateSkins(t, amount) {
-    const u = this.current && this.current.userData;
-    if (!u || !u.skinMats) return;
-    for (const mat of u.skinMats) { const tu = mat.userData.tri; tu.triAnim.value = amount; tu.triTime.value = t; }
-    // Black Ice shards: shoot off and regrow with the inspect (resting otherwise).
-    const iceT = this.inspectT >= 0 && this.inspectHold < 0 ? this.inspectT : this.inspectHold >= 0 ? this.inspectHold : 1;
-    const fx = iceInspectFx(u.ice && iceT < 1 ? iceT : -1);
-    for (const mat of u.iceMats || []) { mat.userData.ice.iceT.value = iceT; mat.userData.ice.iceGlow.value = fx.glow; }
-    if (u.ice) for (const mat of u.skinMats) { const tu = mat.userData.tri; tu.iceFrost.value = fx.frost; tu.iceWave.value = fx.wave; tu.iceGlow.value = fx.glow; }
+    const u = this.current?.userData;
+    if (!u) return;
+    const sweep = u.ice && !this.noHands ? amount * 0.24 : amount;
+    for (const mat of u.skinMats) { const tu = mat.userData.tri; tu.triAnim.value = sweep; tu.triTime.value = t; }
+    const phase = this.inspectHold >= 0 ? this.inspectHold : this.inspectT;
+    u.inspectFx?.update(this.animations ? phase : -1);
   }
 
   // Light levels for the current shading (also used by a second rig, e.g. battle player 2).
@@ -1256,16 +1308,21 @@ export class WeaponRig {
       const finish = FINISHES[slot % FINISHES.length];
       if (hdm) buildHD(gunG, magG, null, hdm, 0, finish);      // the pack's detailed model (rails, ports, pins built in)
       else BUILDERS[type](gunG, finish, magG);
-      if (sk && sk.rarity === 'blackice' && sk.ice) iceCrystals(gunG, magG, sk, type);
+      const blossoms = sk?.id === SAKURA_ID ? sakuraInlays(gunG, true) : null;
+      if (sk?.rarity === 'epic') epicInlays(gunG, sk);
       if (!hdm) {
         for (const [y, from, to] of RAILS[type]) topRail(gunG, y, from, to);
         if (sightShading() === 'ultra') ultraDetails(gunG, type, finish, magG);
       }
       // Attachments (unskinned), merged with the gun below like its own parts.
-      const [my, mz] = (hdm && hdm.header.anchors && hdm.header.anchors.muzzle) || SPEC[type].muzzle;
+      const muzzle = hdm?.header.anchors?.muzzle || SPEC[type].muzzle;
+      const [my, mz] = muzzle;
       const keepSkin = SKIN_FORCE; SKIN_FORCE = null;
       const ext = attachParts(gunG, magG, type, gun.attach, my, mz);
       SKIN_FORCE = keepSkin;
+      const ice = sk?.rarity === 'blackice';
+      const frost = ice ? prepareFrost(gunG, magG, sight.group) : null;
+      const crystals = ice ? iceCrystals(gunG, sk, type, muzzle) : null;
       // Pack guns with the pack's animations: the support hand is its own part (it reloads).
       const sup = hdm && packAnims.set && !this.noHands ? new THREE.Group() : null;
       let palm = null;
@@ -1301,20 +1358,22 @@ export class WeaponRig {
       const skinMats = new Set();
       gunG.traverse((o) => { if (o.isMesh && o.material.userData.tri && o.material.userData.skinKey) skinMats.add(o.material); });
       m.userData.skinMats = [...skinMats];
-      const iceSet = new Set();
-      m.traverse((o) => { if ((o.isMesh || o.isPoints) && o.material.userData.ice) iceSet.add(o.material); });
-      m.userData.ice = !!(sk && sk.rarity === 'blackice');
-      m.userData.iceMats = [...iceSet];
+      m.userData.ice = ice;
       const s = 0.62;
       gunG.scale.setScalar(s);
       // Rail (top of the receiver) under the sight's mount; receiver centred a little ahead.
       gunG.position.set(0, sight.railY - TOP_Y[type] * s, -EYE_Z - 0.05);
       m.add(gunG);
+      if (ice) m.userData.inspectFx = frostInspect(gunG, frost, crystals, sk, INSPECT_QUALITY);
+      else if (blossoms?.length) m.userData.inspectFx = sakuraInspect(gunG, blossoms, INSPECT_QUALITY);
       m.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
       this.models.set(key, m);
       this.root.add(m);
     }
-    if (this.current) this.current.visible = false;
+    if (this.current && this.current !== m) {
+      this.cancelInspect();
+      this.current.visible = false;
+    }
     m.visible = true;
     if (m.userData.torch) m.userData.torch.visible = !!this.torchOn;
     // Draw animation when the gun itself changes (not for a sight change).
@@ -1389,8 +1448,16 @@ export class WeaponRig {
   melee() { this.meleeT = 0; this.cancelInspect(); }
 
   // I: inspect the weapon (ignored while aiming or reloading).
-  inspect() { if (this.animations && this.reloadP < 0) this.inspectT = 0; }
-  cancelInspect() { if (this.inspectHold < 0) this.inspectT = -1; }
+  inspect() {
+    if (!this.animations || this.reloadP >= 0) return;
+    this.cancelInspect();
+    this.inspectT = 0;
+  }
+  cancelInspect() {
+    if (this.inspectHold >= 0) return;
+    this.inspectT = -1;
+    this.current?.userData.inspectFx?.update(-1);
+  }
 
   // Spent case out of the ejection port: up and to the right, spinning, under gravity.
   _ejectBrass() {
@@ -1431,14 +1498,8 @@ export class WeaponRig {
     // with the zoom. The raise follows a slight arc (dips, then rises into line) with a
     // little cant on the way, instead of sliding in a straight line.
     const k = e;
+    if (this.inspectT >= 0 && (k > 0 || this.reloadP >= 0 || !this.animations)) this.cancelInspect();
     const A = this._animate(Math.min(dt, 0.1), k);
-    // Skin animations play only while inspecting (they ease in and out with the pose).
-    {
-      const target = this.inspectT >= 0 ? 1 : 0;
-      this.skinAnim = (this.skinAnim || 0) + (target - (this.skinAnim || 0)) * Math.min(1, dt * 5);
-      if (this.skinAnim < 0.002) this.skinAnim = 0;
-      this.animateSkins(t, this.skinAnim);
-    }
     const arc = Math.sin(Math.PI * k);
     const br = (1 - 0.6 * k) * 0.0004;
     this.root.position.set(
@@ -1469,6 +1530,11 @@ export class WeaponRig {
         this.root.quaternion.multiply(this._aq.setFromEuler(this._ae.set(-0.25 * p, 0.6 * p, 0.5 * p)));
       }
     }
+    // Sample the emitter after applying the pose so trails follow the actual muzzle and receiver.
+    const target = this.inspectT >= 0 ? 1 : 0;
+    this.skinAnim = (this.skinAnim || 0) + (target - (this.skinAnim || 0)) * Math.min(1, dt * 5);
+    if (this.skinAnim < 0.002) this.skinAnim = 0;
+    this.animateSkins(t, this.skinAnim);
   }
 
   // Where the sight's window is on screen right now (for the lens pass), in pixels from the

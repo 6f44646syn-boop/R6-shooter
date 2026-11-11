@@ -1,5 +1,5 @@
 // Enhanced Graphics pack v5: redrawn weapon skins. The pack's detail sheets (hd/skins/*.webp,
-// tools/build-skin-atlas.mjs) and this shader redraw all 201 skins on High and Ultra, still
+// tools/build-skin-atlas.mjs) and this shader redraw pack finishes on High, Ultra and Max, still
 // baked on the GPU at the gun's skin size (up to 4096 px), so nothing per skin is downloaded.
 //   woodland, blot  stacked hand-cut camo layers, each a little raised (paint thickness)
 //   pixel           layered pixel camo at two block sizes
@@ -83,11 +83,10 @@ void skinAt2(vec2 uv, out vec3 col, out float m, out float g, out float h) {
     skinAt(uv, col, m, g);
     h = 0.5 + m * 0.3 - g * 0.2;
   }
-  // decals: a stencilled emblem on many Rare and Epic skins (and a few Common), one per tile,
-  // in a fixed place, at a size that reads on a gun
+  // Rare gets a paint stencil. Epic gets a relief stamp with a polished inlaid edge.
   float pick = h1s(uSeedS + 11.0);
   float has = uRarity >= 1.0 ? step(0.25, pick) : step(0.8, pick);
-  if (has > 0.5 && pattern != 10) {
+  if (has > 0.5) {
     float cell = floor(h1s(uSeedS + 13.0) * 16.0);
     vec2 cp = vec2(mod(cell, 4.0), floor(cell / 4.0));
     vec2 dc = vec2(0.3 + 0.4 * h1s(uSeedS + 17.0), 0.3 + 0.4 * h1s(uSeedS + 19.0));
@@ -96,23 +95,24 @@ void skinAt2(vec2 uv, out vec3 col, out float m, out float g, out float h) {
     if (q.x > 0.0 && q.x < 1.0 && q.y > 0.0 && q.y < 1.0) {
       vec2 dd = texture2D(tDecals, (cp + q) / 4.0).rg;
       vec3 dcol = uRarity >= 2.0 ? c3 : (dot(col, vec3(0.3, 0.5, 0.2)) > 0.3 ? c0 * 0.6 : c3 * 1.1 + 0.05);
-      col = mix(col, dcol, dd.r * 0.92);
-      col = mix(col, c1, dd.g * 0.8);
-      h += dd.r * 0.06;
+      col = mix(col, dcol, dd.r * 0.83);
+      col = mix(col, c1, dd.g * 0.72);
+      h += dd.r * (uRarity >= 2.0 ? 0.14 : 0.035);
       m = max(m, dd.r * 0.5);
     }
   }
-  // wear and grime: Common skins have seen use; Epic and Black Ice are kept clean
+  // Common paint shows grime and chips, Rare shows finer abrasion, Epic has a clean coat.
   vec3 gr = texture2D(tGrime, ru * 2.0 + off * 1.7).rgb;
-  float dirtAmt = mix(0.28, 0.06, clamp(uRarity / 2.0, 0.0, 1.0));
+  float dirtAmt = mix(0.37, 0.035, clamp(uRarity / 2.0, 0.0, 1.0));
   col *= 1.0 - (gr.r - 0.45) * dirtAmt;
   float scr = gr.g * mix(0.6, 0.2, clamp(uRarity / 2.0, 0.0, 1.0));
-  col = mix(col, col * 1.35 + 0.04, scr);
+  col = mix(col, col * 1.27 + 0.028, scr);
   h -= scr * 0.04;
   // Epic: metallic flake under the lacquer
   if (uRarity > 1.5 && uRarity < 2.5) {
     vec3 fl = texture2D(tFlake, uv * S * 6.0 + off).rgb;
-    col += fl.r * (0.18 + 0.4 * fl.g) * mix(c1, vec3(1.0), 0.4);
+    col += fl.r * (0.045 + 0.24 * fl.g) * mix(c1, c3, 0.55);
+    h += fl.r * fl.g * 0.042;
   }
   // fine orange peel in the paint (relief only)
   h += (texture2D(tGrime, uv * 9.0 + off).b - 0.5) * 0.03;

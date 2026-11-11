@@ -1,4 +1,4 @@
-// Weapon skin catalogue: 200 skins from packs (100 Common, 60 Rare, 32 Epic, 8 Black Ice),
+// Pack skins keep their original IDs so existing save codes still recognize the finishes.
 // generated from fixed seeds so every PC has the same catalogue (save codes refer to ids),
 // plus the 10 factory skins each slot wears in Ultra graphics when nothing is equipped.
 //
@@ -12,11 +12,11 @@
 import { mulberry32 } from './prng.js?v=6419a29-mwcpnaz0';
 
 export const RARITIES = [
-  { key: 'common', name: 'Common', color: '#b4bcc6', odds: 0.70, refund: 20 },
+  { key: 'common', name: 'Common', color: '#b4bcc6', odds: 0.69975, refund: 20 },
   { key: 'rare', name: 'Rare', color: '#4da3ff', odds: 0.22, refund: 40 },
   { key: 'epic', name: 'Epic', color: '#c26bff', odds: 0.07, refund: 80 },
   { key: 'blackice', name: 'Black Ice', color: '#7ff3ff', odds: 0.01, refund: 200 },
-  { key: 'legendary', name: 'Legendary', color: '#ffc23a', odds: 0, refund: 0 },     // not in packs: your own photo
+  { key: 'legendary', name: 'Legendary', color: '#ffc23a', odds: 0.00025, refund: 400 },
 ];
 // The Legendary skin (your photo, any gun; see legend.js) and the gold finish other players
 // see on a gun wearing it.
@@ -24,8 +24,14 @@ export const LEGEND_ID = 2000, LEGEND_GOLD_ID = 2001;
 const L3 = (r, g, b) => [r, g, b];
 export const LEGEND = { id: LEGEND_ID, name: 'Legend', rarity: 'legendary', photo: true, pattern: 11, c: [L3(0.5, 0.32, 0.05), L3(1, 0.7, 0.2), L3(1, 0.85, 0.4), L3(0, 0, 0)], p: [1, 1, 0, 0], rm: [0.3, 0.25, 0.3, 0.25], clearcoat: 1, wear: 0.12, glow: [0, 0, 0] };
 export const LEGEND_GOLD = { ...LEGEND, id: LEGEND_GOLD_ID, name: 'Legend', photo: false, rm: [0.25, 1, 0.2, 1], wear: 0.2 };
+export const SAKURA_ID = 201;
+const SAKURA = {
+  id: SAKURA_ID, name: 'Sakura Gilt', rarity: 'legendary', guns: [2], pattern: 17,
+  c: [[0.98, 0.69, 0.14], [0.46, 0.054, 0.13], [0.71, 0.17, 0.32], [0.011, 0.012, 0.016]],
+  rm: [0.085, 0.88, 0.087, 0.62], clearcoat: 1, wear: 0, glow: [0, 0, 0],
+};
 export const RARITY = Object.fromEntries(RARITIES.map((r) => [r.key, r]));
-export const PATTERN_NAMES = ['Contour', 'Pixel', 'Woodland', 'Tiger', 'Veteran', 'Hexcore', 'Damascus', 'Blot', 'Weave', 'Shard', 'Black Ice', 'Fade', 'Line', 'Marble', 'Circuit', 'Blossom', 'Tide'];
+export const PATTERN_NAMES = ['Contour', 'Pixel', 'Woodland', 'Tiger', 'Veteran', 'Hexcore', 'Damascus', 'Blot', 'Weave', 'Shard', 'Black Ice', 'Fade', 'Line', 'Marble', 'Circuit', 'Blossom', 'Tide', 'Gilt Blossom'];
 
 // HSL (0..1) -> linear RGB.
 function hsl(h, s, l) {
@@ -50,9 +56,22 @@ const RARE_WORDS = [['Cobalt', 0.61], ['Crimson', 0.98], ['Viper', 0.3], ['Sunse
 const RARE_PATTERNS = [0, 5, 8, 13, 1, 3, 9, 12];
 const EPIC_WORDS = ['Nebula', 'Inferno', 'Aurora', 'Phantom', 'Solar Flare', 'Abyss', 'Prism', 'Overdrive', 'Tempest', 'Eclipse', 'Venom', 'Mirage', 'Paradox', 'Zenith', 'Vortex', 'Spectre'];
 const EPIC_PATTERNS = [0, 5, 6, 13, 14, 15, 9, 16];      // 15 blossom and 16 tide: illustrated
-// Black Ice: [name, hue] in four colours (blue, red, pink, purple), two of each.
-const ICE = [['Glacier', 0.6], ['Deep Blue', 0.63], ['Red Shift', 0.99], ['Crimson Frost', 0.975], ['Rose', 0.93], ['Pink Frost', 0.905], ['Violet', 0.79], ['Purple Haze', 0.76],
-  ['Venom Green', 0.37]];     // id 200 (added later, so it sits after the original 200)
+// Each Epic has a named colour direction. Its second pattern uses an alternate accent.
+const EPIC_HUES = [[0.77, 0.53], [0.99, 0.07], [0.48, 0.36], [0.71, 0.84], [0.03, 0.13], [0.63, 0.5], [0.84, 0.13], [0.62, 0.1],
+  [0.57, 0.7], [0.77, 0.11], [0.31, 0.18], [0.07, 0.5], [0.86, 0.5], [0.58, 0.14], [0.65, 0.78], [0.75, 0.48]];
+
+// Name, body hue, frost hue, depth lightness, crystal tint, crack scale, frost coverage, crystal shape.
+const ICE = [
+  ['Glacier',       0.58, 0.52, 0.23, 0.76, 1, 0.76, 1.12],
+  ['Deep Blue',     0.65, 0.58, 0.16, 0.63, 2, 0.42, 0.80],
+  ['Red Shift',     0.99, 0.035, 0.25, 0.68, 1, 0.46, 1.27],
+  ['Crimson Frost', 0.95, 0.99, 0.17, 0.71, 2, 0.86, 0.86],
+  ['Rose',          0.92, 0.965, 0.25, 0.81, 1, 0.63, 1.00],
+  ['Pink Frost',    0.86, 0.91, 0.22, 0.82, 2, 0.91, 0.74],
+  ['Violet',        0.75, 0.81, 0.22, 0.68, 1, 0.57, 1.20],
+  ['Purple Haze',   0.78, 0.65, 0.19, 0.76, 2, 0.81, 0.94],
+  ['Venom Green',   0.43, 0.33, 0.23, 0.61, 1, 0.72, 1.35],
+];
 
 function make(id) {
   const rng = mulberry32((id + 1) * 7919 + 13);
@@ -62,46 +81,52 @@ function make(id) {
     const s = () => fam[2][0] + rng() * (fam[2][1] - fam[2][0]);
     const l = (k) => fam[3][0] + (fam[3][1] - fam[3][0]) * k;
     const hj = () => fam[1] + (rng() - 0.5) * 0.08;
-    const c = [hsl(hj(), s(), l(0.85)), hsl(hj(), s(), l(0.45)), hsl(hj(), s(), l(0.15)), hsl(hj(), s() * 0.6, l(0.6))];
+    const c = [hsl(hj(), s() * 0.7, l(0.65)), hsl(hj(), s(), l(0.98)), hsl(hj(), s() * 0.8, l(0.10)), hsl(hj(), s() * 0.45, l(0.36))];
     const metal = pat === 4 ? 1 : 0.1;
     return { id, rarity: 'common', name: fam[0] + ' ' + PATTERN_NAMES[pat], pattern: pat, c,
-      p: [1 + Math.floor(rng() * 2), 0.5 + rng(), (rng() - 0.5) * 0.1, 0], rm: [0.6 + rng() * 0.15, 0.08, 0.5, metal], clearcoat: 0, wear: 0.8, glow: [0, 0, 0] };
+      p: [1 + Math.floor(rng() * 2), 0.65 + rng() * 0.55, (rng() - 0.5) * 0.16, 0], rm: [0.67 + rng() * 0.13, 0.05, 0.57, metal], clearcoat: 0.12, wear: 0.83, glow: [0, 0, 0] };
   }
   if (id < 160) {                                       // Rare: neutral base + one vivid accent, satin
     const k = id - 100;
     const [word, hue] = RARE_WORDS[k % RARE_WORDS.length];
     const pat = RARE_PATTERNS[Math.floor(k / RARE_WORDS.length) % RARE_PATTERNS.length];
     const h = hue + (rng() - 0.5) * 0.03;
-    const c = [hsl(0.6, 0.06, 0.08 + rng() * 0.1), hsl(h, 0.75 + rng() * 0.2, 0.42), hsl(h + 0.05, 0.6, 0.62), hsl(0.6, 0.05, 0.3 + rng() * 0.2)];
+    const c = [hsl(h + 0.46, 0.13, 0.14 + rng() * 0.07), hsl(h, 0.73 + rng() * 0.2, 0.45), hsl(h + 0.04, 0.65, 0.68), hsl(h - 0.035, 0.35, 0.43 + rng() * 0.15)];
     return { id, rarity: 'rare', name: word + ' ' + PATTERN_NAMES[pat], pattern: pat, c,
-      p: [1 + Math.floor(rng() * 2), 0.6 + rng(), (rng() - 0.5) * 0.1, 0], rm: [0.45 + rng() * 0.1, 0.3, 0.35, 0.5], clearcoat: 0.3, wear: 0.6, glow: [0, 0, 0] };
+      p: [1 + Math.floor(rng() * 2), 0.7 + rng() * 0.65, (rng() - 0.5) * 0.14, 0], rm: [0.38 + rng() * 0.12, 0.46, 0.26, 0.73], clearcoat: 0.48, wear: 0.43, glow: [0, 0, 0] };
   }
-  if (id < 192) {                                       // Epic: two vivid anodised colours, metallic, lacquered
+  if (id < 192) {                                       // Epic: formed inlays over a finish tailored to the pattern
     const k = id - 160;
     const word = EPIC_WORDS[k % EPIC_WORDS.length];
     const pat = EPIC_PATTERNS[(k + Math.floor(k / EPIC_WORDS.length) * 3) % EPIC_PATTERNS.length];
-    const h = (k * 0.381966) % 1;
-    let c = [hsl(h, 0.85, 0.12), hsl(h + 0.45 + rng() * 0.15, 0.95, 0.5), hsl(h + 0.08, 0.9, 0.35), hsl(h + 0.5, 0.6, 0.75)];
+    const [h, accent] = EPIC_HUES[k % EPIC_HUES.length];
+    const a = accent + (k < EPIC_WORDS.length ? -0.025 : 0.035);
+    let c = [hsl(h, 0.67, 0.19), hsl(a, 0.85, 0.54), hsl(h + 0.065, 0.82, 0.45), hsl(a, 0.57, 0.77)];
     // Illustrated designs get painterly palettes: dark branches, bright flowers, lacquered cream;
     // deep sea, bright water and white foam.
-    if (pat === 15) c = [hsl(0.05, 0.3, 0.08), hsl(h, 0.85, 0.55), hsl(0.13, 0.9, 0.6), hsl(0.1, 0.25, 0.88)];
-    if (pat === 16) c = [hsl(h, 0.8, 0.1), hsl(h + 0.03, 0.85, 0.42), hsl(h + 0.08, 0.7, 0.6), hsl(h, 0.15, 0.95)];
+    if (pat === 15) c = [hsl(h, 0.42, 0.12), hsl(a, 0.82, 0.55), hsl(a + 0.1, 0.79, 0.71), hsl(h, 0.21, 0.66)];
+    if (pat === 16) c = [hsl(h, 0.75, 0.15), hsl(h + 0.03, 0.8, 0.39), hsl(a, 0.69, 0.59), hsl(a, 0.22, 0.90)];
     const glows = pat === 14 || pat === 0 || pat === 5;
+    const rm = {
+      0: [0.33, 0.65, 0.20, 0.72], 5: [0.41, 0.30, 0.23, 0.45], 6: [0.29, 0.94, 0.19, 0.95],
+      9: [0.37, 0.65, 0.16, 0.77], 13: [0.47, 0.19, 0.24, 0.63], 14: [0.48, 0.60, 0.20, 0.84],
+      15: [0.32, 0.23, 0.22, 0.47], 16: [0.30, 0.30, 0.16, 0.36],
+    }[pat];
     return { id, rarity: 'epic', name: word + ' ' + PATTERN_NAMES[pat], pattern: pat, c,
-      p: [1 + Math.floor(rng() * 2), 0.8 + rng(), (rng() - 0.5) * 0.08, 0], rm: [0.3, 0.75, 0.22, 1], clearcoat: 0.8, wear: 0.3,
-      glow: glows ? c[1].map((v) => Math.round(v * 1.5 * 1000) / 1000) : [0, 0, 0] };
+      p: [1 + Math.floor(rng() * 2), 0.65 + rng() * 0.55, (rng() - 0.5) * 0.12, 0], rm, clearcoat: 0.9, wear: 0.19,
+      glow: glows ? c[1].map((v) => v * 0.42) : [0, 0, 0] };
   }
-  // Black Ice: a deep glossy colour, shattered pale cracks and sparkles, and 3D ice crystals
-  // growing off the gun's edges (viewmodel.js iceCrystals).
-  const [word, hue] = ICE[id - 192];
-  const two = (id - 192) % 2;                          // the second of each pair is darker with brighter cracks
-  const glow = hsl(hue, 0.9, 0.62);
-  return { id, rarity: 'blackice', name: 'Black Ice ' + word, pattern: 10, ice: hsl(hue, 0.7, 0.78),
-    c: [hsl(hue, 0.8, two ? 0.045 : 0.07), hsl(hue, 0.4, 0.88), [0.95, 0.97, 1], hsl(hue, 0.7, two ? 0.12 : 0.17)],
-    p: [1 + two, 0.6, 0, id - 191], rm: [0.14, 0.35, 0.3, 0.2], clearcoat: 1, wear: 0.1, glow: glow.map((v) => Math.round(v * 0.9 * 1000) / 1000) };
+  // Black Ice: a deep glossy colour, fractured ice, and 3D frost along the top and muzzle.
+  if (id === SAKURA_ID) return SAKURA;
+  const [word, hue, frost, depth, tint, scale, coverage, shape] = ICE[id - 192];
+  return { id, rarity: 'blackice', name: 'Black Ice ' + word, pattern: 10,
+    ice: hsl(frost, 0.58, tint), crystalShape: shape, scale: 1.85,
+    c: [hsl(hue, 0.70, depth * 0.38), hsl(frost, 0.49, 0.76), hsl(frost, 0.36, 0.96), hsl(hue, 0.74, depth)],
+    p: [scale, coverage, shape, id - 191], rm: [0.16, 0.17, 0.36, 0.04], clearcoat: 1, wear: 0.05,
+    glow: hsl(frost, 0.64, 0.66).map((v) => v * 0.48) };
 }
 
-export const SKIN_COUNT = 201;      // 100 Common, 60 Rare, 32 Epic, 9 Black Ice
+export const SKIN_COUNT = 202;      // 100 Common, 60 Rare, 32 Epic, 9 Black Ice, 1 Legendary
 export const CATALOGUE = Array.from({ length: SKIN_COUNT }, (_, i) => make(i));
 // Unique names (the same word + pattern can come up twice).
 {
@@ -128,16 +153,16 @@ export function skinFits(id, slot) { const s = skinById(id); return !!s && (!s.g
 // Factory finishes (Ultra, nothing equipped): the original ten slot skins.
 const L = (r, g, b) => [r, g, b];
 export const FACTORY = [
-  { name: 'Contour Crimson', pattern: 0, c: [L(0.03, 0.03, 0.035), L(0.62, 0.05, 0.06), L(0.62, 0.05, 0.06), L(0, 0, 0)], rm: [0.32, 0.85, 0.25, 0.85], clearcoat: 0.6, wear: 0.6 },
-  { name: 'Arctic Digital', pattern: 1, c: [L(0.86, 0.88, 0.9), L(0.6, 0.63, 0.67), L(0.3, 0.36, 0.43), L(0, 0, 0)], rm: [0.62, 0.08, 0.62, 0.08], clearcoat: 0, wear: 0.8 },
-  { name: 'Deep Woodland', pattern: 2, c: [L(0.5, 0.46, 0.33), L(0.22, 0.29, 0.17), L(0.32, 0.22, 0.14), L(0.06, 0.06, 0.05)], rm: [0.7, 0.05, 0.7, 0.05], clearcoat: 0, wear: 0.7 },
-  { name: 'Night Tiger', pattern: 3, c: [L(0.26, 0.27, 0.24), L(0.035, 0.035, 0.04), L(0.13, 0.13, 0.14), L(0, 0, 0)], rm: [0.5, 0.3, 0.5, 0.3], clearcoat: 0.2, wear: 0.6 },
-  { name: 'Desert Veteran', pattern: 4, c: [L(0.46, 0.37, 0.26), L(0.3, 0.3, 0.32), L(0, 0, 0), L(0, 0, 0)], rm: [0.62, 0.15, 0.28, 1], clearcoat: 0, wear: 1.4 },
-  { name: 'Teal Hexcore', pattern: 5, c: [L(0.05, 0.055, 0.06), L(0.04, 0.16, 0.17), L(0.08, 0.3, 0.31), L(0.2, 0.55, 0.55)], rm: [0.38, 0.45, 0.25, 0.45], clearcoat: 0.5, wear: 0.5 },
-  { name: 'Damascus', pattern: 6, c: [L(0.16, 0.165, 0.18), L(0.66, 0.67, 0.69), L(0, 0, 0), L(0, 0, 0)], rm: [0.4, 1, 0.2, 1], clearcoat: 0.8, wear: 0.2 },
-  { name: 'Dry Ridge', pattern: 7, c: [L(0.64, 0.57, 0.44), L(0.43, 0.43, 0.3), L(0.47, 0.34, 0.22), L(0.28, 0.21, 0.14)], rm: [0.72, 0.05, 0.72, 0.05], clearcoat: 0, wear: 0.9 },
-  { name: 'Carbon Weave', pattern: 8, c: [L(0.025, 0.025, 0.025), L(0.06, 0.062, 0.068), L(0, 0, 0), L(0, 0, 0)], rm: [0.32, 0, 0.32, 0], clearcoat: 1, wear: 0.3 },
-  { name: 'Concrete Splinter', pattern: 9, c: [L(0.58, 0.59, 0.6), L(0.34, 0.35, 0.37), L(0.13, 0.135, 0.145), L(0.22, 0.29, 0.38)], rm: [0.58, 0.12, 0.58, 0.12], clearcoat: 0, wear: 0.8 },
+  { name: 'Contour Crimson', pattern: 0, c: [L(0.035, 0.031, 0.037), L(0.37, 0.026, 0.041), L(0.63, 0.11, 0.086), L(0, 0, 0)], rm: [0.43, 0.58, 0.32, 0.66], clearcoat: 0.47, wear: 0.6 },
+  { name: 'Arctic Digital', pattern: 1, c: [L(0.69, 0.74, 0.78), L(0.42, 0.48, 0.53), L(0.17, 0.23, 0.29), L(0.58, 0.62, 0.65)], rm: [0.69, 0.05, 0.62, 0.08], clearcoat: 0.12, wear: 0.74 },
+  { name: 'Deep Woodland', pattern: 2, c: [L(0.34, 0.32, 0.21), L(0.14, 0.23, 0.12), L(0.25, 0.15, 0.087), L(0.05, 0.077, 0.044)], rm: [0.75, 0.05, 0.66, 0.07], clearcoat: 0, wear: 0.7 },
+  { name: 'Night Tiger', pattern: 3, c: [L(0.18, 0.20, 0.19), L(0.039, 0.044, 0.052), L(0.28, 0.24, 0.16), L(0, 0, 0)], rm: [0.56, 0.24, 0.46, 0.42], clearcoat: 0.23, wear: 0.5 },
+  { name: 'Desert Veteran', pattern: 4, c: [L(0.48, 0.35, 0.21), L(0.38, 0.36, 0.32), L(0, 0, 0), L(0, 0, 0)], rm: [0.71, 0.10, 0.38, 0.9], clearcoat: 0.08, wear: 1.25 },
+  { name: 'Teal Hexcore', pattern: 5, c: [L(0.041, 0.061, 0.064), L(0.049, 0.19, 0.18), L(0.091, 0.32, 0.32), L(0.39, 0.65, 0.57)], rm: [0.46, 0.45, 0.26, 0.68], clearcoat: 0.53, wear: 0.42 },
+  { name: 'Damascus', pattern: 6, c: [L(0.12, 0.14, 0.17), L(0.53, 0.51, 0.46), L(0, 0, 0), L(0, 0, 0)], rm: [0.36, 0.91, 0.25, 1], clearcoat: 0.67, wear: 0.27 },
+  { name: 'Dry Ridge', pattern: 7, c: [L(0.58, 0.50, 0.36), L(0.32, 0.35, 0.25), L(0.49, 0.32, 0.18), L(0.21, 0.16, 0.1)], rm: [0.77, 0.03, 0.69, 0.07], clearcoat: 0, wear: 0.85 },
+  { name: 'Carbon Weave', pattern: 8, c: [L(0.024, 0.027, 0.032), L(0.10, 0.105, 0.116), L(0, 0, 0), L(0, 0, 0)], rm: [0.38, 0.06, 0.28, 0.18], clearcoat: 0.85, wear: 0.2 },
+  { name: 'Concrete Splinter', pattern: 9, c: [L(0.49, 0.52, 0.51), L(0.31, 0.34, 0.36), L(0.095, 0.11, 0.12), L(0.22, 0.30, 0.37)], rm: [0.66, 0.09, 0.53, 0.18], clearcoat: 0.08, wear: 0.68 },
 ].map((s, i) => ({ id: 1000 + i, rarity: 'factory', p: [1, 1, 0, 0], glow: [0, 0, 0], ...s }));
 
 export function skinById(id) {

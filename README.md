@@ -171,12 +171,16 @@ Settings, Skins & packs, Main menu. Every gun has its own model.
 
 Menu > Skins & packs. Battle kills earn points (20, +10 for a headshot kill; +50 for winning
 a battle; in split screen, player 1's kills count). A pack costs 100 points and spins a
-slot-machine reel that lands on one of 201 skins: Common 70%, Rare 22%, Epic 7%, Black Ice
-1% (9 Black Ice: blue, red, pink, purple and green, with deep carved cracks and 3D ice
-shards that shoot off and regrow when you inspect). A duplicate gives points back (20 / 40 / 80 / 200). Click a skin in your collection to
-put it on the gun selected in Loadout; it shows in every graphics mode. Some skins are
+slot-machine reel that lands on one of 202 skins. Black Ice drops in 1% of packs, and
+Legendary Sakura Gilt has a 1-in-4,000 drop chance. Duplicates refund points based on rarity.
+Click a skin in your collection to equip it on the gun selected in Loadout. Some skins are
 exclusive: each Black Ice and half the Epics fit one gun only, and some Rares one gun
 family (SMGs, or rifles and carbines).
+
+Press **I** to inspect your equipped skin. All nine Black Ice variants
+grow a layer of frost and release a pulse of cold vapour and ice flecks. Sakura Gilt's
+raised blossoms open in 3D and shed petals. Particle density scales with graphics quality.
+Firing, aiming, reloading or switching weapons cancels the inspect.
 
 Skins are generated on the GPU from a pattern (15 styles: contour, pixel, woodland, tiger,
 veteran, hexcore, damascus, blot, weave, shard, black ice, fade, line, marble, circuit), four

@@ -8,6 +8,8 @@ import { validateGuns, validateSens } from '../js/core/guns.js';
 import { validateCatalogue, resolveGunOptics, sensKeys } from '../js/core/optics.js';
 import { sanitize } from '../js/core/settings.js';
 import { raycastDummy } from '../js/scene/dummy.js';
+import { CATALOGUE, LEGEND_ID, RARITIES, SAKURA_ID, skinFits } from '../js/core/skins.js';
+import { Profile } from '../js/core/profile.js';
 
 const results = [];
 function test(name, fn) {
@@ -20,6 +22,31 @@ function near(a, b, eps, what) {
 function eq(a, b, what) {
   if (a !== b) throw new Error((what || 'value') + ': expected ' + JSON.stringify(b) + ', got ' + JSON.stringify(a));
 }
+
+test('Sakura Gilt is the rarest pack reward and survives save-code export', () => {
+  const storage = { getItem: () => null, setItem() {} };
+  const profile = new Profile(storage);
+  const restored = new Profile(storage);
+  const legendary = RARITIES.find(r => r.key === 'legendary');
+  const ice = RARITIES.find(r => r.key === 'blackice');
+  near(RARITIES.reduce((sum, r) => sum + r.odds, 0), 1, 1e-12);
+  eq(legendary.odds < ice.odds / 9, true, 'rarer than an individual Black Ice');
+  eq(CATALOGUE.filter(skin => skin.rarity === 'blackice').length, 9);
+  eq(profile.has(SAKURA_ID), false, 'locked at start');
+  eq(profile.has(LEGEND_ID), true, 'custom photo still available');
+  eq(skinFits(SAKURA_ID, 2), true, 'R4-C');
+  eq(skinFits(SAKURA_ID, 4), false, 'another rifle');
+  profile.unlockBlackIce();
+  eq(profile.has(SAKURA_ID), false, 'Pirate Token only unlocks Black Ice');
+  eq(Profile.roll(() => 0.9997).rarity, 'blackice', 'roll just below Legendary');
+  profile.addPoints(100);
+  eq(profile.openPack(() => 0.9999).skin.id, SAKURA_ID, 'top pack roll');
+  eq(profile.equip(4, SAKURA_ID), false);
+  eq(profile.equip(2, SAKURA_ID), true);
+  restored.loadCode(profile.saveCode());
+  eq(restored.equippedFor(2), SAKURA_ID);
+  eq(restored.ownedCount, 10);
+});
 
 /* ---------- sensitivity ---------- */
 test('cm/360 to deg/count: 800 DPI, 40 cm = 0.028575', () => {

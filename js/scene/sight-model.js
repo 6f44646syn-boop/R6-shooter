@@ -245,7 +245,7 @@ export function mergeStatic(group) {
   const inv = new THREE.Matrix4().copy(group.matrixWorld).invert();
   const byMat = new Map(), keep = [], rel = new THREE.Matrix4();
   group.traverse((o) => {
-    if (o.isPoints) { keep.push(o); return; }                // particles (Black Ice frost burst) stay as they are
+    if (o.isPoints) { keep.push(o); return; }
     if (!o.isMesh) return;
     if (o.material.transparent || o.userData.hd) { keep.push(o); return; }   // pack models are merged already (and carry extra data)
     rel.multiplyMatrices(inv, o.matrixWorld);
@@ -282,11 +282,12 @@ export function mergeStatic(group) {
 
 // Small procedural environment map so metal edges catch light: a dim room with a few bright
 // panels (strip lights, a window), prefiltered once with PMREM.
-export function makeEnvMap(renderer) {
+export function makeEnvMap(renderer, polished = false) {
   const env = new THREE.Scene();
-  env.background = new THREE.Color(0x15171a);
-  const panel = (w, h, x, y, z, ry, c) => {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide }));
+  env.background = new THREE.Color(polished ? 0x383639 : 0x15171a);
+  const panel = (w, h, x, y, z, ry, c, intensity = 1) => {
+    const color = new THREE.Color(c).multiplyScalar(intensity);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide }));
     m.position.set(x, y, z); m.rotation.y = ry;
     env.add(m);
   };
@@ -296,8 +297,21 @@ export function makeEnvMap(renderer) {
   panel(10, 10, 0, -2, 0, 0, 0x3a3833);
   const floor = env.children[env.children.length - 1];
   floor.rotation.x = -Math.PI / 2;
+  if (polished) {
+    // Large warm reflection cards give polished gold a readable highlight even in dark scenes.
+    for (const side of [-1, 1]) {
+      panel(4.2, 0.92, side * 3, 0.4, -side * 0.9, Math.PI / 2, 0xfff7e8, 1.24);
+      panel(2.6, 0.8, side * 3, -0.35, -side * 1.42, Math.PI / 2, 0xe9e3dd, 0.51);
+      panel(2.6, 0.26, side * 2.8, 1.12, side * 1.04, Math.PI / 2, 0xfff9eb, 1.8);
+    }
+    panel(3.1, 1.1, 0, 0.45, 3, 0, 0xfff2de, 0.94);
+  }
   const pm = new THREE.PMREMGenerator(renderer);
-  const tex = pm.fromScene(env, 0.02).texture;
+  const tex = pm.fromScene(env, polished ? 0.06 : 0.02).texture;
   pm.dispose();
+  for (const mesh of env.children) {
+    mesh.geometry.dispose();
+    mesh.material.dispose();
+  }
   return tex;
 }
