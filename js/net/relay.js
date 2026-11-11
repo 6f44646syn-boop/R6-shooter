@@ -32,11 +32,14 @@ export function makeCode() {
 }
 export function cleanCode(s) { return String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
 
-function wsUrl(base, code, role) {
-  let u = String(base || '').trim().replace(/\/+$/, '');
+function relayBase(base) {
+  const u = String(base || '').trim().replace(/\/+$/, '');
   if (!u) throw new Error('No relay server set. Open "Relay server" below and paste its address.');
-  if (!/^[a-z]+:\/\//i.test(u)) u = 'https://' + u;
-  u = u.replace(/^http(s?):\/\//i, 'ws$1://');
+  return /^[a-z]+:\/\//i.test(u) ? u : 'https://' + u;
+}
+
+function wsUrl(base, code, role) {
+  const u = relayBase(base).replace(/^http(s?):\/\//i, 'ws$1://');
   return u + '/room/' + code + '?role=' + role;
 }
 
@@ -133,7 +136,20 @@ class HostHub {
     this.timer = setInterval(() => this.flush(), FLUSH_MS);
   }
   _send(obj) { if (this.ws.readyState === 1) { try { this.ws.send(JSON.stringify(obj)); } catch (e) { /* closing */ } } }
+  rankedReceipt(packet) { this._send({ rankReceipt: packet }); }
+  ranked(listing) {
+    const key = JSON.stringify(listing);
+    if (this.rankKey === key) return;
+    this.rankKey = key;
+    this.rankListing = listing;
+    this.rankAt = Date.now() + 15_000;
+    this._send({ ranked: listing });
+  }
   flush() {
+    if (this.rankListing && Date.now() >= this.rankAt) {
+      this.rankAt = Date.now() + 15_000;
+      this._send({ ranked: this.rankListing });
+    }
     const b = [];
     for (const [id, l] of this.links) if (l.out.size) b.push({ to: id, d: l.out.take() });
     if (b.length) this._send({ b });
@@ -168,11 +184,20 @@ export async function joinRelay(base, code) {
   return link;
 }
 
+export async function rankedGames(base) {
+  const response = await fetch(relayBase(base) + '/ranked', { cache: 'no-store' });
+  if (!response.ok) throw new Error('Ranked games are unavailable on this relay.');
+  return response.json();
+}
+
+export async function rankedReceipt(base, code, matchId) {
+  const response = await fetch(relayBase(base) + '/ranked-result/' + code + '/' + matchId, { cache: 'no-store' });
+  return response.ok ? response.json() : null;
+}
+
 // Quick check that a relay address answers (GET /).
 export async function pingRelay(base) {
-  let u = String(base || '').trim().replace(/\/+$/, '');
-  if (!/^[a-z]+:\/\//i.test(u)) u = 'https://' + u;
-  const r = await fetch(u + '/', { cache: 'no-store' });
+  const r = await fetch(relayBase(base) + '/', { cache: 'no-store' });
   const t = await r.text();
   if (!/Recoil Range relay/.test(t)) throw new Error('That address answered, but it is not a Recoil Range relay.');
   return true;

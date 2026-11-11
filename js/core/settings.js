@@ -30,6 +30,7 @@ export const DEFAULTS = Object.freeze({
   aimSmooth: false,      // optional smoothing of measured sprays while aiming (off: the sprays were measured aimed)
   reloadSpeed: 2,        // x faster than each gun's measured reloadSeconds (1 = as measured)
   renderScale: 0,        // 0 = auto (screen's pixel ratio, up to 2x); else 0.5 to 2 (above 1 = supersampling)
+  royaleRenderDistance: 200,
   antialias: true,       // MSAA; takes effect after a reload
   graphics: 'standard',  // 'low' (flat colours, slowest PCs), 'standard' (fast, school PCs), 'high' (shadows, PBR textures, filmic tone mapping) or 'ultra' (graphics card: 4K textures, weapon skins)
   animations: true,      // weapon animations: draw, reload, sprint pose, bolt, muzzle flash, brass
@@ -71,6 +72,7 @@ const NUM = {
   aimRecoil: [0.25, 1.5],
   hipRecoil: [1, 3],
   renderScale: [0, 2],
+  royaleRenderDistance: [45, 200],
   dotSpeed: [0.25, 6],
   dotSizeCm: [5, 50],
 };

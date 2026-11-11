@@ -2,8 +2,9 @@
 
 A tiny Cloudflare Worker that lets Recoil Range network battles work over the internet
 (including networks that block direct connections between PCs, like many school Wi-Fi
-networks). Each game is a room with a short code; the relay only passes messages between the
-host and the players.
+networks). Each game is a room with a short code. The relay passes messages between the host
+and the players and lists open ranked Bomb games. It keeps signed results available for up
+to 24 hours for disconnected players. Each player's profile stores their rating and history.
 
 The free Cloudflare Workers plan is enough for casual games.
 

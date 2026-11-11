@@ -892,7 +892,8 @@ try {
       // (bots may have shot you while roaming above: start the feed and score clean)
       B.feed.length = 0; B._renderFeed(); h.f.kills = 0; B.teamScore.p1 = 0;
       for (const b of B.bots.slice(1)) { b.f.x = -16; b.f.z = -12; }
-      h.f.x = 16; h.f.z = 12; h.f.protectUntil = 0; h.f.health = 100; h.f.alive = true;
+      h.respawn(16, 12, B.t, 0);
+      h.f.protectUntil = 0; h.f.health = 100; h.f.alive = true;
       bot.f.x = 16; bot.f.z = 2; bot.f.protectUntil = 0; bot.f.health = 100; bot.f.alive = true; bot.f.crouch = 0;
       let taps = 0;
       while (bot.f.alive && taps < 40) {
@@ -1026,8 +1027,9 @@ try {
       out.points = P.points;
       out.owned = P.ownedCount;
       // equip on the selected gun: the gun model rebuilds with the skin; HUD names it
-      R.selectGun(2);
-      P.equip(2, res.skin.id); U.onEquip(2);
+      const skinSlot = res.skin.guns?.[0] ?? 2;
+      R.selectGun(skinSlot);
+      P.equip(skinSlot, res.skin.id); U.onEquip(skinSlot);
       out.hud = document.getElementById('gun-info').textContent;
       out.skinName = res.skin.name;
       // save code round trip, and a damaged code is refused
@@ -1656,7 +1658,12 @@ try {
       await B.waitForFunction(() => window.__range.battle() && window.__range.battle().active, null, { timeout: 8000 });
       await B.evaluate(() => { window.__range.manual(true); document.getElementById('menu').hidden = true; });
       await run(1);
-      await B.evaluate(() => { const Bt = window.__range.battle(), h = Bt.humans[0]; h.look.setAngles(0, 10); Bt.key('KeyG', true); Bt.key('KeyG', false); });
+      await B.evaluate(() => { const Bt = window.__range.battle(), h = Bt.humans[0]; h.look.setAngles(0, 10); Bt.key('KeyG', true); });
+      await run(0.4);
+      const following = await B.evaluate(() => { const b = window.__range.battle(); return b.grenadeCam === b.grenadeView.camera; });
+      await B.evaluate(() => window.__range.battle().key('KeyG', false));
+      await run(0.1);
+      check('Battle online: hold follows the confirmed throw and release restores first person', following && await B.evaluate(() => !window.__range.battle().grenadeCam));
       let both = [0, 0], blast = 0;
       for (let i = 0; i < 40; i++) {
         await run(0.1);
@@ -1666,6 +1673,15 @@ try {
       }
       const left = await B.evaluate(() => window.__range.battle().humans[0].f.nades);
       check('Battle online: a grenade from the player flies on both PCs and goes off on the player\'s PC too (B11 fixed)', both[0] >= 1 && both[1] >= 1 && blast >= 1 && left === 1, JSON.stringify({ both, blast, left }));
+      await A.evaluate(() => {
+        const battle = window.__range.battle(), thrower = battle.humans[0].f, target = battle.remotes[0].f;
+        target.protectUntil = 0;
+        const grenade = battle.nadesB.throw(thrower, 0, 0, battle.t);
+        Object.assign(grenade, { x: target.x, y: target.y + 0.65, z: target.z, vx: 0, vy: 0, vz: 0, end: battle.t + 0.25 });
+      });
+      await run(0.55);
+      const nadeReplay = await B.evaluate(() => { const battle = window.__range.battle(); return !!battle.kc?.grenade && battle.grenadeCam === battle.grenadeView.camera; });
+      check('Battle online: a grenade death replays the host-confirmed projectile', nadeReplay);
       await A.evaluate(() => window.__range.battleLeave());
       await B.waitForFunction(() => !window.__range.battle().active, null, { timeout: 5000 }).catch(() => {});
       await A.evaluate(() => { const R = window.__range; R.manual(true); R.setGraphics('standard'); R.modePrefs({ teamSize: 3, map: { tdm: 'yard', ctf: 'yard', bomb: 'ranch' }, abilities: { tdm: false, ctf: false, bomb: true }, difficulty: 'easy', side: 'attack' }); R.netGame('tdm'); R.battleStart({ opponent: 'net' }); });
@@ -1699,12 +1715,41 @@ try {
       const k = await Promise.all([A, B].map((p) => p.evaluate((fid) => { const G = window.__range.modeGame(); const a = G.m.actors.find((x) => x.id === fid); return { hp: a.hp, alive: a.alive, deaths: a.deaths, feed: G.feed.map((f) => f.k + '>' + f.v).join('|') }; }, ids.foe)));
       check('the player\'s shots kill the bot on the host; both PCs show it (feed: "You" on the player\'s PC)', k[0].deaths >= 1 && k[1].deaths >= 1 && /^You>/.test(k[1].feed) && !/^You>/.test(k[0].feed), JSON.stringify(k));
       // a grenade from the player: thrown by the host's simulation, seen flying and exploding on both
-      await B.evaluate(() => { const G = window.__range.modeGame(); G.h.look.setAngles(90, -10); G.key('KeyG', true); G.key('KeyG', false); });
+      await B.evaluate(() => { const G = window.__range.modeGame(); G.h.look.setAngles(90, -10); G.key('KeyG', true); });
+      await run(0.4);
+      const matchFollow = await B.evaluate(() => { const g = window.__range.modeGame(); return g.camOverride === g.grenadeView.camera; });
+      await B.evaluate(() => window.__range.modeGame().key('KeyG', false));
+      await run(0.1);
+      check('Team Deathmatch online: hold follows the confirmed throw and release restores first person', matchFollow && await B.evaluate(() => { const g = window.__range.modeGame(); return g.camOverride !== g.grenadeView.camera; }));
       let flying = 0;
       for (let i = 0; i < 6; i++) { await run(0.1); flying = Math.max(flying, await B.evaluate(() => window.__range.modeGame().m.nades.live.length)); }
       await run(3);
       const booms = await B.evaluate(() => window.__range.modeGame().fx.length + (window.__range.modeGame().fx2 || []).length);
       check('a grenade thrown on the player\'s PC flies on the host and both see it', flying >= 1, 'flying ' + flying + ', effects ' + booms);
+      await A.evaluate(pid => {
+        const m = window.__range.modeGame().m, target = m.actors.find(actor => actor.id === pid);
+        const thrower = m.actors.find(actor => actor.alive && actor.team !== target.team);
+        target.protectUntil = 0;
+        thrower.nades = 2; thrower.nadeAt = 0;
+        const nade = m.nades.throw(thrower, 0, 0);
+        Object.assign(nade, { x: target.x, y: target.y + 0.65, z: target.z, vx: 0, vy: 0, vz: 0, end: m.t + 0.35 });
+      }, ids.pl);
+      await run(1);
+      const matchDeath = await B.evaluate(() => { const g = window.__range.modeGame(); return !!g.kc?.grenade && g.camOverride === g.grenadeView.camera; });
+      check('Team Deathmatch online: a grenade death follows the host-confirmed trajectory', matchDeath);
+      await A.evaluate(() => {
+        const game = window.__range.modeGame();
+        game.m.end(game.me.team, 'test');
+      });
+      await run(0.2);
+      const matchFinale = await B.evaluate(() => {
+        const game = window.__range.modeGame();
+        const replay = game.hud.end.dataset.finale === 'replay' && !!game.kc?.final;
+        game.hud.end.querySelector('.b-finale-replay button').click();
+        return { replay, results: game.hud.end.dataset.finale === 'results', rows: game.hud.endTable.children.length,
+          lineup: game.finale.lineup.children.length };
+      });
+      check('Team Deathmatch online: client sees the final kill, winning lineup and host leaderboard', matchFinale.replay && matchFinale.results && matchFinale.rows === 6 && matchFinale.lineup === 3, JSON.stringify(matchFinale));
       await A.evaluate(() => window.__range.modeGame().stop());
       await B.waitForFunction(() => !window.__range.modeGame().active, null, { timeout: 5000 }).catch(() => {});
       check('host leaving the match returns the player to the menu', await B.evaluate(() => !window.__range.modeGame().active));
@@ -1756,6 +1801,20 @@ try {
         const kinds = await Promise.all([A, B].map((p) => p.evaluate((i) => window.__range.modeGame().m.map.panels[i].kind, reinf.i)));
         check('the player holds Interact at a wall: the host reinforces it and both PCs show it reinforced', kinds[0] === 'reinforced' && kinds[1] === 'reinforced', JSON.stringify(kinds));
       } else check('found a soft wall to reinforce from inside', false, 'none');
+      await A.evaluate(() => {
+        const game = window.__range.modeGame();
+        const remote = game.m.actors.find(actor => actor.remote !== null && actor.remote !== undefined);
+        game.m.kill(remote, game.me);
+      });
+      await run(0.6);
+      const spectating = await B.evaluate(() => {
+        const game = window.__range.modeGame();
+        game.key('Space', true); game.key('Space', false);
+        window.__range.step(0.1, 60); window.__range.renderFrame();
+        return !game.me.alive && game.spectator?.team === game.me.team
+          && game.spectator?.alive && game.camOverride === game.spectatorCam;
+      });
+      check('Bomb online: an eliminated player follows a living teammate in first person', spectating);
       check('no page errors in either session', nerr.length === 0, nerr.join('\n'));
       await A.evaluate(() => window.__range.modeGame().stop());
     }
@@ -1835,6 +1894,21 @@ try {
       const r2 = await B.evaluate(() => { const Bt = window.__range.battle(); return { myDeaths: Bt.fighters.find((f) => f.id === Bt.net.myId).deaths, kc: Bt.lastKillCam }; });
       check('the host kills the player; the player\'s PC shows its own death', r2.myDeaths >= 1, JSON.stringify(r2));
       check('the player\'s PC replays the host shooting them (kill cam with recorded shots)', r2.kc && r2.kc.killer === 'Host' && r2.kc.frames > 20 && r2.kc.shots >= 1, JSON.stringify(r2.kc));
+      await A.evaluate(() => {
+        const battle = window.__range.battle(), host = battle.humans[0].f, bot = battle.bots[0].f;
+        battle.opts.killsToWin = battle.teamScore[host.team] + 1;
+        bot.protectUntil = 0;
+        battle._damage(bot, 500, host, 'head', battle.t);
+      });
+      await B.waitForFunction(() => window.__range.battle().hud.end.dataset.finale === 'replay');
+      const finale = await B.evaluate(() => {
+        const battle = window.__range.battle();
+        const killer = battle.kc?.killer.name;
+        battle.hud.end.querySelector('.b-finale-replay button').click();
+        return { killer, results: battle.hud.end.dataset.finale === 'results',
+          rows: battle.hud.endTable.children.length, lineup: battle.finale.lineup.children.length };
+      });
+      check('network Battle sends the final kill, winning lineup and leaderboard', finale.killer === 'Host' && finale.results && finale.rows === 3 && finale.lineup === 1, JSON.stringify(finale));
       await A.evaluate(() => window.__range.battleLeave());
       await run(0.3);
       const end = await B.evaluate(() => ({ active: window.__range.battle().active, status: document.getElementById('net-status').textContent }));

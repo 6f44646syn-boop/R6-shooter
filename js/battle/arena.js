@@ -17,6 +17,7 @@ import { BulletHoles } from '../scene/holes.js?v=8d0c421-mwbwze4w';
 import { mulberry32 } from '../core/prng.js?v=8d0c421-mwbwze4w';
 import { layoutSolids, layoutPieces, edgeSolids, span, piece, stairCount, rampCount } from './solids.js?v=8d0c421-mwbwze4w';
 import { CoreWorld, BODY_R, STEP, BODY_H, VAULT_MAX } from '../wasm/world.js?v=8d0c421-mwbwze4w';
+import { BLACKTIDE, ROYALE_MAP_ID } from './royale-map.js?v=blacktide-cover';
 
 export const HALF_X = 18, HALF_Z = 14, WALL_H = 4.5;
 // Landmark names for callouts, by kind of cover.
@@ -143,14 +144,15 @@ function mergeChunks(group, size = 22, bounds = null) {
 export class Arena {
   // mapId: a key of MAPS (maps.js).
   constructor(mapId = 'yard') {
-    const map = this.map = MAPS[mapId] || MAPS.yard;
-    this.mapId = MAPS[mapId] ? mapId : 'yard';
+    const map = this.map = mapId === ROYALE_MAP_ID ? BLACKTIDE : MAPS[mapId] || MAPS.yard;
+    this.mapId = map === BLACKTIDE || MAPS[mapId] ? mapId : 'yard';
     this.hx = map.hx; this.hz = map.hz; this.wallH = map.wallH;
     const HX = this.hx, HZ = this.hz, WH = this.wallH;
     const scene = this.scene = new THREE.Scene();
     scene.background = new THREE.Color(map.background);
     scene.fog = new THREE.Fog(...map.fog);
     this.quality = null;
+    this.detailBatches = [];
     this._tiers = { low: new Map(), high: new Map() };
     this._spec = new Map();     // standard material -> () => high material
     const L = (lo, hi) => { if (hi) this._spec.set(lo, hi); return lo; };
@@ -181,7 +183,7 @@ export class Arena {
     key.target.position.set(0, 0, 0);
     key.shadow.mapSize.set(2048, 2048);
     const S = Math.max(HX, HZ) + 6;
-    Object.assign(key.shadow.camera, { left: -S, right: S, top: S, bottom: -S, near: 1, far: 100 });
+    Object.assign(key.shadow.camera, { left: -S, right: S, top: S, bottom: -S, near: 1, far: Math.max(100, 2 * S) });
     key.shadow.bias = -0.0005; key.shadow.normalBias = 0.03;
     scene.add(key, key.target);
     this.key = key;
@@ -208,10 +210,14 @@ export class Arena {
     /* floor */
     const fl = map.floor();
     const roughTex = fl.rough && fl.rough.isTexture ? fl.rough : null;
-    for (const t of [fl.map, fl.normal, roughTex]) if (t) t.repeat.set(HX * 2 / (fl.tile || 2), HZ * 2 / (fl.tile || 2));
+    for (const t of [fl.map, fl.normal, roughTex]) if (t) {
+      t.repeat.set(HX * 2 / (fl.tileX || fl.tile || 2), HZ * 2 / (fl.tileZ || fl.tile || 2));
+      t.needsUpdate = true;
+    }
     const floorMat = L(new THREE.MeshLambertMaterial({ map: fl.map, color: fl.color ?? 0xffffff }),
       () => std({ map: fl.map, color: fl.color ?? 0xffffff, normalMap: fl.normal || null, roughnessMap: roughTex, roughness: roughTex ? 1 : (typeof fl.rough === 'number' ? fl.rough : 0.9), metalness: 0 }));
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(HX * 2, HZ * 2), floorMat);
+    floorMat.userData.keepInLow = !!fl.keepInLow;
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     scene.add(floor);
@@ -249,6 +255,20 @@ export class Arena {
       },
       floorPlane: (m, w, d, x, y, z) => { const p = add(new THREE.PlaneGeometry(w, d), m, x, y + yo, z); p.rotation.x = -Math.PI / 2; return p; },
       cone: (m, r, h, x, y, z, rx = 0) => { const c = add(new THREE.ConeGeometry(r, h, 10), m, x, y + yo, z); c.rotation.x = rx; return c; },
+      scatter: (geometry, m, placements, counts) => {
+        const mesh = new THREE.InstancedMesh(geometry, material(m), placements.length);
+        const transform = new THREE.Matrix4();
+        const scale = new THREE.Vector3(), tint = new THREE.Color();
+        placements.forEach(([x,y,z,sx,sy,sz,yaw=0,color], i) => {
+          mesh.setMatrixAt(i, transform.makeRotationY(yaw).scale(scale.set(sx,sy,sz)).setPosition(x,y + yo,z));
+          if (color !== undefined) mesh.setColorAt(i, tint.setHex(color));
+        });
+        mesh.computeBoundingSphere();
+        mesh.castShadow = !!m.castShadow;
+        mesh.receiveShadow = true;
+        scene.add(mesh);
+        if (counts) this.detailBatches.push({mesh,counts});
+      },
       cylinder: (m, r, h, x, y, z, seg = 16) => add(new THREE.CylinderGeometry(r, r, h, seg), m, x, y + yo, z),
       tubeX: (m, r, len, x, y, z) => { const c = add(new THREE.CylinderGeometry(r, r, len, 10), m, x, y + yo, z); c.rotation.z = Math.PI / 2; return c; },
       tubeZ: (m, r, len, x, y, z) => { const c = add(new THREE.CylinderGeometry(r, r, len, 10), m, x, y + yo, z); c.rotation.x = Math.PI / 2; return c; },
@@ -275,6 +295,7 @@ export class Arena {
 
     /* solids: boxes, stair steps, ramp slices (js/battle/solids.js); here, how they look */
     this.boxes = layoutSolids(map);
+    this.baseBoxCount = this.boxes.length;
     const cover = new THREE.Group(), noShadow = new THREE.Group();
     const kindOf = (b) => map.kinds[b.kind] || {};
     const addBox = (b) => {
@@ -307,7 +328,7 @@ export class Arena {
       cover.add(new THREE.Mesh(wedgeGeo({ ...s, dir: b.dir, y0, y1: b.y1, base }, k.tile || 1), material({ ...k, color: b.color ?? k.color })));
     };
     for (const e of layoutPieces(map)) (e.stairs ? addStairs : e.ramp ? addRamp : addBox)(e);
-    if (map.extra) map.extra(ctx, map);
+    if (map.extra) map.extra(ctx, map, this.boxes);
     if (map.outside) map.outside(ctx, map);
     mergeChunks(cover);
     cover.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
@@ -405,6 +426,7 @@ export class Arena {
     if (rain) { near = Math.min(near, 12); far = Math.min(far, 60); col.lerp(new THREE.Color(0x6a7078), 0.6); }
     if (a.night) { col.multiplyScalar(map.indoor ? 0.15 : 0.12).lerp(new THREE.Color(0x05070d), 0.5); near = Math.min(near, 4); far = Math.min(far, 45); }
     this.scene.fog.color.copy(col); this.scene.fog.near = near; this.scene.fog.far = far;
+    a.fogNear = near; a.fogFar = far;
     const bg = new THREE.Color(map.background);
     if (rain || a.fog) bg.lerp(col, 0.7);
     if (a.night) bg.copy(col);
@@ -532,6 +554,11 @@ export class Arena {
   /* ---------- graphics quality ---------- */
   setGraphics(q, renderer) {
     if (!['low', 'high', 'ultra'].includes(q)) q = 'standard';
+    const detail = ['low','standard','high','ultra'].indexOf(q);
+    for (const {mesh,counts} of this.detailBatches) {
+      mesh.count = Math.min(counts[detail], mesh.instanceMatrix.count);
+      mesh.visible = mesh.count > 0;
+    }
     const tier = q === 'low' ? 'low' : (q === 'high' || q === 'ultra') ? 'high' : null;
     if (tier === 'low' && !this._tiers.low.size) {
       this.scene.traverse((o) => { if (o.isMesh && !o.userData.ownMaterial) { const lo = o.userData.loMat || o.material; const f = flatMaterial(lo); if (f) this._tiers.low.set(lo, f); } });
@@ -571,18 +598,29 @@ export class Arena {
   }
 
   /* ---------- the map inside the Rust core ---------- */
+  setBuilds(boxes) {
+    void this.world;
+    this.boxes.splice(this.baseBoxCount, this.boxes.length, ...boxes);
+    if (this._world !== this._baseWorld) this._world.dispose();
+    this._world = boxes.length ? this._makeWorld(false) : this._baseWorld;
+  }
+
   // Collision, standing, vaulting, raycasts and pathfinding are answered by the core
   // (rust/core, through js/wasm/world.js): the same code the match modes use. Made on first
   // use, so an arena that is only looked at (a match mode's backdrop) never needs one.
   get world() {
     if (this._world) return this._world;
-    const map = this.map;
-    const code = (b) => ({ minX: b.minX, maxX: b.maxX, minY: b.minY, maxY: b.maxY, minZ: b.minZ, maxZ: b.maxZ });
-    // Nothing is stood on within 1.6 m of a ceiling; outdoors there is no such limit.
-    this._world = new CoreWorld({ hx: this.hx, hz: this.hz, wallH: map.ceiling ? this.wallH : Infinity, ceil: map.ceiling ? this.wallH : 0, solids: [...this.boxes.map(code), ...edgeSolids(this.hx, this.hz)], hazards: this.hazards });
+    this._world = this._baseWorld = this._makeWorld(true);
     const n = this._world.navNodes();
     this.nodeX = n.x; this.nodeZ = n.z; this.nodeY = n.y; this.nodeCount = this._world.nodeCount;
     return this._world;
+  }
+  _makeWorld(nav) {
+    const map = this.map;
+    const code = (b) => ({ minX: b.minX, maxX: b.maxX, minY: b.minY, maxY: b.maxY, minZ: b.minZ, maxZ: b.maxZ });
+    // Nothing is stood on within 1.6 m of a ceiling; outdoors there is no such limit.
+    return new CoreWorld({ hx: this.hx, hz: this.hz, wallH: map.ceiling ? this.wallH : Infinity,
+      ceil: map.ceiling ? this.wallH : 0, solids: [...this.boxes.map(code), ...edgeSolids(this.hx, this.hz)], hazards: this.hazards, nav });
   }
   // Boxes in the grid cells within r of a point (each once).
   near(x, z, r, out = []) {
@@ -644,14 +682,38 @@ export class Arena {
   // The core keeps one node per 0.5 m cell and level you can stand on (the floor, a box top,
   // a stair tread, a ramp, an upper floor); nodeX / nodeZ / nodeY are copies of them.
   // The node at (x, z) you would stand on with feet near y (or -1).
-  nodeAt(x, z, y = 0) { return this.world.nodeAt(x, z, y); }
+  nodeAt(x, z, y = 0) { void this.world; return this._baseWorld.nodeAt(x, z, y); }
   walkable(x, z, y = 0) { return this.nodeAt(x, z, y) >= 0; }
   _nearestNode(x, z, y = 0) { return this.world.nearestNode(x, z, y); }
   // Can a body walk straight from a to b (each [x, z, y]), stepping and dropping as it goes?
   clearWalk(a, b) { return this.world.clearWalk(a, b); }
   // A* over the nodes, then string-pulled. Returns waypoints [[x, z, y], ...] ending at the
   // goal (or [] if unreachable).
-  findPath(ax, az, bx, bz, ay = 0, by = 0) { return this.world.path(ax, az, ay, bx, bz, by); }
+  findPath(ax, az, bx, bz, ay = 0, by = 0) {
+    const world = this.world;
+    if (this.mapId !== ROYALE_MAP_ID) return world.path(ax, az, ay, bx, bz, by);
+    const base = this._baseWorld;
+    if (base.clearWalk([ax, az, ay], [bx, bz, by]) &&
+      (world === base || (Math.abs(ay - by) < .1 && world.walkClear(ax, az, bx, bz, BODY_R + .08, ay)))) return [[bx,bz,by,0]];
+    if (world.nodeCount) return world.path(ax, az, ay, bx, bz, by);
+    const path = base.path(ax, az, ay, bx, bz, by);
+    const builds = this.boxes.slice(this.baseBoxCount);
+    let from = [ax,az,ay];
+    for (const to of path) {
+      const [x,z,y] = from;
+      const crossesBuild = builds.some(b =>
+        b.minX < Math.max(x,to[0]) + BODY_R && b.maxX > Math.min(x,to[0]) - BODY_R &&
+        b.minZ < Math.max(z,to[1]) + BODY_R && b.maxZ > Math.min(z,to[1]) - BODY_R &&
+        b.minY < Math.max(y,to[2]) + BODY_H && b.maxY > Math.min(y,to[2]) + STEP);
+      if (crossesBuild) {
+        // Keep edits cheap. Build fresh navigation only when an actual route may cross a piece.
+        world.buildNavigation();
+        return world.path(ax, az, ay, bx, bz, by);
+      }
+      from = to;
+    }
+    return path;
+  }
 
   /* ---------- cover spots and spawns ---------- */
   // Spots beside cover a bot can stand at: { x, z, y, low (crouch-high cover), bx, bz }.

@@ -76,6 +76,58 @@ node tools/serve.mjs
 
 Then open http://localhost:8080/. (Any static server works, e.g. `python -m http.server 8080`.)
 
+## Battle Royale side project
+
+Keep this mode on `feature/battle-royale`, separate from `main` and the live release.
+In the local game, choose **Battle Royale** and deploy directly to **Blacktide Island**,
+a 160 × 128 m map exclusive to the mode. One human and 20 bots compete individually.
+Each fighter has one life, and the safe zone shrinks until one remains. The island has
+five climbable hills, solid tree trunks and rock cover, and bushes for visual concealment.
+Larger village houses and two warehouses have entrances on both sides. Crates and
+barriers provide cover between the landmarks.
+
+Deployment skips weapon selection. Every fighter starts without a gun or grenades and
+gets them from the island's 33 chests. Each chest the player opens gives six building
+materials. The player's starting pickaxe harvests wall
+materials, damages nearby opponents, and breaks built cover. The hotbar holds the pickaxe
+and up to four guns, retains each gun's loaded ammo, and shows remaining materials.
+With a full hotbar, a new gun replaces the equipped gun or the last slot if the pickaxe
+is selected. Default controls:
+
+| Input | Action |
+|---|---|
+| F | Open a nearby chest |
+| Left mouse while unarmed, or K at any time | Swing the pickaxe |
+| 1–5 | Equip the pickaxe or a gun from the hotbar |
+| Z / B | Cycle wall, ramp and cone / place the selected piece |
+| Middle mouse while aiming at your build | Open the editor |
+| Left mouse in the editor | Hold to select or drag across panels, then release to apply |
+| 1–4 in the editor | Apply the listed preset shape |
+| R in the ramp editor | Rotate the ramp a quarter-turn |
+| V / right mouse in the editor | Reset the grid / cancel the edit |
+
+Walls have a 3×3 grid for windows and doorways. The ramp's 2×2 grid can remove
+sections, and the cone's 2×2 grid can raise or flatten individual quarters.
+Aim along a ramp near its top and place another ramp to snap it to the climb.
+A connected climb supports ten ramps.
+Bots can place walls when taking fire. They shoot destructible walls that block a
+recently seen opponent.
+
+The graphics presets keep the same terrain, trails, landmarks, and collision. Low
+keeps the landmark detail with sparse ground clutter. Standard adds grass and stones.
+High and Ultra increase foliage density and add wildflowers when the Enhanced Graphics
+pack is installed.
+The **Battle Royale render distance** slider under **Settings → View** sets how far
+the arena is drawn, from 45 to 200 metres.
+
+One chest has a chance to hold the Pirate Token in 1 in 1,000 matches. Collecting it
+unlocks all nine Black Ice skins on the local profile and in its save code. A completed
+match shows the final recorded kill, winner lineup, and placement leaderboard.
+
+Run `npm run test:royale` with Playwright installed to check deployment, chest-only
+loadouts, inventory switching, pickaxe hits and harvesting, all three build editors,
+the token unlock, and a full bot match.
+
 ## Deploy to GitHub Pages
 
 The repository root is the site: `index.html` is at the top and every URL is relative, so it

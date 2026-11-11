@@ -38,7 +38,8 @@ export class CoreWorld {
     e.rc_world_build(this.id);
     if (o.careful === false) e.rc_nav_careful(this.id, 0);
     if (o.vaults === false) e.rc_nav_vaults(this.id, 0);
-    this.nodeCount = o.nav === false ? 0 : e.rc_nav_build(this.id, this.r);
+    this.nodeCount = 0;
+    if (o.nav !== false) this.buildNavigation();
     this.hit = -1; this.axis = 1;
   }
   // Free the core's copy (otherwise it is freed when this object is garbage collected).
@@ -105,6 +106,8 @@ export class CoreWorld {
   setAlive(i, alive) { this.e.rc_set_alive(this.id, i, alive ? 1 : 0); }
 
   /* ---------- navigation ---------- */
+  buildNavigation() { this.nodeCount = this.e.rc_nav_build(this.id, this.r); }
+
   // Every node as { x, z, y (Float32Array), open (Uint8Array) }.
   navNodes() {
     const n = this.nodeCount, x = new Float32Array(n), z = new Float32Array(n), y = new Float32Array(n), open = new Uint8Array(n);

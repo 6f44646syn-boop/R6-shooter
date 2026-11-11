@@ -40,11 +40,16 @@ export class BattleNades {
     n.mesh = this._mesh();
     this.b.arena.scene.add(n.mesh);
     this.live.push(n);
+    return n;
   }
   // Online (client): where the host's grenade went off.
   remoteBlast(m, t) {
-    for (const n of this.live) if (n.ghost && n.id === m.id) n.done = true;
-    this.b._blast(+m.x || 0, +m.y || 0, +m.z || 0, t);
+    const n = this.live.find(nade => nade.ghost && nade.id === m.id) || this.b.grenadeView.projectile(m.id);
+    const position = { x: +m.x || 0, y: +m.y || 0, z: +m.z || 0 };
+    if (n) n.done = true;
+    const track = n ? this.b.grenadeView.explode(n, t, position) : null;
+    this.b._blast(position.x, position.y, position.z, t);
+    return track;
   }
   _mesh() {
     const g = new THREE.Group();
@@ -91,13 +96,14 @@ export class BattleNades {
   }
   explode(n, t) {
     const B = this.b, A = B.arena, p = [n.x, n.y + 0.2, n.z], by = n.f;
+    const replay = B.grenadeView.explode(n, t);
     for (const g of B.fighters) {
       if (!g.alive || g.team === by.team) continue;
       const chest = [g.x, g.y + 1.0 - 0.3 * (g.crouch || 0), g.z], d = Math.hypot(chest[0] - p[0], chest[1] - p[1], chest[2] - p[2]);
       if (d > NADE.radius) continue;
       if (!A.sightLine(p, chest) && !A.sightLine(p, [g.x, g.y + 1.6, g.z])) continue;
       const dmg = d < NADE.lethal ? 300 : NADE.damage * Math.pow(1 - (d - NADE.lethal) / (NADE.radius - NADE.lethal), 1.4);
-      if (dmg > 1) B._damage(g, dmg, by, 'torso', t);
+      if (dmg > 1) B._damage(g, dmg, by, 'torso', t, replay);
     }
     B._noise(by, 'blast', 40, t);
     B._blast(n.x, n.y, n.z, t);

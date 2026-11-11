@@ -45,7 +45,7 @@ import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=8d0c421
 import { Battle } from './battle/battle.js?v=8d0c421-mwbwze4w';
 import { initCore, coreLoaded } from './wasm/core.js?v=8d0c421-mwbwze4w';
 import { createJoinRequest, acceptJoin } from './net/link.js?v=8d0c421-mwbwze4w';
-import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode } from './net/relay.js?v=8d0c421-mwbwze4w';
+import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt } from './net/relay.js?v=8d0c421-mwbwze4w';
 import { Profile, WIN_POINTS } from './core/profile.js?v=8d0c421-mwbwze4w';
 import { skinFits, skinById } from './core/skins.js?v=8d0c421-mwbwze4w';
 import { PackUI } from './ui/packs.js?v=8d0c421-mwbwze4w';
@@ -54,6 +54,7 @@ import { effectiveGraphics, needsPack, maxMode } from './render/quality.js?v=8d0
 import { GraphicsUI } from './ui/graphics-ui.js?v=8d0c421-mwbwze4w';
 import { PerfHud } from './ui/perf-hud.js?v=8d0c421-mwbwze4w';
 import { WorldPost } from './render/world-post.js?v=8d0c421-mwbwze4w';
+import { rankOf, rankedSummary, ratingOf, rankedChange, validRankedTicket, verifyRankedResult } from './core/ranked.js?v=m11-ranked';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -886,10 +887,12 @@ async function boot(data) {
   function battleDeps() {
     return {
       renderer, settings, controls, guns: data.guns, sfx, worldPost,
-      opticFor: (g) => catalogue.byId.get(savedOptic(g)), adsVFov, baseDpc, now: clockNow,
+      opticFor: (g) => catalogue.byId.get(savedOptic(g)),
+      opticById: (id, g) => catalogue.byId.get(g.optics.includes(id) ? id : g.defaultOptic), adsVFov, baseDpc, now: clockNow,
       slotOf: (g) => slotIn(data.guns, g), onEnd: () => lock.exit(), hudRoot: $('app'),
       skinOf: (g) => equippedSkin(slotIn(data.guns, g)),
       voice: voices,
+      onPirateToken: () => profile.unlockBlackIce(),
       onNetLost: (msg) => { netReset(); leaveBattle(); netStatus(msg, 'bad'); },
       onPoints: (kind, head) => (kind === 'kill' ? profile.addKill(head) : profile.addPoints(WIN_POINTS)),
     };
@@ -905,13 +908,19 @@ async function boot(data) {
   function startBattle() {
     if (needCore(startBattle)) return;
     controls.release();
-    const B = settings.battle;
-    if (B.opponent === 'bots' && B.bots < 1) { flashNotice('Choose at least one bot.'); return; }
+    const royale = flow.mode === 'royale';
+    const B = royale ? { ...settings.battle, opponent: 'bots' } : settings.battle;
+    if (!royale && B.opponent === 'bots' && B.bots < 1) { flashNotice('Choose at least one bot.'); return; }
     if (B.opponent === 'net') {
       if (net.role === 'client') { flashNotice('Only the host can start a network battle.'); return; }
+      if (net.peers.some(peer => !peer.ready)) { flashNotice('Wait for everyone to finish joining.'); return; }
       if (net.role === 'host' && netMode() !== 'battle') {
         if (!net.peers.length) { flashNotice('Wait for at least one player to join first.'); return; }
-        startMode(netMode(), { net: { hostName: 'Host', peers: net.peers.map((e) => ({ link: e.link, name: e.name, op: e.ops && e.ops[netMode()], side: e.side, attach: e.attachMap, skin: e.skin })) } });
+        const mode = netMode(), ranked = mode === 'bomb' && $('net-ranked').checked;
+        const peers = net.peers.map(e => ({ link: e.link, name: e.name, op: e.ops?.[mode], side: e.side,
+          attach: e.attachMap, skin: e.skin, spectator: e.spectator, rating: e.rating }));
+        net.hub?.ranked(null);
+        startMode(mode, { ranked, net: { hostName: 'Host', rating: profile.rating, peers } }).then(() => netUi());
         return;
       }
       if (net.role !== 'host' || (!net.peers.length && B.bots < 1)) { flashNotice('Host a game and connect at least one player (or add bots) first.'); return; }
@@ -919,12 +928,13 @@ async function boot(data) {
     if (!battle) {
       battle = new Battle(battleDeps());
       battle.hud.again.addEventListener('click', () => { startBattle(); });
-      battle.hud.leave.addEventListener('click', leaveBattle);
+      battle.hud.leave.addEventListener('click', leaveBattleResults);
     }
     weapon.releaseTrigger(); setAds(false); player.releaseKeys();
     try {
-      battle.start({ opponent: B.opponent, bots: B.bots, level: B.level, killsToWin: B.kills, map: B.map, night: B.night, weather: B.weather, fog: B.fog, p1Gun: state.gun, p2Gun: data.guns[Math.min(B.p2Gun, data.guns.length - 1)],
-        hostName: 'Host', remotes: B.opponent === 'net' ? net.peers.map((e) => ({ link: e.link, name: e.name, gunIndex: e.gunIndex, attach: e.attach, skin: e.skin })) : [] });
+      battle.start({ royale, opponent: B.opponent, bots: B.bots, level: B.level, killsToWin: B.kills, map: B.map, night: B.night, weather: B.weather, fog: B.fog, p1Gun: state.gun, p2Gun: data.guns[Math.min(B.p2Gun, data.guns.length - 1)],
+        hostName: 'Host', spectators: B.opponent === 'net' ? net.peers.filter(e => e.spectator).map(e => e.link) : [],
+        remotes: B.opponent === 'net' ? net.peers.filter(e => !e.spectator).map((e) => ({ link: e.link, name: e.name, gunIndex: e.gunIndex, attach: e.attach, skin: e.skin })) : [] });
     } catch (err) {
       // Usually a half-updated page (old files still cached): say so instead of doing nothing.
       console.error(err);
@@ -934,7 +944,8 @@ async function boot(data) {
     }
     $('hud').hidden = true;
     flow.inGame = true;
-    $('pause-title').textContent = 'Battle paused';
+    $('pause-title').textContent = royale ? 'Battle Royale paused' : 'Battle paused';
+    if (royale && testMode) $('menu').hidden = true;
     if (!testMode) startLock();
   }
   // The match modes (Team Deathmatch, Capture the Flag, Bomb) run in their own game.
@@ -963,6 +974,11 @@ async function boot(data) {
     rig.setGun(state.gun, state.gunIndex, state.optic);
     resize();
   }
+  function leaveBattleResults() {
+    const royale = !!battle?.royale;
+    leaveBattle();
+    if (royale) { flow.inGame = false; showPage('mode'); $('menu').hidden = false; }
+  }
   $('battle-btn').addEventListener('click', startBattle);
 
   /* ---------- network lobby (join codes, no server) ---------- */
@@ -985,12 +1001,92 @@ async function boot(data) {
     $('net-host').hidden = $('net-join').hidden = !!net.role;
     $('net-game-box').hidden = net.role !== 'host';
     $('net-reset').hidden = !net.role;
-    const names = net.peers.length ? net.peers.map((e) => e.name + ' (' + data.guns[e.gunIndex].name + ')').join(', ') : 'none yet';
+    $('net-watch-field').hidden = net.role === 'host';
+    $('net-watch').disabled = !!net.link || net.busy;
+    $('net-rank-search').hidden = !relay || net.role === 'host' || !!net.link;
+    $('net-rank-games').hidden = $('net-rank-search').hidden || !$('net-rank-games').children.length;
+    rankedProfileUi();
+    refreshRankedListing();
+    if (!$('net-panel').hidden && rankPending.size) void refreshRankedReceipts();
+    const names = net.peers.length ? net.peers.map(e => e.name + ' (' + (e.spectator ? 'spectator' : data.guns[e.gunIndex].name) + ')').join(', ') : 'none yet';
     $('net-players').textContent = names;
     $('relay-players').textContent = names;
     const waiting = settings.battle.opponent === 'net' && net.role === 'client';
     $('battle-btn').disabled = waiting && !(battle && battle.active);
     if (waiting && !(battle && battle.active)) $('battle-btn').textContent = net.link ? 'Waiting for the host to start' : 'Only the host starts the battle';
+  }
+  const rankPendingKey = 'recoilRange.rankedPending.v1';
+  const rankPending = new Map();
+  const hostedReceipts = new Map();
+  let rankRefreshAt = 0;
+  function restoreRankedTickets() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(rankPendingKey) || '[]');
+      for (const pending of saved.slice(0, 20)) {
+        if (pending.expires > Date.now() && validRankedTicket(pending.ticket)) rankPending.set(pending.ticket.id, pending);
+      }
+    } catch { /* missing or invalid local data */ }
+  }
+  function saveRankedTickets() {
+    try { localStorage.setItem(rankPendingKey, JSON.stringify([...rankPending.values()].slice(-20))); } catch { /* storage blocked */ }
+  }
+  function rememberRankedTicket(client) {
+    const { ticket, id, link } = client;
+    if (!validRankedTicket(ticket) || !ticket.roster.some(([actorId]) => actorId === id)) return;
+    rankPending.set(ticket.id, { ticket, id, code: link.code, base: link.code ? relayUrl() : null, expires: Date.now() + 86_400_000 });
+    saveRankedTickets();
+  }
+  async function applyRankedPacket(packet) {
+    const id = packet.result?.id, pending = rankPending.get(id);
+    if (!pending) return;
+    const result = await verifyRankedResult(pending.ticket, packet);
+    if (!result || rankPending.get(id) !== pending) return;
+    const label = applyRankedChange(rankedChange(pending.ticket, result, pending.id));
+    rankPending.delete(id); saveRankedTickets();
+    if (label && modeGame?.over && modeGame.rankedClient?.ticket.id === id) modeGame.hud.endNote.textContent += ' ' + label;
+  }
+  function applyRankedChange(change) {
+    const entry = profile.applyRanked(change);
+    if (!entry) return '';
+    netUi();
+    net.link?.send({ k: 'rankProfile', rating: profile.rating });
+    const label = rankOf(profile.rating) + ' · ' + profile.rating + ' Elo (' + (entry.delta > 0 ? '+' : '') + entry.delta + ')';
+    netStatus(label, 'ok');
+    return label;
+  }
+  async function refreshRankedReceipts() {
+    if (Date.now() < rankRefreshAt) return;
+    rankRefreshAt = Date.now() + 45_000;
+    for (const [id, pending] of rankPending) {
+      if (pending.expires <= Date.now()) { rankPending.delete(id); continue; }
+      if (!pending.base || !pending.code) continue;
+      try {
+        const packet = await rankedReceipt(pending.base, pending.code, id);
+        if (packet) await applyRankedPacket(packet);
+      } catch { /* retry next time the lobby is opened */ }
+    }
+    saveRankedTickets();
+  }
+  restoreRankedTickets();
+  function rankedProfileUi() {
+    const crest = document.createElement('span');
+    crest.className = 'rank-crest';
+    crest.dataset.rank = rankOf(profile.rating).toLowerCase();
+    crest.setAttribute('aria-hidden', 'true');
+    $('net-rank-info').replaceChildren(crest, rankOf(profile.rating) + ' · ' + profile.rating + ' Elo · Stored on this profile');
+    $('net-rank-history').replaceChildren(...profile.rankedHistory.map(entry => {
+      const row = document.createElement('li');
+      row.textContent = entry.outcome + ' · ' + (entry.delta > 0 ? '+' : '') + entry.delta + ' Elo';
+      return row;
+    }));
+  }
+  function refreshRankedListing() {
+    if (!net.hub) return;
+    const available = netMode() === 'bomb' && $('net-ranked').checked && !(cur()?.active && !cur().over);
+    const players = [profile.rating, ...net.peers.filter(peer => !peer.spectator).map(peer => peer.rating)];
+    const capacity = Math.min(8, 2 * Math.max(1, Math.min(5, modePrefs.teamSize | 0)));
+    net.hub.ranked(available && net.peers.length < 7 && players.length < capacity ? { ...rankedSummary(players), players: players.length,
+      capacity, map: modePrefs.map.bomb } : null);
   }
   function netReset() {
     if (net.hub) net.hub.close();             // first, so players hear "the host left" (not "removed")
@@ -1010,7 +1106,14 @@ async function boot(data) {
   };
   $('net-copy-h').addEventListener('click', () => copy('net-out-h'));
   $('net-copy-j').addEventListener('click', () => copy('net-out-j'));
-  $('net-reset').addEventListener('click', () => { if (battle && battle.active && battle.net) leaveBattle(); netReset(); netStatus('Disconnected.'); });
+  $('net-reset').addEventListener('click', async () => {
+    const game = cur();
+    if (game?.active && (game.net || game.netRole)) {
+      if (game.rankedHost && !game.over) await game._finishRanked(game.me.team === 'A' ? 'B' : 'A', true);
+      leaveBattle();
+    }
+    netReset(); netStatus('Disconnected.');
+  });
 
   // Host: a player's link is open (direct or through the relay).
   function addPeer(link) {
@@ -1018,13 +1121,23 @@ async function boot(data) {
     net.peers.push(entry);
     link.onmessage = (m) => {
       if (m.k === 'hello') {
+        if (!entry.ready) {
+          entry.ready = true;
+          entry.spectator = m.spectator === true;
+          entry.rating = ratingOf(m.rating);
+        }
         entry.gunIndex = Math.min(data.guns.length - 1, Math.max(0, m.gun | 0)); entry.skin = Number.isInteger(m.skin) ? m.skin : null; entry.attach = typeof m.at === 'string' ? m.at.slice(0, 4) : null;
         // for the match modes: their operator per mode, Bomb side, and attachments per gun
         entry.ops = m.ops && typeof m.ops === 'object' ? Object.fromEntries(['tdm', 'ctf', 'bomb'].map((k) => [k, String(m.ops[k] || '').slice(0, 24)])) : {};
         entry.side = m.side === 'defend' ? 'defend' : m.side === 'attack' ? 'attack' : 'auto';
         entry.attachMap = m.atm && typeof m.atm === 'object' ? Object.fromEntries(Object.entries(m.atm).slice(0, 64).map(([k, v]) => [String(k).slice(0, 24), String(v).slice(0, 4)])) : null;
+        if (Array.isArray(m.pendingRanked)) for (const id of m.pendingRanked.slice(0, 20)) {
+          const packet = hostedReceipts.get(id);
+          if (packet) link.send(packet);
+        }
         netUi(); return;
       }
+      if (m.k === 'rankProfile') { entry.rating = ratingOf(m.rating); netUi(); return; }
       if (modeGame && modeGame.active && modeGame.netRole === 'host') { modeGame.onNet(link, m); return; }
       if (battle && battle.active && battle.net) battle.onNet(link, m);
     };
@@ -1040,8 +1153,9 @@ async function boot(data) {
   // Joiner: connected to the host.
   function joined(link) {
     net.request = null; net.link = link;
-    link.send({ k: 'hello', gun: state.gunIndex, at: state.gun.attach || null, skin: equippedSkin(state.gunIndex), ops: modePrefs.op, side: modePrefs.side, atm: attachMap() });
+    link.send({ k: 'hello', gun: state.gunIndex, at: state.gun.attach || null, skin: equippedSkin(state.gunIndex), ops: modePrefs.op, side: modePrefs.side, atm: attachMap(), rating: profile.rating, spectator: $('net-watch').value === 'spectator', pendingRanked: [...rankPending.keys()].slice(-20) });
     link.onmessage = (m) => {
+      if (m.k === 'mrankResult') { void applyRankedPacket(m); return; }
       if (m.k === 'start') { startClientBattle(m); return; }
       if (m.k === 'mstart') { startClientMatch(m); return; }
       if (m.k === 'stopped') { if (cur() && cur().active) { leaveBattle(); flow.inGame = false; showPage('setup'); $('menu').hidden = false; netStatus('The host ended the match. Still connected: wait for the next one.', 'ok'); } return; }
@@ -1165,7 +1279,7 @@ async function boot(data) {
     netUi();
     $('pause-title').textContent = 'The match has started';
     $('start-btn').disabled = false;
-    $('start-btn').textContent = 'Join the match';
+    $('start-btn').textContent = m.spectator ? 'Watch the match' : 'Join the match';
     if (!lock.locked) { closeArmory(); showPage('pause'); $('menu').hidden = false; }
   }
   function startClientBattle(m) {
@@ -1173,7 +1287,7 @@ async function boot(data) {
     if (!battle) {
       battle = new Battle(battleDeps());
       battle.hud.again.addEventListener('click', () => { startBattle(); });
-      battle.hud.leave.addEventListener('click', leaveBattle);
+      battle.hud.leave.addEventListener('click', leaveBattleResults);
     }
     weapon.releaseTrigger(); setAds(false); player.releaseKeys();
     battle.startClient(m, net.link);
@@ -1182,7 +1296,7 @@ async function boot(data) {
     netUi();
     $('pause-title').textContent = 'The battle has started';
     $('start-btn').disabled = false;
-    $('start-btn').textContent = 'Join the battle';
+    $('start-btn').textContent = m.spectator ? 'Watch the battle' : 'Join the battle';
     if (!lock.locked) { closeArmory(); showPage('pause'); $('menu').hidden = false; }
   }
 
@@ -1192,10 +1306,10 @@ async function boot(data) {
     flow.page = name;
     for (const p of document.querySelectorAll('#menu .page')) p.hidden = p.id !== 'page-' + name;
     const step = name === 'mode' ? 1 : name === 'setup' && !flow.setupFromPause ? 2 : name === 'ops' ? 3 : 0;
-    $('pause-loadout').hidden = MATCH_MODES.includes(flow.mode);
+    $('pause-loadout').hidden = MATCH_MODES.includes(flow.mode) || flow.mode === 'royale';
     $('menu').querySelector('.steps').hidden = !step;
     for (const sp of $('menu').querySelectorAll('.steps span')) sp.classList.toggle('on', Number(sp.dataset.step) === step);
-    const names = { range: 'Shooting range', bots: 'Battle vs bots', net: 'Network battle', tdm: 'Team Deathmatch', ctf: 'Capture the Flag', bomb: 'Bomb' };
+    const names = { range: 'Shooting range', bots: 'Battle vs bots', royale: 'Battle Royale', net: 'Network battle', tdm: 'Team Deathmatch', ctf: 'Capture the Flag', bomb: 'Bomb' };
     $('menu-crumbs').textContent = name === 'mode' ? 'Choose a mode' : name === 'pause' ? names[flow.mode] + ' (paused)' :
       name === 'setup' ? names[flow.mode] + ': settings' : name === 'ops' ? names[flow.mode] + ': operator' : name === 'packs' ? 'Skins & packs' : 'Controls';
     document.querySelectorAll('[aria-label="Main menu"] button').forEach(b=>b.setAttribute('aria-current', b.id === ({mode:'go-play',pause:'go-play',setup:'go-settings',controls:'go-controls',packs:'go-packs'}[name]) ? 'page' : 'false'));
@@ -1203,12 +1317,16 @@ async function boot(data) {
     if (name === 'setup') {
       $('range-setup').hidden = flow.mode !== 'range';
       $('battle-setup').hidden = flow.mode === 'range' || MATCH_MODES.includes(flow.mode);
+      $('b-kills-field').hidden = flow.mode === 'royale';
+      $('b-map-field').hidden = flow.mode === 'royale';
+      $('b-bots-field').hidden = flow.mode === 'royale';
+      $('royale-rules').hidden = flow.mode !== 'royale';
       $('modes-setup').hidden = !MATCH_MODES.includes(flow.mode);
       if (MATCH_MODES.includes(flow.mode)) modesUi();
       $('net-panel').hidden = flow.mode !== 'net';
       $('setup-title').textContent = flow.settingsOnly ? 'Settings' : names[flow.mode];
       $('match-settings-tab').hidden = flow.settingsOnly;
-      $('setup-next').textContent = flow.settingsOnly ? 'Done' : flow.setupFromPause ? 'Back to the game' : MATCH_MODES.includes(flow.mode) ? 'Next: choose your operator' : 'Next: choose your weapon';
+      $('setup-next').textContent = flow.settingsOnly ? 'Done' : flow.setupFromPause ? 'Back to the game' : flow.mode === 'royale' ? 'Deploy to Blacktide Island' : MATCH_MODES.includes(flow.mode) ? 'Next: choose your operator' : 'Next: choose your weapon';
       if (netInit) netUi();
     }
   }
@@ -1219,7 +1337,7 @@ async function boot(data) {
     // Setup starts with match options for each newly selected mode.
     selectSetupTab(0);
     if (modeGame && modeGame.active) leaveMode();
-    if (m !== 'range' && !MATCH_MODES.includes(m)) settings.battle.opponent = m;
+    if (m !== 'range' && m !== 'royale' && !MATCH_MODES.includes(m)) settings.battle.opponent = m;
     saveSettings(settings);
     showPage('setup');
   }
@@ -1232,6 +1350,7 @@ async function boot(data) {
   $('setup-next').addEventListener('click', () => {
     if (flow.settingsOnly) { flow.settingsOnly = false; showPage(flow.inGame ? 'pause' : 'mode'); return; }
     if (flow.setupFromPause) { flow.setupFromPause = false; showPage('pause'); }
+    else if (flow.mode === 'royale') startBattle();
     else if (MATCH_MODES.includes(flow.mode)) { showPage('ops'); renderOps(); }
     else openArmory('setup');
   });
@@ -1257,6 +1376,7 @@ async function boot(data) {
   function netGameUi() {
     const m = netMode(), P = modePrefs;
     $('net-mode').value = m;
+    $('net-ranked-field').hidden = m !== 'bomb';
     $('net-map-field').hidden = m === 'battle';
     if (m !== 'battle') {
       const maps = m === 'bomb' ? ['ranch', 'embassy', 'workshop'] : ['containers', 'winter', 'casino', 'school', 'yard'];
@@ -1264,10 +1384,32 @@ async function boot(data) {
       $('net-map').value = maps.includes(P.map[m]) ? P.map[m] : maps[0];
     }
     $('net-game-note').textContent = m === 'battle' ? 'Everyone for themselves on the Battle map above.' :
+      m === 'bomb' && $('net-ranked').checked ? 'Local Elo. Up to 5v5, Normal bots, 30 s prep and standard abilities. The host confirms results.' :
       'Players join teams' + (m === 'bomb' ? ' (each on the side they chose in Bomb\'s setup, if there is room)' : '') + '; bots fill the empty places. Team size, bot level' + (m === 'bomb' ? ', preparation time' : ', time') + ' and abilities are the ones set for this mode in its own settings. Each player uses the operator they last picked for it.';
   }
-  $('net-mode').addEventListener('change', () => { netModeVal = $('net-mode').value; try { localStorage.setItem('recoil-range-net-mode', netModeVal); } catch (e) { /* storage blocked */ } netGameUi(); });
-  $('net-map').addEventListener('change', () => { modePrefs.map[netMode()] = $('net-map').value; saveModePrefs(); });
+  $('net-mode').addEventListener('change', () => { netModeVal = $('net-mode').value; try { localStorage.setItem('recoil-range-net-mode', netModeVal); } catch (e) { /* storage blocked */ } netGameUi(); refreshRankedListing(); });
+  $('net-map').addEventListener('change', () => { modePrefs.map[netMode()] = $('net-map').value; saveModePrefs(); refreshRankedListing(); });
+  $('net-ranked').addEventListener('change', () => { netGameUi(); refreshRankedListing(); });
+  $('net-rank-search').addEventListener('click', async () => {
+    const list = $('net-rank-games'), button = $('net-rank-search');
+    button.disabled = true;
+    try {
+      const games = await rankedGames(relayUrl());
+      list.replaceChildren(...games.map(game => {
+        const join = document.createElement('button');
+        join.type = 'button';
+        join.textContent = (MAP_NAMES[game.map]?.split(' (')[0] || game.map) + ' · ' + game.average + ' Elo (' + game.low + '–' + game.high + ') · ' + game.players + '/' + game.capacity;
+        join.addEventListener('click', () => {
+          if (net.link || net.busy || net.role === 'host') return;
+          net.role = 'client'; $('relay-in').value = game.code; netUi(); void relayJoin();
+        });
+        return join;
+      }));
+      list.hidden = games.length === 0;
+      if (!games.length) netStatus('No ranked Bomb games are open.');
+    } catch (error) { netStatus(error.message, 'bad'); }
+    finally { button.disabled = false; }
+  });
   netGameUi();
   function modesUi() {
     const m = flow.mode, P = modePrefs;
@@ -1324,6 +1466,13 @@ async function boot(data) {
   function ensureModeGame() {
     if (!modeGame) {
       modeGame = new ModeGame({
+        onRanked: applyRankedChange,
+        onRankedTicket: rememberRankedTicket,
+        onRankedReceipt: packet => {
+          hostedReceipts.set(packet.result.id, packet);
+          if (hostedReceipts.size > 20) hostedReceipts.delete(hostedReceipts.keys().next().value);
+          net.hub?.rankedReceipt(packet);
+        },
         renderer, settings, controls, guns: data.guns, sfx, adsVFov, baseDpc, now: clockNow, slotOf: (g) => slotIn(data.guns, g), hudRoot: $('app'), worldPost,
         onEnd: () => lock.exit(), onPoints: (kind, head) => (kind === 'kill' ? profile.addKill(head) : profile.addPoints(WIN_POINTS)),
         skinOf: (g) => equippedSkin(slotIn(data.guns, g)),
@@ -1334,7 +1483,10 @@ async function boot(data) {
     }
   }
   // mode: tdm, ctf or bomb; extra.net: a network match hosted here ({ peers, hostName }).
+  let modeStarting = false;
   async function startMode(mode = flow.mode, extra = {}) {
+    if (modeStarting) return false;
+    modeStarting = true;
     controls.release();
     const m = mode, P = modePrefs;
     if (battle && battle.active) leaveBattle();
@@ -1347,7 +1499,7 @@ async function boot(data) {
       console.error(err);
       flashNotice('Could not start the match (' + (err && err.message || err) + '). Press Ctrl+F5 to load the latest version.', 9000);
       return false;
-    }
+    } finally { modeStarting = false; }
     $('hud').hidden = true;
     flow.inGame = true;
     $('pause-title').textContent = 'Match paused';
@@ -1493,7 +1645,7 @@ async function boot(data) {
   $('go-play').addEventListener('click', () => showPage(flow.inGame ? 'pause' : 'mode'));
   for (const button of document.querySelectorAll('[data-mode-filter]')) button.addEventListener('click', () => {
     for (const b of document.querySelectorAll('[data-mode-filter]')) b.setAttribute('aria-pressed',String(b === button));
-    const groups = {training:['range'],combat:['bots','tdm','ctf','bomb'],online:['net']};
+    const groups = {training:['range'],combat:['bots','royale','tdm','ctf','bomb'],online:['net']};
     for (const card of document.querySelectorAll('.mode-card')) card.hidden = button.dataset.modeFilter !== 'all' && !groups[button.dataset.modeFilter].includes(card.dataset.mode);
   });
   const opSearch = $('ops-search');

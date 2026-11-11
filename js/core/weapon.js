@@ -18,14 +18,15 @@ export class Weapon {
   }
 
   // Most rounds the gun can hold: magSize, plus one in the chamber if "chambered" is set.
-  get capacity() { return this.gun.magSize + (this.gun.chambered ? 1 : 0); }
+  get capacity() { return this.gun ? this.gun.magSize + (this.gun.chambered ? 1 : 0) : 0; }
 
   setGun(gun) {
     this.gun = gun;
-    this.interval = 60 / gun.rpm;
+    this.interval = gun ? 60 / gun.rpm : 0;
     this.ammo = this.capacity;
     this.reloading = false;
     this.nextShotTime = 0;
+    if (!gun) this.releaseTrigger();
   }
 
   pressTrigger(t) {
@@ -41,7 +42,7 @@ export class Weapon {
 
   // Returns true if a reload started.
   startReload(t) {
-    if (this.reloading || this.ammo === this.capacity) return false;
+    if (!this.gun || this.reloading || this.ammo === this.capacity) return false;
     // Reloading with a round still chambered gives magSize + 1 (guns with "chambered": true).
     this.reloadTo = this.gun.magSize + (this.gun.chambered && this.ammo > 0 ? 1 : 0);
     this.reloading = true;
@@ -66,7 +67,7 @@ export class Weapon {
       if (this.nextShotTime < this.reloadEnd) this.nextShotTime = this.reloadEnd;
       event = 'reloaded';
     }
-    if (!this.triggerHeld || this.reloading) return event;
+    if (!this.gun || !this.triggerHeld || this.reloading) return event;
     const semi = this.gun.fireMode === 'semi';
     while (this.ammo > 0 && this.nextShotTime <= t) {
       if (semi && !this.semiReady) break;

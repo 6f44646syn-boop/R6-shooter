@@ -16,6 +16,8 @@
 // A client keeps a copy of the match built from the host's roster (same actor ids) and never
 // steps it; it only applies what the host sends.
 
+import { spectatorVisibility } from '../replay/spectator.js?v=m11-ranked';
+
 const r2 = (v) => Math.round(v * 100) / 100;
 const r1 = (v) => Math.round(v * 10) / 10;
 const fin = (v, d = 0) => (Number.isFinite(+v) ? +v : d);
@@ -106,8 +108,14 @@ export class MatchHost {
     this.nextSnap = 0; this.lastState = ''; this.lastMap = -1; this.lastGadgets = '';
     this.shots = new Map();
   }
-  actorOf(link) { const p = this.peers.find((x) => x.link === link); return p ? this.g.m.actors.find((a) => a.id === p.actorId) : null; }
-  send(msg, fast = false) { for (const p of this.peers) p.link.send(msg, fast); }
+  actorOf(link) { const p = this.peers.find(x => x.link === link && !x.retired && !x.spectator); return p ? this.g.m.actors.find((a) => a.id === p.actorId) : null; }
+  send(msg, fast = false) {
+    for (const peer of this.peers) {
+      if (peer.spectator && msg.k !== 'mmap' && msg.k !== 'stopped') continue;
+      if (peer.retired && msg.k !== 'stopped') continue;
+      peer.link.send(msg, fast);
+    }
+  }
   // A message from a player.
   onMessage(link, msg) {
     const g = this.g, m = g.m, a = this.actorOf(link);
@@ -120,6 +128,9 @@ export class MatchHost {
       a.x = p.x; a.y = p.y; a.z = p.z;
       a.yaw = fin(msg.yaw, a.yaw); a.pitch = Math.max(-89, Math.min(89, fin(msg.pitch, a.pitch)));
       a.crouch = Math.max(0, Math.min(1, fin(msg.crouch))); a.speed = Math.max(0, Math.min(12, fin(msg.speed))); a.ads = Math.max(0, Math.min(1, fin(msg.ads)));
+      a.lean = Math.max(-1, Math.min(1, fin(msg.lean)));
+      a.recoilYaw = Math.max(-89, Math.min(89, fin(msg.recoilYaw)));
+      a.recoilPitch = Math.max(-89, Math.min(89, fin(msg.recoilPitch)));
       if (a.ab && a.ab.drone && msg.drone) this.droneIn(a, msg.drone);
     } else if (msg.k === 'shot') this.shot(a, msg);
     else if (msg.k === 'act') this.act(a, msg);
@@ -182,11 +193,26 @@ export class MatchHost {
     if (t < this.nextSnap) return;
     this.nextSnap = t + 1 / NET_SNAP_HZ;
     // positions and health of everyone, and moving things (grenades, drones, breaching rounds)
-    const f = m.actors.map((a) => [a.id, r2(a.x), r2(a.y), r2(a.z), r1(a.yaw), r1(a.pitch), r2(a.crouch), r2(a.ads || 0), Math.ceil(Math.max(0, a.hp)), a.alive ? 1 : 0, r1(a.speed || 0)]);
-    const mv = [...m.nades.live.map((n) => ['n', n.id, r2(n.x), r2(n.y), r2(n.z), r2(n.end)]),
+    const f = m.actors.map((a) => [a.id, r2(a.x), r2(a.y), r2(a.z), r1(a.yaw), r1(a.pitch), r2(a.crouch), r2(a.ads || 0), Math.ceil(Math.max(0, a.hp)), a.alive ? 1 : 0, r1(a.speed || 0), r2(a.lean || 0), r2(a.recoilYaw || 0), r2(a.recoilPitch || 0)]);
+    const mv = [...m.nades.live.map((n) => ['n', n.id, r2(n.x), r2(n.y), r2(n.z), r2(n.end), n.owner, r2(n.vx), r2(n.vy), r2(n.vz)]),
       ...m.ab.gadgets.filter((x) => x.alive && x.type === 'drone').map((x) => ['d', x.id, r2(x.x), r2(x.y), r2(x.z), r1(x.yaw), r1(x.pitch || 0)]),
       ...m.ab.projectiles.filter((x) => x.alive).map((x) => ['p', x.id, r2(x.x), r2(x.y), r2(x.z)])];
     this.send({ k: 'ms', t: r2(m.t), f, mv }, true);
+    const views = new Map();
+    for (const peer of this.peers) {
+      if (!peer.spectator) continue;
+      let view = views.get(peer.team);
+      if (!view) {
+        const visible = spectatorVisibility(m.actors, peer.team, m.map.world);
+        const allies = new Set(m.actors.filter(actor => actor.team === peer.team).map(actor => actor.id));
+        const marks = [...m.bb[peer.team].seen.values()].filter(mark => m.t - mark.t <= 2)
+          .map(mark => ({ id: mark.id, x: r2(mark.x), z: r2(mark.z) }));
+        view = { k: 'mwatch', t: r2(m.t), f: f.filter(row => visible.has(row[0])), score: m.rules.score,
+          mv: mv.filter(row => row[0] === 'n' && allies.has(row[6])), marks };
+        views.set(peer.team, view);
+      }
+      peer.link.send(view, true);
+    }
     // the match state when it changes (reliable)
     const st = JSON.stringify({ rules: rulesState(m.rules, m), actors: m.actors.map((a) => [a.id, a.kills, a.deaths, a.assists || 0, encode(a.carry, m, 1), encode(a.hold, m, 1), r2(a.protectUntil), r2(a.stunUntil), r2(a.slowUntil), r2(a.revealedUntil), r2(a.respawnAt || 0), a.reinf ?? 0, a.wire ?? 0, abState(a, m), a.op.id, a.gunData.id, a.name]), nades: m.nades.live.map((n) => n.id) });
     if (st !== this.lastState) { this.lastState = st; this.send({ k: 'mstate', s: st }); }
@@ -205,8 +231,14 @@ export class MatchHost {
       if (p) { a.forced = false; a.ignoreUntil = m.t + 0.3; p.link.send({ k: 'force', x: r2(a.x), y: r2(a.y), z: r2(a.z), yaw: r1(a.yaw) }); }
     }
     const out = [];
-    for (const e of list) { const x = encode(e, m, 0); if (x) out.push(x); }
+    for (const e of list) {
+      const event = e.type === 'end' ? { ...e, results: m.actors.map(actor => [actor.id, actor.kills, actor.deaths]) } : e;
+      const encoded = encode(event, m, 0);
+      if (encoded) out.push(encoded);
+    }
     if (out.length) this.send({ k: 'mev', e: out });
+    const end = out.find(event => event.type === 'end');
+    if (end) for (const peer of this.peers) if (peer.spectator) peer.link.send({ k: 'mev', e: [end] });
   }
 }
 
@@ -221,7 +253,14 @@ export class MatchClient {
   onMessage(msg) {
     const g = this.g, m = g.m;
     if (!m || !msg) return;
-    if (msg.k === 'ms') this.snap(msg);
+    if (g.viewOnly && !['mwatch', 'mmap', 'mev'].includes(msg.k)) return;
+    if (msg.k === 'mwatch' && g.viewOnly) {
+      const present = new Set(msg.f.map(row => row[0]));
+      for (const actor of m.actors) if (!present.has(actor.id)) actor.alive = false;
+      g.watchMarks = msg.marks || [];
+      m.rules.score = msg.score;
+      this.snap(msg);
+    } else if (msg.k === 'ms' && !g.viewOnly) this.snap(msg);
     else if (msg.k === 'mstate') this.state(JSON.parse(msg.s));
     else if (msg.k === 'mgad') this.gadgetsFrom(JSON.parse(msg.g));
     else if (msg.k === 'mmap') applyMapState(m.map, msg.p);
@@ -236,7 +275,7 @@ export class MatchClient {
       const a = m.actors.find((x) => x.id === row[0]);
       if (!a) continue;
       const alive = !!row[9];
-      if (a === me) {
+      if (a === me && !g.viewOnly) {
         // you: the host decides health and life; your PC decides where you are
         a.hp = row[8];
         if (alive && !a.alive) a.forcedSpawn = true;
@@ -244,11 +283,12 @@ export class MatchClient {
         continue;
       }
       a.x = row[1]; a.y = row[2]; a.z = row[3]; a.yaw = row[4]; a.pitch = row[5]; a.crouch = row[6]; a.ads = row[7]; a.hp = row[8]; a.alive = alive; a.speed = row[10];
+      a.lean = fin(row[11]); a.recoilYaw = fin(row[12]); a.recoilPitch = fin(row[13]);
     }
     // moving things: grenades, drones, breaching rounds
     const live = [];
     for (const r of msg.mv || []) {
-      if (r[0] === 'n') { let n = m.nades.live.find((x) => x.id === r[1]); if (!n) n = { id: r[1], alive: true }; Object.assign(n, { x: r[2], y: r[3], z: r[4], end: r[5], alive: true }); live.push(n); }
+      if (r[0] === 'n') { let n = m.nades.live.find((x) => x.id === r[1]); if (!n) n = { id: r[1], alive: true }; Object.assign(n, { x: r[2], y: r[3], z: r[4], end: r[5], owner: r[6], vx: fin(r[7]), vy: fin(r[8]), vz: fin(r[9]), alive: true }); live.push(n); }
       else { const x = this.gadgets.get(r[1]); if (x) { x.x = r[2]; x.y = r[3]; x.z = r[4]; if (r[0] === 'd') { x.yaw = r[5]; x.pitch = r[6]; } } }
     }
     m.nades.live = live;
@@ -291,6 +331,7 @@ export class MatchClient {
     const g = this.g, m = g.m, me = g.me;
     for (const raw of list) {
       const e = decode(raw, m);
+      if (g.viewOnly && e.type !== 'end') continue;
       if (e.type === 'msg') {
         // messages written for the host's player: say them for you
         if (e.roundStart) e.text = 'Round ' + e.roundStart + ': ' + (e.attack === me.team ? 'attack' : 'defend');
@@ -306,7 +347,7 @@ export class MatchClient {
     const me = this.g.me;
     if (t < this.nextSend) return;
     this.nextSend = t + 1 / 30;
-    const extra = {};
+    const extra = { lean: r2(h.lean), recoilYaw: r2(h.offset[0]), recoilPitch: r2(h.offset[1]) };
     if (me.ab && me.ab.drone && me.ab.drone.alive) extra.drone = [h.in.fwd ? 1 : 0, h.in.back ? 1 : 0, h.in.left ? 1 : 0, h.in.right ? 1 : 0];
     if (me.alive) this.send(ownState(me, extra), true);
     else if (extra.drone) this.send({ k: 'st', drone: extra.drone }, true);

@@ -63,6 +63,7 @@
         <div class="modes">
           <button type="button" class="mode-card" data-mode="range"><b>Shooting range</b><span>Practise spray control on a dummy, a paper target or red dots. Measured sprays, every sight.</span></button>
           <button type="button" class="mode-card" data-mode="bots"><b>Battle vs bots</b><span>An arena with cover against 1-6 bots: Easy, Medium or Hard. Kills earn points for packs.</span></button>
+          <button type="button" class="mode-card" data-mode="royale"><b>Battle Royale</b><span>You and 20 rivals on Blacktide Island. Loot chests and outlast the shrinking zone.</span></button>
           <button type="button" class="mode-card mode-new" data-mode="tdm"><b>Team Deathmatch</b><span>Your team against bots, 3v3 or 5v5. First team to 40 kills, or the most kills after the time.</span></button>
           <button type="button" class="mode-card mode-new" data-mode="ctf"><b>Capture the Flag</b><span>Take the enemy flag to your own stand while yours is home. First to 3 captures.</span></button>
           <button type="button" class="mode-card mode-new" data-mode="bomb"><b>Bomb</b><span>Attackers plant, defenders stop them. One life a round, abilities on, first to 4 rounds.</span></button>
@@ -90,8 +91,9 @@
           <p class="small">Target type, distance and red-dot options are in the <b>Settings → Range</b> tab (M and - / + change them in game too).</p>
         </section>
         <section class="set-group battle-setup" id="battle-setup">
+          <p id="royale-rules" class="small" hidden>Blacktide Island · 20 bots · One life. Start with a pickaxe. Find your guns and grenades in chests. The Pirate Token has a 1 in 1,000 chance to appear each match and unlocks all nine Black Ice skins.</p>
           <div class="set-grid">
-            <label class="field" for="b-map"><span>Map</span>
+            <label id="b-map-field" class="field" for="b-map"><span>Map</span>
               <select id="b-map"><option value="yard">Container Yard</option><option value="winter">Winter Cabin</option><option value="casino">Jesse's Casino</option><option value="school">School Basement</option></select></label>
             <label class="field" for="b-time"><span>Time</span>
               <select id="b-time"><option value="day">Day</option><option value="night">Night (use your flashlight: F)</option></select></label>
@@ -101,11 +103,11 @@
               <select id="b-fog"><option value="off">Off</option><option value="on">On (thick fog banks in High and Ultra)</option></select></label>
             <label class="field" for="b-voices"><span>Bot voices</span>
               <select id="b-voices"><option value="on">On (bots read their radio out loud)</option><option value="off">Off (text only)</option></select></label>
-            <label class="field" for="b-bots"><span>Bots</span>
+            <label id="b-bots-field" class="field" for="b-bots"><span>Bots</span>
               <select id="b-bots"><option>0</option><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option></select></label>
             <label class="field" for="b-level"><span>Bot level</span>
               <select id="b-level"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option><option value="terminator">Terminator (much harder)</option></select></label>
-            <label class="field" for="b-kills"><span>Kills to win</span>
+            <label id="b-kills-field" class="field" for="b-kills"><span>Kills to win</span>
               <select id="b-kills"><option>5</option><option selected>10</option><option>20</option><option>30</option></select></label>
           </div>
           <div id="net-panel" class="net-box" hidden>
@@ -118,10 +120,22 @@
               <button id="net-join" type="button">Join a game</button>
               <button id="net-reset" type="button" hidden>Disconnect</button>
             </div>
+            <label id="net-watch-field" class="field"><span>Join as</span>
+              <select id="net-watch"><option value="player">Player</option><option value="spectator">Spectator</option></select>
+            </label>
+            <div id="net-ranked-browser">
+              <p id="net-rank-info" class="small"></p>
+              <button id="net-rank-search" type="button">Find ranked Bomb games</button>
+              <div id="net-rank-games" class="net-box" hidden></div>
+              <details><summary>Ranked match history</summary><ol id="net-rank-history"></ol></details>
+            </div>
             <div id="net-game-box" class="set-grid" hidden>
               <label class="field" for="net-mode"><span>Game</span>
                 <select id="net-mode"><option value="battle">Battle (everyone for themselves)</option><option value="tdm">Team Deathmatch</option><option value="ctf">Capture the Flag</option><option value="bomb">Bomb</option></select></label>
               <label class="field" for="net-map" id="net-map-field"><span>Map</span><select id="net-map"></select></label>
+              <label id="net-ranked-field" class="field" hidden><span>Ranked Bomb</span>
+                <input id="net-ranked" type="checkbox">
+              </label>
               <p id="net-game-note" class="small"></p>
             </div>
             <div id="relay-host-box" class="net-box" hidden>

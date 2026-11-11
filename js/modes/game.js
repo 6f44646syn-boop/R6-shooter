@@ -2,6 +2,11 @@ import { applyMapArt } from '../render/pack-art.js?v=8d0c421-mwbwze4w';
 import { applyPackMaterials, packMats, envMap } from '../render/pack-materials.js?v=8d0c421-mwbwze4w';
 import { applyPackProps } from '../render/pack-props.js?v=8d0c421-mwbwze4w';
 import { sensoryFor } from '../balance/bomb-utility.js?v=8d0c421-mwbwze4w';
+import { createRankedSession, rankedChange, ratingOf, signRankedResult } from '../core/ranked.js?v=m11-ranked';
+import { SpectatorTools } from '../replay/spectator.js?v=m11-ranked';
+import { MatchFinale } from '../replay/finale.js?v=9dd0f7b-mwbioun8';
+import { GrenadeReplay } from '../replay/grenade.js?v=9dd0f7b-mwbioun8';
+import { replayCamera } from '../replay/view.js?v=9dd0f7b-mwbioun8';
 // Team Deathmatch, Capture the Flag and Bomb in the browser: draws the match simulation
 // (sim.js) and runs your player with the range's own systems (look, sensitivity, recoil,
 // spread, sights, weapon model: battle/human.js), at a fixed 60 Hz simulation.
@@ -15,7 +20,7 @@ import { initCore } from '../wasm/core.js?v=8d0c421-mwbwze4w';
 import { Match, TICK } from './sim.js?v=8d0c421-mwbwze4w';
 import { yawTo, wrap180, DEG } from './geom.js?v=8d0c421-mwbwze4w';
 import { Fighter } from '../battle/fighter.js?v=8d0c421-mwbwze4w';
-import { slotIn } from '../core/loadout.js?v=8d0c421-mwbwze4w';
+import { slotIn, effectiveGun } from '../core/loadout.js?v=8d0c421-mwbwze4w';
 import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=8d0c421-mwbwze4w';
 import { buildMapLook, panelTextures } from './look.js?v=8d0c421-mwbwze4w';
 import { Arena } from '../battle/arena.js?v=8d0c421-mwbwze4w';
@@ -51,7 +56,11 @@ export class ModeGame {
   constructor(deps) {
     this.deps = deps;
     this.active = false; this.paused = false; this.over = false; this.net = null;
+    this.grenadeView = new GrenadeReplay();
+    this.grenadeKills = new WeakMap();
     this._buildHud();
+    this.finale = new MatchFinale(this.hud.end, this.hud.endTable);
+    this.watch = new SpectatorTools(this.hud.root, this.deps.controls);
     this._buildTracers();
     this.o = [0, 0, 0]; this.d = [0, 0, 0];
   }
@@ -60,25 +69,43 @@ export class ModeGame {
   // o: { mode, map, difficulty, teamSize, abilities, minutes, headshot, op, side }
   // o.net (network host): { peers: [{ link, name, op, side, attach, skin }], hostName }.
   async start(o) {
+    if (o.ranked && o.net && o.mode === 'bomb') {
+      o = { ...o, teamSize: Math.max(1, Math.min(5, o.teamSize | 0)), prepTime: 30, difficulty: 'normal', abilities: true, headshot: 'lethal' };
+    }
     // the map and operator data, and the Rust core (collision, raycasts, pathfinding)
     const [mapData, ops, abilities] = await Promise.all([load('data/maps/' + o.map + '.json'), load('data/ops.json'), load('data/abilities.json'), initCore()]);
     this.stop();
     const d = this.deps;
     this.opts = o;
-    this.map = new MatchMap(mapData);
     const seed = o.seed ?? ((Math.random() * 2 ** 31) | 0);
-    const remotes = o.net ? teamsFor(o.mode, o.side, o.net.peers) : undefined;
+    const players = o.net?.peers.filter(peer => !peer.spectator);
+    const ranked = o.mode === 'bomb' && !!o.ranked && !!o.net;
+    if (ranked && (!players.length || players.length >= o.teamSize * 2)) {
+      throw new Error('Ranked Bomb needs at least two players and room for everyone.');
+    }
+    const remotes = players ? teamsFor(o.mode, o.side, players, ranked) : undefined;
+    this.map = new MatchMap(mapData);
     const mo = { map: this.map, mode: o.mode, guns: d.guns, ops, abilities, teamSize: o.teamSize, difficulty: o.difficulty, abilitiesOn: o.abilities, minutes: o.minutes, prepTime: o.prepTime, headshot: o.headshot, seed, human: { op: o.op, side: o.side }, attach: o.attach || null, remotes };
     this.m = new Match(mo);
     this.me = this.m.human();
     this.netHost = null; this.netClient = null; this.hostName = '';
+    this.rankedHost = null; this.rankedClient = null;
     if (o.net) {
       // Network match, hosted here: every player gets the exact roster (same ids) and options.
-      const peers = o.net.peers.map((p, i) => ({ link: p.link, actorId: (this.m.actors.find((a) => a.remote === i) || {}).id }));
+      const peers = players.map((p, i) => ({ link: p.link, actorId: this.m.actors.find(a => a.remote === i)?.id }));
+      if (ranked) {
+        const seats = this.m.actors.map(a => [a.id, a.team, ratingOf(a === this.me ? o.net.rating : players[a.remote]?.rating)]);
+        this.rankedHost = await createRankedSession(seats);
+      }
+      peers.push(...o.net.peers.filter(peer => peer.spectator).map(peer => ({ link: peer.link, spectator: true, team: this.me.team })));
       this.netHost = new MatchHost(this, peers);
       const roster = this.m.actors.map((a) => ({ id: a.id, team: a.team, op: a.op.id, name: a === this.me ? (o.net.hostName || 'Host') : a.name, human: a.human, attach: a.attachMap || null, skin: a === this.me ? (d.skinOf ? d.skinOf(a.gunData) : null) : a.skin ?? null }));
       const opts = { mode: o.mode, map: o.map, teamSize: o.teamSize, difficulty: o.difficulty, abilities: o.abilities, minutes: o.minutes, prepTime: o.prepTime, headshot: o.headshot, seed, side: o.side };
-      peers.forEach((p) => p.link.send({ k: 'mstart', o: opts, hostName: o.net.hostName || 'Host', roster: roster.map((r) => ({ ...r, you: r.id === p.actorId })) }));
+      for (const peer of peers) {
+        const you = peer.spectator ? this.me.id : peer.actorId;
+        peer.link.send({ k: 'mstart', o: opts, hostName: o.net.hostName || 'Host', spectator: !!peer.spectator,
+          ranked: peer.spectator ? null : this.rankedHost?.ticket, roster: roster.map(r => ({ ...r, you: r.id === you })) });
+      }
     }
     this._begin();
     return this;
@@ -96,6 +123,11 @@ export class ModeGame {
     this.m.events.length = 0;
     this.me = this.m.human();
     this.netHost = null; this.netClient = new MatchClient(this, link); this.hostName = msg.hostName || 'Host';
+    this.rankedHost = null;
+    this.viewOnly = msg.spectator === true;
+    if (this.viewOnly) for (const actor of this.m.actors) actor.alive = false;
+    this.rankedClient = msg.ranked ? { ticket: msg.ranked, id: this.me.id, link, retired: false } : null;
+    if (this.rankedClient) this.deps.onRankedTicket?.(this.rankedClient);
     this._begin();
     return this;
   }
@@ -104,24 +136,52 @@ export class ModeGame {
     this._buildScene();
     this._buildActors();
     this.prevT = d.now(); this.acc = 0; this.mapVersion = -1;
-    this.rec = { frames: [], shots: [], hits: [] }; this.kc = null; this.hud.kcBox.hidden = true;
+    this.rec = { version: 2, frames: [], shots: [], hits: [] }; this.kc = null; this.hud.kcBox.hidden = true;
     this.feed = []; this._renderFeed(); this.points = 0; this._stepT = 0; this.fx = []; this.fx2 = []; this.vigT = -9; this.wasJammed = false;
     this.active = true; this.paused = false; this.over = false;
     this.hud.root.hidden = false; this.hud.end.hidden = true;
+    this.hud.view.classList.toggle('mg-view-only', !!this.viewOnly);
     this._refreshPanels();
   }
   // Host: a message from a player's PC. Client: from the host.
   onNet(link, msg) {
     if (!this.active) return;
-    if (this.netHost) this.netHost.onMessage(link, msg);
+    if (this.netHost && msg.k === 'mrankLeave' && msg.id === this.rankedHost?.ticket.id) this.onLinkClosed(link, true);
+    else if (this.netHost) this.netHost.onMessage(link, msg);
     else if (this.netClient) this.netClient.onMessage(msg);
   }
   // Host: a player left. Their operator carries on as a bot.
-  onLinkClosed(link) {
+  onLinkClosed(link, retired = false) {
     if (!this.netHost) return;
     const a = this.netHost.actorOf(link);
-    this.netHost.peers = this.netHost.peers.filter((p) => p.link !== link);
+    if (this.rankedHost && a && !this.rankedHost.finished) {
+      const session = this.rankedHost;
+      session.left.add(a.id);
+      session.early ||= this.m.rules.rounds.length === 0;
+    }
+    if (retired) {
+      const peer = this.netHost.peers.find(p => p.link === link);
+      if (peer) peer.retired = true;
+    } else this.netHost.peers = this.netHost.peers.filter(p => p.link !== link);
     if (a) { a.remote = null; a.human = false; a.brain = new Brain(this.m, a, this.m.o.difficulty); this.m.emit({ type: 'msg', text: a.name + ' left: a bot takes over' }); }
+  }
+  _applyRating(change) {
+    const label = this.deps.onRanked?.(change);
+    if (label && this.active && this.over) this.hud.endNote.textContent += ' ' + label;
+  }
+  async _finishRanked(winner, abandon = false) {
+    const session = this.rankedHost, network = this.netHost;
+    if (!session || session.finished) return;
+    session.finished = true;
+    session.rounds = this.m.rules.rounds.length;
+    const local = this.me.id;
+    if (abandon) { session.left.add(local); session.early ||= session.rounds === 0; }
+    try {
+      const packet = await signRankedResult(session, winner);
+      for (const peer of network.peers) if (!peer.spectator) peer.link.send(packet);
+      this.deps.onRankedReceipt?.(packet);
+      this._applyRating(rankedChange(session.ticket, packet.result, local));
+    } catch (error) { console.warn('Ranked result could not be signed', error); }
   }
   get netRole() { return this.netHost ? 'host' : this.netClient ? 'client' : null; }
   // Free what the last match put on the graphics card. Maps are rebuilt for every match, and
@@ -149,16 +209,30 @@ export class ModeGame {
     if (this.map && this.map.dispose) this.map.dispose();
   }
   stop() {
-    if (this.active && this.netHost) this.netHost.send({ k: 'stopped' });
     packMats.lightActive = false;
+    if (this.active && this.rankedClient && !this.over && !this.rankedClient.retired) {
+      this.rankedClient.retired = true;
+      this.rankedClient.link.send({ k: 'mrankLeave', id: this.rankedClient.ticket.id });
+    }
+    if (this.active && this.netHost) {
+      if (this.rankedHost && !this.over) void this._finishRanked(this.me.team === 'A' ? 'B' : 'A', true);
+      this.netHost.send({ k: 'stopped' });
+    }
     this.deps.sfx.stopAll?.();
+    this.grenadeView.reset();
+    this.finale.reset();
+    this.watch.reset();
+    this.viewOnly = false; this.watchMarks = [];
+    this.lastKill = null;
+    this.spectatorId = null; this.spectator = null;
     if (this.scene) { this._disposeScene(); this.scene = null; }
-    this.active = false; this.paused = false;
+    this.active = false; this.paused = false; this.kc = null;
+    if (this.rec) { this.rec.frames.length = 0; this.rec.shots.length = 0; this.rec.hits.length = 0; }
     if (this.hud) { this.hud.root.hidden = true; this.hud.board.hidden = true; }
     if (this.h) this.h.releaseAll();
     if (this.deps.renderer) this.deps.renderer.shadowMap.autoUpdate = true;
   }
-  pause() { if (!this.active) return; this.deps.sfx.hearing?.reset(); if (this.hud) this.hud.disruption.style.opacity = '0'; this.paused = true; if (this.h) this.h.releaseAll(); }
+  pause() { if (!this.active) return; this.grenadeView.release(); this.watch.release(); this.deps.sfx.hearing?.reset(); if (this.hud) this.hud.disruption.style.opacity = '0'; this.paused = true; if (this.h) this.h.releaseAll(); }
   resume(t) { this.paused = false; this.prevT = t; }
   refreshGraphics() { this._applyGraphics(); if (this.h) { this.h.rig.rebuild(); this.h.rig.setGun(this.h.gun, this.deps.slotOf(this.h.gun), this.h.optic); this.h._buildReticle(); } }
   changeGun() {}
@@ -344,6 +418,8 @@ export class ModeGame {
   /* ---------- frame ---------- */
   update(t) {
     if (!this.active) return;
+    if (this.over && this.finale.active) { this._updateFinale(t); return; }
+    if (this.viewOnly) { this._updateWatch(t); return; }
     let dt = Math.min(0.1, Math.max(0, t - this.prevT));
     this.prevT = t;
     if ((this.paused && !this.netRole) || this.over) dt = 0;   // a network match runs on for everyone
@@ -374,22 +450,33 @@ export class ModeGame {
     if (me.alive) {
       me.x = h.f.x; me.z = h.f.z; me.y = h.f.y; me.vy = h.f.vy || 0; me.yaw = h.look.yaw; me.pitch = h.look.pitch;
       me.crouch = h.f.crouch; me.speed = Math.hypot(h.f.vx, h.f.vz); me.ads = h.adsE;
+      me.lean = h.lean; [me.recoilYaw, me.recoilPitch] = h.offset;
     }
     if (this.netClient) {
       // network client: the host simulates; the clock runs on between its snapshots
       if (!m.over) m.t += dt;
       if (this._lookChanged) { this._lookChanged = false; for (const a of m.actors) { const f = this.fig.get(a.id); f.setLook(a.gunData, Math.max(0, slotIn(this.deps.guns, a.gunData)), a === me && this.deps.skinOf ? this.deps.skinOf(a.gunData) : a.skin ?? null); } }
+      this.grenadeView.sample(m.nades.live, m.t);
+      this._networkGrenadeEvents();
+      this._record();
       this.netClient.update(t, h);
     } else {
       // the simulation at 60 Hz
       this.acc += dt;
       let n = 0;
-      while (this.acc >= TICK && n < 8) { m.step(); this.acc -= TICK; n++; }
+      while (this.acc >= TICK && n < 8) {
+        const grenades = m.nades.live, eventStart = m.events.length;
+        m.step();
+        if (grenades.length) this._grenadeEvents(grenades, eventStart);
+        this.grenadeView.sample(m.nades.live, m.t);
+        this._record();
+        this.acc -= TICK;
+        n++;
+      }
       if (n === 8) this.acc = 0;
       if (this.netHost) { this.netHost.events(m.events); this.netHost.update(t, dt); }
     }
     this._events(t);
-    this._record();
     this._refreshPanels();
     // draw everyone where the simulation has them
     for (const a of m.actors) {
@@ -423,8 +510,11 @@ export class ModeGame {
     }
     this._objectives(t);
     this._gadgets(t);
+    this.grenadeCam = null;
+    this.grenadeView.hide();
+    if (!me.alive) this.grenadeView.release();
     if (this.kc) this._replay(t);
-    this._camera(t);
+    this._camera(t, dt);
     this.deps.sfx.listen(this.camOverride || h.camera);
     if (!this.paused && !this.over && !this.kc) this._steps();
     this._updateTracers(t);
@@ -432,11 +522,51 @@ export class ModeGame {
     this._hud(t);
   }
 
+  _updateWatch(t) {
+    const dt = this.paused ? 0 : Math.min(0.1, Math.max(0, t - this.prevT));
+    this.prevT = t;
+    const m = this.m;
+    this._events(t);
+    if (this.over) return;
+    this._refreshPanels();
+    this._gadgets(t);
+    for (const actor of m.actors) {
+      const figure = this.fig.get(actor.id);
+      figure.x = actor.x; figure.y = actor.y; figure.z = actor.z;
+      figure.yaw = actor.yaw; figure.pitch = actor.pitch; figure.crouch = actor.crouch;
+      figure.alive = actor.alive; figure.health = actor.hp;
+      figure.updateVisual(t);
+      figure.outline.visible = false;
+      for (const leg of figure.legs) leg.o.visible = false;
+      figure.setGhost(false);
+    }
+    const mates = this._livingTeammates();
+    const focus = mates.find(actor => actor.id === this.spectatorId) || mates[0];
+    this.spectatorId = focus?.id ?? null;
+    this.spectator = this.watch.mode === 'follow' ? focus : null;
+    const free = this.watch.frame(dt, focus, this.map, m.actors, this.me.team, this.watchMarks);
+    this.camOverride = free || this.camOverride || this.h.camera;
+    if (this.spectator) {
+      if (!this.spectatorCam) this.spectatorCam = new THREE.PerspectiveCamera(70, 1, 0.03, 300);
+      this.camOverride = this.spectatorCam;
+      const figure = this.fig.get(focus.id);
+      this._firstPerson(this.spectatorCam, focus, focus.gunData, focus.op.sight, figure.skin, {
+        x: focus.x, y: focus.y, z: focus.z, eye: 1.6 - 0.48 * focus.crouch,
+        yaw: focus.yaw + (focus.recoilYaw || 0), pitch: focus.pitch + (focus.recoilPitch || 0),
+        ads: focus.ads || 0, lean: focus.lean || 0,
+      }, t, dt);
+    }
+    this.hud.score.textContent = (m.rules.score.A || 0) + ' : ' + (m.rules.score.B || 0);
+    this.hud.view.classList.add('mg-view-only');
+  }
   _events(t) {
     const m = this.m, me = this.me, sfx = this.deps.sfx;
     for (const e of m.events) {
-      if (e.type === 'shot') this._recShot(e);
-      if (e.type === 'shot' && e.wall && maxMode.on) this._impact(e.from, e.to);
+      if (e.type === 'shot') {
+        this._recShot(e);
+        if (e.wall && maxMode.on) this._impact(e.from, e.to);
+        if (this.spectator?.id === e.id && !this.kc) this.kcPuppet?.rig.kick();
+      }
       if (e.type === 'hit' && e.id === me.id) this.rec.hits.push({ t: m.t, by: e.by, zone: e.zone, dmg: e.dmg, kind: e.kind });
       if (e.type === 'shot' && e.id !== me.id) {
         const f = this.fig.get(e.id);
@@ -448,12 +578,18 @@ export class ModeGame {
         if (e.by === me.id) this._marker(e.zone === 'head' ? 'head' : 'hit', t);
       } else if (e.type === 'kill') {
         const v = m.actors.find((x) => x.id === e.id), k = m.actors.find((x) => x.id === e.by);
+        if (this.netClient) { v.alive = false; v.hp = 0; }
         this.feed.unshift({ k: k ? (k === me ? 'You' : k.name) : '', kc: k ? k.team : '', v: v === me ? 'You' : v.name, vc: v.team, head: e.head, knife: e.kind === 'knife', nade: e.kind === 'nade', t });
         this.feed.length = Math.min(this.feed.length, 5);
         this._renderFeed();
         if (k === me) { this._marker('kill', t); this._earn('kill', e.head); }
-        if (v === me) { this.killedBy = k ? k.name : 'the world'; if (k && k !== me) this._startKc(k, e, t); }
+        if (k && k !== v) this.lastKill = this._killClip(k, e);
+        if (v === me) {
+          this.killedBy = k ? k.name : 'the world';
+          if (k && k !== me) this._startKc(k, e, t, this.lastKill);
+        }
       } else if (e.type === 'spawn' && e.id === me.id) {
+        if (this.netClient) me.alive = true;
         this.deps.controls?.release();
         this.h.respawn(me.x, me.z, t, me.y);
         this.h.look.setAngles(me.yaw, 0);
@@ -461,7 +597,9 @@ export class ModeGame {
       } else if (e.type === 'end') {
         const won = e.winner === me.team;
         if (won) this._earn('win');
-        this._showEnd(e.winner === 'draw' ? 'Draw' : won ? 'Your team wins' : 'Your team loses', e.reason);
+        if (this.rankedHost) void this._finishRanked(e.winner);
+        const title = e.winner === 'draw' ? 'Draw' : this.viewOnly ? 'Team ' + e.winner + ' wins' : won ? 'Your team wins' : 'Your team loses';
+        this._showEnd(title, e.winner, t, e.results);
       } else if (e.type === 'msg') {
         if (!e.private || e.id === me.id) this._flash(e.text, t);
       } else if (e.type === 'swap') {
@@ -532,16 +670,76 @@ export class ModeGame {
   // hits you took.
   _record() {
     const m = this.m, R = this.rec;
-    if (this.kc) return;
-    const s = new Float32Array(m.actors.length * 7);
-    m.actors.forEach((a, i) => { s.set([a.x, a.z, a.yaw, a.pitch, a.crouch, a.alive ? 1 : 0, a.y], i * 7); });
-    R.frames.push({ t: m.t, s });
-    while (R.frames.length && R.frames[0].t < m.t - 5) R.frames.shift();
-    while (R.shots.length && R.shots[0].t < m.t - 5) R.shots.shift();
+    const last = R.frames.at(-1);
+    if (last && m.t - last.t < 1 / 30 - 1e-6) return;
+    const stride = 13, s = new Float32Array(m.actors.length * stride);
+    const loadouts = m.actors.map((a, i) => {
+      const h = a === this.me ? this.h : null, gun = a.gunData;
+      s.set([a.x, a.z, a.yaw, a.pitch, a.crouch, a.alive ? 1 : 0, a.y,
+        h ? h.adsE : a.ads || 0, h ? h.lean : a.lean || 0, slotIn(this.deps.guns, gun),
+        m.events.some(e => e.type === 'shot' && e.id === a.id) ? 1 : 0, h ? h.offset[0] : a.recoilYaw || 0, h ? h.offset[1] : a.recoilPitch || 0], i * stride);
+      return { attach: gun.attach || null, skin: this.fig.get(a.id)?.skin ?? null, optic: a.op.sight };
+    });
+    R.frames.push({ version: 2, stride, t: m.t, s, loadouts });
+    while (R.frames.length && R.frames[0].t < m.t - 6) R.frames.shift();
+    while (R.shots.length && R.shots[0].t < m.t - 6) R.shots.shift();
     while (R.hits.length && R.hits[0].t < m.t - 10) R.hits.shift();
   }
-  _recShot(e) { this.rec.shots.push({ t: this.m.t, id: e.id, to: e.to.slice(), team: e.team }); }
-  _startKc(k, e, t) {
+  _grenadeEvents(grenades, eventStart) {
+    const { events, t } = this.m;
+    const kills = [];
+    const matched = new Set();
+    for (let i = eventStart; i < events.length; i++) {
+      const event = events[i];
+      if (event.type === 'kill' && event.kind === 'nade') kills.push(event);
+      if (event.type !== 'boom' || !event.nade) continue;
+      // Each grenade emits its kill events before its boom. Position and owner
+      // disambiguate simultaneous blasts without guessing at a projectile ID.
+      const candidates = grenades.filter(n => !n.alive && n.end <= t && !matched.has(n)
+        && n.x === event.x && n.z === event.z && Math.max(0.15, n.y) === event.y
+        && kills.every(kill => !kill.by || kill.by === n.owner));
+      if (candidates.length === 1) {
+        const grenade = candidates[0];
+        matched.add(grenade);
+        const track = this.grenadeView.explode(grenade, t, event);
+        event.nadeId = grenade.id;
+        for (const kill of kills) {
+          kill.nadeId = grenade.id;
+          this.grenadeKills.set(kill, track);
+        }
+      }
+      kills.length = 0;
+    }
+  }
+  _networkGrenadeEvents() {
+    const { events, nades, t } = this.m;
+    if (!events.length) return;
+    for (const event of events) {
+      if (event.type === 'nadeThrow') this.grenadeView.accept(event.id, event.nade);
+      if (event.type !== 'boom' || event.nadeId === undefined) continue;
+      const grenade = this.grenadeView.projectile(event.nadeId);
+      if (grenade) this.grenadeView.explode(grenade, event.t ?? t, event);
+    }
+    for (const event of events) {
+      if (event.type !== 'kill' || event.nadeId === undefined) continue;
+      const track = this.grenadeView.track(event.nadeId);
+      if (track?.blast) this.grenadeKills.set(event, track);
+    }
+    this.grenadeView.sample(nades.live, t);
+  }
+  _recShot(e) { this.rec.shots.push({ t: e.t ?? this.m.t, id: e.id, to: e.to.slice(), team: e.team }); }
+  _killClip(killer, event) {
+    const { frames, shots } = this.rec;
+    const deathT = event.t ?? this.m.t;
+    const from = Math.max(frames[0]?.t ?? deathT, deathT - 2.1);
+    return {
+      by: killer.id, name: killer.name, deathT, from,
+      grenade: this.grenadeKills.get(event),
+      rec: { frames: frames.filter(frame => frame.t >= from - 1 / 30 && frame.t <= deathT + 1 / 30),
+        shots: shots.filter(shot => shot.t >= from && shot.t <= deathT) },
+    };
+  }
+  _startKc(k, e, t, clip = this._killClip(k, e)) {
     const m = this.m, me = this.me;
     const hits = this.rec.hits.filter((h) => m.t - h.t < 8);
     const by = new Map();
@@ -549,21 +747,24 @@ export class ModeGame {
     const report = [...by.entries()].map(([n, r]) => n + ': ' + r.n + ' hit' + (r.n > 1 ? 's' : '') + (r.head ? ' (' + r.head + ' head)' : '') + ', ' + Math.round(r.dmg)).join(' · ');
     const dist = Math.hypot(k.x - me.x, k.z - me.z);
     // 0.3 s pause, then the last 2.1 s and 0.3 s after: over before the 3 s respawn
-    this.kc = { by: k.id, deathT: m.t, start: t + 0.3, from: m.t - 2.1, si: 0, fi: 0 };
-    this.kc.si = this.rec.shots.findIndex((s) => s.t >= this.kc.from); if (this.kc.si < 0) this.kc.si = this.rec.shots.length;
+    this.kc = { ...clip, prevT: t + 0.3, start: t + 0.3, si: 0, fi: 0 };
     if (!this.kcCam) this.kcCam = new THREE.PerspectiveCamera(70, 1, 0.03, 300);
     const H = this.hud;
-    H.kcBox.replaceChildren(el('b', '', 'KILL CAM'), el('div', '', 'Killed by ' + k.name + ' (' + k.op.name + ' · ' + k.gun.name + (e.kind === 'knife' ? ' · knife' : e.head ? ' · headshot' : '') + ') from ' + dist.toFixed(0) + ' m'), el('div', 'small', 'Damage you took: ' + (report || 'none recorded')), el('div', 'small', 'Space: skip'));
+    H.kcBox.replaceChildren(el('b', '', this.kc.grenade ? 'GRENADE REPLAY' : 'KILL CAM'), el('div', '', 'Killed by ' + k.name + ' (' + k.op.name + ' · ' + k.gun.name + (e.kind === 'knife' ? ' · knife' : e.head ? ' · headshot' : '') + ') from ' + dist.toFixed(0) + ' m'), el('div', 'small', 'Damage you took: ' + (report || 'none recorded')), el('div', 'small', 'Space: skip'));
     H.kcBox.hidden = false;
   }
   _endKc() {
     this.kc = null; this.hud.kcBox.hidden = true;
-    this.rec.frames.length = 0; this.rec.shots.length = 0;
   }
   _replay(t) {
-    const kc = this.kc, m = this.m, R = this.rec;
-    if (this.me.alive) { this._endKc(); return; }        // respawned
+    const kc = this.kc, m = this.m, R = kc.rec || this.rec;
+    if (this.me.alive && !kc.final) { this._endKc(); return; }        // respawned
     if (t < kc.start) return;
+    if (kc.grenade) {
+      this.grenadeCam = this.grenadeView.replay(kc.grenade, t - kc.start, this.scene, this.map.world);
+      if (!this.grenadeCam) this._endKc();
+      return;
+    }
     const rt = kc.from + (t - kc.start);
     if (rt > kc.deathT + 0.3 || !R.frames.length) { this._endKc(); return; }
     // the recorded frames around the replay time
@@ -574,7 +775,7 @@ export class ModeGame {
     const f = B.t > A.t ? Math.max(0, Math.min(1, (rt - A.t) / (B.t - A.t))) : 0;
     const lerpYaw = (a, b) => a + wrap180(b - a) * f;
     m.actors.forEach((a, k) => {
-      const fig = this.fig.get(a.id), o = k * 7;
+      const stride = A.stride || 7, fig = this.fig.get(a.id), o = k * stride;
       if (o + 6 >= A.s.length) return;
       fig.x = A.s[o] + (B.s[o] - A.s[o]) * f; fig.z = A.s[o + 1] + (B.s[o + 1] - A.s[o + 1]) * f;
       fig.yaw = lerpYaw(A.s[o + 2], B.s[o + 2]); fig.pitch = A.s[o + 3] + (B.s[o + 3] - A.s[o + 3]) * f; fig.crouch = A.s[o + 4];
@@ -584,21 +785,46 @@ export class ModeGame {
       if (a.id === kc.by) {
         // the killer's eyes
         fig.group.visible = false;
-        this.kcCam.position.set(fig.x, fig.y + 1.6 - 0.45 * fig.crouch, fig.z);
-        this.kcCam.rotation.set(fig.pitch * DEG, -fig.yaw * DEG, 0, 'YXZ');
+        const L = j => A.s[o + j] + (B.s[o + j] - A.s[o + j]) * f;
+        const ads = stride > 7 ? L(7) : 0, lean = stride > 7 ? L(8) : 0;
+        const loadout = A.loadouts?.[k];
+        const gun = loadout ? effectiveGun(this.deps.guns[A.s[o + 9]] || a.gunData, loadout.attach) : a.gunData;
+        this._firstPerson(this.kcCam, a, gun, loadout?.optic, loadout?.skin, {
+          x: fig.x, y: fig.y, z: fig.z, eye: 1.6 - 0.48 * fig.crouch,
+          yaw: fig.yaw + (stride > 7 ? L(11) : 0), pitch: fig.pitch + (stride > 7 ? L(12) : 0), ads, lean,
+        }, t, Math.max(0, Math.min(0.1, t - kc.prevT)));
       }
       if (a === this.me) { fig.outline.visible = true; for (const l of fig.legs) l.o.visible = true; }   // you, in red
     });
+    kc.prevT = t;
     // their shots, as they happened
     while (kc.si < R.shots.length && R.shots[kc.si].t <= rt) {
       const s = R.shots[kc.si++];
       if (s.id !== kc.by) continue;
+      this.kcPuppet?.rig.kick();
       const c = this.kcCam.position, d = new THREE.Vector3(0, -0.12, -0.6).applyQuaternion(this.kcCam.quaternion);
       this._tracer(new THREE.Vector3(c.x + d.x, c.y + d.y, c.z + d.z), s.to, t, s.team);
-      this.deps.sfx.shot(this.m.actors.find((x) => x.id === s.id)?.gun.tone ?? 0.5, 0.5);
+      const gun = this.kcPuppet?.gun;
+      this.deps.sfx.shot(gun?.tone ?? 0.5, gun?.suppressed ? 0.225 : 0.5);
     }
   }
+  _firstPerson(camera, actor, gun, sight, skin, pose, t, dt) {
+    const d = this.deps, optic = d.opticById(sight || actor.op.sight, gun);
+    if (!this.kcPuppet) this.kcPuppet = new Human(new Fighter({ name: 'view', team: actor.team, color: 0xffffff, human: true }), 'mouse', d, d.slotOf);
+    const p = this.kcPuppet, key = [gun.id, gun.attach, optic.id, skin].join('|');
+    if (p._key !== key) {
+      p.deps = { ...d, opticFor: () => optic };
+      p.rig.forceSkin = skin ?? null;
+      p.setGun(gun);
+      p._key = key;
+    }
+    replayCamera(camera, pose, d.settings, d.adsVFov(optic));
+    p.rig.animations = d.settings.animations; p.rig.reloadP = -1; p.rig.sprinting = false; p.rig.bobY = 0;
+    p.rig.update(dt, pose.ads, t);
+    if (p.reticle) p.reticle.material.opacity = Math.min(1, Math.max(0, (pose.ads - 0.55) / 0.35));
+  }
   _earn(kind, head = false) {
+    if (this.viewOnly) return;
     const n = this.deps.onPoints ? this.deps.onPoints(kind, head) : 0;
     if (n) { this.points += n; this.hud.pts.textContent = '+' + n; this.hud.pts.className = 'b-points on'; this.ptsUntil = this.prevT + 1.2; }
   }
@@ -754,34 +980,53 @@ export class ModeGame {
       return true;
     });
   }
-  // The camera: your eyes, your drone, or (Bomb, down) a teammate's; jolt wobble, dread shake.
-  _camera(t) {
+  _canSpectate() {
+    return !this.kc && !this.over && (this.viewOnly || this.m.o.mode === 'bomb' && !this.me.alive);
+  }
+  _livingTeammates() {
+    return this.m.actors.filter(a => a.alive && a.team === this.me.team);
+  }
+  _cycleSpectator(direction) {
+    const mates = this._livingTeammates();
+    if (!mates.length) return;
+    const index = mates.findIndex(a => a.id === this.spectatorId);
+    this.spectatorId = mates[(Math.max(0, index) + direction + mates.length) % mates.length].id;
+  }
+  // The camera can follow your body, a drone, or a teammate in Bomb.
+  _camera(t, dt = 0) {
     const m = this.m, me = this.me, h = this.h, ab = me.ab;
     this._updateFx(t);
     if (!this.dcam) this.dcam = new THREE.PerspectiveCamera(80, 1, 0.03, 300);
     const cam = this.dcam;
     let over = null;
+    this.spectator = null;
+    if (me.alive) this.spectatorId = null;
     const d = ab && ab.drone && ab.drone.alive ? ab.drone : null;
-    if (this.kc && this.kcCam && t >= this.kc.start) over = this.kcCam;
+    const liveGrenade = me.alive && !this.paused && !this.over && this.grenadeView.live(m.t, this.map.world);
+    if (this.grenadeCam) over = this.grenadeCam;
+    else if (this.kc && this.kcCam && !this.kc.grenade && t >= this.kc.start) over = this.kcCam;
+    else if (liveGrenade) over = liveGrenade;
     else if (d) {
       cam.position.set(d.x, (d.y || 0.15) + 0.08, d.z);
       cam.rotation.set(d.pitch * DEG, -d.yaw * DEG, 0, 'YXZ');
       over = cam;
-    } else if (!me.alive && m.o.mode === 'bomb') {
-      const mates = m.actors.filter((a) => a.alive && a.team === me.team);
-      if (mates.length) {
-        const a = mates[(this.specIndex || 0) % mates.length];
-        const e = m.eye(a);
-        // a little behind and above the teammate's shoulder
-        const y = a.yaw * DEG;
-        cam.position.set(e[0] - Math.sin(y) * 1.6, e[1] + 0.35, e[2] + Math.cos(y) * 1.6);
-        cam.rotation.set(a.pitch * DEG - 0.12, -y, 0, 'YXZ');
-        over = cam;
-        this.specName = a.name;
+    } else if (this._canSpectate()) {
+      const mates = this._livingTeammates();
+      const actor = mates.find(a => a.id === this.spectatorId) || mates[0];
+      if (actor) {
+        this.spectator = actor;
+        this.spectatorId = actor.id;
+        const figure = this.fig.get(actor.id);
+        if (!this.spectatorCam) this.spectatorCam = new THREE.PerspectiveCamera(70, 1, 0.03, 300);
+        over = this.spectatorCam;
+        this._firstPerson(over, actor, actor.gunData, actor.op.sight, figure.skin, {
+          x: figure.x, y: figure.y, z: figure.z, eye: 1.6 - 0.48 * figure.crouch,
+          yaw: figure.yaw + (actor.recoilYaw || 0), pitch: figure.pitch + (actor.recoilPitch || 0),
+          ads: actor.ads || 0, lean: actor.lean || 0,
+        }, t, dt);
       }
     }
     this.camOverride = over;
-    if (!over) this.specName = null;
     // effects on whatever camera is showing
     const c = over || h.camera;
     if (!reducedMotion() && me.alive && m.t < me.wobbleUntil) { c.rotation.z += Math.sin(t * 7) * 0.035; }
@@ -791,12 +1036,13 @@ export class ModeGame {
       view.classList.toggle('mg-dread', me.alive && m.t < me.shakeUntil);
       view.classList.toggle('mg-jolt', me.alive && m.t < me.wobbleUntil);
       view.classList.toggle('mg-drone', !!d);
+      view.classList.toggle('mg-spectating', !!this.spectator);
     }
   }
 
   /* ---------- render ---------- */
   render() {
-    if (!this.active) return;
+    if (!this.active || this.finale.render(this.deps.renderer)) return;
     const r = this.deps.renderer, h = this.h;
     r.info.reset();
     r.shadowMap.autoUpdate = false;
@@ -811,27 +1057,57 @@ export class ModeGame {
     const cam = this.camOverride || h.camera;
     if (cam.aspect !== aspect) { cam.aspect = aspect; cam.updateProjectionMatrix(); }
     const ownVis = h.f.group.visible;
-    if (!(this.kc && this.camOverride === this.kcCam)) h.f.group.visible = false;   // your body shows in your death replay
+    if (!this.viewOnly && !(this.kc && this.camOverride === this.kcCam)) h.f.group.visible = false;   // your body shows in your death replay
     const wp = this.deps.worldPost;
-    if (wp && wp.active) wp.draw(this.scene, cam); else r.render(this.scene, cam);
-    h.f.group.visible = ownVis;
-    if (!this.camOverride) {
-      r.clearDepth();
-      h.rig.setAspect(aspect, sz.y);
-      r.render(h.rig.scene, h.rig.camera);
+    const drawWorld = () => { if (wp?.active) wp.draw(this.scene, cam); else r.render(this.scene, cam); };
+    try {
+      if (this.spectator) this._drawSpectatorWorld(cam, drawWorld);
+      else drawWorld();
+    } finally {
+      h.f.group.visible = ownVis;
     }
+    const rig = this.spectator || (this.kc && this.camOverride === this.kcCam) ? this.kcPuppet?.rig : !this.viewOnly && !this.camOverride ? h.rig : null;
+    if (rig) {
+      r.clearDepth(); rig.setAspect(aspect, sz.y); r.render(rig.scene, rig.camera);
+    }
+  }
+
+  _drawSpectatorWorld(camera, draw) {
+    const eye = camera.position.toArray(), saved = [];
+    const hide = object => { if (object.visible) { saved.push(object); object.visible = false; } };
+    for (const actor of this.m.actors) {
+      const figure = this.fig.get(actor.id);
+      if (actor === this.spectator) hide(figure.group);
+      if (actor.team !== this.spectator.team) {
+        const torso = [figure.x, figure.y + 1.1 - 0.3 * figure.crouch, figure.z];
+        const head = [figure.x, figure.y + 1.55 - 0.45 * figure.crouch, figure.z];
+        if (!this.map.sight(eye, torso) && !this.map.sight(eye, head)) hide(figure.group);
+        hide(figure.outline);
+        for (const leg of figure.legs) hide(leg.o);
+      }
+    }
+    try { draw(); }
+    finally { for (const object of saved) object.visible = true; }
   }
 
   /* ---------- input ---------- */
   mouseMove(dx, dy) {
     if (!this.active || this.paused || this.over) return;
+    if (this.viewOnly) { this.watch.look(dx, dy); return; }
     if (this.m.ab.mouse(this.me, dx, dy)) return;
     this.h.mouseMove(dx, dy);
   }
   mouseButton(b, down) {
     const h = this.h;
     if (!h) return;
-    if (b === 0 && down && !this.me.alive && this.m.o.mode === 'bomb') { this.specIndex = (this.specIndex || 0) + 1; return; }
+    if (this.viewOnly) {
+      if (down && !this.over && (b === 0 || b === 2)) this._cycleSpectator(b === 0 ? 1 : -1);
+      return;
+    }
+    if (!this.me.alive && this.m.o.mode === 'bomb' && (b === 0 || b === 2)) {
+      if (down && this._canSpectate()) this._cycleSpectator(b === 0 ? 1 : -1);
+      return;
+    }
     if (b === 1) { this.key('OperatorAbility', down); return; }
     if (b === 0) h.in.fire = down;
     else if (b === 2) h.in.ads = down;
@@ -842,6 +1118,12 @@ export class ModeGame {
     if (!this.active) return false;
     const h = this.h;
     if (code === 'Space' && this.kc) { if (down) this._endKc(); return true; }
+    if (this._canSpectate() && /^Digit[1-5]$/.test(code)) {
+      const mate = this._livingTeammates()[Number(code.at(-1)) - 1];
+      if (down && mate) this.spectatorId = mate.id;
+      return true;
+    }
+    if (this.viewOnly && code !== 'Tab') return !this.over && this.watch.key(code, down, this._livingTeammates().find(a => a.id === this.spectatorId));
     if (code === 'Tab') { this.hud.board.hidden = !down; if (down) this._renderBoard(); return true; }
     const me = this.me, ab = this.m.ab;
     const abilityUsed = this.m.o.abilitiesOn || this.m.o.mode === 'bomb';
@@ -860,7 +1142,19 @@ export class ModeGame {
     // Caps Lock (or G): a grenade. (On a Mac, Caps Lock sends only key-up every other press.)
     if (code === 'CapsLock' || code === 'KeyG') {
       const now = this.prevT;
-      if (down || (code === 'CapsLock' && now - (this._capsDown || -9) > 0.6)) { if (down) this._capsDown = now; if (this.me.alive && !this.paused && !this.over) { if (C) C.act('nade', { yaw: this.h.look.yaw, pitch: this.h.look.pitch }); else this.m.nades.throw(this.me, this.h.look.yaw, this.h.look.pitch); } }
+      if (!down) this.grenadeView.release();
+      if (down || (code === 'CapsLock' && now - (this._capsDown || -9) > 0.6)) {
+        if (down) this._capsDown = now;
+        if (me.alive && !this.paused && !this.over) {
+          if (C) {
+            if (down && code === 'KeyG') this.grenadeView.request(me.id);
+            C.act('nade', { yaw: h.look.yaw, pitch: h.look.pitch });
+          } else {
+            const grenade = this.m.nades.throw(me, h.look.yaw, h.look.pitch);
+            if (down && code === 'KeyG' && this.m.nades.live.includes(grenade)) this.grenadeView.hold(grenade, this.m.t);
+          }
+        }
+      }
       return true;
     }
     if (code === 'KeyK') { if (down && this.me.alive && !this.paused && !this.over) { if (C) C.act('knife'); else this.m.knife(this.me); } return true; }
@@ -1059,7 +1353,7 @@ export class ModeGame {
     if (L.pr !== pr) { L.pr = pr; H.prot.hidden = !pr; H.prot.textContent = pr; }
     const st = (m.rules.statusText ? m.rules.statusText(me) : '').replace(/hold E/g, 'hold ' + (this.deps.controls?.bindingLabel('interact') || 'F'));
     if (L.st !== st) { L.st = st; H.status.textContent = st; H.status.hidden = !st; }
-    const hp = Math.max(0, Math.ceil(me.hp));
+    const hp = Math.max(0, Math.ceil((this.spectator || me).hp));
     if (L.hp !== hp) { L.hp = hp; H.hpFill.style.width = hp + '%'; H.hpFill.className = hp > 60 ? '' : hp > 30 ? 'mid' : 'low'; H.hpText.textContent = String(hp); }
     const ammo = m.ab.ammoText ? m.ab.ammoText(me) || (h.weapon.reloading ? 'reloading' : h.weapon.ammo + ' / ' + h.gun.magSize) : (h.weapon.reloading ? 'reloading' : h.weapon.ammo + ' / ' + h.gun.magSize);
     if (L.ammo !== ammo) {
@@ -1085,7 +1379,11 @@ export class ModeGame {
     if (t > (this.dmgUntil || 0) && H.dmg.classList.contains('on')) H.dmg.className = 'mg-dmgdir';
     if (t > (this.ptsUntil || 0) && H.pts.classList.contains('on')) H.pts.className = 'b-points';
     if (t > (this.flashUntil || 0) && !H.flash.hidden) H.flash.hidden = true;
-    const dmsg = me.alive || this.kc ? '' : (m.rules.deadText ? m.rules.deadText(me) : 'Eliminated by ' + (this.killedBy || '?') + (me.respawnAt ? ' · back in ' + Math.max(0, Math.ceil(me.respawnAt - m.t)) : ''));
+    const controls = this.deps.controls;
+    const spectator = this.spectator ? 'Spectating ' + this.spectator.name + ' · '
+      + (controls?.bindingLabel('fire') || 'Left mouse') + ' / ' + (controls?.bindingLabel('ads') || 'Right mouse')
+      + ' or 1–5 to switch' : '';
+    const dmsg = me.alive || this.kc ? '' : spectator || (m.o.mode === 'bomb' ? 'Waiting for the next round' : 'Eliminated by ' + (this.killedBy || '?') + (me.respawnAt ? ' · back in ' + Math.max(0, Math.ceil(me.respawnAt - m.t)) : ''));
     if (L.dead !== dmsg) { L.dead = dmsg; H.dead.hidden = !dmsg; H.dead.textContent = dmsg; }
     // hold bar (plant / defuse)
     const hold = me.hold;
@@ -1147,11 +1445,12 @@ export class ModeGame {
   }
   // Compass along the top: headings and objective markers.
   _compass() {
-    const H = this.hud, yaw = this.camOverride ? this.camYaw : this.h.look.yaw, fov = 140;
+    const H = this.hud, focus = this.spectator || this.me;
+    const yaw = this.spectator ? this.spectator.yaw : this.camOverride ? this.camYaw : this.h.look.yaw, fov = 140;
     const items = [];
     for (const [deg, txt] of [[0, 'N'], [90, 'E'], [180, 'S'], [270, 'W']]) items.push({ yaw: deg, txt, cls: 'mg-cd' });
     const mk = this.m.rules.markers ? this.m.rules.markers(this.me) : [];
-    for (const k of mk) if (k.compass) items.push({ yaw: yawTo(k.x - this.me.x, k.z - this.me.z), txt: k.compass, cls: 'mg-cm', color: '#' + new THREE.Color(k.color || 0xffffff).getHexString(), dist: Math.round(Math.hypot(k.x - this.me.x, k.z - this.me.z)) });
+    for (const k of mk) if (k.compass) items.push({ yaw: yawTo(k.x - focus.x, k.z - focus.z), txt: k.compass, cls: 'mg-cm', color: '#' + new THREE.Color(k.color || 0xffffff).getHexString(), dist: Math.round(Math.hypot(k.x - focus.x, k.z - focus.z)) });
     const key = Math.round(yaw) + '|' + items.map((i) => i.txt + Math.round(i.yaw) + (i.dist || '')).join(',');
     if (H.last.cp === key) return;
     H.last.cp = key;
@@ -1162,28 +1461,53 @@ export class ModeGame {
       return e;
     }));
   }
-  _showEnd(title, reason) {
+  _updateFinale(t) {
+    this.grenadeCam = null;
+    this.grenadeView.hide();
+    if (this.finale.replaying(t) && this.kc) {
+      this._replay(t);
+      this._camera(t);
+      this.deps.sfx.listen(this.camOverride || this.h.camera);
+      this._updateTracers(t);
+    } else {
+      this.kc = null;
+      this.camOverride = null;
+    }
+  }
+  _showEnd(title, winner, t, results) {
     this.over = true;
+    this.watch.reset();
     const m = this.m, H = this.hud;
     H.endTitle.textContent = title;
-    const rows = m.actors.slice().sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
+    const scores = new Map((results || []).map(([id, kills, deaths]) => [id, { kills, deaths }]));
+    const rows = m.actors.map(actor => ({ ...actor, ...scores.get(actor.id) }))
+      .sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
     H.endTable.replaceChildren(...rows.map((a) => {
       const r = el('div', 'b-row');
-      r.append(el('span', 'b-name t-' + a.team, a === this.me ? 'You (' + a.op.name + ')' : a.name), el('span', '', a.kills + ' kills'), el('span', '', a.deaths + ' deaths'));
+      r.append(el('span', 'b-name t-' + a.team, !this.viewOnly && a.id === this.me.id ? 'You (' + a.op.name + ')' : a.name), el('span', '', a.kills + ' kills'), el('span', '', a.deaths + ' deaths'));
       return r;
     }));
     H.endNote.textContent = (m.rules.endText ? m.rules.endText() : '') + (this.points ? ' You earned ' + this.points + ' points.' : '');
     H.end.hidden = false;
+    H.kcBox.hidden = true;
+    const lineup = rows.filter(actor => winner === 'draw' || actor.team === winner);
+    const clip = this.lastKill;
+    const replayable = clip?.rec.frames.length;
+    this.kc = replayable ? { ...clip, grenade: null, final: true, start: t, prevT: t, si: 0, fi: 0 } : null;
+    if (this.kc && !this.kcCam) this.kcCam = new THREE.PerspectiveCamera(70, 1, 0.03, 300);
+    const seconds = replayable ? clip.deathT - clip.from + 0.3 : 0;
+    this.finale.begin(t, lineup.map(actor => ({ name: actor.name, figure: this.fig.get(actor.id) })),
+      replayable ? { name: clip.name, seconds } : null);
     this.h.releaseAll();
     this.deps.onEnd();
   }
 }
 // Network host: which team each player on another PC joins. Bomb: the side they asked for
 // (yours is team A), else the smaller team; other modes: the smaller team.
-function teamsFor(mode, hostSide, peers) {
+function teamsFor(mode, hostSide, peers, ranked = false) {
   const count = { A: 1, B: 0 }, out = [];
   peers.forEach((p, i) => {
-    let team = mode === 'bomb' && (p.side === 'attack' || p.side === 'defend') ? (p.side === (hostSide || 'attack') ? 'A' : 'B') : count.A <= count.B ? 'A' : 'B';
+    let team = !ranked && mode === 'bomb' && (p.side === 'attack' || p.side === 'defend') ? (p.side === (hostSide || 'attack') ? 'A' : 'B') : count.A <= count.B ? 'A' : 'B';
     count[team]++;
     out.push({ op: p.op, team, name: p.name, attach: p.attach || null, skin: p.skin ?? null, peer: i });
   });

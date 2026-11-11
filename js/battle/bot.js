@@ -117,15 +117,24 @@ export class Bot {
     const f = this.f, L = this.L, arena = battle.arena;
     if (!f.alive) { this.weapon.releaseTrigger(); return; }
 
+    const royale = battle.royale;
+    if (royale && !this.gun) royale.botLoot(this);
+    if (this.gun) royale?.defend(this,t);
     /* perception */
-    if (t >= this.nextLook) {
+    if (this.gun && t >= this.nextLook) {
       this.nextLook = t + 0.12;
-      let best = null, bd = Infinity;
+      let best = null, bd = royale ? 62 ** 2 : Infinity;
       for (const e of battle.enemiesOf(f)) {
         if (!e.alive || t < e.protectUntil) continue;
-        if (!this.canSee(e, arena, t)) continue;
-        const d = Math.hypot(e.x - f.x, e.z - f.z);
-        if (d < bd) { bd = d; best = e; }
+        const d = (e.x - f.x) ** 2 + (e.z - f.z) ** 2;
+        if (d < bd && this.canSee(e, arena, t)) { bd = d; best = e; }
+      }
+      if (royale) {
+        if (best) {
+          const [x,y,z] = best.chest(this._pt);
+          this.visibleContact = { actor:best, x,y,z,vx:best.vx || 0,vz:best.vz || 0,t };
+        }
+        this.wallTarget = best ? null : royale.coverTarget(f,this.visibleContact,t);
       }
       if (best !== this.target) {
         if (!best && this.target && this.target.alive) this.say(battle, t, 'Lost them.');
@@ -154,9 +163,10 @@ export class Bot {
       }
     }
     const tgt = this.target;
+    const cover = royale && this.wallTarget?.wall.hp > 0 ? this.wallTarget : null;
 
     /* reload */
-    if (this.weapon.ammo === 0 || (!tgt && this.weapon.ammo < this.gun.magSize * 0.4)) {
+    if (this.gun && (this.weapon.ammo === 0 || (!tgt && this.weapon.ammo < this.gun.magSize * 0.4))) {
       if (this.weapon.startReload(t)) {
         this.weapon.releaseTrigger();
         if (tgt) {
@@ -175,7 +185,14 @@ export class Bot {
       if (spot) { this.mode = 'retreat'; this._setGoal(spot.x, spot.z, arena, t, spot.y); this.crouchWanted = spot.low; this.say(battle, t, "I'm hit, falling back!"); }
     }
     if (this.mode === 'hold' && t > this.holdUntil) this.mode = 'roam';
-    if (this.mode !== 'retreat' && this.mode !== 'hold') this.mode = tgt ? 'fight' : 'roam';
+    if (royale?.outside(f, 1)) {
+      if (this.mode !== 'zone' || t >= this.nextPath) this._setGoal(royale.x, royale.z, arena, t, royale.y);
+      this.mode = 'zone';
+      this.crouchWanted = false;
+    } else if (royale && !this.gun && royale.lootGoal(this, t)) {
+      this.mode = 'loot';
+      this.crouchWanted = false;
+    } else if (this.mode !== 'retreat' && this.mode !== 'hold') this.mode = tgt || cover ? 'fight' : 'roam';
 
     /* movement target velocity */
     let mx = 0, mz = 0, speed = L.speed;
@@ -268,6 +285,10 @@ export class Bot {
       const dx = aimPt[0] - this._eye[0], dy = aimPt[1] - this._eye[1], dz = aimPt[2] - this._eye[2];
       wantYaw = Math.atan2(dx, -dz) / DEG + this.errYaw;
       wantPitch = Math.atan2(dy, Math.hypot(dx, dz)) / DEG + this.errPitch;
+    } else if (cover) {
+      const [x,y,z] = f.eye(this._eye), [cx,cy,cz] = cover.point;
+      wantYaw = Math.atan2(cx-x,z-cz)/DEG;
+      wantPitch = Math.atan2(cy-y,Math.hypot(cx-x,cz-z))/DEG;
     } else if (this.lastSeen && t - this.lastSeen.t < 5 && Math.hypot(this.lastSeen.x - f.x, this.lastSeen.z - f.z) > 2) {
       // Pre-aim: crosshair at head height towards where they were seen or heard, even while
       // walking (Easy only looks where it walks).
@@ -288,7 +309,7 @@ export class Bot {
     if (!this.weapon.triggerHeld) { const k = Math.exp(-6 * dt); f.viewDY = (f.viewDY || 0) * k; f.viewDP = (f.viewDP || 0) * k; }
 
     /* fire: after the reaction time, when lined up, in bursts */
-    const ready = tgt && t - this.seenAt >= L.reaction && !this.weapon.reloading && t >= this.pauseUntil && t >= f.protectUntil;
+    const ready = (cover || (tgt && t - this.seenAt >= L.reaction)) && !this.weapon.reloading && t >= this.pauseUntil && t >= f.protectUntil;
     const lined = Math.abs(wrap180(wantYaw - f.yaw)) < 2.5 + L.err && Math.abs(wantPitch - f.pitch) < 2.5 + L.err;
     const steady = !this.mv || this.mv.t > this.mv.T * 0.8;      // fire as a flick lands, not halfway
     if (ready && lined && steady && this.mode !== 'retreat') {

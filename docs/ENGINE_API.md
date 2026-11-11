@@ -20,8 +20,7 @@ as the code it describes.
 | Replays, spectator, ranked, training | new files | UI (milestones 10-12) |
 | Shared glue | `js/main.js`, `js/modes/game.js`, `js/battle/human.js`, `js/battle/battle.js`, `tests/run.mjs` | both: keep edits small and say what changed in the commit |
 
-Network play means the existing relay and WebRTC Battle only (the user's decision): no
-dedicated server. Nothing in the engine assumes a server; nothing should claim one exists.
+Network play uses the existing relay and WebRTC links with a player as host.
 
 ## Input: what the engine reads
 
@@ -87,10 +86,67 @@ reinforced walls, barricades with `hp`, `slot`, `win`). Only the engine writes t
 
 ## Replays (milestone 10)
 
-`ModeGame._record()` keeps 5 s of frames: per actor `[x, z, yaw, pitch, crouch, alive, y]`
-(7 floats since milestone 3) plus shots and hits. Lean, ADS and recoil offset are not
-recorded yet; add them to the frame (and bump the stride) rather than keeping a second
-recorder.
+The existing recorders retain six seconds at up to 30 Hz. Match recording is sampled
+from the fixed simulation loop. Each new frame has version 2. Match frames have
+`stride: 13` with the original seven fields first, followed by ADS blend, lean,
+catalogue gun slot, firing, recoil yaw and recoil pitch. Per-frame `loadouts` carry
+attachment code, skin and optic. Unversioned seven-field match frames still play.
+
+Battle frames retain their original ten fields and append lean, catalogue gun slot,
+attachment code, skin and optic. Older ten-field frames still play. A kill cam owns
+an immutable frame/shot window so live recorder trimming cannot move its shot cursor.
+Stopping either mode clears its recording.
+
+`js/replay/view.js` applies the live Human lean distance/roll and tangent-space ADS
+FOV blend. Kill cams rebuild the recorded effective gun through `effectiveGun()`
+and draw its first-person rig after the world-post pass. Battle's existing state
+messages append lean and optic, with defaults for older peers and bounded lean input.
+
+Hold the bound grenade action to follow your confirmed throw. Releasing it returns to
+first person. Grenade deaths replay the recorded path and hold on the blast for one second.
+The path may play faster to fit the respawn window. The camera clips against walls.
+Online clients record positions from the existing host messages. Battle links the kill
+feed to the blast by grenade ID. Match modes associate a grenade kill with its boom
+and send the resulting ID in the same event stream. A kill cam uses first person if it
+cannot establish the projectile identity or path.
+
+The win screen uses the last player-caused kill in Battle, Team Deathmatch, Capture
+the Flag and Bomb. The final kill always plays from the killer’s first-person view.
+Afterward, the winning side appears in a 3D lineup with the full leaderboard.
+Draws can line up the top six by kills and deaths. Matches without a recorded kill go
+straight to results. The host sends the final scores with the end message.
+
+## Bomb teammate spectating (milestone 11)
+
+An eliminated player can follow living teammates after the kill cam. The fire and
+ADS bindings cycle forward and backward, and 1–5 select a teammate directly. The
+view switches to a surviving teammate when the current one dies, and returns to
+the player when they respawn.
+
+The camera uses the followed teammate’s ADS, lean, recoil, optic, attachments,
+and skin. The spectator render hides enemy outlines and any enemy whose head and
+torso are both occluded. The filter applies only during the spectator draw.
+The same view works for local and online Bomb matches.
+
+The network lobby’s **Spectator** role joins Battle, Team Deathmatch, Capture the
+Flag and Bomb without taking a player seat. The spectator watches the host’s side
+and can switch among its living players in team modes. Press V for free camera or
+M for the overhead map with the default bindings. The host sends allied positions,
+enemies that allies can see, and recent team sightings. Spectators see the lineup
+and leaderboard when the match ends.
+
+## Ranked Bomb (milestone 11)
+
+Enable **Ranked Bomb** as the network host or use **Find ranked Bomb games** to join
+an open relay lobby. Ranked Bomb uses Normal bots, 30-second prep, standard
+abilities, and teams of up to five. It requires two human players.
+
+The host signs the result. Elo and the last 20 rated results live in the player’s
+profile and travel with its save code. Matches with fewer than two completed
+rounds or a disconnect before the first round ends award no rating. After an
+eligible match, a player who left takes a loss. Relay clients can recover a
+signed result for up to 24 hours. Direct clients can recover it by reconnecting
+to the same running host session.
 
 ## Network (milestone 9, Claude)
 
@@ -261,8 +317,8 @@ for propagation and underfoot material lookup, preserving all physics ownership.
   poses; no new message, transport or backend was added.
 - Room floor textures come from `data.callouts[].floor`; Arena material kinds
   come from `arena.boxes`. The built Arena match maps preserve that box order.
-- The existing seven-float replay stride is unchanged. Replay audio remains a
-  later extension of the existing recorder.
+- Replay audio remains a later extension of the existing recorder. See the
+  Replays section for the versioned view-state layout.
 
 ### Requests for the engine owner
 
