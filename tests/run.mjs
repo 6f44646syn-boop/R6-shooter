@@ -619,20 +619,66 @@ try {
     await page.close();
   }
 
-  /* ---------- 2d2. Black Ice: inspect (barrel roll, frost wipe, regrow) and the support arm ---------- */
-  console.log('\nBlack Ice inspect');
+  /* ---------- 2d2. Premium skin inspections ---------- */
+  console.log('\nBlack Ice and Sakura Gilt inspections');
   {
     const { page, errors } = await openPage('index.html?test');
     await page.evaluate(() => window.__range.hdInstall());
     const r = await page.evaluate(() => {
-      const R = window.__range, rig = R.rigObj(); R.manual(true); R.selectGun(4); rig.forceSkin = 192; R.setGraphics('ultra'); R.step(0.5);
-      const u = rig.current.userData, at = (p) => { R.inspectAt(p); R.step(0.02); const tu = u.skinMats[0].userData.tri;
-        return { frost: tu.iceFrost.value, wave: tu.iceWave.value, glow: tu.iceGlow.value, sup: u.support ? u.support.visible : null, arm: !!(u.support && u.support.userData.arm && u.support.userData.arm.visible) }; };
-      const out = { ice: u.ice, burst: 0, roll: at(0.3), wipe: at(0.55), regrow: at(0.75), end: at(-1) };
-      rig.current.traverse((o) => { if (o.isPoints && o.material.userData.ice) out.burst++; });
-      return out;
+      const R = window.__range, rig = R.rigObj();
+      const press = action => R.controls.onAction(action, true);
+      const get = name => rig.current.getObjectByName(name);
+      const start = () => { press('inspect'); R.step(2.3, 60); };
+      const ended = mesh => rig.inspectT < 0 && !mesh.visible;
+      R.manual(true);
+      localStorage.setItem('attach:' + R.guns[4].id, '4111');
+      rig.forceSkin = 192;
+      R.selectGun(4);
+      R.setGraphics('low');
+      start(); R.renderFrame();
+      const low = get('Inspect vapour').geometry.instanceCount;
+      R.setGraphics('standard');
+      const standard = get('Inspect vapour').geometry.instanceCount;
+      R.setGraphics('high');
+      const high = get('Inspect vapour').geometry.instanceCount;
+      R.setGraphics('ultra');
+      R.step(0.6);
+      const u = rig.current.userData, vapour = get('Inspect vapour'), frost = get('Inspect surface frost');
+      const uniforms = frost.material.uniforms;
+      const at = p => {
+        R.inspectAt(p); R.step(0.02);
+        return { cover: uniforms.cover.value, front: uniforms.front.value, pulse: uniforms.pulse.value };
+      };
+      const early = at(0.21), peak = at(0.61), fade = at(0.91);
+      R.inspectAt(-1); R.step(0.02);
+      let surfaces = 0;
+      rig.current.traverse(o => { if (o.name === 'Inspect surface frost') surfaces++; });
+      start(); R.renderFrame();
+      const active = vapour.visible && get('Inspect ice flecks').visible && u.support.visible && u.support.userData.arm.visible;
+      R.trigger(true); R.step(0.04); R.trigger(false);
+      const fire = ended(vapour) && R.state().shots > 0;
+      start(); R.setAds(true);
+      const ads = ended(vapour);
+      R.setAds(false); R.step(0.5);
+      start(); press('reload'); R.step(0.04);
+      const reload = ended(vapour) && R.state().reloading;
+      R.step(5);
+      start();
+      rig.forceSkin = 201; R.selectGun(2); R.step(0.5);
+      const swap = ended(vapour);
+      const petals = get('Inspect petals'), flowers = get('Inspect opening blossoms');
+      press('inspect'); R.step(1.1, 120);
+      const opening = [...flowers.instanceMatrix.array];
+      R.step(1.3, 120); R.renderFrame();
+      const bloom = flowers.visible && petals.visible && opening.some((v, i) => Math.abs(v - flowers.instanceMatrix.array[i]) > 0.001);
+      R.step(2, 120);
+      return { low, standard, high, ultra: vapour.geometry.instanceCount, early, peak, fade, active, surfaces, fire, ads, reload, swap, bloom,
+        rest: ended(petals) && !flowers.visible };
     });
-    check('Black Ice: frost over the gun in the roll (hand off the gun), wiped away along the side, crystals regrow glowing', r.ice && r.burst > 0 && r.roll.frost > 0.5 && r.roll.sup === false && r.wipe.wave < 0.3 && r.wipe.arm && r.regrow.frost === 0 && r.regrow.glow > 0.3 && r.end.frost === 0, JSON.stringify(r));
+    check('Black Ice: frost advances across gun, magazine and optic, pulses, and fades', r.surfaces === 3 && r.active && r.early.front < r.peak.front && r.peak.cover > 0.9 && r.peak.pulse > 0.9 && r.fade.cover < 0.3, JSON.stringify(r));
+    check('Low through Ultra use increasing GPU particle budgets', r.low > 0 && r.low < r.standard && r.standard < r.high && r.high < r.ultra, JSON.stringify(r));
+    check('Firing, aiming, reloading and switching cancel the inspect', r.fire && r.ads && r.reload && r.swap, JSON.stringify(r));
+    check('Sakura Gilt: attached blossoms open, shed petals and settle to rest', r.bloom && r.rest, JSON.stringify(r));
     check('no page errors', errors.length === 0, errors.join('\n'));
     await page.close();
   }

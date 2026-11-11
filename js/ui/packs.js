@@ -104,7 +104,7 @@ export class PackUI {
         el('div', { class: 'pk-points' }, this.pointsEl, el('span', { text: ' points' })),
         this.openBtn),
       el('p', { class: 'small', text: KILL_POINTS + ' points per battle kill (+' + HEADSHOT_BONUS + ' for a headshot), +' + WIN_POINTS + ' for winning a battle. Odds: ' +
-        RARITIES.filter((x) => x.odds > 0).map((x) => x.name + ' ' + Math.round(x.odds * 100) + '%').join(' · ') + '. A duplicate gives points back.' }),
+        RARITIES.map((x) => x.name + ' ' + new Intl.NumberFormat('en', { style: 'percent', maximumFractionDigits: 3 }).format(x.odds)).join(' · ') + '. A duplicate gives points back.' }),
       this._legendBox(),
       el('div', { class: 'pk-top' }, el('h3', { class: 'pk-h3' }, el('span', { text: 'Collection ' }), this.countEl, el('span', { text: ' / ' + SKIN_COUNT })), this.allBtn),
       this.grid, this.slotNote,
@@ -144,7 +144,7 @@ export class PackUI {
     }, el('span', { class: 'pk-thumb plain' }), el('span', { class: 'pk-name', text: 'Factory finish' }))];
     // Your skins, or (Show all) the whole catalogue rarest first, with the ones you lack locked.
     this.allBtn.textContent = this.showAll ? 'Show only mine' : 'Show all ' + SKIN_COUNT + ' skins';
-    const order = { blackice: 0, epic: 1, rare: 2, common: 3 };
+    const order = { legendary: 0, blackice: 1, epic: 2, rare: 3, common: 4 };
     const ids = [LEGEND_ID, ...(this.showAll ? CATALOGUE.map((s) => s.id).sort((a, b) => order[CATALOGUE[a].rarity] - order[CATALOGUE[b].rarity] || a - b) : p.ownedIds())];
     for (const id of ids) {
       const s = skinById(id), rar = RARITY[s.rarity], have = p.has(id);
@@ -166,7 +166,7 @@ export class PackUI {
     const pick = (id) => { p.equip(slot, id); this.onEquip(slot); };
     const cards = [el('button', { type: 'button', class: 'pk-card factory' + (eq === null ? ' on' : ''), onclick: () => pick(null) },
       el('span', { class: 'pk-thumb plain' }), el('span', { class: 'pk-name', text: 'Factory finish' }))];
-    const order = { blackice: 0, epic: 1, rare: 2, common: 3 };
+    const order = { legendary: 0, blackice: 1, epic: 2, rare: 3, common: 4 };
     for (const id of [LEGEND_ID, ...p.ownedIds().filter((i) => this.fits(i, slot)).sort((a, b) => order[CATALOGUE[a].rarity] - order[CATALOGUE[b].rarity] || a - b)]) {
       const s = skinById(id);
       cards.push(el('button', { type: 'button', class: 'pk-card r-' + s.rarity + (eq === id ? ' on' : ''), title: s.name, onclick: () => pick(id) },

@@ -183,7 +183,9 @@ export function bakeDetail(renderer, kind, size = 4096, strength = 3) {
 const SKIN_GLSL = /* glsl */`
 uniform int pattern;
 uniform vec3 c0, c1, c2, c3;
-uniform vec4 prm;          // scale (whole number), warp, threshold shift, spare
+uniform vec4 prm;
+uniform float skinSeed, skinTier;
+vec2 skinOffset() { return vec2(hash1(vec2(skinSeed, 7.0)), hash1(vec2(skinSeed, 19.0))); }
 // Black Ice cracks: two broken networks (big, fine) and radiating splinters. 0..1 = in a crack.
 float iceCracks(vec2 uv, float S) {
   vec2 wq = uv + vec2(fbm(uv, 8.0 * S, 4), fbm(uv + 5.0, 8.0 * S, 4)) * 0.025;
@@ -191,7 +193,7 @@ float iceCracks(vec2 uv, float S) {
   vec3 v2 = voronoi(wq + 0.31, vec2(13.0 * S));
   float brk1 = sstep(-0.05, 0.12, fbm(uv + 3.7, 6.0 * S, 4));
   float brk2 = sstep(0.05, 0.2, fbm(uv + 8.1, 10.0 * S, 4));
-  float big = sstep(0.02, 0.003, v1.y - v1.x) * brk1;
+  float big = sstep(0.013 + 0.011 * prm.z, 0.003, v1.y - v1.x) * brk1;
   float fine = sstep(0.009, 0.0015, v2.y - v2.x) * brk2 * sstep(0.35, 0.0, v1.y - v1.x + 0.1 * fbm(uv, 16.0, 3));
   vec2 p = wq * 9.0 * S, ci = floor(p), f = fract(p);
   vec2 o = 0.5 + 0.4 * hash2(mod(ci, vec2(9.0 * S)));
@@ -224,13 +226,14 @@ float iceFlake(vec2 q, float R, float seed) {
 // Black Ice: a deep glossy colour with cloudy frozen depths, shattered cracks with lit and
 // shadowed edges, frost ferns feathering out from the big cracks, trapped air bubbles, sparkles
 // and an etched snowflake emblem. g (glow) lights the cracks, the ferns and the emblem.
-void iceSkin(vec2 uv, float S, out vec3 col, out float m, out float g) {
+void iceSkin(vec2 uv, float S, out vec3 col, out float m, out float g, out float height) {
   float seed = prm.w;
+  uv += skinOffset();
   float mott = fbm(uv, 4.0, 6);
   col = mix(c0, c3, sstep(-0.15, 0.35, mott));                           // lighter patches
   // frozen depth: cloudy layers deep in the ice, lit from inside
   float deep = fbm(uv + vec2(fbm(uv + 2.0, 3.0, 4), fbm(uv + 7.0, 3.0, 4)) * 0.12, 5.0, 6);
-  col = mix(col, c3 * 1.7 + c1 * 0.05, sstep(0.05, 0.45, deep) * 0.38);
+  col = mix(col, c3 * 2.15 + c1 * 0.055, sstep(-0.04, 0.43, deep) * 0.61);
   col = mix(col, c3 * 1.4, sstep(0.25, 0.45, fbm(uv + 9.0, 7.0, 5)) * 0.4);
   // cracks cut into the finish: a dark core, a lit upper edge and a shadowed lower edge
   float crack = iceCracks(uv, S);
@@ -239,14 +242,14 @@ void iceSkin(vec2 uv, float S, out vec3 col, out float m, out float g) {
   // frost ferns: fine parallel feathers growing from the big cracks, a direction per shard
   vec2 wq = uv + vec2(fbm(uv, 8.0 * S, 4), fbm(uv + 5.0, 8.0 * S, 4)) * 0.025;
   vec3 v1 = voronoi(wq, vec2(5.0 * S));
-  float near = sstep(0.22, 0.0, v1.y - v1.x + 0.12 * fbm(uv + 1.3, 12.0 * S, 4));
+  float near = sstep(0.08 + prm.y * 0.22, 0.0, v1.y - v1.x + 0.12 * fbm(uv + 1.3, 12.0 * S, 4));
   float k = floor(v1.z * 6.0);
   vec2 kv = k < 1.0 ? vec2(1, 2) : k < 2.0 ? vec2(2, -1) : k < 3.0 ? vec2(1, -2) : k < 4.0 ? vec2(2, 1) : k < 5.0 ? vec2(1, 3) : vec2(3, -1);
   float stripe = abs(sin(dot(uv, kv) * S * 6.2831853 * 18.0 + fbm(uv, 16.0 * S, 3) * 3.0));
-  float fern = pow(stripe, 6.0) * near * sstep(-0.1, 0.25, fbm(uv + 4.4, 9.0 * S, 4));
+  float fern = pow(stripe, 5.0) * near * sstep(-0.18, 0.24, fbm(uv + 4.4, 9.0 * S, 4));
   // trapped air bubbles: small bright rings with a dark heart
   vec3 vb = voronoi(uv, vec2(36.0 * S));
-  float keep = step(0.86, vb.z), rr = vb.x;
+  float keep = step(0.95 - prm.y * 0.16, vb.z), rr = vb.x;
   float bubble = keep * sstep(0.16, 0.12, rr) * sstep(0.06, 0.1, rr);
   float bubbleIn = keep * sstep(0.08, 0.04, rr);
   // sparkles
@@ -254,20 +257,37 @@ void iceSkin(vec2 uv, float S, out vec3 col, out float m, out float g) {
   float spark = sstep(0.12, 0.0, length(fract(sp) - 0.5 - 0.3 * hash2(mod(sc, vec2(160.0))))) * step(0.93, hash1(mod(sc, vec2(160.0)) + 2.0));
   // the emblem: one snowflake per tile, placed and drawn from the skin's seed
   vec2 cen = vec2(0.35 + 0.3 * hash1(vec2(seed, 1.0)), 0.35 + 0.3 * hash1(vec2(seed, 2.0)));
-  float flake = seed > 0.0 ? iceFlake(fract(uv * S) - cen, 0.3, seed) : 0.0;
-  col = mix(col, mix(c1, c2, 0.3), fern * 0.6);
+  float flake = iceFlake(fract(uv * S) - cen, 0.18 + prm.y * 0.055, seed);
+  // Refraction through the fractured faces and pale rime across their edges.
+  float face = sstep(0.05, 0.75, v1.y - v1.x);
+  float rime = near * sstep(-0.12, 0.28, fbm(uv + vec2(0.44, 3.8), 23.0, 4));
+  col *= 0.8 + 0.55 * mix(v1.z, 1.0, face);
+  col = mix(col, c1 * 0.76 + c2 * 0.12, rime * prm.y * 0.26);
+  col = mix(col, mix(c1, c2, 0.3), fern * 0.28);
   col = mix(col, c1, crack * 0.9);
   col = mix(col, c0 * 0.12, pow(crack, 2.5) * 0.9);
   col += c2 * max(bev, 0.0) * 0.9;
   col *= 1.0 - max(-bev, 0.0) * 0.7;
   col = mix(col, c3 * 0.5, bubbleIn * 0.6);
-  col = mix(col, c2, bubble * 0.7);
-  col = mix(col, mix(c2, c1, 0.4), flake * 0.9);
-  col = mix(col, c2, spark);
-  m = max(crack, max(flake, fern * 0.5)); g = max(max(crack * 0.35, spark), max(flake * 0.85, fern * 0.3 + bubble * 0.2));
+  col = mix(col, c2, bubble * 0.43);
+  col = mix(col, mix(c2, c1, 0.4), flake * 0.51);
+  col = mix(col, c2, spark * 0.68);
+  m = clamp(max(crack, max(flake, rime * 0.7 + fern * 0.35)), 0.0, 1.0);
+  g = max(max(crack * 0.18, spark * 0.75), max(flake * 0.32, fern * 0.21 + bubble * 0.13));
+  height = clamp(0.58 + face * (0.09 + v1.z * 0.13) - crack * 0.48 + bev * 0.075
+    + rime * 0.11 + fern * 0.14 + flake * 0.08 - bubbleIn * 0.04 + fbm(uv, 64.0, 3) * 0.06, 0.0, 1.0);
 }
 void skinAt(vec2 uv, out vec3 col, out float m, out float g) {
   float S = max(1.0, floor(prm.x + 0.5)), W = prm.y, T = prm.z;
+  float height;
+  if (pattern == 10) { iceSkin(uv, S, col, m, g, height); return; }
+  if (pattern == 17) { // Sakura's pack swatch. The equipped finish is calculated from the mesh.
+    m = sstep(0.37, 0.48, uv.y);
+    col = mix(mix(c3, c0, sstep(0.03, 0.39, uv.x)), c1, m * 0.87);
+    g = 0.0;
+    return;
+  }
+  if (skinTier >= 0.0) uv += skinOffset();
   float grain = fbm(uv, 128.0, 3) * 0.06;
   m = 0.0; g = 0.0;
   if (pattern == 0) {                // contour lines
@@ -342,8 +362,6 @@ void skinAt(vec2 uv, out vec3 col, out float m, out float g) {
     col = v.z < 0.3 ? c0 : (v.z < 0.55 ? c1 : (v.z < 0.8 ? c2 : c3));
     col *= 1.0 - sstep(0.03, 0.0, v.y - v.x) * 0.5;
     m = v.z >= 0.8 ? 1.0 : 0.0;
-  } else if (pattern == 10) {        // black ice (see iceSkin)
-    iceSkin(uv, S, col, m, g);
   } else if (pattern == 11) {        // fade
     float t = sstep(0.15, 0.85, uv.y + fbm(uv, 4.0, 5) * 0.3 * W + T);
     float dith = step(hash1(floor(uv * 256.0)), t);
@@ -416,6 +434,13 @@ void skinAt(vec2 uv, out vec3 col, out float m, out float g) {
     m = max(tr, pad); g = tr;
   }
   col *= 1.0 + grain;
+  if (skinTier >= 0.0) {
+    float finish = pnoise(vec2(uv.x * 9.0, uv.y * 145.0), vec2(9.0, 145.0));
+    float useWear = sstep(0.16, 0.38, fbm(uv + 6.4, 21.0, 4));
+    if (skinTier < 0.5) col *= 0.94 + finish * 0.10 - useWear * 0.16;
+    else if (skinTier < 1.5) col = mix(col * (1.0 + finish * 0.09), c3, m * useWear * 0.32);
+    else col += max(finish - 0.24, 0.0) * (0.1 + m * 0.21) * mix(c1, c3, 0.56);
+  }
 }
 `;
 
@@ -424,6 +449,7 @@ function skinUniforms(def) {
   return {
     pattern: { value: def.pattern }, c0: { value: v3(def.c[0]) }, c1: { value: v3(def.c[1]) }, c2: { value: v3(def.c[2]) }, c3: { value: v3(def.c[3]) },
     prm: { value: new THREE.Vector4(...(def.p || [1, 1, 0, 0])) },
+    skinSeed: { value: def.id }, skinTier: { value: { common: 0, rare: 1, epic: 2 }[def.rarity] ?? -1 },
   };
 }
 
@@ -431,7 +457,8 @@ function skinUniforms(def) {
 // rm: R glow mask, G roughness, B metalness (finer detail is not needed at half size).
 export function bakeSkin(renderer, def, size = 4096) {
   // Enhanced Graphics pack v5: the redrawn skins (js/render/skins2.js) at High / Ultra sizes
-  const v2 = size >= 2048 && skinSheets.ready;
+  const relief = def.pattern === 10;
+  const v2 = !relief && size >= 2048 && skinSheets.ready;
   const head = NOISE + SKIN_GLSL + (v2 ? SKIN2_GLSL : '');
   const s2 = v2 ? skin2Uniforms(def) : {};
   const at = v2 ? 'float hh; skinAt2(vUv, col, m, g, hh);' : 'skinAt(vUv, col, m, g);';
@@ -454,17 +481,19 @@ export function bakeSkin(renderer, def, size = 4096) {
   // High / ultra: a relief map from the design (accent shapes raised, glow lines cut in),
   // turned into a normal map on the GPU, so the skin catches light like layered paint.
   let normal = null;
-  if (size >= 2048) {
+  if (size >= 2048 || (relief && size >= 1024)) {
     const hu = { ...skinUniforms(def), ...s2 };
+    const height = def.pattern === 10 ? 'iceSkin(vUv, max(1.0, prm.x), col, m, g, h);'
+      : v2 ? 'skinAt2(vUv, col, m, g, h); h += fbm(vUv, 96.0, 3) * 0.04;'
+        : 'skinAt(vUv, col, m, g); h = 0.5 + m * 0.35 - g * 0.25 + dot(col, vec3(0.3, 0.5, 0.2)) * 0.15 + fbm(vUv, 96.0, 3) * 0.08;';
     const h = bake(renderer, head + /* glsl */`
-      void main() { vec3 col; float m, g; ${v2 ? 'float hh; skinAt2(vUv, col, m, g, hh);' : 'skinAt(vUv, col, m, g); float hh = 0.5;'} float lum = dot(col, vec3(0.3, 0.5, 0.2));
-        float h = pattern == 10 ? 0.75 - m * 0.7 + fbm(vUv, 48.0, 4) * 0.06 : ${v2 ? 'hh + fbm(vUv, 96.0, 3) * 0.04' : '0.5 + m * 0.35 - g * 0.25 + lum * 0.15 + fbm(vUv, 96.0, 3) * 0.08'};
-        gl_FragColor = vec4(vec3(h), 1.0); }`,
+      void main() { vec3 col; float m, g, h; ${height}
+        gl_FragColor = vec4(vec3(clamp(h, 0.0, 1.0)), 1.0); }`,
     Math.max(512, size >> 1), hu, { mip: false });
-    normal = bakeNormalFromTexture(renderer, h, h.image.width, def.pattern === 10 ? 9.0 : 3.0);
+    normal = bakeNormalFromTexture(renderer, h, h.image.width, def.pattern === 10 ? 6.0 : 3.0);
     disposeBaked(h);
   }
-  return { albedo, rm, normal, def, wear: def.wear * (enhanced ? finish.wear : 1), clearcoat: def.clearcoat, glow: def.glow };
+  return { albedo, rm, normal, def, scale: def.scale, wear: def.wear * (enhanced ? finish.wear : 1), clearcoat: def.clearcoat, glow: def.glow };
 }
 
 // Normal map from a height render target texture (Sobel), tiling.
@@ -511,21 +540,27 @@ export function skinThumb(renderer, def, size = 96) {
 export function triplanar(material, { skin = null, detail = null, scale = 3, detailScale = 2, detailStrength = 1, gain = 1, hd = false, hdEdge = 0, hdEdgeCol = [0.32, 0.33, 0.35], hdEdgeMetal = 1, depth = 0 } = {}) {
   const uniforms = {
     triScale: { value: scale }, detScale: { value: detailScale }, detStrength: { value: detailStrength },
-    skinAlbedo: { value: skin ? skin.albedo : null }, skinRM: { value: skin ? skin.rm : null }, skinNormal: { value: skin ? skin.normal : null },
-    skinWear: { value: skin ? skin.wear : 0 }, detailMap: { value: detail }, triGain: { value: gain },
+    skinAlbedo: { value: skin?.albedo ?? null }, skinRM: { value: skin?.rm ?? null }, skinNormal: { value: skin?.normal ?? null },
+    skinWear: { value: skin?.wear ?? 0 }, detailMap: { value: detail }, triGain: { value: gain },
     skinGlow: { value: new THREE.Vector3(...((skin && skin.glow) || [0, 0, 0])) },
     // Look per rarity: a colour fade along the gun, and the inspect-only animations
     // (triAnim 0..1 is driven by the weapon rig while you inspect; triTime is seconds).
     fadeA: { value: new THREE.Vector3() }, fadeB: { value: new THREE.Vector3() }, fadeAmt: { value: 0 },
     triTime: { value: 0 }, triAnim: { value: 0 }, animFlow: { value: 0 }, sweepCol: { value: new THREE.Vector3(1, 1, 1) },
-    reliefK: { value: (skin && skin.def && skin.def.pattern === 10 ? 2.2 : 0.9) * (hd ? 1.5 : 1) },
+    reliefK: { value: (skin?.def?.pattern === 10 ? 1.65 : 0.9) * (hd ? 1.5 : 1) },
     triAO: { value: hd ? 1 : 0 }, hdEdge: { value: hdEdge }, hdEdgeCol: { value: new THREE.Vector3(...hdEdgeCol) }, hdEdgeMetal: { value: hdEdgeMetal },
     reliefDepth: { value: depth },
-    iceFrost: { value: 0 }, iceWave: { value: 9 }, iceGlow: { value: 0 },   // Black Ice inspect (viewmodel animateSkins)
   };
   const def = skin && skin.def;
-  if (def) {
-    const L = { common: [0.12, 0, 0.35], rare: [0.35, 0.3, 0.6], epic: [0.55, 1, 0.9], blackice: [0.3, 1, 1], legendary: [0, 0, 1], factory: [0, 0, 0.4] }[def.rarity] || [0, 0, 0.4];
+  const sakura = def?.pattern === 17;
+  if (sakura) {
+    const [gold, pink, pearl, black] = def.c.map(c => new THREE.Vector3(...c));
+    Object.assign(uniforms, {
+      sakuraGold: { value: gold }, sakuraPink: { value: pink }, sakuraPearl: { value: pearl }, sakuraBlack: { value: black },
+      sakuraRM: { value: new THREE.Vector4(...def.rm) },
+    });
+  } else if (def) {
+    const L = { common: [0.12, 0, 0.35], rare: [0.35, 0.3, 0.6], epic: [0.30, 1, 0.9], blackice: [0.3, 1, 1], legendary: [0, 0, 1], factory: [0, 0, 0.4] }[def.rarity] || [0, 0, 0.4];
     uniforms.fadeA.value.set(...def.c[1]);
     uniforms.fadeB.value.set(...(def.rarity === 'common' ? def.c[0] : def.c[3]));
     uniforms.fadeAmt.value = L[0];
@@ -534,7 +569,8 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
     uniforms.sweepCol.value.set(...g.map((v) => Math.min(1, 0.35 + v * 0.6))).multiplyScalar(L[2]);
   }
   material.userData.tri = uniforms;
-  const defs = (skin ? '#define TRI_SKIN\n' : '') + (skin && skin.normal ? '#define TRI_SKIN_NORMAL\n' : '') + (detail ? '#define TRI_DETAIL\n' : '') +
+  const defs = (sakura ? '#define TRI_SAKURA\n' : skin ? '#define TRI_SKIN\n' : '') +
+    (skin && skin.normal ? '#define TRI_SKIN_NORMAL\n' : '') + (detail ? '#define TRI_DETAIL\n' : '') +
     (hd ? '#define TRI_HD\n' : '') + (hd && depth > 0 && skin && skin.normal ? '#define TRI_PARALLAX\n' : '');
   material.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, uniforms);
@@ -557,8 +593,19 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       uniform vec3 skinGlow, fadeA, fadeB, sweepCol;
       uniform float fadeAmt, triTime, triAnim, animFlow, reliefK;
       uniform sampler2D skinAlbedo, skinRM, skinNormal, detailMap;
-      uniform float triAO, hdEdge, hdEdgeMetal, reliefDepth, iceFrost, iceWave, iceGlow;
+      uniform float triAO, hdEdge, hdEdgeMetal, reliefDepth;
       uniform vec3 hdEdgeCol;
+      #ifdef TRI_SAKURA
+        uniform vec3 sakuraGold, sakuraPink, sakuraPearl, sakuraBlack;
+        uniform vec4 sakuraRM;
+        float scuffHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float scuffNoise(vec2 p) {
+          vec2 i = floor(p), a = fract(p);
+          a = a * a * (3.0 - 2.0 * a);
+          return mix(mix(scuffHash(i), scuffHash(i + vec2(1, 0)), a.x),
+            mix(scuffHash(i + vec2(0, 1)), scuffHash(i + 1.0), a.x), a.y);
+        }
+      #endif
       #ifdef TRI_HD
         varying vec4 vDet;
       #endif
@@ -574,7 +621,36 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
     f = f.replace('#include <map_fragment>', /* glsl */`#include <map_fragment>
       vec3 tw = triW();
       float triWear = 0.0;
-      #ifdef TRI_SKIN
+      #ifdef TRI_SAKURA
+        // Smooth gradients in gun space so the transition follows the hardware without a texture.
+        float stock = sstep(0.194, 0.248, vTriPos.z) * sstep(-0.020, 0.025, vTriPos.y);
+        float guard = sstep(-0.121, -0.199, vTriPos.z) * sstep(-0.327, -0.264, vTriPos.z);
+        float grip = sstep(-0.031, -0.092, vTriPos.y) * sstep(-0.010, 0.016, vTriPos.z) * sstep(0.130, 0.088, vTriPos.z);
+        float enamel = max(max(stock, guard * 0.94), grip);
+        float ends = max(sstep(0.031, 0.191, vTriPos.z), sstep(-0.208, -0.324, vTriPos.z));
+        float underside = sstep(-0.005, -0.058, vTriPos.y) * 0.32;
+        float blackBlend = (1.0 - (1.0 - ends) * (1.0 - underside)) * (1.0 - enamel * 0.58);
+        vec3 rose = mix(sakuraPink, sakuraPearl, sstep(-0.070, 0.044, vTriPos.y) * 0.42);
+        vec2 wornUV = vTriPos.zy + vTriPos.x * vec2(0.37, 0.62);
+        float scuffs = sstep(0.44, 0.75, scuffNoise(wornUV * vec2(55, 155))) *
+          sstep(0.28, 0.76, scuffNoise(wornUV * vec2(29, 45) + 11.0));
+        vec2 stroke = vec2(wornUV.x * 64.0, (wornUV.y + wornUV.x * 0.13) * 365.0);
+        vec2 strokeCell = floor(stroke), strokeUV = fract(stroke);
+        float strokeSeed = scuffHash(strokeCell);
+        float scratch = sstep(0.135, 0.033, abs(strokeUV.y - (0.19 + strokeSeed * 0.62))) *
+          sstep(0.46, 0.21, abs(strokeUV.x - 0.5)) * step(0.82, strokeSeed);
+        scratch *= sstep(0.30, 0.70, scuffNoise(wornUV * vec2(43, 94)));
+        float chips = 0.0;
+        #ifdef TRI_HD
+          chips = sstep(0.50, 0.71, vDet.g + scuffNoise(wornUV * 215.0) * 0.23) *
+            sstep(0.38, 0.66, scuffNoise(wornUV * vec2(185, 265)));
+        #endif
+        float weathering = clamp(scuffs * 0.83 + scratch * 0.72 + chips * 0.70, 0.0, 1.0);
+        vec3 finish = mix(mix(sakuraGold, rose, enamel), sakuraBlack, blackBlend);
+        finish = mix(finish, finish * vec3(0.62, 0.46, 0.34), scuffs * 0.65);
+        finish = mix(finish, vec3(0.48, 0.42, 0.34), scratch * 0.38 + chips * 0.56);
+        diffuseColor.rgb = finish * triGain;
+      #elif defined( TRI_SKIN )
         // While inspecting, Epic and Black Ice patterns flow slowly across the gun.
         vec3 triP = vTriPos * triScale + vec3(0.0, triTime * 0.05, triTime * 0.035) * triAnim * animFlow;
         float relief = 0.5;
@@ -621,9 +697,6 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         float sweepX = mod(triTime * 0.55, 1.7) - 0.95;
         float sweep = exp(-pow(vTriPos.z - sweepX + vTriPos.y * 0.6, 2.0) * 90.0) * triAnim;
         diffuseColor.rgb += sweepCol * sweep * (1.0 - triWear) * 0.9;
-        // Black Ice inspect: frost spreads over the gun, the wipe (iceWave, moving to the muzzle) clears it
-        float frost = iceFrost * step(vTriPos.z, iceWave) * sstep(0.25, 0.75, sk.a + 0.15);
-        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.78, 0.86, 0.95), frost * 0.75);
       #endif
       #ifdef TRI_DETAIL
         vec4 dt = triTex(detailMap, vTriPos * detScale, tw);
@@ -643,19 +716,23 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         diffuseColor.rgb *= 1.0 - vDet.b * 0.35;
       #endif`);
     f = f.replace('#include <roughnessmap_fragment>', /* glsl */`#include <roughnessmap_fragment>
-      #ifdef TRI_SKIN
+      #ifdef TRI_SAKURA
+        roughnessFactor = mix(mix(sakuraRM.x, sakuraRM.z, enamel), 0.51, weathering);
+      #elif defined( TRI_SKIN )
         vec4 skrm = triTex(skinRM, triP, tw);
-        roughnessFactor = mix(mix(skrm.g, 0.3, triWear), 0.85, iceFrost * step(vTriPos.z, iceWave) * 0.8);
+        roughnessFactor = mix(skrm.g, 0.3, triWear);
       #endif
       #ifdef TRI_DETAIL
         roughnessFactor = clamp(roughnessFactor * mix(1.0, dt.a * 2.0, detStrength), 0.04, 1.0);
       #endif
-      #ifdef TRI_HD
+      #if defined( TRI_HD ) && !defined( TRI_SAKURA )
         roughnessFactor = mix(roughnessFactor, 0.32, hdWear);
         roughnessFactor = min(1.0, roughnessFactor + vDet.b * 0.15);
       #endif`);
     f = f.replace('#include <metalnessmap_fragment>', /* glsl */`#include <metalnessmap_fragment>
-      #ifdef TRI_SKIN
+      #ifdef TRI_SAKURA
+        metalnessFactor = mix(sakuraRM.y, sakuraRM.w, enamel);
+      #elif defined( TRI_SKIN )
         metalnessFactor = mix(skrm.b, 1.0, triWear);
       #endif
       #ifdef TRI_HD
@@ -678,7 +755,6 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         // Glowing lines; they pulse while inspecting.
         totalEmissiveRadiance += skinGlow * skrm.r * (1.0 - triWear) * (1.0 + triAnim * (0.9 + 0.9 * sin(triTime * 5.0)));
         totalEmissiveRadiance += sweepCol * sweep * (1.0 - triWear) * 0.6;
-        totalEmissiveRadiance += (skinGlow * skrm.r * iceGlow * 3.0 + sweepCol * exp(-pow(vTriPos.z - iceWave, 2.0) * 900.0) * step(0.001, iceFrost + iceGlow) * 1.5) * (1.0 - triWear);
       #endif`);
     f = f.replace('#include <normal_fragment_maps>', /* glsl */`#include <normal_fragment_maps>
       #ifdef TRI_SKIN_NORMAL

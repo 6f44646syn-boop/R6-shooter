@@ -119,7 +119,7 @@ async function boot(data) {
   function applyGraphics() {
     range.setGraphics(gfx(), renderer);
     if (range.env) rig.setHighEnv(range.env);
-    rig.setShading(gunShading());
+    rig.setShading(gunShading(), gfx());
   }
   applyGraphics();
   const post = new LensPost(renderer, { samples: settings.antialias && renderer.capabilities.isWebGL2 ? 4 : 0 });

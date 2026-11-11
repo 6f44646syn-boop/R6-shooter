@@ -5,7 +5,7 @@
 // Points: KILL_POINTS per battle kill (+ HEADSHOT_BONUS for a headshot kill), WIN_POINTS for
 // winning a battle. A pack costs PACK_COST and gives one random skin; a duplicate refunds
 // points instead (by rarity).
-import { RARITIES, CATALOGUE, SKIN_COUNT, LEGEND_ID } from './skins.js?v=a37f22c-mwcnqhgi';
+import { RARITIES, CATALOGUE, SKIN_COUNT, LEGEND_ID, skinFits } from './skins.js?v=a37f22c-mwcnqhgi';
 import { HISTORY_LIMIT, START_RATING, ratingOf } from './ranked.js?v=a37f22c-mwcnqhgi';
 
 export const KILL_POINTS = 20, HEADSHOT_BONUS = 10, WIN_POINTS = 50, PACK_COST = 100;
@@ -65,7 +65,7 @@ export class Profile {
   equippedFor(slot) { const id = this.equipped[slot]; return id !== null && this.has(id) ? id : null; }
   equip(slot, id) {
     if (slot < 0 || slot >= SLOTS) return false;
-    if (id !== null && !this.has(id)) return false;
+    if (id !== null && (!this.has(id) || !skinFits(id, slot))) return false;
     this.equipped[slot] = id;
     this._changed();
     return true;
