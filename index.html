@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recoil Range</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="css/style.css?v=9dd0f7b-mwbioun8">
+<link rel="stylesheet" href="css/style.css?v=m11-ranked">
 </head>
 <body>
 <div id="app">
@@ -118,10 +118,22 @@
               <button id="net-join" type="button">Join a game</button>
               <button id="net-reset" type="button" hidden>Disconnect</button>
             </div>
+            <label id="net-watch-field" class="field"><span>Join as</span>
+              <select id="net-watch"><option value="player">Player</option><option value="spectator">Spectator</option></select>
+            </label>
+            <div id="net-ranked-browser">
+              <p id="net-rank-info" class="small"></p>
+              <button id="net-rank-search" type="button">Find ranked Bomb games</button>
+              <div id="net-rank-games" class="net-box" hidden></div>
+              <details><summary>Ranked match history</summary><ol id="net-rank-history"></ol></details>
+            </div>
             <div id="net-game-box" class="set-grid" hidden>
               <label class="field" for="net-mode"><span>Game</span>
                 <select id="net-mode"><option value="battle">Battle (everyone for themselves)</option><option value="tdm">Team Deathmatch</option><option value="ctf">Capture the Flag</option><option value="bomb">Bomb</option></select></label>
               <label class="field" for="net-map" id="net-map-field"><span>Map</span><select id="net-map"></select></label>
+              <label id="net-ranked-field" class="field" hidden><span>Ranked Bomb</span>
+                <input id="net-ranked" type="checkbox">
+              </label>
               <p id="net-game-note" class="small"></p>
             </div>
             <div id="relay-host-box" class="net-box" hidden>
@@ -285,6 +297,6 @@
     </div>
   </div>
 </div>
-<script type="module" src="js/main.js?v=9dd0f7b-mwbioun8"></script>
+<script type="module" src="js/main.js?v=m11-ranked"></script>
 </body>
 </html>

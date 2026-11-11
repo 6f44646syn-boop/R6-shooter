@@ -128,6 +128,26 @@ and skin. The spectator render hides enemy outlines and any enemy whose head and
 torso are both occluded. The filter applies only during the spectator draw.
 The same view works for local and online Bomb matches.
 
+The network lobby’s **Spectator** role joins Battle, Team Deathmatch, Capture the
+Flag and Bomb without taking a player seat. The spectator watches the host’s side
+and can switch among its living players in team modes. Press V for free camera or
+M for the overhead map with the default bindings. The host sends allied positions,
+enemies that allies can see, and recent team sightings. Spectators see the lineup
+and leaderboard when the match ends.
+
+## Ranked Bomb (milestone 11)
+
+Enable **Ranked Bomb** as the network host or use **Find ranked Bomb games** to join
+an open relay lobby. Ranked Bomb uses Normal bots, 30-second prep, standard
+abilities, and teams of up to five. It requires two human players.
+
+The host signs the result. Elo and the last 20 rated results live in the player’s
+profile and travel with its save code. Matches with fewer than two completed
+rounds or a disconnect before the first round ends award no rating. After an
+eligible match, a player who left takes a loss. Relay clients can recover a
+signed result for up to 24 hours. Direct clients can recover it by reconnecting
+to the same running host session.
+
 ## Network (milestone 9, Claude)
 
 Every mode plays online over the existing relay or a direct peer-to-peer link. There is no

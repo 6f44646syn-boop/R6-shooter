@@ -22,6 +22,7 @@
     "test:enhanced-pack": "node tests/pack-assets.mjs && node tests/pack-anims.mjs && node tests/pack-integration.mjs",
     "build:enhanced-surfaces": "node tools/build-hd.mjs --surfaces",
     "test:replay": "node tests/replay-browser.mjs",
-    "test:finale": "node tests/finale-browser.mjs"
+    "test:finale": "node tests/finale-browser.mjs",
+    "test:ranked": "node tests/ranked.mjs && node tests/ranked-browser.mjs"
   }
 }

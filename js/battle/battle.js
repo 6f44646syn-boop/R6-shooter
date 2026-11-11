@@ -1,3 +1,4 @@
+import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=m11-ranked';
 import { MatchFinale } from '../replay/finale.js?v=9dd0f7b-mwbioun8';
 import { GrenadeReplay } from '../replay/grenade.js?v=9dd0f7b-mwbioun8';
 import { replayCamera } from '../replay/view.js?v=9dd0f7b-mwbioun8';
@@ -62,6 +63,8 @@ export class Battle {
     this.grenadeView = new GrenadeReplay();
     this._buildHud();
     this.finale = new MatchFinale(this.hud.end, this.hud.endTable);
+    this.watch = new SpectatorTools(this.hud.root, this.deps.controls);
+    this.watchers = [];
     this.humanPool = [];         // reused between matches (each has a weapon rig)
   }
 
@@ -137,7 +140,8 @@ export class Battle {
     this.stop();
     const d = this.deps;
     this.opts = { ...opts, remotes: undefined };
-    this.net = opts.remotes && opts.remotes.length ? { role: 'host' } : null;
+    this.watchers = opts.spectators || [];
+    this.net = opts.remotes?.length || this.watchers.length ? { role: 'host' } : null;
     if (!this.nadesB) this.nadesB = new BattleNades(this);
     this.nadesB.reset();
     for (const f of this.fighters) f.group.removeFromParent();
@@ -192,6 +196,10 @@ export class Battle {
     for (const r of this.remotes) {
       r.link.send({ k: 'start', you: r.f.id, killsToWin: opts.killsToWin, map: this.arena.mapId, night: this.atmo.night, weather: this.atmo.weather, fog: this.atmo.fog, roster: this._roster() });
     }
+    for (const link of this.watchers) {
+      link.send({ k: 'start', spectator: true, you: this.humans[0].f.id, killsToWin: opts.killsToWin,
+        map: this.arena.mapId, ...this.atmo, roster: this._roster() });
+    }
     for (const f of this.fighters) this._spawn(f, t);
     this.active = true; this.paused = false; this.over = false;
     this.hud.root.hidden = false;
@@ -203,6 +211,7 @@ export class Battle {
 
   // You picked another gun from the pause menu: take it now (full magazine).
   changeGun(gun) {
+    if (this.viewOnly) return;
     const h = this.humans[0];
     if (!h) return;
     h.setGun(gun);
@@ -239,11 +248,12 @@ export class Battle {
   stop() {
     this.deps.sfx.stopAll?.();
     if (this.active && this.net && this.net.role === 'host') this._broadcast({ k: 'stopped' });
-    if (this.active && this.net && this.net.role === 'client') this.net.link.send({ k: 'left' });
+    if (this.active && this.net?.role === 'client' && !this.viewOnly) this.net.link.send({ k: 'left' });
     this.active = false;
     this.rec = null; this.kc = null; this._meAlive = false;
     this.grenadeView.reset();
-    this.finale.reset();
+    this.finale.reset(); this.watch.reset();
+    this.viewOnly = false; this.watchers = []; this.watchCam = null; this.watchFocus = null;
     this.grenadeDeath = null; this.pendingGrenadeDeath = null; this.grenadeCam = null;
     this.paused = false;
     this._frameN = 0;
@@ -252,7 +262,7 @@ export class Battle {
     if (this.hud) this.hud.root.hidden = true;
     for (const h of this.humans) h.releaseAll();
   }
-  pause() { if (!this.active) return; this.grenadeView.release(); this.paused = true; for (const h of this.humans) h.releaseAll(); }
+  pause() { if (!this.active) return; this.grenadeView.release(); this.watch.release(); this.paused = true; for (const h of this.humans) h.releaseAll(); }
   resume(t) { this.paused = false; this.prevT = t; }
 
   _side(f) {
@@ -456,6 +466,7 @@ export class Battle {
 
   _showEnd(title, rows, canRestart, team, t, killer) {
     this.over = true;
+    this.watch.reset();
     this.hud.endTitle.textContent = title;
     this.hud.endTable.replaceChildren(...rows.map(([name, team, kills, deaths]) => {
       const r = el('div', 'b-row');
@@ -489,11 +500,20 @@ export class Battle {
   /* ---------- network: host ---------- */
   _broadcast(msg, fast = false, except = null) {
     for (const r of this.remotes) if (r !== except) r.link.send(msg, fast);
+    if (msg.k === 'stopped' || msg.k === 'look') for (const watcher of this.watchers) watcher.send(msg, fast);
+    if (msg.k === 'end') for (const watcher of this.watchers) {
+      watcher.send({ k: 'end', title: msg.title, rows: msg.rows, team: msg.team });
+    }
   }
   // Positions, health and score of everyone, ~30 times a second (newest wins).
   _sendSnapshot(t) {
     const f = this.fighters.map((g) => [g.id, r2(g.x), r2(g.z), r1(g.yaw + (g.viewDY || 0)), r1(g.pitch + (g.viewDP || 0)), r2(g.crouch), Math.ceil(Math.max(0, g.health)), g.alive ? 1 : 0, t < g.flashUntil ? 1 : 0, g.kills, g.deaths, r2(g.y), g.light ? 1 : 0, r2(g.ads || 0), g.nades ?? 2, r2(g.lean || 0), g.viewOptic || this.deps.opticFor(g.gun).id]);
     this._broadcast({ k: 'snap', f, s: this.teamScore }, true);
+    if (this.watchers.length) {
+      const visible = spectatorVisibility(this.fighters, this.humans[0].f.team, this.arena.world);
+      const view = { k: 'watchSnap', f: f.filter(row => visible.has(row[0])), s: this.teamScore };
+      for (const watcher of this.watchers) watcher.send(view, true);
+    }
   }
   // A message from a player on another PC (host), or from the host (client).
   onNet(link, m) {
@@ -546,6 +566,7 @@ export class Battle {
   }
   // A player's connection dropped (host) or the host's did (client).
   onLinkClosed(link) {
+    this.watchers = this.watchers.filter(watcher => watcher !== link);
     if (!this.active || !this.net) return;
     if (this.net.role === 'client') { if (link === this.net.link) this.deps.onNetLost('The host left or the connection dropped.'); return; }
     const r = this.remotes.find((x) => x.link === link);
@@ -571,6 +592,7 @@ export class Battle {
     if (!this.nadesB) this.nadesB = new BattleNades(this);
     this.nadesB.reset();
     this.stop();
+    this.viewOnly = m.spectator === true;
     const d = this.deps;
     this.opts = { opponent: 'net', killsToWin: m.killsToWin };
     this.net = { role: 'client', link, myId: m.you };
@@ -588,7 +610,7 @@ export class Battle {
       const f = new Fighter({ name: e.name, team: e.team, color: TEAM_COLOR[e.team] || 0xffffff, human: e.human });
       f.id = e.id;
       f.gun = effectiveGun(d.guns[e.gun] || d.guns[0], e.at);
-      this._look(f, f.gun, e.id === m.you ? (d.skinOf ? d.skinOf(f.gun) : null) : skinNum(e.skin), e.id === m.you);
+      this._look(f, f.gun, !this.viewOnly && e.id === m.you ? (d.skinOf ? d.skinOf(f.gun) : null) : skinNum(e.skin), !this.viewOnly && e.id === m.you);
       if (e.human) f.showBar = false;
       this.fighters.push(f);
       this.arena.scene.add(f.group);
@@ -599,7 +621,9 @@ export class Battle {
         h.setGun(f.gun);
         f.alive = false;                     // until the host's spawn message
         this.humans.push(h);
-      } else this.proxies.push(new Proxy(f));
+      }
+      if (this.viewOnly) f.alive = false;
+      if (this.viewOnly || e.id !== m.you) this.proxies.push(new Proxy(f));
     }
     this.atmo = { night: !!m.night, weather: typeof m.weather === 'string' ? m.weather : 'auto', fog: !!m.fog };
     this._setNight(this.atmo.night, this.atmo.weather, this.atmo.fog);
@@ -615,6 +639,8 @@ export class Battle {
   }
 
   _clientMsg(m) {
+    if (this.viewOnly && !['watchSnap', 'look', 'end'].includes(m.k)) return;
+    if (m.k === 'watchSnap' && !this.viewOnly) return;
     const t = this.deps.now(), me = this.humans[0];
     if (m.k === 'nd') {
       const grenade = this.nadesB.ghost(m, this.t);
@@ -630,13 +656,17 @@ export class Battle {
       }
       return;
     }
-    if (m.k === 'snap') {
+    if (m.k === 'snap' || m.k === 'watchSnap') {
+      if (this.viewOnly) {
+        const present = new Set(m.f.map(row => row[0]));
+        for (const fighter of this.fighters) if (!present.has(fighter.id)) fighter.alive = false;
+      }
       for (const e of m.f) {
         const [id, x, z, yaw, pitch, crouch, health, alive, flash, kills, deaths, y = 0, light = 1, ads = 0, nades, lean = 0, optic = null] = e;
         const f = this.fighters.find((g) => g.id === id);
         if (!f) continue;
         f.kills = kills; f.deaths = deaths;
-        if (me && f === me.f) {
+        if (!this.viewOnly && me && f === me.f) {
           f.health = health;
           if (nades !== undefined && t >= (f.nadeAt || 0) + 0.5) f.nades = nades;   // (after a throw, until the host has it)
           if (f.alive && !alive) { f.alive = false; f.respawnAt = t + RESPAWN_S; }
@@ -670,7 +700,7 @@ export class Battle {
       this._addComm(String(m.who || '?').slice(0, 40), String(m.team || 'bots'), String(m.text || '').slice(0, 80), t);
     } else if (m.k === 'look') {
       const f = this.fighters.find((g) => g.id === m.id), g = this.deps.guns[m.gun | 0] && effectiveGun(this.deps.guns[m.gun | 0], m.at);
-      if (f && g && (!me || f !== me.f)) this._look(f, g, skinNum(m.s));
+      if (f && g && (this.viewOnly || !me || f !== me.f)) this._look(f, g, skinNum(m.s));
     } else if (m.k === 'hm' && me) {
       this._hitMarker(me, m.kind, t);
       if (m.id) this._dealt(m.id, +m.dmg || 0);
@@ -691,7 +721,7 @@ export class Battle {
       }
     } else if (m.k === 'end') {
       for (const h of this.humans) h.releaseAll();
-      if (me && m.team === me.f.team) this._earn('win');
+      if (!this.viewOnly && me && m.team === me.f.team) this._earn('win');
       const killer = this.fighters.find(f => f.id === m.killerId);
       const shot = m.shot;
       const last = this.rec?.shots.at(-1);
@@ -709,8 +739,8 @@ export class Battle {
     const dt = Math.min(0.1, Math.max(0, t - this.prevT));
     this.prevT = t; this.t = t;
     const me = this.humans[0];
-    if (me) me.update(t, this.over ? 0 : dt, this);
-    this._separate();
+    if (me && !this.viewOnly) me.update(t, this.over ? 0 : dt, this);
+    if (!this.viewOnly) this._separate();
     this.nadesB.update(this.over ? 0 : dt, t);
     this.grenadeView.sample(this.nadesB.live, t);
     this._updateBlasts(t);
@@ -728,12 +758,13 @@ export class Battle {
       f.yaw = A[3] + dy * k; f.pitch = A[4] + (B[4] - A[4]) * k; f.crouch = A[5] + (B[5] - A[5]) * k;
       f.y = Math.abs(B[6] - A[6]) > 1.5 ? B[6] : A[6] + (B[6] - A[6]) * k;
     }
-    if (me && me.f.alive && t >= this._nextSnap) {
+    if (!this.viewOnly && me && me.f.alive && t >= this._nextSnap) {
       this._nextSnap = t + 1 / SNAP_HZ;
       const f = me.f;
       this.net.link.send({ k: 'st', x: r2(f.x), z: r2(f.z), y: r2(f.y), yaw: r1(f.yaw + f.viewDY), pitch: r1(f.pitch + f.viewDP), crouch: r2(f.crouch), fl: f.light ? 1 : 0, a: r2(f.ads), l: r2(this.humans[0].lean), o: this.humans[0].optic.id }, true);
     }
     for (const f of this.fighters) f.updateVisual(t);
+    if (this.viewOnly) { this._updateWatch(t, dt); return; }
     this._killCam(t);
     if (!this.kc && !this.paused && !this.over && me?.f.alive) this.grenadeCam = this.grenadeView.live(t, this.arena.world);
     const ears = this.humans[0];
@@ -742,6 +773,28 @@ export class Battle {
     this.arena.update(dt, t, me ? me.camera.position : null);
     this._updateTracers(t);
     this._updateHud(t);
+  }
+
+  _updateWatch(t, dt) {
+    const viewer = this.humans[0], team = viewer.f.team;
+    const focus = viewer.f.alive ? viewer.f : null;
+    for (const fighter of this.fighters) {
+      fighter.outline.visible = false;
+      for (const leg of fighter.legs) leg.o.visible = false;
+    }
+    const free = this.watch.frame(this.paused ? 0 : dt, focus, this.arena, this.fighters, team);
+    this.watchFocus = this.watch.mode === 'follow' ? focus : null;
+    this.watchCam = free || viewer.camera;
+    if (this.watchFocus) {
+      const puppet = this._puppet(focus);
+      const ads = focus.ads || 0;
+      replayCamera(viewer.camera, { x: focus.x, y: focus.y, z: focus.z, eye: focus.eyeH,
+        yaw: focus.yaw, pitch: focus.pitch, ads, lean: focus.lean }, this.deps.settings, this.deps.adsVFov(puppet.optic));
+      puppet.rig.update(dt, ads, t);
+      if (puppet.reticle) puppet.reticle.material.opacity = Math.max(0, Math.min(1, (ads - 0.55) / 0.35));
+    }
+    this.hud.views[0].box.classList.add('mg-view-only');
+    this.arena.update(dt, t, this.watchCam.position);
   }
 
   // Your shot in a network game: decided here against what you see (so aiming feels exactly
@@ -775,8 +828,13 @@ export class Battle {
   }
 
   /* ---------- input ---------- */
-  mouseMove(dx, dy) { if (this.active && !this.paused && !this.over) this.humans[0].mouseMove(dx, dy); }
+  mouseMove(dx, dy) {
+    if (!this.active || this.paused || this.over) return;
+    if (this.viewOnly) this.watch.look(dx, dy);
+    else this.humans[0].mouseMove(dx, dy);
+  }
   mouseButton(b, down) {
+    if (this.viewOnly) return;
     const h = this.humans[0];
     if (!h) return;
     if (b === 0) h.in.fire = down;
@@ -788,6 +846,7 @@ export class Battle {
   key(code, down) {
     if (!this.active) return false;
     const p1 = this.humans[0], p2 = this.humans[1];
+    if (this.viewOnly) return !this.over && this.watch.key(code, down, p1.f);
     if (p2 && p2.controls !== 'mouse' && p2.key(code, down)) return true;
     if (code === 'Space' && this.kc && !p1.f.alive) { if (down) this.kc = null; return true; }
     if (code === 'KeyV' && this.kc && !this.kc.grenade && !p1.f.alive) { if (down) { this.kc.pov = this.kcPov = !this.kc.pov; this._repVer++; } return true; }
@@ -853,16 +912,16 @@ export class Battle {
       r.clear();
       const aspect = v.w / v.h;
       const grenadeCam = i === 0 && this.grenadeCam;
-      const camera = grenadeCam || h.camera;
+      const camera = this.watchCam || grenadeCam || h.camera;
       if (camera.aspect !== aspect) { camera.aspect = aspect; camera.updateProjectionMatrix(); }
       const ownVis = h.f.group.visible;
-      if (!(this.kc && i === 0)) h.f.group.visible = false;      // not your own body (except in the replay)
+      if (this.viewOnly ? !!this.watchFocus : !(this.kc && i === 0)) h.f.group.visible = false;      // not your own body (except in the replay)
       const wp = this.deps.worldPost;
       if (wp && wp.active) wp.draw(this.arena.scene, camera); else r.render(this.arena.scene, camera);
       h.f.group.visible = ownVis;
-      if (grenadeCam) return;
+      if (grenadeCam || this.viewOnly && !this.watchFocus) return;
       r.clearDepth();
-      const rig = this.kc && this.kc.pov && i === 0 && this.puppet ? this.puppet.rig : h.rig;
+      const rig = this.watchFocus || (this.kc && this.kc.pov && i === 0 && this.puppet) ? this.puppet.rig : h.rig;
       rig.setAspect(aspect, v.h);
       r.render(rig.scene, rig.camera);
     });
@@ -1122,7 +1181,7 @@ export class Battle {
     const P = this.puppet, base = recorded ? this.deps.guns[recorded[11]] : null;
     const gun = base ? effectiveGun(base, recorded[12]) : k.gun || this.deps.guns[0];
     const skin = recorded && recorded.length > 13 ? recorded[13] : k.skin;
-    const optic = this.deps.opticById?.(recorded?.[14], gun) || this.deps.opticFor(gun);
+    const optic = this.deps.opticById?.(recorded?.[14] ?? k.viewOptic, gun) || this.deps.opticFor(gun);
     const key = gun.id + '|' + (gun.attach || '') + '|' + skin + '|' + optic.id;
     if (P._key !== key) { P.deps = { ...this.deps, opticFor: () => optic }; P.rig.forceSkin = skin ?? null; P.setGun(gun); P._key = key; }
     return P;

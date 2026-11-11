@@ -1,3 +1,5 @@
+import { createRankedSession, rankedChange, ratingOf, signRankedResult } from '../core/ranked.js?v=m11-ranked';
+import { SpectatorTools } from '../replay/spectator.js?v=m11-ranked';
 import { MatchFinale } from '../replay/finale.js?v=9dd0f7b-mwbioun8';
 import { GrenadeReplay } from '../replay/grenade.js?v=9dd0f7b-mwbioun8';
 import { replayCamera } from '../replay/view.js?v=9dd0f7b-mwbioun8';
@@ -22,7 +24,7 @@ import { Arena } from '../battle/arena.js?v=9dd0f7b-mwbioun8';
 import { Human } from '../battle/human.js?v=9dd0f7b-mwbioun8';
 import { drawCrosshair } from '../ui/crosshair.js?v=9dd0f7b-mwbioun8';
 import { effectiveGraphics } from '../render/quality.js?v=9dd0f7b-mwbioun8';
-import { MatchHost, MatchClient } from './net-match.js?v=9dd0f7b-mwbioun8';
+import { MatchHost, MatchClient } from './net-match.js?v=m11-ranked';
 import { Brain } from './bots.js?v=9dd0f7b-mwbioun8';
 
 const reducedMotion = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -55,6 +57,7 @@ export class ModeGame {
     this.grenadeKills = new WeakMap();
     this._buildHud();
     this.finale = new MatchFinale(this.hud.end, this.hud.endTable);
+    this.watch = new SpectatorTools(this.hud.root, this.deps.controls);
     this._buildTracers();
     this.o = [0, 0, 0]; this.d = [0, 0, 0];
   }
@@ -63,25 +66,43 @@ export class ModeGame {
   // o: { mode, map, difficulty, teamSize, abilities, minutes, headshot, op, side }
   // o.net (network host): { peers: [{ link, name, op, side, attach, skin }], hostName }.
   async start(o) {
+    if (o.ranked && o.net && o.mode === 'bomb') {
+      o = { ...o, teamSize: Math.max(1, Math.min(5, o.teamSize | 0)), prepTime: 30, difficulty: 'normal', abilities: true, headshot: 'lethal' };
+    }
     // the map and operator data, and the Rust core (collision, raycasts, pathfinding)
     const [mapData, ops, abilities] = await Promise.all([load('data/maps/' + o.map + '.json'), load('data/ops.json'), load('data/abilities.json'), initCore()]);
     this.stop();
     const d = this.deps;
     this.opts = o;
-    this.map = new MatchMap(mapData);
     const seed = o.seed ?? ((Math.random() * 2 ** 31) | 0);
-    const remotes = o.net ? teamsFor(o.mode, o.side, o.net.peers) : undefined;
+    const players = o.net?.peers.filter(peer => !peer.spectator);
+    const ranked = o.mode === 'bomb' && !!o.ranked && !!o.net;
+    if (ranked && (!players.length || players.length >= o.teamSize * 2)) {
+      throw new Error('Ranked Bomb needs at least two players and room for everyone.');
+    }
+    const remotes = players ? teamsFor(o.mode, o.side, players, ranked) : undefined;
+    this.map = new MatchMap(mapData);
     const mo = { map: this.map, mode: o.mode, guns: d.guns, ops, abilities, teamSize: o.teamSize, difficulty: o.difficulty, abilitiesOn: o.abilities, minutes: o.minutes, prepTime: o.prepTime, headshot: o.headshot, seed, human: { op: o.op, side: o.side }, attach: o.attach || null, remotes };
     this.m = new Match(mo);
     this.me = this.m.human();
     this.netHost = null; this.netClient = null; this.hostName = '';
+    this.rankedHost = null; this.rankedClient = null;
     if (o.net) {
       // Network match, hosted here: every player gets the exact roster (same ids) and options.
-      const peers = o.net.peers.map((p, i) => ({ link: p.link, actorId: (this.m.actors.find((a) => a.remote === i) || {}).id }));
+      const peers = players.map((p, i) => ({ link: p.link, actorId: this.m.actors.find(a => a.remote === i)?.id }));
+      if (ranked) {
+        const seats = this.m.actors.map(a => [a.id, a.team, ratingOf(a === this.me ? o.net.rating : players[a.remote]?.rating)]);
+        this.rankedHost = await createRankedSession(seats);
+      }
+      peers.push(...o.net.peers.filter(peer => peer.spectator).map(peer => ({ link: peer.link, spectator: true, team: this.me.team })));
       this.netHost = new MatchHost(this, peers);
       const roster = this.m.actors.map((a) => ({ id: a.id, team: a.team, op: a.op.id, name: a === this.me ? (o.net.hostName || 'Host') : a.name, human: a.human, attach: a.attachMap || null, skin: a === this.me ? (d.skinOf ? d.skinOf(a.gunData) : null) : a.skin ?? null }));
       const opts = { mode: o.mode, map: o.map, teamSize: o.teamSize, difficulty: o.difficulty, abilities: o.abilities, minutes: o.minutes, prepTime: o.prepTime, headshot: o.headshot, seed, side: o.side };
-      peers.forEach((p) => p.link.send({ k: 'mstart', o: opts, hostName: o.net.hostName || 'Host', roster: roster.map((r) => ({ ...r, you: r.id === p.actorId })) }));
+      for (const peer of peers) {
+        const you = peer.spectator ? this.me.id : peer.actorId;
+        peer.link.send({ k: 'mstart', o: opts, hostName: o.net.hostName || 'Host', spectator: !!peer.spectator,
+          ranked: peer.spectator ? null : this.rankedHost?.ticket, roster: roster.map(r => ({ ...r, you: r.id === you })) });
+      }
     }
     this._begin();
     return this;
@@ -99,6 +120,11 @@ export class ModeGame {
     this.m.events.length = 0;
     this.me = this.m.human();
     this.netHost = null; this.netClient = new MatchClient(this, link); this.hostName = msg.hostName || 'Host';
+    this.rankedHost = null;
+    this.viewOnly = msg.spectator === true;
+    if (this.viewOnly) for (const actor of this.m.actors) actor.alive = false;
+    this.rankedClient = msg.ranked ? { ticket: msg.ranked, id: this.me.id, link, retired: false } : null;
+    if (this.rankedClient) this.deps.onRankedTicket?.(this.rankedClient);
     this._begin();
     return this;
   }
@@ -111,20 +137,48 @@ export class ModeGame {
     this.feed = []; this._renderFeed(); this.points = 0; this._stepT = 0; this.fx = []; this.fx2 = []; this.vigT = -9; this.wasJammed = false;
     this.active = true; this.paused = false; this.over = false;
     this.hud.root.hidden = false; this.hud.end.hidden = true;
+    this.hud.view.classList.toggle('mg-view-only', !!this.viewOnly);
     this._refreshPanels();
   }
   // Host: a message from a player's PC. Client: from the host.
   onNet(link, msg) {
     if (!this.active) return;
-    if (this.netHost) this.netHost.onMessage(link, msg);
+    if (this.netHost && msg.k === 'mrankLeave' && msg.id === this.rankedHost?.ticket.id) this.onLinkClosed(link, true);
+    else if (this.netHost) this.netHost.onMessage(link, msg);
     else if (this.netClient) this.netClient.onMessage(msg);
   }
   // Host: a player left. Their operator carries on as a bot.
-  onLinkClosed(link) {
+  onLinkClosed(link, retired = false) {
     if (!this.netHost) return;
     const a = this.netHost.actorOf(link);
-    this.netHost.peers = this.netHost.peers.filter((p) => p.link !== link);
+    if (this.rankedHost && a && !this.rankedHost.finished) {
+      const session = this.rankedHost;
+      session.left.add(a.id);
+      session.early ||= this.m.rules.rounds.length === 0;
+    }
+    if (retired) {
+      const peer = this.netHost.peers.find(p => p.link === link);
+      if (peer) peer.retired = true;
+    } else this.netHost.peers = this.netHost.peers.filter(p => p.link !== link);
     if (a) { a.remote = null; a.human = false; a.brain = new Brain(this.m, a, this.m.o.difficulty); this.m.emit({ type: 'msg', text: a.name + ' left: a bot takes over' }); }
+  }
+  _applyRating(change) {
+    const label = this.deps.onRanked?.(change);
+    if (label && this.active && this.over) this.hud.endNote.textContent += ' ' + label;
+  }
+  async _finishRanked(winner, abandon = false) {
+    const session = this.rankedHost, network = this.netHost;
+    if (!session || session.finished) return;
+    session.finished = true;
+    session.rounds = this.m.rules.rounds.length;
+    const local = this.me.id;
+    if (abandon) { session.left.add(local); session.early ||= session.rounds === 0; }
+    try {
+      const packet = await signRankedResult(session, winner);
+      for (const peer of network.peers) if (!peer.spectator) peer.link.send(packet);
+      this.deps.onRankedReceipt?.(packet);
+      this._applyRating(rankedChange(session.ticket, packet.result, local));
+    } catch (error) { console.warn('Ranked result could not be signed', error); }
   }
   get netRole() { return this.netHost ? 'host' : this.netClient ? 'client' : null; }
   // Free what the last match put on the graphics card. Maps are rebuilt for every match, and
@@ -152,10 +206,19 @@ export class ModeGame {
     if (this.map && this.map.dispose) this.map.dispose();
   }
   stop() {
-    if (this.active && this.netHost) this.netHost.send({ k: 'stopped' });
+    if (this.active && this.rankedClient && !this.over && !this.rankedClient.retired) {
+      this.rankedClient.retired = true;
+      this.rankedClient.link.send({ k: 'mrankLeave', id: this.rankedClient.ticket.id });
+    }
+    if (this.active && this.netHost) {
+      if (this.rankedHost && !this.over) void this._finishRanked(this.me.team === 'A' ? 'B' : 'A', true);
+      this.netHost.send({ k: 'stopped' });
+    }
     this.deps.sfx.stopAll?.();
     this.grenadeView.reset();
     this.finale.reset();
+    this.watch.reset();
+    this.viewOnly = false; this.watchMarks = [];
     this.lastKill = null;
     this.spectatorId = null; this.spectator = null;
     if (this.scene) { this._disposeScene(); this.scene = null; }
@@ -165,7 +228,7 @@ export class ModeGame {
     if (this.h) this.h.releaseAll();
     if (this.deps.renderer) this.deps.renderer.shadowMap.autoUpdate = true;
   }
-  pause() { if (!this.active) return; this.grenadeView.release(); this.deps.sfx.hearing?.reset(); if (this.hud) this.hud.disruption.style.opacity = '0'; this.paused = true; if (this.h) this.h.releaseAll(); }
+  pause() { if (!this.active) return; this.grenadeView.release(); this.watch.release(); this.deps.sfx.hearing?.reset(); if (this.hud) this.hud.disruption.style.opacity = '0'; this.paused = true; if (this.h) this.h.releaseAll(); }
   resume(t) { this.paused = false; this.prevT = t; }
   refreshGraphics() { this._applyGraphics(); if (this.h) { this.h.rig.rebuild(); this.h.rig.setGun(this.h.gun, this.deps.slotOf(this.h.gun), this.h.optic); this.h._buildReticle(); } }
   changeGun() {}
@@ -337,6 +400,7 @@ export class ModeGame {
   update(t) {
     if (!this.active) return;
     if (this.over && this.finale.active) { this._updateFinale(t); return; }
+    if (this.viewOnly) { this._updateWatch(t); return; }
     let dt = Math.min(0.1, Math.max(0, t - this.prevT));
     this.prevT = t;
     if ((this.paused && !this.netRole) || this.over) dt = 0;   // a network match runs on for everyone
@@ -438,6 +502,43 @@ export class ModeGame {
     this._hud(t);
   }
 
+  _updateWatch(t) {
+    const dt = this.paused ? 0 : Math.min(0.1, Math.max(0, t - this.prevT));
+    this.prevT = t;
+    const m = this.m;
+    this._events(t);
+    if (this.over) return;
+    this._refreshPanels();
+    this._gadgets(t);
+    for (const actor of m.actors) {
+      const figure = this.fig.get(actor.id);
+      figure.x = actor.x; figure.y = actor.y; figure.z = actor.z;
+      figure.yaw = actor.yaw; figure.pitch = actor.pitch; figure.crouch = actor.crouch;
+      figure.alive = actor.alive; figure.health = actor.hp;
+      figure.updateVisual(t);
+      figure.outline.visible = false;
+      for (const leg of figure.legs) leg.o.visible = false;
+      figure.setGhost(false);
+    }
+    const mates = this._livingTeammates();
+    const focus = mates.find(actor => actor.id === this.spectatorId) || mates[0];
+    this.spectatorId = focus?.id ?? null;
+    this.spectator = this.watch.mode === 'follow' ? focus : null;
+    const free = this.watch.frame(dt, focus, this.map, m.actors, this.me.team, this.watchMarks);
+    this.camOverride = free || this.camOverride || this.h.camera;
+    if (this.spectator) {
+      if (!this.spectatorCam) this.spectatorCam = new THREE.PerspectiveCamera(70, 1, 0.03, 300);
+      this.camOverride = this.spectatorCam;
+      const figure = this.fig.get(focus.id);
+      this._firstPerson(this.spectatorCam, focus, focus.gunData, focus.op.sight, figure.skin, {
+        x: focus.x, y: focus.y, z: focus.z, eye: 1.6 - 0.48 * focus.crouch,
+        yaw: focus.yaw + (focus.recoilYaw || 0), pitch: focus.pitch + (focus.recoilPitch || 0),
+        ads: focus.ads || 0, lean: focus.lean || 0,
+      }, t, dt);
+    }
+    this.hud.score.textContent = (m.rules.score.A || 0) + ' : ' + (m.rules.score.B || 0);
+    this.hud.view.classList.add('mg-view-only');
+  }
   _events(t) {
     const m = this.m, me = this.me, sfx = this.deps.sfx;
     for (const e of m.events) {
@@ -475,7 +576,9 @@ export class ModeGame {
       } else if (e.type === 'end') {
         const won = e.winner === me.team;
         if (won) this._earn('win');
-        this._showEnd(e.winner === 'draw' ? 'Draw' : won ? 'Your team wins' : 'Your team loses', e.winner, t, e.results);
+        if (this.rankedHost) void this._finishRanked(e.winner);
+        const title = e.winner === 'draw' ? 'Draw' : this.viewOnly ? 'Team ' + e.winner + ' wins' : won ? 'Your team wins' : 'Your team loses';
+        this._showEnd(title, e.winner, t, e.results);
       } else if (e.type === 'msg') {
         if (!e.private || e.id === me.id) this._flash(e.text, t);
       } else if (e.type === 'swap') {
@@ -700,6 +803,7 @@ export class ModeGame {
     if (p.reticle) p.reticle.material.opacity = Math.min(1, Math.max(0, (pose.ads - 0.55) / 0.35));
   }
   _earn(kind, head = false) {
+    if (this.viewOnly) return;
     const n = this.deps.onPoints ? this.deps.onPoints(kind, head) : 0;
     if (n) { this.points += n; this.hud.pts.textContent = '+' + n; this.hud.pts.className = 'b-points on'; this.ptsUntil = this.prevT + 1.2; }
   }
@@ -856,7 +960,7 @@ export class ModeGame {
     });
   }
   _canSpectate() {
-    return this.m.o.mode === 'bomb' && !this.me.alive && !this.kc && !this.over;
+    return !this.kc && !this.over && (this.viewOnly || this.m.o.mode === 'bomb' && !this.me.alive);
   }
   _livingTeammates() {
     return this.m.actors.filter(a => a.alive && a.team === this.me.team);
@@ -932,7 +1036,7 @@ export class ModeGame {
     const cam = this.camOverride || h.camera;
     if (cam.aspect !== aspect) { cam.aspect = aspect; cam.updateProjectionMatrix(); }
     const ownVis = h.f.group.visible;
-    if (!(this.kc && this.camOverride === this.kcCam)) h.f.group.visible = false;   // your body shows in your death replay
+    if (!this.viewOnly && !(this.kc && this.camOverride === this.kcCam)) h.f.group.visible = false;   // your body shows in your death replay
     const wp = this.deps.worldPost;
     const drawWorld = () => { if (wp?.active) wp.draw(this.scene, cam); else r.render(this.scene, cam); };
     try {
@@ -941,7 +1045,7 @@ export class ModeGame {
     } finally {
       h.f.group.visible = ownVis;
     }
-    const rig = this.spectator || (this.kc && this.camOverride === this.kcCam) ? this.kcPuppet?.rig : !this.camOverride ? h.rig : null;
+    const rig = this.spectator || (this.kc && this.camOverride === this.kcCam) ? this.kcPuppet?.rig : !this.viewOnly && !this.camOverride ? h.rig : null;
     if (rig) {
       r.clearDepth(); rig.setAspect(aspect, sz.y); r.render(rig.scene, rig.camera);
     }
@@ -968,12 +1072,17 @@ export class ModeGame {
   /* ---------- input ---------- */
   mouseMove(dx, dy) {
     if (!this.active || this.paused || this.over) return;
+    if (this.viewOnly) { this.watch.look(dx, dy); return; }
     if (this.m.ab.mouse(this.me, dx, dy)) return;
     this.h.mouseMove(dx, dy);
   }
   mouseButton(b, down) {
     const h = this.h;
     if (!h) return;
+    if (this.viewOnly) {
+      if (down && !this.over && (b === 0 || b === 2)) this._cycleSpectator(b === 0 ? 1 : -1);
+      return;
+    }
     if (!this.me.alive && this.m.o.mode === 'bomb' && (b === 0 || b === 2)) {
       if (down && this._canSpectate()) this._cycleSpectator(b === 0 ? 1 : -1);
       return;
@@ -993,6 +1102,7 @@ export class ModeGame {
       if (down && mate) this.spectatorId = mate.id;
       return true;
     }
+    if (this.viewOnly && code !== 'Tab') return !this.over && this.watch.key(code, down, this._livingTeammates().find(a => a.id === this.spectatorId));
     if (code === 'Tab') { this.hud.board.hidden = !down; if (down) this._renderBoard(); return true; }
     const me = this.me, ab = this.m.ab;
     const abilityUsed = this.m.o.abilitiesOn || this.m.o.mode === 'bomb';
@@ -1234,6 +1344,7 @@ export class ModeGame {
   }
   _showEnd(title, winner, t, results) {
     this.over = true;
+    this.watch.reset();
     const m = this.m, H = this.hud;
     H.endTitle.textContent = title;
     const scores = new Map((results || []).map(([id, kills, deaths]) => [id, { kills, deaths }]));
@@ -1241,7 +1352,7 @@ export class ModeGame {
       .sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
     H.endTable.replaceChildren(...rows.map((a) => {
       const r = el('div', 'b-row');
-      r.append(el('span', 'b-name t-' + a.team, a.id === this.me.id ? 'You (' + a.op.name + ')' : a.name), el('span', '', a.kills + ' kills'), el('span', '', a.deaths + ' deaths'));
+      r.append(el('span', 'b-name t-' + a.team, !this.viewOnly && a.id === this.me.id ? 'You (' + a.op.name + ')' : a.name), el('span', '', a.kills + ' kills'), el('span', '', a.deaths + ' deaths'));
       return r;
     }));
     H.endNote.textContent = (m.rules.endText ? m.rules.endText() : '') + (this.points ? ' You earned ' + this.points + ' points.' : '');
@@ -1261,10 +1372,10 @@ export class ModeGame {
 }
 // Network host: which team each player on another PC joins. Bomb: the side they asked for
 // (yours is team A), else the smaller team; other modes: the smaller team.
-function teamsFor(mode, hostSide, peers) {
+function teamsFor(mode, hostSide, peers, ranked = false) {
   const count = { A: 1, B: 0 }, out = [];
   peers.forEach((p, i) => {
-    let team = mode === 'bomb' && (p.side === 'attack' || p.side === 'defend') ? (p.side === (hostSide || 'attack') ? 'A' : 'B') : count.A <= count.B ? 'A' : 'B';
+    let team = !ranked && mode === 'bomb' && (p.side === 'attack' || p.side === 'defend') ? (p.side === (hostSide || 'attack') ? 'A' : 'B') : count.A <= count.B ? 'A' : 'B';
     count[team]++;
     out.push({ op: p.op, team, name: p.name, attach: p.attach || null, skin: p.skin ?? null, peer: i });
   });

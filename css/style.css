@@ -473,3 +473,23 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
   white-space: normal; text-align: center; font-size: 14px;
 }
 .mg-spectating :is(.b-name, .b-ammo, .mg-ability) { visibility: hidden; }
+
+.watch-panel {
+  position: absolute; inset: 12% 10px 10%; display: flex; align-items: center;
+  justify-content: end; flex-direction: column; gap: 10px; pointer-events: none;
+}
+.watch-panel[hidden], .watch-panel canvas[hidden], .mg-view-only { display: none; }
+.watch-panel canvas { max-width: min(90vw, 900px); max-height: 66vh; object-fit: contain; border: 1px solid #57718b; border-radius: 8px; }
+.watch-panel p { margin: 0; padding: 8px 12px; border-radius: 6px; text-align: center; background: rgba(10, 16, 24, 0.9); }
+#net-rank-games { display: flex; flex-wrap: wrap; gap: 8px; }
+#net-rank-games[hidden] { display: none; }
+.rank-crest {
+  display: inline-block; width: .8em; height: .95em; margin-right: .45em;
+  background: #bb805e; vertical-align: -.1em;
+  clip-path: polygon(0 0, 100% 0, 100% 66%, 50% 100%, 0 66%);
+}
+.rank-crest[data-rank="bronze"] { background: #dca279; }
+.rank-crest[data-rank="silver"] { background: #c6d0de; }
+.rank-crest[data-rank="gold"] { background: #f4cd70; }
+.rank-crest[data-rank="platinum"] { background: #85d8cd; }
+.rank-crest[data-rank="diamond"] { background: #a6d6ff; }

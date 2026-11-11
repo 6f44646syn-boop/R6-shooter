@@ -16,6 +16,8 @@
 // A client keeps a copy of the match built from the host's roster (same actor ids) and never
 // steps it; it only applies what the host sends.
 
+import { spectatorVisibility } from '../replay/spectator.js?v=m11-ranked';
+
 const r2 = (v) => Math.round(v * 100) / 100;
 const r1 = (v) => Math.round(v * 10) / 10;
 const fin = (v, d = 0) => (Number.isFinite(+v) ? +v : d);
@@ -106,8 +108,14 @@ export class MatchHost {
     this.nextSnap = 0; this.lastState = ''; this.lastMap = -1; this.lastGadgets = '';
     this.shots = new Map();
   }
-  actorOf(link) { const p = this.peers.find((x) => x.link === link); return p ? this.g.m.actors.find((a) => a.id === p.actorId) : null; }
-  send(msg, fast = false) { for (const p of this.peers) p.link.send(msg, fast); }
+  actorOf(link) { const p = this.peers.find(x => x.link === link && !x.retired && !x.spectator); return p ? this.g.m.actors.find((a) => a.id === p.actorId) : null; }
+  send(msg, fast = false) {
+    for (const peer of this.peers) {
+      if (peer.spectator && msg.k !== 'mmap' && msg.k !== 'stopped') continue;
+      if (peer.retired && msg.k !== 'stopped') continue;
+      peer.link.send(msg, fast);
+    }
+  }
   // A message from a player.
   onMessage(link, msg) {
     const g = this.g, m = g.m, a = this.actorOf(link);
@@ -190,6 +198,21 @@ export class MatchHost {
       ...m.ab.gadgets.filter((x) => x.alive && x.type === 'drone').map((x) => ['d', x.id, r2(x.x), r2(x.y), r2(x.z), r1(x.yaw), r1(x.pitch || 0)]),
       ...m.ab.projectiles.filter((x) => x.alive).map((x) => ['p', x.id, r2(x.x), r2(x.y), r2(x.z)])];
     this.send({ k: 'ms', t: r2(m.t), f, mv }, true);
+    const views = new Map();
+    for (const peer of this.peers) {
+      if (!peer.spectator) continue;
+      let view = views.get(peer.team);
+      if (!view) {
+        const visible = spectatorVisibility(m.actors, peer.team, m.map.world);
+        const allies = new Set(m.actors.filter(actor => actor.team === peer.team).map(actor => actor.id));
+        const marks = [...m.bb[peer.team].seen.values()].filter(mark => m.t - mark.t <= 2)
+          .map(mark => ({ id: mark.id, x: r2(mark.x), z: r2(mark.z) }));
+        view = { k: 'mwatch', t: r2(m.t), f: f.filter(row => visible.has(row[0])), score: m.rules.score,
+          mv: mv.filter(row => row[0] === 'n' && allies.has(row[6])), marks };
+        views.set(peer.team, view);
+      }
+      peer.link.send(view, true);
+    }
     // the match state when it changes (reliable)
     const st = JSON.stringify({ rules: rulesState(m.rules, m), actors: m.actors.map((a) => [a.id, a.kills, a.deaths, a.assists || 0, encode(a.carry, m, 1), encode(a.hold, m, 1), r2(a.protectUntil), r2(a.stunUntil), r2(a.slowUntil), r2(a.revealedUntil), r2(a.respawnAt || 0), a.reinf ?? 0, a.wire ?? 0, abState(a, m), a.op.id, a.gunData.id, a.name]), nades: m.nades.live.map((n) => n.id) });
     if (st !== this.lastState) { this.lastState = st; this.send({ k: 'mstate', s: st }); }
@@ -214,6 +237,8 @@ export class MatchHost {
       if (encoded) out.push(encoded);
     }
     if (out.length) this.send({ k: 'mev', e: out });
+    const end = out.find(event => event.type === 'end');
+    if (end) for (const peer of this.peers) if (peer.spectator) peer.link.send({ k: 'mev', e: [end] });
   }
 }
 
@@ -228,7 +253,14 @@ export class MatchClient {
   onMessage(msg) {
     const g = this.g, m = g.m;
     if (!m || !msg) return;
-    if (msg.k === 'ms') this.snap(msg);
+    if (g.viewOnly && !['mwatch', 'mmap', 'mev'].includes(msg.k)) return;
+    if (msg.k === 'mwatch' && g.viewOnly) {
+      const present = new Set(msg.f.map(row => row[0]));
+      for (const actor of m.actors) if (!present.has(actor.id)) actor.alive = false;
+      g.watchMarks = msg.marks || [];
+      m.rules.score = msg.score;
+      this.snap(msg);
+    } else if (msg.k === 'ms' && !g.viewOnly) this.snap(msg);
     else if (msg.k === 'mstate') this.state(JSON.parse(msg.s));
     else if (msg.k === 'mgad') this.gadgetsFrom(JSON.parse(msg.g));
     else if (msg.k === 'mmap') applyMapState(m.map, msg.p);
@@ -243,7 +275,7 @@ export class MatchClient {
       const a = m.actors.find((x) => x.id === row[0]);
       if (!a) continue;
       const alive = !!row[9];
-      if (a === me) {
+      if (a === me && !g.viewOnly) {
         // you: the host decides health and life; your PC decides where you are
         a.hp = row[8];
         if (alive && !a.alive) a.forcedSpawn = true;
@@ -299,6 +331,7 @@ export class MatchClient {
     const g = this.g, m = g.m, me = g.me;
     for (const raw of list) {
       const e = decode(raw, m);
+      if (g.viewOnly && e.type !== 'end') continue;
       if (e.type === 'msg') {
         // messages written for the host's player: say them for you
         if (e.roundStart) e.text = 'Round ' + e.roundStart + ': ' + (e.attack === me.team ? 'attack' : 'defend');

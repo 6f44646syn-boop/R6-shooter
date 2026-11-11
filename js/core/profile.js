@@ -5,6 +5,7 @@
 // Points: KILL_POINTS per battle kill (+ HEADSHOT_BONUS for a headshot kill), WIN_POINTS for
 // winning a battle. A pack costs PACK_COST and gives one random skin; a duplicate refunds
 // points instead (by rarity).
+import { HISTORY_LIMIT, START_RATING, ratingOf } from './ranked.js?v=m11-ranked';
 import { RARITIES, CATALOGUE, SKIN_COUNT, LEGEND_ID } from './skins.js?v=9dd0f7b-mwbioun8';
 
 export const KILL_POINTS = 20, HEADSHOT_BONUS = 10, WIN_POINTS = 50, PACK_COST = 100;
@@ -12,6 +13,8 @@ const KEY = 'recoilRange.profile.v1';
 const SLOTS = 10;
 const CODE_PREFIX = 'RRS1-';
 const NONE = 255;
+const OUTCOMES = ['loss', 'draw', 'win'];
+const RANK_RECORD = 18;
 const LEGEND_BYTE = 254;          // the Legendary skin in a save code (the photo itself is not saved)
 
 function crc16(bytes) {            // CRC-16/CCITT, salted
@@ -42,6 +45,7 @@ export class Profile {
     this.owned = new Uint8Array(Math.ceil(SKIN_COUNT / 8));
     this.equipped = new Array(SLOTS).fill(null);
     this.kills = 0; this.packs = 0;
+    this.rating = START_RATING; this.rankedHistory = [];
   }
   onChange(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
   _changed() { this.save(); for (const fn of this.listeners) fn(this); }
@@ -64,6 +68,18 @@ export class Profile {
   // A kill in battle (headshot: bonus); returns the points added.
   addKill(head = false) { this.kills++; return this.addPoints(KILL_POINTS + (head ? HEADSHOT_BONUS : 0)); }
   addPoints(n) { this.points = Math.min(0xffffffff, this.points + Math.max(0, Math.round(n))); this._changed(); return n; }
+
+  applyRanked(change) {
+    if (!change || !/^[0-9a-f]{32}$/.test(change.id) || !OUTCOMES.includes(change.outcome)
+      || !Number.isInteger(change.delta) || Math.abs(change.delta) > 32
+      || this.rankedHistory.some(entry => entry.id === change.id)) return null;
+    const next = ratingOf(this.rating + change.delta);
+    const entry = { ...change, delta: next - this.rating };
+    this.rating = next;
+    this.rankedHistory = [entry, ...this.rankedHistory].slice(0, HISTORY_LIMIT);
+    this._changed();
+    return entry;
+  }
 
   get canOpen() { return this.points >= PACK_COST; }
   // Pick a skin for a pack: a rarity by its odds, then any skin of that rarity.
@@ -88,15 +104,22 @@ export class Profile {
 
   /* ---------- storage and save codes ---------- */
   _bytes() {
-    const b = new Uint8Array(1 + 4 + this.owned.length + SLOTS + 4 + 2);
+    const b = new Uint8Array(1 + 4 + this.owned.length + SLOTS + 4 + 2 + 3 + RANK_RECORD * this.rankedHistory.length);
     const dv = new DataView(b.buffer);
     let o = 0;
-    b[o++] = 2;                                   // format version (2: 201 skins)
+    b[o++] = 3;                                   // format version (3: local ranked rating and history)
     dv.setUint32(o, this.points, true); o += 4;
     b.set(this.owned, o); o += this.owned.length;
     for (let i = 0; i < SLOTS; i++) b[o++] = this.equipped[i] === null ? NONE : this.equipped[i] === LEGEND_ID ? LEGEND_BYTE : this.equipped[i];
     dv.setUint32(o, Math.min(this.kills, 0xffffffff), true); o += 4;
-    dv.setUint16(o, Math.min(this.packs, 0xffff), true);
+    dv.setUint16(o, Math.min(this.packs, 0xffff), true); o += 2;
+    dv.setUint16(o, this.rating, true); o += 2;
+    b[o++] = this.rankedHistory.length;
+    for (const { id, delta, outcome } of this.rankedHistory) {
+      for (let i = 0; i < 32; i += 2) b[o++] = Number.parseInt(id.slice(i, i + 2), 16);
+      dv.setInt8(o++, delta);
+      b[o++] = OUTCOMES.indexOf(outcome);
+    }
     return b;
   }
   saveCode() {
@@ -117,22 +140,39 @@ export class Profile {
     const body = all.subarray(0, all.length - 2);
     const c = all[all.length - 2] | (all[all.length - 1] << 8);
     if (crc16(body) !== c) throw new Error('The save code does not check out (a character is wrong or missing).');
-    if (body[0] !== 1 && body[0] !== 2) throw new Error('This save code is from a newer version. Refresh the page (Ctrl+F5).');
+    if (![1, 2, 3].includes(body[0])) throw new Error('This save code is from a newer version. Refresh the page (Ctrl+F5).');
     this._fromBytes(body);
     this._changed();
     return true;
   }
   _fromBytes(b) {
     const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+    const len = b[0] === 1 ? 25 : Math.ceil(SKIN_COUNT / 8);
+    const base = 1 + 4 + len + SLOTS + 4 + 2;
+    const count = b[0] === 3 ? b[base + 2] : 0;
+    const expected = b[0] === 3 ? base + 3 + RANK_RECORD * count : base;
+    if (b.length !== expected || count > HISTORY_LIMIT) throw new Error('The save code has an invalid length.');
+    const history = [];
+    let rating = START_RATING;
+    if (b[0] === 3) {
+      rating = ratingOf(dv.getUint16(base, true));
+      let offset = base + 3;
+      for (let i = 0; i < count; i++) {
+        const id = Array.from(b.subarray(offset, offset + 16), v => v.toString(16).padStart(2, '0')).join('');
+        offset += 16;
+        const delta = dv.getInt8(offset++), outcome = OUTCOMES[b[offset++]];
+        if (!outcome || Math.abs(delta) > 32 || history.some(entry => entry.id === id)) throw new Error('The ranked history is invalid.');
+        history.push({ id, delta, outcome });
+      }
+    }
     let o = 1;
     this.points = dv.getUint32(o, true); o += 4;
-    // Version 1 codes hold 200 skins (25 bytes), version 2 holds 201 (26 bytes).
-    const len = b[0] === 1 ? 25 : Math.ceil(SKIN_COUNT / 8);
     this.owned = new Uint8Array(Math.ceil(SKIN_COUNT / 8));
     this.owned.set(b.slice(o, o + len)); o += len;
     for (let i = 0; i < SLOTS; i++) { const v = b[o++]; this.equipped[i] = v === LEGEND_BYTE ? LEGEND_ID : v === NONE || v >= SKIN_COUNT ? null : v; }
     this.kills = dv.getUint32(o, true); o += 4;
     this.packs = dv.getUint16(o, true);
+    this.rating = rating; this.rankedHistory = history;
   }
   save() {
     const st = this.storage || (typeof localStorage !== 'undefined' ? localStorage : null);
