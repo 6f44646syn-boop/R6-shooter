@@ -92,15 +92,48 @@ reinforced walls, barricades with `hp`, `slot`, `win`). Only the engine writes t
 recorded yet; add them to the frame (and bump the stride) rather than keeping a second
 recorder.
 
-## Network (milestone 9)
+## Network (milestone 9, Claude)
 
-Battle's host is the authority: clients send input, the host simulates and sends states.
-Fighters carry `y` already (stairs and upper floors work online through the same arena
-physics). Battle grenades are still off in network games (bug B11 in `BASELINE.md`). The
-match modes (TDM, CTF, Bomb) are offline only; their simulation is seeded and fixed-step
-(60 Hz), so it can be run by a host later without changes to the rules. If Bomb goes
-online, the destruction state to send is which wall cells and barricades stand, which panels
-are reinforced (`m.map.panels`), and the gadgets (`m.ab.gadgets`, wire included).
+Every mode plays online over the existing relay or a direct peer-to-peer link. There is no
+server: one player hosts. In the lobby (Battle setup, Network) the host picks **Game**
+(Battle, Team Deathmatch, Capture the Flag or Bomb) and, for the match modes, the map. Team
+size, bot level, time, preparation and abilities come from that mode's own settings. Each
+player brings the operator they last picked for the mode, their Bomb side and their
+attachments (`hello`: `ops`, `side`, `atm`).
+
+**Battle:** unchanged model (each player moves on their PC; the host owns damage and kills).
+Grenades now work online (B11 fixed):
+- The host throws every grenade (clients send `{ k: 'nade', yaw, pitch }`) and sends `nd`
+  (start position, velocity, fuse) so each PC flies it on the same physics.
+- The host alone applies damage and sends `blast` where it went off.
+- Host bots throw too. The grenade count is in the snapshot.
+
+**Match modes** (`js/modes/net-match.js`): `MatchHost` / `MatchClient`.
+- **The host runs the simulation.** Players on other PCs are human actors with `remote`
+  set (`Match` options `remotes`; `m.human()` is the local player, `m.isMe(a)` tests for it).
+- **Clients build the same `Match` from the host's roster** (`o.roster`, same actor ids,
+  `o.client: true`, so no bot brains) and never step it.
+- **Movement:** each player moves on their PC and sends `st` about 30 times a second. The host
+  keeps them out of walls. Spawns, rounds and the Bomb boundary move a player with `force`.
+- **Shots:** `shot` = eye, direction and what the shooter saw hit. The host fires it in its
+  simulation (walls, doors, gadgets, noise). It accepts a claimed hit its older positions
+  missed only if the target is alive, an enemy, within 2 m of the claimed point and in sight.
+- **Actions** (`act`): ability press and release, drone zap and recall, the breaching
+  shotgun, Interact holds (plant, defuse, reinforce, barricade), grenade, knife. Drone controls
+  ride on `st`.
+- **The host sends:**
+  - `ms` (fast, 20 Hz): positions, health, grenades, drones, breaching rounds;
+  - `mstate`: rules, scores, carriers, holds, ability state, Bomb stock, when changed;
+  - `mgad`: gadgets and gas clouds, when changed;
+  - `mmap`: each wall or door panel's kind, health and cell bits, when the map changes;
+  - `mev`: the frame's events (shots, hits, kills, explosions, messages).
+- **References:** actors, gadgets and panels travel as `{ $a }`, `{ $g }` and `{ $p }`.
+- **Leaving:** a player who leaves is replaced by a bot. The host leaving ends the match for
+  everyone (`stopped`).
+- **Pausing** in a network match only opens the menu; the match runs on.
+
+Not done: client-side prediction of others (others glide between updates) and late joining
+of a running match.
 
 ## Events and bots (milestone 5)
 

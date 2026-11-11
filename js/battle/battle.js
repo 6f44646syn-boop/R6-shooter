@@ -3,16 +3,16 @@
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=3a5db4d-mwbgfx6u';
-import { Arena } from './arena.js?v=3a5db4d-mwbgfx6u';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=3a5db4d-mwbgfx6u';
-import { Bot, LEVELS } from './bot.js?v=3a5db4d-mwbgfx6u';
-import { Human } from './human.js?v=3a5db4d-mwbgfx6u';
-import { BattleNades } from './nades.js?v=3a5db4d-mwbgfx6u';
-import { drawCrosshair } from '../ui/crosshair.js?v=3a5db4d-mwbgfx6u';
-import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=3a5db4d-mwbgfx6u';
-import { effectiveGraphics } from '../render/quality.js?v=3a5db4d-mwbgfx6u';
-import { effectiveGun, slotIn } from '../core/loadout.js?v=3a5db4d-mwbgfx6u';
+import * as THREE from '../../vendor/three/three.module.min.js?v=1ab6120-mwbhzb5p';
+import { Arena } from './arena.js?v=1ab6120-mwbhzb5p';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=1ab6120-mwbhzb5p';
+import { Bot, LEVELS } from './bot.js?v=1ab6120-mwbhzb5p';
+import { Human } from './human.js?v=1ab6120-mwbhzb5p';
+import { BattleNades } from './nades.js?v=1ab6120-mwbhzb5p';
+import { drawCrosshair } from '../ui/crosshair.js?v=1ab6120-mwbhzb5p';
+import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=1ab6120-mwbhzb5p';
+import { effectiveGraphics } from '../render/quality.js?v=1ab6120-mwbhzb5p';
+import { effectiveGun, slotIn } from '../core/loadout.js?v=1ab6120-mwbhzb5p';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -278,7 +278,7 @@ export class Battle {
     if ((this.paused && !this.net) || this.over) dt = 0;
     this.t = t;
     if (dt > 0) {
-      for (const b of this.bots) { b.update(t, dt, this); if (!this.net && !this.over) this.nadesB.botThink(b, t); }
+      for (const b of this.bots) { b.update(t, dt, this); if (!this.over) this.nadesB.botThink(b, t); }
       while (this.intelQ.length && this.intelQ[0].at <= t) { const q = this.intelQ.shift(); for (const b of this.bots) if (b.f.team === q.team) b.onCallout(q.intel, t, this); }
       for (const f of this.fighters) {
         if (!f.alive && t >= f.respawnAt) this._spawn(f, t);
@@ -464,7 +464,7 @@ export class Battle {
   }
   // Positions, health and score of everyone, ~30 times a second (newest wins).
   _sendSnapshot(t) {
-    const f = this.fighters.map((g) => [g.id, r2(g.x), r2(g.z), r1(g.yaw + (g.viewDY || 0)), r1(g.pitch + (g.viewDP || 0)), r2(g.crouch), Math.ceil(Math.max(0, g.health)), g.alive ? 1 : 0, t < g.flashUntil ? 1 : 0, g.kills, g.deaths, r2(g.y), g.light ? 1 : 0, r2(g.ads || 0)]);
+    const f = this.fighters.map((g) => [g.id, r2(g.x), r2(g.z), r1(g.yaw + (g.viewDY || 0)), r1(g.pitch + (g.viewDP || 0)), r2(g.crouch), Math.ceil(Math.max(0, g.health)), g.alive ? 1 : 0, t < g.flashUntil ? 1 : 0, g.kills, g.deaths, r2(g.y), g.light ? 1 : 0, r2(g.ads || 0), g.nades ?? 2]);
     this._broadcast({ k: 'snap', f, s: this.teamScore }, true);
   }
   // A message from a player on another PC (host), or from the host (client).
@@ -505,6 +505,8 @@ export class Battle {
           this._damage(g, gunDamage(r.gun) * (ZONE_DAMAGE[m.hit.zone] || 1), f, m.hit.zone, t);
         }
       }
+    } else if (m.k === 'nade') {
+      if (f.alive && !this.over) this.nadesB.throw(f, +m.yaw || 0, Math.max(-89, Math.min(89, +m.pitch || 0)), t);
     } else if (m.k === 'gun') {
       // The host takes the player's attachments through the same Rust policy (an invalid code
       // gives the measured loadout), so its damage and rate checks use the effective gun.
@@ -536,6 +538,8 @@ export class Battle {
   // The host started a match: build it from the roster. You play on this PC; everyone else
   // follows the host's updates.
   startClient(m, link) {
+    if (!this.nadesB) this.nadesB = new BattleNades(this);
+    this.nadesB.reset();
     this.stop();
     const d = this.deps;
     this.opts = { opponent: 'net', killsToWin: m.killsToWin };
@@ -582,14 +586,17 @@ export class Battle {
 
   _clientMsg(m) {
     const t = this.deps.now(), me = this.humans[0];
+    if (m.k === 'nd') { this.nadesB.ghost(m, this.t); return; }
+    if (m.k === 'blast') { this.nadesB.remoteBlast(m, this.t); return; }
     if (m.k === 'snap') {
       for (const e of m.f) {
-        const [id, x, z, yaw, pitch, crouch, health, alive, flash, kills, deaths, y = 0, light = 1, ads = 0] = e;
+        const [id, x, z, yaw, pitch, crouch, health, alive, flash, kills, deaths, y = 0, light = 1, ads = 0, nades] = e;
         const f = this.fighters.find((g) => g.id === id);
         if (!f) continue;
         f.kills = kills; f.deaths = deaths;
         if (me && f === me.f) {
           f.health = health;
+          if (nades !== undefined && t >= (f.nadeAt || 0) + 0.5) f.nades = nades;   // (after a throw, until the host has it)
           if (f.alive && !alive) { f.alive = false; f.respawnAt = t + RESPAWN_S; }
           continue;
         }
@@ -645,6 +652,8 @@ export class Battle {
     const me = this.humans[0];
     if (me) me.update(t, this.over ? 0 : dt, this);
     this._separate();
+    this.nadesB.update(this.over ? 0 : dt, t);
+    this._updateBlasts(t);
     // Others: drawn INTERP_DELAY behind, between the two updates around that moment.
     const rt = t - INTERP_DELAY;
     for (const p of this.proxies) {
@@ -727,10 +736,14 @@ export class Battle {
     if (code === 'KeyR') { if (down) p1.reload(); return true; }
     // Caps Lock (or G): a grenade (games against bots). On a Mac Caps Lock sends only key-up every other press.
     if (code === 'CapsLock' || code === 'KeyG') {
-      if (this.net || this.paused || this.over) return true;
+      if (this.paused || this.over) return true;
       if (down || (code === 'CapsLock' && this.t - (this._capsDown || -9) > 0.6)) {
         if (down) this._capsDown = this.t;
-        if (this.nadesB.throw(p1.f, p1.look.yaw, p1.look.pitch, this.t)) { if (p1.rig.melee) p1.rig.melee(); this.deps.sfx.knife(0.6); }
+        if (this.net && this.net.role === 'client') {
+          // online: the host throws it (and decides the damage); every PC draws it flying
+          const f = p1.f;
+          if (f.alive && (f.nades ?? 2) > 0 && this.t >= (f.nadeAt || 0)) { f.nades = (f.nades ?? 2) - 1; f.nadeAt = this.t + 1; this.net.link.send({ k: 'nade', yaw: r1(p1.look.yaw), pitch: r1(p1.look.pitch) }); if (p1.rig.melee) p1.rig.melee(); this.deps.sfx.knife(0.6); }
+        } else if (this.nadesB.throw(p1.f, p1.look.yaw, p1.look.pitch, this.t)) { if (p1.rig.melee) p1.rig.melee(); this.deps.sfx.knife(0.6); }
       }
       return true;
     }
@@ -1174,7 +1187,7 @@ export class Battle {
       if (Math.abs((L.vk || 0) - vk) > 0.02 || (vk === 0 && L.vk)) { L.vk = vk; v.vig.style.opacity = vk.toFixed(2); }
       const low = f.alive && f.health <= 35;
       if (L.low !== low) { L.low = low; v.lowhp.classList.toggle('on', low); }
-      const nt = f.alive && !this.net && i === 0 ? ('● '.repeat(f.nades ?? 2).trim() || 'no grenades') + ' · Caps Lock' : '';
+      const nt = f.alive && i === 0 ? ('● '.repeat(f.nades ?? 2).trim() || 'no grenades') + ' · Caps Lock' : '';
       if (L.nt !== nt) { L.nt = nt; v.nades.textContent = nt; }
       if (t > v.ptsUntil && v.pts.classList.contains('on')) v.pts.className = 'b-points';
       const deadMsg = f.alive ? '' : 'Eliminated by ' + (h.killedBy || '?') + ' · back in ' + Math.max(0, Math.ceil(f.respawnAt - t));

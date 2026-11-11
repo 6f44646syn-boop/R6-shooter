@@ -1,57 +1,57 @@
-import { loadPackArt } from './render/pack-art.js?v=3a5db4d-mwbgfx6u';
-import { loadPackAnims } from './scene/weapon-anims.js?v=3a5db4d-mwbgfx6u';
-import { connectAudioPack } from './audio/pack-bridge.js?v=3a5db4d-mwbgfx6u';
-import { initBombUtility, utilityFor } from './balance/bomb-utility.js?v=3a5db4d-mwbgfx6u';
-import { createAcoustics } from './audio/acoustics.js?v=3a5db4d-mwbgfx6u';
-import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=3a5db4d-mwbgfx6u';
-import { mountControls, mountFirstLaunch, tabs } from './ui/m7-menu.js?v=3a5db4d-mwbgfx6u';
+import { loadPackArt } from './render/pack-art.js?v=1ab6120-mwbhzb5p';
+import { loadPackAnims } from './scene/weapon-anims.js?v=1ab6120-mwbhzb5p';
+import { connectAudioPack } from './audio/pack-bridge.js?v=1ab6120-mwbhzb5p';
+import { initBombUtility, utilityFor } from './balance/bomb-utility.js?v=1ab6120-mwbhzb5p';
+import { createAcoustics } from './audio/acoustics.js?v=1ab6120-mwbhzb5p';
+import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=1ab6120-mwbhzb5p';
+import { mountControls, mountFirstLaunch, tabs } from './ui/m7-menu.js?v=1ab6120-mwbhzb5p';
 // Recoil Range entry point: wires input, camera, scene, HUD and the frame loop together.
-import * as THREE from '../vendor/three/three.module.min.js?v=3a5db4d-mwbgfx6u';
-import { Look, PITCH_LIMIT } from './core/look.js?v=3a5db4d-mwbgfx6u';
-import { Player } from './core/player.js?v=3a5db4d-mwbgfx6u';
-import { PointerLock } from './core/pointer-lock.js?v=3a5db4d-mwbgfx6u';
-import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=3a5db4d-mwbgfx6u';
-import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=3a5db4d-mwbgfx6u';
-import { Weapon } from './core/weapon.js?v=3a5db4d-mwbgfx6u';
-import { RecoilEngine } from './core/recoil.js?v=3a5db4d-mwbgfx6u';
-import { Spread } from './core/spread.js?v=3a5db4d-mwbgfx6u';
-import { loadGameData } from './core/guns.js?v=3a5db4d-mwbgfx6u';
-import { initLoadout, effectiveGun, sanitize, slotIn, baseOf, SLOTS as ATTACH_SLOTS, allowed as attachAllowed, measuredCode, describe as describeAttach, hint as attachHint } from './core/loadout.js?v=3a5db4d-mwbgfx6u';
-import { randomSeed } from './core/prng.js?v=3a5db4d-mwbgfx6u';
-import { Range, EYE_HEIGHT } from './scene/range.js?v=3a5db4d-mwbgfx6u';
-import { RING_STEP } from './scene/range-tex.js?v=3a5db4d-mwbgfx6u';
-import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=3a5db4d-mwbgfx6u';
-import { LensPost } from './render/lens-post.js?v=3a5db4d-mwbgfx6u';
-import { reticleTextures } from './ui/reticle-tex.js?v=3a5db4d-mwbgfx6u';
-import { DOT_POINTS } from './scene/dots.js?v=3a5db4d-mwbgfx6u';
-import { Voices } from './audio/voice.js?v=3a5db4d-mwbgfx6u';
-import { ModeGame } from './modes/game.js?v=3a5db4d-mwbgfx6u';
-import { Sfx } from './audio/sfx.js?v=3a5db4d-mwbgfx6u';
-import { DebugHud } from './ui/debug-hud.js?v=3a5db4d-mwbgfx6u';
-import { drawCrosshair } from './ui/crosshair.js?v=3a5db4d-mwbgfx6u';
-import { Hud } from './ui/hud.js?v=3a5db4d-mwbgfx6u';
-import { MagPlot } from './ui/plot.js?v=3a5db4d-mwbgfx6u';
-import { SettingsUI } from './ui/settings-ui.js?v=3a5db4d-mwbgfx6u';
-import { sensKeys, zoomKey } from './core/optics.js?v=3a5db4d-mwbgfx6u';
+import * as THREE from '../vendor/three/three.module.min.js?v=1ab6120-mwbhzb5p';
+import { Look, PITCH_LIMIT } from './core/look.js?v=1ab6120-mwbhzb5p';
+import { Player } from './core/player.js?v=1ab6120-mwbhzb5p';
+import { PointerLock } from './core/pointer-lock.js?v=1ab6120-mwbhzb5p';
+import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=1ab6120-mwbhzb5p';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=1ab6120-mwbhzb5p';
+import { Weapon } from './core/weapon.js?v=1ab6120-mwbhzb5p';
+import { RecoilEngine } from './core/recoil.js?v=1ab6120-mwbhzb5p';
+import { Spread } from './core/spread.js?v=1ab6120-mwbhzb5p';
+import { loadGameData } from './core/guns.js?v=1ab6120-mwbhzb5p';
+import { initLoadout, effectiveGun, sanitize, slotIn, baseOf, SLOTS as ATTACH_SLOTS, allowed as attachAllowed, measuredCode, describe as describeAttach, hint as attachHint } from './core/loadout.js?v=1ab6120-mwbhzb5p';
+import { randomSeed } from './core/prng.js?v=1ab6120-mwbhzb5p';
+import { Range, EYE_HEIGHT } from './scene/range.js?v=1ab6120-mwbhzb5p';
+import { RING_STEP } from './scene/range-tex.js?v=1ab6120-mwbhzb5p';
+import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=1ab6120-mwbhzb5p';
+import { LensPost } from './render/lens-post.js?v=1ab6120-mwbhzb5p';
+import { reticleTextures } from './ui/reticle-tex.js?v=1ab6120-mwbhzb5p';
+import { DOT_POINTS } from './scene/dots.js?v=1ab6120-mwbhzb5p';
+import { Voices } from './audio/voice.js?v=1ab6120-mwbhzb5p';
+import { ModeGame } from './modes/game.js?v=1ab6120-mwbhzb5p';
+import { Sfx } from './audio/sfx.js?v=1ab6120-mwbhzb5p';
+import { DebugHud } from './ui/debug-hud.js?v=1ab6120-mwbhzb5p';
+import { drawCrosshair } from './ui/crosshair.js?v=1ab6120-mwbhzb5p';
+import { Hud } from './ui/hud.js?v=1ab6120-mwbhzb5p';
+import { MagPlot } from './ui/plot.js?v=1ab6120-mwbhzb5p';
+import { SettingsUI } from './ui/settings-ui.js?v=1ab6120-mwbhzb5p';
+import { sensKeys, zoomKey } from './core/optics.js?v=1ab6120-mwbhzb5p';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
 function sensRows(catalogue, sens) {
   const keys = new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)]);
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
-import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=3a5db4d-mwbgfx6u';
-import { Battle } from './battle/battle.js?v=3a5db4d-mwbgfx6u';
-import { initCore, coreLoaded } from './wasm/core.js?v=3a5db4d-mwbgfx6u';
-import { createJoinRequest, acceptJoin } from './net/link.js?v=3a5db4d-mwbgfx6u';
-import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode } from './net/relay.js?v=3a5db4d-mwbgfx6u';
-import { Profile, WIN_POINTS } from './core/profile.js?v=3a5db4d-mwbgfx6u';
-import { skinFits, skinById } from './core/skins.js?v=3a5db4d-mwbgfx6u';
-import { PackUI } from './ui/packs.js?v=3a5db4d-mwbgfx6u';
-import { HDPack } from './render/hd-pack.js?v=3a5db4d-mwbgfx6u';
-import { effectiveGraphics, needsPack } from './render/quality.js?v=3a5db4d-mwbgfx6u';
-import { GraphicsUI } from './ui/graphics-ui.js?v=3a5db4d-mwbgfx6u';
-import { PerfHud } from './ui/perf-hud.js?v=3a5db4d-mwbgfx6u';
-import { WorldPost } from './render/world-post.js?v=3a5db4d-mwbgfx6u';
+import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=1ab6120-mwbhzb5p';
+import { Battle } from './battle/battle.js?v=1ab6120-mwbhzb5p';
+import { initCore, coreLoaded } from './wasm/core.js?v=1ab6120-mwbhzb5p';
+import { createJoinRequest, acceptJoin } from './net/link.js?v=1ab6120-mwbhzb5p';
+import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode } from './net/relay.js?v=1ab6120-mwbhzb5p';
+import { Profile, WIN_POINTS } from './core/profile.js?v=1ab6120-mwbhzb5p';
+import { skinFits, skinById } from './core/skins.js?v=1ab6120-mwbhzb5p';
+import { PackUI } from './ui/packs.js?v=1ab6120-mwbhzb5p';
+import { HDPack } from './render/hd-pack.js?v=1ab6120-mwbhzb5p';
+import { effectiveGraphics, needsPack } from './render/quality.js?v=1ab6120-mwbhzb5p';
+import { GraphicsUI } from './ui/graphics-ui.js?v=1ab6120-mwbhzb5p';
+import { PerfHud } from './ui/perf-hud.js?v=1ab6120-mwbhzb5p';
+import { WorldPost } from './render/world-post.js?v=1ab6120-mwbhzb5p';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -903,6 +903,11 @@ async function boot(data) {
     if (B.opponent === 'bots' && B.bots < 1) { flashNotice('Choose at least one bot.'); return; }
     if (B.opponent === 'net') {
       if (net.role === 'client') { flashNotice('Only the host can start a network battle.'); return; }
+      if (net.role === 'host' && netMode() !== 'battle') {
+        if (!net.peers.length) { flashNotice('Wait for at least one player to join first.'); return; }
+        startMode(netMode(), { net: { hostName: 'Host', peers: net.peers.map((e) => ({ link: e.link, name: e.name, op: e.ops && e.ops[netMode()], side: e.side, attach: e.attachMap, skin: e.skin })) } });
+        return;
+      }
       if (net.role !== 'host' || (!net.peers.length && B.bots < 1)) { flashNotice('Host a game and connect at least one player (or add bots) first.'); return; }
     }
     if (!battle) {
@@ -972,6 +977,7 @@ async function boot(data) {
     $('net-note-relay').hidden = $('relay-cfg').hidden = !relay;
     $('net-note-lan').hidden = relay;
     $('net-host').hidden = $('net-join').hidden = !!net.role;
+    $('net-game-box').hidden = net.role !== 'host';
     $('net-reset').hidden = !net.role;
     const names = net.peers.length ? net.peers.map((e) => e.name + ' (' + data.guns[e.gunIndex].name + ')').join(', ') : 'none yet';
     $('net-players').textContent = names;
@@ -1005,13 +1011,22 @@ async function boot(data) {
     const entry = { link, name: 'Player ' + (net.peers.length + 2), gunIndex: 0, attach: null, skin: null };
     net.peers.push(entry);
     link.onmessage = (m) => {
-      if (m.k === 'hello') { entry.gunIndex = Math.min(data.guns.length - 1, Math.max(0, m.gun | 0)); entry.skin = Number.isInteger(m.skin) ? m.skin : null; entry.attach = typeof m.at === 'string' ? m.at.slice(0, 4) : null; netUi(); return; }
+      if (m.k === 'hello') {
+        entry.gunIndex = Math.min(data.guns.length - 1, Math.max(0, m.gun | 0)); entry.skin = Number.isInteger(m.skin) ? m.skin : null; entry.attach = typeof m.at === 'string' ? m.at.slice(0, 4) : null;
+        // for the match modes: their operator per mode, Bomb side, and attachments per gun
+        entry.ops = m.ops && typeof m.ops === 'object' ? Object.fromEntries(['tdm', 'ctf', 'bomb'].map((k) => [k, String(m.ops[k] || '').slice(0, 24)])) : {};
+        entry.side = m.side === 'defend' ? 'defend' : m.side === 'attack' ? 'attack' : 'auto';
+        entry.attachMap = m.atm && typeof m.atm === 'object' ? Object.fromEntries(Object.entries(m.atm).slice(0, 64).map(([k, v]) => [String(k).slice(0, 24), String(v).slice(0, 4)])) : null;
+        netUi(); return;
+      }
+      if (modeGame && modeGame.active && modeGame.netRole === 'host') { modeGame.onNet(link, m); return; }
       if (battle && battle.active && battle.net) battle.onNet(link, m);
     };
     link.onclose = () => {
       const i = net.peers.indexOf(entry);
       if (i >= 0) net.peers.splice(i, 1);
-      if (battle && battle.active && battle.net) battle.onLinkClosed(link);
+      if (modeGame && modeGame.active && modeGame.netRole === 'host') modeGame.onLinkClosed(link);
+      else if (battle && battle.active && battle.net) battle.onLinkClosed(link);
       netUi(); netStatus(entry.name + ' disconnected.', 'bad');
     };
     netUi(); netStatus(entry.name + ' connected.', 'ok');
@@ -1019,13 +1034,16 @@ async function boot(data) {
   // Joiner: connected to the host.
   function joined(link) {
     net.request = null; net.link = link;
-    link.send({ k: 'hello', gun: state.gunIndex, at: state.gun.attach || null, skin: equippedSkin(state.gunIndex) });
+    link.send({ k: 'hello', gun: state.gunIndex, at: state.gun.attach || null, skin: equippedSkin(state.gunIndex), ops: modePrefs.op, side: modePrefs.side, atm: attachMap() });
     link.onmessage = (m) => {
       if (m.k === 'start') { startClientBattle(m); return; }
-      if (m.k === 'stopped') { if (battle && battle.active) { leaveBattle(); netStatus('The host ended the match. Still connected: wait for the next one.', 'ok'); } return; }
+      if (m.k === 'mstart') { startClientMatch(m); return; }
+      if (m.k === 'stopped') { if (cur() && cur().active) { leaveBattle(); flow.inGame = false; showPage('setup'); $('menu').hidden = false; netStatus('The host ended the match. Still connected: wait for the next one.', 'ok'); } return; }
+      if (modeGame && modeGame.active && modeGame.netRole === 'client') { modeGame.onNet(link, m); return; }
       if (battle && battle.active && battle.net) battle.onNet(link, m);
     };
     link.onclose = () => {
+      if (modeGame && modeGame.active && modeGame.netRole === 'client') { leaveMode(); flow.inGame = false; showPage('setup'); $('menu').hidden = false; netReset(); netStatus('The host left or the connection dropped.', 'bad'); return; }
       if (battle && battle.active && battle.net) battle.onLinkClosed(link);
       else { netReset(); netStatus(link.closeReason || 'Disconnected from the host.', 'bad'); }
     };
@@ -1126,6 +1144,24 @@ async function boot(data) {
   });
   netInit = true;
   netUi();
+  // A network match (Team Deathmatch, Capture the Flag, Bomb) the host started.
+  async function startClientMatch(m) {
+    if (needCore(() => startClientMatch(m))) return;
+    controls.release();
+    if (battle && battle.active) leaveBattle();
+    ensureModeGame();
+    weapon.releaseTrigger(); setAds(false); player.releaseKeys();
+    try { await modeGame.startClient(m, net.link); }
+    catch (err) { console.error(err); flashNotice('Could not join the match (' + (err && err.message || err) + '). Press Ctrl+F5 to load the latest version.', 9000); return; }
+    $('hud').hidden = true;
+    flow.inGame = true;
+    modeGame.hud.again.hidden = true;
+    netUi();
+    $('pause-title').textContent = 'The match has started';
+    $('start-btn').disabled = false;
+    $('start-btn').textContent = 'Join the match';
+    if (!lock.locked) { closeArmory(); showPage('pause'); $('menu').hidden = false; }
+  }
   function startClientBattle(m) {
     if (needCore(() => startClientBattle(m))) return;
     if (!battle) {
@@ -1208,6 +1244,25 @@ async function boot(data) {
     casino: "Jesse's Casino (Battle map, two floors)", school: 'School Basement (Battle map)',
     ranch: 'Ranch (a house with a loft; site: master bedroom)', embassy: 'Embassy (two storeys round a courtyard; site: archives)', workshop: 'Workshop (offices, catwalk, corridor; site: garage)',
   };
+  // Network lobby (host): which game to play online, and its map. Team size, bot level,
+  // abilities and time come from that mode's own settings.
+  var netModeVal = (() => { try { return localStorage.getItem('recoil-range-net-mode') || 'battle'; } catch (e) { return 'battle'; } })();
+  function netMode() { return ['battle', 'tdm', 'ctf', 'bomb'].includes(netModeVal) ? netModeVal : 'battle'; }
+  function netGameUi() {
+    const m = netMode(), P = modePrefs;
+    $('net-mode').value = m;
+    $('net-map-field').hidden = m === 'battle';
+    if (m !== 'battle') {
+      const maps = m === 'bomb' ? ['ranch', 'embassy', 'workshop'] : ['containers', 'winter', 'casino', 'school', 'yard'];
+      $('net-map').replaceChildren(...maps.map((id) => { const o = document.createElement('option'); o.value = id; o.textContent = MAP_NAMES[id]; return o; }));
+      $('net-map').value = maps.includes(P.map[m]) ? P.map[m] : maps[0];
+    }
+    $('net-game-note').textContent = m === 'battle' ? 'Everyone for themselves on the Battle map above.' :
+      'Players join teams' + (m === 'bomb' ? ' (each on the side they chose in Bomb\'s setup, if there is room)' : '') + '; bots fill the empty places. Team size, bot level' + (m === 'bomb' ? ', preparation time' : ', time') + ' and abilities are the ones set for this mode in its own settings. Each player uses the operator they last picked for it.';
+  }
+  $('net-mode').addEventListener('change', () => { netModeVal = $('net-mode').value; try { localStorage.setItem('recoil-range-net-mode', netModeVal); } catch (e) { /* storage blocked */ } netGameUi(); });
+  $('net-map').addEventListener('change', () => { modePrefs.map[netMode()] = $('net-map').value; saveModePrefs(); });
+  netGameUi();
   function modesUi() {
     const m = flow.mode, P = modePrefs;
     const maps = m === 'bomb' ? ['ranch', 'embassy', 'workshop'] : ['containers', 'winter', 'casino', 'school', 'yard'];
@@ -1260,10 +1315,7 @@ async function boot(data) {
   for (const b of document.querySelectorAll('#ops-side .seg-btn')) b.addEventListener('click', () => { modePrefs.side = b.dataset.side; saveModePrefs(); renderOps(); });
   $('ops-back').addEventListener('click', () => showPage('setup'));
   $('ops-go').addEventListener('click', () => startMode());
-  async function startMode() {
-    controls.release();
-    const m = flow.mode, P = modePrefs;
-    if (battle && battle.active) leaveBattle();
+  function ensureModeGame() {
     if (!modeGame) {
       modeGame = new ModeGame({
         renderer, settings, controls, guns: data.guns, sfx, adsVFov, baseDpc, now: clockNow, slotOf: (g) => slotIn(data.guns, g), hudRoot: $('app'), worldPost,
@@ -1271,12 +1323,20 @@ async function boot(data) {
         skinOf: (g) => equippedSkin(slotIn(data.guns, g)),
         opticById: (id, g) => catalogue.byId.get(g.optics.includes(id) ? id : g.defaultOptic),
       });
-      modeGame.hud.again.addEventListener('click', () => startMode());
-      modeGame.hud.leave.addEventListener('click', () => { leaveMode(); flow.inGame = false; showPage('mode'); $('menu').hidden = false; });
+      modeGame.hud.again.addEventListener('click', () => { if (modeGame.netRole === 'host') startBattle(); else startMode(); });
+      modeGame.hud.leave.addEventListener('click', () => { const host = modeGame.netRole === 'host'; leaveMode(); flow.inGame = false; showPage(host || net.role ? 'setup' : 'mode'); $('menu').hidden = false; });
     }
+  }
+  // mode: tdm, ctf or bomb; extra.net: a network match hosted here ({ peers, hostName }).
+  async function startMode(mode = flow.mode, extra = {}) {
+    controls.release();
+    const m = mode, P = modePrefs;
+    if (battle && battle.active) leaveBattle();
+    ensureModeGame();
+    modeGame.hud.again.hidden = false;
     weapon.releaseTrigger(); setAds(false); player.releaseKeys();
     try {
-      await modeGame.start({ mode: m, map: P.map[m], difficulty: P.difficulty, teamSize: P.teamSize, abilities: !!P.abilities[m], minutes: P.minutes, prepTime: P.prepTime, headshot: P.headshot, op: P.op[m], side: P.side, attach: attachMap(), seed: testMode ? P.seed : undefined });
+      await modeGame.start({ mode: m, map: P.map[m], difficulty: P.difficulty, teamSize: P.teamSize, abilities: !!P.abilities[m], minutes: P.minutes, prepTime: P.prepTime, headshot: P.headshot, op: P.op[m], side: P.side, attach: attachMap(), seed: testMode ? P.seed : undefined, ...extra });
     } catch (err) {
       console.error(err);
       flashNotice('Could not start the match (' + (err && err.message || err) + '). Press Ctrl+F5 to load the latest version.', 9000);
@@ -1738,6 +1798,8 @@ async function boot(data) {
       battleLeave: () => leaveBattle(),
       renderer: () => renderer,
       modeStart: async (mode, o = {}) => { flow.mode = mode; Object.assign(modePrefs, o); return startMode(); },
+      modePrefs: (o = {}) => Object.assign(modePrefs, o),
+      netGame: (mode) => { netModeVal = mode; netGameUi(); return netMode(); },
       modeGame: () => modeGame,
       battleKey: (c, d) => !!(battle && battle.key(c, d)),
       battle: () => battle,

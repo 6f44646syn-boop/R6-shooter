@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recoil Range</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="css/style.css?v=3a5db4d-mwbgfx6u">
+<link rel="stylesheet" href="css/style.css?v=1ab6120-mwbhzb5p">
 </head>
 <body>
 <div id="app">
@@ -117,6 +117,12 @@
               <button id="net-host" type="button">Host a game</button>
               <button id="net-join" type="button">Join a game</button>
               <button id="net-reset" type="button" hidden>Disconnect</button>
+            </div>
+            <div id="net-game-box" class="set-grid" hidden>
+              <label class="field" for="net-mode"><span>Game</span>
+                <select id="net-mode"><option value="battle">Battle (everyone for themselves)</option><option value="tdm">Team Deathmatch</option><option value="ctf">Capture the Flag</option><option value="bomb">Bomb</option></select></label>
+              <label class="field" for="net-map" id="net-map-field"><span>Map</span><select id="net-map"></select></label>
+              <p id="net-game-note" class="small"></p>
             </div>
             <div id="relay-host-box" class="net-box" hidden>
               <p class="small">Tell your friends this game code:</p>
@@ -279,6 +285,6 @@
     </div>
   </div>
 </div>
-<script type="module" src="js/main.js?v=3a5db4d-mwbgfx6u"></script>
+<script type="module" src="js/main.js?v=1ab6120-mwbhzb5p"></script>
 </body>
 </html>

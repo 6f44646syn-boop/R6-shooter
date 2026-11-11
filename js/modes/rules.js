@@ -1,4 +1,4 @@
-import { utilityFor } from '../balance/bomb-utility.js?v=3a5db4d-mwbgfx6u';
+import { utilityFor } from '../balance/bomb-utility.js?v=1ab6120-mwbhzb5p';
 // Mode rules: Team Deathmatch, Capture the Flag, Bomb. Each sets up the match, spawns,
 // scores, ends it, and gives bots their objective (botGoal).
 export function makeRules(m) {
@@ -83,13 +83,13 @@ export class CTF extends Rules {
       if (!a.carry && (enemy.state === 'home' || enemy.state === 'dropped') && Math.hypot(enemy.x - a.x, enemy.z - a.z) < TOUCH && Math.abs(enemy.y - a.y) < 1.5) {
         enemy.state = 'carried'; enemy.carrier = a; enemy.returnAt = 0;
         a.carry = { type: 'flag', team: enemy.team };
-        m.emit({ type: 'msg', text: (a.human ? 'You have' : a.name + ' has') + ' the ' + (enemy.team === 'A' ? 'blue' : 'orange') + ' flag', team: a.team, flag: 'take', id: a.id });
+        m.emit({ type: 'msg', text: (m.isMe(a) ? 'You have' : a.name + ' has') + ' the ' + (enemy.team === 'A' ? 'blue' : 'orange') + ' flag', team: a.team, flag: 'take', id: a.id });
         this.nextRoles = 0;
       }
       // return our dropped flag by touching it
       if (own.state === 'dropped' && Math.hypot(own.x - a.x, own.z - a.z) < TOUCH && Math.abs(own.y - a.y) < 1.5) {
         this.flagHome(own);
-        m.emit({ type: 'msg', text: (a.human ? 'You returned' : a.name + ' returned') + ' the ' + (own.team === 'A' ? 'blue' : 'orange') + ' flag', team: a.team, flag: 'return' });
+        m.emit({ type: 'msg', text: (m.isMe(a) ? 'You returned' : a.name + ' returned') + ' the ' + (own.team === 'A' ? 'blue' : 'orange') + ' flag', team: a.team, flag: 'return' });
         this.nextRoles = 0;
       }
       // capture
@@ -97,7 +97,7 @@ export class CTF extends Rules {
         const f = this.flags[a.carry.team];
         this.flagHome(f); a.carry = null;
         this.score[a.team]++;
-        m.emit({ type: 'msg', text: (a.human ? 'You captured' : a.name + ' captured') + ' the flag!', team: a.team, flag: 'capture', id: a.id });
+        m.emit({ type: 'msg', text: (m.isMe(a) ? 'You captured' : a.name + ' captured') + ' the flag!', team: a.team, flag: 'capture', id: a.id });
         this.nextRoles = 0;
       }
     }
@@ -272,7 +272,7 @@ export class Bomb extends Rules {
         const from = O.attackers.findIndex((o) => o.id === a.op.id), to = from >= 0 ? O.defenders[from] : O.attackers[O.defenders.findIndex((o) => o.id === a.op.id)];
         if (!to) continue;
         a.op = to; if (!a.human) a.name = to.name;
-        const g = m.gunFor ? m.gunFor(a.human, to.gun) : m.gunsById.get(to.gun);
+        const g = m.gunFor ? m.gunFor(a.human, to.gun, a.attachMap) : m.gunsById.get(to.gun);
         a.gunData = g; a.gun = Object.assign(a.gun, { ...m.constructor.gunStatsOf(g) });
         m.ab.init(a);
       }
@@ -306,7 +306,7 @@ export class Bomb extends Rules {
       else { a.role = DEF[di % DEF.length]; b.slot = di++; }
     }
     m.emit({ type: 'round', round: this.round, attack: this.attackTeam() });
-    m.emit({ type: 'msg', text: 'Round ' + this.round + ': ' + (this.attackTeam() === (m.human() ? m.human().team : 'A') ? 'attack' : 'defend') });
+    m.emit({ type: 'msg', text: 'Round ' + this.round + ': ' + (this.attackTeam() === (m.human() ? m.human().team : 'A') ? 'attack' : 'defend'), roundStart: this.round, attack: this.attackTeam() });
   }
   // The nearest point to (x, z) a defender may stand at: [x, z, moved]. Others: null.
   keepIn(a, x, z) {
@@ -392,7 +392,7 @@ export class Bomb extends Rules {
       if (!c || !c.alive) { b.state = 'dropped'; b.carrier = null; if (c) { b.x = c.x; b.y = c.y; b.z = c.z; c.carry = null; } m.emit({ type: 'msg', text: 'The bomb was dropped' }); }
       else { b.x = c.x; b.y = c.y; b.z = c.z; }
     } else if (b.state === 'dropped') {
-      for (const a of m.actors) if (a.alive && this.isAttacker(a) && !a.carry && Math.hypot(a.x - b.x, a.z - b.z) < BOMB.pickup) { this.give(a); m.emit({ type: 'msg', text: (a.human ? 'You have' : a.name + ' has') + ' the bomb' }); break; }
+      for (const a of m.actors) if (a.alive && this.isAttacker(a) && !a.carry && Math.hypot(a.x - b.x, a.z - b.z) < BOMB.pickup) { this.give(a); m.emit({ type: 'msg', text: (m.isMe(a) ? 'You have' : a.name + ' has') + ' the bomb', id: a.id }); break; }
     }
     // holds
     for (const a of m.actors) {
@@ -453,7 +453,7 @@ export class Bomb extends Rules {
     m.emit({ type: 'roundEnd', winner: team, reason, round: this.round });
     const words = { eliminated: 'all enemies down', detonated: 'the bomb went off', defused: 'the bomb was defused', time: 'time ran out with no plant' };
     const me = m.human();
-    m.emit({ type: 'msg', text: (me ? (team === me.team ? 'Round won' : 'Round lost') : 'Team ' + team + ' wins the round') + ': ' + words[reason] });
+    m.emit({ type: 'msg', text: (me ? (team === me.team ? 'Round won' : 'Round lost') : 'Team ' + team + ' wins the round') + ': ' + words[reason], roundWinner: team, words: words[reason] });
     if (this.score[team] >= BOMB.wins) { m.end(team, 'rounds'); return; }
     this.phase = 'post'; this.phaseEnd = m.t + BOMB.summary;
   }

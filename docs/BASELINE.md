@@ -120,7 +120,7 @@ Geometries grow by about 40 with every new match: a leak (bug B4 below).
 | B8 | You can knife or throw a grenade from your body while driving a drone | No check | Milestone 1 |
 | B9 | Defender bots break boarded doors on the way to their posts in prep | Doors block defenders too | **Fixed in milestone 4** (interior doorways start open; defender paths treat barricades as closed) |
 | B10 | Match modes on the Battle maps are ground floor only | The match engine has no heights | **Fixed in milestone 3** |
-| B11 | Battle grenades are off in network games | Not sent to the other player | Later (relay only) |
+| B11 | Battle grenades are off in network games | Not sent to the other player | **Fixed in milestone 9** (the host throws and decides damage; every PC flies them) |
 | B12 | Step label says "3 Weapon" where step 3 is the operator | Label | Milestone 7 (UI redesign) |
 
 ## Milestone 1: bug fixes and drone collision
@@ -563,3 +563,28 @@ planted.
 ### Not done
 Battle bots (`js/battle/bot.js`) already hear, pre-aim and are penalised for moving. They
 were left as they were. Attacker droning and breaching use the existing ability logic.
+
+## Milestone 9: online play for every mode
+
+Team Deathmatch, Capture the Flag and Bomb play online over the existing relay or a direct link.
+Battle grenades work online (B11). Details in `ENGINE_API.md` (Network).
+
+### Tests after milestone 9
+
+`tests/run.mjs`, "Network matches" (two browser sessions over join codes), 15 checks:
+- **Battle grenades:** a grenade from the player flies on both PCs and goes off on both.
+- **Roster:** both PCs have the same roster.
+- **Positions:** each PC sees the other's movement.
+- **Shots:** the player's shots kill a bot on the host, and both kill feeds show it.
+- **Match grenades:** a match grenade from the player flies on both PCs.
+- **Leaving:** the host leaving returns the player to the menu.
+- **Capture the Flag:** a dropped flag matches on both PCs.
+- **Bomb:**
+  - sides follow the players' choice;
+  - both PCs are in the prep phase;
+  - a broken door is broken for the player too, collision included;
+  - the player reinforces a wall through the host.
+- No page errors.
+
+The relay path uses the same link interface and is covered by the relay test when a local
+relay runs.

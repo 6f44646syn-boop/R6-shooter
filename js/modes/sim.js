@@ -1,4 +1,4 @@
-import { utilityFor, abilitiesFor } from '../balance/bomb-utility.js?v=3a5db4d-mwbgfx6u';
+import { utilityFor, abilitiesFor } from '../balance/bomb-utility.js?v=1ab6120-mwbhzb5p';
 // Match simulation for Team Deathmatch, Capture the Flag and Bomb (no three.js, no DOM:
 // the same code runs in the browser and in tools/check-modes.mjs).
 //
@@ -8,14 +8,14 @@ import { utilityFor, abilitiesFor } from '../balance/bomb-utility.js?v=3a5db4d-m
 //
 // Body for hits (actor frame, standing; crouching squashes y to 0.7): head sphere at 1.62 m
 // (r 0.13), torso capsule 0.95-1.34 m (r 0.24), legs capsule 0.1-0.9 m (r 0.19).
-import { mulberry32 } from '../core/prng.js?v=3a5db4d-mwbgfx6u';
-import { effectiveGun } from '../core/loadout.js?v=3a5db4d-mwbgfx6u';
-import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=3a5db4d-mwbgfx6u';
-import { BODY_R } from './map.js?v=3a5db4d-mwbgfx6u';
-import { Brain } from './bots.js?v=3a5db4d-mwbgfx6u';
-import { makeRules } from './rules.js?v=3a5db4d-mwbgfx6u';
-import { Nades } from './nades.js?v=3a5db4d-mwbgfx6u';
-import { Abilities } from './abilities.js?v=3a5db4d-mwbgfx6u';
+import { mulberry32 } from '../core/prng.js?v=1ab6120-mwbhzb5p';
+import { effectiveGun } from '../core/loadout.js?v=1ab6120-mwbhzb5p';
+import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=1ab6120-mwbhzb5p';
+import { BODY_R } from './map.js?v=1ab6120-mwbhzb5p';
+import { Brain } from './bots.js?v=1ab6120-mwbhzb5p';
+import { makeRules } from './rules.js?v=1ab6120-mwbhzb5p';
+import { Nades } from './nades.js?v=1ab6120-mwbhzb5p';
+import { Abilities } from './abilities.js?v=1ab6120-mwbhzb5p';
 
 export const TICK = 1 / 60;
 export const EYE = 1.6, CROUCH_EYE = 1.1;
@@ -75,9 +75,17 @@ export class Match {
     const O = this.o.ops;
     return side === 'attack' ? O.attackers : side === 'defend' ? O.defenders : [...O.attackers, ...O.defenders];
   }
+  // Players. o.human: you ({ op, side }); o.remotes: players on other PCs in a network match
+  // ({ op, team, name, attach, peer }), each takes a place in their team ahead of the bots.
+  // o.roster (network clients): the host's exact list of actors, so every PC has the same ids.
   _makeTeams() {
-    const n = this.o.teamSize, h = this.o.human;
+    const n = this.o.teamSize, h = this.o.human, remotes = this.o.remotes || [];
     const pool = (team) => this.opsFor(this.rules.sideOf ? this.rules.sideOf(team) : null);
+    const byId = (id) => [...this.o.ops.attackers, ...this.o.ops.defenders].find((x) => x.id === id);
+    if (this.o.roster) {
+      for (const r of this.o.roster) this.addActor(r.team, byId(r.op) || pool(r.team)[0], !!r.human, r.human && !r.you ? r : null, r);
+      return;
+    }
     for (const team of ['A', 'B']) {
       const used = new Set();
       const pick = () => {
@@ -86,39 +94,46 @@ export class Match {
         used.add(op.id);
         return op;
       };
-      for (let i = 0; i < n; i++) {
-        let op;
-        const isHuman = h && team === this.humanTeam() && i === 0;
-        if (isHuman) { op = pool(team).find((x) => x.id === h.op) || pool(team)[0]; used.add(op.id); }
-        else op = pick();
-        this.addActor(team, op, isHuman);
+      const humans = [...(h && team === this.humanTeam() ? [null] : []), ...remotes.filter((r) => r.team === team)];
+      for (let i = 0; i < Math.max(n, humans.length); i++) {
+        if (i < humans.length) {
+          const r = humans[i], want = r ? r.op : h.op;
+          const op = pool(team).find((x) => x.id === want && !used.has(x.id)) || pool(team).find((x) => !used.has(x.id)) || pool(team)[0];
+          used.add(op.id);
+          this.addActor(team, op, true, r);
+        } else this.addActor(team, pick(), false);
       }
     }
   }
   humanTeam() { return this.o.human && this.rules.humanTeam ? this.rules.humanTeam() : 'A'; }
   // The gun an actor carries: the catalogue gun with that actor's attachments (o.attach: the
   // human's saved codes by gun id; bots carry the measured loadout).
-  gunFor(human, id) {
+  gunFor(human, id, attach = this.o.attach) {
     const g = this.gunsById.get(id) || this.o.guns[0];
-    return human && this.o.attach ? effectiveGun(g, this.o.attach[g.id]) : g;
+    return human && attach ? effectiveGun(g, attach[g.id]) : g;
   }
-  addActor(team, op, human) {
-    const g = this.gunFor(human, op.gun);
+  // net: a player on another PC ({ name, attach, peer }); fixed: a roster entry (id, name).
+  addActor(team, op, human, net = null, fixed = null) {
+    const attach = human ? (net ? net.attach || null : this.o.attach) : null;
+    const g = this.gunFor(human, op.gun, attach);
     const a = {
-      id: this.actors.length + 1, team, op, human, name: human ? 'You' : op.name, gun: gunStats(g), gunData: g,
+      id: fixed ? fixed.id : this.actors.length + 1, team, op, human, name: fixed ? fixed.name : human ? (net ? String(net.name || 'Player') : 'You') : op.name, gun: gunStats(g), gunData: g,
+      remote: net ? (net.peer ?? true) : null, attachMap: attach, skin: (net && net.skin) ?? (fixed && fixed.skin) ?? null,
       x: 0, z: 0, y: 0, vx: 0, vy: 0, vz: 0, onGround: true, yaw: 0, pitch: 0, crouch: 0, speed: 0, ads: 0,
       hp: 100, alive: false, respawnAt: 0, protectUntil: 0, lastHurt: -10, kills: 0, deaths: 0, assists: 0,
       ammo: g.magSize, reloadUntil: 0, nextShot: 0, stunUntil: 0, slowUntil: 0, shakeUntil: 0, wobbleUntil: 0, revealedUntil: 0,
       carry: null, hold: null, stuckFor: 0, _sx: 0, _sz: 0, _st: 0,
     };
-    a.brain = human ? null : new Brain(this, a, this.o.difficulty);
+    a.brain = human || this.o.client ? null : new Brain(this, a, this.o.difficulty);
     this.ab.init(a);
     this.actors.push(a);
     return a;
   }
   enemiesOf(a) { return this.actors.filter((b) => b.team !== a.team); }
   teammates(a) { return this.actors.filter((b) => b.team === a.team && b !== a); }
-  human() { return this.actors.find((a) => a.human) || null; }
+  // You (on this PC); players on other PCs are human too, but remote.
+  human() { return this.actors.find((a) => a.human && !a.remote) || null; }
+  isMe(a) { return !!a && a.human && !a.remote; }
 
   /* ---------- spawning ---------- */
   // A random safe spawn (no enemy within 12 m or in sight), from the map's spawns

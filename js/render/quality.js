@@ -1,7 +1,7 @@
 // Graphics quality actually used. Low and Standard run in any browser; High and Ultra need
 // the Enhanced Graphics pack (render/hd-pack.js). Until it is installed they run as Standard
 // (the saved choice is kept, so installing the pack switches them on).
-import { HDPack } from './hd-pack.js?v=3a5db4d-mwbgfx6u';
+import { HDPack } from './hd-pack.js?v=1ab6120-mwbhzb5p';
 
 export const ENHANCED = ['high', 'ultra'];
 export function needsPack(g) { return ENHANCED.includes(g); }
