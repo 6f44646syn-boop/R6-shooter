@@ -1,4 +1,5 @@
 import * as THREE from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
+import { ROYALE_BOTS } from './royale-map.js?v=blacktide';
 
 const TOKEN_CHANCE = 0.001;
 const WALL_HP = 130;
@@ -14,7 +15,9 @@ export class BattleRoyale {
     const { arena, deps } = battle;
     this.arena = arena;
     this.elapsed = 0;
-    this.materials = 2;
+    this.materials = 0;
+    this.harvested = new Map();
+    this.swingAt = -Infinity;
     this.eliminated = [];
     this.walls = [];
     this.impactWalls = [];
@@ -49,11 +52,13 @@ export class BattleRoyale {
     this.ring.scale.setScalar(this.radius);
     arena.scene.add(this.ring);
 
-    const count = 8;
-    const pirateIndex = rng() < TOKEN_CHANCE ? Math.floor(rng() * count) : -1;
-    this.chests = Array.from({ length: count }, (_, i) => {
-      const angle = i * Math.PI * 2 / count;
-      const k = arena.world.nearestNode(Math.cos(angle) * arena.hx * .59, Math.sin(angle) * arena.hz * .59, 0);
+    const locations = arena.map.chests;
+    const starterCount = ROYALE_BOTS + 1;
+    const pirateIndex = rng() < TOKEN_CHANCE ? starterCount + Math.floor(rng() * (locations.length - starterCount)) : -1;
+    const spawnOffset = Math.floor(rng() * starterCount);
+    this.spawns = arena.map.spawns.map((_, i) => this.point(...arena.map.spawns[(i + spawnOffset) % starterCount]));
+    this.chests = locations.map(([x, z], i) => {
+      const p = this.point(x, z);
       const pirate = i === pirateIndex;
       const group = new THREE.Group();
       const body = new THREE.Mesh(chestGeo, pirate ? pirateMat : chestMat);
@@ -64,11 +69,27 @@ export class BattleRoyale {
         strap.position.x = x;
         group.add(strap);
       }
-      group.position.set(arena.nodeX[k], arena.nodeY[k] + .31, arena.nodeZ[k]);
+      group.position.set(p.x, p.y + .31, p.z);
       arena.scene.add(group);
       return { group, pirate, gun: deps.guns[Math.floor(rng() * deps.guns.length)], opened: false };
     });
-    this.updateHud();
+    const wood = new THREE.MeshStandardMaterial({ color: 0x75462d, roughness: .85 });
+    const steel = new THREE.MeshStandardMaterial({ color: 0x657680, metalness: .65, roughness: .36 });
+    const handle = new THREE.CylinderGeometry(.018, .024, .58, 9);
+    const head = new THREE.BoxGeometry(.34, .05, .075);
+    const axe = this.pickaxe = new THREE.Group();
+    axe.add(new THREE.Mesh(handle, wood));
+    const blade = new THREE.Mesh(head, steel);
+    blade.position.y = .26;
+    axe.add(blade);
+    axe.visible = false;
+    battle.humans[0].rig.scene.add(axe);
+    this.resources.push(wood, steel, handle, head);
+  }
+
+  point(x, z) {
+    const a = this.arena, i = a.world.nearestNode(x, z, 0);
+    return { x:a.nodeX[i], y:a.nodeY[i], z:a.nodeZ[i] };
   }
 
   outside(f, margin = 0) { return Math.hypot(f.x - this.x, f.z - this.z) > this.radius - margin; }
@@ -81,11 +102,11 @@ export class BattleRoyale {
     this.ring.scale.setScalar(Math.max(.01, this.radius));
   }
 
-  nearby(f) {
+  nearby(f, bot = false) {
     if (!f?.alive) return null;
-    return this.chests.find(({ opened, group }) => {
+    return this.chests.find(({ opened, group, pirate }) => {
       const p = group.position;
-      return !opened && Math.abs(f.y - (p.y - .31)) < .8 && Math.hypot(f.x - p.x, f.z - p.z) < 2.2
+      return !opened && !(bot && pirate) && Math.abs(f.y - (p.y - .31)) < .8 && Math.hypot(f.x - p.x, f.z - p.z) < 2.2
         && this.arena.sightLine([f.x, f.y + 1.2, f.z], [p.x, p.y + .35, p.z]);
     });
   }
@@ -93,8 +114,7 @@ export class BattleRoyale {
   open(f) {
     const chest = this.nearby(f);
     if (!chest) return false;
-    chest.opened = true;
-    chest.group.removeFromParent();
+    this.takeChest(chest, f);
     this.materials += 2;
     this.battle.changeGun(chest.gun);
     if (chest.pirate) {
@@ -103,6 +123,80 @@ export class BattleRoyale {
     }
     this.notify(chest.pirate ? 'Pirate Token found · All Black Ice skins unlocked' : chest.gun.name + ' · +2 walls');
     return true;
+  }
+
+  takeChest(chest, f) {
+    chest.opened = true;
+    chest.group.removeFromParent();
+    f.nades = Math.min(2, f.nades + 1);
+  }
+
+  botLoot(bot) {
+    const chest = this.nearby(bot.f, true);
+    if (!chest) return;
+    this.takeChest(chest, bot.f);
+    bot.setGun(chest.gun);
+    this.battle._look(bot.f, chest.gun, null);
+    bot.goal = null;
+    bot.path = [];
+  }
+
+  nearestChest(f, bot = false) {
+    let nearest = null, best = Infinity;
+    for (const chest of this.chests) {
+      if (chest.opened || (bot && chest.pirate)) continue;
+      const p = chest.group.position;
+      if (bot && this.outside(p)) continue;
+      const distance = Math.hypot(p.x - f.x, p.z - f.z);
+      if (distance < best) { nearest = chest; best = distance; }
+    }
+    return nearest;
+  }
+
+  lootGoal(bot, t) {
+    const chest = this.nearestChest(bot.f, true);
+    if (!chest) return false;
+    if (bot.lootChest !== chest || bot.mode !== 'loot' || t >= bot.nextPath) {
+      bot.lootChest = chest;
+      const p = chest.group.position;
+      bot._setGoal(p.x, p.z, this.arena, t, p.y - .31);
+    }
+    return true;
+  }
+
+  swing(human) {
+    const b = this.battle, f = human.f;
+    if (!f.alive || human.vault || b.t - this.swingAt < .65) return;
+    this.swingAt = b.t;
+    b.deps.sfx.knife(.8);
+    const origin = human.camera.position.toArray(), direction = human.camera.getWorldDirection(this.aimRay.direction).toArray();
+    const range = 2.6, distance = this.arena.raycast(origin, direction, range);
+    const index = this.arena.world.hit;
+    let target = null, closest = Math.min(distance, range);
+    for (const g of b.enemiesOf(f)) {
+      if (!g.alive) continue;
+      const hit = g.raycast(origin, direction);
+      if (hit && hit.t < closest) { target = g; closest = hit.t; }
+    }
+    if (target) { b._damage(target, 40, f, 'torso', b.t); return; }
+    const wall = this.impactWalls[index - this.arena.baseBoxCount];
+    if (wall) { this.damageWall(wall, 52); return; }
+    const prop = this.arena.boxes[index];
+    if (index >= 0 && index < this.arena.baseBoxCount && prop && (this.harvested.get(index) || 0) < 3) {
+      this.harvested.set(index, (this.harvested.get(index) || 0) + 1);
+      this.materials++;
+      this.notify('+1 wall material');
+    }
+  }
+
+  showPickaxe(t) { return !this.battle.humans[0].gun || t - this.swingAt < .4; }
+
+  posePickaxe(visible, t) {
+    this.pickaxe.visible = !!visible;
+    if (!visible) return;
+    const swing = Math.sin(Math.PI * Math.max(0, 1 - (t - this.swingAt) / .4));
+    this.pickaxe.position.set(.36 - .19 * swing, -.37 + .12 * swing, -.9 - .13 * swing);
+    this.pickaxe.rotation.set(.25 - swing * 1.2, -.35, -.33 + swing * .92);
   }
 
   build(f, yaw) {
@@ -252,16 +346,21 @@ export class BattleRoyale {
     const b = this.battle, f = b.humans[0].f;
     const alive = b.fighters.filter(g => g.alive).length;
     const bind = id => b.deps.controls.bindingLabel(id);
-    const bearing = Math.atan2(this.x - f.x, f.z - this.z) * 180 / Math.PI - f.yaw;
-    const arrow = '↑↗→↘↓↙←↖'[(Math.round(bearing / 45) % 8 + 8) % 8];
-    const zone = this.outside(f) ? arrow + ' Outside safe zone' : this.elapsed < 20
+    const direction = (x, z) => {
+      const bearing = Math.atan2(x - f.x, f.z - z) * 180 / Math.PI - f.yaw;
+      return '↑↗→↘↓↙←↖'[(Math.round(bearing / 45) % 8 + 8) % 8];
+    };
+    const zone = this.outside(f) ? direction(this.x, this.z) + ' Outside safe zone' : this.elapsed < 20
       ? 'Zone shrinks in ' + Math.ceil(20 - this.elapsed) + 's' : 'Safe zone · ' + Math.ceil(this.radius) + ' m';
     const chest = this.nearby(f);
+    const loot = !b.humans[0].gun && this.nearestChest(f);
+    const p = loot && loot.group.position;
+    const hint = p ? ' · ' + direction(p.x, p.z) + ' Chest ' + Math.round(Math.hypot(p.x - f.x, p.z - f.z)) + ' m' : '';
     this.previewEdit();
     const status = !f.alive ? 'Eliminated · Waiting for the last survivor' : this.elapsed < this.noticeUntil ? this.notice
       : this.editing ? bind('fire') + ' Select / drag · ' + bind('ability') + ' Confirm · ' + bind('recall') + ' Reset · ' + bind('ads') + ' Cancel'
       : chest ? bind('interact') + ' Open ' + (chest.pirate ? 'Pirate Chest' : 'chest')
-      : bind('underbarrel') + ' Build wall · ' + bind('ability') + ' Edit wall';
+      : (b.humans[0].gun ? bind('knife') : bind('fire')) + ' Pickaxe · ' + bind('underbarrel') + ' Build · ' + bind('ability') + ' Edit' + hint;
     const score = alive + ' left · ' + zone + ' · ' + this.materials + ' walls';
     if (b.hud.score.textContent !== score) b.hud.score.textContent = score;
     if (b.hud.royale.textContent !== status) b.hud.royale.textContent = status;
@@ -270,6 +369,7 @@ export class BattleRoyale {
 
   dispose() {
     this.ring.removeFromParent();
+    this.pickaxe.removeFromParent();
     for (const chest of this.chests) chest.group.removeFromParent();
     for (const { mesh, geometry } of this.walls) { mesh.removeFromParent(); geometry.dispose(); }
     if (this.walls.length) this.arena.setBuilds([]);

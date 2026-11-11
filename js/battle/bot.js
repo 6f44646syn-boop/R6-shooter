@@ -7,7 +7,7 @@
 //
 // Levels: Easy, Medium, Hard and Terminator (near-instant, precise, leads moving targets,
 // hears everything, always pushes on a callout).
-import { Weapon } from '../core/weapon.js?v=9dd0f7b-mwbioun8';
+import { Weapon } from '../core/weapon.js?v=blacktide';
 import { RecoilEngine } from '../core/recoil.js?v=9dd0f7b-mwbioun8';
 import { mulberry32 } from '../core/prng.js?v=9dd0f7b-mwbioun8';
 
@@ -117,8 +117,10 @@ export class Bot {
     const f = this.f, L = this.L, arena = battle.arena;
     if (!f.alive) { this.weapon.releaseTrigger(); return; }
 
+    const royale = battle.royale;
+    if (royale && !this.gun) royale.botLoot(this);
     /* perception */
-    if (t >= this.nextLook) {
+    if (this.gun && t >= this.nextLook) {
       this.nextLook = t + 0.12;
       let best = null, bd = Infinity;
       for (const e of battle.enemiesOf(f)) {
@@ -156,7 +158,7 @@ export class Bot {
     const tgt = this.target;
 
     /* reload */
-    if (this.weapon.ammo === 0 || (!tgt && this.weapon.ammo < this.gun.magSize * 0.4)) {
+    if (this.gun && (this.weapon.ammo === 0 || (!tgt && this.weapon.ammo < this.gun.magSize * 0.4))) {
       if (this.weapon.startReload(t)) {
         this.weapon.releaseTrigger();
         if (tgt) {
@@ -175,10 +177,12 @@ export class Bot {
       if (spot) { this.mode = 'retreat'; this._setGoal(spot.x, spot.z, arena, t, spot.y); this.crouchWanted = spot.low; this.say(battle, t, "I'm hit, falling back!"); }
     }
     if (this.mode === 'hold' && t > this.holdUntil) this.mode = 'roam';
-    const royale = battle.royale;
     if (royale?.outside(f, 1)) {
       if (this.mode !== 'zone' || t >= this.nextPath) this._setGoal(royale.x, royale.z, arena, t, royale.y);
       this.mode = 'zone';
+      this.crouchWanted = false;
+    } else if (royale && !this.gun && royale.lootGoal(this, t)) {
+      this.mode = 'loot';
       this.crouchWanted = false;
     } else if (this.mode !== 'retreat' && this.mode !== 'hold') this.mode = tgt ? 'fight' : 'roam';
 

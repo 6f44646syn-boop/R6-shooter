@@ -9,6 +9,7 @@
 // range: yaw 0 looks along -z, positive turns right.
 import * as THREE from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
 import { MAPS } from './maps.js?v=9dd0f7b-mwbioun8';
+import { BLACKTIDE, ROYALE_MAP_ID } from './royale-map.js?v=blacktide';
 import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=9dd0f7b-mwbioun8';
 import { flatMaterial } from '../scene/low.js?v=9dd0f7b-mwbioun8';
 import { BulletHoles } from '../scene/holes.js?v=9dd0f7b-mwbioun8';
@@ -141,8 +142,8 @@ function mergeChunks(group, size = 22, bounds = null) {
 export class Arena {
   // mapId: a key of MAPS (maps.js).
   constructor(mapId = 'yard') {
-    const map = this.map = MAPS[mapId] || MAPS.yard;
-    this.mapId = MAPS[mapId] ? mapId : 'yard';
+    const map = this.map = mapId === ROYALE_MAP_ID ? BLACKTIDE : MAPS[mapId] || MAPS.yard;
+    this.mapId = map === BLACKTIDE || MAPS[mapId] ? mapId : 'yard';
     this.hx = map.hx; this.hz = map.hz; this.wallH = map.wallH;
     const HX = this.hx, HZ = this.hz, WH = this.wallH;
     const scene = this.scene = new THREE.Scene();
@@ -179,7 +180,7 @@ export class Arena {
     key.target.position.set(0, 0, 0);
     key.shadow.mapSize.set(2048, 2048);
     const S = Math.max(HX, HZ) + 6;
-    Object.assign(key.shadow.camera, { left: -S, right: S, top: S, bottom: -S, near: 1, far: 100 });
+    Object.assign(key.shadow.camera, { left: -S, right: S, top: S, bottom: -S, near: 1, far: Math.max(100, 2 * S) });
     key.shadow.bias = -0.0005; key.shadow.normalBias = 0.03;
     scene.add(key, key.target);
     this.key = key;
@@ -206,7 +207,7 @@ export class Arena {
     /* floor */
     const fl = map.floor();
     const roughTex = fl.rough && fl.rough.isTexture ? fl.rough : null;
-    for (const t of [fl.map, fl.normal, roughTex]) if (t) t.repeat.set(HX * 2 / (fl.tile || 2), HZ * 2 / (fl.tile || 2));
+    for (const t of [fl.map, fl.normal, roughTex]) if (t) { t.repeat.set(HX * 2 / (fl.tile || 2), HZ * 2 / (fl.tile || 2)); t.needsUpdate = true; }
     const floorMat = L(new THREE.MeshLambertMaterial({ map: fl.map, color: fl.color ?? 0xffffff }),
       () => std({ map: fl.map, color: fl.color ?? 0xffffff, normalMap: fl.normal || null, roughnessMap: roughTex, roughness: roughTex ? 1 : (typeof fl.rough === 'number' ? fl.rough : 0.9), metalness: 0 }));
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(HX * 2, HZ * 2), floorMat);

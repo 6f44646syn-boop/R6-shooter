@@ -16,24 +16,52 @@ try {
   await page.click('[data-mode=royale]');
   assert.equal(await page.locator('#setup-title').textContent(), 'Battle Royale');
   assert.ok(await page.locator('#b-kills').isHidden());
-  await page.selectOption('#b-bots', '3');
-  await page.click('#setup-next');
+  assert.ok(await page.locator('#b-bots').isHidden());
+  assert.ok(await page.locator('#b-map').isHidden());
   await page.evaluate(() => {
     __range.manual(true);
     window.restoreRandom = Math.random;
     Math.random = () => 0.5;
   });
-  await page.click('#arm-deploy');
+  await page.click('#setup-next');
   await page.waitForFunction(() => __range.battle()?.royale);
   const started = await page.evaluate(() => {
     Math.random = window.restoreRandom;
     const b = __range.battle(), r = b.royale;
     for (const bot of b.bots) bot.update = () => {};
     __range.step(.1);
-    return [new Set(b.fighters.map(f => f.team)).size, r.chests.length, r.chests.filter(c => c.pirate).length];
+    return {
+      teams:new Set(b.fighters.map(f => f.team)).size, chests:r.chests.length, pirate:r.chests.filter(c => c.pirate).length,
+      map:b.arena.mapId, size:[b.arena.hx*2,b.arena.hz*2], unarmed:b.fighters.every(f => !f.gun && f.nades === 0),
+      skippedArmory:document.getElementById('armory').hidden,
+    };
   });
-  assert.deepEqual(started, [4, 8, 0]);
-  console.log('PASS menu starts a four-player free-for-all and a normal roll has no Pirate Token');
+  assert.deepEqual(started, {teams:21, chests:33, pirate:0, map:'blacktide', size:[160,128], unarmed:true, skippedArmory:true});
+  console.log('PASS deploy skips weapon selection and starts Blacktide Island with 20 unarmed rivals');
+
+  const pickaxe = await page.evaluate(() => {
+    const R = __range, b = R.battle(), r = b.royale, h = b.humans[0], a = b.arena;
+    const prop = a.boxes.find(box => box.maxY > 2 && box.minY === 0);
+    const x = (prop.minX + prop.maxX) / 2;
+    h.camera.position.set(x, 1.5, prop.maxZ + 1);
+    h.camera.lookAt(x, 1.5, prop.maxZ);
+    b.mouseButton(0, true);
+    b.mouseButton(0, false);
+    b.mouseButton(0, true);
+    b.mouseButton(0, false);
+    R.renderFrame();
+    const visible = r.pickaxe.visible;
+    R.step(.7);
+    const target = b.bots[0].f;
+    Object.assign(target, {x:-74, y:0, z:-59, protectUntil:0});
+    h.camera.position.set(-74, 1.25, -57.2);
+    h.camera.lookAt(-74, 1.25, -59);
+    b.mouseButton(0, true);
+    b.mouseButton(0, false);
+    return { walls:r.materials, gun:h.gun, visible, shots:b.rec?.shots.length || 0, damage:100-target.health };
+  });
+  assert.deepEqual(pickaxe, {walls:1, gun:null, visible:true, shots:0, damage:40});
+  console.log('PASS the starting pickaxe harvests materials, hits nearby rivals, and fires no bullets');
 
   const loot = await page.evaluate(() => {
     const b = __range.battle(), r = b.royale, h = b.humans[0], chest = r.chests[0];
@@ -98,6 +126,7 @@ try {
   const result = await page.evaluate(() => {
     const b = __range.battle(), r = b.royale, h = b.humans[0].f;
     const [first, second, survivor] = b.bots.map(bot => bot.f);
+    for (const bot of b.bots.slice(3)) b._acid(bot.f, 200, b.t, 'Zone');
     r.elapsed = 180;
     r.advance(0);
     const old = h.health;
@@ -144,14 +173,18 @@ try {
   assert.deepEqual(unlock, [0, 1, true, 9, true, true]);
   const fullMatch = await page.evaluate(() => {
     const r = __range, b = r.battle();
-    b.start({ ...b.opts, map:'school' });
+    b.start(b.opts);
+    r.step(10, 15);
+    const armedBots = b.bots.filter(bot => bot.gun).length;
     r.step(235, 15);
-    return { over:b.over, living:b.fighters.filter(f => f.alive).length };
+    return { over:b.over, living:b.fighters.filter(f => f.alive).length, armedBots };
   });
-  assert.deepEqual(fullMatch, {over:true, living:1});
+  assert.ok(fullMatch.armedBots >= 15, JSON.stringify(fullMatch));
+  assert.equal(fullMatch.over, true);
+  assert.equal(fullMatch.living, 1);
   assert.deepEqual(errors, []);
   console.log('PASS the rare Pirate Token unlocks all nine Black Ice skins in storage and save codes');
-  console.log('PASS a full match with active bots ends with exactly one survivor');
+  console.log('PASS bots find guns in chests and the full match ends with exactly one survivor');
 } finally {
   await browser?.close();
   server.close();

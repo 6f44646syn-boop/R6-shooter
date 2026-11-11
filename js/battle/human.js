@@ -10,7 +10,7 @@
 //                       Right Shift aim, Backspace reload, / crouch.
 import * as THREE from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
 import { Look, PITCH_LIMIT } from '../core/look.js?v=9dd0f7b-mwbioun8';
-import { Weapon } from '../core/weapon.js?v=9dd0f7b-mwbioun8';
+import { Weapon } from '../core/weapon.js?v=blacktide';
 import { RecoilEngine } from '../core/recoil.js?v=9dd0f7b-mwbioun8';
 import { Spread } from '../core/spread.js?v=9dd0f7b-mwbioun8';
 import { focalRatio } from '../core/sensitivity.js?v=9dd0f7b-mwbioun8';
@@ -60,10 +60,11 @@ export class Human {
   setGun(gun) {
     this.gun = gun;
     this.f.gun = gun;
-    this.optic = this.deps.opticFor(gun);
+    this.optic = gun ? this.deps.opticFor(gun) : null;
     this.weapon.setGun(gun);
     this.weapon.reloadSpeed = this.deps.settings.reloadSpeed;
     this.recoil.setGun(gun);
+    if (!gun) { this.rig.root.visible = false; return; }
     this.recoil.setScale(gun.opticRecoilScale[this.optic.id] || 1);
     this.recoil.aimScale = this.deps.settings.aimRecoil;
     this.recoil.hipScale = this.deps.settings.hipRecoil;
@@ -194,7 +195,7 @@ export class Human {
     if (this.controls !== 'mouse') this.pollPad(dt);
     if (!f.alive) { this.weapon.releaseTrigger(); this.setAds(false); }
     // Trigger and aim from the input state.
-    if (f.alive && !this.vault) {
+    if (this.gun && f.alive && !this.vault) {
       if (this.in.fire && !this._fireWas) {
         if (this.weapon.ammo === 0 && !this.weapon.reloading) this.deps.sfx.click();
         this.weapon.pressTrigger(t);
@@ -211,7 +212,7 @@ export class Human {
 
     // Recoil view offset; leftover recoil folds into the aim after the spray (no recovery).
     this.recoil.offsetAt(t, this.offset);
-    if ((this.offset[0] || this.offset[1]) && t - this.recoil.lastShot > Math.max(this.gun.resetSeconds, this.recoil.easeDur)) {
+    if (this.gun && (this.offset[0] || this.offset[1]) && t - this.recoil.lastShot > Math.max(this.gun.resetSeconds, this.recoil.easeDur)) {
       this.look.setAngles(this.look.yaw + this.offset[0], this.look.pitch + this.offset[1]);
       this.recoil.clearOffset();
       this.offset[0] = this.offset[1] = 0;
@@ -276,7 +277,7 @@ export class Human {
     const lt = (this.in.leanR ? 1 : 0) - (this.in.leanL ? 1 : 0);
     this.lean += (lt - this.lean) * (1 - Math.exp(-14 * dt));
     f.yaw = this.look.yaw; f.pitch = this.look.pitch;
-    f.lean = this.lean; f.viewOptic = this.optic.id;
+    f.lean = this.lean; f.viewOptic = this.optic?.id;
     f.viewDY = this.offset[0]; f.viewDP = this.offset[1];
 
     // Aim-down-sights blend and FOV (vertical FOV setting; sight's aimed FOV).
@@ -288,7 +289,7 @@ export class Human {
     }
     this.adsE = this.ads ? easeOut(this.adsP) : 1 - easeOut(1 - this.adsP);
     f.ads = this.adsE;
-    const tHip = Math.tan(s.fov * DEG / 2), tAds = Math.tan(this.deps.adsVFov(this.optic) * DEG / 2);
+    const tHip = Math.tan(s.fov * DEG / 2), tAds = this.optic ? Math.tan(this.deps.adsVFov(this.optic) * DEG / 2) : tHip;
     this.fovV = 2 * Math.atan(tHip + (tAds - tHip) * this.adsE) / DEG;
 
     // Camera: eye + lean, aim + recoil offset; dead players see the floor where they fell.
@@ -312,7 +313,7 @@ export class Human {
     rig.reloadEmpty = !!this.weapon.reloadEmpty;
     rig.sprinting = sprinting || !!this.vault;
     rig.update(dt, this.adsE, t);
-    rig.root.visible = f.alive;
+    rig.root.visible = f.alive && !!this.gun;
     if (this.reticle) this.reticle.material.opacity = smooth(0.55, 0.9, this.adsE);
   }
 

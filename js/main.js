@@ -12,7 +12,7 @@ import { Player } from './core/player.js?v=9dd0f7b-mwbioun8';
 import { PointerLock } from './core/pointer-lock.js?v=9dd0f7b-mwbioun8';
 import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=9dd0f7b-mwbioun8';
 import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=9dd0f7b-mwbioun8';
-import { Weapon } from './core/weapon.js?v=9dd0f7b-mwbioun8';
+import { Weapon } from './core/weapon.js?v=blacktide';
 import { RecoilEngine } from './core/recoil.js?v=9dd0f7b-mwbioun8';
 import { Spread } from './core/spread.js?v=9dd0f7b-mwbioun8';
 import { loadGameData } from './core/guns.js?v=9dd0f7b-mwbioun8';
@@ -25,7 +25,7 @@ import { LensPost } from './render/lens-post.js?v=9dd0f7b-mwbioun8';
 import { reticleTextures } from './ui/reticle-tex.js?v=9dd0f7b-mwbioun8';
 import { DOT_POINTS } from './scene/dots.js?v=9dd0f7b-mwbioun8';
 import { Voices } from './audio/voice.js?v=9dd0f7b-mwbioun8';
-import { ModeGame } from './modes/game.js?v=battle-royale';
+import { ModeGame } from './modes/game.js?v=blacktide';
 import { Sfx } from './audio/sfx.js?v=9dd0f7b-mwbioun8';
 import { DebugHud } from './ui/debug-hud.js?v=9dd0f7b-mwbioun8';
 import { drawCrosshair } from './ui/crosshair.js?v=9dd0f7b-mwbioun8';
@@ -40,7 +40,7 @@ function sensRows(catalogue, sens) {
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
 import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=9dd0f7b-mwbioun8';
-import { Battle } from './battle/battle.js?v=battle-royale';
+import { Battle } from './battle/battle.js?v=blacktide';
 import { initCore, coreLoaded } from './wasm/core.js?v=9dd0f7b-mwbioun8';
 import { createJoinRequest, acceptJoin } from './net/link.js?v=9dd0f7b-mwbioun8';
 import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt } from './net/relay.js?v=m11-ranked';
@@ -903,8 +903,8 @@ async function boot(data) {
     if (needCore(startBattle)) return;
     controls.release();
     const royale = flow.mode === 'royale';
-    const B = royale ? { ...settings.battle, opponent: 'bots', bots: Math.max(1, settings.battle.bots) } : settings.battle;
-    if (B.opponent === 'bots' && B.bots < 1) { flashNotice('Choose at least one bot.'); return; }
+    const B = royale ? { ...settings.battle, opponent: 'bots' } : settings.battle;
+    if (!royale && B.opponent === 'bots' && B.bots < 1) { flashNotice('Choose at least one bot.'); return; }
     if (B.opponent === 'net') {
       if (net.role === 'client') { flashNotice('Only the host can start a network battle.'); return; }
       if (net.peers.some(peer => !peer.ready)) { flashNotice('Wait for everyone to finish joining.'); return; }
@@ -939,6 +939,7 @@ async function boot(data) {
     $('hud').hidden = true;
     flow.inGame = true;
     $('pause-title').textContent = royale ? 'Battle Royale paused' : 'Battle paused';
+    if (royale && testMode) $('menu').hidden = true;
     if (!testMode) startLock();
   }
   // The match modes (Team Deathmatch, Capture the Flag, Bomb) run in their own game.
@@ -1311,15 +1312,15 @@ async function boot(data) {
       $('range-setup').hidden = flow.mode !== 'range';
       $('battle-setup').hidden = flow.mode === 'range' || MATCH_MODES.includes(flow.mode);
       $('b-kills-field').hidden = flow.mode === 'royale';
+      $('b-map-field').hidden = flow.mode === 'royale';
+      $('b-bots-field').hidden = flow.mode === 'royale';
       $('royale-rules').hidden = flow.mode !== 'royale';
-      $('b-bots').options[0].disabled = flow.mode === 'royale';
-      $('b-bots').value = String(flow.mode === 'royale' ? Math.max(1, settings.battle.bots) : settings.battle.bots);
       $('modes-setup').hidden = !MATCH_MODES.includes(flow.mode);
       if (MATCH_MODES.includes(flow.mode)) modesUi();
       $('net-panel').hidden = flow.mode !== 'net';
       $('setup-title').textContent = flow.settingsOnly ? 'Settings' : names[flow.mode];
       $('match-settings-tab').hidden = flow.settingsOnly;
-      $('setup-next').textContent = flow.settingsOnly ? 'Done' : flow.setupFromPause ? 'Back to the game' : MATCH_MODES.includes(flow.mode) ? 'Next: choose your operator' : 'Next: choose your weapon';
+      $('setup-next').textContent = flow.settingsOnly ? 'Done' : flow.setupFromPause ? 'Back to the game' : flow.mode === 'royale' ? 'Deploy to Blacktide Island' : MATCH_MODES.includes(flow.mode) ? 'Next: choose your operator' : 'Next: choose your weapon';
       if (netInit) netUi();
     }
   }
@@ -1343,6 +1344,7 @@ async function boot(data) {
   $('setup-next').addEventListener('click', () => {
     if (flow.settingsOnly) { flow.settingsOnly = false; showPage(flow.inGame ? 'pause' : 'mode'); return; }
     if (flow.setupFromPause) { flow.setupFromPause = false; showPage('pause'); }
+    else if (flow.mode === 'royale') startBattle();
     else if (MATCH_MODES.includes(flow.mode)) { showPage('ops'); renderOps(); }
     else openArmory('setup');
   });

@@ -166,6 +166,7 @@ fieldset, .xh-wrap { min-width: 0; }
 .b-end-box { min-width: 320px; max-width: calc(100vw - 32px); padding: 20px 24px; background: var(--panel, #14181d); border: 1px solid var(--panel-edge, #2a313a); border-radius: 8px; display: grid; gap: 12px; }
 .b-end-box h1 { margin: 0; font-size: 26px; }
 .b-table { display: grid; gap: 4px; }
+.b-royale-match .b-table { max-height: 34vh; overflow-y: auto; }
 .b-row { display: grid; grid-template-columns: minmax(0, 1fr) 76px 76px; gap: 12px; }
 .b-row > .b-name { position: static; overflow-wrap: anywhere; }
 .b-row > :nth-child(n+2) { text-align: right; }
