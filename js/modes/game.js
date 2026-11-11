@@ -157,6 +157,7 @@ export class ModeGame {
     this.grenadeView.reset();
     this.finale.reset();
     this.lastKill = null;
+    this.spectatorId = null; this.spectator = null;
     if (this.scene) { this._disposeScene(); this.scene = null; }
     this.active = false; this.paused = false; this.kc = null;
     if (this.rec) { this.rec.frames.length = 0; this.rec.shots.length = 0; this.rec.hits.length = 0; }
@@ -429,7 +430,7 @@ export class ModeGame {
     this.grenadeView.hide();
     if (!me.alive) this.grenadeView.release();
     if (this.kc) this._replay(t);
-    this._camera(t);
+    this._camera(t, dt);
     this.deps.sfx.listen(this.camOverride || h.camera);
     if (!this.paused && !this.over && !this.kc) this._steps();
     this._updateTracers(t);
@@ -440,7 +441,10 @@ export class ModeGame {
   _events(t) {
     const m = this.m, me = this.me, sfx = this.deps.sfx;
     for (const e of m.events) {
-      if (e.type === 'shot') this._recShot(e);
+      if (e.type === 'shot') {
+        this._recShot(e);
+        if (this.spectator?.id === e.id && !this.kc) this.kcPuppet?.rig.kick();
+      }
       if (e.type === 'hit' && e.id === me.id) this.rec.hits.push({ t: m.t, by: e.by, zone: e.zone, dmg: e.dmg, kind: e.kind });
       if (e.type === 'shot' && e.id !== me.id) {
         const f = this.fig.get(e.id);
@@ -661,19 +665,10 @@ export class ModeGame {
         const ads = stride > 7 ? L(7) : 0, lean = stride > 7 ? L(8) : 0;
         const loadout = A.loadouts?.[k];
         const gun = loadout ? effectiveGun(this.deps.guns[A.s[o + 9]] || a.gunData, loadout.attach) : a.gunData;
-        const optic = this.deps.opticById(loadout?.optic || a.op.sight, gun);
-        if (!this.kcPuppet) this.kcPuppet = new Human(new Fighter({ name: 'replay', team: a.team, color: 0xffffff, human: true }), 'mouse', this.deps, this.deps.slotOf);
-        const P = this.kcPuppet, key = gun.id + '|' + (gun.attach || '') + '|' + optic.id + '|' + (loadout?.skin ?? '');
-        if (P._key !== key) {
-          P.deps = { ...this.deps, opticFor: () => optic };
-          P.rig.forceSkin = loadout?.skin ?? null; P.setGun(gun); P._key = key;
-        }
-        replayCamera(this.kcCam, { x: fig.x, y: fig.y, z: fig.z,
-          eye: 1.6 - 0.48 * fig.crouch, yaw: fig.yaw + (stride > 7 ? L(11) : 0),
-          pitch: fig.pitch + (stride > 7 ? L(12) : 0), ads, lean }, this.deps.settings, this.deps.adsVFov(optic));
-        P.rig.animations = this.deps.settings.animations; P.rig.reloadP = -1; P.rig.sprinting = false; P.rig.bobY = 0;
-        P.rig.update(Math.max(0, Math.min(0.1, t - kc.prevT)), ads, t);
-        if (P.reticle) P.reticle.material.opacity = Math.min(1, Math.max(0, (ads - 0.55) / 0.35));
+        this._firstPerson(this.kcCam, a, gun, loadout?.optic, loadout?.skin, {
+          x: fig.x, y: fig.y, z: fig.z, eye: 1.6 - 0.48 * fig.crouch,
+          yaw: fig.yaw + (stride > 7 ? L(11) : 0), pitch: fig.pitch + (stride > 7 ? L(12) : 0), ads, lean,
+        }, t, Math.max(0, Math.min(0.1, t - kc.prevT)));
       }
       if (a === this.me) { fig.outline.visible = true; for (const l of fig.legs) l.o.visible = true; }   // you, in red
     });
@@ -688,6 +683,21 @@ export class ModeGame {
       const gun = this.kcPuppet?.gun;
       this.deps.sfx.shot(gun?.tone ?? 0.5, gun?.suppressed ? 0.225 : 0.5);
     }
+  }
+  _firstPerson(camera, actor, gun, sight, skin, pose, t, dt) {
+    const d = this.deps, optic = d.opticById(sight || actor.op.sight, gun);
+    if (!this.kcPuppet) this.kcPuppet = new Human(new Fighter({ name: 'view', team: actor.team, color: 0xffffff, human: true }), 'mouse', d, d.slotOf);
+    const p = this.kcPuppet, key = [gun.id, gun.attach, optic.id, skin].join('|');
+    if (p._key !== key) {
+      p.deps = { ...d, opticFor: () => optic };
+      p.rig.forceSkin = skin ?? null;
+      p.setGun(gun);
+      p._key = key;
+    }
+    replayCamera(camera, pose, d.settings, d.adsVFov(optic));
+    p.rig.animations = d.settings.animations; p.rig.reloadP = -1; p.rig.sprinting = false; p.rig.bobY = 0;
+    p.rig.update(dt, pose.ads, t);
+    if (p.reticle) p.reticle.material.opacity = Math.min(1, Math.max(0, (pose.ads - 0.55) / 0.35));
   }
   _earn(kind, head = false) {
     const n = this.deps.onPoints ? this.deps.onPoints(kind, head) : 0;
@@ -845,13 +855,27 @@ export class ModeGame {
       return true;
     });
   }
-  // The camera: your eyes, your drone, or (Bomb, down) a teammate's; jolt wobble, dread shake.
-  _camera(t) {
+  _canSpectate() {
+    return this.m.o.mode === 'bomb' && !this.me.alive && !this.kc && !this.over;
+  }
+  _livingTeammates() {
+    return this.m.actors.filter(a => a.alive && a.team === this.me.team);
+  }
+  _cycleSpectator(direction) {
+    const mates = this._livingTeammates();
+    if (!mates.length) return;
+    const index = mates.findIndex(a => a.id === this.spectatorId);
+    this.spectatorId = mates[(Math.max(0, index) + direction + mates.length) % mates.length].id;
+  }
+  // The camera can follow your body, a drone, or a teammate in Bomb.
+  _camera(t, dt = 0) {
     const m = this.m, me = this.me, h = this.h, ab = me.ab;
     this._updateFx(t);
     if (!this.dcam) this.dcam = new THREE.PerspectiveCamera(80, 1, 0.03, 300);
     const cam = this.dcam;
     let over = null;
+    this.spectator = null;
+    if (me.alive) this.spectatorId = null;
     const d = ab && ab.drone && ab.drone.alive ? ab.drone : null;
     const liveGrenade = me.alive && !this.paused && !this.over && this.grenadeView.live(m.t, this.map.world);
     if (this.grenadeCam) over = this.grenadeCam;
@@ -861,21 +885,23 @@ export class ModeGame {
       cam.position.set(d.x, (d.y || 0.15) + 0.08, d.z);
       cam.rotation.set(d.pitch * DEG, -d.yaw * DEG, 0, 'YXZ');
       over = cam;
-    } else if (!me.alive && m.o.mode === 'bomb') {
-      const mates = m.actors.filter((a) => a.alive && a.team === me.team);
-      if (mates.length) {
-        const a = mates[(this.specIndex || 0) % mates.length];
-        const e = m.eye(a);
-        // a little behind and above the teammate's shoulder
-        const y = a.yaw * DEG;
-        cam.position.set(e[0] - Math.sin(y) * 1.6, e[1] + 0.35, e[2] + Math.cos(y) * 1.6);
-        cam.rotation.set(a.pitch * DEG - 0.12, -y, 0, 'YXZ');
-        over = cam;
-        this.specName = a.name;
+    } else if (this._canSpectate()) {
+      const mates = this._livingTeammates();
+      const actor = mates.find(a => a.id === this.spectatorId) || mates[0];
+      if (actor) {
+        this.spectator = actor;
+        this.spectatorId = actor.id;
+        const figure = this.fig.get(actor.id);
+        if (!this.spectatorCam) this.spectatorCam = new THREE.PerspectiveCamera(70, 1, 0.03, 300);
+        over = this.spectatorCam;
+        this._firstPerson(over, actor, actor.gunData, actor.op.sight, figure.skin, {
+          x: figure.x, y: figure.y, z: figure.z, eye: 1.6 - 0.48 * figure.crouch,
+          yaw: figure.yaw + (actor.recoilYaw || 0), pitch: figure.pitch + (actor.recoilPitch || 0),
+          ads: actor.ads || 0, lean: actor.lean || 0,
+        }, t, dt);
       }
     }
     this.camOverride = over;
-    if (!over) this.specName = null;
     // effects on whatever camera is showing
     const c = over || h.camera;
     if (!reducedMotion() && me.alive && m.t < me.wobbleUntil) { c.rotation.z += Math.sin(t * 7) * 0.035; }
@@ -885,6 +911,7 @@ export class ModeGame {
       view.classList.toggle('mg-dread', me.alive && m.t < me.shakeUntil);
       view.classList.toggle('mg-jolt', me.alive && m.t < me.wobbleUntil);
       view.classList.toggle('mg-drone', !!d);
+      view.classList.toggle('mg-spectating', !!this.spectator);
     }
   }
 
@@ -907,12 +934,35 @@ export class ModeGame {
     const ownVis = h.f.group.visible;
     if (!(this.kc && this.camOverride === this.kcCam)) h.f.group.visible = false;   // your body shows in your death replay
     const wp = this.deps.worldPost;
-    if (wp && wp.active) wp.draw(this.scene, cam); else r.render(this.scene, cam);
-    h.f.group.visible = ownVis;
-    const rig = this.kc && this.camOverride === this.kcCam ? this.kcPuppet?.rig : !this.camOverride ? h.rig : null;
+    const drawWorld = () => { if (wp?.active) wp.draw(this.scene, cam); else r.render(this.scene, cam); };
+    try {
+      if (this.spectator) this._drawSpectatorWorld(cam, drawWorld);
+      else drawWorld();
+    } finally {
+      h.f.group.visible = ownVis;
+    }
+    const rig = this.spectator || (this.kc && this.camOverride === this.kcCam) ? this.kcPuppet?.rig : !this.camOverride ? h.rig : null;
     if (rig) {
       r.clearDepth(); rig.setAspect(aspect, sz.y); r.render(rig.scene, rig.camera);
     }
+  }
+
+  _drawSpectatorWorld(camera, draw) {
+    const eye = camera.position.toArray(), saved = [];
+    const hide = object => { if (object.visible) { saved.push(object); object.visible = false; } };
+    for (const actor of this.m.actors) {
+      const figure = this.fig.get(actor.id);
+      if (actor === this.spectator) hide(figure.group);
+      if (actor.team !== this.spectator.team) {
+        const torso = [figure.x, figure.y + 1.1 - 0.3 * figure.crouch, figure.z];
+        const head = [figure.x, figure.y + 1.55 - 0.45 * figure.crouch, figure.z];
+        if (!this.map.sight(eye, torso) && !this.map.sight(eye, head)) hide(figure.group);
+        hide(figure.outline);
+        for (const leg of figure.legs) hide(leg.o);
+      }
+    }
+    try { draw(); }
+    finally { for (const object of saved) object.visible = true; }
   }
 
   /* ---------- input ---------- */
@@ -924,7 +974,10 @@ export class ModeGame {
   mouseButton(b, down) {
     const h = this.h;
     if (!h) return;
-    if (b === 0 && down && !this.me.alive && this.m.o.mode === 'bomb') { this.specIndex = (this.specIndex || 0) + 1; return; }
+    if (!this.me.alive && this.m.o.mode === 'bomb' && (b === 0 || b === 2)) {
+      if (down && this._canSpectate()) this._cycleSpectator(b === 0 ? 1 : -1);
+      return;
+    }
     if (b === 1) { this.key('OperatorAbility', down); return; }
     if (b === 0) h.in.fire = down;
     else if (b === 2) h.in.ads = down;
@@ -935,6 +988,11 @@ export class ModeGame {
     if (!this.active) return false;
     const h = this.h;
     if (code === 'Space' && this.kc) { if (down) this._endKc(); return true; }
+    if (this._canSpectate() && /^Digit[1-5]$/.test(code)) {
+      const mate = this._livingTeammates()[Number(code.at(-1)) - 1];
+      if (down && mate) this.spectatorId = mate.id;
+      return true;
+    }
     if (code === 'Tab') { this.hud.board.hidden = !down; if (down) this._renderBoard(); return true; }
     const me = this.me, ab = this.m.ab;
     const abilityUsed = this.m.o.abilitiesOn || this.m.o.mode === 'bomb';
@@ -1105,7 +1163,7 @@ export class ModeGame {
     if (L.pr !== pr) { L.pr = pr; H.prot.hidden = !pr; H.prot.textContent = pr; }
     const st = (m.rules.statusText ? m.rules.statusText(me) : '').replace(/hold E/g, 'hold ' + (this.deps.controls?.bindingLabel('interact') || 'F'));
     if (L.st !== st) { L.st = st; H.status.textContent = st; H.status.hidden = !st; }
-    const hp = Math.max(0, Math.ceil(me.hp));
+    const hp = Math.max(0, Math.ceil((this.spectator || me).hp));
     if (L.hp !== hp) { L.hp = hp; H.hpFill.style.width = hp + '%'; H.hpFill.className = hp > 60 ? '' : hp > 30 ? 'mid' : 'low'; H.hpText.textContent = String(hp); }
     const ammo = m.ab.ammoText ? m.ab.ammoText(me) || (h.weapon.reloading ? 'reloading' : h.weapon.ammo + ' / ' + h.gun.magSize) : (h.weapon.reloading ? 'reloading' : h.weapon.ammo + ' / ' + h.gun.magSize);
     if (L.ammo !== ammo) { L.ammo = ammo; H.ammo.textContent = ammo; }
@@ -1123,7 +1181,11 @@ export class ModeGame {
     if (t > (this.dmgUntil || 0) && H.dmg.classList.contains('on')) H.dmg.className = 'mg-dmgdir';
     if (t > (this.ptsUntil || 0) && H.pts.classList.contains('on')) H.pts.className = 'b-points';
     if (t > (this.flashUntil || 0) && !H.flash.hidden) H.flash.hidden = true;
-    const dmsg = me.alive || this.kc ? '' : (m.rules.deadText ? m.rules.deadText(me) : 'Eliminated by ' + (this.killedBy || '?') + (me.respawnAt ? ' · back in ' + Math.max(0, Math.ceil(me.respawnAt - m.t)) : ''));
+    const controls = this.deps.controls;
+    const spectator = this.spectator ? 'Spectating ' + this.spectator.name + ' · '
+      + (controls?.bindingLabel('fire') || 'Left mouse') + ' / ' + (controls?.bindingLabel('ads') || 'Right mouse')
+      + ' or 1–5 to switch' : '';
+    const dmsg = me.alive || this.kc ? '' : spectator || (m.o.mode === 'bomb' ? 'Waiting for the next round' : 'Eliminated by ' + (this.killedBy || '?') + (me.respawnAt ? ' · back in ' + Math.max(0, Math.ceil(me.respawnAt - m.t)) : ''));
     if (L.dead !== dmsg) { L.dead = dmsg; H.dead.hidden = !dmsg; H.dead.textContent = dmsg; }
     // hold bar (plant / defuse)
     const hold = me.hold;
@@ -1141,11 +1203,12 @@ export class ModeGame {
   }
   // Compass along the top: headings and objective markers.
   _compass() {
-    const H = this.hud, yaw = this.camOverride ? this.camYaw : this.h.look.yaw, fov = 140;
+    const H = this.hud, focus = this.spectator || this.me;
+    const yaw = this.spectator ? this.spectator.yaw : this.camOverride ? this.camYaw : this.h.look.yaw, fov = 140;
     const items = [];
     for (const [deg, txt] of [[0, 'N'], [90, 'E'], [180, 'S'], [270, 'W']]) items.push({ yaw: deg, txt, cls: 'mg-cd' });
     const mk = this.m.rules.markers ? this.m.rules.markers(this.me) : [];
-    for (const k of mk) if (k.compass) items.push({ yaw: yawTo(k.x - this.me.x, k.z - this.me.z), txt: k.compass, cls: 'mg-cm', color: '#' + new THREE.Color(k.color || 0xffffff).getHexString(), dist: Math.round(Math.hypot(k.x - this.me.x, k.z - this.me.z)) });
+    for (const k of mk) if (k.compass) items.push({ yaw: yawTo(k.x - focus.x, k.z - focus.z), txt: k.compass, cls: 'mg-cm', color: '#' + new THREE.Color(k.color || 0xffffff).getHexString(), dist: Math.round(Math.hypot(k.x - focus.x, k.z - focus.z)) });
     const key = Math.round(yaw) + '|' + items.map((i) => i.txt + Math.round(i.yaw) + (i.dist || '')).join(',');
     if (H.last.cp === key) return;
     H.last.cp = key;

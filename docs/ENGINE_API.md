@@ -116,6 +116,18 @@ Afterward, the winning side appears in a 3D lineup with the full leaderboard.
 Draws can line up the top six by kills and deaths. Matches without a recorded kill go
 straight to results. The host sends the final scores with the end message.
 
+## Bomb teammate spectating (milestone 11)
+
+An eliminated player can follow living teammates after the kill cam. The fire and
+ADS bindings cycle forward and backward, and 1–5 select a teammate directly. The
+view switches to a surviving teammate when the current one dies, and returns to
+the player when they respawn.
+
+The camera uses the followed teammate’s ADS, lean, recoil, optic, attachments,
+and skin. The spectator render hides enemy outlines and any enemy whose head and
+torso are both occluded. The filter applies only during the spectator draw.
+The same view works for local and online Bomb matches.
+
 ## Network (milestone 9, Claude)
 
 Every mode plays online over the existing relay or a direct peer-to-peer link. There is no

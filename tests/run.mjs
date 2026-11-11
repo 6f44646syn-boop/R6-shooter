@@ -1699,6 +1699,20 @@ try {
         const kinds = await Promise.all([A, B].map((p) => p.evaluate((i) => window.__range.modeGame().m.map.panels[i].kind, reinf.i)));
         check('the player holds Interact at a wall: the host reinforces it and both PCs show it reinforced', kinds[0] === 'reinforced' && kinds[1] === 'reinforced', JSON.stringify(kinds));
       } else check('found a soft wall to reinforce from inside', false, 'none');
+      await A.evaluate(() => {
+        const game = window.__range.modeGame();
+        const remote = game.m.actors.find(actor => actor.remote !== null && actor.remote !== undefined);
+        game.m.kill(remote, game.me);
+      });
+      await run(0.6);
+      const spectating = await B.evaluate(() => {
+        const game = window.__range.modeGame();
+        game.key('Space', true); game.key('Space', false);
+        window.__range.step(0.1, 60); window.__range.renderFrame();
+        return !game.me.alive && game.spectator?.team === game.me.team
+          && game.spectator?.alive && game.camOverride === game.spectatorCam;
+      });
+      check('Bomb online: an eliminated player follows a living teammate in first person', spectating);
       check('no page errors in either session', nerr.length === 0, nerr.join('\n'));
       await A.evaluate(() => window.__range.modeGame().stop());
     }

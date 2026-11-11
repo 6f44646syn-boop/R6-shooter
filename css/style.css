@@ -467,3 +467,9 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
   width: min(560px, 100%); min-width: 0; max-height: 49vh; overflow: auto;
 }
 .b-lineup-names { margin: 0; font-size: 13px; }
+
+.mg-spectating .b-dead {
+  top: auto; bottom: 14%; width: max-content; max-width: calc(100% - 24px);
+  white-space: normal; text-align: center; font-size: 14px;
+}
+.mg-spectating :is(.b-name, .b-ammo, .mg-ability) { visibility: hidden; }
