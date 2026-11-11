@@ -7,17 +7,17 @@
 //
 // Coordinates: metres, x right, y up, z towards the "A" side. Same yaw convention as the
 // range: yaw 0 looks along -z, positive turns right.
-import { applyPackMaterials, revertPackMaterials } from '../render/pack-materials.js?v=8d0c421-mwbwze4w';
-import { maxMode } from '../render/quality.js?v=8d0c421-mwbwze4w';
-import * as THREE from '../../vendor/three/three.module.min.js?v=8d0c421-mwbwze4w';
-import { MAPS } from './maps.js?v=8d0c421-mwbwze4w';
-import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=8d0c421-mwbwze4w';
-import { flatMaterial } from '../scene/low.js?v=8d0c421-mwbwze4w';
-import { BulletHoles } from '../scene/holes.js?v=8d0c421-mwbwze4w';
-import { mulberry32 } from '../core/prng.js?v=8d0c421-mwbwze4w';
-import { layoutSolids, layoutPieces, edgeSolids, span, piece, stairCount, rampCount } from './solids.js?v=8d0c421-mwbwze4w';
-import { CoreWorld, BODY_R, STEP, BODY_H, VAULT_MAX } from '../wasm/world.js?v=8d0c421-mwbwze4w';
-import { BLACKTIDE, ROYALE_MAP_ID } from './royale-map.js?v=blacktide-cover';
+import { applyPackMaterials, revertPackMaterials } from '../render/pack-materials.js?v=25db2c9-mwbx9yjs';
+import { maxMode } from '../render/quality.js?v=25db2c9-mwbx9yjs';
+import * as THREE from '../../vendor/three/three.module.min.js?v=25db2c9-mwbx9yjs';
+import { MAPS } from './maps.js?v=25db2c9-mwbx9yjs';
+import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=25db2c9-mwbx9yjs';
+import { flatMaterial } from '../scene/low.js?v=25db2c9-mwbx9yjs';
+import { BulletHoles } from '../scene/holes.js?v=25db2c9-mwbx9yjs';
+import { mulberry32 } from '../core/prng.js?v=25db2c9-mwbx9yjs';
+import { layoutSolids, layoutPieces, edgeSolids, span, piece, stairCount, rampCount } from './solids.js?v=25db2c9-mwbx9yjs';
+import { CoreWorld, BODY_R, STEP, BODY_H, VAULT_MAX } from '../wasm/world.js?v=25db2c9-mwbx9yjs';
+import { BLACKTIDE, ROYALE_MAP_ID } from './royale-map.js?v=25db2c9-mwbx9yjs';
 
 export const HALF_X = 18, HALF_Z = 14, WALL_H = 4.5;
 // Landmark names for callouts, by kind of cover.

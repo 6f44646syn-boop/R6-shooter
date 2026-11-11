@@ -2,7 +2,7 @@
 // Storage can be missing or throw (private window, blocked site data), so every access is
 // wrapped and the app always works with the defaults.
 
-import { sensToCm360, cm360ToSens } from './sensitivity.js?v=8d0c421-mwbwze4w';
+import { sensToCm360, cm360ToSens } from './sensitivity.js?v=25db2c9-mwbx9yjs';
 
 const KEY = 'recoilRange.settings.v1';
 

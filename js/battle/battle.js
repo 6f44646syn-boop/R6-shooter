@@ -1,24 +1,25 @@
-import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=m11-ranked';
-import { MatchFinale } from '../replay/finale.js?v=9dd0f7b-mwbioun8';
-import { GrenadeReplay } from '../replay/grenade.js?v=9dd0f7b-mwbioun8';
-import { replayCamera } from '../replay/view.js?v=9dd0f7b-mwbioun8';
+import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=25db2c9-mwbx9yjs';
+import { MatchFinale } from '../replay/finale.js?v=25db2c9-mwbx9yjs';
+import { GrenadeReplay } from '../replay/grenade.js?v=25db2c9-mwbx9yjs';
+import { replayCamera } from '../replay/view.js?v=25db2c9-mwbx9yjs';
 // Battle mode: you against bots (Easy / Medium / Hard), or two local players in split
 // screen (optionally with bots as a third side). First side to the kill target wins.
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=8d0c421-mwbwze4w';
-import { Arena } from './arena.js?v=8d0c421-mwbwze4w';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=8d0c421-mwbwze4w';
-import { Bot, LEVELS } from './bot.js?v=8d0c421-mwbwze4w';
-import { Human } from './human.js?v=8d0c421-mwbwze4w';
-import { BattleNades } from './nades.js?v=8d0c421-mwbwze4w';
-import { drawCrosshair } from '../ui/crosshair.js?v=8d0c421-mwbwze4w';
-import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=8d0c421-mwbwze4w';
-import { effectiveGraphics } from '../render/quality.js?v=8d0c421-mwbwze4w';
-import { effectiveGun, slotIn } from '../core/loadout.js?v=8d0c421-mwbwze4w';
-import { BattleRoyale } from './royale.js?v=blacktide-cover';
-import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=blacktide-cover';
+import * as THREE from '../../vendor/three/three.module.min.js?v=25db2c9-mwbx9yjs';
+import { Arena } from './arena.js?v=25db2c9-mwbx9yjs';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=25db2c9-mwbx9yjs';
+import { Bot, LEVELS } from './bot.js?v=25db2c9-mwbx9yjs';
+import { Human } from './human.js?v=25db2c9-mwbx9yjs';
+import { BattleNades } from './nades.js?v=25db2c9-mwbx9yjs';
+import { drawCrosshair } from '../ui/crosshair.js?v=25db2c9-mwbx9yjs';
+import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=25db2c9-mwbx9yjs';
+import { effectiveGraphics } from '../render/quality.js?v=25db2c9-mwbx9yjs';
+import { effectiveGun, slotIn } from '../core/loadout.js?v=25db2c9-mwbx9yjs';
+import { BattleRoyale } from './royale.js?v=25db2c9-mwbx9yjs';
+import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=25db2c9-mwbx9yjs';
+import { Footprints } from '../scene/footprints.js?v=25db2c9-mwbx9yjs';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, p7: 0xff7048, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -74,6 +75,7 @@ export class Battle {
     if (!this.arenas[id]) this.arenas[id] = new Arena(id);
     this.arena = this.arenas[id];
     if (this.tracers) this.arena.scene.add(this.tracers);     // moves them to this map's scene
+    if (!this.arena.prints) this.arena.prints = new Footprints(this.arena.scene);   // footprints stay with their map
     if (this.torches) for (const l of this.torches) this.arena.scene.add(l, l.target);
     return this.arena;
   }
@@ -357,7 +359,7 @@ export class Battle {
     const ears = this.humans[0];
     if (ears) { this.deps.sfx.listen(this.grenadeCam || this.watchCam || ears.camera); if (!this.kc && !this.over) this.deps.sfx.observeSteps(this.fighters, this.watchCam || ears.camera, this.arena, t, null, ears.f.id); }
     this._updateTorches();
-    this.arena.update(dt, t, this.humans[0] ? this.humans[0].camera.position : null);
+    this.arena.update(dt, t, this.humans[0] ? this.humans[0].camera.position : null); if (this.arena.prints) this.arena.prints.update(t);
     this._updateTracers(t);
     this._updateHud(t);
     if (this.royale && !this.over) this.royale.updateHud();
@@ -830,7 +832,7 @@ export class Battle {
     const ears = this.humans[0];
     if (ears) { this.deps.sfx.listen(this.grenadeCam || ears.camera); if (!this.kc && !this.over) this.deps.sfx.observeSteps(this.fighters, ears.camera, this.arena, t, null, ears.f.id); }
     this._updateTorches();
-    this.arena.update(dt, t, me ? me.camera.position : null);
+    this.arena.update(dt, t, me ? me.camera.position : null); if (this.arena.prints) this.arena.prints.update(t);
     this._updateTracers(t);
     this._updateHud(t);
   }
@@ -1199,7 +1201,11 @@ export class Battle {
     f._sx = f.x; f._sz = f.z;
     if (sp < 12 && t >= (f._nextStep || 0)) {
       const range = sp > 4.2 ? 16 : sp > 2.2 ? 8 : sp > 0.8 ? 3 : 0;
-      if (range) { this._noise(f, 'steps', range, t); f._nextStep = t + 0.32; }
+      if (range) {
+        this._noise(f, 'steps', range, t); f._nextStep = t + 0.32;
+        const a = this.arena;
+        if (a.prints) a.prints.add(f, f.x, f.y || 0, f.z, f.yaw, t, a.map.snow ? 0.7 : a.map.indoor ? 0.22 : (a.atm.w === 'rain' || a.atm.w === 'storm') ? 0.55 : 0.4);
+      }
     }
     const c = this._ctl(f);
     const vaulting = !!(c && c.vault);

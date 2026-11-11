@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
-import { ROYALE_BOTS } from './royale-map.js?v=blacktide-cover';
-import { PLATFORM_HALF, PLATFORM_MASK, RAMP_RISE, platformHeight, platformMeshes, platformSolids } from './royale-platform.js?v=blacktide-edit';
+import * as THREE from '../../vendor/three/three.module.min.js?v=25db2c9-mwbx9yjs';
+import { ROYALE_BOTS } from './royale-map.js?v=25db2c9-mwbx9yjs';
+import { PLATFORM_HALF, PLATFORM_MASK, RAMP_RISE, platformHeight, platformMeshes, platformSolids } from './royale-platform.js?v=25db2c9-mwbx9yjs';
 
 const TOKEN_CHANCE = 0.001;
 const CHEST_MATERIALS = 6;

@@ -6,7 +6,7 @@
 //   outside: drainpipes on the building's corners, wall lamps and AC units on its walls,
 //   puddles, utility poles with sagging wires beyond the fence, a tree line and far hills that
 //   fade into the fog
-import * as THREE from '../../vendor/three/three.module.min.js?v=8d0c421-mwbwze4w';
+import * as THREE from '../../vendor/three/three.module.min.js?v=25db2c9-mwbx9yjs';
 
 const H = 3.2;
 function rng(seed) { let s = seed >>> 0 || 1; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
@@ -67,7 +67,7 @@ export function dressMap(group, map, quality) {
     puddle: new Batch(new THREE.CircleGeometry(1, 20).rotateX(-Math.PI / 2), std({ color: 0x2a3036, roughness: 0.05, metalness: 0.0, transparent: true, opacity: 0.55, depthWrite: false })),
     pole: new Batch(new THREE.CylinderGeometry(0.11, 0.15, 1, 10), std({ color: 0x5a4636, roughness: 0.9 })),
     arm: new Batch(box(1.6, 0.1, 0.1), std({ color: 0x4a3a2c, roughness: 0.9 })),
-    tree: new Batch(new THREE.ConeGeometry(1, 1, 9), std({ color: 0x3e5a2e, roughness: 0.95 })),
+    tree: new Batch(new THREE.ConeGeometry(1, 1, 9), std({ color: 0x4e6e3a, roughness: 0.95 })),
   };
   // where a ray from (x, y, z) along d meets a wall: { p, n } or null
   const wallAt = (x, y, z, dx, dz, max = 30) => {

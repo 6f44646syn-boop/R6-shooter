@@ -5,13 +5,13 @@
 //   skyPalette(preset) -> { dir, sun, sunI, zenith, horizon, ground, fog, hemiSky, hemiGround }
 //   makeSky(palette) -> a dome (radius 150) with scattering, the sun's disc and glow, and
 //   drifting clouds lit from the sun's side; sky.userData.tick(t) moves the clouds.
-import * as THREE from '../../vendor/three/three.module.min.js?v=8d0c421-mwbwze4w';
+import * as THREE from '../../vendor/three/three.module.min.js?v=25db2c9-mwbx9yjs';
 
 // Golden hour by default; each map can pick its own (look.js L.time).
 const PRESETS = {
   golden: { elev: 16, azim: -38, sun: 0xffc27a, sunI: 3.1, zenith: 0x3d6db5, horizon: 0xf2c79a, ground: 0x6b5a4a, hemiSky: 0x7f9fd6, hemiGround: 0x6a5240, fog: 0xd9b996 },
   morning: { elev: 24, azim: 40, sun: 0xffd9a8, sunI: 3.0, zenith: 0x4a7fcc, horizon: 0xd8e2ea, ground: 0x6a6258, hemiSky: 0x8fb1e2, hemiGround: 0x6a5a48, fog: 0xc6d2dc },
-  dusk: { elev: 7, azim: -60, sun: 0xff9a5a, sunI: 2.6, zenith: 0x2b3f7a, horizon: 0xf09a6a, ground: 0x4a3a40, hemiSky: 0x6a72b0, hemiGround: 0x5a4038, fog: 0xc88a70 },
+  dusk: { elev: 9, azim: -60, sun: 0xffa064, sunI: 2.8, zenith: 0x34509a, horizon: 0xf0a070, ground: 0x5a4a48, hemiSky: 0x8a8fc8, hemiGround: 0x6a5040, fog: 0xc89078 },
 };
 export function skyPalette(name = 'golden') {
   const p = PRESETS[name] || PRESETS.golden, e = THREE.MathUtils.degToRad(p.elev), a = THREE.MathUtils.degToRad(p.azim);
