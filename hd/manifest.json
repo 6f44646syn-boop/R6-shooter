@@ -1,6 +1,6 @@
 {
  "name": "Recoil Range Enhanced Graphics",
- "version": 6,
+ "version": 7,
  "files": [
   {
    "path": "anims/weapons.json",
@@ -69,8 +69,8 @@
   },
   {
    "path": "light/containers.rrl",
-   "size": 27926,
-   "sha256": "71521c3500a297f282315efcfeca32cc70fff06c603f0d48307f42928838b77d"
+   "size": 28516,
+   "sha256": "4fc0c90d738f8d51acf12c84a117343f6aaf03e5c48708fb4d7f5579c84b87fc"
   },
   {
    "path": "light/depot.rrl",
@@ -89,13 +89,13 @@
   },
   {
    "path": "light/school.rrl",
-   "size": 36209,
-   "sha256": "8cfc3e3e276a4496c50c0dc2b5b695c0a1e3ac2d5ef33f5c56935f5188ab6b96"
+   "size": 53279,
+   "sha256": "2c4e0878d90fca3a7f99794f6cd70fb42f902fec49c963231a3bc3d2ca506d0e"
   },
   {
    "path": "light/winter.rrl",
-   "size": 27409,
-   "sha256": "54f1ea8ac7ede7932305302b5685f2c6dca5737290e67c8be34b1587589e2e8f"
+   "size": 43324,
+   "sha256": "d77fb2e032f0436db6c3eeb6bbf8818bae85882b66611fcef7d1bea9544cbf83"
   },
   {
    "path": "light/workshop.rrl",
@@ -1503,5 +1503,5 @@
    "sha256": "44732c2e04c815cb6b645ca86497933122c7372e2cd40e80b782dedda70110ad"
   }
  ],
- "total": 102288860
+ "total": 102322435
 }

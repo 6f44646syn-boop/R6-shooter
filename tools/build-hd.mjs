@@ -17,7 +17,7 @@ import { GUNS } from './hd/guns.mjs';
 import { soldier } from './hd/soldier.mjs';
 import { buildAnims } from './hd/anims.mjs';
 
-export const PACK_VERSION = 6;      // 2: the soldier (Claude) / surfaces, audio (Codex); 3: both; 4: weapon animations; 5: PBR map materials, lighting, props, skins
+export const PACK_VERSION = 7;      // 2: the soldier (Claude) / surfaces, audio (Codex); 3: both; 4: weapon animations; 5: PBR map materials, lighting, props, skins; 7: battle maps relit (bigger Winter and School)
 const ROOT = new URL('../hd/', import.meta.url);
 mkdirSync(new URL('guns/', ROOT), { recursive: true });
 mkdirSync(new URL('soldiers/', ROOT), { recursive: true });

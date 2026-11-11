@@ -441,7 +441,18 @@ function casinoLayout() {
 //   ramp:   { ramp: '+x' | ..., x, z, w, d, y1, y }
 // Kinds: { map, color, rough, metal, tile } for the material; decor(ctx, b) adds detail that
 // does not block (ctx y is relative to the box base). Spawns: [x, z, y?] for each side.
+// Casino light fittings: chandeliers under the high ceiling, downlights under the upper floor,
+// wall sconces on the outer walls of both floors ([x, y, z])
+const CASINO_CHANDELIERS = [[-4, 0], [4, 0], [-14, -10], [14, 10], [-14, 10], [14, -10]];
+const casinoDownlights = () => { const o = []; for (let x = -19; x <= 19; x += 5) for (let z = -13; z <= 13; z += 4.5) if (!(Math.abs(x) < 8.5 && Math.abs(z) < 5.5)) o.push([x, z]); return o; };
+const CASINO_SCONCES = [-17, -6, 6, 17].flatMap((x) => [[x, 2.3, -15.9], [x, 2.3, 15.9], [x, 5.9, -15.9], [x, 5.9, 15.9]]);
+// School Basement strip lights ([x, z], on the ceiling)
+const SCHOOL_LIGHTS = [[-23, 16], [-14, 12], [-4, 16], [6, 12], [16, 16], [24, 9], [-24, 1], [-12, -1], [0, 4], [12, -2], [24, -6], [-16, -10], [-4, -14], [8, -13], [20, -15], [-24, -16]];
 const CABIN = { x: 0, z: -1, w: 9, d: 6.6, th: 0.35, h: 3.0 };
+// Container Yard floodlight poles (against the fence)
+const YARD_LAMPS = [[-25.6, 10], [25.6, -10], [-25.6, -12], [25.6, 12], [0, 19.6], [0, -19.6]];
+// up to four drums in a box's footprint
+const drumSpots = (b) => { const nx = Math.max(1, Math.round(b.w / 0.65)), nz = Math.max(1, Math.round(b.d / 0.65)), o = []; for (let i = 0; i < nx; i++) for (let k = 0; k < nz; k++) o.push([(i - (nx - 1) / 2) * 0.62, (k - (nz - 1) / 2) * 0.62]); return o; };
 const cabinWalls = (() => {
   const { x, z, w, d, th, h } = CABIN, x0 = x - w / 2, x1 = x + w / 2, z0 = z - d / 2, z1 = z + d / 2;
   return [
@@ -470,8 +481,20 @@ export const MAPS = {
       plank: { map: plankTex, color: 0xd8c8b0, tile: 1.5, rough: 0.85 },
       barrier: { map: concreteTex, color: 0xe4e0d8, rough: 0.9, decor: (ctx, b) => ctx.box({ map: hazardStripes, tile: 0.5, rough: 0.6 }, b.w + 0.01, 0.12, b.d + 0.01, b.x, b.h - 0.12, b.z) },
       rail: { color: 0xe8b830, rough: 0.5, metal: 0.6 },
+      drum: { color: 0x2a5a8a, rough: 0.6, metal: 0.5, hiddenBox: true,
+        decor: (ctx, b) => { for (const [dx, dz] of drumSpots(b)) { ctx.cylinder({ color: b.color ?? 0x2a5a8a, rough: 0.55, metal: 0.5 }, 0.29, 0.9, b.x + dx, 0.45, b.z + dz, 14); ctx.cylinder({ color: 0x1a1c1e, rough: 0.5, metal: 0.6 }, 0.3, 0.04, b.x + dx, 0.3, b.z + dz, 14); ctx.cylinder({ color: 0x1a1c1e, rough: 0.5, metal: 0.6 }, 0.3, 0.04, b.x + dx, 0.62, b.z + dz, 14); } } },
+      tyres: { color: 0x1c1c1c, rough: 0.9, hiddenBox: true,
+        decor: (ctx, b) => { for (let i = 0; i < Math.round(b.h / 0.26); i++) { ctx.cylinder({ color: 0x1a1a1a, rough: 0.92 }, 0.42, 0.24, b.x + Math.sin(i * 2.1) * 0.04, 0.13 + i * 0.26, b.z, 16); ctx.cylinder({ color: 0x0a0a0a, rough: 1 }, 0.2, 0.25, b.x + Math.sin(i * 2.1) * 0.04, 0.13 + i * 0.26, b.z, 12); } } },
+      pallet: { map: plankTex, color: 0xc8b090, tile: 1, rough: 0.9,
+        decor: (ctx, b) => ctx.box({ color: 0x8a96a0, rough: 0.7 }, b.w * 0.9, 0.5, b.d * 0.9, b.x, b.h + 0.25, b.z) },
     },
+    fixtures: () => [...YARD_LAMPS.map(([x, z]) => [x * 0.96, 6.4, z * 0.96, 0xffb870, 40, 20, 0.95])],
     layout: [
+      // drums, tyres and pallets (cover)
+      { x: -12.6, z: 6.2, w: 1.3, d: 0.7, h: 0.9, kind: 'drum' }, { x: 16.4, z: -8.6, w: 0.7, d: 1.3, h: 0.9, kind: 'drum', color: 0x8a2a1e },
+      { x: -22, z: -10, w: 1.3, d: 1.3, h: 0.9, kind: 'drum', color: 0x4a6a2a }, { x: 4.5, z: -3.2, w: 0.7, d: 0.7, h: 0.9, kind: 'drum', color: 0x8a2a1e },
+      { x: -6, z: -3, w: 0.9, d: 0.9, h: 1.04, kind: 'tyres' }, { x: 11, z: 8, w: 0.9, d: 0.9, h: 0.78, kind: 'tyres' }, { x: 23.5, z: -1, w: 0.9, d: 0.9, h: 1.3, kind: 'tyres' },
+      { x: -2, z: -15.5, w: 1.2, d: 1.0, h: 0.15, kind: 'pallet' }, { x: 12, z: 16, w: 1.2, d: 1.0, h: 0.15, kind: 'pallet' }, { x: -17, z: 1.5, w: 1.0, d: 1.2, h: 0.15, kind: 'pallet' },
       // middle: a container you can reach by a plank ramp, or by vaulting the crate
       { x: 0, z: 0, w: 6.1, d: 2.4, h: 2.6, kind: 'container', color: 0x8a3a2a },
       { ramp: '+x', x: -5.8, z: 0, w: 5.5, d: 1.4, y1: 2.6, kind: 'plank' },
@@ -501,10 +524,24 @@ export const MAPS = {
     ],
     spawns: [[-18, 18], [-6, 18.5], [6, 18], [18, 17.5], [23, 9]],
     spawnsB: [[-20, -17], [-8, -18], [3, -18], [16, -18], [23, -9]],
+    extra: (ctx, map) => {
+      // floodlights on poles against the fence, painted bay lines, warning signs, oil stains
+      for (const [x, z] of YARD_LAMPS) {
+        ctx.cylinder({ color: 0x5a5e62, rough: 0.5, metal: 0.8 }, 0.11, 7, x, 3.5, z, 10);
+        const ax = -Math.sign(x) * (Math.abs(x) > 20 ? 0.5 : 0), az = -Math.sign(z) * (Math.abs(x) > 20 ? 0 : 0.5);
+        ctx.box({ color: 0x3a3e42, rough: 0.5, metal: 0.8 }, Math.abs(ax) ? 1.1 : 0.08, 0.08, Math.abs(az) ? 1.1 : 0.08, x + ax, 6.9, z + az);
+        ctx.box({ color: 0x2a2c2e, rough: 0.5, metal: 0.7 }, 0.6, 0.22, 0.45, x + ax * 2, 6.75, z + az * 2);
+        ctx.box({ emissive: 0xffd6a0 }, 0.5, 0.02, 0.36, x + ax * 2, 6.63, z + az * 2);
+      }
+      for (const z of [-7.5, 7.5]) ctx.floorPlane({ color: 0xd8b030, rough: 0.8 }, 30, 0.12, 0, 0.012, z);
+      for (const x of [-15, -5, 5, 15]) ctx.floorPlane({ color: 0xd8b030, rough: 0.8 }, 0.12, 3, x, 0.012, 7.5 + 1.5 * Math.sign(x));
+      for (const [x, z, s] of [[-7, 3, 1.4], [6, -9, 1.1], [16, 5, 0.9], [-13, -14, 1.3]]) ctx.floorPlane({ color: 0x15171a, rough: 0.15, metal: 0.3 }, s * 1.6, s, x, 0.013, z);
+      for (const [x, z, ry] of [[-map.hx + 0.03, -6, Math.PI / 2], [map.hx - 0.03, 6, -Math.PI / 2], [10, -map.hz + 0.03, 0], [-10, map.hz - 0.03, Math.PI]]) ctx.plane({ map: hazardStripes, rough: 0.6 }, 1.6, 0.6, x, 2.4, z, ry);
+    },
   },
 
   winter: {
-    name: 'Winter Cabin', hx: 26, hz: 20, wallH: 1.6,
+    name: 'Winter Cabin', hx: 34, hz: 26, wallH: 1.6,
     sky: winterSky, background: 0xdfe8f2, fog: [0xd6e2ee, 26, 95],
     hemi: [0xdfe9ff, 0x8a96a8, 2.0], key: [0xfff1dc, 1.5, [12, 24, -9]],
     floor: () => ({ map: snowTex(), tile: 6, rough: 0.9 }),
@@ -526,6 +563,16 @@ export const MAPS = {
         decor: (ctx, b) => { ctx.plane({ emissive: 0xff7a20 }, 0.7, 0.45, b.x + b.w / 2 + 0.01, 0.35, b.z, Math.PI / 2); ctx.box({ color: 0x77706a, rough: 0.95 }, 0.6, 2.2, 0.6, b.x, b.h + 1.1, b.z); } },
       crate: { map: crateTex, tile: 1.2, rough: 0.85, decor: (ctx, b) => ctx.box({ color: 0xf2f6fb, rough: 0.8 }, b.w, 0.08, b.d, b.x, b.h + 0.04, b.z) },
       sled: { color: 0xb02a20, rough: 0.6, metal: 0.2 },
+      cab: { color: 0x3a5a4a, rough: 0.6, metal: 0.4, decor: (ctx, b) => ctx.box({ color: 0xf2f6fb, rough: 0.8 }, b.w, 0.1, b.d, b.x, b.h + 0.05, b.z) },
+      rock: { map: concreteTex, color: 0x7a7c80, tile: 1.5, rough: 0.95, decor: (ctx, b) => ctx.box({ color: 0xf2f6fb, rough: 0.8 }, b.w * 0.8, 0.12, b.d * 0.8, b.x, b.h + 0.04, b.z) },
+      truck: { color: 0x3a5a4a, rough: 0.6, metal: 0.4,
+        decor: (ctx, b) => {
+          const ax = b.w > b.d, L = Math.max(b.w, b.d), W = Math.min(b.w, b.d), at = (u, v) => ax ? [b.x + u, b.z + v] : [b.x + v, b.z + u];
+          // the cab is its own solid (kind 'cab') at the front end; here its windscreen
+          ctx.box({ color: 0x9ab0c0, rough: 0.1, metal: 0.3 }, ax ? 0.04 : W * 0.85, 0.5, ax ? W * 0.85 : 0.04, ...((p) => [p[0], b.h + 0.5, p[1]])(at(-L / 2 - 0.01, 0)));
+          ctx.box({ color: 0xf2f6fb, rough: 0.8 }, ax ? L - 1.8 : W * 0.9, 0.1, ax ? W * 0.9 : L - 1.8, ...((p) => [p[0], b.h + 0.05, p[1]])(at(0.8, 0)));
+          for (const u of [-L / 2 + 0.9, L / 2 - 0.9]) for (const v of [-W / 2, W / 2]) { const [x, z] = at(u, v), w = ctx.cylinder({ color: 0x141414, rough: 0.9 }, 0.42, 0.3, x, 0.42, z, 14); w.rotation[ax ? 'x' : 'z'] = Math.PI / 2; }
+        } },
       tree: { map: barkTex, tile: 1, rough: 0.95,
         decor: (ctx, b) => {
           for (let i = 0; i < 4; i++) {
@@ -561,9 +608,31 @@ export const MAPS = {
       { x: -10, z: 15, w: 3.5, d: 1.2, h: 1.0, kind: 'snowbank' }, { x: 20, z: 4, w: 3, d: 1.1, h: 0.95, kind: 'snowbank' },
       { x: -22, z: 8, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' }, { x: -3, z: 13, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' }, { x: 9, z: 5, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' },
       { x: -15, z: 1, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' },
+      // the outer ring (the map grew): north - a woodshed, woodpile, fence, rocks
+      { x: -20, z: 19.5, w: 3.2, d: 2.6, h: 2.4, kind: 'shed' }, { x: -4, z: 19, w: 2.4, d: 0.8, h: 1.0, kind: 'logs' },
+      { x: 10, z: 19, w: 5, d: 0.25, h: 1.1, kind: 'fence' }, { x: 22, z: 21, w: 3, d: 1.1, h: 1.0, kind: 'snowbank' },
+      { x: -28, z: 20, w: 1.6, d: 1.4, h: 1.1, kind: 'rock' }, { x: 24, z: 17.5, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' },
+      { x: -30, z: 15, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' }, { x: 6, z: 21, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' },
+      // south - a dead truck, the frozen pond's banks, rocks
+      { x: -27, z: -18, w: 2.2, d: 5, h: 1.0, kind: 'truck' }, { x: -27, z: -19.7, w: 2.2, d: 1.6, h: 0.9, y: 1.0, kind: 'cab' }, { x: 6, z: -20, w: 3, d: 1.1, h: 1.0, kind: 'snowbank' },
+      { x: 22, z: -19, w: 1.6, d: 1.4, h: 1.1, kind: 'rock' }, { x: -2, z: -21, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' },
+      { x: 10.2, z: -21, w: 0.9, d: 3, h: 0.9, kind: 'snowbank' }, { x: 17.8, z: -23.2, w: 3, d: 0.9, h: 0.9, kind: 'snowbank' },
+      // west - a hut, a fence line, trees
+      { x: -29, z: 4, w: 3.5, d: 3, h: 2.4, kind: 'shed' }, { x: -25, z: -8, w: 0.25, d: 5, h: 1.1, kind: 'fence' },
+      { x: -31, z: -6, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' }, { x: -26, z: 12, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' },
+      { x: -30, z: -12, w: 1.6, d: 1.4, h: 1.1, kind: 'rock' }, { x: -27, z: -1, w: 1, d: 2.4, h: 1.0, kind: 'logs' },
+      // east - a hunting stand with stairs, rocks, a sled, woodpile
+      { x: 29, z: -4, w: 3, d: 3, h: 2.4, kind: 'deck' },
+      { stairs: '+x', x: 26.1, z: -4, w: 2.8, d: 1.6, y1: 2.4, kind: 'deck' },
+      rail(29, -2.5, 3, 0.12, 2.4), rail(30.5, -4, 0.12, 3, 2.4), rail(29, -5.5, 3, 0.12, 2.4),
+      { x: 31, z: 8, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' }, { x: 26, z: -12, w: 0.6, d: 0.6, h: 2.0, kind: 'tree' },
+      { x: 28, z: 3, w: 1.6, d: 1.4, h: 1.1, kind: 'rock' }, { x: 31, z: -12, w: 3, d: 1.1, h: 1.0, kind: 'snowbank' },
+      { x: 27, z: 9, w: 1.6, d: 0.9, h: 0.7, kind: 'sled' }, { x: 31, z: 14, w: 1, d: 2.4, h: 1.0, kind: 'logs' },
     ],
-    spawns: [[-20, 18], [-8, 18.5], [3, 18.5], [21, 18], [23, 6]],
-    spawnsB: [[-18, -18, 2], [-11, -18, 2], [4, -18.5], [16, -18], [23, -10]],
+    spawns: [[-26, 24], [-12, 24.5], [2, 24.5], [16, 24.5], [30, 22]],
+    spawnsB: [[-26, -24], [-12, -24.5], [2, -24.5], [16, -24.5], [30, -22]],
+    // the cabin's lamp, a lantern at its door and on both decks (on at night too)
+    fixtures: [[CABIN.x, 2.7, CABIN.z, 0xffc070, 8, 7, 1.2], [CABIN.x - 2.2, 2.5, CABIN.z + CABIN.d / 2 + 0.45, 0xffb060, 7, 8, 1.1], [15, 4.4, 12, 0xffb060, 9, 9, 1.1], [29, 4.4, -4, 0xffb060, 9, 9, 1.1]],
     snow: true,
     extra: (ctx) => {
       // Cabin roof (two snowy slopes), chimney, plank floor, door frames, lit windows.
@@ -578,11 +647,25 @@ export const MAPS = {
       ctx.box({ color: 0x77706a, rough: 0.95 }, 0.7, 2.4, 0.7, x - w / 2 + 0.65, h + 0.9, z);
       ctx.floorPlane({ map: plankTex, tile: 1.5, color: 0xb89870, rough: 0.8 }, w - 0.7, d - 0.7, x, 0.015, z);
       ctx.box({ color: 0x2a1a10, rough: 0.8 }, 0.08, 1.4, 0.4, x, h - 0.2, z);      // a beam
+      // icicles along both eaves, the cabin's hanging lamp and door lantern, lanterns on the decks
+      const rng = mulberry32(31);
+      for (const s of [-1, 1]) for (let i = 0; i < 26; i++) { const L = 0.12 + rng() * 0.35; ctx.cone({ color: 0xd8ecfa, rough: 0.1 }, 0.035, L, x - w / 2 + 0.2 + i * (w / 25.6), h - 0.05 - L / 2, z + s * (d / 2 + 0.42), Math.PI); }
+      ctx.box({ color: 0x2a1a10, rough: 0.8 }, 0.02, 0.4, 0.02, x, 2.85, z); ctx.cone({ color: 0x3a2a1a, rough: 0.6, metal: 0.3 }, 0.22, 0.18, x, 2.62, z); ctx.cylinder({ emissive: 0xffc070 }, 0.07, 0.08, x, 2.52, z);
+      const lantern = (lx, ly, lz) => { ctx.box({ color: 0x1a1a1a, rough: 0.5, metal: 0.7 }, 0.2, 0.3, 0.2, lx, ly, lz); ctx.box({ emissive: 0xffb060 }, 0.14, 0.2, 0.14, lx, ly, lz); };
+      lantern(x - 2.2, 2.55, z + d / 2 + 0.45);
+      for (const [lx, lz] of [[15, 12], [29, -4]]) { ctx.cylinder({ color: 0x5a4a3a, rough: 0.9 }, 0.05, 1.8, lx + 1.8, 2.4 + 0.9, lz + 1.8, 8); lantern(lx + 1.8, 4.3, lz + 1.8); }
+      // the frozen pond (walk on it), stumps, a chopping block with an axe
+      ctx.floorPlane({ color: 0xbcd8ea, rough: 0.05, metal: 0.1 }, 7, 4, 14, 0.02, -21);
+      ctx.floorPlane({ color: 0x9ac0d8, rough: 0.1, metal: 0.1 }, 5.6, 2.8, 14, 0.025, -21);
+      for (const [sx, sz] of [[-8, 18], [18, 6], [-22, -14], [24, -22], [-16, 23]]) { ctx.cylinder({ map: barkTex, rough: 0.95 }, 0.28, 0.45, sx, 0.22, sz, 10); ctx.cylinder({ color: 0xf2f6fb, rough: 0.8 }, 0.28, 0.04, sx, 0.46, sz, 10); }
+      ctx.cylinder({ map: barkTex, rough: 0.95 }, 0.35, 0.6, -6.8, 0.3, 17.5, 10);
+      const ax = ctx.box({ color: 0x6a4a2a, rough: 0.8 }, 0.05, 0.7, 0.05, -6.8, 0.85, 17.5); ax.rotation.z = 0.5;
+      ctx.box({ color: 0x9aa0a6, rough: 0.3, metal: 0.9 }, 0.18, 0.12, 0.03, -6.62, 0.66, 17.5);
     },
     outside: (ctx) => {             // pines beyond the fence
       const rng = mulberry32(77);
       for (let i = 0; i < 46; i++) {
-        const a = rng() * Math.PI * 2, r = 31 + rng() * 25, x = Math.cos(a) * r * 1.15, z = Math.sin(a) * r;
+        const a = rng() * Math.PI * 2, r = 1 + rng() * 0.75, x = Math.cos(a) * r * 38, z = Math.sin(a) * r * 30;   // beyond the fence all round
         const h = 5 + rng() * 6;
         ctx.cone({ color: 0x1b3f28, rough: 0.9 }, 1.6 + rng(), h, x, h / 2, z);
         ctx.cone({ color: 0xeef3f8, rough: 0.9 }, 1.0, h * 0.3, x, h * 0.86, z);
@@ -614,7 +697,12 @@ export const MAPS = {
           }
         } },
       cardtable: { map: feltTex, tile: 2.4, rough: 0.95,
-        decor: (ctx, b) => ctx.box({ color: 0x4a2412, rough: 0.5, metal: 0.1 }, b.w + 0.16, 0.1, b.d + 0.16, b.x, b.h - 0.03, b.z) },
+        decor: (ctx, b) => {
+          ctx.box({ color: 0x4a2412, rough: 0.5, metal: 0.1 }, b.w + 0.16, 0.1, b.d + 0.16, b.x, b.h - 0.03, b.z);
+          // chip stacks and a spread of cards
+          for (let i = 0; i < 4; i++) { const n = 2 + ((i * 7 + Math.round(b.x * 3)) % 4); ctx.cylinder({ color: [0xc02028, 0x2050c0, 0x20a040, 0x101010][i] }, 0.035, 0.012 * n, b.x - 0.3 + i * 0.12, b.h + 0.006 * n + 0.02, b.z + b.d * 0.22, 10); }
+          for (let i = 0; i < 5; i++) { const c = ctx.floorPlane({ color: 0xf4f0e8, rough: 0.6 }, 0.063, 0.088, b.x + 0.2 + i * 0.075, b.h + 0.022, b.z - b.d * 0.15); c.rotation.z = 0.12 * (i - 2); }
+        } },
       roulette: { map: feltTex, tile: 2.6, rough: 0.95,
         decor: (ctx, b) => {
           ctx.cylinder({ color: 0x5a2a12, rough: 0.4, metal: 0.2 }, 0.8, 0.12, b.x, b.h + 0.06, b.z);
@@ -635,29 +723,48 @@ export const MAPS = {
       couch: { color: 0x5a1020, rough: 0.9 },
     },
     layout: casinoLayout(),
+    fixtures: (map) => [
+      ...CASINO_CHANDELIERS.map(([x, z]) => [x, map.wallH - 1.1, z, 0xffe2b8, 30, 14, 1.1]),
+      ...casinoDownlights().map(([x, z]) => [x, 3.28, z, 0xffd8a8, 9, 7.5, 1.1]),
+      ...CASINO_SCONCES.map(([x, y, z]) => [x, y, z, 0xffc890, 5, 5, 1.2]),
+    ],
     spawns: [[-18, 9], [0, 14], [18, 9], [-12, 10, 3.6], [14, 13, 3.6]],
     spawnsB: [[-18, -10], [0, -15.2], [18, -9], [-10, -12, 3.6], [4, -13, 3.6]],
     extra: (ctx, map) => {
       for (const [z, ry] of [[-map.hz + 0.02, 0], [map.hz - 0.02, Math.PI]]) ctx.plane({ emissiveMap: neonSign() }, 9, 1.7, 0, 5.8, z, ry);
-      for (const [x, z] of [[-4, 0], [4, 0], [-14, -10], [14, 10], [-14, 10], [14, -10]]) {
+      for (const [x, z] of CASINO_CHANDELIERS) {
         ctx.cylinder({ color: 0xc9952e, rough: 0.3, metal: 1 }, 0.6, 0.14, x, map.wallH - 0.6, z);
         ctx.cone({ emissive: 0xfff0c0 }, 0.55, 0.6, x, map.wallH - 1.0, z, Math.PI);
       }
       // downlights under the upper floor
-      for (let x = -19; x <= 19; x += 5) for (let z = -13; z <= 13; z += 4.5) {
-        if (Math.abs(x) < 8.5 && Math.abs(z) < 5.5) continue;
-        ctx.box({ emissive: 0xffe0b0 }, 0.45, 0.03, 0.45, x, 3.33, z);
+      for (const [x, z] of casinoDownlights()) ctx.box({ emissive: 0xffe0b0 }, 0.45, 0.03, 0.45, x, 3.33, z);
+      // brass wall sconces (both floors), potted palms, velvet ropes round the roulette, a carpet runner
+      for (const [x, y, z] of CASINO_SCONCES) {
+        const s = Math.sign(z); ctx.box({ color: 0xc9952e, rough: 0.3, metal: 1 }, 0.3, 0.06, 0.14, x, y + 0.1, z - s * 0.07);
+        ctx.cone({ emissive: 0xffd8a0 }, 0.12, 0.22, x, y + 0.24, z - s * 0.12);
       }
+      for (const [x, z, y] of [[-21.3, -2, 0], [21.3, 3.5, 0], [-7.4, -15.3, 0], [9.5, 15.3, 0], [-21.3, 3, 3.6], [21.3, -3, 3.6], [-9, 15.4, 3.6], [9, -15.4, 3.6]]) {
+        ctx.cylinder({ color: 0x2a1a12, rough: 0.6, metal: 0.2 }, 0.3, 0.5, x, y + 0.25, z, 12);
+        ctx.cylinder({ color: 0xc9952e, rough: 0.3, metal: 1 }, 0.32, 0.05, x, y + 0.5, z, 12);
+        for (let i = 0; i < 6; i++) { const f = ctx.cone({ color: 0x2a5a2a, rough: 0.8 }, 0.18, 1.1, x + Math.cos(i) * 0.25, y + 1.1, z + Math.sin(i) * 0.25); f.rotation.set(Math.sin(i) * 0.7, 0, -Math.cos(i) * 0.7); }
+      }
+      for (const [x, z] of [[-1.9, -1.9], [1.9, -1.9], [-1.9, 1.9], [1.9, 1.9]]) { ctx.cylinder({ color: 0xc9952e, rough: 0.3, metal: 1 }, 0.035, 0.95, x, 0.48, z, 8); ctx.cylinder({ color: 0xc9952e, rough: 0.3, metal: 1 }, 0.1, 0.04, x, 0.02, z, 12); }
+      for (const [x0, z0, x1, z1] of [[-1.9, -1.9, 1.9, -1.9], [1.9, 1.9, -1.9, 1.9], [-1.9, -1.9, -1.9, 1.9]]) { if (x0 === x1) ctx.tubeZ({ color: 0x8a1020, rough: 0.9 }, 0.03, 3.8, x0, 0.82, 0) ; else ctx.tubeX({ color: 0x8a1020, rough: 0.9 }, 0.03, 3.8, 0, 0.82, z0); }
+      ctx.floorPlane({ color: 0x6a0a18, rough: 0.95 }, 2.2, 10, 0, 0.012, 10.5);
+      ctx.floorPlane({ color: 0x6a0a18, rough: 0.95 }, 2.2, 10, 0, 0.012, -10.5);
+      // a lit jackpot board over the slot hall
+      ctx.plane({ emissiveMap: neonTex('JACKPOT  1,000,000', '#ffd040') }, 5, 0.9, 0, 2.7, 15.98, Math.PI);
     },
   },
 
   school: {
-    name: 'School Basement', hx: 22, hz: 16, wallH: 3.4, indoor: true,
+    name: 'School Basement', hx: 28, hz: 20, wallH: 3.4, indoor: true,
     background: 0x050605, fog: [0x0b120b, 10, 40],
     hemi: [0x8a9a90, 0x1a1c1a, 0.95], key: [0xc8e0cc, 0.4, [-6, 20, 4]],
     floor: () => ({ map: basementFloorTex(), tile: 4, rough: 0.8 }),
     wall: () => ({ map: blockWallTex(), tileW: 2, tileH: 3.4, rough: 0.9 }),
-    ceiling: { color: 0x2a2c28, lights: 0xd8e8d0, lightsAt: [[-14, 12], [6, 12], [-6, -1], [12, -2], [-16, -10], [8, -13]] },
+    ceiling: { color: 0x2a2c28, lights: 0xd8e8d0, lightsAt: SCHOOL_LIGHTS },
+    fixtures: (map) => SCHOOL_LIGHTS.map(([x, z]) => [x, map.wallH - 0.08, z, 0xd8ecd8, 9, 8, 1.15]),
     glows: [[0x40ff50, 2.2, -8, 0.9, 6, 9], [0x40ff50, 2.2, 10, 0.9, -5, 9], [0x40ff50, 1.6, 15, 0.9, 10, 7], [0xffd0a0, 1.2, -1, 2.8, -1, 10]],
     acid: [{ x: -8, z: 6, w: 8, d: 4 }, { x: 10, z: -5, w: 5, d: 7 }, { x: 15, z: 10, w: 4, d: 3 }],
     acidLook,
@@ -681,8 +788,34 @@ export const MAPS = {
       cage: { map: gratingTex, color: 0x8a8e92, tile: 0.4, rough: 0.5, metal: 0.8 },
       wall: { map: blockWallTex, tile: 3.4, rough: 0.9 },
       rail: { color: 0xe8c040, rough: 0.5, metal: 0.6 },
+      column: { map: concreteTex, color: 0x8a8c88, tile: 1.7, rough: 0.95,
+        decor: (ctx, b) => ctx.box({ map: hazardStripes, tile: 0.5, rough: 0.6 }, b.w + 0.02, 0.5, b.d + 0.02, b.x, 0.25, b.z) },
+      vending: { map: vendingTex, rough: 0.4, metal: 0.3,
+        decor: (ctx, b) => { const f = -Math.sign(b.x) || 1; ctx.plane({ emissiveMap: vendingTex() }, b.d * 0.7, b.h * 0.65, b.x + f * (b.w / 2 + 0.01), b.h * 0.55, b.z, f * Math.PI / 2); } },   // its lit front faces the middle (x)
+      mattress: { color: 0x8a8a7a, rough: 0.95 },
     },
     layout: [
+      // the outer ring and more cover (the basement grew): concrete columns, half walls,
+      // locker rows, shelving, crate stacks, piled desks, stacked mattresses, a vending machine
+      { x: -14, z: -3, w: 0.7, d: 0.7, h: 3.4, kind: 'column' }, { x: 14, z: 2, w: 0.7, d: 0.7, h: 3.4, kind: 'column' },
+      { x: -6, z: -6.5, w: 0.7, d: 0.7, h: 3.4, kind: 'column' }, { x: 6, z: 7, w: 0.7, d: 0.7, h: 3.4, kind: 'column' },
+      { x: -22, z: 6, w: 0.7, d: 0.7, h: 3.4, kind: 'column' }, { x: 22, z: -8, w: 0.7, d: 0.7, h: 3.4, kind: 'column' },
+      { x: -22, z: -6, w: 0.7, d: 0.7, h: 3.4, kind: 'column' }, { x: 22, z: 8, w: 0.7, d: 0.7, h: 3.4, kind: 'column' },
+      { x: -1, z: 6, w: 3, d: 0.4, h: 1.1, kind: 'wall' }, { x: 1, z: -8, w: 0.4, d: 3, h: 1.1, kind: 'wall' },
+      { x: -17, z: 4, w: 3, d: 0.4, h: 1.1, kind: 'wall' }, { x: 17, z: -5, w: 3, d: 0.4, h: 1.1, kind: 'wall' },
+      { x: -15, z: 0, w: 1.4, d: 0.8, h: 0.78, kind: 'desk' }, { x: -15, z: 0, w: 1.4, d: 0.8, h: 0.78, y: 0.78, kind: 'desk' },
+      { x: 16, z: -1.5, w: 0.8, d: 1.4, h: 0.78, kind: 'desk' }, { x: 16.9, z: -1.5, w: 0.8, d: 1.4, h: 0.78, kind: 'desk' },
+      // west flank
+      { x: -25, z: 3, w: 0.6, d: 5, h: 2.0, kind: 'lockers' }, { x: -25, z: -6, w: 1.2, d: 1.2, h: 1.2, kind: 'crate' }, { x: -25, z: -7.2, w: 1.2, d: 1.2, h: 2.4, kind: 'crate' },
+      { x: -26, z: 14, w: 0.8, d: 4, h: 2.2, kind: 'shelf' }, { x: -24, z: -12, w: 2, d: 1, h: 0.9, kind: 'mattress' }, { x: -24, z: -12, w: 2, d: 1, h: 0.3, y: 0.9, kind: 'mattress', color: 0x9a8a7a },
+      { x: -20, z: 10, w: 1.2, d: 1.2, h: 1.2, kind: 'crate' },
+      // east flank
+      { x: 25, z: 8, w: 0.8, d: 5, h: 2.2, kind: 'shelf' }, { x: 25, z: -3, w: 1.2, d: 1.2, h: 1.2, kind: 'crate' }, { x: 24, z: -12, w: 0.3, d: 4, h: 2.6, kind: 'cage' },
+      { x: 26.9, z: 1.5, w: 0.8, d: 0.9, h: 1.9, kind: 'vending' }, { x: 21, z: 14, w: 2, d: 1, h: 1.2, kind: 'mattress' },
+      // cover by both spawns
+      { x: -6, z: 16.5, w: 4, d: 0.6, h: 2.0, kind: 'lockers' }, { x: 8, z: 17, w: 1.2, d: 1.2, h: 1.2, kind: 'crate' }, { x: 9.2, z: 17, w: 1.2, d: 1.2, h: 2.4, kind: 'crate' },
+      { x: -18, z: 17, w: 3, d: 0.4, h: 1.1, kind: 'wall' },
+      { x: -4, z: -17, w: 4, d: 0.8, h: 2.2, kind: 'shelf' }, { x: 6, z: -16.5, w: 1.2, d: 1.2, h: 1.2, kind: 'crate' }, { x: 18, z: -17, w: 3, d: 0.4, h: 1.1, kind: 'wall' },
       // middle: the boiler and pipes
       { x: 0, z: -1, w: 2.4, d: 2.4, h: 2.2, kind: 'boiler' },
       { x: -3.5, z: 2.5, w: 0.8, d: 0.8, h: 1.0, kind: 'barrel' }, { x: 3.2, z: -4.5, w: 0.8, d: 0.8, h: 1.0, kind: 'barrel' },
@@ -707,8 +840,8 @@ export const MAPS = {
       { x: -20, z: -2, w: 1.2, d: 1.2, h: 1.2, kind: 'crate' }, { x: -8, z: -4, w: 3, d: 0.6, h: 2.6, kind: 'wall' },
       { x: 13, z: -14.5, w: 2.4, d: 1.2, h: 2.2, kind: 'boiler' },
     ],
-    spawns: [[-18, 13], [-8, 14.5], [5, 15], [17, 14], [20, 2]],
-    spawnsB: [[-19, -10.5, 1.2], [-7, -14.5], [8, -14.5], [19, -14.5], [20, -7]],
+    spawns: [[-24, 18], [-12, 18.5], [0, 18.5], [12, 18.5], [25, 17]],
+    spawnsB: [[-24, -18], [-12, -18.5], [0, -18.5], [12, -18.5], [25, -17]],
     extra: (ctx, map) => {
       // pipes along the ceiling, a door at the top of a blocked stairwell, warning signs
       for (const [z, r] of [[-6.5, 0.12], [-6.1, 0.08], [10.5, 0.15]]) ctx.tubeX({ color: 0x5a5e60, rough: 0.4, metal: 0.9 }, r, map.hx * 2, 0, map.wallH - 0.3, z);
@@ -719,7 +852,22 @@ export const MAPS = {
         ctx.box({ color: 0x2a2c28, rough: 0.9 }, 0.15, 0.06, a.d, a.x - a.w / 2 - 0.07, 0.03, a.z);
         ctx.box({ color: 0x2a2c28, rough: 0.9 }, 0.15, 0.06, a.d, a.x + a.w / 2 + 0.07, 0.03, a.z);
       }
-      for (const [x, z, ry] of [[-21.98, 6, Math.PI / 2], [21.98, -5, -Math.PI / 2]]) ctx.plane({ map: hazardStripes, basic: true }, 2.4, 0.5, x, 2.2, z, ry);
+      for (const [x, z, ry] of [[-map.hx + 0.02, 6, Math.PI / 2], [map.hx - 0.02, -5, -Math.PI / 2]]) ctx.plane({ map: hazardStripes, basic: true }, 2.4, 0.5, x, 2.2, z, ry);
+      // light housings round the tubes, a whiteboard, fuse boxes with LEDs, green exit signs,
+      // fire extinguishers, a mop bucket, papers and puddles on the floor, wall pipes
+      for (const [x, z] of SCHOOL_LIGHTS) ctx.box({ color: 0x8a8c88, rough: 0.5, metal: 0.6 }, 2.0, 0.08, 0.62, x, map.wallH - 0.08, z);
+      ctx.plane({ map: boardTex('white'), rough: 0.3 }, 3.2, 1.6, -10, 1.7, map.hz - 0.03, Math.PI);
+      for (const [x, z, ry] of [[map.hx - 0.06, 11, -Math.PI / 2], [-map.hx + 0.06, -10, Math.PI / 2], [12, -map.hz + 0.06, 0]]) {
+        const f = ctx.box({ color: 0x5a5e5a, rough: 0.5, metal: 0.7 }, 0.6, 0.8, 0.12, x, 1.6, z); f.rotation.y = ry;
+        const l = ctx.box({ emissive: 0xff3020 }, 0.04, 0.04, 0.02, x + Math.sin(ry) * 0.07, 1.85, z + Math.cos(ry) * 0.07); l.rotation.y = ry;
+      }
+      for (const [x, z, ry] of [[0, map.hz - 0.03, Math.PI], [0, -map.hz + 0.03, 0], [-map.hx + 0.03, 0, Math.PI / 2], [map.hx - 0.03, 0, -Math.PI / 2]]) ctx.plane({ emissiveMap: neonTex('EXIT', '#40ff70') }, 0.9, 0.3, x, 2.9, z, ry);
+      for (const [x, z] of [[-map.hx + 0.2, 9], [map.hx - 0.2, -11], [-3, map.hz - 0.2], [15, -map.hz + 0.2]]) { ctx.cylinder({ color: 0xb01a14, rough: 0.4, metal: 0.3 }, 0.09, 0.5, x, 1.05, z, 10); ctx.box({ color: 0x1a1a1a, rough: 0.5 }, 0.06, 0.1, 0.06, x, 1.35, z); }
+      ctx.cylinder({ color: 0xd0b020, rough: 0.5 }, 0.22, 0.35, -9.5, 0.18, -14.5, 12); ctx.box({ color: 0x8a6a40, rough: 0.8 }, 0.03, 1.3, 0.03, -9.4, 0.75, -14.5);
+      const rng = mulberry32(53);
+      for (let i = 0; i < 38; i++) { const pp = ctx.floorPlane({ color: [0xeeeae0, 0xd8d0c0, 0xe0e8f0][i % 3], rough: 0.85 }, 0.21, 0.297, (rng() - 0.5) * map.hx * 1.9, 0.011 + i * 0.0002, (rng() - 0.5) * map.hz * 1.9); pp.rotation.z = rng() * 6.3; }
+      for (const [x, z, sz] of [[-18, 0, 1.4], [20, 4, 1.1], [-2, -14, 1.2], [4, 15, 1.0]]) ctx.floorPlane({ color: 0x0a0e0c, rough: 0.04, metal: 0.2 }, sz * 1.5, sz, x, 0.012, z);
+      for (const [x, z] of [[-map.hx + 0.15, -16], [map.hx - 0.15, 16], [-20, map.hz - 0.15], [20, -map.hz + 0.15]]) ctx.cylinder({ map: rustTex, rough: 0.5, metal: 0.8 }, 0.09, map.wallH, x, map.wallH / 2, z, 10);
     },
   },
 };

@@ -14,6 +14,7 @@ import { MAPS } from './maps.js?v=25db2c9-mwbx9yjs';
 import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=25db2c9-mwbx9yjs';
 import { flatMaterial } from '../scene/low.js?v=25db2c9-mwbx9yjs';
 import { BulletHoles } from '../scene/holes.js?v=25db2c9-mwbx9yjs';
+import { LightPool } from '../render/light-pool.js?v=25db2c9-mwbx9yjs';
 import { mulberry32 } from '../core/prng.js?v=25db2c9-mwbx9yjs';
 import { layoutSolids, layoutPieces, edgeSolids, span, piece, stairCount, rampCount } from './solids.js?v=25db2c9-mwbx9yjs';
 import { CoreWorld, BODY_R, STEP, BODY_H, VAULT_MAX } from '../wasm/world.js?v=25db2c9-mwbx9yjs';
@@ -329,6 +330,10 @@ export class Arena {
     };
     for (const e of layoutPieces(map)) (e.stairs ? addStairs : e.ramp ? addRamp : addBox)(e);
     if (map.extra) map.extra(ctx, map, this.boxes);
+    // light from objects (js/render/light-pool.js): [x, y, z, color, intensity, distance, angle], shining down
+    this._fixtures = (typeof map.fixtures === 'function' ? map.fixtures(map) : map.fixtures || []).map(([x, y, z, color, intensity, distance, angle]) =>
+      ({ p: new THREE.Vector3(x, y, z), dir: new THREE.Vector3(0, -1, 0), color, intensity, distance, angle }));
+    this.pool = null;
     if (map.outside) map.outside(ctx, map);
     mergeChunks(cover);
     cover.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
@@ -370,7 +375,7 @@ export class Arena {
     this.rain = null;
     this.atm = { night: false, weather: 'auto', hemi: 1, key: 1, flash: 0, nextFlash: 0 };
     this._makeSnow = () => {
-      const n = 2400, pos = new Float32Array(n * 3), rng = mulberry32(5);
+      const n = Math.round(2400 * HX * HZ / 520), pos = new Float32Array(n * 3), rng = mulberry32(5);
       const skip = map.snowSkip || [];
       for (let i = 0; i < n; i++) {
         let x, z, k = 0;
@@ -411,6 +416,7 @@ export class Arena {
     const map = this.map, a = this.atm, outdoor = !map.indoor;
     if (weather === 'fog') { weather = 'auto'; fog = true; }
     a.night = !!night; a.weather = weather; a.fog = !!fog;
+    if (this.pool) this.pool.setFixtures(a.night ? [] : this._fixtures);
     const w = weather === 'auto' ? (map.snow ? 'snow' : 'clear') : weather;
     a.w = w;
     const snow = outdoor && w === 'snow', rain = outdoor && (w === 'rain' || w === 'storm');
@@ -548,6 +554,7 @@ export class Arena {
       this.acidTex2.offset.set(-t * 0.031, t * 0.024);
       this.acidMat2.opacity = 0.35 + 0.15 * Math.sin(t * 2.3);
     }
+    if (this.pool && cam) this.pool.update(cam);
     for (const g of this.glows) g.l.intensity = g.base * (0.85 + 0.15 * Math.sin(t * 3.1 + g.ph) - (Math.sin(t * 17 + g.ph * 3) > 0.97 ? 0.3 : 0));
   }
 
@@ -579,6 +586,12 @@ export class Arena {
     this.key.visible = q !== 'low';
     this.key.castShadow = high;
     for (const g of this.glows) g.l.visible = q !== 'low';
+    const want = this._fixtures.length && high ? (maxMode.on ? 12 : q === 'ultra' ? 8 : 6) : 0;
+    if ((this.pool ? this.pool.lights.length : 0) !== want) {
+      if (this.pool) this.pool.dispose();
+      this.pool = want ? new LightPool(this.scene, want) : null;
+      if (this.pool) this.pool.setFixtures(this.atm.night ? [] : this._fixtures);
+    }
     const ks = q === 'ultra' ? 4096 : 2048;
     if (this.key.shadow.mapSize.x !== ks) { this.key.shadow.mapSize.set(ks, ks); if (this.key.shadow.map) { this.key.shadow.map.dispose(); this.key.shadow.map = null; } }
     this.quality = q;

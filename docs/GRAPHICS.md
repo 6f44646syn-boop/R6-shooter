@@ -38,6 +38,29 @@ The scene tells the post passes its sun, fog and wetness through `scene.userData
 Animations are the same on every level: reloads, the draw and the inspect come from the pack,
 and Black Ice skins have their own inspect.
 
+## Atmosphere: sky, light from objects, footprints, set dressing
+
+- **Sky and palette** (`js/render/sky.js`): the match maps draw a shader sky (scattering, the
+  sun's disc, drifting clouds) and take every light from it: a low, tinted sun, a cool sky fill
+  and warm bounce, fog and background in the horizon's colour. Each map picks a time
+  (`L.time` in `js/modes/look.js`: morning, golden or dusk). The Battle maps keep their own skies
+  and weather.
+- **Light from objects** (`js/render/light-pool.js`): on High and up a fixed pool of spot lights
+  (6 on High, 8 on Ultra, 12 on Max) is handed every few frames to the fixtures nearest the
+  camera, so rooms get pools of light under their lamps. Match maps get fixtures from the set
+  dressing; Battle maps list theirs in `fixtures` (`js/battle/maps.js`): Container Yard's
+  floodlights, the Casino's chandeliers, downlights and sconces, the School's strip lights,
+  Winter Cabin's lamp and lanterns. Indoors at night the lamps go out; outdoors they stay on.
+- **Footprints** (`js/scene/footprints.js`): every actor leaves prints that fade over 30 s,
+  deeper in snow and rain, faint indoors.
+- **Set dressing**: the match maps get `js/modes/dressing.js` (panels, outlets, posters, vents,
+  conduit, litter, drainpipes, wall lamps, AC units, puddles, poles, tree line, hills). The
+  Battle maps carry their own in each map's `extra` and kinds: drums, tyres, pallets and bay
+  lines in the Yard; icicles, lanterns, a frozen pond, a truck and a hunting stand at Winter
+  Cabin; sconces, palms, ropes, chips and cards in the Casino; columns, half walls, lockers,
+  a whiteboard, exit signs and extinguishers in the School. Winter Cabin is 68 x 52 m and the
+  School Basement 56 x 40 m.
+
 ## The Graphics screen (`js/ui/graphics-ui.js`)
 
 Settings > View > **Graphics & performance...**
