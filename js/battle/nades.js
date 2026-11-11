@@ -2,7 +2,7 @@
 // (2.5 s fuse, bounces, up to 130 damage, lethal within 1.8 m, nothing behind cover), on the
 // Battle maps' floors, stairs and upper levels. They never hurt the thrower's own team.
 // Bots lob one at an enemy they lost sight of a moment ago.
-import * as THREE from '../../vendor/three/three.module.min.js?v=3a5db4d-mwbgfx6u';
+import * as THREE from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
 
 export const NADE = { count: 2, fuse: 2.5, speed: 15, radius: 6, lethal: 1.8, damage: 130, gravity: 9.8, every: 1.0 };
 
@@ -24,7 +24,32 @@ export class BattleNades {
     this.b.arena.scene.add(n.mesh);
     this.live.push(n);
     this.b._noise(f, 'nade', 10, t);
+    // online (host): every PC draws it flying the same way; the host alone decides the damage
+    n.id = (this._id = (this._id || 0) + 1);
+    if (this.b.net && this.b.net.role === 'host') {
+      const r = (v) => Math.round(v * 1000) / 1000;
+      this.b._broadcast({ k: 'nd', id: n.id, by: f.id, p: [r(n.x), r(n.y), r(n.z)], v: [r(n.vx), r(n.vy), r(n.vz)], fuse: r(n.end - t) });
+    }
     return n;
+  }
+  // Online (client): a grenade the host threw; it flies here on the same physics, without damage.
+  ghost(m, t) {
+    if (!Array.isArray(m.p) || !Array.isArray(m.v)) return;
+    const f = this.b.fighters.find((g) => g.id === m.by) || { team: '', id: 0 };
+    const n = { f, ghost: true, id: m.id, x: +m.p[0], y: +m.p[1], z: +m.p[2], vx: +m.v[0], vy: +m.v[1], vz: +m.v[2], end: t + Math.max(0, Math.min(5, +m.fuse || NADE.fuse)) };
+    n.mesh = this._mesh();
+    this.b.arena.scene.add(n.mesh);
+    this.live.push(n);
+    return n;
+  }
+  // Online (client): where the host's grenade went off.
+  remoteBlast(m, t) {
+    const n = this.live.find(nade => nade.ghost && nade.id === m.id) || this.b.grenadeView.projectile(m.id);
+    const position = { x: +m.x || 0, y: +m.y || 0, z: +m.z || 0 };
+    if (n) n.done = true;
+    const track = n ? this.b.grenadeView.explode(n, t, position) : null;
+    this.b._blast(position.x, position.y, position.z, t);
+    return track;
   }
   _mesh() {
     const g = new THREE.Group();
@@ -38,7 +63,7 @@ export class BattleNades {
 
   update(dt, t) {
     for (const n of this.live) {
-      if (t >= n.end) { n.done = true; this.explode(n, t); continue; }
+      if (t >= n.end) { if (!n.ghost) { n.done = true; this.explode(n, t); } else if (t >= n.end + 0.5) n.done = true; continue; }
       if (dt > 0) this._move(n, dt);
       n.mesh.position.set(n.x, n.y, n.z); n.mesh.rotation.set(t * 9, t * 5, 0);
       n.mesh.userData.led.visible = Math.floor(t * (n.end - t < 1 ? 12 : 4)) % 2 === 0;
@@ -82,6 +107,7 @@ export class BattleNades {
     }
     B._noise(by, 'blast', 40, t);
     B._blast(n.x, n.y, n.z, t);
+    if (B.net && B.net.role === 'host') B._broadcast({ k: 'blast', id: n.id, x: Math.round(n.x * 100) / 100, y: Math.round(n.y * 100) / 100, z: Math.round(n.z * 100) / 100 });
   }
 
   // A bot that lost sight of an enemy 1-4 s ago, 7-20 m away, lobs one there now and then.

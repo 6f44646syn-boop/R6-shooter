@@ -1,17 +1,17 @@
-import { packArt } from '../render/pack-art.js?v=3a5db4d-mwbgfx6u';
+import { packArt } from '../render/pack-art.js?v=9dd0f7b-mwbioun8';
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=3a5db4d-mwbgfx6u';
-import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=3a5db4d-mwbgfx6u';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=3a5db4d-mwbgfx6u';
-import { matcap } from './matcap.js?v=3a5db4d-mwbgfx6u';
-import { mulberry32 } from '../core/prng.js?v=3a5db4d-mwbgfx6u';
-import { gunMaps } from './range-tex.js?v=3a5db4d-mwbgfx6u';
-import { skinById, FACTORY } from '../core/skins.js?v=3a5db4d-mwbgfx6u';
-import { legendCanvas, onLegendChange } from '../core/legend.js?v=3a5db4d-mwbgfx6u';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=3a5db4d-mwbgfx6u';
-import { HDPack } from '../render/hd-pack.js?v=3a5db4d-mwbgfx6u';
+import * as THREE from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
+import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=9dd0f7b-mwbioun8';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=9dd0f7b-mwbioun8';
+import { matcap } from './matcap.js?v=9dd0f7b-mwbioun8';
+import { mulberry32 } from '../core/prng.js?v=9dd0f7b-mwbioun8';
+import { gunMaps } from './range-tex.js?v=9dd0f7b-mwbioun8';
+import { skinById, FACTORY } from '../core/skins.js?v=9dd0f7b-mwbioun8';
+import { legendCanvas, onLegendChange } from '../core/legend.js?v=9dd0f7b-mwbioun8';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=9dd0f7b-mwbioun8';
+import { HDPack } from '../render/hd-pack.js?v=9dd0f7b-mwbioun8';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 

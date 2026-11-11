@@ -1,47 +1,32 @@
-# M10 first-person replay increment
+# M10 replays and win screens
 
-Based on Claude's M8 commit `3a5db4d`, fast-forwarded into `feature/m7-ui-controls`.
-Claude's subsequent Bomb roof update `1ab6120` is also merged. Import versions use
-that update's stamp, preserving its existing audio rebake.
+The feature branch includes Claude’s M9 online modes and the Bomb drone fix through
+`59dfc6a`. Battle, Team Deathmatch, Capture the Flag, and Bomb share the existing
+relay and direct connections.
 
-The existing Battle and match recorders now retain six seconds at up to 30 Hz with
-versioned view state. Kill cams reproduce ADS and lean, use the recorded attachment,
-optic and skin, and render a first-person weapon in TDM, CTF and Bomb. Older Battle
-and seven-field match frames still play. Battle freezes the replay window at death,
-and the existing network messages carry lean and optic with safe defaults.
+Battle and match recordings keep six seconds at up to 30 Hz. The kill camera plays
+the recorded aim, ADS, lean, effective weapon, optic, and skin. Older frame layouts
+still play. Playback uses recorded actors and shot traces with the current map
+geometry.
 
-Shared changes are confined to the recording/playback paths, one Human view-state
-copy, and an optic lookup in the existing dependency wiring. Engine simulation and
-attachment/animation implementations stay with Claude.
+Hold the bound grenade action when throwing to follow the projectile. Release it to
+return to first person. A grenade death uses the recorded path and holds at the blast
+for one second. Flight can play faster to fit the respawn window. When a client has no
+usable track or the match cannot attribute a blast to one grenade, the death replay
+uses the killer’s view.
 
-## Validation
+The match-end sequence opens on the last player-caused kill from the killer’s
+perspective. It then shows the winning side’s 3D lineup and the full leaderboard.
+Skip replay cuts directly to the results. A draw can line up the top six. A match with
+no recorded kill opens directly on the lineup and leaderboard. Online clients receive
+the host’s final scores in the end message.
 
-- `tests/replay-browser.mjs` passes 14 checks. Coverage includes ADS/right lean,
-  yaw wrap, historical attachments/skin, existing snapshot messages, invalid lean,
-  older frames, six-second retention, stop cleanup and five repeated Battle
-  replays using one rig with stable texture counts. The repetition uses the same
-  loadout and does not establish a memory bound across every possible loadout.
-- `tools/check-modes.mjs` passes 99 checks.
-- The exact `package.json` test sequence was executed with bundled Node because
-  this desktop has no npm executable. Node/WASM suites pass. The final browser
-  run after the roof merge passes 237 checks, with one failure on the 1080-rpm
-  one-second shot count (18 shots versus 19). The same failure occurs on unchanged
-  M8 `3a5db4d`. Direct WebRTC kill cams pass. Relay coverage was skipped because
-  no relay was running.
-- The shooting fixture now respawns the player before its scripted shots,
-  resetting weapon state left by the roaming combat. The skin fixture selects a
-  compatible gun when the random reward is gun-specific. Both original gameplay
-  assertions pass in the final browser run.
-- Syntax and whitespace checks pass.
+Run `node tests/replay-browser.mjs` and `node tests/finale-browser.mjs` for the focused
+checks. The broad browser suite includes two-session checks for online grenade cameras,
+grenade death replays, and the final-kill screen. Run `node tools/check-modes.mjs` for
+the simulation checks. The 1080-rpm one-second shot-count check has a known baseline
+failure of 18 shots versus 19. The direct tests run locally. Relay tests require a
+running relay.
 
-## Remaining scope
-
-M10 is still in progress. Grenade trajectory recording, a rebindable chase-camera
-hold and grenade death playback remain. Battle currently disables online grenades,
-and match modes are offline. Online grenade playback needs engine/network work.
-For reliable grenade kill attribution, a useful engine hook would carry the
-projectile ID and owner through kill/boom events, alongside blast position.
-
-M11 spectator/ranked play and M12 Training Academy remain subsequent milestones.
-This increment is ready for review as a draft and is not a completed M10 release.
-Before live publication, use the established stamping/audio-rebake workflow.
+M11 spectator and ranked play and M12 Training Academy follow. Before a live release,
+apply the repository’s version stamp and audio pack rebake.

@@ -21,7 +21,7 @@
 //   Onyx   Charge Dash    hold Q 0.6 s, then dash 6 m: through soft walls, the first enemy hit
 //                         is stunned and knocked back for 1.5 s. 2 charges, 12 s each.
 // Gadgets die to one bullet. Bots use abilities too (see botThink).
-import { raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=3a5db4d-mwbgfx6u';
+import { raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=9dd0f7b-mwbioun8';
 
 export const DRONE_R = 0.15;           // a drone's collision radius
 export class Abilities {
@@ -273,7 +273,11 @@ export class Abilities {
   droneInput(a, inp, dt) {
     const d = a.ab && a.ab.drone;
     if (!d || !d.alive) return;
-    const sp = (a.ab.c.speed || 6) * (this.jammed(d.x, d.z, d.team, d.y) ? 0.5 : 1);
+    // Drone speed comes from the drone's own settings: the operator's ability config only
+    // when that ability IS the drone (another ability's "speed", e.g. Breach Rounds' 40 m/s
+    // round, made every prep drone of that operator fly at 40 m/s).
+    const dc = a.ab.id === 'spark_drone' ? a.ab.c : this.cfg.spark_drone || {};
+    const sp = (dc.speed || 6) * (this.jammed(d.x, d.z, d.team, d.y) ? 0.5 : 1);
     const f = (inp.fwd ? 1 : 0) - (inp.back ? 1 : 0), s = (inp.right ? 1 : 0) - (inp.left ? 1 : 0);
     if (!f && !s) { this.roll(d, 0, 0, dt); return; }
     const y = d.yaw * DEG, L = Math.hypot(f, s);
@@ -584,7 +588,7 @@ export class Abilities {
     if (wp) {
       const dx = wp[0] - d.x, dz = wp[1] - d.z, L = Math.hypot(dx, dz);
       if (L < 0.6) d.path.shift();
-      else { const st = Math.min(L, (a.ab.c.speed || 6) / 15); this.roll(d, dx / L * st, dz / L * st, 1 / 15); d.yaw = yawTo(dx, dz); }
+      else { const st = Math.min(L, ((a.ab.id === 'spark_drone' ? a.ab.c : this.cfg.spark_drone || {}).speed || 6) / 15); this.roll(d, dx / L * st, dz / L * st, 1 / 15); d.yaw = yawTo(dx, dz); }
     }
     if (m.t >= d.scanAt) this.scan(a);
     if (!wp && Math.hypot(goal.x - d.x, goal.z - d.z) < 3 && m.rng() < 0.1) { this.destroy(d); brain.droneAfter = m.t + 60; }

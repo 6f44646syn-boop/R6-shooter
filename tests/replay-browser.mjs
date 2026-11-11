@@ -36,10 +36,10 @@ try {
     B._broadcast = message => { snapshot = message; };
     B._sendSnapshot(10.1); B._broadcast = broadcast;
     const row = snapshot.f.find(row => row[0] === k.id);
-    result.sentLean = row[14]; result.sentOptic = row[15];
-    row[14] = -0.75;
+    result.sentLean = row[15]; result.sentOptic = row[16];
+    row[15] = -0.75;
     B._clientMsg(snapshot); result.receivedLean = k.lean;
-    row[14] = Infinity;
+    row[15] = Infinity;
     B._clientMsg(snapshot); result.invalidLean = k.lean;
     const puppet = B.puppet, textures = [];
     for (let j = 0; j < 5; j++) {

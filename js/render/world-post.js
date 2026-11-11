@@ -10,7 +10,7 @@
 //   3. output: upscaled to the screen (when the world is drawn at a lower resolution, e.g.
 //      dynamic resolution) with contrast-adaptive sharpening, plus FXAA when TAA is off.
 // The weapon is drawn afterwards straight to the screen, so it never smears or blurs.
-import * as THREE from '../../vendor/three/three.module.min.js?v=3a5db4d-mwbgfx6u';
+import * as THREE from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
 
 const VERT = /* glsl */`varying vec2 vUv; void main() { vUv = position.xy * 0.5 + 0.5; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 const DEPTH = /* glsl */`

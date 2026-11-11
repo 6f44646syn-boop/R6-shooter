@@ -1,5 +1,5 @@
 // Presentation-only history for the grenade camera. The simulation owns the projectile.
-import * as THREE from '../../vendor/three/three.module.min.js?v=3a5db4d-mwbgfx6u';
+import * as THREE from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
 
 const SAMPLE_INTERVAL = 1 / 30;
 const FLIGHT_LIMIT = 1.6;
@@ -20,15 +20,21 @@ export class GrenadeReplay {
     this.marker?.removeFromParent();
   }
 
-  release() { this.held = null; }
+  release() { this.held = null; this.pending = null; }
+  request(owner) { this.pending = { owner, id: null }; }
+  accept(owner, id) { if (this.pending?.owner === owner) this.pending.id = id; }
+  projectile(id) { return this.tracks.get(id)?.nade || null; }
+  track(id) { return this.tracks.get(id); }
   hide() { if (this.marker) this.marker.visible = false; }
 
   record(nade, t) {
-    let track = this.tracks.get(nade);
+    const key = nade.id ?? nade;
+    let track = this.tracks.get(key);
     if (!track) {
-      track = { samples: [], blast: null, latest: null, active: true };
-      this.tracks.set(nade, track);
+      track = { id: nade.id, samples: [], blast: null, latest: null, active: true };
+      this.tracks.set(key, track);
     }
+    track.nade = nade;
     const { x, y, z, vx, vy, vz } = nade;
     const speed = Math.hypot(vx, vy, vz);
     const direction = speed > 0.1 ? [vx / speed, vy / speed, vz / speed] : track.latest?.direction || [0, 0, -1];
@@ -40,13 +46,16 @@ export class GrenadeReplay {
 
   sample(live, t) {
     if (!live.length && !this.tracks.size) return;
-    const active = new Set(live);
-    for (const nade of live) this.record(nade, t);
-    for (const [nade, track] of this.tracks) {
-      track.active = active.has(nade);
-      if (!track.active && (!track.blast || t - track.blast.t > 6)) {
+    const active = new Set(live.map(nade => nade.id ?? nade));
+    for (const nade of live) {
+      const track = this.record(nade, t);
+      if (this.pending && this.pending.id === nade.id) { this.held = track; this.pending = null; }
+    }
+    for (const [key, track] of this.tracks) {
+      track.active = active.has(key) && !track.blast;
+      if (!track.active && t - (track.blast?.t ?? track.latest.t) > 6) {
         if (this.held === track) this.release();
-        this.tracks.delete(nade);
+        this.tracks.delete(key);
       }
     }
   }
@@ -62,7 +71,7 @@ export class GrenadeReplay {
   }
 
   duration(track) {
-    return Math.min(FLIGHT_LIMIT, track.blast.t - track.samples[0].t);
+    return Math.max(0, Math.min(FLIGHT_LIMIT, track.blast.t - track.samples[0].t));
   }
 
   live(t, world) {
