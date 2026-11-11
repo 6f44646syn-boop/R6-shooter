@@ -10,7 +10,7 @@
   {
    "path": "audio/recoil-range-audio-v1.rra",
    "size": 1436728,
-   "sha256": "0572366fef153647f1451a2e7daa79706e2a53eb1da3d97baee8c2d57e3435a9"
+   "sha256": "2a0c52e232e7380879ac6e2a09ff076efb2ddf61988c15f43c83a95161547ffa"
   },
   {
    "path": "guns/ak.rrmz",
@@ -93,9 +93,19 @@
    "sha256": "2c4e0878d90fca3a7f99794f6cd70fb42f902fec49c963231a3bc3d2ca506d0e"
   },
   {
+   "path": "light/schoolSmall.rrl",
+   "size": 36209,
+   "sha256": "8cfc3e3e276a4496c50c0dc2b5b695c0a1e3ac2d5ef33f5c56935f5188ab6b96"
+  },
+  {
    "path": "light/winter.rrl",
    "size": 43324,
    "sha256": "d77fb2e032f0436db6c3eeb6bbf8818bae85882b66611fcef7d1bea9544cbf83"
+  },
+  {
+   "path": "light/winterSmall.rrl",
+   "size": 27409,
+   "sha256": "54f1ea8ac7ede7932305302b5685f2c6dca5737290e67c8be34b1587589e2e8f"
   },
   {
    "path": "light/workshop.rrl",
@@ -1503,5 +1513,5 @@
    "sha256": "44732c2e04c815cb6b645ca86497933122c7372e2cd40e80b782dedda70110ad"
   }
  ],
- "total": 102322435
+ "total": 102386053
 }

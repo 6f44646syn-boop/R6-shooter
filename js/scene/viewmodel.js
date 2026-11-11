@@ -1,18 +1,18 @@
-import { skinSheets } from '../render/skins2.js?v=25db2c9-mwbx9yjs';
-import { packArt } from '../render/pack-art.js?v=25db2c9-mwbx9yjs';
+import { skinSheets } from '../render/skins2.js?v=189fea0-mwc1zla2';
+import { packArt } from '../render/pack-art.js?v=189fea0-mwc1zla2';
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=25db2c9-mwbx9yjs';
-import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=25db2c9-mwbx9yjs';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=25db2c9-mwbx9yjs';
-import { matcap } from './matcap.js?v=25db2c9-mwbx9yjs';
-import { mulberry32 } from '../core/prng.js?v=25db2c9-mwbx9yjs';
-import { gunMaps } from './range-tex.js?v=25db2c9-mwbx9yjs';
-import { skinById, FACTORY } from '../core/skins.js?v=25db2c9-mwbx9yjs';
-import { legendCanvas, onLegendChange } from '../core/legend.js?v=25db2c9-mwbx9yjs';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=25db2c9-mwbx9yjs';
-import { HDPack } from '../render/hd-pack.js?v=25db2c9-mwbx9yjs';
+import * as THREE from '../../vendor/three/three.module.min.js?v=189fea0-mwc1zla2';
+import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=189fea0-mwc1zla2';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=189fea0-mwc1zla2';
+import { matcap } from './matcap.js?v=189fea0-mwc1zla2';
+import { mulberry32 } from '../core/prng.js?v=189fea0-mwc1zla2';
+import { gunMaps } from './range-tex.js?v=189fea0-mwc1zla2';
+import { skinById, FACTORY } from '../core/skins.js?v=189fea0-mwc1zla2';
+import { legendCanvas, onLegendChange } from '../core/legend.js?v=189fea0-mwc1zla2';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=189fea0-mwc1zla2';
+import { HDPack } from '../render/hd-pack.js?v=189fea0-mwc1zla2';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 

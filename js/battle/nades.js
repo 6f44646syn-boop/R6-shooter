@@ -2,7 +2,7 @@
 // (2.5 s fuse, bounces, up to 130 damage, lethal within 1.8 m, nothing behind cover), on the
 // Battle maps' floors, stairs and upper levels. They never hurt the thrower's own team.
 // Bots lob one at an enemy they lost sight of a moment ago.
-import * as THREE from '../../vendor/three/three.module.min.js?v=25db2c9-mwbx9yjs';
+import * as THREE from '../../vendor/three/three.module.min.js?v=189fea0-mwc1zla2';
 
 export const NADE = { count: 2, fuse: 2.5, speed: 15, radius: 6, lethal: 1.8, damage: 130, gravity: 9.8, every: 1.0 };
 
