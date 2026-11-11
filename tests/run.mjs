@@ -663,7 +663,7 @@ try {
     const fx = await page.evaluate(() => {
       const R = window.__range, G = R.modeGame(), out = { ext: 0, extTris: 0, fenceTop: 0, flashing: 0, sky: 0 };
       G.lookGroup.traverse((o) => {
-        if (o.userData.sky && o.onBeforeRender) out.sky++;
+        if (o.isMesh && o.userData.sky === true) out.sky++;   // the dome itself (its group keeps a link to it under the same name)
         if (!o.isMesh || !o.material || !o.material.map) return;
         const k = o.material.map.userData.surface;
         if (k === 'siding') { out.ext++; out.extTris += o.geometry.attributes.position.count / 3; }
