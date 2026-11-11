@@ -790,7 +790,8 @@ try {
       // (bots may have shot you while roaming above: start the feed and score clean)
       B.feed.length = 0; B._renderFeed(); h.f.kills = 0; B.teamScore.p1 = 0;
       for (const b of B.bots.slice(1)) { b.f.x = -16; b.f.z = -12; }
-      h.f.x = 16; h.f.z = 12; h.f.protectUntil = 0; h.f.health = 100; h.f.alive = true;
+      h.respawn(16, 12, B.t, 0);
+      h.f.protectUntil = 0; h.f.health = 100; h.f.alive = true;
       bot.f.x = 16; bot.f.z = 2; bot.f.protectUntil = 0; bot.f.health = 100; bot.f.alive = true; bot.f.crouch = 0;
       let taps = 0;
       while (bot.f.alive && taps < 40) {
@@ -924,8 +925,9 @@ try {
       out.points = P.points;
       out.owned = P.ownedCount;
       // equip on the selected gun: the gun model rebuilds with the skin; HUD names it
-      R.selectGun(2);
-      P.equip(2, res.skin.id); U.onEquip(2);
+      const skinSlot = res.skin.guns?.[0] ?? 2;
+      R.selectGun(skinSlot);
+      P.equip(skinSlot, res.skin.id); U.onEquip(skinSlot);
       out.hud = document.getElementById('gun-info').textContent;
       out.skinName = res.skin.name;
       // save code round trip, and a damaged code is refused
