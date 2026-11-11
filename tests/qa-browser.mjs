@@ -35,6 +35,23 @@ try {
     check('no page errors (Bomb)', !errors.length, errors.join('\n'));
     await page.close();
   }
+  // 1b. Bomb kill cam: a bot kills you with real gunfire; the replay shows their view with their
+  //     inputs lit (fire, ADS...) and their ammo, and your own HP / ammo are hidden
+  {
+    const { page, errors } = await openPage();
+    await page.click('[data-mode=bomb]'); await page.selectOption('#md-size', '3'); await page.selectOption('#md-diff', 'hard');
+    await page.locator('#menu button.primary:visible').last().click(); await page.waitForTimeout(300); await page.click('#ops-go');
+    await page.waitForFunction(() => window.__range.modeGame()?.active && document.getElementById('menu').hidden, null, { timeout: 40000 });
+    await page.mouse.move(1, 1);
+    const died = await page.evaluate(() => { const R = window.__range, g = R.modeGame(), m = g.m; R.manual(true); for (let i = 0; i < 400 && m.rules.phase === 'prep'; i++) R.step(0.1, 30);
+      const en = m.actors.find((a) => a.team !== g.me.team && a.alive), f = g.h.f; f.x = g.me.x = en.x + 6; f.z = g.me.z = en.z; f.y = g.me.y = en.y;
+      for (let i = 0; i < 3000 && g.me.alive; i++) R.step(0.05, 60); return !g.me.alive && !!g.kc; });
+    const seen = new Set(); let hudHidden = false, ammo = '';
+    for (let k = 0; k < 120 && died; k++) { const r = await page.evaluate(() => { const R = window.__range, g = R.modeGame(); R.step(1 / 30, 60); return { on: [...g.hud.kcKeys.querySelectorAll('span.on')].map((e) => e.textContent), cam: g.camOverride === g.kcCam, hid: g.hud.view.classList.contains('mg-killcam'), ammo: g.hud.kcKeys.lastChild.textContent }; }); if (r.cam) { r.on.forEach((x) => seen.add(x)); hudHidden ||= r.hid; ammo ||= r.ammo; } }
+    check('Bomb kill cam: plays the killer\'s view after a bot kills you', died, 'not killed in time');
+    check('Bomb kill cam: shows the killer\'s inputs (fire and ADS, or knife / grenade, lit) and ammo, hides your own HUD', (seen.has('Fire') ? seen.has('ADS') : seen.has('Knife') || seen.has('G')) && hudHidden && / \/ /.test(ammo), JSON.stringify({ seen: [...seen], hudHidden, ammo }));
+    await page.close();
+  }
   // 2. Battle: a C tap shorter than a frame still vaults
   {
     const { page, errors } = await openPage();

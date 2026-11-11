@@ -1,38 +1,38 @@
-import { applyMapArt } from '../render/pack-art.js?v=a37f22c-mwcnqhgi';
-import { applyPackMaterials, packMats, envMap } from '../render/pack-materials.js?v=a37f22c-mwcnqhgi';
-import { applyPackProps } from '../render/pack-props.js?v=a37f22c-mwcnqhgi';
-import { sensoryFor } from '../balance/bomb-utility.js?v=a37f22c-mwcnqhgi';
-import { createRankedSession, rankedChange, ratingOf, signRankedResult } from '../core/ranked.js?v=a37f22c-mwcnqhgi';
-import { SpectatorTools } from '../replay/spectator.js?v=a37f22c-mwcnqhgi';
-import { MatchFinale } from '../replay/finale.js?v=a37f22c-mwcnqhgi';
-import { GrenadeReplay } from '../replay/grenade.js?v=a37f22c-mwcnqhgi';
-import { replayCamera } from '../replay/view.js?v=a37f22c-mwcnqhgi';
+import { applyMapArt } from '../render/pack-art.js?v=6419a29-mwcpnaz0';
+import { applyPackMaterials, packMats, envMap } from '../render/pack-materials.js?v=6419a29-mwcpnaz0';
+import { applyPackProps } from '../render/pack-props.js?v=6419a29-mwcpnaz0';
+import { sensoryFor } from '../balance/bomb-utility.js?v=6419a29-mwcpnaz0';
+import { createRankedSession, rankedChange, ratingOf, signRankedResult } from '../core/ranked.js?v=6419a29-mwcpnaz0';
+import { SpectatorTools } from '../replay/spectator.js?v=6419a29-mwcpnaz0';
+import { MatchFinale } from '../replay/finale.js?v=6419a29-mwcpnaz0';
+import { GrenadeReplay } from '../replay/grenade.js?v=6419a29-mwcpnaz0';
+import { replayCamera } from '../replay/view.js?v=6419a29-mwcpnaz0';
 // Team Deathmatch, Capture the Flag and Bomb in the browser: draws the match simulation
 // (sim.js) and runs your player with the range's own systems (look, sensitivity, recoil,
 // spread, sights, weapon model: battle/human.js), at a fixed 60 Hz simulation.
 //
 // Map: flat-shaded low poly from the map file; static walls merged into one mesh, breakable
 // panels in one instanced mesh, one directional light (a 1024 shadow map in High / Ultra).
-import * as THREE from '../../vendor/three/three.module.min.js?v=a37f22c-mwcnqhgi';
-import { BulletHoles, crackTexture } from '../scene/holes.js?v=a37f22c-mwcnqhgi';
-import { MatchMap } from './map.js?v=a37f22c-mwcnqhgi';
-import { initCore } from '../wasm/core.js?v=a37f22c-mwcnqhgi';
-import { Match, TICK } from './sim.js?v=a37f22c-mwcnqhgi';
-import { yawTo, wrap180, DEG } from './geom.js?v=a37f22c-mwcnqhgi';
-import { Fighter } from '../battle/fighter.js?v=a37f22c-mwcnqhgi';
-import { slotIn, effectiveGun } from '../core/loadout.js?v=a37f22c-mwcnqhgi';
-import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=a37f22c-mwcnqhgi';
-import { buildMapLook, panelTextures } from './look.js?v=a37f22c-mwcnqhgi';
-import { Arena } from '../battle/arena.js?v=a37f22c-mwcnqhgi';
-import { Human } from '../battle/human.js?v=a37f22c-mwcnqhgi';
-import { drawCrosshair } from '../ui/crosshair.js?v=a37f22c-mwcnqhgi';
-import { effectiveGraphics, maxMode } from '../render/quality.js?v=a37f22c-mwcnqhgi';
-import { MatchHost, MatchClient } from './net-match.js?v=a37f22c-mwcnqhgi';
-import { Brain } from './bots.js?v=a37f22c-mwcnqhgi';
-import { skyPalette } from '../render/sky.js?v=a37f22c-mwcnqhgi';
-import { dressMap } from './dressing.js?v=a37f22c-mwcnqhgi';
-import { LightPool } from '../render/light-pool.js?v=a37f22c-mwcnqhgi';
-import { Footprints } from '../scene/footprints.js?v=a37f22c-mwcnqhgi';
+import * as THREE from '../../vendor/three/three.module.min.js?v=6419a29-mwcpnaz0';
+import { BulletHoles, crackTexture } from '../scene/holes.js?v=6419a29-mwcpnaz0';
+import { MatchMap } from './map.js?v=6419a29-mwcpnaz0';
+import { initCore } from '../wasm/core.js?v=6419a29-mwcpnaz0';
+import { Match, TICK } from './sim.js?v=6419a29-mwcpnaz0';
+import { yawTo, wrap180, DEG } from './geom.js?v=6419a29-mwcpnaz0';
+import { Fighter } from '../battle/fighter.js?v=6419a29-mwcpnaz0';
+import { slotIn, effectiveGun } from '../core/loadout.js?v=6419a29-mwcpnaz0';
+import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=6419a29-mwcpnaz0';
+import { buildMapLook, panelTextures } from './look.js?v=6419a29-mwcpnaz0';
+import { Arena } from '../battle/arena.js?v=6419a29-mwcpnaz0';
+import { Human } from '../battle/human.js?v=6419a29-mwcpnaz0';
+import { drawCrosshair } from '../ui/crosshair.js?v=6419a29-mwcpnaz0';
+import { effectiveGraphics, maxMode } from '../render/quality.js?v=6419a29-mwcpnaz0';
+import { MatchHost, MatchClient } from './net-match.js?v=6419a29-mwcpnaz0';
+import { Brain } from './bots.js?v=6419a29-mwcpnaz0';
+import { skyPalette } from '../render/sky.js?v=6419a29-mwcpnaz0';
+import { dressMap } from './dressing.js?v=6419a29-mwcpnaz0';
+import { LightPool } from '../render/light-pool.js?v=6419a29-mwcpnaz0';
+import { Footprints } from '../scene/footprints.js?v=6419a29-mwcpnaz0';
 
 const reducedMotion = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 const TEAM_COLOR = { A: 0x5b8cff, B: 0xff7048 };
@@ -141,7 +141,7 @@ export class ModeGame {
     this._buildScene();
     this._buildActors();
     this.prevT = d.now(); this.acc = 0; this.mapVersion = -1;
-    this.rec = { version: 2, frames: [], shots: [], hits: [] }; this.kc = null; this.hud.kcBox.hidden = true;
+    this.rec = { version: 2, frames: [], shots: [], hits: [] }; this._endKc();
     this.feed = []; this._renderFeed(); this.points = 0; this._stepT = 0; this.fx = []; this.fx2 = []; this.vigT = -9; this.wasJammed = false;
     this.active = true; this.paused = false; this.over = false;
     this.hud.root.hidden = false; this.hud.end.hidden = true;
@@ -705,17 +705,25 @@ export class ModeGame {
   // hits you took.
   _record() {
     const m = this.m, R = this.rec;
+    // shots, knives and throws since the last frame (frames are 30 a second, ticks can be more)
+    const pend = R.pend || (R.pend = new Set());
+    for (const e of m.events) if (e.type === 'shot' || e.type === 'knife' || e.type === 'nadeThrow') pend.add(e.type + ':' + e.id);
     const last = R.frames.at(-1);
     if (last && m.t - last.t < 1 / 30 - 1e-6) return;
-    const stride = 13, s = new Float32Array(m.actors.length * stride);
+    const stride = 15, s = new Float32Array(m.actors.length * stride);
+    const did = (type, id) => pend.has(type + ':' + id);
     const loadouts = m.actors.map((a, i) => {
       const h = a === this.me ? this.h : null, gun = a.gunData;
       s.set([a.x, a.z, a.yaw, a.pitch, a.crouch, a.alive ? 1 : 0, a.y,
         h ? h.adsE : a.ads || 0, h ? h.lean : a.lean || 0, slotIn(this.deps.guns, gun),
-        m.events.some(e => e.type === 'shot' && e.id === a.id) ? 1 : 0, h ? h.offset[0] : a.recoilYaw || 0, h ? h.offset[1] : a.recoilPitch || 0], i * stride);
+        did('shot', a.id) ? 1 : 0, h ? h.offset[0] : a.recoilYaw || 0, h ? h.offset[1] : a.recoilPitch || 0,
+        // the kill cam's input display: 1 reloading, 2 knife, 4 grenade; then rounds in the magazine
+        ((h ? h.weapon.reloading : a.reloadUntil > 0) ? 1 : 0) | (did('knife', a.id) ? 2 : 0) | (did('nadeThrow', a.id) ? 4 : 0),
+        h ? h.weapon.ammo : this.netClient ? -1 : a.ammo ?? 0], i * stride);     // (-1: a network client does not know other players' ammo)
       return { attach: gun.attach || null, skin: this.fig.get(a.id)?.skin ?? null, optic: a.op.sight };
     });
     R.frames.push({ version: 2, stride, t: m.t, s, loadouts });
+    pend.clear();
     while (R.frames.length && R.frames[0].t < m.t - 6) R.frames.shift();
     while (R.shots.length && R.shots[0].t < m.t - 6) R.shots.shift();
     while (R.hits.length && R.hits[0].t < m.t - 10) R.hits.shift();
@@ -787,9 +795,10 @@ export class ModeGame {
     const H = this.hud;
     H.kcBox.replaceChildren(el('b', '', this.kc.grenade ? 'GRENADE REPLAY' : 'KILL CAM'), el('div', '', 'Killed by ' + k.name + ' (' + k.op.name + ' · ' + k.gun.name + (e.kind === 'knife' ? ' · knife' : e.head ? ' · headshot' : '') + ') from ' + dist.toFixed(0) + ' m'), el('div', 'small', 'Damage you took: ' + (report || 'none recorded')), el('div', 'small', 'Space: skip'));
     H.kcBox.hidden = false;
+    H.view.classList.add('mg-killcam');          // their view: your HP, ammo and ability are hidden
   }
   _endKc() {
-    this.kc = null; this.hud.kcBox.hidden = true;
+    this.kc = null; this.hud.kcBox.hidden = true; this.hud.kcKeys.hidden = true; this.hud.view.classList.remove('mg-killcam');
   }
   _replay(t) {
     const kc = this.kc, m = this.m, R = kc.rec || this.rec;
@@ -824,6 +833,7 @@ export class ModeGame {
         const ads = stride > 7 ? L(7) : 0, lean = stride > 7 ? L(8) : 0;
         const loadout = A.loadouts?.[k];
         const gun = loadout ? effectiveGun(this.deps.guns[A.s[o + 9]] || a.gunData, loadout.attach) : a.gunData;
+        this._kcInputs(A, B, o, stride, f, fig, ads, lean, t, gun);
         this._firstPerson(this.kcCam, a, gun, loadout?.optic, loadout?.skin, {
           x: fig.x, y: fig.y, z: fig.z, eye: 1.6 - 0.48 * fig.crouch,
           yaw: fig.yaw + (stride > 7 ? L(11) : 0), pitch: fig.pitch + (stride > 7 ? L(12) : 0), ads, lean,
@@ -842,6 +852,20 @@ export class ModeGame {
       const gun = this.kcPuppet?.gun;
       this.deps.sfx.shot(gun?.tone ?? 0.5, gun?.suppressed ? 0.225 : 0.5);
     }
+  }
+  // The killer's inputs, lit as they happened: movement keys (from their motion relative to
+  // where they faced), sprint, crouch, leans, fire, ADS, reload, knife, grenade, and their ammo.
+  _kcInputs(A, B, o, stride, f, fig, ads, lean, t, gun) {
+    const keys = this.hud.kcKeys, kc = this.kc;
+    const dt = B.t - A.t, dx = dt > 0 ? (B.s[o] - A.s[o]) / dt : 0, dz = dt > 0 ? (B.s[o + 1] - A.s[o + 1]) / dt : 0;
+    const y = fig.yaw * DEG, fwd = dx * Math.sin(y) - dz * Math.cos(y), side = dx * Math.cos(y) + dz * Math.sin(y), speed = Math.hypot(dx, dz);
+    const bits = stride > 13 ? A.s[o + 13] : 0, lit = kc.lit || (kc.lit = {});
+    const on = { W: fwd > 0.5, S: fwd < -0.5, A: side < -0.5, D: side > 0.5, Shift: speed > 4.4, Crouch: fig.crouch > 0.5, Q: lean < -0.3, E: lean > 0.3,
+      Fire: A.s[o + 10] > 0 || B.s[o + 10] > 0, ADS: ads > 0.5, R: !!(bits & 1), Knife: !!(bits & 2), G: !!(bits & 4) };
+    for (const [k, v] of Object.entries(on)) if (v) lit[k] = t + (k === 'Fire' || k === 'Knife' || k === 'G' ? 0.12 : 0);   // short presses stay lit a moment
+    for (const b of keys.children) if (b.dataset.k) b.classList.toggle('on', (lit[b.dataset.k] ?? -1) >= t);
+    keys.lastChild.textContent = stride > 14 && A.s[o + 14] >= 0 ? Math.round(A.s[o + 14]) + ' / ' + gun.magSize : '';
+    keys.hidden = false;
   }
   _firstPerson(camera, actor, gun, sight, skin, pose, t, dt) {
     const d = this.deps, optic = d.opticById(sight || actor.op.sight, gun);
@@ -1301,11 +1325,14 @@ export class ModeGame {
     const hold = el('div', 'mg-hold'); hold.hidden = true;
     const holdBar = el('i'); hold.append(el('span', '', ''), holdBar);
     const kcBox = el('div', 'mg-kc'); kcBox.hidden = true;
+    const kcKeys = el('div', 'mg-kckeys'); kcKeys.hidden = true;
+    for (const k of ['W', 'A', 'S', 'D', 'Shift', 'Crouch', 'Q', 'E', 'Fire', 'ADS', 'R', 'Knife', 'G']) { const b = el('span', '', k); b.dataset.k = k; kcKeys.append(b); }
+    kcKeys.append(el('b', '', ''));
     const nades = el('div', 'mg-nades', ''), nadeWarn = el('div', 'mg-nadewarn'); nadeWarn.hidden = true;
     const disruption = el('div', 'mg-disruption');
     const vig = el('div', 'dmg-vig'), lowhp = el('div', 'low-hp'), jam = el('div', 'mg-jam'), banner = el('div', 'mg-banner'); banner.hidden = true;
     lowhp.append(el('span', '', 'LOW HEALTH'));
-    view.append(disruption, tags, kcBox, nades, nadeWarn, jam, vig, lowhp, hurt, dmg, cross, hit, pts, dead, prot, name, hp, hpText, ammo, gunBox, ability, hold, flash, banner);
+    view.append(disruption, tags, kcBox, kcKeys, nades, nadeWarn, jam, vig, lowhp, hurt, dmg, cross, hit, pts, dead, prot, name, hp, hpText, ammo, gunBox, ability, hold, flash, banner);
     const board = el('div', 'mg-board'); board.hidden = true;
     const end = el('div', 'b-end'); end.hidden = true;
     const box = el('div', 'b-end-box'), endTitle = el('h1', '', ''), endTable = el('div', 'b-table'), endNote = el('p', 'small', '');
@@ -1315,7 +1342,7 @@ export class ModeGame {
     box.append(endTitle, endTable, row, endNote); end.append(box);
     root.append(view, top, compass, status, feed, board, end);
     this.deps.hudRoot.insertBefore(root, this.deps.hudRoot.querySelector('#menu'));
-    this.hud = { strip, allyOps, enemyOps, allyPts, enemyPts, clockT, clockSub, tags, gunBox, gunName, magN, magOf, disruption, nades, nadeWarn, kcBox, vig, lowhp, jam, banner, prot, root, score, compass, status, feed, view, cross, hit, hurt, dead, name, hpFill, hpText, ammo, pts, ability, dmg, flash, hold, holdBar, board, end, endTitle, endTable, endNote, again, leave, last: {} };
+    this.hud = { strip, allyOps, enemyOps, allyPts, enemyPts, clockT, clockSub, tags, gunBox, gunName, magN, magOf, disruption, nades, nadeWarn, kcBox, kcKeys, vig, lowhp, jam, banner, prot, root, score, compass, status, feed, view, cross, hit, hurt, dead, name, hpFill, hpText, ammo, pts, ability, dmg, flash, hold, holdBar, board, end, endTitle, endTable, endNote, again, leave, last: {} };
     drawCrosshair(cross, this.deps.settings.crosshair);
   }
   _marker(kind, t) { this.hud.hit.className = 'b-hit on ' + kind; this.hitUntil = t + (kind === 'kill' ? 0.35 : 0.15); }
@@ -1505,7 +1532,7 @@ export class ModeGame {
       this.deps.sfx.listen(this.camOverride || this.h.camera);
       this._updateTracers(t);
     } else {
-      this.kc = null;
+      this._endKc();
       this.camOverride = null;
     }
   }

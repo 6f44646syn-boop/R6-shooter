@@ -1,4 +1,4 @@
-import { utilityFor } from '../balance/bomb-utility.js?v=a37f22c-mwcnqhgi';
+import { utilityFor } from '../balance/bomb-utility.js?v=6419a29-mwcpnaz0';
 // Mode rules: Team Deathmatch, Capture the Flag, Bomb. Each sets up the match, spawns,
 // scores, ends it, and gives bots their objective (botGoal).
 export function makeRules(m) {
@@ -46,10 +46,13 @@ export class TDM extends Rules {
 
 /* ---------- Capture the Flag ---------- */
 // Each team's flag: 'home' on its stand, 'carried' by an enemy, or 'dropped' where its carrier
-// died (back home after 15 s, or at once when a teammate touches it). Bring the enemy flag to
+// died (back home after 20 s, or at once when a teammate touches it). Bring the enemy flag to
 // your own stand while yours is home to capture. First to 3, or more after the time; a tie
 // goes to the next capture (overtime).
-const TOUCH = 1.3, CAPTURE_R = 1.6, RETURN_S = 15;
+// Tuned so a flag run can succeed: everyone waits 8 s to respawn (TDM: 3 s), so a defence you
+// break stays broken long enough to reach the flag and run it home; a wider pickup and capture
+// area, and a dropped flag stays out for 20 s so your team can pick it up again.
+const TOUCH = 2.0, CAPTURE_R = 2.2, RETURN_S = 20, RESPAWN_S = 8;
 export class CTF extends Rules {
   constructor(m) {
     super(m);
@@ -111,6 +114,7 @@ export class CTF extends Rules {
   }
   onKill(v, by) {
     super.onKill(v, by);
+    v.respawnAt = this.m.t + RESPAWN_S;
     if (v.carry && v.carry.type === 'flag') this.drop(this.flags[v.carry.team], v);
   }
   check() {

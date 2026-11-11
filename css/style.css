@@ -555,3 +555,11 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 .rank-crest[data-rank="gold"] { background: #f4cd70; }
 .rank-crest[data-rank="platinum"] { background: #85d8cd; }
 .rank-crest[data-rank="diamond"] { background: #a6d6ff; }
+/* Match kill cam: the box out of the way of their aim, their inputs lit along the bottom, your own
+   HP / ammo / ability hidden while you watch through their eyes */
+.mg-killcam .mg-kc { left: 16px; bottom: auto; top: 30%; transform: none; text-align: left; max-width: 340px; }
+.mg-killcam :is(.mg-hpbar, .mg-hpnum, .mg-gun, .mg-ability, .mg-nades, .low-hp, .mg-tags) { visibility: hidden; }
+.mg-kckeys { position: absolute; left: 50%; bottom: 3%; transform: translateX(-50%); display: flex; gap: 4px; align-items: center; pointer-events: none; }
+.mg-kckeys span { min-width: 26px; padding: 4px 6px; border: 1px solid rgba(255, 255, 255, 0.35); border-radius: 4px; background: rgba(12, 14, 18, 0.7); color: rgba(255, 255, 255, 0.55); font: 600 12px/1 system-ui, sans-serif; text-align: center; }
+.mg-kckeys span.on { background: #ff6a50; border-color: #ff6a50; color: #111; }
+.mg-kckeys b { margin-left: 10px; white-space: nowrap; color: #fff; font: 700 20px/1 system-ui, sans-serif; text-shadow: 0 1px 2px #000; }

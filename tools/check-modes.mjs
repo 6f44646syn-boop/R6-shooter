@@ -69,10 +69,11 @@ console.log('\nFlag state machine');
   check('the carrier is 10% slower', Math.abs(m.speedOf(a) - a.gun.speed * 0.9) < 1e-9);
   m.kill(a, e); m.step();
   check('the flag drops where the carrier died', fB.state === 'dropped' && Math.abs(fB.x - a.x) < 0.01, fB.state);
-  for (let i = 0; i < 14 * 60; i++) { park(e); m.step(); }
-  check('a dropped flag is still out after 14 s', fB.state === 'dropped', fB.state);
+  check('CTF: the dead wait 8 s to respawn (TDM 3 s)', Math.abs(a.respawnAt - m.t - 8) < 0.05, (a.respawnAt - m.t).toFixed(2));
+  for (let i = 0; i < 19 * 60; i++) { park(e); m.step(); }
+  check('a dropped flag is still out after 19 s', fB.state === 'dropped', fB.state);
   for (let i = 0; i < 2 * 60; i++) { park(e); m.step(); }
-  check('a dropped flag returns home after 15 s', fB.state === 'home' && fB.x === fB.stand[0], fB.state);
+  check('a dropped flag returns home after 20 s', fB.state === 'home' && fB.x === fB.stand[0], fB.state);
   // enemy takes our flag, drops it; a teammate touching it returns it at once
   e.x = fA.stand[0]; e.z = fA.stand[1]; m.step();
   check('the enemy takes our flag', fA.state === 'carried' && fA.carrier === e, fA.state);
