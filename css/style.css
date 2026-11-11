@@ -32,7 +32,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); f
 #ammo-count { font: 700 32px/1 var(--mono); }
 #ammo-count.low { color: var(--warn); }
 #hud-plot { right: 16px; top: 16px; padding: 4px; }
-#plot { display: block; width: 220px; height: 250px; }
+#plot { display: block; width: 220px; height: 266px; }
 #notice { position: absolute; left: 50%; top: 16px; transform: translateX(-50%); background: var(--hud-bg); color: var(--accent); padding: 4px 10px; border-radius: 4px; font-size: 12px; }
 #reload-bar { position: absolute; left: 50%; top: calc(50% + 40px); width: 120px; height: 4px; margin-left: -60px; background: rgba(255,255,255,0.15); }
 #reload-bar > i { display: block; height: 100%; width: 0; background: var(--accent); }

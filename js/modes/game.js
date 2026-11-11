@@ -467,6 +467,7 @@ export class ModeGame {
       h.in.fire = false;
     }
     if (m.t < me.stunUntil) h.in.fire = false;           // stunned (Charge Dash): no shooting
+    if (m.rules.noFire(me)) h.in.fire = false;           // Bomb prep and between rounds: the trigger does nothing (no rounds spent on shots that are not fired)
     h.speedMult = me.alive && !frozen ? m.speedOf(me) : 0;
     h.f.alive = me.alive;
     const mv = droning ? [h.in.fwd, h.in.back, h.in.left, h.in.right] : null;

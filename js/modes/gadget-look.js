@@ -71,7 +71,7 @@ export function makeGadget(g, cfg = {}) {
     u.lamp = add(new THREE.SphereGeometry(0.025, 8, 6), glow(0xffffff), 0, 0.03, -0.16); u.color = g.basic ? 0xffffff : 0xffc040;
   } else if (g.type === 'wire') {
     // a 2.4 m roll of barbed wire on the floor across the way it was laid, with two stakes
-    const wm = mat({ color: 0x9aa0a6, metalness: 0.6, roughness: 0.4 });
+    const wm = mat({ color: 0x9aa0a6 });
     for (let i = 0; i < 8; i++) { const c = add(new THREE.TorusGeometry(0.2, 0.012, 4, 14), wm, -1.05 + i * 0.3, -0.05, 0); c.rotation.y = Math.PI / 2 + (i % 2 ? 0.35 : -0.35); }
     const spine = add(new THREE.CylinderGeometry(0.01, 0.01, 2.3, 4), wm, 0, -0.05, 0); spine.rotation.z = Math.PI / 2;
     for (const x of [-1.15, 1.15]) add(new THREE.BoxGeometry(0.04, 0.5, 0.04), mat({ color: 0x4a3a28 }), x, -0.05, 0);

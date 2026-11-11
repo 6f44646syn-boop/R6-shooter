@@ -72,10 +72,12 @@ export class MagPlot {
     g.fillStyle = '#9aa3ae';
     g.font = '11px ui-monospace, Consolas, monospace';
     g.textAlign = 'left';
-    g.fillText('scale +/-' + Math.round(ext * 100) + ' cm  @' + distance + ' m', 6, plotH + 14);
+    // three rows of text under the plot; on a short canvas they move up together (never overlap)
+    const y3 = Math.min(plotH + 42, H - 4), y2 = y3 - 14, y1 = y2 - 14;
+    g.fillText('scale +/-' + Math.round(ext * 100) + ' cm  @' + distance + ' m', 6, y1);
     g.fillStyle = '#e7e9ec';
-    g.fillText(gunName, 6, plotH + 28);
+    g.fillText(gunName, 6, y2);
     g.fillText('hits ' + hits + '/' + shots + '  mean ' + (mx * 100).toFixed(0) + ',' + (my * 100).toFixed(0) +
-      ' cm  sd ' + (sr * 100).toFixed(0), 6, plotH + 42 > H - 2 ? H - 4 : plotH + 42);
+      ' cm  sd ' + (sr * 100).toFixed(0), 6, y3, W - 10);
   }
 }

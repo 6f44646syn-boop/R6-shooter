@@ -210,7 +210,8 @@ export class MatchMap {
   // Defenders: put a barricade up in an open doorway or window.
   barricade(pn) {
     if (!pn || pn.kind !== 'door' || pn.alive) return false;
-    if (!this.world.free((pn.box.minX + pn.box.maxX) / 2, (pn.box.minZ + pn.box.maxZ) / 2, 0.05, pn.y0)) return false;
+    // a doorway must be clear at floor level; a window's opening starts at its sill (the floor point under it is wall)
+    if (!pn.win && !this.world.free((pn.box.minX + pn.box.maxX) / 2, (pn.box.minZ + pn.box.maxZ) / 2, 0.05, pn.y0)) return false;
     this._setPanel(pn, true); pn.hp = this.barricadeHp;
     this.version++;
     return true;
