@@ -3,9 +3,9 @@
 // and their trees and bushes, on High and Ultra. Drawn instanced: one draw per prop and
 // material. Collision is unchanged (the boxes). Each prop is made at a typical size and fitted
 // to its box; shelves, counters, benches, barriers and planters repeat a unit along the box.
-import * as THREE from '../../vendor/three/three.module.min.js?v=189fea0-mwc1zla2';
-import { HDPack } from './hd-pack.js?v=189fea0-mwc1zla2';
-import { loadLightVolume, useLightVolume } from './pack-materials.js?v=189fea0-mwc1zla2';
+import * as THREE from '../../vendor/three/three.module.min.js?v=a37f22c-mwcnqhgi';
+import { HDPack } from './hd-pack.js?v=a37f22c-mwcnqhgi';
+import { loadLightVolume, useLightVolume } from './pack-materials.js?v=a37f22c-mwcnqhgi';
 
 // Material per role: [sRGB colour, roughness, metalness] (as tools/hd/props.mjs PROP_ROLES)
 const ROLES = {
@@ -94,6 +94,7 @@ export async function applyPackProps(group, quality, renderer, mapId, env) {
   if (!group) return 0;
   const high = (quality === 'high' || quality === 'ultra') && HDPack.ready;
   const u = group.userData;
+  const req = u.propsReq = (u.propsReq || 0) + 1;     // only the latest call applies (see below)
   // revert
   if (u.packProps) { for (const im of u.packProps) { im.removeFromParent(); im.dispose(); } u.packProps = null; }
   group.traverse((o) => { if (o.userData.propLook && o.userData.propHidden) { o.visible = true; o.userData.propHidden = false; } });
@@ -102,7 +103,7 @@ export async function applyPackProps(group, quality, renderer, mapId, env) {
   const wanted = [...Object.keys(u.propBoxes), ...(u.trees && u.trees.length ? ['tree'] : []), ...(u.bushes && u.bushes.length ? ['bush'] : [])].filter((n) => installed.has('props/' + n + '.rrmz'));
   if (!wanted.length) return 0;
   const [vol, ...loaded] = await Promise.all([loadLightVolume(mapId).catch(() => null), ...wanted.map((n) => loadModel(n).catch(() => null))]);
-  if (u.packProps || !group.parent) return 0;
+  if (u.packProps || !group.parent || u.propsReq !== req) return 0;   // the player switched graphics again while this loaded
   const made = [], m4 = new THREE.Matrix4(), col = new THREE.Color();
   wanted.forEach((name, k) => {
     const def = loaded[k];

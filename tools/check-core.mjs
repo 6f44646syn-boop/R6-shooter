@@ -186,6 +186,12 @@ for (const id of MAPS) {
   if (broke) pass('(broken) ');
   B.resetPanels(); copy();
   if (broke) pass('(reset) ');
+  // every doorway and window, broken open, can be barricaded again (windows used to fail: the
+  // clear-opening test looked at the floor under the sill)
+  const stuckShut = [];
+  for (const pn of B.panels) if (pn.kind === 'door') { if (pn.alive) B.hurtDoor(pn, 9999); if (!B.barricade(pn) || !pn.alive) stuckShut.push(pn.i + (pn.win ? 'w' : 'd')); }
+  B.resetPanels(); copy();
+  if (B.panels.some((p) => p.kind === 'door')) check(id + ': every doorway and window can be barricaded again after it is broken', !stuckShut.length, stuckShut.join(' '));
   check(id + ': identical answers' + (broke ? ', also with ' + broke + ' panels and doors broken, and after a reset' : ''), !bad.length && same, bad.join('\n       '));
   B.dispose();
 }

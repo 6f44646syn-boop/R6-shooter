@@ -1,25 +1,25 @@
-import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=189fea0-mwc1zla2';
-import { MatchFinale } from '../replay/finale.js?v=189fea0-mwc1zla2';
-import { GrenadeReplay } from '../replay/grenade.js?v=189fea0-mwc1zla2';
-import { replayCamera } from '../replay/view.js?v=189fea0-mwc1zla2';
+import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=a37f22c-mwcnqhgi';
+import { MatchFinale } from '../replay/finale.js?v=a37f22c-mwcnqhgi';
+import { GrenadeReplay } from '../replay/grenade.js?v=a37f22c-mwcnqhgi';
+import { replayCamera } from '../replay/view.js?v=a37f22c-mwcnqhgi';
 // Battle mode: you against bots (Easy / Medium / Hard), or two local players in split
 // screen (optionally with bots as a third side). First side to the kill target wins.
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=189fea0-mwc1zla2';
-import { Arena } from './arena.js?v=189fea0-mwc1zla2';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=189fea0-mwc1zla2';
-import { Bot, LEVELS } from './bot.js?v=189fea0-mwc1zla2';
-import { Human } from './human.js?v=189fea0-mwc1zla2';
-import { BattleNades } from './nades.js?v=189fea0-mwc1zla2';
-import { drawCrosshair } from '../ui/crosshair.js?v=189fea0-mwc1zla2';
-import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=189fea0-mwc1zla2';
-import { effectiveGraphics } from '../render/quality.js?v=189fea0-mwc1zla2';
-import { effectiveGun, slotIn } from '../core/loadout.js?v=189fea0-mwc1zla2';
-import { BattleRoyale } from './royale.js?v=189fea0-mwc1zla2';
-import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=189fea0-mwc1zla2';
-import { Footprints } from '../scene/footprints.js?v=189fea0-mwc1zla2';
+import * as THREE from '../../vendor/three/three.module.min.js?v=a37f22c-mwcnqhgi';
+import { Arena } from './arena.js?v=a37f22c-mwcnqhgi';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=a37f22c-mwcnqhgi';
+import { Bot, LEVELS } from './bot.js?v=a37f22c-mwcnqhgi';
+import { Human } from './human.js?v=a37f22c-mwcnqhgi';
+import { BattleNades } from './nades.js?v=a37f22c-mwcnqhgi';
+import { drawCrosshair } from '../ui/crosshair.js?v=a37f22c-mwcnqhgi';
+import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=a37f22c-mwcnqhgi';
+import { effectiveGraphics } from '../render/quality.js?v=a37f22c-mwcnqhgi';
+import { effectiveGun, slotIn } from '../core/loadout.js?v=a37f22c-mwcnqhgi';
+import { BattleRoyale } from './royale.js?v=a37f22c-mwcnqhgi';
+import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=a37f22c-mwcnqhgi';
+import { Footprints } from '../scene/footprints.js?v=a37f22c-mwcnqhgi';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, p7: 0xff7048, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -958,7 +958,7 @@ export class Battle {
     if (code === 'KeyV' && this.kc && !this.kc.grenade && !p1.f.alive) { if (down) { this.kc.pov = this.kcPov = !this.kc.pov; this._repVer++; } return true; }
     const map = { KeyW: 'fwd', KeyS: 'back', KeyA: 'left', KeyD: 'right', ShiftLeft: 'sprint', Space: 'crouch', KeyQ: 'leanL', KeyE: 'leanR', KeyC: 'vault' };
     if (!p2) map.ShiftRight = 'sprint';
-    if (map[code]) { p1.in[map[code]] = down; return true; }
+    if (map[code]) { p1.in[map[code]] = down; if (down && code === 'KeyC') p1._vaultTap = true; return true; }
     if (code === 'KeyR') { if (down) p1.reload(); return true; }
     // Caps Lock (or G): a grenade (games against bots). On a Mac Caps Lock sends only key-up every other press.
     if (code === 'CapsLock' || code === 'KeyG') {

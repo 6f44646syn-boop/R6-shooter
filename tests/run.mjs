@@ -710,6 +710,12 @@ try {
     await page.waitForTimeout(400);
     const back = await look();
     check('back to Standard: the map\'s own materials and boxes return', back.std === 0 && back.props === 0 && back.hiddenBoxes === 0, JSON.stringify(back));
+    // clicking quickly through the levels: the High / Ultra / Max loads still in flight must not
+    // put pack materials or props back once Standard is chosen
+    await page.evaluate(() => { const R = window.__range, G = R.modeGame(); for (const g of ['high', 'ultra', 'max', 'standard']) { R.setGraphics(g); G.refreshGraphics(); } });
+    await page.waitForTimeout(4000);
+    const fast = await look();
+    check('clicking quickly through High, Ultra, Max to Standard leaves no pack materials or props', fast.std === 0 && fast.props === 0 && fast.hiddenBoxes === 0, JSON.stringify(fast));
     const battle = await page.evaluate(async () => {
       const R = window.__range; R.setGraphics('high'); R.battleStart({ opponent: 'bots', bots: 1, level: 'easy', kills: 99, map: 'school' });
       let std = 0, vol = 0;
@@ -889,12 +895,13 @@ try {
       // Your shots: a frozen bot in the open lane, tapped at the chest from 10 m.
       const h = B.humans[0], bot = B.bots[0];
       for (const b of B.bots) b.update = () => {};
+      B.nadesB.reset();      // grenades the bots threw while roaming above can still land and kill you mid-test
       // (bots may have shot you while roaming above: start the feed and score clean)
       B.feed.length = 0; B._renderFeed(); h.f.kills = 0; B.teamScore.p1 = 0;
       for (const b of B.bots.slice(1)) { b.f.x = -16; b.f.z = -12; }
       h.respawn(16, 12, B.t, 0);
       h.f.protectUntil = 0; h.f.health = 100; h.f.alive = true;
-      bot.f.x = 16; bot.f.z = 2; bot.f.protectUntil = 0; bot.f.health = 100; bot.f.alive = true; bot.f.crouch = 0;
+      bot.f.x = 16; bot.f.z = 2; bot.f.y = 0; bot.f.vy = 0; bot.f.protectUntil = 0;   // (y: it may have climbed onto cover while roaming) bot.f.health = 100; bot.f.alive = true; bot.f.crouch = 0;
       let taps = 0;
       while (bot.f.alive && taps < 40) {
         h.look.setAngles(0, Math.atan2(1.18 - 1.6, 10) * 180 / Math.PI);

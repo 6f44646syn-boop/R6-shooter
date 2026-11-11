@@ -8,16 +8,16 @@
 //                       B crouch, A vault, L3 sprint, LB/RB lean.
 //   keys  (player 2, no gamepad): I J K L move, arrow keys look, Enter fire,
 //                       Right Shift aim, Backspace reload, / crouch.
-import * as THREE from '../../vendor/three/three.module.min.js?v=189fea0-mwc1zla2';
-import { Look, PITCH_LIMIT } from '../core/look.js?v=189fea0-mwc1zla2';
-import { Weapon } from '../core/weapon.js?v=189fea0-mwc1zla2';
-import { RecoilEngine } from '../core/recoil.js?v=189fea0-mwc1zla2';
-import { Spread } from '../core/spread.js?v=189fea0-mwc1zla2';
-import { focalRatio } from '../core/sensitivity.js?v=189fea0-mwc1zla2';
-import { WeaponRig } from '../scene/viewmodel.js?v=189fea0-mwc1zla2';
-import { EYE_Z, VIEW_H } from '../scene/sight-model.js?v=189fea0-mwc1zla2';
-import { reticleTextures } from '../ui/reticle-tex.js?v=189fea0-mwc1zla2';
-import { RETICLE_COLORS } from '../ui/scope.js?v=189fea0-mwc1zla2';
+import * as THREE from '../../vendor/three/three.module.min.js?v=a37f22c-mwcnqhgi';
+import { Look, PITCH_LIMIT } from '../core/look.js?v=a37f22c-mwcnqhgi';
+import { Weapon } from '../core/weapon.js?v=a37f22c-mwcnqhgi';
+import { RecoilEngine } from '../core/recoil.js?v=a37f22c-mwcnqhgi';
+import { Spread } from '../core/spread.js?v=a37f22c-mwcnqhgi';
+import { focalRatio } from '../core/sensitivity.js?v=a37f22c-mwcnqhgi';
+import { WeaponRig } from '../scene/viewmodel.js?v=a37f22c-mwcnqhgi';
+import { EYE_Z, VIEW_H } from '../scene/sight-model.js?v=a37f22c-mwcnqhgi';
+import { reticleTextures } from '../ui/reticle-tex.js?v=a37f22c-mwcnqhgi';
+import { RETICLE_COLORS } from '../ui/scope.js?v=a37f22c-mwcnqhgi';
 
 const DEG = Math.PI / 180;
 const WALK = 3.4, SPRINT = 5.6, CROUCH_WALK = 1.6, ADS_WALK = 2.2;
@@ -234,7 +234,9 @@ export class Human {
     }
     const arena = battle.arena;
     // Vault / climb (C): over low cover, or up onto a ledge up to 1.5 m.
-    if (this.in.vault && !this._vaultWas && f.alive && !this.vault && dt > 0) {
+    // a tap shorter than a frame (slow PCs) still counts: the key handlers set _vaultTap on key-down
+    const vaultIn = this.in.vault || this._vaultTap; this._vaultTap = false;
+    if (vaultIn && !this._vaultWas && f.alive && !this.vault && dt > 0) {
       const y = this.look.yaw * DEG, dx = Math.sin(y), dz = -Math.cos(y);
       const to = arena.vaultTarget(f.x, f.y, f.z, dx, dz);
       if (to) {
@@ -243,7 +245,7 @@ export class Human {
         if (this.deps.sfx.vault) this.deps.sfx.vault();
       }
     }
-    this._vaultWas = this.in.vault;
+    this._vaultWas = vaultIn;
     if (this.vault && f.alive) {
       const v = this.vault;
       v.t += dt;

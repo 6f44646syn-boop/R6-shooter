@@ -4,9 +4,9 @@
 // metalness map, keeping each mesh's tiling and vertex colours. Low and Standard are untouched.
 // Only the materials the current map uses are loaded. Texture sizes: Ultra as baked (2048 for the
 // big surfaces), High half that, so integrated graphics keep their memory.
-import * as THREE from '../../vendor/three/three.module.min.js?v=189fea0-mwc1zla2';
-import { HDPack } from './hd-pack.js?v=189fea0-mwc1zla2';
-import { maxMode } from './quality.js?v=189fea0-mwc1zla2';
+import * as THREE from '../../vendor/three/three.module.min.js?v=a37f22c-mwcnqhgi';
+import { HDPack } from './hd-pack.js?v=a37f22c-mwcnqhgi';
+import { maxMode } from './quality.js?v=a37f22c-mwcnqhgi';
 
 export const packMats = { revision: 0, lightActive: false };
 const sets = new Map();          // name|quality -> Promise<{ map, normal, orm }>
@@ -131,6 +131,10 @@ export async function applyPackMaterials(roots, quality, renderer, opt = {}) {
   if (quality === 'ultra' && maxMode.on) quality = 'max';
   const list = [].concat(roots).filter(Boolean);
   const high = quality === 'high' || quality === 'ultra' || quality === 'max';
+  // only the latest call for these roots applies: an older one still loading (the player switched
+  // graphics again) must not swap pack materials in after it
+  const key = list[0], req = key ? (key.userData.packMatReq = (key.userData.packMatReq || 0) + 1) : 0;
+  const stale = () => !!key && key.userData.packMatReq !== req;
   const names = high ? packMaterialNames() : new Set();
   const meshes = [];
   for (const root of list) root.traverse((o) => { if (o.isMesh && !o.userData.ownMaterial) meshes.push(o); });
@@ -139,6 +143,7 @@ export async function applyPackMaterials(roots, quality, renderer, opt = {}) {
   packMats.lightActive = false;
   if (!names.size) return 0;
   const vol = opt.light ? await loadLightVolume(opt.light).catch(() => null) : null;
+  if (stale()) return 0;
   const wanted = new Map();
   for (const o of meshes) {
     if (o.userData.packLo) continue;
@@ -147,6 +152,7 @@ export async function applyPackMaterials(roots, quality, renderer, opt = {}) {
   }
   const loaded = new Map();
   await Promise.all([...wanted.keys()].map(async (n) => { try { loaded.set(n, await loadSet(n, quality)); } catch (e) { console.warn('pack material ' + n, e); } }));
+  if (stale()) return 0;
   const env = envMap(renderer);
   const aniso = Math.min(quality === 'max' ? 16 : quality === 'ultra' ? 8 : 4, renderer.capabilities.getMaxAnisotropy());
   let n = 0;
