@@ -6,6 +6,7 @@ const server=await startServer(8155), browser=await chromium.launch({executableP
 let count=0;const check=(n,c)=>{assert.ok(c,n);console.log('PASS '+n);count++;};
 try{
  const page=await browser.newPage();const errors=[],requests=[];page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>requests.push(r.url()));
+ page.setDefaultTimeout(240000);   // (pack v6 is ~100 MB: install and reload take minutes in a headless test box)
  await page.goto('http://127.0.0.1:8155/index.html?test');await page.waitForFunction(()=>window.__range?.ready);await page.locator('[data-first-profile=mouse]').click();
  const state=()=>page.evaluate(()=>window.__range.audioPackState());
  check('no addon requests at startup',!requests.some(u=>/\/hd\//.test(u)));

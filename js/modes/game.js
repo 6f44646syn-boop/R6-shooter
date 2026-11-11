@@ -1,33 +1,33 @@
-import { applyMapArt } from '../render/pack-art.js?v=6ac6c85-mwblm6td';
-import { applyPackMaterials, packMats, envMap } from '../render/pack-materials.js?v=6ac6c85-mwblm6td';
-import { applyPackProps } from '../render/pack-props.js?v=6ac6c85-mwblm6td';
-import { sensoryFor } from '../balance/bomb-utility.js?v=6ac6c85-mwblm6td';
+import { applyMapArt } from '../render/pack-art.js?v=0d862c8-mwbx01zn';
+import { applyPackMaterials, packMats, envMap } from '../render/pack-materials.js?v=0d862c8-mwbx01zn';
+import { applyPackProps } from '../render/pack-props.js?v=0d862c8-mwbx01zn';
+import { sensoryFor } from '../balance/bomb-utility.js?v=0d862c8-mwbx01zn';
 // Team Deathmatch, Capture the Flag and Bomb in the browser: draws the match simulation
 // (sim.js) and runs your player with the range's own systems (look, sensitivity, recoil,
 // spread, sights, weapon model: battle/human.js), at a fixed 60 Hz simulation.
 //
 // Map: flat-shaded low poly from the map file; static walls merged into one mesh, breakable
 // panels in one instanced mesh, one directional light (a 1024 shadow map in High / Ultra).
-import * as THREE from '../../vendor/three/three.module.min.js?v=6ac6c85-mwblm6td';
-import { BulletHoles, crackTexture } from '../scene/holes.js?v=6ac6c85-mwblm6td';
-import { skyPalette } from '../render/sky.js';
-import { dressMap } from './dressing.js';
-import { LightPool } from '../render/light-pool.js';
-import { Footprints } from '../scene/footprints.js';
-import { MatchMap } from './map.js?v=6ac6c85-mwblm6td';
-import { initCore } from '../wasm/core.js?v=6ac6c85-mwblm6td';
-import { Match, TICK } from './sim.js?v=6ac6c85-mwblm6td';
-import { yawTo, wrap180, DEG } from './geom.js?v=6ac6c85-mwblm6td';
-import { Fighter } from '../battle/fighter.js?v=6ac6c85-mwblm6td';
-import { slotIn } from '../core/loadout.js?v=6ac6c85-mwblm6td';
-import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=6ac6c85-mwblm6td';
-import { buildMapLook, panelTextures } from './look.js?v=6ac6c85-mwblm6td';
-import { Arena } from '../battle/arena.js?v=6ac6c85-mwblm6td';
-import { Human } from '../battle/human.js?v=6ac6c85-mwblm6td';
-import { drawCrosshair } from '../ui/crosshair.js?v=6ac6c85-mwblm6td';
-import { effectiveGraphics, maxMode } from '../render/quality.js?v=6ac6c85-mwblm6td';
-import { MatchHost, MatchClient } from './net-match.js?v=6ac6c85-mwblm6td';
-import { Brain } from './bots.js?v=6ac6c85-mwblm6td';
+import * as THREE from '../../vendor/three/three.module.min.js?v=0d862c8-mwbx01zn';
+import { BulletHoles, crackTexture } from '../scene/holes.js?v=0d862c8-mwbx01zn';
+import { skyPalette } from '../render/sky.js?v=0d862c8-mwbx01zn';
+import { dressMap } from './dressing.js?v=0d862c8-mwbx01zn';
+import { LightPool } from '../render/light-pool.js?v=0d862c8-mwbx01zn';
+import { Footprints } from '../scene/footprints.js?v=0d862c8-mwbx01zn';
+import { MatchMap } from './map.js?v=0d862c8-mwbx01zn';
+import { initCore } from '../wasm/core.js?v=0d862c8-mwbx01zn';
+import { Match, TICK } from './sim.js?v=0d862c8-mwbx01zn';
+import { yawTo, wrap180, DEG } from './geom.js?v=0d862c8-mwbx01zn';
+import { Fighter } from '../battle/fighter.js?v=0d862c8-mwbx01zn';
+import { slotIn } from '../core/loadout.js?v=0d862c8-mwbx01zn';
+import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=0d862c8-mwbx01zn';
+import { buildMapLook, panelTextures } from './look.js?v=0d862c8-mwbx01zn';
+import { Arena } from '../battle/arena.js?v=0d862c8-mwbx01zn';
+import { Human } from '../battle/human.js?v=0d862c8-mwbx01zn';
+import { drawCrosshair } from '../ui/crosshair.js?v=0d862c8-mwbx01zn';
+import { effectiveGraphics, maxMode } from '../render/quality.js?v=0d862c8-mwbx01zn';
+import { MatchHost, MatchClient } from './net-match.js?v=0d862c8-mwbx01zn';
+import { Brain } from './bots.js?v=0d862c8-mwbx01zn';
 
 const reducedMotion = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 const TEAM_COLOR = { A: 0x5b8cff, B: 0xff7048 };

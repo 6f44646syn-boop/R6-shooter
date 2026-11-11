@@ -3,7 +3,7 @@
 // collision, stairs, falling, vaulting, raycasts and pathfinding are the same code everywhere.
 //
 // Heights: y is the height of the feet. Paths are lists of [x, z, y].
-import { core } from './core.js?v=6ac6c85-mwblm6td';
+import { core } from './core.js?v=0d862c8-mwbx01zn';
 
 export const BODY_R = 0.32;      // a body's collision radius
 export const STEP = 0.45;        // highest ledge you walk up without vaulting

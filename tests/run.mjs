@@ -1802,7 +1802,7 @@ try {
     const lag = via === 'relay' ? 25 : 5;
     if (connected) {
       await A.evaluate(() => { const R = window.__range; R.manual(true); R.battleStart({ opponent: 'net', bots: 1, level: 'easy', kills: 10 }); });
-      await B.waitForFunction(() => window.__range.battle() && window.__range.battle().active, null, { timeout: 5000 });
+      await B.waitForFunction(() => window.__range.battle() && window.__range.battle().active, null, { timeout: 20000 });   // (two software-rendered browsers building the arena)
       await B.evaluate(() => window.__range.manual(true));
       const run = async (sec) => { for (let i = 0; i < sec * 20; i++) { await A.evaluate(() => window.__range.step(0.05, 60)); await B.evaluate(() => window.__range.step(0.05, 60)); await new Promise((r) => setTimeout(r, lag)); } };
       await run(1);
