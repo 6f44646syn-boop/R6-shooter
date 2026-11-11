@@ -76,6 +76,33 @@ node tools/serve.mjs
 
 Then open http://localhost:8080/. (Any static server works, e.g. `python -m http.server 8080`.)
 
+## Battle Royale side project
+
+Keep this mode on `feature/battle-royale`, separate from `main` and the live release.
+In the local game, choose **Battle Royale** and deploy directly to **Blacktide Island**,
+a 160 × 128 m map exclusive to the mode. One human and 20 bots compete individually.
+Each fighter has one life, and the safe zone shrinks until one remains.
+
+Deployment skips weapon selection. Every fighter starts without a gun or grenades and
+gets them from the island's 33 chests. The player's starting pickaxe harvests wall
+materials, damages nearby opponents, and breaks built cover. Default controls:
+
+| Input | Action |
+|---|---|
+| F | Open a nearby chest |
+| Left mouse while unarmed, or K at any time | Swing the pickaxe |
+| B | Build a destructible wall |
+| Middle mouse while aiming at your wall | Open the 3×3 editor or confirm an edit |
+| Left mouse in the editor | Select or drag across panels |
+| V / right mouse in the editor | Reset the grid / cancel the edit |
+
+One chest has a chance to hold the Pirate Token in 1 in 1,000 matches. Collecting it
+unlocks all nine Black Ice skins on the local profile and in its save code. A completed
+match shows the final recorded kill, winner lineup, and placement leaderboard.
+
+Run `npm run test:royale` with Playwright installed to check deployment, chest-only
+loadouts, pickaxe hits and harvesting, wall editing, the token unlock, and a full bot match.
+
 ## Deploy to GitHub Pages
 
 The repository root is the site: `index.html` is at the top and every URL is relative, so it
