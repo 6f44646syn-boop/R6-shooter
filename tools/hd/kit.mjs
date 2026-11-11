@@ -10,7 +10,8 @@ import * as THREE from '../../vendor/three/three.module.min.js';
 export const Q = { curve: 10, bevelSeg: 3, round: 20 };
 export function setDetail(lod) {
   if (lod === 0) Object.assign(Q, { curve: 10, bevelSeg: 3, round: 22 });
-  else Object.assign(Q, { curve: 4, bevelSeg: 1, round: 10 });
+  else if (lod === 1) Object.assign(Q, { curve: 4, bevelSeg: 1, round: 10 });
+  else Object.assign(Q, { curve: 2, bevelSeg: 1, round: 6 });       // far (pack v5: the distant soldier)
 }
 
 // Material roles (what the runtime gives each part):

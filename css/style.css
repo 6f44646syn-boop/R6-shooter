@@ -447,3 +447,53 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 .attach-fx span { font: 12px/1.5 var(--mono); white-space: nowrap; padding: 2px 6px; border-radius: 3px; border: 1px solid var(--panel-edge); }
 .attach-fx .good { color: #8fe3a0; border-color: #2f5a3a; }
 .attach-fx .bad { color: var(--warn); border-color: #5a3a2f; }
+
+/* ---------- match HUD (TDM / CTF / Bomb) ---------- */
+.sr-only { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.mg-hud { --ally: #3a8dff; --ally-d: #1d4f9c; --enemy: #ef4436; --enemy-d: #8c1f18; --hud-bg: rgba(12, 15, 20, 0.78); font-variant-numeric: tabular-nums; }
+.mg-hud .b-top { top: 8px; }
+.mg-strip { display: flex; align-items: stretch; gap: 3px; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45)); }
+.mg-ops { display: flex; gap: 3px; align-items: center; padding: 3px; background: var(--hud-bg); }
+.mg-ops.ally { clip-path: polygon(8px 0, 100% 0, 100% 100%, 0 100%, 0 8px); border-bottom: 2px solid var(--ally); }
+.mg-ops.enemy { clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%); border-bottom: 2px solid var(--enemy); }
+.mg-op { position: relative; display: grid; place-items: center; width: 30px; height: 30px; font-size: 12px; font-weight: 800; letter-spacing: 0.02em; color: #fff; }
+.mg-ops.ally .mg-op { background: linear-gradient(160deg, var(--ally), var(--ally-d)); }
+.mg-ops.enemy .mg-op { background: linear-gradient(160deg, var(--enemy), var(--enemy-d)); }
+.mg-op.me { box-shadow: inset 0 -3px 0 #fff; }
+.mg-op.down { background: #2a2e34 !important; color: #6c737c; }
+.mg-op.down::after { content: ''; position: absolute; inset: 6px; background: linear-gradient(45deg, transparent 45%, #9aa3ae 45% 55%, transparent 55%), linear-gradient(-45deg, transparent 45%, #9aa3ae 45% 55%, transparent 55%); opacity: 0.8; }
+.mg-pts { display: grid; place-items: center; min-width: 40px; padding: 0 8px; font-size: 26px; font-weight: 800; color: #fff; }
+.mg-pts.ally { background: linear-gradient(180deg, var(--ally), var(--ally-d)); }
+.mg-pts.enemy { background: linear-gradient(180deg, var(--enemy), var(--enemy-d)); }
+.mg-clock { display: grid; justify-items: center; align-content: center; min-width: 92px; padding: 2px 10px; background: var(--hud-bg); }
+.mg-clock b { font-size: 22px; line-height: 1.05; color: #fff; }
+.mg-clock b.urgent { color: #ff5a4a; animation: mg-pulse 1s steps(2) infinite; }
+.mg-clock span { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #aeb7c2; white-space: nowrap; }
+@keyframes mg-pulse { 50% { opacity: 0.55; } }
+.mg-hud .mg-compass { top: 54px; }
+.mg-hud .b-feed { top: 60px; }
+/* health: the number over a bar, bottom left */
+.mg-hud .mg-hpnum { left: 22px; bottom: 34px; font-size: 44px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7); }
+.mg-hud .mg-hpnum::after { content: ' HP'; font-size: 13px; font-weight: 700; color: #b8c0ca; letter-spacing: 0.06em; }
+.mg-hud .mg-hpbar { left: 22px; bottom: 20px; width: 190px; height: 8px; border-radius: 0; background: rgba(0, 0, 0, 0.55); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12); clip-path: polygon(0 0, 100% 0, calc(100% - 6px) 100%, 0 100%); }
+.mg-hud .mg-hpbar i { background: linear-gradient(90deg, #e8edf2, #ffffff); } .mg-hud .mg-hpbar i.mid { background: #ffd34a; } .mg-hud .mg-hpbar i.low { background: #ff5040; }
+/* ammo and weapon, bottom right */
+.mg-gun { position: absolute; right: 22px; bottom: 16px; display: grid; justify-items: end; gap: 2px; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7); }
+.mg-gunname { padding: 2px 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #dfe5ec; background: var(--hud-bg); border-right: 3px solid var(--ally); }
+.mg-mag b { font-size: 44px; font-weight: 800; line-height: 1; }
+.mg-magof { font-size: 18px; font-weight: 700; color: #aeb7c2; }
+.mg-gun.low .mg-mag b { color: #ff6a5a; }
+.mg-gun.text .mg-mag b { font-size: 22px; }
+.mg-hud .mg-nades { right: 22px; bottom: 86px; }
+/* gadget: a ring that fills as it recharges, bottom centre */
+.mg-hud .mg-ability { left: 50%; right: auto; bottom: 18px; transform: translateX(-50%); max-width: min(560px, calc(100vw - 460px)); padding: 6px 12px 6px 46px; border: 0; border-radius: 0; background: var(--hud-bg); clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 10px 100%, 0 50%); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mg-hud .mg-ability::before { content: ''; position: absolute; left: 14px; top: 50%; width: 22px; height: 22px; margin-top: -11px; border-radius: 50%; background: conic-gradient(#9fd0ff calc((1 - var(--cd, 0)) * 360deg), rgba(159, 208, 255, 0.18) 0); -webkit-mask: radial-gradient(circle, transparent 6px, #000 7px); mask: radial-gradient(circle, transparent 6px, #000 7px); }
+/* teammates' names over their heads */
+.mg-tags { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.mg-tag { position: absolute; left: 0; top: 0; padding: 1px 6px; font-size: 12px; font-weight: 700; color: #fff; background: rgba(29, 79, 156, 0.75); border-left: 3px solid var(--ally); white-space: nowrap; will-change: transform; }
+@media (max-width: 700px) {
+  .mg-op { width: 22px; height: 22px; font-size: 10px; }
+  .mg-pts { font-size: 20px; min-width: 30px; }
+  .mg-hud .mg-hpnum, .mg-mag b { font-size: 32px; }
+  .mg-hud .mg-ability { max-width: calc(100vw - 32px); bottom: 70px; }
+}

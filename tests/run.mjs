@@ -619,6 +619,79 @@ try {
     await page.close();
   }
 
+  /* ---------- 2e. Enhanced Graphics pack v5 (materials, baked light, props, skins, far soldier) ---------- */
+  console.log('\nEnhanced Graphics pack v5: map materials, baked light, props, redrawn skins, far soldiers');
+  {
+    const { page, errors } = await openPage('index.html?test');
+    const look = async () => page.evaluate(() => {
+      const G = window.__range.modeGame(), out = { std: 0, lam: 0, props: 0, hiddenBoxes: 0, vol: 0 };
+      G.lookGroup.traverse((o) => {
+        if (!o.isMesh) return;
+        if (o.isInstancedMesh && o.userData.ownMaterial && o.parent === G.lookGroup && o.material.vertexColors && o.count) out.props++;
+        if (o.userData.propHidden) out.hiddenBoxes++;
+        if (o.userData.packLo) { out.std++; if (o.material.userData.vol) out.vol++; }
+        else if (o.material && o.material.isMeshLambertMaterial) out.lam++;
+      });
+      return out;
+    });
+    const r0 = await page.evaluate(async () => {
+      const R = window.__range; R.manual(true); R.setGraphics('standard');
+      await R.modeStart('bomb', { map: { tdm: 'containers', ctf: 'yard', bomb: 'ranch' }, seed: 3, side: 'defend', op: { tdm: 'glitch', ctf: 'dash', bomb: 'smoke' }, abilities: { tdm: false, ctf: false, bomb: true } });
+      R.step(0.3, 60); return true;
+    });
+    const std = await look();
+    check('Standard: the map keeps its own look (no pack materials, no props)', r0 && std.std === 0 && std.props === 0 && std.lam > 5, JSON.stringify(std));
+    // building exteriors, the boundary fence, the sky, and the match HUD
+    const fx = await page.evaluate(() => {
+      const R = window.__range, G = R.modeGame(), out = { ext: 0, extTris: 0, fenceTop: 0, flashing: 0, sky: 0 };
+      G.lookGroup.traverse((o) => {
+        if (!o.isMesh || !o.material || !o.material.map) return;
+        const k = o.material.map.userData.surface;
+        if (k === 'siding') { out.ext++; out.extTris += o.geometry.attributes.position.count / 3; }
+        if (k === 'flashing') out.flashing++;
+        if (k === 'fence') { o.geometry.computeBoundingBox(); out.fenceTop = Math.max(out.fenceTop, o.geometry.boundingBox.max.y); }
+        if (o.onBeforeRender && o.material.isMeshBasicMaterial && o.material.side === 1) out.sky++;
+      });
+      const H = G.hud; R.step(0.05, 60);
+      out.ally = H.allyOps.children.length; out.enemy = H.enemyOps.children.length; out.clock = H.clockT.textContent; out.sub = H.clockSub.textContent;
+      out.mag = H.magN.textContent + H.magOf.textContent; out.hp = H.hpText.textContent; out.gun = H.gunName.textContent;
+      return out;
+    });
+    check('Ranch: the building\'s outer walls are clapboard, roof edges have flashing, the boundary is a 2.4 m fence', fx.ext > 0 && fx.extTris > 100 && fx.flashing > 0 && fx.fenceTop > 2 && fx.fenceTop <= 2.41 && fx.sky === 1, JSON.stringify(fx));
+    check('match HUD: both teams\' operators, the clock and round, health, magazine and weapon', fx.ally === 5 && fx.enemy === 5 && /^\d+:\d\d$/.test(fx.clock) && /Round 1/.test(fx.sub) && /^\d+ \/ \d+$/.test(fx.mag) && fx.hp === '100' && fx.gun.length > 2, JSON.stringify(fx));
+    const inst = await page.evaluate(() => window.__range.hdInstall());
+    await page.evaluate(() => { window.__range.setGraphics('high'); window.__range.modeGame().refreshGraphics(); });   // (as the Graphics screen does)
+    await page.waitForTimeout(500);
+    let hi = await look();
+    for (let i = 0; i < 40 && (hi.props === 0 || hi.std === 0); i++) { await page.waitForTimeout(250); hi = await look(); }
+    const post = await page.evaluate(() => { const R = window.__range; R.step(0.05, 60); R.renderFrame(); const w = R.worldPost(); return { ao: !!(w.o && w.o.ao) }; });
+    check('High with the pack: physically based map materials with the baked light', inst.ok && hi.std > 10 && hi.vol === hi.std, JSON.stringify(hi));
+    check('High: detailed props replace the furniture, car and crate boxes', hi.props > 10 && hi.hiddenBoxes > 3, JSON.stringify(hi));
+    check('High with baked light: no screen-space ambient occlusion pass (cheaper)', post.ao === false, JSON.stringify(post));
+    const sk = await page.evaluate(async () => { const { skinSheets } = await import('/js/render/skins2.js?v=' + (document.querySelector('script[type=module]').src.split('v=')[1])); return { ready: skinSheets.ready, rev: skinSheets.rev }; });
+    check('the redrawn skins\' detail sheets are loaded', sk.ready && sk.rev > 0, JSON.stringify(sk));
+    const lod = await page.evaluate(() => {
+      const G = window.__range.modeGame(), me = G.me;
+      const far = G.m.actors.find((a) => a !== me && Math.hypot(a.x - me.x, a.z - me.z) > 20);
+      const f = far && G.fig.get(far.id); window.__range.step(0.05, 60);
+      return f ? { far: f._far, near: f._geo && f.body.geometry === f._geo.upper, hasFar: !!(f._geo && f._geo.far) } : null;
+    });
+    check('distant soldiers use the lighter model', lod && lod.hasFar && lod.far === true, JSON.stringify(lod));
+    await page.evaluate(() => { window.__range.setGraphics('standard'); window.__range.modeGame().refreshGraphics(); });
+    await page.waitForTimeout(400);
+    const back = await look();
+    check('back to Standard: the map\'s own materials and boxes return', back.std === 0 && back.props === 0 && back.hiddenBoxes === 0, JSON.stringify(back));
+    const battle = await page.evaluate(async () => {
+      const R = window.__range; R.setGraphics('high'); R.battleStart({ opponent: 'bots', bots: 1, level: 'easy', kills: 99, map: 'school' });
+      let std = 0, vol = 0;
+      for (let i = 0; i < 40 && !std; i++) { await new Promise((r) => setTimeout(r, 250)); std = 0; vol = 0; R.battle().arena.scene.traverse((o) => { if (o.isMesh && o.userData.packLo) { std++; if (o.material.userData.vol) vol++; } }); }
+      R.battleLeave(); R.setGraphics('standard'); return { std, vol };
+    });
+    check('Battle maps get the pack materials and their baked light too', battle.std > 5 && battle.vol === battle.std, JSON.stringify(battle));
+    check('no page errors', errors.length === 0, errors.join('\n'));
+    await page.close();
+  }
+
   /* ---------- 3. frame-time check ---------- */
   console.log('\nFrame time at 1920x1080 (headless, software GPU: treat fps as a lower bound)');
   {

@@ -3,16 +3,16 @@
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
-import { Arena } from './arena.js?v=9dd0f7b-mwbioun8';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=9dd0f7b-mwbioun8';
-import { Bot, LEVELS } from './bot.js?v=9dd0f7b-mwbioun8';
-import { Human } from './human.js?v=9dd0f7b-mwbioun8';
-import { BattleNades } from './nades.js?v=9dd0f7b-mwbioun8';
-import { drawCrosshair } from '../ui/crosshair.js?v=9dd0f7b-mwbioun8';
-import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=9dd0f7b-mwbioun8';
-import { effectiveGraphics } from '../render/quality.js?v=9dd0f7b-mwbioun8';
-import { effectiveGun, slotIn } from '../core/loadout.js?v=9dd0f7b-mwbioun8';
+import * as THREE from '../../vendor/three/three.module.min.js?v=6ac6c85-mwblm6td';
+import { Arena } from './arena.js?v=6ac6c85-mwblm6td';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=6ac6c85-mwblm6td';
+import { Bot, LEVELS } from './bot.js?v=6ac6c85-mwblm6td';
+import { Human } from './human.js?v=6ac6c85-mwblm6td';
+import { BattleNades } from './nades.js?v=6ac6c85-mwblm6td';
+import { drawCrosshair } from '../ui/crosshair.js?v=6ac6c85-mwblm6td';
+import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=6ac6c85-mwblm6td';
+import { effectiveGraphics } from '../render/quality.js?v=6ac6c85-mwblm6td';
+import { effectiveGun, slotIn } from '../core/loadout.js?v=6ac6c85-mwblm6td';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -290,7 +290,7 @@ export class Battle {
     }
     for (const h of this.humans) h.update(t, dt, this);
     this._separate();
-    for (const f of this.fighters) f.updateVisual(t);
+    for (const f of this.fighters) { f.updateVisual(t); if (f.lodFor && this.humans[0]) { const cp = this.humans[0].camera.position; f.lodFor(Math.hypot(f.x - cp.x, f.z - cp.z)); } }
     this.nadesB.update(this.over ? 0 : dt, t);
     this._updateBlasts(t);
     this._killCam(t);
@@ -673,7 +673,7 @@ export class Battle {
       const f = me.f;
       this.net.link.send({ k: 'st', x: r2(f.x), z: r2(f.z), y: r2(f.y), yaw: r1(f.yaw + f.viewDY), pitch: r1(f.pitch + f.viewDP), crouch: r2(f.crouch), fl: f.light ? 1 : 0, a: r2(f.ads) }, true);
     }
-    for (const f of this.fighters) f.updateVisual(t);
+    for (const f of this.fighters) { f.updateVisual(t); if (f.lodFor && this.humans[0]) { const cp = this.humans[0].camera.position; f.lodFor(Math.hypot(f.x - cp.x, f.z - cp.z)); } }
     this._killCam(t);
     const ears = this.humans[0];
     if (ears) { this.deps.sfx.listen(ears.camera); if (!this.kc && !this.over) this.deps.sfx.observeSteps(this.fighters, ears.camera, this.arena, t, null, ears.f.id); }

@@ -104,6 +104,94 @@ export const MATERIALS = {
     if (top < .09) { s.c = hex(232, 228, 218); s.h = .01 * groove(.09 - top, .01) + .004 * sin(top * 140.); s.r = .5; }
     s.c *= 1. - grime(uv, .05) * sstep(.6, .0, p.y);         // scuffs near the floor
     s.ao = 1. - .18 * sstep(.3, .0, p.y);` },
+  /* ---------- building exteriors (the outer faces of the Bomb buildings) ---------- */
+  brick: { tile: [2.4, 3.2], size: [1536, 2048], big: true, glsl: `
+    // red brick about 21 x 6.5 cm (+1 cm mortar), stretcher bond; a concrete plinth at the floor,
+    // a soldier course under the eaves; burnt and pale bricks, chipped arrises, soot and
+    // efflorescence (white salt bloom) rising from the plinth, dark rain streaks from the top
+    float y = p.y, plinth = .32, top = uTile.y - .2;
+    vec2 n = vec2(11., 43.), bs = uTile / n;                 // whole bricks per tile (seamless)
+    vec4 b = cells(uv, n, .5);
+    float ex = min(b.x, 1. - b.x) * bs.x, ey = min(b.y, 1. - b.y) * bs.y;
+    float chip = fbm(uv, n * vec2(.5, 1.), 3) * .004;
+    float e = min(ex, ey) - .005 - chip, j = groove(e, .0035);
+    float tone = b.w, burn = step(.86, hash12(vec2(b.w * 91., b.z)));
+    float fine = fbm(uv, n * 2., 5), sand = sstep(.55, .2, vor(uv, uTile * 120.).x);
+    vec3 brk = mix(hex(146, 62, 44), hex(176, 88, 60), tone) * (.84 + .28 * fine);
+    brk = mix(brk, hex(92, 44, 36), burn * .7);
+    brk = mix(brk, hex(196, 132, 104), step(.93, fract(b.w * 13.7)) * .6);
+    vec3 mort = hex(178, 170, 156) * (.82 + .2 * fbm(uv + 4., uTile * 20., 4));
+    s.c = mix(mort, brk * (1. - sand * .08), j);
+    s.h = j * (.006 + fine * .0015) - (1. - j) * .002 + sand * .0002;
+    s.r = mix(.95, .82, j); s.ao = mix(.55, 1., j) * (1. - (1. - j) * .1);
+    // soldier course: bricks on end along the top
+    if (y > top) { float u2 = fract(uv.x * uTile.x / .075), v2 = (y - top) / .2;
+      float jj = groove(min(min(u2, 1. - u2) * .075, min(v2, 1. - v2) * .2) - .005, .0035);
+      float id = hash12(vec2(floor(uv.x * uTile.x / .075), 9.));
+      s.c = mix(mort, mix(hex(140, 58, 42), hex(170, 84, 58), id) * (.85 + .25 * fine), jj); s.h = jj * .009; s.ao = mix(.5, 1., jj); }
+    // concrete plinth
+    if (y < plinth) { float pn = fbm(uv, uTile * 3., 7);
+      s.c = hex(150, 146, 138) * (.82 + .26 * pn) * (1. - sstep(.6, .9, fbm(uv + 8., uTile * 6., 4)) * .15);
+      s.h = .014 + pn * .0015; s.r = .9; s.ao = 1.;
+      if (y > plinth - .025) { s.h = .014 - (y - (plinth - .025)) * .5; s.ao = .8; } }
+    // weathering
+    float salt = sstep(.6, .85, fbm(uv + 2.3, uTile * vec2(2., 1.), 6)) * step(plinth, y);
+    s.c = mix(s.c, hex(214, 210, 200), salt * .22 * sstep(.9, .35, y));
+    float streak = sstep(.45, .9, fbm(vec2(uv.x * 7., uv.y * .35), vec2(17, 1), 5)) * sstep(top - 1.6, top, y);
+    s.c *= 1. - streak * .28; s.r -= streak * .1;
+    s.c *= 1. - sstep(.3, .0, y) * .15;` },
+  siding: { tile: [2.4, 3.2], size: [1536, 2048], big: true, glsl: `
+    // painted timber clapboard 15 cm reveal, each board's lower edge stands proud; corner of
+    // a pale trim at the eaves, a stone plinth; the paint is chalky and peels in places
+    float y = p.y, plinth = .3, top = uTile.y - .16;
+    float rv = .15, k = fract((y - plinth) / rv), row = floor((y - plinth) / rv);
+    float lap = (1. - k) * .016 + sstep(.06, .0, k) * -.004;          // the board tapers upwards
+    float shadow = sstep(.0, .08, k);
+    float gr = fbm(vec2(uv.x * 2., (y - plinth) / rv / uTile.y * 22.), vec2(8, 22), 6);
+    float id = hash12(vec2(row, 3.)), butt = step(.97, fract(uv.x * 3. + id * 7.));
+    vec3 paint = hex(196, 204, 196) * (.9 + .08 * id);
+    float peel = sstep(.8, .83, fbm(uv + 6., vec2(3, 4), 6)) * sstep(.5, 1.2, y) * sstep(top, top - .4, y);
+    vec3 wood = mix(hex(120, 100, 76), hex(150, 128, 98), gr);
+    s.c = mix(paint * (.9 + .12 * gr), wood, peel) * mix(.62, 1., shadow) * (1. - butt * .35);
+    s.h = lap + gr * .0006 - peel * .0004 - butt * .002; s.r = mix(.72, .9, peel); s.ao = mix(.55, 1., shadow);
+    if (y > top) { s.c = hex(236, 234, 226) * (.92 + .08 * gr); s.h = .022; s.r = .6; s.ao = 1. - sstep(top + .02, top, y) * .3; }
+    if (y < plinth) { vec4 st = cells(uv, vec2(uTile.x / .4, 2.), .5); float j = groove(min(min(st.x, 1. - st.x) * .4, min(st.y, 1. - st.y) * .15) - .006, .006);
+      float pn = fbm(uv, uTile * 6., 6);
+      s.c = mix(hex(110, 104, 96), hex(150, 142, 128) * (.8 + .3 * st.w) * (.85 + .25 * pn), j); s.h = j * (.02 + pn * .003); s.r = .9; s.ao = mix(.5, 1., j); }
+    s.c *= 1. - grime(uv, .12) * sstep(1., .0, y);` },
+  ashlar: { tile: [2.4, 3.2], size: [1536, 2048], big: true, glsl: `
+    // dressed limestone blocks 60 x 40 cm with fine V-joints, a rusticated base course and a
+    // moulded cornice; tooled faces, fossil flecks, green-grey weathering low down
+    float y = p.y, base = .8, top = uTile.y - .3;
+    vec4 b = cells(uv, vec2(uTile.x / .6, uTile.y / .4), .5);
+    float e = min(min(b.x, 1. - b.x) * .6, min(b.y, 1. - b.y) * .4);
+    float j = groove(e - .002, .008);
+    float n = fbm(uv, uTile * 4., 8), tool = fbm(vec2(uv.x * 40., uv.y * 2.), vec2(96, 6), 3);
+    float fleck = sstep(.08, .03, vor(uv, uTile * 70.).x);
+    vec3 st = mix(hex(214, 206, 188), hex(196, 186, 166), b.w) * (.9 + .14 * n) * (1. - fleck * .12);
+    s.c = st * mix(.7, 1., j); s.h = j * .008 + n * .0012 + tool * .0003 - fleck * .0005; s.r = .82; s.ao = mix(.55, 1., j);
+    if (y < base) { vec4 r = cells(uv, vec2(uTile.x / 1.2, 2.), .5); float er = min(min(r.x, 1. - r.x) * 1.2, min(r.y, 1. - r.y) * .4);
+      float rus = sstep(.0, .05, er); float rough = fbm(uv + 3., uTile * 10., 6);
+      s.c = mix(hex(120, 116, 106), hex(170, 162, 146) * (.8 + .3 * r.w) * (.8 + .3 * rough), rus); s.h = rus * (.03 + rough * .01); s.r = .92; s.ao = mix(.4, 1., rus); }
+    if (y > top) { float t = (y - top) / .3;
+      float prof = t < .25 ? .03 : t < .45 ? .05 - (t - .25) * .1 : t < .7 ? .07 : .09;
+      s.c = hex(222, 216, 200) * (.92 + .1 * n); s.h = prof; s.r = .7; s.ao = .7 + .3 * fract(t * 4.); }
+    float green = sstep(.5, .8, fbm(uv + 1.1, uTile * 2., 6)) * sstep(1.5, .2, y);
+    s.c = mix(s.c, s.c * hex(170, 180, 160), green * .5);
+    s.c *= 1. - sstep(.5, .9, fbm(vec2(uv.x * 9., uv.y * .4), vec2(21, 1), 5)) * sstep(top - 1.5, top, y) * .2;` },
+  flashing: { tile: [1, .25], size: [1024, 256], glsl: `
+    // roof edge: galvanised steel flashing, spangle and white rust, a folded drip lip below,
+    // screw heads every 25 cm, a lapped joint every metre; dark run-off under the lip
+    float y = p.y / uTile.y, n = fbm(uv, vec2(8, 4), 6);
+    vec3 sp = vor(uv, vec2(60, 30)); float spangle = sp.z * .12;
+    vec3 zinc = hex(150, 156, 160) * (.86 + spangle + .1 * n);
+    float wr = sstep(.6, .8, fbm(uv + 3., vec2(10, 5), 6));
+    s.c = mix(zinc, hex(196, 198, 192), wr * .5); s.r = mix(.42, .75, wr); s.m = mix(.85, .4, wr); s.h = 0.;
+    if (y > .86) { s.h = .004; s.c *= 1.08; }                        // the top fold
+    if (y < .16) { float t = y / .16; s.h = -.006 * (1. - t); s.c *= .55 + .45 * t; s.ao = .6 + .4 * t; }   // the drip lip
+    vec2 q = vec2(fract(uv.x * 4.) - .5, y - .55); float screw = sstep(.012, .008, length(q * vec2(uTile.x / 4., uTile.y)));
+    s.c = mix(s.c, hex(70, 74, 78), screw); s.h += screw * .002;
+    float lap = sstep(.004, .0, abs(fract(uv.x) - .5) - .496); s.h -= lap * .002; s.ao *= 1. - lap * .4;` },
   walltop: { tile: [1, 1], size: [1024, 1024], glsl: `
     float n = fbm(uv, vec2(4), 6); s.c = hex(168, 160, 144) * (.88 + .2 * n); s.h = n * .002; s.r = .85;` },
   block: { tile: [2, 2], size: [2048, 2048], big: true, glsl: `

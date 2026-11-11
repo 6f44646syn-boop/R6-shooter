@@ -1,4 +1,5 @@
-import { packArt } from './pack-art.js?v=9dd0f7b-mwbioun8';
+import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=6ac6c85-mwblm6td';
+import { packArt } from './pack-art.js?v=6ac6c85-mwblm6td';
 // GPU-baked textures for ultra graphics. Everything is procedural and drawn by a fragment
 // shader into a render target once (milliseconds on a graphics card), so 4096 x 4096 maps
 // cost nothing at start-up and nothing is downloaded.
@@ -9,7 +10,7 @@ import { packArt } from './pack-art.js?v=9dd0f7b-mwbioun8';
 //   bakeSkin(renderer, index, size): one of SKINS, { albedo, rm } (rm: G roughness, B metalness).
 //   triplanar(material, opts): shader patch that maps a skin and/or detail by the surface's
 //        own 3D position (no UV stretching on long thin parts), with edge wear from UVs.
-import * as THREE from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
+import * as THREE from '../../vendor/three/three.module.min.js?v=6ac6c85-mwblm6td';
 
 const VERT = /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
@@ -379,31 +380,35 @@ function skinUniforms(def) {
 // Bake a skin (core/skins.js definition). albedo: sqrt-encoded colour + edge-wear noise in A;
 // rm: R glow mask, G roughness, B metalness (finer detail is not needed at half size).
 export function bakeSkin(renderer, def, size = 4096) {
-  const head = NOISE + SKIN_GLSL;
+  // Enhanced Graphics pack v5: the redrawn skins (js/render/skins2.js) at High / Ultra sizes
+  const v2 = size >= 2048 && skinSheets.ready;
+  const head = NOISE + SKIN_GLSL + (v2 ? SKIN2_GLSL : '');
+  const s2 = v2 ? skin2Uniforms(def) : {};
+  const at = v2 ? 'float hh; skinAt2(vUv, col, m, g, hh);' : 'skinAt(vUv, col, m, g);';
   const enhanced = size >= 2048 && !!packArt.finish;
   const finish = enhanced ? packArt.finish : {};
-  const u = { ...skinUniforms(def), finishGrain: { value: finish.grain || 0 } };
+  const u = { ...skinUniforms(def), ...s2, finishGrain: { value: finish.grain || 0 } };
   const albedo = bake(renderer, head + /* glsl */`
     uniform float finishGrain;
     void main() {
-      vec3 col; float m, g; skinAt(vUv, col, m, g);
+      vec3 col; float m, g; ${at}
       col *= 1.0 + finishGrain * sin(vUv.y * 1608.495) * (0.3 + 0.7 * m);
       float wearNoise = 0.5 + fbm(vUv + 11.0, 24.0, 6);      // ragged edge-wear threshold
       gl_FragColor = vec4(sqrt(clamp(col, 0.0, 1.0)), clamp(wearNoise, 0.0, 1.0));   // sqrt-encoded: finer steps in dark finishes
     }`, size, u);
-  const rmu = { finishRough: { value: finish.roughnessVariation || 0 }, finishMetal: { value: finish.paintMetalReduction || 0 }, ...skinUniforms(def), rmA: { value: new THREE.Vector2(def.rm[0], def.rm[1]) }, rmB: { value: new THREE.Vector2(def.rm[2], def.rm[3]) } };
+  const rmu = { finishRough: { value: finish.roughnessVariation || 0 }, finishMetal: { value: finish.paintMetalReduction || 0 }, ...skinUniforms(def), ...s2, rmA: { value: new THREE.Vector2(def.rm[0], def.rm[1]) }, rmB: { value: new THREE.Vector2(def.rm[2], def.rm[3]) } };
   const rm = bake(renderer, head + /* glsl */`
     uniform vec2 rmA, rmB; uniform float finishRough, finishMetal;
-    void main() { vec3 col; float m, g; skinAt(vUv, col, m, g); vec2 r = mix(rmA, rmB, m); if (finishRough > 0.0) { r.x = clamp(r.x + finishRough * (0.5 + fbm(vUv, 128.0, 3)), 0.06, 1.0); r.y = clamp(r.y - finishMetal * m, 0.0, 1.0); } gl_FragColor = vec4(g, r.x, r.y, 1.0); }`,
+    void main() { vec3 col; float m, g; ${at} vec2 r = mix(rmA, rmB, m); if (finishRough > 0.0) { r.x = clamp(r.x + finishRough * (0.5 + fbm(vUv, 128.0, 3)), 0.06, 1.0); r.y = clamp(r.y - finishMetal * m, 0.0, 1.0); } gl_FragColor = vec4(g, r.x, r.y, 1.0); }`,
   Math.max(128, size >> 1), rmu);
   // High / ultra: a relief map from the design (accent shapes raised, glow lines cut in),
   // turned into a normal map on the GPU, so the skin catches light like layered paint.
   let normal = null;
   if (size >= 2048) {
-    const hu = skinUniforms(def);
+    const hu = { ...skinUniforms(def), ...s2 };
     const h = bake(renderer, head + /* glsl */`
-      void main() { vec3 col; float m, g; skinAt(vUv, col, m, g); float lum = dot(col, vec3(0.3, 0.5, 0.2));
-        float h = pattern == 10 ? 0.75 - m * 0.7 + fbm(vUv, 48.0, 4) * 0.06 : 0.5 + m * 0.35 - g * 0.25 + lum * 0.15 + fbm(vUv, 96.0, 3) * 0.08;
+      void main() { vec3 col; float m, g; ${v2 ? 'float hh; skinAt2(vUv, col, m, g, hh);' : 'skinAt(vUv, col, m, g); float hh = 0.5;'} float lum = dot(col, vec3(0.3, 0.5, 0.2));
+        float h = pattern == 10 ? 0.75 - m * 0.7 + fbm(vUv, 48.0, 4) * 0.06 : ${v2 ? 'hh + fbm(vUv, 96.0, 3) * 0.04' : '0.5 + m * 0.35 - g * 0.25 + lum * 0.15 + fbm(vUv, 96.0, 3) * 0.08'};
         gl_FragColor = vec4(vec3(h), 1.0); }`,
     Math.max(512, size >> 1), hu, { mip: false });
     normal = bakeNormalFromTexture(renderer, h, h.image.width, def.pattern === 10 ? 9.0 : 3.0);

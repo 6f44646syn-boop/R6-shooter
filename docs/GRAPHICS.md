@@ -93,6 +93,75 @@ quality: muzzle devices, grips, the laser, the longer extended magazine and the 
 pull loop. They use neutral colours, so skins don't paint them. See ENGINE_API.md for the
 effective stats.
 
+### Pack version 5: the maps, the skins, and lighter distant soldiers
+
+About 46 MB in all. Version 5 is a big update to how the maps look, and it adds detail that
+makes rendering cheaper, not more expensive.
+
+**Map materials** (`hd/mat/<name>-{albedo,normal,orm}.webp`, 58 materials). Every map surface
+gets a physically based material on High and Ultra:
+- Each material has three textures: colour, a normal map, and an ORM map (R occlusion,
+  G roughness, B metalness).
+- They are drawn offline as procedural GLSL, in `tools/hd/matgen.mjs`. All are original and
+  tile seamlessly.
+- Sizes are 512 to 2048 px. Ultra uses full size; High uses half, which saves memory and
+  bandwidth.
+- The match maps:
+  - plaster walls with skirting and cornice, concrete block, poured concrete;
+  - grass, lawn, dirt, asphalt;
+  - wood floors and decking, carpets, tiles, marble, stone, ceilings, shingle roofs;
+  - furniture, cars, shelves, barriers, planters, water.
+- The building exteriors: red brick with a plinth and a soldier course (Workshop, Depot),
+  painted clapboard (Ranch), and dressed stone with a rusticated base and a cornice
+  (Embassy). There is also galvanised flashing on the roof edges.
+- Battle's maps: containers, louvred metal panels, the oil-stained yard, grating, snow
+  with footprints, log cabin walls, casino carpet and felt, lino, school walls, lockers,
+  and a basement.
+
+**Building exteriors in every quality.** A wall face is part of the facade when the sky is
+open 0.6 m out from it (`js/modes/look.js`, `FACADE`). This covers walls above a lower roof
+and courtyard walls too. Inside faces keep the plaster.
+- Standard draws the facades with canvas textures.
+- High and Ultra swap in the pack's materials.
+
+**Baked light** (`hd/light/<map>.rrl`, `tools/build-light.mjs`). Each map has a 0.5 m grid of
+two light values:
+- **Sky light:** 24 cosine-weighted rays through the game's own collision.
+- **Room light:** under roofs, darker in corners.
+
+The game samples the grid as a 3D texture. Indirect light (sky, bounce, reflections) is
+scaled by sky light, and rooms get a warm fill from room light. This gives shaded rooms,
+dark corners and light falling in at doorways and windows.
+- On High, this replaces screen-space ambient occlusion, which saves a full-screen pass.
+- Battle's maps (Container Yard, Winter, Casino, School) have their own bakes.
+
+**Props** (`hd/props/<name>.rrmz`, `tools/hd/props.mjs`). These replace the fitted boxes on
+the match maps on High and Ultra:
+- crates, cars (with paint per car), desks, tables, sofas, beds;
+- shelves, counters, benches, barriers and planters, repeated along their box;
+- the fountain, trees and bushes.
+
+Each prop has baked ambient occlusion and is drawn instanced: one draw per prop and material.
+Collision is unchanged.
+
+**Redrawn skins** (`hd/skins/*.webp`, `tools/build-skin-atlas.mjs`, `js/render/skins2.js`).
+All 201 skins are redrawn on High and Ultra by detail sheets and a shader:
+- layered hand-cut camo with paint thickness;
+- two-scale pixel camo;
+- brushed tiger stripes;
+- wear and grime by rarity;
+- metallic flake on Epic skins;
+- stencilled decals on many Rare and Epic skins.
+
+They are still baked on the GPU at up to 4096 px. Nothing is downloaded per skin.
+
+**Soldier levels of detail.** `soldier.rrmz` holds about 25.7k triangles near and about 9.9k
+far. Soldiers more than 16 m away use the far model (`Fighter.lodFor`).
+
+`node tools/build-materials.mjs [name ...]`, `node tools/build-light.mjs [map ...]`,
+`node tools/build-props.mjs` and `node tools/build-skin-atlas.mjs` rebuild each part.
+Then run `node tools/build-hd.mjs --manifest`.
+
 ### How the models are built (`node tools/build-hd.mjs`)
 
 - `tools/hd/kit.mjs`: modelling kit. Bevelled side profiles (with real holes for ports,

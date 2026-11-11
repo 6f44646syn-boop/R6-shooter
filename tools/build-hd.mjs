@@ -17,7 +17,7 @@ import { GUNS } from './hd/guns.mjs';
 import { soldier } from './hd/soldier.mjs';
 import { buildAnims } from './hd/anims.mjs';
 
-export const PACK_VERSION = 4;      // 2: the soldier (Claude) / surfaces, audio (Codex); 3: both; 4: weapon animations
+export const PACK_VERSION = 5;      // 2: the soldier (Claude) / surfaces, audio (Codex); 3: both; 4: weapon animations; 5: PBR map materials, lighting, props, skins
 const ROOT = new URL('../hd/', import.meta.url);
 mkdirSync(new URL('guns/', ROOT), { recursive: true });
 mkdirSync(new URL('soldiers/', ROOT), { recursive: true });
@@ -52,7 +52,11 @@ if (!only.length || only.includes('soldier')) {
   const t0 = Date.now();
   setDetail(1);
   const lod = bake(soldier(), { L: 0.07, R: 0.015, rays: 32, maxD: 0.15 });
-  const raw = writeRRM([lod], { name: 'soldier' });
+  // v5: a lighter copy for players more than ~16 m away (the same shape, coarser)
+  setDetail(2);
+  const far = bake(soldier(), { L: 0.5, R: 0.03, rays: 16, maxD: 0.15 });
+  setDetail(1);
+  const raw = writeRRM([lod, far], { name: 'soldier' });
   const gz = gzipSync(raw, { level: 9 });
   writeFileSync(new URL('soldiers/soldier.rrmz', ROOT), gz);
   console.log('soldier'.padEnd(14), 'tris', String(lod.reduce((s, p) => s + p.idx.length / 3, 0)).padEnd(16), 'raw', (raw.length / 1024).toFixed(0) + ' KB', 'gz', (gz.length / 1024).toFixed(0) + ' KB', ((Date.now() - t0) / 1000).toFixed(1) + ' s');

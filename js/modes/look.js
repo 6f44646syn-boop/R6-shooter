@@ -1,7 +1,7 @@
 // How the match maps look (the Battle maps keep Battle's own scenery). Everything is drawn in
 // code on small canvases; no image files. Boxes are merged per look into a few meshes:
 // walls and floors tile in world space, furniture is fitted per face.
-import * as THREE from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
+import * as THREE from '../../vendor/three/three.module.min.js?v=6ac6c85-mwblm6td';
 
 /* ---------- textures ---------- */
 const cache = new Map();
@@ -49,6 +49,37 @@ const TEX = {
     g.fillStyle = '#6a5440'; g.fillRect(0, h - 14, w, 14); g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(0, h - 15, w, 2);
     g.fillStyle = '#b8ad98'; g.fillRect(0, 0, w, 8); g.fillStyle = 'rgba(0,0,0,0.12)'; g.fillRect(0, h * 0.55, w, 2);
   }),
+  // building exteriors (outer faces): brick, painted clapboard, cut stone; each spans a storey
+  brick: () => canvasTex('brick', 192, 256, (g, w, h, r) => {
+    fill(g, w, h, '#b2aa9c');
+    const bw = w / 11, bh = h / 43;
+    for (let y = 0; y < 43; y++) for (let x = -1; x < 11; x++) {
+      const l = r(), burn = r() < 0.12;
+      g.fillStyle = burn ? '#5c2c24' : 'rgb(' + (146 + l * 34 | 0) + ',' + (62 + l * 26 | 0) + ',' + (44 + l * 16 | 0) + ')';
+      g.fillRect((x + (y % 2) * 0.5) * bw + 0.6, y * bh + 0.6, bw - 1.2, bh - 1.2);
+    }
+    noise(g, w, h, r, 2500, ['#3a1a10', '#e0c8b0'], 1.2, 0.18);
+    g.fillStyle = '#96928a'; g.fillRect(0, h - 26, w, 26);
+    g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(0, h - 27, w, 2);
+    for (let x = 0; x < w; x += w / 32) { g.fillStyle = 'rgb(' + (140 + r() * 30 | 0) + ',60,44)'; g.fillRect(x + 0.5, 0.5, w / 32 - 1, 15); }
+  }),
+  siding: () => canvasTex('siding', 192, 256, (g, w, h, r) => {
+    fill(g, w, h, '#c4ccc4');
+    for (let y = 24; y < h - 13; y += 12) { g.fillStyle = 'rgba(0,0,0,0.28)'; g.fillRect(0, h - y - 2, w, 2); g.fillStyle = 'rgba(255,255,255,0.18)'; g.fillRect(0, h - y - 12, w, 2); }
+    noise(g, w, h, r, 1800, ['#a8b0a8', '#dde2dc'], 2, 0.3);
+    g.fillStyle = '#ecebe2'; g.fillRect(0, 0, w, 13);
+    g.fillStyle = '#8a8478'; g.fillRect(0, h - 24, w, 24); g.fillStyle = 'rgba(0,0,0,0.3)'; for (let x = 0; x < w; x += 32) g.fillRect(x + (x % 64 ? 0 : 16), h - 24, 2, 24); g.fillRect(0, h - 12, w, 1);
+  }),
+  ashlar: () => canvasTex('ashlar', 192, 256, (g, w, h, r) => {
+    fill(g, w, h, '#a49c8a');
+    const bw = w / 4, bh = h / 8;
+    for (let y = 0; y < 8; y++) for (let x = -1; x < 4; x++) { const l = r(); g.fillStyle = 'rgb(' + (200 + l * 18 | 0) + ',' + (192 + l * 16 | 0) + ',' + (172 + l * 14 | 0) + ')'; g.fillRect((x + (y % 2) * 0.5) * bw + 1, y * bh + 1, bw - 2, bh - 2); }
+    noise(g, w, h, r, 2000, ['#8a8476', '#f0eadc'], 1.5, 0.2);
+    g.fillStyle = '#8c8676'; g.fillRect(0, h - 64, w, 64); for (let x = 0; x < 2; x++) { g.fillStyle = '#a8a08e'; g.fillRect(x * w / 2 + 4, h - 60, w / 2 - 8, 26); g.fillRect(x * w / 2 + 4 - w / 4, h - 30, w / 2 - 8, 26); g.fillRect(x * w / 2 + 4 + w * 0.75, h - 30, w / 2 - 8, 26); }
+    g.fillStyle = '#ddd6c4'; g.fillRect(0, 0, w, 24); g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(0, 16, w, 3); g.fillRect(0, 24, w, 2);
+  }),
+  // roof edges: galvanised steel flashing with a drip lip and fixings
+  flashing: () => canvasTex('flashing', 128, 64, (g, w, h, r) => { fill(g, w, h, '#8e959a'); noise(g, w, h, r, 700, ['#7a8186', '#a4abb0', '#6c6a62'], 2, 0.4); g.fillStyle = 'rgba(255,255,255,0.18)'; g.fillRect(0, 4, w, 3); g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(0, h - 8, w, 8); g.fillStyle = '#4a4e52'; for (let x = 16; x < w; x += 32) g.fillRect(x, 20, 3, 3); g.fillStyle = 'rgba(0,0,0,0.2)'; g.fillRect(w - 2, 0, 2, h); }),
   walltop: () => canvasTex('walltop', 64, 64, (g, w, h, r) => { fill(g, w, h, '#a49c8c'); noise(g, w, h, r, 300, ['#8a8270'], 2, 0.4); }),
   // roofs: dark asphalt shingles in staggered rows
   roof: () => canvasTex('roof', 128, 128, (g, w, h, r) => { fill(g, w, h, '#4a4744'); noise(g, w, h, r, 1600, ['#3e3b39', '#56524e', '#45413e'], 2, 0.5); g.fillStyle = 'rgba(0,0,0,0.35)'; for (let y = 0; y < h; y += 16) { g.fillRect(0, y, w, 2); for (let x = (y / 16) % 2 ? 0 : 16; x < w; x += 32) g.fillRect(x, y, 2, 16); } }),
@@ -114,19 +145,23 @@ const LOOKS = {
   container: { side: 'rust', top: 'rust', tile: [2.6, 2.6] },
   barn: { side: 'barn', top: 'walltop', tile: [2.4, 3.2] },
   stair: { side: 'wood', top: 'wood', tile: [1.2, 1.2] },
-  roof: { side: 'walltop', top: 'roof', bottom: 'ceiling', tile: [2, 2] },
+  roof: { side: 'flashing', edgeV: 1, top: 'roof', bottom: 'ceiling', tile: [2, 2] },
   rail: { side: 'railTex', top: 'tableTop', fit: true },
 };
 // upper floors: the room's floor on top, a ceiling underneath
 for (const f of ['wood', 'carpet', 'carpet2', 'tiles', 'tiles2', 'concrete', 'marble', 'stone', 'deck']) LOOKS['slab-' + f] = { side: 'walltop', top: f, bottom: 'ceiling', tile: [f === 'wood' || f === 'deck' ? 3 : f.startsWith('carpet') ? 2 : 1.6, 1.6] };
 // fitted looks the Enhanced Graphics pack has detailed props for (js/render/pack-props.js)
 const PROP_NAMES = ['crate', 'car', 'desk', 'table', 'sofa', 'bed', 'shelf', 'counter', 'bench', 'barrier', 'planter', 'fountain'];
+// the outer faces of each map's building
+const FACADE_TILE = [2.4, 3.2];
+const FACADE = { workshop: 'brick', depot: 'brick', ranch: 'siding', embassy: 'ashlar' };
 const PAINTS = [0xb03a2e, 0x2e5ea8, 0xe8e4dc, 0x2a2c30, 0x6a7a3a, 0xc8a040, 0x707880];
 const GROUND = { grass: 'grass', lawn: 'lawn', dirt: 'dirt', asphalt: 'asphalt' };
 
 // A box as quads (no bottom face) with UVs: world-tiled or fitted per face.
-function addBox(acc, b, look, tint) {
-  const x0 = b.minX, x1 = b.maxX, y0 = Math.max(0, b.minY), y1 = b.maxY, z0 = b.minZ, z1 = b.maxZ;
+function addBox(acc, b, look, tint, ext) {
+  // (the map's boundary is an invisible wall far taller than anything thrown: draw it as a 2.4 m fence)
+  const x0 = b.minX, x1 = b.maxX, y0 = Math.max(0, b.minY), y1 = b.kind === 'edge' ? Math.min(b.maxY, 2.4) : b.maxY, z0 = b.minZ, z1 = b.maxZ;
   const [tw, th] = look.tile || [1, 1];
   const fit = !!look.fit;
   const quad = (part, p, n, uv) => {
@@ -135,7 +170,11 @@ function addBox(acc, b, look, tint) {
   };
   const side = (p, n, alongA, alongB) => {
     // world tiled: u along the face, v = height / tile (the skirting sits at the floor)
-    quad('side', p, n, fit ? [[0, 0], [1, 0], [1, 1], [0, 1]] : [[alongA / tw, y0 / th], [alongB / tw, y0 / th], [alongB / tw, y1 / th], [alongA / tw, y1 / th]]);
+    const outer = ext && ext((p[0][0] + p[2][0]) / 2 + n[0] * 0.6, (y0 + y1) / 2, (p[0][2] + p[2][2]) / 2 + n[2] * 0.6);
+    const [uw, vh] = outer ? FACADE_TILE : [tw, th];
+    // roof edges: the flashing spans the edge's height, 1 m per repeat along it
+    if (look.edgeV) { quad('side', p, n, [[alongA / look.edgeV, 0], [alongB / look.edgeV, 0], [alongB / look.edgeV, 1], [alongA / look.edgeV, 1]]); return; }
+    quad(outer ? 'ext' : 'side', p, n, fit ? [[0, 0], [1, 0], [1, 1], [0, 1]] : [[alongA / uw, y0 / vh], [alongB / uw, y0 / vh], [alongB / uw, y1 / vh], [alongA / uw, y1 / vh]]);
   };
   side([[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], [0, 0, 1], x0, x1);
   side([[x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0]], [0, 0, -1], -x1, -x0);
@@ -178,6 +217,9 @@ export function buildMapLook(scene, map, L) {
   const sky = canvasTex('sky' + L.sky, 4, 256, (g, w, h) => { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#5a86c0'); gr.addColorStop(0.55, '#' + new THREE.Color(L.sky).getHexString()); gr.addColorStop(1, '#e8ecef'); g.fillStyle = gr; g.fillRect(0, 0, w, h); }, false);
   const dome = new THREE.Mesh(new THREE.SphereGeometry(180, 24, 12), new THREE.MeshBasicMaterial({ map: sky, side: THREE.BackSide, fog: false, depthWrite: false }));
   dome.renderOrder = -1;
+  // centred on whichever camera draws it, so it never reaches past the far plane (200 m)
+  dome.frustumCulled = false;
+  dome.onBeforeRender = (r, sc, cam) => { dome.position.copy(cam.position); dome.updateMatrixWorld(); };
   group.add(dome);
   // ground (the area around), then each room's floor
   const gt = TEX[GROUND[data.ground] || (data.building ? 'grass' : 'concrete')]().clone();
@@ -200,6 +242,14 @@ export function buildMapLook(scene, map, L) {
   const acc = {}, col = new THREE.Color();
   group.userData.propBoxes = {};
   let k = 0;
+  // outer faces of the building's walls get the facade: open sky above a point 0.6 m out from
+  // the face (beyond the eaves), so walls above a lower roof and courtyard walls count too
+  const facade = FACADE[data.id], fp = data.building;
+  const ext = facade && fp ? (x, y, z) => {
+    if (x < fp[0] - 1 || x > fp[2] + 1 || z < fp[1] - 1 || z > fp[3] + 1) return true;
+    const h = map.raycast([x, Math.max(0.1, y), z], [0, 1, 0], 40);
+    return !h || !h.box || h.box.kind === 'edge' || h.box.minY === undefined;
+  } : null;
   for (const b of map.solids) {
     if (b.panel !== undefined) continue;
     const name = lookOf(b), look = LOOKS[name];
@@ -207,13 +257,13 @@ export function buildMapLook(scene, map, L) {
     if (look.paint) col.setHex(PAINTS[k++ % PAINTS.length]);
     else col.multiplyScalar(0.94 + ((b.i * 7) % 5) * 0.025);
     const a = acc[name] || (acc[name] = {});
-    addBox(a, b, look, col);
+    addBox(a, b, look, col, name === 'house' || name === 'wall' ? ext : null);
     // pack v5: where the detailed props go (and the car's paint)
     if (PROP_NAMES.includes(name)) (group.userData.propBoxes[name] || (group.userData.propBoxes[name] = [])).push({ b: [b.minX, Math.max(0, b.minY), b.minZ, b.maxX, b.maxY, b.maxZ], tint: col.getHex() });
   }
   for (const [name, parts] of Object.entries(acc)) {
     const look = LOOKS[name];
-    for (const [part, a] of Object.entries(parts)) { const mesh = meshFrom(a, TEX[part === 'top' ? look.top : part === 'bottom' ? look.bottom || 'ceiling' : look.side](), name !== 'edge'); if (PROP_NAMES.includes(name)) mesh.userData.propLook = name; group.add(mesh); }
+    for (const [part, a] of Object.entries(parts)) { const mesh = meshFrom(a, TEX[part === 'top' ? look.top : part === 'bottom' ? look.bottom || 'ceiling' : part === 'ext' ? facade : look.side](), name !== 'edge'); if (PROP_NAMES.includes(name)) mesh.userData.propLook = name; group.add(mesh); }
   }
   // outside: trees and bushes where nothing is in the way, a fence round the edge
   if (data.building) {

@@ -1,28 +1,28 @@
-import { applyMapArt } from '../render/pack-art.js?v=9dd0f7b-mwbioun8';
-import { applyPackMaterials, packMats, envMap } from '../render/pack-materials.js?v=9dd0f7b-mwbioun8';
-import { applyPackProps } from '../render/pack-props.js?v=9dd0f7b-mwbioun8';
-import { sensoryFor } from '../balance/bomb-utility.js?v=9dd0f7b-mwbioun8';
+import { applyMapArt } from '../render/pack-art.js?v=6ac6c85-mwblm6td';
+import { applyPackMaterials, packMats, envMap } from '../render/pack-materials.js?v=6ac6c85-mwblm6td';
+import { applyPackProps } from '../render/pack-props.js?v=6ac6c85-mwblm6td';
+import { sensoryFor } from '../balance/bomb-utility.js?v=6ac6c85-mwblm6td';
 // Team Deathmatch, Capture the Flag and Bomb in the browser: draws the match simulation
 // (sim.js) and runs your player with the range's own systems (look, sensitivity, recoil,
 // spread, sights, weapon model: battle/human.js), at a fixed 60 Hz simulation.
 //
 // Map: flat-shaded low poly from the map file; static walls merged into one mesh, breakable
 // panels in one instanced mesh, one directional light (a 1024 shadow map in High / Ultra).
-import * as THREE from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
-import { MatchMap } from './map.js?v=9dd0f7b-mwbioun8';
-import { initCore } from '../wasm/core.js?v=9dd0f7b-mwbioun8';
-import { Match, TICK } from './sim.js?v=9dd0f7b-mwbioun8';
-import { yawTo, wrap180, DEG } from './geom.js?v=9dd0f7b-mwbioun8';
-import { Fighter } from '../battle/fighter.js?v=9dd0f7b-mwbioun8';
-import { slotIn } from '../core/loadout.js?v=9dd0f7b-mwbioun8';
-import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=9dd0f7b-mwbioun8';
-import { buildMapLook, panelTextures } from './look.js?v=9dd0f7b-mwbioun8';
-import { Arena } from '../battle/arena.js?v=9dd0f7b-mwbioun8';
-import { Human } from '../battle/human.js?v=9dd0f7b-mwbioun8';
-import { drawCrosshair } from '../ui/crosshair.js?v=9dd0f7b-mwbioun8';
-import { effectiveGraphics } from '../render/quality.js?v=9dd0f7b-mwbioun8';
-import { MatchHost, MatchClient } from './net-match.js?v=9dd0f7b-mwbioun8';
-import { Brain } from './bots.js?v=9dd0f7b-mwbioun8';
+import * as THREE from '../../vendor/three/three.module.min.js?v=6ac6c85-mwblm6td';
+import { MatchMap } from './map.js?v=6ac6c85-mwblm6td';
+import { initCore } from '../wasm/core.js?v=6ac6c85-mwblm6td';
+import { Match, TICK } from './sim.js?v=6ac6c85-mwblm6td';
+import { yawTo, wrap180, DEG } from './geom.js?v=6ac6c85-mwblm6td';
+import { Fighter } from '../battle/fighter.js?v=6ac6c85-mwblm6td';
+import { slotIn } from '../core/loadout.js?v=6ac6c85-mwblm6td';
+import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=6ac6c85-mwblm6td';
+import { buildMapLook, panelTextures } from './look.js?v=6ac6c85-mwblm6td';
+import { Arena } from '../battle/arena.js?v=6ac6c85-mwblm6td';
+import { Human } from '../battle/human.js?v=6ac6c85-mwblm6td';
+import { drawCrosshair } from '../ui/crosshair.js?v=6ac6c85-mwblm6td';
+import { effectiveGraphics } from '../render/quality.js?v=6ac6c85-mwblm6td';
+import { MatchHost, MatchClient } from './net-match.js?v=6ac6c85-mwblm6td';
+import { Brain } from './bots.js?v=6ac6c85-mwblm6td';
 
 const reducedMotion = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 const TEAM_COLOR = { A: 0x5b8cff, B: 0xff7048 };
@@ -398,6 +398,7 @@ export class ModeGame {
       if (dash && !f.trail) { f.trail = dashTrail(); this.markerG.add(f.trail); }
       if (f.trail) { f.trail.visible = !!dash && a !== me; if (dash) { f.trail.position.set(a.x, a.y, a.z); f.trail.rotation.y = Math.atan2(-dash.dx, -dash.dz); f.trail.scale.z = 2.5; } }
       f.updateVisual(t);
+      if (f.lodFor) { const cp = (this.camOverride || h.camera).position; f.lodFor(Math.hypot(f.x - cp.x, f.z - cp.z)); }
       const enemy = a.team !== me.team;
       const v = a !== me && a.alive && enemy;
       const xr = v && m.t < a.revealedUntil;
@@ -884,9 +885,16 @@ export class ModeGame {
   /* ---------- HUD ---------- */
   _buildHud() {
     const root = el('div', 'battle-hud mg-hud'); root.hidden = true;
-    const top = el('div', 'b-top'), score = el('div', 'b-score mg-score');
+    const top = el('div', 'b-top'), score = el('div', 'b-score mg-score sr-only');
+    // the team strip: your team's operators and score, the clock, the enemy's score and operators
+    const strip = el('div', 'mg-strip'), allyOps = el('div', 'mg-ops ally'), enemyOps = el('div', 'mg-ops enemy');
+    const allyPts = el('div', 'mg-pts ally', '0'), enemyPts = el('div', 'mg-pts enemy', '0');
+    const clock = el('div', 'mg-clock'), clockT = el('b', '', '0:00'), clockSub = el('span', '', '');
+    clock.append(clockT, clockSub);
+    strip.append(allyOps, allyPts, clock, enemyPts, enemyOps);
+    const tags = el('div', 'mg-tags');
     const compass = el('div', 'mg-compass'), status = el('div', 'mg-status');
-    top.append(score);
+    top.append(score, strip);
     const feed = el('div', 'b-feed');
     const view = el('div', 'b-view');
     const prot = el('div', 'b-prot'); prot.hidden = true;
@@ -895,6 +903,10 @@ export class ModeGame {
     const name = el('div', 'b-name t-A', '');
     const hp = el('div', 'b-hp'), hpFill = el('i'); hp.append(hpFill);
     const hpText = el('div', 'b-hptext', '100'), ammo = el('div', 'b-ammo', ''), pts = el('div', 'b-points', '');
+    const gunBox = el('div', 'mg-gun'), gunName = el('span', 'mg-gunname', ''), magN = el('b', '', ''), magOf = el('span', 'mg-magof', '');
+    gunBox.append(gunName, el('div', 'mg-mag'));
+    gunBox.lastChild.append(magN, magOf);
+    hp.classList.add('mg-hpbar'); hpText.classList.add('mg-hpnum'); ammo.classList.add('sr-only');
     const ability = el('div', 'mg-ability'); ability.hidden = true;
     const dmg = el('div', 'mg-dmgdir');
     const flash = el('div', 'mg-flash'); flash.hidden = true;
@@ -905,7 +917,7 @@ export class ModeGame {
     const disruption = el('div', 'mg-disruption');
     const vig = el('div', 'dmg-vig'), lowhp = el('div', 'low-hp'), jam = el('div', 'mg-jam'), banner = el('div', 'mg-banner'); banner.hidden = true;
     lowhp.append(el('span', '', 'LOW HEALTH'));
-    view.append(disruption, kcBox, nades, nadeWarn, jam, vig, lowhp, hurt, dmg, cross, hit, pts, dead, prot, name, hp, hpText, ammo, ability, hold, flash, banner);
+    view.append(disruption, tags, kcBox, nades, nadeWarn, jam, vig, lowhp, hurt, dmg, cross, hit, pts, dead, prot, name, hp, hpText, ammo, gunBox, ability, hold, flash, banner);
     const board = el('div', 'mg-board'); board.hidden = true;
     const end = el('div', 'b-end'); end.hidden = true;
     const box = el('div', 'b-end-box'), endTitle = el('h1', '', ''), endTable = el('div', 'b-table'), endNote = el('p', 'small', '');
@@ -915,7 +927,7 @@ export class ModeGame {
     box.append(endTitle, endTable, row, endNote); end.append(box);
     root.append(view, top, compass, status, feed, board, end);
     this.deps.hudRoot.insertBefore(root, this.deps.hudRoot.querySelector('#menu'));
-    this.hud = { disruption, nades, nadeWarn, kcBox, vig, lowhp, jam, banner, prot, root, score, compass, status, feed, view, cross, hit, hurt, dead, name, hpFill, hpText, ammo, pts, ability, dmg, flash, hold, holdBar, board, end, endTitle, endTable, endNote, again, leave, last: {} };
+    this.hud = { strip, allyOps, enemyOps, allyPts, enemyPts, clockT, clockSub, tags, gunBox, gunName, magN, magOf, disruption, nades, nadeWarn, kcBox, vig, lowhp, jam, banner, prot, root, score, compass, status, feed, view, cross, hit, hurt, dead, name, hpFill, hpText, ammo, pts, ability, dmg, flash, hold, holdBar, board, end, endTitle, endTable, endNote, again, leave, last: {} };
     drawCrosshair(cross, this.deps.settings.crosshair);
   }
   _marker(kind, t) { this.hud.hit.className = 'b-hit on ' + kind; this.hitUntil = t + (kind === 'kill' ? 0.35 : 0.15); }
@@ -959,6 +971,8 @@ export class ModeGame {
     const timer = m.rules.timerText ? m.rules.timerText() : fmt(m.rules.timeLeft());
     const sc = score + '  ·  ' + timer;
     if (L.sc !== sc) { L.sc = sc; H.score.textContent = sc; }
+    this._strip(timer);
+    this._tags();
     // damage vignette, low health, jammed, stunned
     const vk = Math.max(0, 1 - (t - this.vigT) / 0.7) * (this.vigK || 1);
     if (Math.abs((L.vk || 0) - vk) > 0.02 || (vk === 0 && L.vk)) { L.vk = vk; H.vig.style.opacity = vk.toFixed(2); }
@@ -989,7 +1003,15 @@ export class ModeGame {
     const hp = Math.max(0, Math.ceil(me.hp));
     if (L.hp !== hp) { L.hp = hp; H.hpFill.style.width = hp + '%'; H.hpFill.className = hp > 60 ? '' : hp > 30 ? 'mid' : 'low'; H.hpText.textContent = String(hp); }
     const ammo = m.ab.ammoText ? m.ab.ammoText(me) || (h.weapon.reloading ? 'reloading' : h.weapon.ammo + ' / ' + h.gun.magSize) : (h.weapon.reloading ? 'reloading' : h.weapon.ammo + ' / ' + h.gun.magSize);
-    if (L.ammo !== ammo) { L.ammo = ammo; H.ammo.textContent = ammo; }
+    if (L.ammo !== ammo) {
+      L.ammo = ammo; H.ammo.textContent = ammo;
+      const mm = /^(\d+) \/ (\d+)$/.exec(ammo);
+      H.magN.textContent = mm ? mm[1] : ammo; H.magOf.textContent = mm ? ' / ' + mm[2] : '';
+      H.gunBox.classList.toggle('low', !!mm && +mm[1] <= Math.ceil(+mm[2] / 4));
+      H.gunBox.classList.toggle('text', !mm);
+    }
+    const gn = me.alive ? (me.gunData || h.gun || {}).name || '' : '';
+    if (L.gn !== gn) { L.gn = gn; H.gunName.textContent = gn; }
     const wireSlot = m.rules.name === 'Bomb' && !m.rules.isAttacker(me);       // Bomb defenders: barbed wire in the grenade slot
     const nt = !me.alive ? '' : wireSlot ? '≋ '.repeat(me.wire || 0).trim() + (me.wire ? ' barbed wire' : 'no wire') + ' · ' + (this.deps.controls?.bindingLabel('grenade') || 'G') : '● '.repeat(me.nades || 0).trim() + (me.nades ? '' : 'no grenades') + ' · ' + (this.deps.controls?.bindingLabel('grenade') || 'G');
     if (L.nt !== nt) { L.nt = nt; H.nades.textContent = nt; }
@@ -1019,6 +1041,50 @@ export class ModeGame {
     }
     if (!H.board.hidden && this._fr % 20 === 0) this._renderBoard();
     this._compass();
+  }
+  // The team strip: one badge per operator (crossed out when down), each side's score, the clock.
+  _strip(timer) {
+    const H = this.hud, L = H.last, m = this.m, me = this.me, R = m.rules;
+    const foe = me.team === 'A' ? 'B' : 'A';
+    const badge = (a) => (a.op && a.op.name ? a.op.name : a.name || '?').replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase();
+    const key = m.actors.map((a) => a.id + a.team + (a.alive ? 1 : 0) + badge(a)).join(',');
+    if (L.ops !== key) {
+      L.ops = key;
+      const side = (team, box) => box.replaceChildren(...m.actors.filter((a) => a.team === team).slice(0, 6).map((a) => {
+        const e = el('span', 'mg-op' + (a.alive ? '' : ' down') + (a === me ? ' me' : ''), badge(a)); e.title = a.name || ''; return e;
+      }));
+      side(me.team, H.allyOps); side(foe, H.enemyOps);
+    }
+    const sc = R.score || {};
+    const a = String(sc[me.team] ?? 0), b = String(sc[foe] ?? 0);
+    if (L.pa !== a) { L.pa = a; H.allyPts.textContent = a; }
+    if (L.pb !== b) { L.pb = b; H.enemyPts.textContent = b; }
+    const mt = /(\d+:\d\d)\s*$/.exec(timer), time = mt ? mt[1] : timer, pre = mt ? timer.slice(0, mt.index).trim() : '';
+    const sub = R.round ? 'Round ' + R.round + (R.sideOf && R.sideOf(me.team) ? ' · ' + (R.sideOf(me.team) === 'attack' ? 'Attack' : 'Defend') : '') + (pre ? ' · ' + pre : '') : pre || (R.name || '');
+    if (L.ct !== time) { L.ct = time; H.clockT.textContent = time; }
+    if (L.cs !== sub) { L.cs = sub; H.clockSub.textContent = sub; }
+    const urgent = mt && /^0:[0-2]\d$/.test(time);
+    if (L.urg !== urgent) { L.urg = urgent; H.clockT.classList.toggle('urgent', !!urgent); }
+  }
+  // Name tags over your teammates (on screen, in front, within 45 m).
+  _tags() {
+    const H = this.hud, m = this.m, me = this.me, cam = this.camOverride || this.h.camera;
+    if (!this._tagEls) this._tagEls = new Map();
+    const v = this._tagV || (this._tagV = new THREE.Vector3()), w = H.view.clientWidth, h = H.view.clientHeight, seen = new Set();
+    for (const a of m.actors) {
+      if (a === me || a.team !== me.team || !a.alive) continue;
+      const d = Math.hypot(a.x - cam.position.x, a.z - cam.position.z);
+      if (d > 45) continue;
+      v.set(a.x, (a.y || 0) + 2.05 - 0.45 * (a.crouch || 0), a.z).project(cam);
+      if (v.z > 1 || Math.abs(v.x) > 1.05 || Math.abs(v.y) > 1.05) continue;
+      let e = this._tagEls.get(a.id);
+      if (!e) { e = el('div', 'mg-tag', a.name || ''); this._tagEls.set(a.id, e); H.tags.append(e); }
+      seen.add(a.id);
+      e.hidden = false;
+      e.style.transform = 'translate(' + ((v.x + 1) / 2 * w).toFixed(0) + 'px,' + ((1 - v.y) / 2 * h).toFixed(0) + 'px) translate(-50%, -100%)';
+      e.style.opacity = d > 30 ? '0.6' : '1';
+    }
+    for (const [id, e] of this._tagEls) if (!seen.has(id)) e.hidden = true;
   }
   // Compass along the top: headings and objective markers.
   _compass() {

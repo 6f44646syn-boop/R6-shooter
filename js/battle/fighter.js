@@ -2,9 +2,9 @@
 // test. The body is a soldier (soldier.js) in team colours carrying their real gun with its
 // skin; hits are decided on the same shapes the body is built around. Crouching squashes the
 // body to CROUCH_SCALE. y is the height of the feet (floors, stairs, box tops).
-import * as THREE from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
-import { soldierGeometry, raycastSoldier, GRIP_HAND, HIP_X, HIP_Y } from './soldier.js?v=9dd0f7b-mwbioun8';
-import { buildWorldGun } from '../scene/viewmodel.js?v=9dd0f7b-mwbioun8';
+import * as THREE from '../../vendor/three/three.module.min.js?v=6ac6c85-mwblm6td';
+import { soldierGeometry, raycastSoldier, GRIP_HAND, HIP_X, HIP_Y } from './soldier.js?v=6ac6c85-mwblm6td';
+import { buildWorldGun } from '../scene/viewmodel.js?v=6ac6c85-mwblm6td';
 
 export const STAND_EYE = 1.6, CROUCH_EYE = 1.12;
 export const CROUCH_SCALE = 0.7;
@@ -185,9 +185,18 @@ export class Fighter {
 
   setDetail(quality) {
     const geo = soldierGeometry(this.color, quality === 'high' || quality === 'ultra');
+    this._geo = geo; this._far = false;
     this.body.geometry = geo.upper;
     this.legs[0].piv.children[0].geometry = geo.legL;
     this.legs[1].piv.children[0].geometry = geo.legR;
+  }
+  // Pack v5: the lighter soldier when far from the camera (d: metres). Cheap to call each frame.
+  lodFor(d) {
+    const g = this._geo, far = !!(g && g.far) && d > 16;
+    if (far === this._far) return;
+    this._far = far;
+    const s = far ? g.far : g;
+    this.body.geometry = s.upper; this.legs[0].piv.children[0].geometry = s.legL; this.legs[1].piv.children[0].geometry = s.legR;
   }
 
   get eyeH() { return STAND_EYE + (CROUCH_EYE - STAND_EYE) * this.crouch; }

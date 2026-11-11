@@ -1,17 +1,18 @@
-import { packArt } from '../render/pack-art.js?v=9dd0f7b-mwbioun8';
+import { skinSheets } from '../render/skins2.js?v=6ac6c85-mwblm6td';
+import { packArt } from '../render/pack-art.js?v=6ac6c85-mwblm6td';
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
-import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=9dd0f7b-mwbioun8';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=9dd0f7b-mwbioun8';
-import { matcap } from './matcap.js?v=9dd0f7b-mwbioun8';
-import { mulberry32 } from '../core/prng.js?v=9dd0f7b-mwbioun8';
-import { gunMaps } from './range-tex.js?v=9dd0f7b-mwbioun8';
-import { skinById, FACTORY } from '../core/skins.js?v=9dd0f7b-mwbioun8';
-import { legendCanvas, onLegendChange } from '../core/legend.js?v=9dd0f7b-mwbioun8';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=9dd0f7b-mwbioun8';
-import { HDPack } from '../render/hd-pack.js?v=9dd0f7b-mwbioun8';
+import * as THREE from '../../vendor/three/three.module.min.js?v=6ac6c85-mwblm6td';
+import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=6ac6c85-mwblm6td';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=6ac6c85-mwblm6td';
+import { matcap } from './matcap.js?v=6ac6c85-mwblm6td';
+import { mulberry32 } from '../core/prng.js?v=6ac6c85-mwblm6td';
+import { gunMaps } from './range-tex.js?v=6ac6c85-mwblm6td';
+import { skinById, FACTORY } from '../core/skins.js?v=6ac6c85-mwblm6td';
+import { legendCanvas, onLegendChange } from '../core/legend.js?v=6ac6c85-mwblm6td';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=6ac6c85-mwblm6td';
+import { HDPack } from '../render/hd-pack.js?v=6ac6c85-mwblm6td';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -65,7 +66,7 @@ function legendSkin(def) {
 }
 function bakedSkin(def) {
   if (def.photo) return legendSkin(def);
-  const size = skinSize(), key = def.id + ':' + (packArt.finish ? packArt.revision : 0) + '@' + size;
+  const size = skinSize(), key = def.id + ':' + (packArt.finish ? packArt.revision : 0) + 's' + skinSheets.rev + '@' + size;
   if (!skins.has(key)) {
     skins.set(key, bakeSkin(RENDERER, def, size));
     const big = [...skins.keys()].filter((k) => !k.endsWith('@512'));
@@ -111,14 +112,14 @@ function skinMaterial(def) {
     triplanar(m, sh === 'ultra' ? { skin: sk, scale: sk.scale || 2.8, detail: ultraDetail('paint'), detailScale: 9, detailStrength: hd ? 0.35 : 0.5, hd, depth }
       : { skin: sk, scale: sk.scale || 2.8, hd, depth, detail: hd ? ultraDetail('paint') : null, detailScale: 9, detailStrength: 0.3 });
   }
-  m.userData.skinKey = def.id + ':' + (packArt.finish ? packArt.revision : 0) + '@' + skinSize();
+  m.userData.skinKey = def.id + ':' + (packArt.finish ? packArt.revision : 0) + 's' + skinSheets.rev + '@' + skinSize();
   return m;
 }
 // kind: 'auto' (black = polymer, else metal) or 'metal' (barrels, tubes).
 function mat(color, kind = 'auto') {
   const sh = shading();
   const skin = kind === 'auto' && color !== BLACK && color !== STEEL ? currentSkin() : null;
-  const key = sh + color + kind + (skin ? '|skin' + skin.id + ':' + (packArt.finish ? packArt.revision : 0) + '@' + skinSize() : '') + (HD ? '|hd' : '');
+  const key = sh + color + kind + (skin ? '|skin' + skin.id + ':' + (packArt.finish ? packArt.revision : 0) + 's' + skinSheets.rev + '@' + skinSize() : '') + (HD ? '|hd' : '');
   if (!mats.has(key)) {
     if (skin) { mats.set(key, skinMaterial(skin)); return mats.get(key); }
     if (HD) { mats.set(key, hdMaterial(color, kind, sh)); return mats.get(key); }

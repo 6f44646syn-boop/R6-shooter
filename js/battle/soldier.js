@@ -1,13 +1,13 @@
-import { packArt } from '../render/pack-art.js?v=9dd0f7b-mwbioun8';
+import { packArt } from '../render/pack-art.js?v=6ac6c85-mwblm6td';
 // The battle soldier: a helmeted figure in a plate carrier holding a rifle at the ready.
 // Hits are decided on simple shapes (a sphere head and capsules: SOLDIER_PARTS) laid out in
 // the same pose as the model, so what you see is what can be hit. The gear (helmet, vest,
 // pouches, pack, boots) sits snugly over those shapes.
 //
 // Coordinates: metres, the soldier's own frame: x right, y up from the feet, z forward.
-import * as THREE from '../../vendor/three/three.module.min.js?v=9dd0f7b-mwbioun8';
-import { HDPack } from '../render/hd-pack.js?v=9dd0f7b-mwbioun8';
-import { sightShading } from '../scene/sight-model.js?v=9dd0f7b-mwbioun8';
+import * as THREE from '../../vendor/three/three.module.min.js?v=6ac6c85-mwblm6td';
+import { HDPack } from '../render/hd-pack.js?v=6ac6c85-mwblm6td';
+import { sightShading } from '../scene/sight-model.js?v=6ac6c85-mwblm6td';
 
 const L = -1, R = 1;
 const cap = (a, b, r, zone) => ({ t: 'capsule', a, b, r, zone });
@@ -100,7 +100,10 @@ export function soldierGeometry(team, enhanced) {
   const cloth = mix(0.85, 0.42), clothDark = mix(0.6, 0.35), patch = '#' + tc.clone().multiplyScalar(1.1).getHexString();
   const VEST = 0x2b302b, GEAR = 0x4a4636, BLACK = 0x161718, SKIN = 0xc89a78, HELMET = 0x343a34;
   if (hd) {
-    const out = hdSoldier(hd, { cloth, clothDark, patch, vest: VEST, gear: GEAR, black: BLACK, skin: SKIN, helmet: HELMET });
+    const cols = { cloth, clothDark, patch, vest: VEST, gear: GEAR, black: BLACK, skin: SKIN, helmet: HELMET };
+    const out = hdSoldier(hd, cols);
+    // pack v5: the far level of detail, for players more than ~16 m away
+    if (hd.lods.length > 1) out.far = hdSoldier(hd, cols, 1);
     cache.set(key, out);
     return out;
   }
@@ -149,7 +152,7 @@ export function soldierGeometry(team, enhanced) {
   }
   const out = { upper: merge(parts), legL: merge(legs[L]), legR: merge(legs[R]) };
   for (const [old, g] of cache) if (old.startsWith(team + ':') && old !== key && !old.endsWith(':0')) {
-    for (const geometry of Object.values(g)) if (geometry && geometry.isBufferGeometry) geometry.dispose(); cache.delete(old);
+    for (const geometry of [...Object.values(g), ...Object.values(g.far || {})]) if (geometry && geometry.isBufferGeometry) geometry.dispose(); cache.delete(old);
   }
   cache.set(key, out);
   return out;
@@ -157,11 +160,11 @@ export function soldierGeometry(team, enhanced) {
 // The pack's soldier: colours per part (team colours where the cloth is), with its baked
 // ambient occlusion and cavity darkening multiplied in (the body material is plain
 // vertex-coloured Lambert). Legs move to their hip hinge like the simple soldier's.
-function hdSoldier(model, colors) {
+function hdSoldier(model, colors, lod = 0) {
   const C = {};
   for (const [k, v] of Object.entries(colors)) C[k] = new THREE.Color(v);
   const parts = { upper: [], legL: [], legR: [] };
-  for (const p of model.lods[0]) {
+  for (const p of model.lods[Math.min(lod, model.lods.length - 1)]) {
     const n = p.position.length / 3, col = new Float32Array(n * 3), c = C[p.role] || C.gear;
     for (let i = 0; i < n; i++) {
       const ao = p.detail[i * 4] / 255, edge = p.detail[i * 4 + 1] / 255, cav = p.detail[i * 4 + 2] / 255;
