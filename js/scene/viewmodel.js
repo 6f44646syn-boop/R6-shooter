@@ -1,30 +1,30 @@
-import { skinSheets } from '../render/skins2.js?v=b1ec427-mwdf9okj';
-import { packArt } from '../render/pack-art.js?v=b1ec427-mwdf9okj';
+import { skinSheets } from '../render/skins2.js?v=3cb2659-mwdfdtc4';
+import { packArt } from '../render/pack-art.js?v=3cb2659-mwdfdtc4';
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=b1ec427-mwdf9okj';
-import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=b1ec427-mwdf9okj';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=b1ec427-mwdf9okj';
-import { matcap } from './matcap.js?v=b1ec427-mwdf9okj';
-import { mulberry32 } from '../core/prng.js?v=b1ec427-mwdf9okj';
-import { gunMaps } from './range-tex.js?v=b1ec427-mwdf9okj';
-import { skinById, FACTORY, SAKURA_ID } from '../core/skins.js?v=b1ec427-mwdf9okj';
-import { legendCanvas, onLegendChange } from '../core/legend.js?v=b1ec427-mwdf9okj';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=b1ec427-mwdf9okj';
-import { HDPack } from '../render/hd-pack.js?v=b1ec427-mwdf9okj';
-import { epicRelief } from './skin-relief.js?v=b1ec427-mwdf9okj';
-import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect, forgeInspect, orreryInspect } from './inspect-effects.js?v=b1ec427-mwdf9okj';
-import { F2 } from './f2-model.js?v=b1ec427-mwdf9okj';
-import { G8 } from './g8-model.js?v=b1ec427-mwdf9okj';
-import { C8 } from './c8-model.js?v=b1ec427-mwdf9okj';
-import { R4 } from './r4-model.js?v=b1ec427-mwdf9okj';
-import { AK } from './ak-model.js?v=b1ec427-mwdf9okj';
-import { EVO } from './evo-model.js?v=b1ec427-mwdf9okj';
-import { MP5K } from './compact-model.js?v=b1ec427-mwdf9okj';
-import { T5 } from './smg-model.js?v=b1ec427-mwdf9okj';
-import { SMG11 } from './machinepistol-model.js?v=b1ec427-mwdf9okj';
-import { MP7 } from './pdw-model.js?v=b1ec427-mwdf9okj';
+import * as THREE from '../../vendor/three/three.module.min.js?v=3cb2659-mwdfdtc4';
+import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=3cb2659-mwdfdtc4';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=3cb2659-mwdfdtc4';
+import { matcap } from './matcap.js?v=3cb2659-mwdfdtc4';
+import { mulberry32 } from '../core/prng.js?v=3cb2659-mwdfdtc4';
+import { gunMaps } from './range-tex.js?v=3cb2659-mwdfdtc4';
+import { skinById, FACTORY, SAKURA_ID } from '../core/skins.js?v=3cb2659-mwdfdtc4';
+import { legendCanvas, onLegendChange } from '../core/legend.js?v=3cb2659-mwdfdtc4';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=3cb2659-mwdfdtc4';
+import { HDPack } from '../render/hd-pack.js?v=3cb2659-mwdfdtc4';
+import { epicRelief } from './skin-relief.js?v=3cb2659-mwdfdtc4';
+import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect, forgeInspect, orreryInspect } from './inspect-effects.js?v=3cb2659-mwdfdtc4';
+import { F2 } from './f2-model.js?v=3cb2659-mwdfdtc4';
+import { G8 } from './g8-model.js?v=3cb2659-mwdfdtc4';
+import { C8 } from './c8-model.js?v=3cb2659-mwdfdtc4';
+import { R4 } from './r4-model.js?v=3cb2659-mwdfdtc4';
+import { AK } from './ak-model.js?v=3cb2659-mwdfdtc4';
+import { EVO } from './evo-model.js?v=3cb2659-mwdfdtc4';
+import { MP5K } from './compact-model.js?v=3cb2659-mwdfdtc4';
+import { T5 } from './smg-model.js?v=3cb2659-mwdfdtc4';
+import { SMG11 } from './machinepistol-model.js?v=3cb2659-mwdfdtc4';
+import { MP7 } from './pdw-model.js?v=3cb2659-mwdfdtc4';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 

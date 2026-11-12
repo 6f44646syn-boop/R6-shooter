@@ -8,8 +8,8 @@
 // Navigation: the core's A* over every level of the map (floors, stairs, ramps), smoothed,
 // with a stuck watchdog (no progress for 3 s: re-path; still stuck: step to the nearest
 // open spot).
-import { SKILL, EYE, NOISE } from './sim.js?v=b1ec427-mwdf9okj';
-import { dirFrom, yawTo, wrap180, DEG } from './geom.js?v=b1ec427-mwdf9okj';
+import { SKILL, EYE, NOISE } from './sim.js?v=3cb2659-mwdfdtc4';
+import { dirFrom, yawTo, wrap180, DEG } from './geom.js?v=3cb2659-mwdfdtc4';
 
 const VIEW = 55, RANGE = 45;
 
