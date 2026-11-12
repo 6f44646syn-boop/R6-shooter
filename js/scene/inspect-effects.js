@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=eca0e5a-mwdi3x0w';
-import { mulberry32 } from '../core/prng.js?v=eca0e5a-mwdi3x0w';
-import { mergeStatic } from './sight-model.js?v=eca0e5a-mwdi3x0w';
+import * as THREE from '../../vendor/three/three.module.min.js?v=c21a8fc-mwdidpy7';
+import { mulberry32 } from '../core/prng.js?v=c21a8fc-mwdidpy7';
+import { mergeStatic } from './sight-model.js?v=c21a8fc-mwdidpy7';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -1696,6 +1696,98 @@ export function velvetInspect(gun, { surface }, quality) {
       plane.dispose(); glowPlane.dispose(); backMat.dispose(); glowMat.dispose(); for (const m of frontMats) m.dispose();
       chip.geometry.dispose(); chipFace.dispose(); chipFaceMat.dispose(); chipEdgeMat.dispose(); arcs.geometry.dispose(); arcs.material.dispose();
       probe.geometry.dispose(); probe.material.dispose();
+    },
+  };
+}
+
+// Opal Overture: the opal is an eye. Black-chrome lids close over it, then open; inside, black opal
+// with its play of colour shifting as you move, and a slit pupil that follows you. It blinks once,
+// iridescent glints drift off the gun, and the lids close again at the end.
+const OPAL_SECONDS = 8.4;
+const EYE_VERTEX = `varying vec3 vP, vN, vV; void main(){ vP = position; vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position, 1.0); vV = -mv.xyz; gl_Position = projectionMatrix * mv; }`;
+const EYE_FRAGMENT = `uniform float uTime, uWake; uniform vec2 uLook; varying vec3 vP, vN, vV;
+  float h(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  vec3 hue(float t) { return 0.5 + 0.5 * cos(6.2832 * (t + vec3(0.0, 0.33, 0.67))); }
+  void main() {
+    vec3 N = normalize(vN), V = normalize(vV);
+    float facing = dot(N, V);
+    // play of colour: patches of spectral fire whose colour turns with the viewing angle
+    vec2 f2 = vP.xz;                                   // the dome rises on +y: its face is x, z
+    vec2 q = f2 * 5.0 + vec2(sin(f2.y * 7.0 + uTime * 0.4), cos(f2.x * 6.0 - uTime * 0.3)) * 0.35;
+    vec2 cell = floor(q); float r = h(cell), blot = smoothstep(0.55, 0.0, length(fract(q) - 0.5 - (vec2(h(cell + 1.7), h(cell + 4.1)) - 0.5) * 0.5));
+    vec3 fire = hue(r + facing * 1.6 + uTime * 0.05) * blot * (0.5 + 1.2 * pow(h(cell + 9.3), 2.0));
+    vec3 c = vec3(0.02, 0.015, 0.04) + fire * (1.0 + 1.4 * uWake);
+    // the eye: a gold iris ring and a slit pupil looking your way
+    vec2 e = f2 - uLook;
+    float d = length(e * vec2(1.0, 0.75));
+    float iris = smoothstep(0.62, 0.5, d) * smoothstep(0.1, 0.3, d);
+    c = mix(c, c * 0.5 + vec3(1.0, 0.68, 0.2) * (0.8 + 0.5 * sin(atan(e.y, e.x) * 24.0 + uTime)), iris * 0.85 * uWake);
+    float pupil = smoothstep(0.26, 0.2, length(e * vec2(1.0, 3.0)));     // a slit, upright on the gun
+    c = mix(c, vec3(0.0), pupil * uWake);
+    // the glassy dome: a sharp highlight and a rim
+    c += vec3(1.0) * pow(max(dot(reflect(-V, N), normalize(vec3(0.3, 0.8, 0.5))), 0.0), 60.0) * 1.5;
+    c += hue(facing * 2.0 + uTime * 0.1) * pow(1.0 - facing, 3.0) * 0.6;
+    gl_FragColor = vec4(c, 1.0);
+  }`;
+export function opalInspect(gun, { surface }, quality) {
+  const [Z0, Z1, Y0, Y1] = [-0.30471, 0.35412, -0.27329, 0.16576];   // the MP7's art rectangle
+  const half = 0.022, tier = particleTier[quality] ?? 1;
+  const at = new THREE.Vector3(0, Y1 - (Y1 - Y0) * 318 / 1024, Z0 + (Z1 - Z0) * 945 / 1536);
+  const rz = (Z1 - Z0) * 44 / 1536, ry = (Y1 - Y0) * 38 / 1024, depth = 0.008;
+  const eyeU = { uTime: { value: 0 }, uWake: { value: 0 }, uLook: { value: new THREE.Vector2() } };
+  const eyeMat = new THREE.ShaderMaterial({ uniforms: eyeU, vertexShader: EYE_VERTEX, fragmentShader: EYE_FRAGMENT });
+  const lidMat = new THREE.MeshStandardMaterial({ color: 0x18161c, metalness: 1, roughness: 0.18 });
+  const eyeGeo = new THREE.SphereGeometry(1, 40, 24, 0, Math.PI * 2, 0, Math.PI / 2);          // a dome on +y; turned to face out
+  // the lids: the upper and lower halves of a slightly bigger dome, hinged on the eye's middle
+  const upperGeo = new THREE.SphereGeometry(1.12, 32, 12, Math.PI / 2, Math.PI, 0, Math.PI / 2);
+  const lowerGeo = new THREE.SphereGeometry(1.12, 32, 12, -Math.PI / 2, Math.PI, 0, Math.PI / 2);
+  const eyes = [-1, 1].map(side => {
+    const g = new THREE.Group(); g.position.copy(at); g.position.x = side * (half - 0.001);
+    g.rotation.z = -side * Math.PI / 2;                                // local +y points out of the gun's side
+    g.scale.set(ry, depth, rz);                                         // (local x is the gun's y, local z its z)
+    const eye = new THREE.Mesh(eyeGeo, eyeMat);
+    const upper = new THREE.Mesh(upperGeo, lidMat), lower = new THREE.Mesh(lowerGeo, lidMat);
+    g.add(eye, upper, lower); g.visible = false; gun.add(g);
+    return { g, upper, lower, side };
+  });
+  const trail = emitterTrail(gun);
+  const rainbow = [0xff6a8a, 0x6affd8, 0xa070ff, 0xffd06a].map((c, i) => {
+    const m = particles('glint', tier, surface.length ? surface : [{ point: at.clone(), normal: new THREE.Vector3(1, 0, 0) }], new THREE.Color(c).multiplyScalar(2.5), trail, mulberry32(210011 + i * 7));
+    m.material.blending = THREE.AdditiveBlending; m.visible = false; gun.add(m); return m;
+  });
+  const camAt = new THREE.Vector3(), probe = new THREE.Mesh(new THREE.PlaneGeometry(0.0001, 0.0001), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+  probe.frustumCulled = false; gun.add(probe);
+  probe.onBeforeRender = (renderer, scene, camera) => { camAt.setFromMatrixPosition(camera.matrixWorld); gun.worldToLocal(camAt); };
+  const glazes = [];
+  gun.traverse(o => { const u = o.material?.userData?.tri; if (u?.artPhase && !glazes.includes(u.artPhase)) glazes.push(u.artPhase); });
+  let phase = -1;
+  return {
+    clip: KILN_CLIP, seconds: OPAL_SECONDS,
+    update(p) {
+      const active = p >= 0 && p < 1;
+      if (!active && phase < 0) return;
+      phase = active ? p : -1;
+      for (const g of glazes) g.value = active ? p : -1;
+      const t = active ? p * OPAL_SECONDS : 0;
+      // closed as the gun comes up, opening slowly, one blink, closing at the end
+      const blink = active ? Math.max(0, 1 - Math.abs(p - 0.62) / 0.025) : 0;
+      const open = active ? smooth(p, 0.16, 0.32) * (1 - smooth(p, 0.86, 0.95)) * (1 - blink) : 0;
+      eyeU.uTime.value = t; eyeU.uWake.value = smooth(open, 0.3, 1);
+      for (const e of eyes) {
+        e.g.visible = active;
+        e.upper.rotation.z = -open * 1.6; e.lower.rotation.z = open * 1.6;     // hinged along the eye's middle, rolling back into the gun
+        if (e.g.visible && Math.sign(camAt.x) === e.side) {
+          // the pupil looks at you: the camera's direction in the eye's plane (gun y, gun z)
+          const dy = camAt.y - at.y, dz = camAt.z - at.z, dx = Math.abs(camAt.x - e.g.position.x) + 0.05;
+          eyeU.uLook.value.set(THREE.MathUtils.clamp(dy / dx * 0.5, -0.35, 0.35), THREE.MathUtils.clamp(dz / dx * 0.5, -0.35, 0.35));
+        }
+      }
+      for (const m of rainbow) m.visible = active && p > 0.25;
+      trail.update(active ? t : -1);
+    },
+    dispose() {
+      eyeGeo.dispose(); upperGeo.dispose(); lowerGeo.dispose(); eyeMat.dispose(); lidMat.dispose(); probe.geometry.dispose(); probe.material.dispose();
+      for (const m of rainbow) { m.geometry.dispose(); m.material.dispose(); }
     },
   };
 }

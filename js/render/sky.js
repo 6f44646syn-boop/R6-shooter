@@ -5,7 +5,7 @@
 //   skyPalette(preset) -> { dir, sun, sunI, zenith, horizon, ground, fog, hemiSky, hemiGround }
 //   makeSky(palette) -> a dome (radius 150) with scattering, the sun's disc and glow, and
 //   drifting clouds lit from the sun's side; sky.userData.tick(t) moves the clouds.
-import * as THREE from '../../vendor/three/three.module.min.js?v=eca0e5a-mwdi3x0w';
+import * as THREE from '../../vendor/three/three.module.min.js?v=c21a8fc-mwdidpy7';
 
 // Golden hour by default; each map can pick its own (look.js L.time).
 const PRESETS = {

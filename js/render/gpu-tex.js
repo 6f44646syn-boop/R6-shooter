@@ -1,5 +1,5 @@
-import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=eca0e5a-mwdi3x0w';
-import { packArt } from './pack-art.js?v=eca0e5a-mwdi3x0w';
+import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=c21a8fc-mwdidpy7';
+import { packArt } from './pack-art.js?v=c21a8fc-mwdidpy7';
 // GPU-baked textures for ultra graphics. Everything is procedural and drawn by a fragment
 // shader into a render target once (milliseconds on a graphics card), so 4096 x 4096 maps
 // cost nothing at start-up and nothing is downloaded.
@@ -10,7 +10,7 @@ import { packArt } from './pack-art.js?v=eca0e5a-mwdi3x0w';
 //   bakeSkin(renderer, index, size): one of SKINS, { albedo, rm } (rm: G roughness, B metalness).
 //   triplanar(material, opts): shader patch that maps a skin and/or detail by the surface's
 //        own 3D position (no UV stretching on long thin parts), with edge wear from UVs.
-import * as THREE from '../../vendor/three/three.module.min.js?v=eca0e5a-mwdi3x0w';
+import * as THREE from '../../vendor/three/three.module.min.js?v=c21a8fc-mwdidpy7';
 
 const VERT = /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
@@ -568,7 +568,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
     // from it. Looks: 'porcelain' (glaze, crazing, silver seams) or 'bronze' (metal, glowing teal inlays).
     Object.assign(uniforms, {
       artMap: { value: artTexture(def.art) }, artMap2: { value: artTexture(def.artPeak || def.art) }, artMix: { value: 0 }, artMixSide: { value: 0 }, artRect: { value: new THREE.Vector4(...def.artRect) },
-      artDark: { value: new THREE.Vector3(...def.c[2]) }, artPhase: { value: -1 }, artBlast: { value: -9 }, artMode: { value: { bronze: 1, glass: 2, resin: 2, jade: 2, lacquer: 3, gilt: 3, velvet: 7, orrery: 5, forge: 4, amber: 6 }[def.artLook] || 0 },
+      artDark: { value: new THREE.Vector3(...def.c[2]) }, artPhase: { value: -1 }, artBlast: { value: -9 }, artMode: { value: { bronze: 1, glass: 2, resin: 2, jade: 2, opal: 2, lacquer: 3, gilt: 3, velvet: 7, orrery: 5, forge: 4, amber: 6 }[def.artLook] || 0 },
     });
   } else if (sakura) {
     const [gold, pink, pearl, black] = def.c.map(c => new THREE.Vector3(...c));
@@ -840,6 +840,10 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         float kVel = step(6.5, artMode), kVelOn = artPhase < 0.0 ? 0.0 : sstep(0.55, 0.64, artPhase) * (1.0 - sstep(0.78, 0.86, artPhase));
         float kIvory = sstep(0.45, 0.65, kLum) * sstep(0.12, 0.04, kSat);
         float kSeq = sstep(-0.02, 0.02, mix(-0.25, 0.45, sstep(0.55, 0.68, artPhase)) - vTriPos.z);
+        // ... and a gloss sweeps over it, stock to muzzle, as it comes up and again after the cards fall
+        float kShine = artPhase < 0.0 ? 0.0 : exp(-pow(vTriPos.z - mix(0.45, -0.3, sstep(0.08, 0.36, artPhase)) + vTriPos.y * 0.6, 2.0) * 260.0) * (1.0 - sstep(0.36, 0.42, artPhase))
+          + exp(-pow(vTriPos.z - mix(0.45, -0.3, sstep(0.84, 0.97, artPhase)) + vTriPos.y * 0.6, 2.0) * 260.0) * sstep(0.82, 0.86, artPhase);
+        totalEmissiveRadiance += kVel * kShine * vec3(1.0, 0.92, 0.76) * (0.35 + 1.4 * kGold);
         totalEmissiveRadiance += kVel * kVelOn * vec3(1.0, 0.22, 0.7) * (0.7 + 0.3 * sin(triTime * 14.0)) * (kGold * 2.2 * kSeq + kIvory * 0.7 + 0.06);
         // the sloshing resin's surface: a bright meniscus line tilting back and forth through the amber
         float kAmb = kGlass * step(5.5, artMode);
