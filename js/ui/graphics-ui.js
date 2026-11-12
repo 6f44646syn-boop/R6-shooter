@@ -2,8 +2,8 @@
 // Ultra (needs the Enhanced Graphics pack), download / update / remove the pack, pick a
 // performance profile, the frame-rate target and the FPS counter.
 // ctx: { settings, commit(key) (sanitise, save, apply), packSize() }
-import { HDPack } from '../render/hd-pack.js?v=79b9476-mwderefs';
-import { needsPack } from '../render/quality.js?v=79b9476-mwderefs';
+import { HDPack } from '../render/hd-pack.js?v=d083d0f-mwdex9qh';
+import { needsPack } from '../render/quality.js?v=d083d0f-mwdex9qh';
 
 function el(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);

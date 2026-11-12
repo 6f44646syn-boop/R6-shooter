@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=79b9476-mwderefs';
-import { mulberry32 } from '../core/prng.js?v=79b9476-mwderefs';
-import { mergeStatic } from './sight-model.js?v=79b9476-mwderefs';
+import * as THREE from '../../vendor/three/three.module.min.js?v=d083d0f-mwdex9qh';
+import { mulberry32 } from '../core/prng.js?v=d083d0f-mwdex9qh';
+import { mergeStatic } from './sight-model.js?v=d083d0f-mwdex9qh';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -9,6 +9,7 @@ const KILN_SECONDS = 8.4, KILN_PEAK = 0.57;
 const ABYSS_SECONDS = 8.4, ABYSS_PEAK = 0.57;
 const VESPER_SECONDS = 8.4, VESPER_PEAK = 0.57;
 const FORGE_SECONDS = 8.4, FORGE_PEAK = 0.57;
+const ORRERY_SECONDS = 8.4;
 const smooth = THREE.MathUtils.smoothstep;
 
 const ICE_CLIP = { root: [
@@ -1029,5 +1030,126 @@ export function forgeInspect(gun, { reliefs, channels, seam, surface }, quality)
       }
     },
     dispose() { for (const m of [sparks, embers, flames, smoke]) { m.geometry.dispose(); m.material.dispose(); } },
+  };
+}
+
+// Midnight Orrery: a portal opens behind the gun, bigger than it, onto deep space; planets and stars
+// fly out of it and orbit the gun, the orbit travelling from the stock to the barrel, then they are
+// drawn back in and the portal closes.
+const PORTAL_VERTEX = 'varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }';
+const PORTAL_FRAGMENT = `uniform float uTime, uOpen; varying vec2 vP;
+  float h(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  float n(vec2 p) { vec2 i = floor(p), f = fract(p); f *= f * (3.0 - 2.0 * f);
+    return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1)), f.x), f.y); }
+  void main() {
+    float r = length(vP) / max(uOpen, 0.001), a = atan(vP.y, vP.x);
+    if (r > 1.0) discard;
+    // the nebula turns, faster towards the eye of the portal
+    float tw = a + uTime * 0.35 + (1.0 - r) * 2.5;
+    vec2 q = vec2(cos(tw), sin(tw)) * r * 3.0;
+    float neb = n(q * 2.0 + uTime * 0.1) * 0.6 + n(q * 4.5 - uTime * 0.07) * 0.4;
+    vec3 c = mix(vec3(0.01, 0.01, 0.05), vec3(0.08, 0.05, 0.3), neb);
+    c += vec3(0.45, 0.12, 0.55) * pow(neb, 3.0) * (1.0 - r) * 1.4;
+    c += vec3(0.1, 0.35, 0.7) * pow(n(q * 3.0 + 7.0), 4.0) * 0.8;
+    // stars, twinkling
+    vec2 sp = vP * 90.0 / max(uOpen, 0.001); vec2 cell = floor(sp);
+    float st = h(cell); vec2 off = fract(sp) - 0.5 - (vec2(h(cell + 3.1), h(cell + 7.7)) - 0.5) * 0.6;
+    c += vec3(1.0, 0.95, 0.85) * step(0.93, st) * smoothstep(0.12, 0.0, length(off)) * (0.6 + 0.4 * sin(uTime * 4.0 + st * 50.0));
+    // the golden rim, with sparkle, and the light falling off at the edge
+    float rim = smoothstep(0.86, 0.97, r) * (1.0 - smoothstep(0.97, 1.0, r));
+    c += vec3(1.0, 0.75, 0.3) * rim * (1.4 + 0.6 * sin(a * 24.0 - uTime * 3.0));
+    c += vec3(0.6, 0.45, 0.9) * smoothstep(0.6, 0.95, r) * 0.25;
+    gl_FragColor = vec4(c, smoothstep(1.0, 0.985, r) * 0.96);
+  }`;
+const STAR_VERTEX = `attribute float size; varying float vTw; uniform float uTime;
+  void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); vTw = 0.6 + 0.4 * sin(uTime * 6.0 + size * 900.0);
+    gl_PointSize = size * 900.0 / -mv.z; gl_Position = projectionMatrix * mv; }`;
+const STAR_FRAGMENT = `uniform float uOpacity; varying float vTw;
+  void main() { vec2 p = gl_PointCoord * 2.0 - 1.0;
+    float core = exp(-dot(p, p) * 9.0), rays = exp(-abs(p.x) * 14.0) * exp(-abs(p.y) * 2.5) + exp(-abs(p.y) * 14.0) * exp(-abs(p.x) * 2.5);
+    gl_FragColor = vec4(vec3(1.0, 0.92, 0.75) * (core + rays * 0.7) * vTw, uOpacity * (core + rays * 0.7)); }`;
+export function orreryInspect(gun, { surface, under }, quality) {
+  const pts = [...surface, ...under].map(a => a.point);
+  const zs = pts.map(v => v.z), ys = pts.map(v => v.y);
+  const zMin = pts.length ? Math.min(...zs) : -0.3, zMax = pts.length ? Math.max(...zs) : 0.3;
+  const yMid = pts.length ? (Math.min(...ys) + Math.max(...ys)) / 2 : 0;
+  const centre = new THREE.Vector3(0, yMid, (zMin + zMax) / 2), length = zMax - zMin;
+  // the portal: a disc that always sits behind the gun as you look at it, facing you
+  const portalU = { uTime: { value: 0 }, uOpen: { value: 0 } };
+  const R = length * 0.75;
+  const portal = new THREE.Mesh(new THREE.CircleGeometry(R, 64), new THREE.ShaderMaterial({ uniforms: portalU, vertexShader: PORTAL_VERTEX, fragmentShader: PORTAL_FRAGMENT, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+  portal.name = 'Inspect portal'; portal.frustumCulled = false; portal.visible = false; portal.renderOrder = -1;
+  const portalAt = centre.clone(), cam = new THREE.Vector3();
+  portal.onBeforeRender = (renderer, scene, camera) => {
+    gun.updateMatrixWorld();
+    cam.setFromMatrixPosition(camera.matrixWorld);
+    const local = gun.worldToLocal(cam.clone());
+    portalAt.copy(centre).addScaledVector(local.sub(centre).normalize(), -0.22);
+    portal.position.copy(portalAt);
+    portal.lookAt(cam);
+    portal.updateMatrixWorld();
+  };
+  gun.add(portal);
+  // the planets: each its own colour, one ringed; and a swarm of stars
+  const rng = mulberry32(206017), tier = particleTier[quality] ?? 1;
+  const planetCols = [0xe8c070, 0x7fb6ff, 0xd0603a, 0x9a6ad8, 0x5fd0c0, 0xf0e6d0];
+  const planets = planetCols.map((col, i) => {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.01 + rng() * 0.009, 24, 16), new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 0.35, roughness: 0.6, metalness: 0.1 }));
+    if (i === 0) {
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.022, 0.032, 48), new THREE.MeshBasicMaterial({ color: 0xf2d9a0, transparent: true, opacity: 0.75, side: THREE.DoubleSide }));
+      ring.rotation.x = 1.2; m.add(ring);
+    }
+    m.visible = false; gun.add(m);
+    return { m, r: 0.07 + rng() * 0.07, a0: rng() * Math.PI * 2, speed: 2.2 + rng() * 2.2, dz: (rng() - 0.5) * 0.12, tilt: 0.6 + rng() * 0.4, delay: i * 0.012 };
+  });
+  const nStars = [50, 90, 130, 170][tier];
+  const starGeo = new THREE.BufferGeometry();
+  starGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(nStars * 3), 3));
+  starGeo.setAttribute('size', new THREE.BufferAttribute(Float32Array.from({ length: nStars }, () => 0.006 + rng() * 0.008), 1));
+  const starU = { uTime: { value: 0 }, uOpacity: { value: 0 } };
+  const stars = new THREE.Points(starGeo, new THREE.ShaderMaterial({ uniforms: starU, vertexShader: STAR_VERTEX, fragmentShader: STAR_FRAGMENT, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  stars.name = 'Inspect stars'; stars.frustumCulled = false; stars.visible = false; gun.add(stars);
+  const star = Array.from({ length: nStars }, () => ({ r: 0.05 + rng() * 0.12, a0: rng() * Math.PI * 2, speed: 1.5 + rng() * 3, dz: (rng() - 0.5) * length * 0.5, tilt: 0.5 + rng() * 0.5, delay: rng() * 0.06 }));
+  const glazes = [];
+  gun.traverse(o => { const u = o.material?.userData?.tri; if (u?.artPhase && !glazes.includes(u.artPhase)) glazes.push(u.artPhase); });
+  const at = new THREE.Vector3(), orbit = new THREE.Vector3();
+  // where a body is: out of the portal, into its orbit (the orbit's centre travelling stock to barrel), back in
+  const place = (b, p, t, out) => {
+    const zc = zMax + (zMin - zMax) * smooth(p, 0.3, 0.8) + b.dz;
+    const a = b.a0 + b.speed * t;
+    orbit.set(Math.cos(a) * b.r, yMid + Math.sin(a) * b.r * b.tilt, zc);
+    const go = smooth(p, 0.2 + b.delay, 0.32 + b.delay), back = smooth(p, 0.82 + b.delay * 0.5, 0.93);
+    return out.copy(portalAt).lerp(orbit, go * (1 - back));
+  };
+  let phase = -1;
+  return {
+    clip: KILN_CLIP, seconds: ORRERY_SECONDS,
+    update(p) {
+      const active = p >= 0 && p < 1;
+      if (!active && phase < 0) return;
+      phase = active ? p : -1;
+      for (const g of glazes) g.value = active ? p : -1;
+      const t = active ? p * ORRERY_SECONDS : 0;
+      const open = active ? smooth(p, 0.1, 0.24) * (1 - smooth(p, 0.9, 0.98)) : 0;
+      portal.visible = open > 0.005; portalU.uOpen.value = Math.max(open, 0.001); portalU.uTime.value = t;
+      const out = active ? smooth(p, 0.2, 0.3) * (1 - smooth(p, 0.9, 0.96)) : 0;
+      for (const b of planets) {
+        b.m.visible = out > 0.01;
+        if (!b.m.visible) continue;
+        place(b, p, t, b.m.position);
+        b.m.scale.setScalar(Math.max(0.001, out));
+        b.m.rotation.y = t * 1.5;
+      }
+      stars.visible = out > 0.01; starU.uOpacity.value = out; starU.uTime.value = t;
+      if (stars.visible) {
+        const pos = starGeo.attributes.position;
+        star.forEach((b, i) => { place(b, p, t, at); pos.setXYZ(i, at.x, at.y, at.z); });
+        pos.needsUpdate = true;
+      }
+    },
+    dispose() {
+      portal.geometry.dispose(); portal.material.dispose(); starGeo.dispose(); stars.material.dispose();
+      for (const b of planets) { b.m.traverse(o => { o.geometry?.dispose(); o.material?.dispose(); }); }
+    },
   };
 }
