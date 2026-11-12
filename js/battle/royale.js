@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=22ac50c-mwd93u7a';
-import { ROYALE_BOTS } from './royale-map.js?v=22ac50c-mwd93u7a';
-import { PLATFORM_HALF, PLATFORM_MASK, RAMP_RISE, platformHeight, platformMeshes, platformSolids } from './royale-platform.js?v=22ac50c-mwd93u7a';
+import * as THREE from '../../vendor/three/three.module.min.js?v=e5abbf7-mwd96xd4';
+import { ROYALE_BOTS } from './royale-map.js?v=e5abbf7-mwd96xd4';
+import { PLATFORM_HALF, PLATFORM_MASK, RAMP_RISE, platformHeight, platformMeshes, platformSolids } from './royale-platform.js?v=e5abbf7-mwd96xd4';
 
 const TOKEN_CHANCE = 0.001;
 const CHEST_MATERIALS = 6;

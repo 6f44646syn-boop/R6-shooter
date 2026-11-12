@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=22ac50c-mwd93u7a';
-import { mulberry32 } from '../core/prng.js?v=22ac50c-mwd93u7a';
-import { mergeStatic } from './sight-model.js?v=22ac50c-mwd93u7a';
+import * as THREE from '../../vendor/three/three.module.min.js?v=e5abbf7-mwd96xd4';
+import { mulberry32 } from '../core/prng.js?v=e5abbf7-mwd96xd4';
+import { mergeStatic } from './sight-model.js?v=e5abbf7-mwd96xd4';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -751,7 +751,7 @@ export function vesperInspect(gun, { reliefs, surface }, quality) {
   for (const m of glints) { m.visible = false; gun.add(m); }
   // The temporal fracture: shards of glass burst off the gun, hang in the air stuttering as if time
   // has caught, while cracks of light split the space around it; then it all runs backwards.
-  const rng = mulberry32(204077), nShards = [80, 160, 240, 320][particleTier[quality] ?? 1];
+  const rng = mulberry32(204077), nShards = [40, 80, 120, 160][particleTier[quality] ?? 1];
   const tri = new THREE.BufferGeometry();
   tri.setAttribute('position', new THREE.Float32BufferAttribute([0, 0.012, 0, -0.009, -0.008, 0, 0.01, -0.006, 0.0012], 3));
   tri.computeVertexNormals();
@@ -765,18 +765,37 @@ export function vesperInspect(gun, { reliefs, surface }, quality) {
     return { at: a.point.clone(), dir, dist: 0.08 + rng() * 0.34, axis: new THREE.Vector3(rng() - 0.5, rng() - 0.5, rng() - 0.5).normalize(), turn: 2 + rng() * 6, size: 0.6 + rng() * 1.6 };
   });
   const centre = from.reduce((c, a) => c.add(a.point), new THREE.Vector3()).multiplyScalar(1 / from.length);
-  const crackPts = [];
-  for (let i = 0; i < 40; i++) {           // jagged lines of light on a shell around the gun
-    let q = centre.clone().add(new THREE.Vector3(rng() - 0.5, rng() - 0.5, rng() - 0.5).normalize().multiplyScalar(0.1 + rng() * 0.3));
-    const d = new THREE.Vector3(rng() - 0.5, rng() - 0.5, rng() - 0.5).normalize();
-    for (let j = 0; j < 9; j++) {
-      const nq = q.clone().addScaledVector(d, 0.025 + rng() * 0.04).add(new THREE.Vector3(rng() - 0.5, rng() - 0.5, rng() - 0.5).multiplyScalar(0.02));
-      crackPts.push(q.x, q.y, q.z, nq.x, nq.y, nq.z); q = nq;
+  // The fractures in the air: spider-web breaks in invisible panes around the gun. From each impact
+  // point jagged cracks run outwards, joined by rings, built as thin solid strands (they catch the
+  // light from every angle) over a faint iridescent pane of broken space. They spread from the impact.
+  const cracks = new THREE.Group(), panes = [];
+  const strand = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xd9c8ff, emissiveIntensity: 1.6, roughness: 0.15, metalness: 0, transparent: true, opacity: 0 });
+  const sheet = new THREE.MeshPhysicalMaterial({ color: 0xe8e0ff, roughness: 0.02, metalness: 0, iridescence: 1, iridescenceIOR: 1.6, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false });
+  const jag = (a, b, n) => { const pts = [a]; for (let k = 1; k < n; k++) pts.push(a.clone().lerp(b, k / n).add(new THREE.Vector3(rng() - 0.5, rng() - 0.5, 0).multiplyScalar(0.012))); pts.push(b); return pts; };
+  const tubes = [];
+  for (let n = 0; n < 4; n++) {
+    const pane = new THREE.Group();
+    const R = 0.07 + rng() * 0.06, spokes = 9 + Math.floor(rng() * 5), ends = [];
+    for (let i = 0; i < spokes; i++) {
+      const a = i / spokes * Math.PI * 2 + (rng() - 0.5) * 0.4, r = R * (0.6 + rng() * 0.45);
+      const end = new THREE.Vector3(Math.cos(a) * r, Math.sin(a) * r, 0); ends.push(end);
+      tubes.push({ pane, pts: jag(new THREE.Vector3(), end, 6), w: 0.0011 });
     }
+    for (const f of [0.35, 0.65]) for (let i = 0; i < spokes; i++) {      // the rings that join neighbouring cracks
+      if (rng() < 0.25) continue;
+      tubes.push({ pane, pts: jag(ends[i].clone().multiplyScalar(f * (0.9 + rng() * 0.2)), ends[(i + 1) % spokes].clone().multiplyScalar(f * (0.9 + rng() * 0.2)), 3), w: 0.0007 });
+    }
+    const outline = new THREE.Shape(ends.map(e => new THREE.Vector2(e.x, e.y)));
+    pane.add(new THREE.Mesh(new THREE.ShapeGeometry(outline), sheet));
+    // somewhere around the gun, turned a different way each
+    const dir = new THREE.Vector3(rng() - 0.5, rng() * 0.6 - 0.1, rng() - 0.5).normalize();
+    pane.position.copy(centre).addScaledVector(dir, 0.12 + rng() * 0.12);
+    pane.quaternion.setFromEuler(new THREE.Euler(rng() * 1.2 - 0.6, rng() * Math.PI, rng() * Math.PI));
+    cracks.add(pane); panes.push(pane);
   }
-  const crackGeo = new THREE.BufferGeometry(); crackGeo.setAttribute('position', new THREE.Float32BufferAttribute(crackPts, 3));
-  const cracks = new THREE.LineSegments(crackGeo, new THREE.LineBasicMaterial({ color: 0xffd6ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
-  cracks.name = 'Inspect time cracks'; cracks.frustumCulled = false; cracks.visible = false;
+  for (const t of tubes) t.pane.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(t.pts, false, 'catmullrom', 0.1), t.pts.length * 2, t.w, 3, false), strand));
+  cracks.name = 'Inspect time cracks'; cracks.visible = false;
+  cracks.traverse(o => { o.frustumCulled = false; });
   gun.add(shards, cracks);
   const sm = new THREE.Matrix4(), sq = new THREE.Quaternion(), sp = new THREE.Vector3(), ss = new THREE.Vector3();
   const glazes = [];
@@ -806,9 +825,12 @@ export function vesperInspect(gun, { reliefs, surface }, quality) {
         });
         shards.instanceMatrix.needsUpdate = true;
       }
-      const crack = active ? smooth(p, 0.42, 0.48) * (1 - smooth(p, 0.6, 0.66)) : 0;
-      cracks.visible = crack > 0.01;
-      cracks.material.opacity = crack * (0.55 + 0.45 * ((tick % 3) / 2));
+      // the breaks spread from their impact points, flicker while time is caught, then seal
+      const spread = active ? smooth(p, 0.42, 0.47) : 0, seal = active ? 1 - smooth(p, 0.6, 0.67) : 0;
+      cracks.visible = spread * seal > 0.01;
+      for (const pane of panes) pane.scale.setScalar(Math.max(0.001, spread));
+      strand.opacity = spread * seal * (0.75 + 0.25 * ((tick % 3) / 2));
+      sheet.opacity = spread * seal * 0.12;
       trail.update(active ? p * VESPER_SECONDS : -1);
       const turn = active ? smooth(p, VESPER_PEAK - 0.1, VESPER_PEAK + 0.04) * (1 - smooth(p, 0.74, 0.9)) * 0.17 : 0;   // about 10 degrees
       for (const r of reliefs) {
@@ -818,6 +840,6 @@ export function vesperInspect(gun, { reliefs, surface }, quality) {
         r.group.matrix.copy(M);
       }
     },
-    dispose() { for (const m of [...glints, shards, cracks]) { m.geometry.dispose(); m.material.dispose(); } },
+    dispose() { for (const m of [...glints, shards]) { m.geometry.dispose(); m.material.dispose(); } cracks.traverse(o => o.geometry?.dispose()); strand.dispose(); sheet.dispose(); },
   };
 }
