@@ -134,6 +134,7 @@ export async function createControls() {
       api.release();
       api.profile = profile === "trackpad" ? "trackpad" : "mouse";
       e.mc_reset(+(api.profile === "trackpad"));
+      if (api.profile === "trackpad") e.mc_bind(0, 1, 128); // a trackpad click fires too
       api.toggle = api.profile === "trackpad";
       api.autoAds = api.profile === "trackpad";
       api.options();
@@ -179,6 +180,7 @@ export async function createControls() {
         }),
       );
       if (!valid) e.mc_reset(+(api.profile === "trackpad"));
+      if (api.profile === "trackpad" && !e.mc_binding(0, 1) && !b.some((row) => row.includes(128))) e.mc_bind(0, 1, 128); // saved before click-to-fire
     }
     api.options();
   } else e.mc_reset(0);

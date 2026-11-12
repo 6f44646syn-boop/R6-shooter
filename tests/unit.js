@@ -187,6 +187,11 @@ test('RecoilEngine: with no jitter, bullet i leaves at sprayPath[i]', () => {
   r.fire(10.4, o); // extrapolated: avg of last 3 steps = ([0.2,1.2]-[0,0])/3
   near(o[0], 0.2 + 0.2 / 3, 1e-12); near(o[1], 1.2 + 0.4, 1e-12);
 });
+test('RecoilEngine: off (trackpad) fires every bullet on the aim, hip or aimed', () => {
+  const r = new RecoilEngine(); r.setGun(testGun({ jitter: { yawDeg: 0.5, pitchDeg: 0.5 } })); r.newMagazine(1); r.off = true;
+  const o = [0, 0];
+  for (let i = 0; i < 6; i++) { r.aimed = i % 2 === 0; r.fire(10 + i * 0.1, o); eq(o[0] === 0 && o[1] === 0, true, 'bullet ' + i); }
+});
 test('RecoilEngine: shotIndex resets after resetSeconds', () => {
   const r = new RecoilEngine(); r.setGun(testGun()); r.newMagazine(1);
   const o = [0, 0];

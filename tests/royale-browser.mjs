@@ -149,8 +149,8 @@ try {
   assert.deepEqual(await page.evaluate(() => {
     const b = __range.battle();
     return [b.royale.materials, b.humans[0].gun.id, b.royale.chests[0].opened];
-  }), [loot[0] + 6, loot[1], true]);
-  console.log('PASS Interact opens a chest once and equips its gun and wall stock');
+  }), [loot[0] + 18, loot[1], true]);
+  console.log('PASS Interact opens a chest once and equips its gun and wall stock (3x materials)');
   assert.ok(await page.evaluate(() => {
     const b = __range.battle(), h = b.humans[0], r = b.royale, gun = h.gun;
     h.weapon.ammo = 2;
@@ -210,7 +210,7 @@ try {
     delete h.shotDirection;
     return { blocked, solid, spent, preview, edited, safeRestore, restored, preset, navReused, removed: r.walls.length === 0 && a.boxes.length === a.baseBoxCount };
   });
-  assert.deepEqual(build, {blocked:true, solid:true, spent:loot[0]+5, preview:true, edited:true, safeRestore:true, restored:true, preset:true, navReused:true, removed:true});
+  assert.deepEqual(build, {blocked:true, solid:true, spent:loot[0]+17, preview:true, edited:true, safeRestore:true, restored:true, preset:true, navReused:true, removed:true});
   console.log('PASS wall release-to-edit, window preset, safe reset, and bullet destruction');
 
   const botCover = await page.evaluate(() => {

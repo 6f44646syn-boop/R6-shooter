@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=be25189-mwe3l5fi';
-import { mulberry32 } from '../core/prng.js?v=be25189-mwe3l5fi';
-import { mergeStatic } from './sight-model.js?v=be25189-mwe3l5fi';
+import * as THREE from '../../vendor/three/three.module.min.js?v=66e6c20-mwe5ta04';
+import { mulberry32 } from '../core/prng.js?v=66e6c20-mwe5ta04';
+import { mergeStatic } from './sight-model.js?v=66e6c20-mwe5ta04';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -2149,7 +2149,7 @@ export function opalInspect(gun, { surface }, quality) {
       // the jaw opens after the eye, chomps twice, opens wide, and shuts with the eye at the end
       const bite = active ? Math.sin(smooth(p, 0.56, 0.64) * Math.PI) : 0;      // one deliberate bite
       const gape = active ? smooth(p, 0.32, 0.5) * (1 - smooth(p, 0.8, 0.9)) * (1 - 0.9 * bite) : 0;
-      const A = 0.2 * gape;                                                // (a modest gape: the jaw stays a jaw)
+      const A = 0.25 * gape;                                                // (a modest gape: the jaw stays a jaw)
       jawU.uJawAngle.value = A;
       throat.visible = A > 0.01;
       if (throat.visible) {

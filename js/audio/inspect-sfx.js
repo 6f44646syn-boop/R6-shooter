@@ -24,7 +24,8 @@ export function playInspect(sfx, look, seconds) {
     const g = ctx.createGain(); env(g, t, attack, dur, peak);
     n.connect(f).connect(g).connect(out); n.start(t, r()); n.stop(t + attack + dur + 0.05);
   };
-  const bell = (t, f, peak = 0.08) => { tone(t, 1.6, f, f, 'sine', peak, 0.004); tone(t, 1.0, f * 2.76, f * 2.76, 'sine', peak * 0.4, 0.003); tone(t, 0.6, f * 5.4, f * 5.4, 'sine', peak * 0.2, 0.002); };
+  const ny = ctx.sampleRate * 0.45;   // partials above this would alias (and warn)
+  const bell = (t, f, peak = 0.08) => { tone(t, 1.6, f, f, 'sine', peak, 0.004); if (f * 2.76 < ny) tone(t, 1.0, f * 2.76, f * 2.76, 'sine', peak * 0.4, 0.003); if (f * 5.4 < ny) tone(t, 0.6, f * 5.4, f * 5.4, 'sine', peak * 0.2, 0.002); };
   const whoosh = (t, dur, peak = 0.12) => noise(t, dur, 300, 0.7, peak, 'bandpass', dur * 0.5, 2400);
   whoosh(at(0.02), 0.6, 0.07);                                        // the gun coming up
   const D = {

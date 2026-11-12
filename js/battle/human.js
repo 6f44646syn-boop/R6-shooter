@@ -8,16 +8,16 @@
 //                       B crouch, A vault, L3 sprint, LB/RB lean.
 //   keys  (player 2, no gamepad): I J K L move, arrow keys look, Enter fire,
 //                       Right Shift aim, Backspace reload, / crouch.
-import * as THREE from '../../vendor/three/three.module.min.js?v=be25189-mwe3l5fi';
-import { Look, PITCH_LIMIT } from '../core/look.js?v=be25189-mwe3l5fi';
-import { Weapon } from '../core/weapon.js?v=be25189-mwe3l5fi';
-import { RecoilEngine } from '../core/recoil.js?v=be25189-mwe3l5fi';
-import { Spread } from '../core/spread.js?v=be25189-mwe3l5fi';
-import { focalRatio } from '../core/sensitivity.js?v=be25189-mwe3l5fi';
-import { WeaponRig } from '../scene/viewmodel.js?v=be25189-mwe3l5fi';
-import { EYE_Z, VIEW_H } from '../scene/sight-model.js?v=be25189-mwe3l5fi';
-import { reticleTextures } from '../ui/reticle-tex.js?v=be25189-mwe3l5fi';
-import { RETICLE_COLORS } from '../ui/scope.js?v=be25189-mwe3l5fi';
+import * as THREE from '../../vendor/three/three.module.min.js?v=66e6c20-mwe5ta04';
+import { Look, PITCH_LIMIT } from '../core/look.js?v=66e6c20-mwe5ta04';
+import { Weapon } from '../core/weapon.js?v=66e6c20-mwe5ta04';
+import { RecoilEngine } from '../core/recoil.js?v=66e6c20-mwe5ta04';
+import { Spread } from '../core/spread.js?v=66e6c20-mwe5ta04';
+import { focalRatio } from '../core/sensitivity.js?v=66e6c20-mwe5ta04';
+import { WeaponRig } from '../scene/viewmodel.js?v=66e6c20-mwe5ta04';
+import { EYE_Z, VIEW_H } from '../scene/sight-model.js?v=66e6c20-mwe5ta04';
+import { reticleTextures } from '../ui/reticle-tex.js?v=66e6c20-mwe5ta04';
+import { RETICLE_COLORS } from '../ui/scope.js?v=66e6c20-mwe5ta04';
 
 const DEG = Math.PI / 180;
 const WALK = 3.4, SPRINT = 5.6, CROUCH_WALK = 1.6, ADS_WALK = 2.2;
@@ -41,6 +41,7 @@ export class Human {
     this.camera = new THREE.PerspectiveCamera(deps.settings.fov, 1, 0.05, 200);
     this.camera.rotation.order = 'YXZ';
     this.rig = new WeaponRig(deps.renderer);
+    this.rig.onInspect = (look, seconds) => this.deps.onInspect?.(look, seconds);   // (deps can be swapped per match)
     this.rig.applyLights();
     this.in = { fwd: false, back: false, left: false, right: false, sprint: false, crouch: false, leanL: false, leanR: false, fire: false, ads: false, vault: false };
     this.vault = null;                 // { t0, dur, from, to, peak } while vaulting
@@ -322,9 +323,10 @@ export class Human {
   // Unit direction of a bullet fired now (aim + spray offset at the shot).
   shotDirection(t, out) {
     this.recoil.aimed = this.ads;
+    this.recoil.off = this.deps.controls?.profile === 'trackpad';
     this.recoil.fire(t, this.bulletOff);
     const sp = this._spr;
-    if (this.deps.settings.hipSpread && !this.ads) this.spread.shot(t, this.gun, Math.hypot(this.f.vx, this.f.vz) > 0.5, this.f.crouch > 0.5, this.adsE, Math.random, sp);
+    if (this.deps.settings.hipSpread && !this.ads && !this.recoil.off) this.spread.shot(t, this.gun, Math.hypot(this.f.vx, this.f.vz) > 0.5, this.f.crouch > 0.5, this.adsE, Math.random, sp);
     else sp[0] = sp[1] = 0;
     const yaw = (this.look.yaw + this.bulletOff[0] + sp[0]) * DEG;
     const pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, this.look.pitch + this.bulletOff[1] + sp[1])) * DEG;

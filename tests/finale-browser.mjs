@@ -66,7 +66,7 @@ try {
       R.step(0.05,60); R.renderFrame();
       const replay = G.hud.end.dataset.finale === 'replay' && G.kc?.by === me.id && G.camOverride === G.kcCam && !!G.kcPuppet;
       const clone = G.finale.lineup.children.length;
-      R.step(3,60); R.renderFrame();
+      R.step(3,60); R.step(9,60); R.renderFrame();   // (the replay, then the win flex: an inspect of at most 8 s)
       const results = G.hud.end.dataset.finale === 'results' && !G.kc && !G.grenadeView.marker?.visible;
       const leaderboard = G.hud.endTable.children.length === m.actors.length;
       return {held,released,attributed,replay,results,leaderboard,clone,expected:m.actors.filter(a=>a.team===me.team).length};
