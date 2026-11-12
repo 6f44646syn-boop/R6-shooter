@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=3884a5c-mwdhrmgv';
-import { mulberry32 } from '../core/prng.js?v=3884a5c-mwdhrmgv';
-import { mergeStatic } from './sight-model.js?v=3884a5c-mwdhrmgv';
+import * as THREE from '../../vendor/three/three.module.min.js?v=bbc2366-mwdhu71j';
+import { mulberry32 } from '../core/prng.js?v=bbc2366-mwdhu71j';
+import { mergeStatic } from './sight-model.js?v=bbc2366-mwdhu71j';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -1465,10 +1465,11 @@ export function jadeInspect(gun, { surface }, quality) {
   const trail = emitterTrail(gun), tier = particleTier[quality] ?? 1;
   const goldFrom = [];
   for (let i = 0; i <= 40; i++) for (const k of [-1, 1]) { const v = painted.getPointAt(i / 40); v.x = k * (half + 0.004); goldFrom.push({ point: v, normal: new THREE.Vector3(k, 0.3, 0).normalize() }); }
-  const glints = particles('glint', tier, goldFrom, new THREE.Color(0xffc840).multiplyScalar(2.5), trail, mulberry32(208041));
-  const glints2 = particles('glint', tier, goldFrom, new THREE.Color(0xffe080).multiplyScalar(2.5), trail, mulberry32(208049));
-  const motes = particles('ember', tier, goldFrom, new THREE.Color(0xffd860).multiplyScalar(3), trail, mulberry32(208057));
-  for (const m of [glints, glints2, motes]) { m.material.blending = THREE.AdditiveBlending; m.visible = false; gun.add(m); }
+  const gold = [
+    ...[0xffc840, 0xffe080, 0xffb020, 0xfff0a0].map((c, i) => particles('glint', tier, goldFrom, new THREE.Color(c).multiplyScalar(4), trail, mulberry32(208041 + i * 8))),
+    ...[0xffd860, 0xffc030].map((c, i) => particles('ember', tier, goldFrom, new THREE.Color(c).multiplyScalar(4.5), trail, mulberry32(208091 + i * 8))),
+  ];
+  for (const m of gold) { m.material.blending = THREE.AdditiveBlending; m.visible = false; gun.add(m); }
   // which side faces the camera: the dragon that comes alive is the one you can see
   let viewSide = 1, side = 1; const camAt = new THREE.Vector3();
   // (read off a tiny, invisible marker drawn every frame: the dragon itself is not drawn until it comes out)
@@ -1494,13 +1495,13 @@ export function jadeInspect(gun, { surface }, quality) {
       // the painting sweeps to the bare gun as the dragon peels off head first, and back as it lies down
       // the painting sweeps away muzzle to stock (the shader's wipe front, in gun z); the dragon comes off
       // where it has gone, and lies back down just before it returns
-      const mixAt = (q) => active ? smooth(q, 0.08, 0.5) * (1 - smooth(q, 0.76, 0.95)) : 0;
+      const mixAt = (q) => active ? smooth(q, 0.0, 0.42) * (1 - smooth(q, 0.76, 0.95)) : 0;   // (from the start, while the gun is still coming up)
       const frontAt = (q) => Z0 - 0.05 + (Z1 - Z0 + 0.1) * mixAt(q);
       const front = frontAt(p), soon = frontAt(Math.min(1, p + 0.06));
       for (const u of mixes) if (u.artMix) { u.artMix.value = mixAt(p); u.artMixSide.value = side; }
       const t = active ? p * JADE_SECONDS : 0;
       if (p < 0.1) side = viewSide;
-      glints.visible = glints2.visible = motes.visible = active && p > 0.08; trail.update(active ? t : -1);
+      for (const m of gold) m.visible = active; trail.update(active ? t : -1);
       let any = false;
       // the coil: a corkscrew round the gun, head towards the muzzle, swimming round and drifting along
       const spin = t * 2.6, zc = (Z0 + Z1) / 2 - 0.08 + 0.07 * Math.sin(t * 0.7);
@@ -1512,7 +1513,7 @@ export function jadeInspect(gun, { surface }, quality) {
         const shown = smooth((front - Pp.z) / 0.03, 0, 1);              // the painting has gone here: it is solid
         // it lies still in its place until it is all out, then lifts off head first (and lies back down
         // just before the paint returns)
-        s.w = Math.min(active ? smooth(p, 0.48 + f * 0.1, 0.6 + f * 0.1) : 0, smooth((soon - Pp.z) / 0.09, 0, 1));
+        s.w = Math.min(active ? smooth(p, 0.42 + f * 0.1, 0.54 + f * 0.1) : 0, smooth((soon - Pp.z) / 0.09, 0, 1));
         s.r = rMax * taper * shown;
         if (shown > 0.001) any = true;
         Pp.x = side * (half + s.r * 0.55);                              // standing out of the side
@@ -1553,6 +1554,6 @@ export function jadeInspect(gun, { surface }, quality) {
       }
       spikes.instanceMatrix.needsUpdate = true;
     },
-    dispose() { probe.geometry.dispose(); probe.material.dispose(); geo.dispose(); jade.dispose(); bronze.dispose(); eyeMat.dispose(); spikes.geometry.dispose(); head.traverse(o => o.geometry?.dispose()); for (const m of [glints, glints2, motes]) { m.geometry.dispose(); m.material.dispose(); } },
+    dispose() { probe.geometry.dispose(); probe.material.dispose(); geo.dispose(); jade.dispose(); bronze.dispose(); eyeMat.dispose(); spikes.geometry.dispose(); head.traverse(o => o.geometry?.dispose()); for (const m of gold) { m.geometry.dispose(); m.material.dispose(); } },
   };
 }
