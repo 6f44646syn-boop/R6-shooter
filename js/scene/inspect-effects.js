@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=1821833-mwdioqgs';
-import { mulberry32 } from '../core/prng.js?v=1821833-mwdioqgs';
-import { mergeStatic } from './sight-model.js?v=1821833-mwdioqgs';
+import * as THREE from '../../vendor/three/three.module.min.js?v=099f307-mwdirh82';
+import { mulberry32 } from '../core/prng.js?v=099f307-mwdirh82';
+import { mergeStatic } from './sight-model.js?v=099f307-mwdirh82';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -1763,7 +1763,7 @@ export function opalInspect(gun, { surface }, quality) {
   // swapped in for the inspect); faces stretched across the split are the dark throat. The same twist
   // folds the support hand and forearm away for this inspect (hand materials, ahead of the grip or out
   // on the left; the firing hand on the grip stays).
-  const JAW_Y = 0.04, JAW_HINGE = 0.06;
+  const JAW_Y = 0.04, JAW_HINGE = 0.03;                              // the hinge ahead of the eye; only the top jaw moves (the grip stays whole)
   const jawU = { uJawAngle: { value: 0 }, uJawY: { value: JAW_Y }, uJawHinge: { value: JAW_HINGE }, uHideSup: { value: 0 } };
   const wrapped = new Map(), swapped = [];
   const wrap = (mat) => {
@@ -1776,7 +1776,7 @@ export function opalInspect(gun, { surface }, quality) {
         Object.assign(sh.uniforms, jawU);
         sh.vertexShader = 'uniform float uJawAngle, uJawY, uJawHinge, uHideSup;\nattribute float jawSide;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
           {
-            float ja = uJawAngle * jawSide * smoothstep(uJawHinge, uJawHinge - 0.05, position.z);
+            float ja = uJawAngle * max(jawSide, 0.0) * smoothstep(uJawHinge, uJawHinge - 0.05, position.z);
             vec2 jd = vec2(transformed.y - uJawY, transformed.z - uJawHinge);
             transformed.y = uJawY + jd.x * cos(ja) - jd.y * sin(ja);
             transformed.z = uJawHinge + jd.x * sin(ja) + jd.y * cos(ja);
@@ -1867,11 +1867,11 @@ export function opalInspect(gun, { surface }, quality) {
       // the jaw opens after the eye, chomps twice, opens wide, and shuts with the eye at the end
       const chomp = active ? Math.abs(Math.sin(smooth(p, 0.52, 0.66) * Math.PI * 2)) : 0;
       const gape = active ? smooth(p, 0.34, 0.45) * (1 - smooth(p, 0.8, 0.88)) * (1 - 0.85 * chomp) : 0;
-      const A = 0.3 * gape;
+      const A = 0.45 * gape;
       jawU.uJawAngle.value = A;
       throat.visible = A > 0.01;
       if (throat.visible) {
-        jawRot(JAW_Y, -0.225, A, gumC); jawRot(JAW_Y, -0.225, -A, gumD);
+        jawRot(JAW_Y, -0.225, A, gumC); jawRot(JAW_Y, -0.225, 0, gumD);
         throatPos.set([0, JAW_Y, JAW_HINGE - 0.03, 0, gumC.y, gumC.z, 0, gumD.y, gumD.z]);
         gumGeo.attributes.position.needsUpdate = true; gumGeo.computeVertexNormals();
       }
@@ -1879,7 +1879,7 @@ export function opalInspect(gun, { surface }, quality) {
         const { x, z, k, h, r } = t.userData;
         t.visible = A > 0.01;
         if (!t.visible) continue;
-        const a = A * k * (1 - smooth(z, JAW_HINGE - 0.05, JAW_HINGE));      // the jaw this tooth is in
+        const a = k > 0 ? A * (1 - smooth(z, JAW_HINGE - 0.05, JAW_HINGE)) : 0;   // the top jaw's teeth ride it
         jawRot(JAW_Y - k * h * 0.45, z, a, tq); t.position.set(x, tq.y, tq.z);
         t.rotation.set(a + (k > 0 ? Math.PI : 0), 0, 0);                       // upper teeth point down, lower up
         t.scale.set(r, h, r);
