@@ -1,30 +1,30 @@
-import { skinSheets } from '../render/skins2.js?v=ec2c408-mwdbxv1i';
-import { packArt } from '../render/pack-art.js?v=ec2c408-mwdbxv1i';
+import { skinSheets } from '../render/skins2.js?v=7eec7b8-mwdebnaw';
+import { packArt } from '../render/pack-art.js?v=7eec7b8-mwdebnaw';
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=ec2c408-mwdbxv1i';
-import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=ec2c408-mwdbxv1i';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=ec2c408-mwdbxv1i';
-import { matcap } from './matcap.js?v=ec2c408-mwdbxv1i';
-import { mulberry32 } from '../core/prng.js?v=ec2c408-mwdbxv1i';
-import { gunMaps } from './range-tex.js?v=ec2c408-mwdbxv1i';
-import { skinById, FACTORY, SAKURA_ID } from '../core/skins.js?v=ec2c408-mwdbxv1i';
-import { legendCanvas, onLegendChange } from '../core/legend.js?v=ec2c408-mwdbxv1i';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=ec2c408-mwdbxv1i';
-import { HDPack } from '../render/hd-pack.js?v=ec2c408-mwdbxv1i';
-import { epicRelief } from './skin-relief.js?v=ec2c408-mwdbxv1i';
-import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect, forgeInspect } from './inspect-effects.js?v=ec2c408-mwdbxv1i';
-import { F2 } from './f2-model.js?v=ec2c408-mwdbxv1i';
-import { G8 } from './g8-model.js?v=ec2c408-mwdbxv1i';
-import { C8 } from './c8-model.js?v=ec2c408-mwdbxv1i';
-import { R4 } from './r4-model.js?v=ec2c408-mwdbxv1i';
-import { AK } from './ak-model.js?v=ec2c408-mwdbxv1i';
-import { EVO } from './evo-model.js?v=ec2c408-mwdbxv1i';
-import { MP5K } from './compact-model.js?v=ec2c408-mwdbxv1i';
-import { T5 } from './smg-model.js?v=ec2c408-mwdbxv1i';
-import { SMG11 } from './machinepistol-model.js?v=ec2c408-mwdbxv1i';
-import { MP7 } from './pdw-model.js?v=ec2c408-mwdbxv1i';
+import * as THREE from '../../vendor/three/three.module.min.js?v=7eec7b8-mwdebnaw';
+import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=7eec7b8-mwdebnaw';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=7eec7b8-mwdebnaw';
+import { matcap } from './matcap.js?v=7eec7b8-mwdebnaw';
+import { mulberry32 } from '../core/prng.js?v=7eec7b8-mwdebnaw';
+import { gunMaps } from './range-tex.js?v=7eec7b8-mwdebnaw';
+import { skinById, FACTORY, SAKURA_ID } from '../core/skins.js?v=7eec7b8-mwdebnaw';
+import { legendCanvas, onLegendChange } from '../core/legend.js?v=7eec7b8-mwdebnaw';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=7eec7b8-mwdebnaw';
+import { HDPack } from '../render/hd-pack.js?v=7eec7b8-mwdebnaw';
+import { epicRelief } from './skin-relief.js?v=7eec7b8-mwdebnaw';
+import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect, forgeInspect } from './inspect-effects.js?v=7eec7b8-mwdebnaw';
+import { F2 } from './f2-model.js?v=7eec7b8-mwdebnaw';
+import { G8 } from './g8-model.js?v=7eec7b8-mwdebnaw';
+import { C8 } from './c8-model.js?v=7eec7b8-mwdebnaw';
+import { R4 } from './r4-model.js?v=7eec7b8-mwdebnaw';
+import { AK } from './ak-model.js?v=7eec7b8-mwdebnaw';
+import { EVO } from './evo-model.js?v=7eec7b8-mwdebnaw';
+import { MP5K } from './compact-model.js?v=7eec7b8-mwdebnaw';
+import { T5 } from './smg-model.js?v=7eec7b8-mwdebnaw';
+import { SMG11 } from './machinepistol-model.js?v=7eec7b8-mwdebnaw';
+import { MP7 } from './pdw-model.js?v=7eec7b8-mwdebnaw';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -741,7 +741,7 @@ function artInlays(gun, skin, model, inspect = false) {
     };
     kilnMats.set(sh, [glaze(0xeee6d4, 0.16, 0), glaze(0x1d3a9a, 0.14, 0), glaze(0xd9dde5, 0.22, 0.35)]);
   }
-  const [ivory, , steel] = kilnMats.get(sh);
+  const [ivory, cobalt, steel] = kilnMats.get(sh);
   const surfaces = [...gun.children];
   gun.updateMatrixWorld(true);
   const ray = new THREE.Raycaster(), zAxis = new THREE.Vector3(0, 0, 1), normalMatrix = new THREE.Matrix3();
@@ -909,7 +909,28 @@ function artInlays(gun, skin, model, inspect = false) {
     }
     smoked.userData.forge = true;
   }
-  return { reliefs, dials, under, surface, roots, channels, seam, muzzle: SPEC[Object.keys(TRACED).find((t) => TRACED[t] === model)]?.muzzle };
+  // Storm Kiln: a charm hanging under the stock on a short chain, a porcelain disc with a cobalt
+  // rim and a silver moon (it thrashes in the wind in the inspect)
+  let charm = null;
+  if (skin.artLook === 'porcelain') {
+    const near = out.filter(([z]) => Math.abs(z - 0.12) < 0.02);
+    const cy = near.length ? Math.min(...near.map(([, y]) => y)) : -0.05;
+    charm = new THREE.Group(); charm.position.set(0, cy + 0.001, 0.12);
+    const link = new THREE.TorusGeometry(0.0034, 0.0008, 6, 12);
+    for (let i = 0; i < 5; i++) {
+      const l = new THREE.Mesh(link, steel); l.position.y = -0.0025 - i * 0.0058; l.rotation.y = i % 2 ? Math.PI / 2 : 0; charm.add(l);
+    }
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.003, 28), ivory); disc.rotation.z = Math.PI / 2; disc.position.y = -0.042;
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.012, 0.0013, 6, 28), cobalt); rim.rotation.y = Math.PI / 2; rim.position.y = -0.042;
+    charm.add(disc, rim);
+    for (const side of [-1, 1]) {
+      const moon = new THREE.Mesh(MOON, steel); moon.scale.setScalar(0.0068);
+      moon.position.set(side * 0.0016, -0.042, 0); moon.rotation.z = side * Math.PI / 2; charm.add(moon);
+    }
+    charm.userData.keepGroup = true;
+    gun.add(charm);
+  }
+  return { reliefs, dials, under, surface, roots, channels, seam, charm: inspect ? charm : null, muzzle: SPEC[Object.keys(TRACED).find((t) => TRACED[t] === model)]?.muzzle };
 }
 
 /* ---------- moving parts and ultra detail (gun coordinates) ---------- */

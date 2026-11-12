@@ -7,9 +7,9 @@
 // screen as the numbers in optics.json say.
 //
 // Local frame of a sight: origin at the centre of its rear opening, -z forward, y up.
-import * as THREE from '../../vendor/three/three.module.min.js?v=ec2c408-mwdbxv1i';
-import { matcap } from './matcap.js?v=ec2c408-mwdbxv1i';
-import { gunMaps } from './range-tex.js?v=ec2c408-mwdbxv1i';
+import * as THREE from '../../vendor/three/three.module.min.js?v=7eec7b8-mwdebnaw';
+import { matcap } from './matcap.js?v=7eec7b8-mwdebnaw';
+import { gunMaps } from './range-tex.js?v=7eec7b8-mwdebnaw';
 
 export const VM_FOV = 50;      // vertical FOV of the weapon camera, degrees
 export const EYE_Z = 0.14;     // eye to rear of the sight, metres
@@ -244,6 +244,8 @@ export function mergeStatic(group) {
   group.updateMatrixWorld(true);
   const inv = new THREE.Matrix4().copy(group.matrixWorld).invert();
   const byMat = new Map(), keep = [], rel = new THREE.Matrix4();
+  const held = group.children.filter((c) => c.userData.keepGroup);       // moving rigs (a charm on its pivot) stay whole
+  for (const h of held) h.removeFromParent();
   group.traverse((o) => {
     if (o.isPoints) { keep.push(o); return; }
     if (!o.isMesh) return;
@@ -278,6 +280,7 @@ export function mergeStatic(group) {
     group.add(mesh);
   }
   for (const o of keep) { o.frustumCulled = false; group.add(o); }
+  if (held.length) group.add(...held);
 }
 
 // Small procedural environment map so metal edges catch light: a dim room with a few bright

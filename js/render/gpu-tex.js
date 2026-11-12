@@ -1,5 +1,5 @@
-import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=ec2c408-mwdbxv1i';
-import { packArt } from './pack-art.js?v=ec2c408-mwdbxv1i';
+import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=7eec7b8-mwdebnaw';
+import { packArt } from './pack-art.js?v=7eec7b8-mwdebnaw';
 // GPU-baked textures for ultra graphics. Everything is procedural and drawn by a fragment
 // shader into a render target once (milliseconds on a graphics card), so 4096 x 4096 maps
 // cost nothing at start-up and nothing is downloaded.
@@ -10,7 +10,7 @@ import { packArt } from './pack-art.js?v=ec2c408-mwdbxv1i';
 //   bakeSkin(renderer, index, size): one of SKINS, { albedo, rm } (rm: G roughness, B metalness).
 //   triplanar(material, opts): shader patch that maps a skin and/or detail by the surface's
 //        own 3D position (no UV stretching on long thin parts), with edge wear from UVs.
-import * as THREE from '../../vendor/three/three.module.min.js?v=ec2c408-mwdbxv1i';
+import * as THREE from '../../vendor/three/three.module.min.js?v=7eec7b8-mwdebnaw';
 
 const VERT = /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
@@ -703,8 +703,8 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         float kBrush = 0.85 + 0.3 * fract(sin(floor(vTriPos.y * 2600.0) * 91.7) * 4375.5);
         vec3 kGlaze = kArt * (1.0 - kCraze * 0.16);
         diffuseColor.rgb = mix(kGlaze, artDark * kBrush, kBelow) * triGain * (1.0 + 1.3 * step(0.5, artMode) * step(artMode, 1.5));   // the bronze is a dark painting: lifted so it reads
-        // Inspect: a cool highlight travels along the gun and lights the silver seams it reaches.
-        float kSweep = artPhase < 0.0 ? 0.0 : exp(-pow(vTriPos.z - mix(-0.45, 0.4, sstep(0.1, 0.62, artPhase)) + vTriPos.y * 0.5, 2.0) * 160.0);
+        // Inspect: a cool highlight travels along the gun, stock to muzzle, and lights the silver seams it reaches.
+        float kSweep = artPhase < 0.0 ? 0.0 : exp(-pow(vTriPos.z - mix(0.4, -0.45, sstep(0.1, 0.62, artPhase)) + vTriPos.y * 0.5, 2.0) * 160.0);
       #elif defined( TRI_SKIN )
         vec3 triP = vTriPos * triScale;     // fixed to the gun (it used to flow while inspecting)
         float relief = 0.5;
