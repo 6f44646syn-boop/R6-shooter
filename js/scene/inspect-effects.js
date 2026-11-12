@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=29e6b7d-mwdhze2p';
-import { mulberry32 } from '../core/prng.js?v=29e6b7d-mwdhze2p';
-import { mergeStatic } from './sight-model.js?v=29e6b7d-mwdhze2p';
+import * as THREE from '../../vendor/three/three.module.min.js?v=eca0e5a-mwdi3x0w';
+import { mulberry32 } from '../core/prng.js?v=eca0e5a-mwdi3x0w';
+import { mergeStatic } from './sight-model.js?v=eca0e5a-mwdi3x0w';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -1513,7 +1513,7 @@ export function jadeInspect(gun, { surface }, quality) {
         const shown = smooth((front - Pp.z) / 0.03, 0, 1);              // the painting has gone here: it is solid
         // it lies still in its place until it is all out, then lifts off head first (and lies back down
         // just before the paint returns)
-        s.w = Math.min(active ? smooth(p, 0.3 + f * 0.1, 0.42 + f * 0.1) : 0, smooth((soon - Pp.z) / 0.09, 0, 1));
+        s.w = Math.min(active ? smooth(p, 0.15 + f * 0.1, 0.27 + f * 0.1) : 0, smooth((soon - Pp.z) / 0.09, 0, 1));
         s.r = rMax * taper * shown;
         if (shown > 0.001) any = true;
         Pp.x = side * (half + s.r * 0.55);                              // standing out of the side
@@ -1614,6 +1614,26 @@ export function velvetInspect(gun, { surface }, quality) {
   const probe = new THREE.Mesh(new THREE.PlaneGeometry(0.0001, 0.0001), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
   probe.frustumCulled = false; gun.add(probe);
   probe.onBeforeRender = (renderer, scene, camera) => { camAt.setFromMatrixPosition(camera.matrixWorld); gun.worldToLocal(camAt); cam.copy(camAt); };
+  // the poker chip on the receiver rises out, spins and flips while the ring holds; pink arcs of charge
+  // run from it to every card. Its place in concept pixels (08-velvet-ante.png, 1536 x 1024).
+  const [Z0, Z1, Y0, Y1] = [-0.21361, 0.41797, -0.2903, 0.1306], half = 0.021;
+  const chipAt = new THREE.Vector3(0, Y1 - (Y1 - Y0) * 290 / 1024, Z0 + (Z1 - Z0) * 790 / 1536), chipR = (Z1 - Z0) * 48 / 1536;
+  const chipFace = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+    g.fillStyle = '#8a1424'; g.beginPath(); g.arc(64, 64, 63, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#f3ecdb'; for (let i = 0; i < 8; i++) { g.save(); g.translate(64, 64); g.rotate(i * Math.PI / 4); g.fillRect(-7, -63, 14, 20); g.restore(); }
+    g.strokeStyle = '#d8b25a'; g.lineWidth = 3; g.beginPath(); g.arc(64, 64, 40, 0, Math.PI * 2); g.stroke();
+    g.fillStyle = '#f3ecdb'; g.beginPath(); g.arc(64, 64, 37, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#111'; g.font = '48px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('\u2660', 64, 66);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  })();
+  const chipFaceMat = new THREE.MeshStandardMaterial({ map: chipFace, roughness: 0.35, metalness: 0.1, emissive: 0xff40b0, emissiveIntensity: 0 });
+  const chipEdgeMat = new THREE.MeshStandardMaterial({ color: 0x8a1424, roughness: 0.4, emissive: 0xff40b0, emissiveIntensity: 0 });
+  const chip = new THREE.Mesh(new THREE.CylinderGeometry(chipR, chipR, 0.004, 40), [chipEdgeMat, chipFaceMat, chipFaceMat]);
+  chip.visible = false; gun.add(chip);
+  const arcPos = new Float32Array(n * 2 * 3), arcs = new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(arcPos, 3)),
+    new THREE.LineBasicMaterial({ color: 0xff60c8, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+  arcs.frustumCulled = false; arcs.visible = false; gun.add(arcs);
   const P1 = new THREE.Vector3(), P2 = new THREE.Vector3(), dir = new THREE.Vector3(), right = new THREE.Vector3(), upV = new THREE.Vector3(), radial = new THREE.Vector3();
   const q1 = new THREE.Quaternion(), q2 = new THREE.Quaternion(), mtx = new THREE.Matrix4(), zero = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0), X = new THREE.Vector3(1, 0, 0);
   const glazes = [];
@@ -1634,6 +1654,16 @@ export function velvetInspect(gun, { surface }, quality) {
       const charge = active ? smooth(p, 0.58, 0.7) * (1 - smooth(p, 0.76, 0.84)) : 0;
       glowMat.opacity = active ? (0.35 + 0.25 * Math.sin(t * 9) + charge * 0.8) * (1 - smooth(p, 0.86, 0.97)) : 0;
       for (const m of [backMat, ...frontMats]) m.opacity = 1 - smooth(p, 0.9, 0.98);
+      // the chip: out of its place on your side of the gun, spinning and flipping, then back
+      const side = Math.sign(cam.x) || 1, out = active ? smooth(p, 0.54, 0.6) * (1 - smooth(p, 0.8, 0.86)) : 0;
+      chip.visible = out > 0.01;
+      if (chip.visible) {
+        chip.position.copy(chipAt); chip.position.x = side * (half + 0.002 + 0.03 * out);
+        chip.rotation.set(0, 0, side * Math.PI / 2);                       // its faces towards you
+        chip.rotateY(t * 14 * out); chip.rotateX(Math.sin(smooth(p, 0.62, 0.72) * Math.PI) * Math.PI);
+        chipFaceMat.emissiveIntensity = chipEdgeMat.emissiveIntensity = charge * (0.6 + 0.4 * Math.sin(t * 14));
+      }
+      arcs.visible = charge > 0.01; arcs.material.opacity = charge * (0.5 + 0.5 * Math.abs(Math.sin(t * 23)));
       cards.forEach((c, i) => {
         c.g.visible = active && p > 0.06 + c.delay && p < 0.99;
         if (!c.g.visible) return;
@@ -1653,15 +1683,18 @@ export function velvetInspect(gun, { surface }, quality) {
         // ... then dropped one by one, fluttering down
         const dropAt = 0.76 + c.drop, fallK = active ? Math.max(0, p - dropAt) * VELVET_SECONDS : 0;
         c.g.position.copy(P1).lerp(P2, ringK);
+        if (arcs.visible) { arcPos.set([chip.position.x, chip.position.y, chip.position.z, c.g.position.x + (Math.random() - 0.5) * 0.004, c.g.position.y + (Math.random() - 0.5) * 0.004, c.g.position.z], i * 6); }
         c.g.quaternion.copy(q1).slerp(q2, ringK);
         if (fallK > 0) {
           c.g.position.addScaledVector(c.fall, fallK).add(new THREE.Vector3(Math.sin(fallK * 5 + c.sway) * 0.012, -0.35 * fallK * fallK - 0.02 * fallK, 0));
           c.g.quaternion.multiply(q1.setFromAxisAngle(X, Math.sin(fallK * 6 + c.sway) * 0.9)).multiply(q2.setFromAxisAngle(Y, fallK * 3));
         }
       });
+      if (arcs.visible) arcs.geometry.attributes.position.needsUpdate = true;
     },
     dispose() {
       plane.dispose(); glowPlane.dispose(); backMat.dispose(); glowMat.dispose(); for (const m of frontMats) m.dispose();
+      chip.geometry.dispose(); chipFace.dispose(); chipFaceMat.dispose(); chipEdgeMat.dispose(); arcs.geometry.dispose(); arcs.material.dispose();
       probe.geometry.dispose(); probe.material.dispose();
     },
   };
