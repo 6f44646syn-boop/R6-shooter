@@ -9,7 +9,7 @@
 //   p        [scale (whole number), warp, threshold shift, spare]
 //   rm       [roughness, metalness] of the base, then of the accent
 //   clearcoat, wear (bare metal at the edges), glow ([r, g, b] light from the accent lines)
-import { mulberry32 } from './prng.js?v=7d32aaa-mwd4tpe8';
+import { mulberry32 } from './prng.js?v=e672d16-mwd7mual';
 
 export const RARITIES = [
   { key: 'common', name: 'Common', color: '#b4bcc6', odds: 0.69975, refund: 20 },
@@ -30,8 +30,25 @@ const SAKURA = {
   c: [[0.98, 0.69, 0.14], [0.46, 0.054, 0.13], [0.71, 0.17, 0.32], [0.011, 0.012, 0.016]],
   rm: [0.085, 0.88, 0.087, 0.62], clearcoat: 1, wear: 0, glow: [0, 0, 0],
 };
+// Storm Kiln (F2 only): glazed porcelain painted with cobalt clouds and waves, silver repair
+// seams, a silver moon; the painting is the concept art (data/skins), laid out in F2 gun space.
+export const KILN_ID = 202;
+const KILN = {
+  id: KILN_ID, name: 'Storm Kiln', rarity: 'legendary', guns: [1], pattern: 18, art: 'data/skins/storm-kiln.webp',
+  artRect: [-0.55244, 0.24416, -0.27069, 0.26019],   // gun z from, to; y from, to: the concept's edges on the traced F2
+  c: [[0.86, 0.82, 0.72], [0.05, 0.12, 0.5], [0.022, 0.03, 0.06], [0.78, 0.8, 0.84]],
+  rm: [0.14, 0, 0.2, 1], clearcoat: 1, wear: 0, glow: [0, 0, 0], artLook: 'porcelain',
+};
+// Abyssal Crown (G8A1 only): oxidised bronze relic, nautilus whorls, glowing teal inlays, a glass depth dial.
+export const ABYSS_ID = 203;
+const ABYSS = {
+  id: ABYSS_ID, name: 'Abyssal Crown', rarity: 'legendary', guns: [5], pattern: 18, art: 'data/skins/abyssal-crown.webp',
+  artRect: [-0.65072, 0.40208, -0.38946, 0.31216], artLook: 'bronze',
+  c: [[0.3, 0.2, 0.1], [0.06, 0.45, 0.4], [0.04, 0.05, 0.045], [0.55, 0.42, 0.25]],
+  rm: [0.32, 0.9, 0.08, 0], clearcoat: 0.4, wear: 0, glow: [0, 0, 0],
+};
 export const RARITY = Object.fromEntries(RARITIES.map((r) => [r.key, r]));
-export const PATTERN_NAMES = ['Contour', 'Pixel', 'Woodland', 'Tiger', 'Veteran', 'Hexcore', 'Damascus', 'Blot', 'Weave', 'Shard', 'Black Ice', 'Fade', 'Line', 'Marble', 'Circuit', 'Blossom', 'Tide', 'Gilt Blossom'];
+export const PATTERN_NAMES = ['Contour', 'Pixel', 'Woodland', 'Tiger', 'Veteran', 'Hexcore', 'Damascus', 'Blot', 'Weave', 'Shard', 'Black Ice', 'Fade', 'Line', 'Marble', 'Circuit', 'Blossom', 'Tide', 'Gilt Blossom', 'Storm Kiln'];
 
 // HSL (0..1) -> linear RGB.
 function hsl(h, s, l) {
@@ -118,6 +135,8 @@ function make(id) {
   }
   // Black Ice: a deep glossy colour, fractured ice, and 3D frost along the top and muzzle.
   if (id === SAKURA_ID) return SAKURA;
+  if (id === KILN_ID) return KILN;
+  if (id === ABYSS_ID) return ABYSS;
   const [word, hue, frost, depth, tint, scale, coverage, shape] = ICE[id - 192];
   return { id, rarity: 'blackice', name: 'Black Ice ' + word, pattern: 10,
     ice: hsl(frost, 0.58, tint), crystalShape: shape, scale: 1.85,
@@ -126,7 +145,7 @@ function make(id) {
     glow: hsl(frost, 0.64, 0.66).map((v) => v * 0.48) };
 }
 
-export const SKIN_COUNT = 202;      // 100 Common, 60 Rare, 32 Epic, 9 Black Ice, 1 Legendary
+export const SKIN_COUNT = 204;      // 100 Common, 60 Rare, 32 Epic, 9 Black Ice, 3 Legendary (Sakura Gilt, Storm Kiln, Abyssal Crown)
 export const CATALOGUE = Array.from({ length: SKIN_COUNT }, (_, i) => make(i));
 // Unique names (the same word + pattern can come up twice).
 {

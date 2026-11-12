@@ -1,5 +1,5 @@
-import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=7d32aaa-mwd4tpe8';
-import { packArt } from './pack-art.js?v=7d32aaa-mwd4tpe8';
+import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=e672d16-mwd7mual';
+import { packArt } from './pack-art.js?v=e672d16-mwd7mual';
 // GPU-baked textures for ultra graphics. Everything is procedural and drawn by a fragment
 // shader into a render target once (milliseconds on a graphics card), so 4096 x 4096 maps
 // cost nothing at start-up and nothing is downloaded.
@@ -10,7 +10,7 @@ import { packArt } from './pack-art.js?v=7d32aaa-mwd4tpe8';
 //   bakeSkin(renderer, index, size): one of SKINS, { albedo, rm } (rm: G roughness, B metalness).
 //   triplanar(material, opts): shader patch that maps a skin and/or detail by the surface's
 //        own 3D position (no UV stretching on long thin parts), with edge wear from UVs.
-import * as THREE from '../../vendor/three/three.module.min.js?v=7d32aaa-mwd4tpe8';
+import * as THREE from '../../vendor/three/three.module.min.js?v=e672d16-mwd7mual';
 
 const VERT = /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
@@ -537,6 +537,16 @@ export function skinThumb(renderer, def, size = 96) {
 //       occlusion, edge, cavity): crevices darken, and paint wears off its real edges.
 //   hdEdge / hdEdgeCol / hdEdgeMetal: edge wear of a part without a skin (0 = none).
 //   depth: skin relief depth in metres (parallax: the design looks layered, not printed).
+// Skin artwork (same site), loaded once per file; shown when it arrives.
+const artTextures = new Map();
+function artTexture(url) {
+  if (!artTextures.has(url)) {
+    const t = new THREE.TextureLoader().load(url);
+    t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.generateMipmaps = true;
+    artTextures.set(url, t);
+  }
+  return artTextures.get(url);
+}
 export function triplanar(material, { skin = null, detail = null, scale = 3, detailScale = 2, detailStrength = 1, gain = 1, hd = false, hdEdge = 0, hdEdgeCol = [0.32, 0.33, 0.35], hdEdgeMetal = 1, depth = 0 } = {}) {
   const uniforms = {
     triScale: { value: scale }, detScale: { value: detailScale }, detStrength: { value: detailStrength },
@@ -552,8 +562,15 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
     reliefDepth: { value: depth },
   };
   const def = skin && skin.def;
-  const sakura = def?.pattern === 17;
-  if (sakura) {
+  const sakura = def?.pattern === 17, painted = !!def?.art;
+  if (painted) {
+    // Painted Legendaries: the concept painting laid out in gun space (def.artRect) on the gun traced
+    // from it. Looks: 'porcelain' (glaze, crazing, silver seams) or 'bronze' (metal, glowing teal inlays).
+    Object.assign(uniforms, {
+      artMap: { value: artTexture(def.art) }, artRect: { value: new THREE.Vector4(...def.artRect) },
+      artDark: { value: new THREE.Vector3(...def.c[2]) }, artPhase: { value: -1 }, artMode: { value: def.artLook === 'bronze' ? 1 : 0 },
+    });
+  } else if (sakura) {
     const [gold, pink, pearl, black] = def.c.map(c => new THREE.Vector3(...c));
     Object.assign(uniforms, {
       sakuraGold: { value: gold }, sakuraPink: { value: pink }, sakuraPearl: { value: pearl }, sakuraBlack: { value: black },
@@ -568,7 +585,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
     uniforms.sweepCol.value.set(...g.map((v) => Math.min(1, 0.35 + v * 0.6))).multiplyScalar(L[2]);
   }
   material.userData.tri = uniforms;
-  const defs = (sakura ? '#define TRI_SAKURA\n' : skin ? '#define TRI_SKIN\n' : '') +
+  const defs = (sakura ? '#define TRI_SAKURA\n' : painted ? '#define TRI_ART\n' : skin ? '#define TRI_SKIN\n' : '') +
     (skin && skin.normal ? '#define TRI_SKIN_NORMAL\n' : '') + (detail ? '#define TRI_DETAIL\n' : '') +
     (hd ? '#define TRI_HD\n' : '') + (hd && depth > 0 && skin && skin.normal ? '#define TRI_PARALLAX\n' : '');
   material.onBeforeCompile = (sh) => {
@@ -594,6 +611,25 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       uniform sampler2D skinAlbedo, skinRM, skinNormal, detailMap;
       uniform float triAO, hdEdge, hdEdgeMetal, reliefDepth;
       uniform vec3 hdEdgeCol;
+      #ifdef TRI_ART
+        uniform sampler2D artMap;
+        uniform vec4 artRect;
+        uniform vec3 artDark;
+        uniform float artMode;
+        uniform float artPhase;
+        // Fine crazing in the glaze: the edges of small irregular cells.
+        float artCraze(vec2 p) {
+          vec2 i = floor(p), f = fract(p);
+          float d1 = 8.0, d2 = 8.0;
+          for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
+            vec2 g = vec2(float(x), float(y));
+            vec2 o = fract(sin(vec2(dot(i + g, vec2(127.1, 311.7)), dot(i + g, vec2(269.5, 183.3)))) * 43758.5453);
+            float d = length(g + o - f);
+            if (d < d1) { d2 = d1; d1 = d; } else if (d < d2) d2 = d;
+          }
+          return 1.0 - smoothstep(0.0, 0.07, d2 - d1);
+        }
+      #endif
       #ifdef TRI_SAKURA
         uniform vec3 sakuraGold, sakuraPink, sakuraPearl, sakuraBlack;
         uniform vec4 sakuraRM;
@@ -649,6 +685,23 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         finish = mix(finish, finish * vec3(0.62, 0.46, 0.34), scuffs * 0.65);
         finish = mix(finish, vec3(0.48, 0.42, 0.34), scratch * 0.38 + chips * 0.56);
         diffuseColor.rgb = finish * triGain;
+      #elif defined( TRI_ART )
+        vec2 kuv = clamp(vec2((vTriPos.z - artRect.x) / (artRect.y - artRect.x), (vTriPos.y - artRect.z) / (artRect.w - artRect.z)), 0.002, 0.998);
+        // The painting is a side view: faces turned away from the side (the nose, top edges, the
+        // window's inner walls) take a soft local average instead of a smeared stripe.
+        float kSide = sstep(0.35, 0.8, abs(normalize(vTriN).x));
+        vec3 kArt = mix(texture2D(artMap, kuv, 5.0).rgb, texture2D(artMap, kuv).rgb, kSide);
+        float kLum = dot(kArt, vec3(0.3, 0.59, 0.11)), kSat = max(kArt.r, max(kArt.g, kArt.b)) - min(kArt.r, min(kArt.g, kArt.b));
+        // grey in the painting = the silver-filled seams and the moon
+        float kSilver = sstep(0.09, 0.035, kSat) * sstep(0.12, 0.3, kLum);
+        float kBelow = 0.0;           // (the traced F2's grip and magazine are their own black parts)
+        float kTeal = sstep(0.04, 0.14, kArt.g - kArt.r) * sstep(0.02, 0.09, kArt.b - kArt.r) * artMode;   // bronze: the teal inlays
+        float kCraze = (1.0 - artMode) * artCraze(vec2(vTriPos.z + vTriPos.x * 0.6, vTriPos.y) * 150.0) * (1.0 - kSilver) * sstep(0.35, 0.6, kLum);
+        float kBrush = 0.85 + 0.3 * fract(sin(floor(vTriPos.y * 2600.0) * 91.7) * 4375.5);
+        vec3 kGlaze = kArt * (1.0 - kCraze * 0.16);
+        diffuseColor.rgb = mix(kGlaze, artDark * kBrush, kBelow) * triGain;
+        // Inspect: a cool highlight travels along the gun and lights the silver seams it reaches.
+        float kSweep = artPhase < 0.0 ? 0.0 : exp(-pow(vTriPos.z - mix(-0.45, 0.4, sstep(0.1, 0.62, artPhase)) + vTriPos.y * 0.5, 2.0) * 160.0);
       #elif defined( TRI_SKIN )
         vec3 triP = vTriPos * triScale;     // fixed to the gun (it used to flow while inspecting)
         float relief = 0.5;
@@ -716,6 +769,8 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
     f = f.replace('#include <roughnessmap_fragment>', /* glsl */`#include <roughnessmap_fragment>
       #ifdef TRI_SAKURA
         roughnessFactor = mix(mix(sakuraRM.x, sakuraRM.z, enamel), 0.51, weathering);
+      #elif defined( TRI_ART )
+        roughnessFactor = mix(mix(mix(0.12, 0.2, kSilver), 0.34, kBelow), mix(0.42, 0.07, kTeal), artMode);
       #elif defined( TRI_SKIN )
         vec4 skrm = triTex(skinRM, triP, tw);
         roughnessFactor = mix(skrm.g, 0.3, triWear);
@@ -730,6 +785,8 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
     f = f.replace('#include <metalnessmap_fragment>', /* glsl */`#include <metalnessmap_fragment>
       #ifdef TRI_SAKURA
         metalnessFactor = mix(sakuraRM.y, sakuraRM.w, enamel);
+      #elif defined( TRI_ART )
+        metalnessFactor = mix(mix(kSilver, 0.75, kBelow), 0.5 * (1.0 - kTeal), artMode);
       #elif defined( TRI_SKIN )
         metalnessFactor = mix(skrm.b, 1.0, triWear);
       #endif
@@ -749,12 +806,28 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       }
       #endif`);
     f = f.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+      #ifdef TRI_ART
+        totalEmissiveRadiance += vec3(0.62, 0.74, 0.95) * kSweep * (0.35 + kSilver * 2.2) * (1.0 - kBelow) * (1.0 - artMode);
+        // bronze: the teal inlays glow faintly; while inspecting, caustics drift through them
+        float kc = pow(0.5 + 0.5 * sin(vTriPos.z * 190.0 + triTime * 2.1 + 2.0 * sin(vTriPos.y * 160.0 - triTime * 1.6)), 6.0);
+        float kRise = artPhase < 0.0 ? 0.0 : sin(clamp(artPhase, 0.0, 1.0) * 3.14159);
+        totalEmissiveRadiance += vec3(0.08, 0.85, 0.72) * kTeal * (0.05 + kc * (0.12 + kRise * 1.1));
+      #endif
       #ifdef TRI_SKIN
         // Glowing lines; they pulse while inspecting.
         totalEmissiveRadiance += skinGlow * skrm.r * (1.0 - triWear) * (1.0 + triAnim * (0.9 + 0.9 * sin(triTime * 5.0)));
         totalEmissiveRadiance += sweepCol * sweep * (1.0 - triWear) * 0.6;
       #endif`);
     f = f.replace('#include <normal_fragment_maps>', /* glsl */`#include <normal_fragment_maps>
+      #ifdef TRI_ART
+      {
+        // Raised glaze where the painting is light (the cloud scrolls, wave foam); seams sunk in.
+        vec2 e = vec2(1.0 / 2048.0, 1.0 / 512.0);
+        float lx = dot(texture2D(artMap, kuv + vec2(e.x, 0.0)).rgb, vec3(0.3, 0.59, 0.11)) - kLum;
+        float ly = dot(texture2D(artMap, kuv + vec2(0.0, e.y)).rgb, vec3(0.3, 0.59, 0.11)) - kLum;
+        normal = normalize(normal - (vTriAZ * lx + vTriAY * ly) * 2.2 * kSide);
+      }
+      #endif
       #ifdef TRI_SKIN_NORMAL
       {
         // Relief of the skin's design (paint edges, cracks), mapped like the colour.

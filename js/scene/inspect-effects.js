@@ -1,9 +1,11 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=7d32aaa-mwd4tpe8';
-import { mulberry32 } from '../core/prng.js?v=7d32aaa-mwd4tpe8';
-import { mergeStatic } from './sight-model.js?v=7d32aaa-mwd4tpe8';
+import * as THREE from '../../vendor/three/three.module.min.js?v=e672d16-mwd7mual';
+import { mulberry32 } from '../core/prng.js?v=e672d16-mwd7mual';
+import { mergeStatic } from './sight-model.js?v=e672d16-mwd7mual';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 const SAKURA_SECONDS = 4.2, SAKURA_PEAK = 0.54;
+const KILN_SECONDS = 4.2, KILN_PEAK = 0.57;
+const ABYSS_SECONDS = 4.2, ABYSS_PEAK = 0.57;
 const smooth = THREE.MathUtils.smoothstep;
 
 const ICE_CLIP = { root: [
@@ -21,6 +23,26 @@ const SAKURA_CLIP = { root: [
   [0.39, -0.089, 0.097, -0.124, 0.14, 1.07, 0.05],
   [0.59, -0.092, 0.105, -0.144, 0.16, 1.17, -0.085],
   [0.76, -0.073, 0.083, -0.101, 0.15, 0.77, -0.17],
+  [1, 0, 0, 0, 0, 0, 0],
+] };
+
+// Storm Kiln: tilt the side panel into the light, hold while the waves lift and the crest rolls.
+const KILN_CLIP = { root: [
+  [0, 0, 0, 0, 0, 0, 0],
+  [0.19, -0.074, 0.08, -0.09, 0.13, 0.82, 0.12],
+  [0.40, -0.086, 0.094, -0.122, 0.17, 1.10, 0.02],
+  [0.60, -0.09, 0.1, -0.14, 0.12, 1.16, -0.07],
+  [0.78, -0.07, 0.08, -0.098, 0.13, 0.74, -0.14],
+  [1, 0, 0, 0, 0, 0, 0],
+] };
+
+// Abyssal Crown: roll the receiver towards you so the depth dial faces the camera.
+const ABYSS_CLIP = { root: [
+  [0, 0, 0, 0, 0, 0, 0],
+  [0.2, -0.07, 0.085, -0.1, 0.1, 0.9, 0.3],
+  [0.42, -0.082, 0.098, -0.13, 0.12, 1.12, 0.42],
+  [0.62, -0.085, 0.1, -0.14, 0.1, 1.15, 0.36],
+  [0.8, -0.066, 0.078, -0.096, 0.1, 0.7, 0.12],
   [1, 0, 0, 0, 0, 0, 0],
 ] };
 
@@ -192,6 +214,20 @@ const particleVertex = /* glsl */`
       #else
         origin += (scatter + outward * mix(0.07, 0.24, impulse)) * age - vec3(0.0, 0.19 * age * age, 0.0);
         radius = vec2(0.00125, 0.0028) * mix(0.36, 1.2, seed.z);
+        #ifdef DROP
+          radius = vec2(0.0034, 0.004) * mix(0.55, 1.3, seed.z);
+          spin = 0.0;
+        #endif
+        #if defined(BUBBLE) || defined(SPECK)
+          // underwater: drift out of the seam, then rise and wobble (no gravity)
+          origin = (emitted * vec4(emitter, 1.0)).xyz + outward * 0.012 * (1.0 - exp(-3.0 * age))
+            + vec3(sin(s + age * 5.5) * 0.004, age * mix(0.035, 0.07, seed.w), cos(s + age * 4.0) * 0.003);
+          radius = vec2(1.0) * mix(0.0012, 0.0032, seed.z);
+          #ifdef SPECK
+            radius = vec2(1.0) * mix(0.0006, 0.0013, seed.z);
+          #endif
+          spin = 0.0;
+        #endif
       #endif
       spin += age * (seed.x - 0.5) * 12.0;
       vAlpha = smoothstep(0.0, 0.09, p) * fade;
@@ -242,6 +278,26 @@ const particleFragment = /* glsl */`
       float sheen = pow(max(0.0, sin(vAge * 23.0 + vSeed.x * 11.0 + p.x * 2.5)), 3.0);
       c = mix(vec3(0.19, 0.018, 0.058), tint, smoothstep(-0.85, 0.76, p.y) * 0.64 + vSeed.y * 0.28);
       c += vec3(0.42, 0.13, 0.22) * (vein * 0.2 + sheen * 0.68);
+    #elif defined(BUBBLE)
+      float r = dot(p, p);
+      if (r >= 1.0) discard;
+      float rimB = smoothstep(0.55, 0.95, r);
+      float glint = 1.0 - smoothstep(0.0, 0.06, dot(p - vec2(-0.35, 0.4), p - vec2(-0.35, 0.4)));
+      c = mix(vec3(0.2, 0.55, 0.5), vec3(0.75, 1.0, 0.95), rimB) + glint;
+      a = vAlpha * (0.08 + rimB * 0.55 + glint * 0.7);
+    #elif defined(SPECK)
+      float r = dot(p, p);
+      if (r >= 1.0) discard;
+      c = vec3(0.45, 1.0, 0.7) * 1.6;
+      a = vAlpha * exp(-3.0 * r) * (0.6 + 0.4 * sin(vAge * 30.0 + vSeed.x * 20.0));
+    #elif defined(DROP)
+      // a clear bead: dark refracted rim, bright catch-light up and to the left
+      float r = dot(p, p);
+      if (r >= 1.0) discard;
+      float rimD = smoothstep(0.45, 1.0, r);
+      float spec = 1.0 - smoothstep(0.0, 0.09, dot(p - vec2(-0.32, 0.36), p - vec2(-0.32, 0.36)));
+      c = mix(vec3(0.72, 0.84, 0.96), vec3(0.10, 0.18, 0.34), rimD) + vec3(1.0) * spec;
+      a = vAlpha * (0.32 + rimD * 0.45 + spec * 0.6);
     #else
       float glint = pow(max(0.0, sin(vAge * 19.0 + vSeed.x * 23.0)), 5.0);
       float shape = abs(p.x + p.y * 0.23) * (1.20 - p.y * 0.26) + abs(p.y + p.x * 0.19);
@@ -256,13 +312,13 @@ const particleFragment = /* glsl */`
   }
 `;
 
-const particleBudget = { mist: [22, 38, 54, 70], chip: [20, 34, 48, 62], petal: [28, 46, 64, 84] };
+const particleBudget = { mist: [22, 38, 54, 70], chip: [20, 34, 48, 62], petal: [28, 46, 64, 84], drop: [14, 22, 30, 40], bubble: [12, 18, 26, 34], speck: [10, 16, 22, 30] };
 const particleTier = { low: 0, standard: 1, high: 2, ultra: 3 };
 
 function particles(kind, tier, anchors, tint, trail, rng) {
-  const mist = kind === 'mist', petals = kind === 'petal';
-  const seconds = petals ? SAKURA_SECONDS : FROST_SECONDS;
-  const peak = (petals ? SAKURA_PEAK : FROST_PEAK) * seconds;
+  const mist = kind === 'mist', petals = kind === 'petal', drops = kind === 'drop', deep = kind === 'bubble' || kind === 'speck';
+  const seconds = petals ? SAKURA_SECONDS : drops ? KILN_SECONDS : deep ? ABYSS_SECONDS : FROST_SECONDS;
+  const peak = (petals ? SAKURA_PEAK : drops ? KILN_PEAK : deep ? ABYSS_PEAK : FROST_PEAK) * seconds;
   const count = particleBudget[kind][tier], positions = [], directions = [], seeds = [], timing = [];
   for (let i = 0; i < count; i++) {
     const anchor = anchors[Math.floor(rng() * anchors.length)];
@@ -278,6 +334,12 @@ function particles(kind, tier, anchors, tint, trail, rng) {
     } else if (mist) {
       start = peak - 0.08 + rng() * 0.16;
       life = 0.64 + rng() * 0.23;
+    } else if (deep) {                                   // a sparse stream from the seams around the peak, rising slowly
+      start = peak - 0.35 + rng() * 1.0;
+      life = 0.9 + rng() * 0.7;
+    } else if (drops) {                                  // one short arc of droplets off the crest
+      start = peak - 0.04 + rng() * 0.14;
+      life = 0.42 + rng() * 0.3;
     } else if (petals) {
       start = burst ? peak - 0.15 + rng() * 0.29 : peak - 0.55 + rng() * 1.25;
       life = 0.63 + rng() * 0.60;
@@ -297,7 +359,7 @@ function particles(kind, tier, anchors, tint, trail, rng) {
   geo.setAttribute('seed', new THREE.InstancedBufferAttribute(new Float32Array(seeds), 4));
   geo.setAttribute('timing', new THREE.InstancedBufferAttribute(new Float32Array(timing), 4));
   geo.instanceCount = count;
-  const defines = mist ? { MIST: 1 } : petals ? { PETAL: 1 } : {};
+  const defines = mist ? { MIST: 1 } : petals ? { PETAL: 1 } : drops ? { DROP: 1 } : kind === 'bubble' ? { BUBBLE: 1 } : kind === 'speck' ? { SPECK: 1 } : {};
   if (mist && tier === 0) defines.LOW_INSPECT = 1;
   const material = new THREE.ShaderMaterial({
     defines,
@@ -305,7 +367,7 @@ function particles(kind, tier, anchors, tint, trail, rng) {
     vertexShader: particleVertex, fragmentShader: particleFragment, transparent: true, depthWrite: false,
   });
   const mesh = new THREE.Mesh(geo, material);
-  mesh.name = mist ? 'Inspect vapour' : petals ? 'Inspect petals' : 'Inspect ice flecks';
+  mesh.name = mist ? 'Inspect vapour' : petals ? 'Inspect petals' : drops ? 'Inspect droplets' : deep ? 'Inspect ' + kind + 's' : 'Inspect ice flecks';
   mesh.frustumCulled = false;
   mesh.renderOrder = mist ? 3 : 4;
   return mesh;
@@ -463,5 +525,74 @@ export function sakuraInspect(gun, blossoms, quality) {
     dispose() {
       for (const mesh of meshes) { mesh.geometry.dispose(); mesh.material.dispose(); if (mesh.isInstancedMesh) mesh.dispose(); }
     },
+  };
+}
+
+// Storm Kiln: the raised waves lift in turn from handguard to receiver, the tallest crest rolls
+// over once and throws a short arc of droplets, a cool highlight runs over the silver seams,
+// then everything settles back into the glaze.
+export function kilnInspect(gun, reliefs, quality) {
+  const trail = emitterTrail(gun), tier = particleTier[quality] ?? 1;
+  const crests = reliefs.filter(r => r.crest);
+  const anchors = (crests.length ? crests : reliefs).map(r => ({ point: r.base.clone().addScaledVector(r.normal, r.size), normal: r.normal.clone().add(new THREE.Vector3(0, 0.9, 0)).normalize() }));
+  const drops = particles('drop', tier, anchors, new THREE.Color(0xbfdcff), trail, mulberry32(202077));
+  drops.visible = false;
+  gun.add(drops);
+  const order = [...new Set(reliefs.map(r => Math.round(r.base.z * 1000)))].sort((a, b) => a - b);
+  const glazes = [];
+  gun.traverse(o => { const u = o.material?.userData?.tri; if (u?.artPhase && !glazes.includes(u.artPhase)) glazes.push(u.artPhase); });
+  let phase = -1;
+  return {
+    clip: KILN_CLIP, seconds: KILN_SECONDS,
+    update(p) {
+      const active = p >= 0 && p < 1;
+      if (!active && phase < 0) return;
+      phase = active ? p : -1;
+      for (const g of glazes) g.value = active ? p : -1;
+      drops.visible = active && p > 0.4 && p < 0.95;
+      trail.update(active ? p * KILN_SECONDS : -1);
+      reliefs.forEach((r) => {
+        const k = order.indexOf(Math.round(r.base.z * 1000)), start = 0.17 + k * 0.045;
+        const lift = active ? smooth(p, start, start + 0.12) * (1 - smooth(p, 0.72, 0.93)) : 0;
+        // the crest surges once at the peak, above the rest
+        const surge = r.crest && active ? Math.sin(smooth(p, KILN_PEAK - 0.08, KILN_PEAK + 0.06) * Math.PI) * 0.007 : 0;
+        r.group.position.copy(r.base).addScaledVector(r.normal, lift * (r.crest ? 0.012 : 0.008) + surge);
+      });
+    },
+    dispose() { drops.geometry.dispose(); drops.material.dispose(); },
+  };
+}
+
+// Abyssal Crown: the dial's needle sinks, teal caustics run through the inlays (shader, artPhase),
+// the nautilus ribs open a fraction in sequence and let out bubbles and dim glowing specks; then
+// the needle settles, the ribs close and the last bubbles rise clear.
+export function abyssInspect(gun, { reliefs, dials }, quality) {
+  const trail = emitterTrail(gun), tier = particleTier[quality] ?? 1;
+  const anchors = reliefs.map(r => ({ point: r.base.clone().add(new THREE.Vector3(0, ...(r.ring ? [r.ring[1], r.ring[0]] : [0, 0]))), normal: r.normal.clone() }));
+  const fallback = [{ point: new THREE.Vector3(), normal: new THREE.Vector3(1, 0, 0) }];
+  const bubbles = particles('bubble', tier, anchors.length ? anchors : fallback, new THREE.Color(0x9ff5e6), trail, mulberry32(203011));
+  const specks = particles('speck', tier, anchors.length ? anchors : fallback, new THREE.Color(0x8dffb0), trail, mulberry32(203029));
+  for (const m of [bubbles, specks]) { m.visible = false; gun.add(m); }
+  const glazes = [];
+  gun.traverse(o => { const u = o.material?.userData?.tri; if (u?.artPhase && !glazes.includes(u.artPhase)) glazes.push(u.artPhase); });
+  let phase = -1;
+  return {
+    clip: ABYSS_CLIP, seconds: ABYSS_SECONDS,
+    update(p) {
+      const active = p >= 0 && p < 1;
+      if (!active && phase < 0) return;
+      phase = active ? p : -1;
+      for (const g of glazes) g.value = active ? p : -1;
+      bubbles.visible = specks.visible = active && p > 0.3;
+      trail.update(active ? p * ABYSS_SECONDS : -1);
+      const sink = active ? smooth(p, 0.2, 0.5) * (1 - smooth(p, 0.7, 0.92)) : 0;
+      for (const d of dials) d.needle.rotation.z = d.rest - sink * 2.3 + (active ? Math.sin(p * 40) * 0.03 * sink : 0);
+      reliefs.forEach((r, i) => {
+        const k = i % 10, start = ABYSS_PEAK - 0.12 + k * 0.012;           // around each whorl, one rib after another
+        const open = active ? smooth(p, start, start + 0.08) * (1 - smooth(p, 0.74, 0.9)) : 0;
+        r.group.position.copy(r.base).addScaledVector(r.normal, open * 0.0045);
+      });
+    },
+    dispose() { for (const m of [bubbles, specks]) { m.geometry.dispose(); m.material.dispose(); } },
   };
 }

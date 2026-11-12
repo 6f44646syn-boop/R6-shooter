@@ -1,0 +1,103 @@
+<title>Recoil Range Skin Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=Inter:wght@400;500;600&display=swap">
+<style>
+  /* Layout: an armory bench. The gun fills the stage; the rack of skins runs down the right. */
+  :root {
+    --bg: #12161c;          /* bench */
+    --panel: #1a2029;       /* rack */
+    --line: #2b3441;
+    --fg: #e6ebf2;
+    --muted: #8d99a8;
+    --accent: #f0b43c;      /* the game's amber */
+    --display: 'Chakra Petch', 'Segoe UI', system-ui, sans-serif;
+    --body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    color-scheme: dark;
+  }
+  html, body { height: 100%; }
+  body { background: var(--bg); color: var(--fg); font-family: var(--body); }
+  .lab { height: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 340px; }
+  .stage { position: relative; min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
+  .bar { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; padding-block: 12px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: 16px; border-bottom: 1px solid var(--line); }
+  .bar h1 { font: 600 18px/1 var(--display); letter-spacing: 0.06em; text-transform: uppercase; margin: 0; }
+  .bar h1 b { color: var(--accent); font-weight: 600; }
+  .group { display: flex; gap: 4px; align-items: center; }
+  .group > span { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-right: 4px; }
+  button, select, input { font: inherit; color: var(--fg); }
+  .chip { background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; cursor: pointer; font-size: 13px; }
+  .chip[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+  .chip:focus-visible, .skin:focus-visible, select:focus-visible, input:focus-visible, .go:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  select, input[type="search"] { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 13px; }
+  #lab-view { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+  .now { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; padding-block: 12px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: 16px; border-top: 1px solid var(--line); }
+  #lab-now { font: 600 22px/1.1 var(--display); color: var(--rar, var(--fg)); margin: 0; }
+  #lab-now-meta { color: var(--muted); font-size: 13px; margin: 4px 0 0; }
+  .go { background: var(--accent); color: #1b1406; border: 0; border-radius: 6px; padding: 10px 18px; font: 600 14px var(--display); letter-spacing: 0.05em; text-transform: uppercase; cursor: pointer; }
+  .hint { color: var(--muted); font-size: 12px; }
+  #lab-status { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 14px; pointer-events: none; }
+  #lab-status[hidden] { display: none; }
+  .rack { background: var(--panel); border-left: 1px solid var(--line); display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+  .filters { display: grid; gap: 8px; padding-block: 12px; padding-left: 14px; padding-right: max(14px, env(safe-area-inset-right, 0px)); border-bottom: 1px solid var(--line); }
+  .filters .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .filters label { font-size: 13px; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+  #lab-count { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  #lab-list { overflow-y: auto; padding: 8px; display: grid; gap: 4px; align-content: start; }
+  .skin { display: grid; grid-template-columns: 44px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 10px; text-align: left; background: transparent; border: 1px solid transparent; border-left: 3px solid var(--rar); border-radius: 6px; padding: 6px 8px; cursor: pointer; }
+  .skin:hover { background: var(--bg); }
+  .skin[aria-pressed="true"] { border-color: var(--rar); border-left-width: 3px; background: var(--bg); }
+  .sw { grid-row: 1 / 3; width: 44px; height: 30px; border-radius: 4px; background-size: cover; background-position: center; }
+  .sw.art { background-size: 180%; background-position: 50% 45%; }
+  .nm { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mt { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  @media (max-width: 760px) {
+    .lab { grid-template-columns: 1fr; grid-template-rows: minmax(320px, 58vh) minmax(0, 1fr); height: auto; min-height: 100%; }
+    .rack { border-left: 0; border-top: 1px solid var(--line); }
+    #lab-list { max-height: 60vh; }
+    .filters { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  }
+  @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+<div class="lab">
+  <section class="stage" aria-label="Weapon view">
+    <div class="bar">
+      <h1>Recoil Range <b>Skin Lab</b></h1>
+      <div class="group"><span>Gun</span><select id="lab-gun" aria-label="Gun"></select></div>
+      <div class="group" role="group" aria-label="View"><span>View</span>
+        <button type="button" class="chip" id="lab-view-hands" data-view="hands">First person</button>
+        <button type="button" class="chip" id="lab-view-studio" data-view="studio">Studio</button>
+      </div>
+      <div class="group" role="group" aria-label="Graphics"><span>Graphics</span>
+        <button type="button" class="chip" id="lab-gfx-low" data-gfx="low">Low</button>
+        <button type="button" class="chip" id="lab-gfx-standard" data-gfx="standard">Standard</button>
+        <button type="button" class="chip" id="lab-gfx-high" data-gfx="high">High</button>
+        <button type="button" class="chip" id="lab-gfx-ultra" data-gfx="ultra">Ultra</button>
+      </div>
+    </div>
+    <canvas id="lab-view" aria-label="The selected gun wearing the selected skin"></canvas>
+    <p id="lab-status">Loading the armory…</p>
+    <div class="now">
+      <div>
+        <p id="lab-now">Storm Kiln</p>
+        <p id="lab-now-meta">Legendary · on the F2</p>
+      </div>
+      <div class="group">
+        <span class="hint">Drag to turn (Studio) · I or double-click to inspect</span>
+        <button type="button" class="go" id="lab-inspect">Inspect</button>
+      </div>
+    </div>
+  </section>
+  <aside class="rack" aria-label="Skins">
+    <div class="filters">
+      <input type="search" id="lab-search" placeholder="Search skins" aria-label="Search skins">
+      <div class="row">
+        <select id="lab-rarity" aria-label="Rarity"></select>
+        <label for="lab-fits"><input type="checkbox" id="lab-fits"> Fits this gun</label>
+      </div>
+      <span id="lab-count"></span>
+    </div>
+    <div id="lab-list" role="list"></div>
+  </aside>
+</div>
+<script type="module" src="js/ui/skin-lab.js"></script>

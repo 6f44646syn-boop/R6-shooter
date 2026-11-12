@@ -1,20 +1,22 @@
-import { skinSheets } from '../render/skins2.js?v=7d32aaa-mwd4tpe8';
-import { packArt } from '../render/pack-art.js?v=7d32aaa-mwd4tpe8';
+import { skinSheets } from '../render/skins2.js?v=e672d16-mwd7mual';
+import { packArt } from '../render/pack-art.js?v=e672d16-mwd7mual';
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=7d32aaa-mwd4tpe8';
-import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=7d32aaa-mwd4tpe8';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=7d32aaa-mwd4tpe8';
-import { matcap } from './matcap.js?v=7d32aaa-mwd4tpe8';
-import { mulberry32 } from '../core/prng.js?v=7d32aaa-mwd4tpe8';
-import { gunMaps } from './range-tex.js?v=7d32aaa-mwd4tpe8';
-import { skinById, FACTORY, SAKURA_ID } from '../core/skins.js?v=7d32aaa-mwd4tpe8';
-import { legendCanvas, onLegendChange } from '../core/legend.js?v=7d32aaa-mwd4tpe8';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=7d32aaa-mwd4tpe8';
-import { HDPack } from '../render/hd-pack.js?v=7d32aaa-mwd4tpe8';
-import { epicRelief, giltPatches } from './skin-relief.js?v=7d32aaa-mwd4tpe8';
-import { prepareFrost, frostInspect, sakuraInspect } from './inspect-effects.js?v=7d32aaa-mwd4tpe8';
+import * as THREE from '../../vendor/three/three.module.min.js?v=e672d16-mwd7mual';
+import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=e672d16-mwd7mual';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=e672d16-mwd7mual';
+import { matcap } from './matcap.js?v=e672d16-mwd7mual';
+import { mulberry32 } from '../core/prng.js?v=e672d16-mwd7mual';
+import { gunMaps } from './range-tex.js?v=e672d16-mwd7mual';
+import { skinById, FACTORY, SAKURA_ID } from '../core/skins.js?v=e672d16-mwd7mual';
+import { legendCanvas, onLegendChange } from '../core/legend.js?v=e672d16-mwd7mual';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=e672d16-mwd7mual';
+import { HDPack } from '../render/hd-pack.js?v=e672d16-mwd7mual';
+import { epicRelief, giltPatches } from './skin-relief.js?v=e672d16-mwd7mual';
+import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect } from './inspect-effects.js?v=e672d16-mwd7mual';
+import { F2 } from './f2-model.js?v=e672d16-mwd7mual';
+import { G8 } from './g8-model.js?v=e672d16-mwd7mual';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -105,8 +107,8 @@ function ultraDetail(kind) {
 function shading() { const s = sightShading(); return WORLD && (s === 'high' || s === 'ultra') ? 'detailed' : s; }
 function skinMaterial(def) {
   const sh = shading(), hd = HD;
-  const sakura = def.id === SAKURA_ID;
-  const sk = sakura ? { def, clearcoat: def.clearcoat } : bakedSkin(def);
+  const sakura = def.id === SAKURA_ID, kiln = !!def.art;      // kiln: a painted Legendary (concept art)
+  const sk = sakura || kiln ? { def, clearcoat: def.clearcoat } : bakedSkin(def);     // painted in the shader, nothing to bake
   let m;
   if (sh === 'fast') {
     m = new THREE.MeshMatcapMaterial({ color: 0xffffff, matcap: matcap('metal') });
@@ -121,16 +123,16 @@ function skinMaterial(def) {
     const r = def.rarity;
     const coat = Math.max(sk.clearcoat || 0, { common: 0.25, rare: 0.55, epic: 0.9, blackice: 1, legendary: 1 }[r] || 0);
     m = new THREE.MeshPhysicalMaterial({
-      color: 0xffffff, roughness: 1, metalness: 1, normalMap: hd || sakura ? null : gunMaps('metal').normal, normalScale: new THREE.Vector2(0.6, 0.6),
-      clearcoat: coat, clearcoatRoughness: sakura ? 0.035 : r === 'epic' || r === 'blackice' ? 0.05 : 0.15,
+      color: 0xffffff, roughness: 1, metalness: 1, normalMap: hd || sakura || kiln ? null : gunMaps('metal').normal, normalScale: new THREE.Vector2(0.6, 0.6),
+      clearcoat: coat, clearcoatRoughness: sakura || kiln ? 0.035 : r === 'epic' || r === 'blackice' ? 0.05 : 0.15,
       envMap: sakura ? sakuraEnv() : highEnv(), envMapIntensity: r === 'common' ? 1.1 : sakura ? 1.22 : 1.4,
-      iridescence: r === 'blackice' ? 0.64 : sakura ? 0 : r === 'legendary' ? 0.32 : r === 'epic' ? 0.45 : 0,
+      iridescence: r === 'blackice' ? 0.64 : sakura || kiln ? 0 : r === 'legendary' ? 0.32 : r === 'epic' ? 0.45 : 0,
       iridescenceIOR: 1.6, iridescenceThicknessRange: [200, 600],
     });
     // Pack models: relief depth (parallax) on graphics cards with WebGL 2.
-    const depth = !sakura && hd && RENDERER && RENDERER.capabilities.isWebGL2 ? (r === 'blackice' ? 0.0028 : r === 'common' ? 0.0008 : 0.0014) : 0;
+    const depth = !sakura && !kiln && hd && RENDERER && RENDERER.capabilities.isWebGL2 ? (r === 'blackice' ? 0.0028 : r === 'common' ? 0.0008 : 0.0014) : 0;
     const detailStrength = r === 'legendary' || r === 'blackice' ? 0.16 : hd ? 0.35 : 0.5;
-    const detail = !sakura && (hd || sh === 'ultra') ? ultraDetail('paint') : null;
+    const detail = !sakura && !kiln && (hd || sh === 'ultra') ? ultraDetail('paint') : null;
     triplanar(m, { skin: sk, scale: sk.scale || 2.8, hd, depth, detail, detailScale: 9, detailStrength });
   }
   m.userData.skinKey = def.id + ':' + (packArt.finish ? packArt.revision : 0) + 's' + skinSheets.rev + '@' + skinSize();
@@ -195,6 +197,7 @@ const HD_KIND = { finish: (c) => [c, 'auto'], polymer: () => [BLACK, 'auto'], st
   shell: (c) => (currentSkin() ? [c, 'auto'] : [BLACK, 'auto']) };     // furniture: the skin when one is on, else black polymer
 // The pack's model for a gun type (when High or Ultra graphics and the pack is installed).
 function hdModel(type) {
+  if (TRACED[type]) return null;                // traced guns (f2-model.js, g8-model.js) at every level
   const sh = sightShading();
   return sh === 'high' || sh === 'ultra' ? HDPack.loadedGun(type) : null;
 }
@@ -304,7 +307,7 @@ const RAILS = {   // [top y, rear z, front z]
   rifle: [[0.035, 0.12, -0.17], [0.029, -0.18, -0.38]],
   carbine: [[0.034, 0.1, -0.14]],
   smg: [[0.0375, 0.08, -0.11]],
-  lmg: [[0.075, 0.08, -0.04]],
+  lmg: [],
   marksman: [[0.035, 0.12, -0.16], [0.0245, -0.17, -0.4]],
 };
 
@@ -715,13 +718,99 @@ function sakuraInlays(gun, inspect = false) {
   return blossoms;
 }
 
+// Painted Legendaries: raised relief traced from the painting (it wears the same skin and lifts in
+// the inspect), plus each skin's own pieces: Storm Kiln's stainless moon; Abyssal Crown's glass depth
+// dial with its needle and the teal gem in the stock. Both sides, placed on the real surface.
+const kilnMats = new Map();
+const MOON = new THREE.CylinderGeometry(1, 1, 0.12, 28), BEAD = new THREE.SphereGeometry(1, 16, 10, 0, TAU, 0, Math.PI / 2);
+function artInlays(gun, skin, model, inspect = false) {
+  const sh = shading();
+  if (!kilnMats.has(sh)) {
+    const glaze = (color, roughness, metalness) => {
+      if (sh === 'fast') return new THREE.MeshMatcapMaterial({ color, matcap: matcap('metal') });
+      const finish = { color, roughness, metalness, envMap: highEnv() || ENV, envMapIntensity: 1.2 };
+      return sh === 'detailed' ? new THREE.MeshStandardMaterial(finish) : new THREE.MeshPhysicalMaterial({ ...finish, clearcoat: 1, clearcoatRoughness: 0.04 });
+    };
+    kilnMats.set(sh, [glaze(0xeee6d4, 0.16, 0), glaze(0x1d3a9a, 0.14, 0), glaze(0xd9dde5, 0.22, 0.35)]);
+  }
+  const [ivory, , steel] = kilnMats.get(sh);
+  const surfaces = [...gun.children];
+  gun.updateMatrixWorld(true);
+  const ray = new THREE.Raycaster(), zAxis = new THREE.Vector3(0, 0, 1), normalMatrix = new THREE.Matrix3();
+  const onSurface = (side, y, z) => {
+    ray.ray.origin.set(side * 0.1, y, z); ray.ray.direction.set(-side, 0, 0);
+    const hit = ray.intersectObjects(surfaces, false)[0];
+    if (!hit) return null;
+    const n = hit.face.normal.clone().applyNormalMatrix(normalMatrix.getNormalMatrix(hit.object.matrixWorld));
+    return Math.abs(n.x) < 0.6 ? null : { point: hit.point, normal: n };
+  };
+  // concept image pixels (1400 wide) -> gun space [z, y], from the skin's art rectangle
+  const [z0, z1, y0, y1] = skin.artRect, at = (x, y) => [z0 + (z1 - z0) * x / 1400, y1 - (y1 - y0) * y / 933];
+  const reliefs = [], dials = [];
+  const half = (model.body.depth || 0.05) / 2;
+  for (const side of [-1, 1]) {
+    const [mz, my] = at(822, 300);
+    const m = skin.artLook !== 'bronze' && onSurface(side, my, mz);
+    if (m) {
+      const moon = new THREE.Mesh(MOON, steel);
+      moon.position.copy(m.point).addScaledVector(m.normal, 0.0004);
+      moon.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), m.normal);
+      moon.scale.set(0.0125, 0.0125, 0.0125);
+      gun.add(moon);
+    }
+    // Raised glaze traced from the painting (f2-model.js): the waves on the stock and the scroll band
+    // on the handguard, wearing the same painted skin; the biggest wave is the crest.
+    const glazeMat = gun.children.find((c) => c.isMesh)?.material || ivory;
+    const biggest = Math.max(...model.relief.map((r) => r.area));
+    for (const r of model.relief || []) {
+      const depth = r.kind === 'wave' ? 0.0042 : 0.003;
+      const mesh = traced(gun, { outer: r.outer, depth }, 0);
+      mesh.material = glazeMat;
+      mesh.userData.hd = true;                  // kept out of the merged gun mesh: the inspect moves it
+      mesh.position.x = side * (half + depth / 2 - 0.0008);    // (only moved across: the painting is looked up in gun space)
+      if (inspect) reliefs.push({ group: mesh, base: mesh.position.clone(), normal: new THREE.Vector3(side, 0, 0), size: 0.008, crest: biggest > 0 && r.area === biggest, ring: r.centre });
+    }
+    if (skin.artLook === 'bronze') {
+      // the depth dial: a domed glass over the painted face, and a needle under it
+      const [dz, dy] = at(912, 405), R = 47 * (z1 - z0) / 1400;
+      const face = onSurface(side, dy, dz);
+      if (face) {
+        const dial = new THREE.Group();
+        dial.position.copy(face.point);
+        dial.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), face.normal);
+        const dome = new THREE.Mesh(new THREE.SphereGeometry(R, 24, 10, 0, TAU, 0, 0.62), new THREE.MeshPhysicalMaterial({
+          color: 0xd8fff4, roughness: 0.04, metalness: 0, transparent: true, opacity: 0.22, clearcoat: 1, envMap: highEnv() || ENV, envMapIntensity: 1.6, depthWrite: false }));
+        dome.rotation.x = Math.PI / 2; dome.scale.set(1, 0.35, 1); dome.renderOrder = 2;
+        const needle = new THREE.Mesh(new THREE.BoxGeometry(R * 0.035, R * 0.62, R * 0.03), new THREE.MeshStandardMaterial({ color: 0xd8b878, metalness: 0.6, roughness: 0.35 }));
+        needle.geometry.translate(0, R * 0.28, 0);
+        needle.position.z = R * 0.08; needle.rotation.z = -0.6;
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(R, R * 0.08, 8, 40), new THREE.MeshStandardMaterial({ color: 0x8a6a3e, metalness: 1, roughness: 0.32 }));
+        dial.add(dome, needle, ring);
+        for (const o of [dome, needle, ring]) o.userData.hd = true;     // separate (the needle moves; the glass is see-through)
+        gun.add(dial);
+        dials.push({ needle, rest: needle.rotation.z });
+      }
+      // the teal cabochon set in the stock's nautilus
+      const [gz, gy] = at(1307, 438), gem = onSurface(side, gy, gz);
+      if (gem) {
+        const stone = new THREE.Mesh(BEAD, new THREE.MeshPhysicalMaterial({ color: 0x0f6f66, emissive: 0x0b5a50, emissiveIntensity: 0.6, roughness: 0.05, clearcoat: 1, envMap: highEnv() || ENV }));
+        stone.position.copy(gem.point);
+        stone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), gem.normal);
+        stone.scale.set(14 * (z1 - z0) / 1400, 20 * (z1 - z0) / 1400, 0.004);
+        gun.add(stone);
+      }
+    }
+  }
+  return { reliefs, dials };
+}
+
 /* ---------- moving parts and ultra detail (gun coordinates) ---------- */
 // half receiver width, ejection port z, muzzle [y, z], trigger z, handguard [y, from, to]
 const SPEC = {
   rifle: { hw: 0.025, port: 0.0, muzzle: [0.012, -0.545], trig: 0.0, hg: [0.004, -0.19, -0.37] },
   carbine: { hw: 0.025, port: 0.0, muzzle: [0.018, -0.44], trig: -0.005, hg: [0.004, -0.16, -0.28] },
   smg: { hw: 0.024, port: 0.02, muzzle: [0.01, -0.225], trig: 0.0, hg: null },
-  lmg: { hw: 0.035, port: 0.0, muzzle: [0.005, -0.565], trig: 0.03, hg: [0.005, -0.22, -0.42] },
+  lmg: { hw: 0.0275, port: 0.0, muzzle: [0.0076, -0.639], trig: -0.004, hg: null },     // the traced G8A1 (g8-model.js)
   marksman: { hw: 0.024, port: 0.0, muzzle: [0.012, -0.655], trig: 0.0, hg: [0.002, -0.18, -0.4] },
 };
 const DARK = 0x0d0e10;
@@ -821,7 +910,7 @@ function flashGroup() {
 }
 const smooth01 = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
-const TOP_Y = { rifle: 0.035, carbine: 0.034, smg: 0.0375, lmg: 0.075, marksman: 0.035 };
+const TOP_Y = { rifle: 0.035, carbine: 0.034, smg: 0.0375, lmg: 0.049, marksman: 0.035 };
 
 /* ---------- a model per gun ---------- */
 // Each gun gets its own model (original low-poly shapes that suggest each gun's layout).
@@ -925,16 +1014,44 @@ Object.assign(BUILDERS, {
     box(g, BLACK, 0.044, 0.06, 0.015, 0, -0.01, 0.245);
   },
 });
-Object.assign(TOP_Y, { evo: 0.032, bullpup: 0.06, machinepistol: 0.035, ak: 0.044, compact: 0.035, sfw: 0.034, pdw: 0.035 });
+// The F2 (bullpup), traced from the Storm Kiln concept at real size (f2-model.js): each part is its
+// outline extruded across the gun with rounded edges. The grip and handguard sit where the hands go.
+function traced(g, o, color, kind = 'auto') {
+  const v = (p) => new THREE.Vector2(p[0], p[1]);
+  const shape = new THREE.Shape(o.outer.map(v));
+  for (const h of o.holes || []) shape.holes.push(new THREE.Path(h.map(v)));
+  const d = o.depth, bevel = Math.min(0.006, d * 0.3);
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: d - bevel * 2, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel * 0.8, bevelSegments: 3, curveSegments: 6 });
+  geo.rotateY(-Math.PI / 2);                      // outline x -> gun z, extruded across x
+  geo.translate(d / 2 - bevel, 0, 0);
+  const uv = geo.attributes.uv.array;             // outline units are metres: a texture tile every 5 cm
+  for (let i = 0; i < uv.length; i++) uv[i] *= 20;
+  const m = new THREE.Mesh(geo, mat(color, kind));
+  g.add(m);
+  return m;
+}
+// Guns rebuilt from their Legendary's concept: the outlines in js/scene/*-model.js. Parts marked
+// paint wear a painted skin (the concept shows them finished), else they stay black or steel.
+const TRACED = { bullpup: F2, lmg: G8 };
+function tracedGun(model) {
+  return (g, c, mg) => {
+    const painted = !!currentSkin()?.art;
+    traced(g, model.body, c);
+    for (const p of model.parts) traced(g, p, p.paint && painted ? c : p.color === 'steel' ? STEEL : BLACK, p.color === 'steel' ? 'metal' : 'auto');
+    traced(mg, model.mag, model.mag.paint && painted ? c : BLACK);
+  };
+}
+for (const [type, model] of Object.entries(TRACED)) BUILDERS[type] = tracedGun(model);
+Object.assign(TOP_Y, { evo: 0.032, bullpup: 0.1305, machinepistol: 0.035, ak: 0.044, compact: 0.035, sfw: 0.034, pdw: 0.035 });
 Object.assign(RAILS, {
-  evo: [[0.032, 0.14, -0.24]], bullpup: [[0.06, 0.05, -0.15]], machinepistol: [[0.035, 0.08, -0.08]],
+  evo: [[0.032, 0.14, -0.24]], bullpup: [], machinepistol: [[0.035, 0.08, -0.08]],
   ak: [[0.044, 0.12, -0.12]], compact: [[0.035, 0.1, -0.1]], sfw: [[0.034, 0.1, -0.14], [0.032, -0.16, -0.44]], pdw: [[0.035, 0.11, -0.12]],
 });
 Object.assign(HAND_Z, { evo: -0.2, bullpup: -0.32, machinepistol: -0.07, ak: -0.26, compact: -0.13, sfw: -0.3, pdw: -0.09 });
 Object.assign(GRIP_Z, { evo: 0.07, bullpup: -0.12, machinepistol: 0.03, ak: 0.07, compact: 0.06, sfw: 0.05, pdw: 0.02 });
 Object.assign(SPEC, {
   evo: { hw: 0.023, port: 0, muzzle: [0.008, -0.385], trig: 0, hg: [0, -0.15, -0.25] },
-  bullpup: { hw: 0.025, port: 0.12, muzzle: [0.01, -0.55], trig: -0.15, hg: [0, -0.28, -0.38] },
+  bullpup: { hw: 0.025, port: 0.05, muzzle: [0.0169, -0.535], trig: -0.228, hg: null },
   machinepistol: { hw: 0.02, port: 0, muzzle: [0.01, -0.158], trig: 0, hg: null },
   ak: { hw: 0.025, port: 0, muzzle: [0.01, -0.595], trig: 0, hg: [0, -0.18, -0.35] },
   compact: { hw: 0.022, port: 0.02, muzzle: [0, -0.21], trig: 0.02, hg: null },
@@ -1035,6 +1152,7 @@ export function buildWorldGun(gun, slot, skinId) {
       if (hdm) buildHD(g, mg, null, hdm, 1, FINISHES[slot % FINISHES.length]);     // the pack's lighter model
       else BUILDERS[type](g, FINISHES[slot % FINISHES.length], mg);
       if (skinId === SAKURA_ID) sakuraInlays(g);
+      if (skin?.art && TRACED[type]) artInlays(g, skin, TRACED[type]);
       if (skin?.rarity === 'epic') epicInlays(g, skin);
       if (at) { SKIN_FORCE = null; attachParts(g, mg, type, at, ...muzzle); }
     } finally { SKIN_FORCE = undefined; WORLD = false; }
@@ -1312,10 +1430,11 @@ export class WeaponRig {
       if (hdm) buildHD(gunG, magG, null, hdm, 0, finish);      // the pack's detailed model (rails, ports, pins built in)
       else BUILDERS[type](gunG, finish, magG);
       const blossoms = sk?.id === SAKURA_ID ? sakuraInlays(gunG, true) : null;
+      const art = sk?.art && TRACED[type] ? artInlays(gunG, sk, TRACED[type], true) : null;
       if (sk?.rarity === 'epic') epicInlays(gunG, sk);
       if (!hdm) {
         for (const [y, from, to] of RAILS[type]) topRail(gunG, y, from, to);
-        if (sightShading() === 'ultra') ultraDetails(gunG, type, finish, magG);
+        if (sightShading() === 'ultra' && !TRACED[type]) ultraDetails(gunG, type, finish, magG);   // (traced guns have their own)
       }
       // Attachments (unskinned), merged with the gun below like its own parts.
       const muzzle = hdm?.header.anchors?.muzzle || SPEC[type].muzzle;
@@ -1369,6 +1488,7 @@ export class WeaponRig {
       m.add(gunG);
       if (ice) m.userData.inspectFx = frostInspect(gunG, frost, crystals, sk, INSPECT_QUALITY);
       else if (blossoms?.length) m.userData.inspectFx = sakuraInspect(gunG, blossoms, INSPECT_QUALITY);
+      else if (art) m.userData.inspectFx = sk.artLook === 'bronze' ? abyssInspect(gunG, art, INSPECT_QUALITY) : kilnInspect(gunG, art.reliefs, INSPECT_QUALITY);
       m.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
       this.models.set(key, m);
       this.root.add(m);

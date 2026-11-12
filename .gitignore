@@ -13,3 +13,4 @@ rust/bomb_utility/target/
 rust/bomb_utility/Cargo.lock
 rust/loadout/target/
 rust/loadout/Cargo.lock
+__pycache__/
