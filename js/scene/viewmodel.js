@@ -1,30 +1,30 @@
-import { skinSheets } from '../render/skins2.js?v=d062206-mwdh3x64';
-import { packArt } from '../render/pack-art.js?v=d062206-mwdh3x64';
+import { skinSheets } from '../render/skins2.js?v=ce24bfe-mwdhgcv1';
+import { packArt } from '../render/pack-art.js?v=ce24bfe-mwdhgcv1';
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=d062206-mwdh3x64';
-import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=d062206-mwdh3x64';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=d062206-mwdh3x64';
-import { matcap } from './matcap.js?v=d062206-mwdh3x64';
-import { mulberry32 } from '../core/prng.js?v=d062206-mwdh3x64';
-import { gunMaps } from './range-tex.js?v=d062206-mwdh3x64';
-import { skinById, FACTORY, SAKURA_ID } from '../core/skins.js?v=d062206-mwdh3x64';
-import { legendCanvas, onLegendChange } from '../core/legend.js?v=d062206-mwdh3x64';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=d062206-mwdh3x64';
-import { HDPack } from '../render/hd-pack.js?v=d062206-mwdh3x64';
-import { epicRelief } from './skin-relief.js?v=d062206-mwdh3x64';
-import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect, forgeInspect, orreryInspect, amberInspect } from './inspect-effects.js?v=d062206-mwdh3x64';
-import { F2 } from './f2-model.js?v=d062206-mwdh3x64';
-import { G8 } from './g8-model.js?v=d062206-mwdh3x64';
-import { C8 } from './c8-model.js?v=d062206-mwdh3x64';
-import { R4 } from './r4-model.js?v=d062206-mwdh3x64';
-import { AK } from './ak-model.js?v=d062206-mwdh3x64';
-import { EVO } from './evo-model.js?v=d062206-mwdh3x64';
-import { MP5K } from './compact-model.js?v=d062206-mwdh3x64';
-import { T5 } from './smg-model.js?v=d062206-mwdh3x64';
-import { SMG11 } from './machinepistol-model.js?v=d062206-mwdh3x64';
-import { MP7 } from './pdw-model.js?v=d062206-mwdh3x64';
+import * as THREE from '../../vendor/three/three.module.min.js?v=ce24bfe-mwdhgcv1';
+import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=ce24bfe-mwdhgcv1';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=ce24bfe-mwdhgcv1';
+import { matcap } from './matcap.js?v=ce24bfe-mwdhgcv1';
+import { mulberry32 } from '../core/prng.js?v=ce24bfe-mwdhgcv1';
+import { gunMaps } from './range-tex.js?v=ce24bfe-mwdhgcv1';
+import { skinById, FACTORY, SAKURA_ID } from '../core/skins.js?v=ce24bfe-mwdhgcv1';
+import { legendCanvas, onLegendChange } from '../core/legend.js?v=ce24bfe-mwdhgcv1';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=ce24bfe-mwdhgcv1';
+import { HDPack } from '../render/hd-pack.js?v=ce24bfe-mwdhgcv1';
+import { epicRelief } from './skin-relief.js?v=ce24bfe-mwdhgcv1';
+import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect, forgeInspect, orreryInspect, amberInspect, jadeInspect } from './inspect-effects.js?v=ce24bfe-mwdhgcv1';
+import { F2 } from './f2-model.js?v=ce24bfe-mwdhgcv1';
+import { G8 } from './g8-model.js?v=ce24bfe-mwdhgcv1';
+import { C8 } from './c8-model.js?v=ce24bfe-mwdhgcv1';
+import { R4 } from './r4-model.js?v=ce24bfe-mwdhgcv1';
+import { AK } from './ak-model.js?v=ce24bfe-mwdhgcv1';
+import { EVO } from './evo-model.js?v=ce24bfe-mwdhgcv1';
+import { MP5K } from './compact-model.js?v=ce24bfe-mwdhgcv1';
+import { T5 } from './smg-model.js?v=ce24bfe-mwdhgcv1';
+import { SMG11 } from './machinepistol-model.js?v=ce24bfe-mwdhgcv1';
+import { MP7 } from './pdw-model.js?v=ce24bfe-mwdhgcv1';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -1650,7 +1650,7 @@ export class WeaponRig {
       m.add(gunG);
       if (ice) m.userData.inspectFx = frostInspect(gunG, frost, crystals, sk, INSPECT_QUALITY);
       else if (blossoms?.length) m.userData.inspectFx = sakuraInspect(gunG, blossoms, INSPECT_QUALITY, art?.roots || []);
-      else if (art) m.userData.inspectFx = sk.artLook === 'bronze' ? abyssInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'glass' ? vesperInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'porcelain' ? kilnInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'forge' ? forgeInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'orrery' ? orreryInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'amber' ? amberInspect(gunG, art, INSPECT_QUALITY) : null;
+      else if (art) m.userData.inspectFx = sk.artLook === 'bronze' ? abyssInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'glass' ? vesperInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'porcelain' ? kilnInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'forge' ? forgeInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'orrery' ? orreryInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'amber' ? amberInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'jade' ? jadeInspect(gunG, art, INSPECT_QUALITY) : null;
       m.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
       this.models.set(key, m);
       this.root.add(m);

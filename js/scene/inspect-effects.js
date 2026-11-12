@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=d062206-mwdh3x64';
-import { mulberry32 } from '../core/prng.js?v=d062206-mwdh3x64';
-import { mergeStatic } from './sight-model.js?v=d062206-mwdh3x64';
+import * as THREE from '../../vendor/three/three.module.min.js?v=ce24bfe-mwdhgcv1';
+import { mulberry32 } from '../core/prng.js?v=ce24bfe-mwdhgcv1';
+import { mergeStatic } from './sight-model.js?v=ce24bfe-mwdhgcv1';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -1391,5 +1391,133 @@ export function amberInspect(gun, art, quality) {
       for (const f of fronds) f.stem.geometry.dispose();
       fly.traverse(o => o.geometry?.dispose());
     },
+  };
+}
+
+// Jade Coil: the dragon painted on the gun comes alive. It peels off the side head first (the painting
+// sweeps to the bare gun behind it), coils round the gun and swims round and round it, its body
+// rippling side to side, then lies back down into its painting tail first. Its body is a tube rebuilt
+// each frame along its spine (carved scales, a bronze crest), with a horned head.
+// The painted dragon's spine, in concept pixels (07-jade-coil.png, 1536 x 1024), head first (tools/jade-bare.py).
+const JADE_SPINE = [[230, 378], [280, 360], [320, 330], [370, 330], [420, 370], [470, 430], [530, 445], [590, 410], [640, 360], [700, 330], [760, 345],
+  [830, 390], [900, 440], [960, 460], [1020, 430], [1080, 380], [1140, 350], [1220, 345], [1300, 335], [1370, 320], [1430, 302]];
+const JADE_SECONDS = 8.4;
+let scaleTex = null;
+function jadeScales() {
+  if (scaleTex) return scaleTex;
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d');
+  g.fillStyle = '#2f4f14'; g.fillRect(0, 0, 64, 64);
+  for (let row = -1; row < 5; row++) for (let col = -1; col < 5; col++) {
+    const x = col * 16 + (row % 2 ? 8 : 0), y = row * 14;
+    const r = g.createRadialGradient(x + 8, y + 4, 1, x + 8, y + 8, 11);
+    r.addColorStop(0, '#d8ea7a'); r.addColorStop(0.55, '#6f9a2c'); r.addColorStop(1, '#1d340b');
+    g.fillStyle = r; g.beginPath(); g.arc(x + 8, y + 2, 10, 0, Math.PI); g.fill();
+  }
+  scaleTex = new THREE.CanvasTexture(c); scaleTex.colorSpace = THREE.SRGBColorSpace;
+  scaleTex.wrapS = scaleTex.wrapT = THREE.RepeatWrapping; scaleTex.repeat.set(24, 2);
+  return scaleTex;
+}
+export function jadeInspect(gun, { surface }, quality) {
+  const [Z0, Z1, Y0, Y1] = [-0.25133, 0.36905, -0.23606, 0.17739];     // the T-5's art rectangle
+  const half = 0.023;
+  const painted = new THREE.CatmullRomCurve3(JADE_SPINE.map(([x, y]) => new THREE.Vector3(0, Y1 - (Y1 - Y0) * y / 1024, Z0 + (Z1 - Z0) * x / 1536)));
+  const top = surface.length ? Math.max(...surface.map(a => a.point.y)) : 0.06;
+  const yc = top - 0.04, RX = 0.058, RY = 0.07;
+  const N = 96, M = 12, rMax = 0.016;                                // as thick as the painted dragon
+  const pos = new Float32Array(N * M * 3), uv = new Float32Array(N * M * 2), idx = [];
+  for (let i = 0; i < N; i++) for (let j = 0; j < M; j++) {
+    uv[(i * M + j) * 2] = i / (N - 1); uv[(i * M + j) * 2 + 1] = j / M;
+    if (i < N - 1) { const a = i * M + j, b = i * M + (j + 1) % M, c2 = a + M, d = b + M; idx.push(a, c2, b, b, c2, d); }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); geo.setIndex(idx);
+  const jade = new THREE.MeshPhysicalMaterial({ color: 0xb8d49c, map: jadeScales(), bumpMap: jadeScales(), bumpScale: 1.5, roughness: 0.22, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.08, sheen: 0.6, sheenColor: 0xd8f070, emissive: 0x1c3008, emissiveIntensity: 0.6 });
+  const body = new THREE.Mesh(geo, jade); body.frustumCulled = false; body.visible = false; gun.add(body);
+  // the head: skull, jaw, bronze horns, gold eyes
+  const head = new THREE.Group(), bronze = new THREE.MeshStandardMaterial({ color: 0xb08a4a, metalness: 1, roughness: 0.3 });
+  const skull = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), jade); skull.scale.set(0.0085, 0.0065, 0.016); skull.position.z = 0.006;
+  const jaw = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), jade); jaw.scale.set(0.006, 0.0035, 0.013); jaw.position.set(0, -0.0045, 0.009);
+  const eyeMat = new THREE.MeshStandardMaterial({ color: 0xffd040, emissive: 0xffb000, emissiveIntensity: 1.5 });
+  head.add(skull, jaw);
+  for (const k of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.0018, 10, 8), eyeMat); eye.position.set(k * 0.0055, 0.0025, 0.012); head.add(eye);
+    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.0018, 0.014, 8), bronze); horn.position.set(k * 0.004, 0.006, -0.002); horn.rotation.set(-1.9, 0, k * 0.35); head.add(horn);
+  }
+  head.visible = false; gun.add(head);
+  // which side faces the camera: the dragon that comes alive is the one you can see
+  let viewSide = 1, side = 1; const camAt = new THREE.Vector3();
+  body.onBeforeRender = (renderer, scene, camera) => { camAt.setFromMatrixPosition(camera.matrixWorld); gun.worldToLocal(camAt); viewSide = Math.sign(camAt.x) || 1; };
+  // the crest along its back
+  const nSpikes = 28, spikes = new THREE.InstancedMesh(new THREE.ConeGeometry(0.0016, 0.006, 6), bronze, nSpikes);
+  spikes.frustumCulled = false; spikes.visible = false; gun.add(spikes);
+  const C = new THREE.Vector3(), Pp = new THREE.Vector3(), R0 = new THREE.Vector3();
+  const spine = Array.from({ length: N }, () => ({ c: new THREE.Vector3(), n: new THREE.Vector3(), b: new THREE.Vector3(), t: new THREE.Vector3(), r: 0, w: 0 }));
+  const mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+  const glazes = [], mixes = [];
+  gun.traverse(o => { const u = o.material?.userData?.tri; if (u?.artPhase && !glazes.includes(u.artPhase)) { glazes.push(u.artPhase); mixes.push(u); } });
+  let phase = -1;
+  return {
+    clip: KILN_CLIP, seconds: JADE_SECONDS,
+    update(p) {
+      const active = p >= 0 && p < 1;
+      if (!active && phase < 0) return;
+      phase = active ? p : -1;
+      for (const g of glazes) g.value = active ? p : -1;
+      // the painting sweeps to the bare gun as the dragon peels off head first, and back as it lies down
+      for (const u of mixes) if (u.artMix) { u.artMix.value = active ? smooth(p, 0.1, 0.28) * (1 - smooth(p, 0.74, 0.92)) : 0; u.artMixSide.value = side; }
+      const t = active ? p * JADE_SECONDS : 0;
+      if (p < 0.1) side = viewSide;
+      let any = false;
+      // the coil: a corkscrew round the gun, head towards the muzzle, swimming round and drifting along
+      const spin = t * 2.6, zc = (Z0 + Z1) / 2 - 0.08 + 0.07 * Math.sin(t * 0.7);
+      for (let i = 0; i < N; i++) {
+        const f = i / (N - 1), s = spine[i];
+        const peel = active ? smooth(p, 0.1 + f * 0.14, 0.2 + f * 0.14) : 0;
+        const settle = active ? smooth(p, 0.74 + (1 - f) * 0.1, 0.82 + (1 - f) * 0.1) : 1;
+        s.w = peel * (1 - settle);
+        if (s.w > 0.001) any = true;
+        const taper = (0.75 + 0.25 * Math.sin(Math.min(1, f * 4) * Math.PI / 2)) * (1 - 0.85 * f * f);
+        s.r = rMax * taper;
+        // where it lies in the painting, half sunk into the side
+        painted.getPointAt(f, Pp); Pp.x = side * (half + s.r * 0.3);
+        // where it is in the coil
+        const a = side * (Math.PI * 0.5 - spin + f * 1.3 * Math.PI * 2) + (side < 0 ? Math.PI : 0);
+        C.set(Math.cos(a) * RX, yc + Math.sin(a) * RY, zc - 0.1 + f * 0.3);
+        s.c.copy(Pp).lerp(C, s.w * s.w * (3 - 2 * s.w));
+      }
+      body.visible = head.visible = spikes.visible = any;
+      if (!any) return;
+      for (let i = 0; i < N; i++) {
+        const s = spine[i], prev = spine[Math.max(0, i - 1)].c, next = spine[Math.min(N - 1, i + 1)].c;
+        s.t.copy(prev).sub(next).normalize();                        // towards the head
+        R0.set(s.c.x, s.c.y - yc, 0).normalize();                    // outward from the gun
+        s.b.crossVectors(s.t, R0).normalize(); s.n.crossVectors(s.b, s.t).normalize();
+      }
+      // the slither: a wave running down the body, side to side, while it is off the gun
+      for (let i = 0; i < N; i++) { const s = spine[i], f = i / (N - 1); s.c.addScaledVector(s.b, 0.01 * s.w * Math.sin(f * 16 - t * 8) * Math.min(1, f * 6)); }
+      for (let i = 0; i < N; i++) {
+        const s = spine[i];
+        for (let j = 0; j < M; j++) {
+          const a = j / M * Math.PI * 2;
+          C.copy(s.c).addScaledVector(s.n, Math.cos(a) * s.r).addScaledVector(s.b, Math.sin(a) * s.r);
+          pos.set([C.x, C.y, C.z], (i * M + j) * 3);
+        }
+      }
+      geo.attributes.position.needsUpdate = true; geo.computeVertexNormals();
+      const h = spine[0];
+      mtx.makeBasis(h.b, h.n, h.t); head.quaternion.setFromRotationMatrix(mtx); head.position.copy(h.c).addScaledVector(h.t, 0.004);
+      head.scale.setScalar(1.5 * h.r / (rMax * 0.75));
+      jaw.rotation.x = 0.1 + 0.3 * h.w * (0.5 + 0.5 * Math.sin(t * 6));
+      for (let k = 0; k < nSpikes; k++) {
+        const s = spine[2 + k * 3];
+        q.setFromUnitVectors(up, R0.copy(s.n).addScaledVector(s.t, -0.6).normalize());
+        C.copy(s.c).addScaledVector(s.n, s.r * 0.85);
+        sc.setScalar(Math.max(0.001, s.r / rMax));
+        spikes.setMatrixAt(k, mtx.compose(C, q, sc));
+      }
+      spikes.instanceMatrix.needsUpdate = true;
+    },
+    dispose() { geo.dispose(); jade.dispose(); bronze.dispose(); eyeMat.dispose(); spikes.geometry.dispose(); head.traverse(o => o.geometry?.dispose()); },
   };
 }

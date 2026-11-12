@@ -1,39 +1,39 @@
-import { applyMapArt } from '../render/pack-art.js?v=d062206-mwdh3x64';
-import { applyPackMaterials, packMats, envMap } from '../render/pack-materials.js?v=d062206-mwdh3x64';
-import { applyPackProps } from '../render/pack-props.js?v=d062206-mwdh3x64';
-import { sensoryFor } from '../balance/bomb-utility.js?v=d062206-mwdh3x64';
-import { createRankedSession, rankedChange, ratingOf, signRankedResult, botRankedChange } from '../core/ranked.js?v=d062206-mwdh3x64';
-import { SpectatorTools } from '../replay/spectator.js?v=d062206-mwdh3x64';
-import { MatchFinale } from '../replay/finale.js?v=d062206-mwdh3x64';
-import { GrenadeReplay } from '../replay/grenade.js?v=d062206-mwdh3x64';
-import { replayCamera } from '../replay/view.js?v=d062206-mwdh3x64';
+import { applyMapArt } from '../render/pack-art.js?v=ce24bfe-mwdhgcv1';
+import { applyPackMaterials, packMats, envMap } from '../render/pack-materials.js?v=ce24bfe-mwdhgcv1';
+import { applyPackProps } from '../render/pack-props.js?v=ce24bfe-mwdhgcv1';
+import { sensoryFor } from '../balance/bomb-utility.js?v=ce24bfe-mwdhgcv1';
+import { createRankedSession, rankedChange, ratingOf, signRankedResult, botRankedChange } from '../core/ranked.js?v=ce24bfe-mwdhgcv1';
+import { SpectatorTools } from '../replay/spectator.js?v=ce24bfe-mwdhgcv1';
+import { MatchFinale } from '../replay/finale.js?v=ce24bfe-mwdhgcv1';
+import { GrenadeReplay } from '../replay/grenade.js?v=ce24bfe-mwdhgcv1';
+import { replayCamera } from '../replay/view.js?v=ce24bfe-mwdhgcv1';
 // Team Deathmatch, Capture the Flag and Bomb in the browser: draws the match simulation
 // (sim.js) and runs your player with the range's own systems (look, sensitivity, recoil,
 // spread, sights, weapon model: battle/human.js), at a fixed 60 Hz simulation.
 //
 // Map: flat-shaded low poly from the map file; static walls merged into one mesh, breakable
 // panels in one instanced mesh, one directional light (a 1024 shadow map in High / Ultra).
-import * as THREE from '../../vendor/three/three.module.min.js?v=d062206-mwdh3x64';
-import { BulletHoles, crackTexture } from '../scene/holes.js?v=d062206-mwdh3x64';
-import { MatchMap } from './map.js?v=d062206-mwdh3x64';
-import { initCore } from '../wasm/core.js?v=d062206-mwdh3x64';
-import { Match, TICK } from './sim.js?v=d062206-mwdh3x64';
-import { yawTo, wrap180, DEG } from './geom.js?v=d062206-mwdh3x64';
-import { Fighter } from '../battle/fighter.js?v=d062206-mwdh3x64';
-import { slotIn, effectiveGun } from '../core/loadout.js?v=d062206-mwdh3x64';
-import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=d062206-mwdh3x64';
-import { buildMapLook, panelTextures } from './look.js?v=d062206-mwdh3x64';
-import { Arena } from '../battle/arena.js?v=d062206-mwdh3x64';
-import { Human } from '../battle/human.js?v=d062206-mwdh3x64';
-import { drawCrosshair } from '../ui/crosshair.js?v=d062206-mwdh3x64';
-import { effectiveGraphics, maxMode } from '../render/quality.js?v=d062206-mwdh3x64';
-import { MatchHost, MatchClient } from './net-match.js?v=d062206-mwdh3x64';
-import { Brain } from './bots.js?v=d062206-mwdh3x64';
-import { skyPalette } from '../render/sky.js?v=d062206-mwdh3x64';
-import { dressMap } from './dressing.js?v=d062206-mwdh3x64';
-import { LightPool } from '../render/light-pool.js?v=d062206-mwdh3x64';
-import { Footprints } from '../scene/footprints.js?v=d062206-mwdh3x64';
-import { Minimap } from '../ui/minimap.js?v=d062206-mwdh3x64';
+import * as THREE from '../../vendor/three/three.module.min.js?v=ce24bfe-mwdhgcv1';
+import { BulletHoles, crackTexture } from '../scene/holes.js?v=ce24bfe-mwdhgcv1';
+import { MatchMap } from './map.js?v=ce24bfe-mwdhgcv1';
+import { initCore } from '../wasm/core.js?v=ce24bfe-mwdhgcv1';
+import { Match, TICK } from './sim.js?v=ce24bfe-mwdhgcv1';
+import { yawTo, wrap180, DEG } from './geom.js?v=ce24bfe-mwdhgcv1';
+import { Fighter } from '../battle/fighter.js?v=ce24bfe-mwdhgcv1';
+import { slotIn, effectiveGun } from '../core/loadout.js?v=ce24bfe-mwdhgcv1';
+import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=ce24bfe-mwdhgcv1';
+import { buildMapLook, panelTextures } from './look.js?v=ce24bfe-mwdhgcv1';
+import { Arena } from '../battle/arena.js?v=ce24bfe-mwdhgcv1';
+import { Human } from '../battle/human.js?v=ce24bfe-mwdhgcv1';
+import { drawCrosshair } from '../ui/crosshair.js?v=ce24bfe-mwdhgcv1';
+import { effectiveGraphics, maxMode } from '../render/quality.js?v=ce24bfe-mwdhgcv1';
+import { MatchHost, MatchClient } from './net-match.js?v=ce24bfe-mwdhgcv1';
+import { Brain } from './bots.js?v=ce24bfe-mwdhgcv1';
+import { skyPalette } from '../render/sky.js?v=ce24bfe-mwdhgcv1';
+import { dressMap } from './dressing.js?v=ce24bfe-mwdhgcv1';
+import { LightPool } from '../render/light-pool.js?v=ce24bfe-mwdhgcv1';
+import { Footprints } from '../scene/footprints.js?v=ce24bfe-mwdhgcv1';
+import { Minimap } from '../ui/minimap.js?v=ce24bfe-mwdhgcv1';
 
 const reducedMotion = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 const TEAM_COLOR = { A: 0x5b8cff, B: 0xff7048 };

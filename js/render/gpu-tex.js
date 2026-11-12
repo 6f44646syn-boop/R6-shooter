@@ -1,5 +1,5 @@
-import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=d062206-mwdh3x64';
-import { packArt } from './pack-art.js?v=d062206-mwdh3x64';
+import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=ce24bfe-mwdhgcv1';
+import { packArt } from './pack-art.js?v=ce24bfe-mwdhgcv1';
 // GPU-baked textures for ultra graphics. Everything is procedural and drawn by a fragment
 // shader into a render target once (milliseconds on a graphics card), so 4096 x 4096 maps
 // cost nothing at start-up and nothing is downloaded.
@@ -10,7 +10,7 @@ import { packArt } from './pack-art.js?v=d062206-mwdh3x64';
 //   bakeSkin(renderer, index, size): one of SKINS, { albedo, rm } (rm: G roughness, B metalness).
 //   triplanar(material, opts): shader patch that maps a skin and/or detail by the surface's
 //        own 3D position (no UV stretching on long thin parts), with edge wear from UVs.
-import * as THREE from '../../vendor/three/three.module.min.js?v=d062206-mwdh3x64';
+import * as THREE from '../../vendor/three/three.module.min.js?v=ce24bfe-mwdhgcv1';
 
 const VERT = /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
@@ -567,8 +567,8 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
     // Painted Legendaries: the concept painting laid out in gun space (def.artRect) on the gun traced
     // from it. Looks: 'porcelain' (glaze, crazing, silver seams) or 'bronze' (metal, glowing teal inlays).
     Object.assign(uniforms, {
-      artMap: { value: artTexture(def.art) }, artMap2: { value: artTexture(def.artPeak || def.art) }, artMix: { value: 0 }, artRect: { value: new THREE.Vector4(...def.artRect) },
-      artDark: { value: new THREE.Vector3(...def.c[2]) }, artPhase: { value: -1 }, artBlast: { value: -9 }, artMode: { value: { bronze: 1, glass: 2, resin: 2, lacquer: 3, gilt: 3, orrery: 5, forge: 4, amber: 6 }[def.artLook] || 0 },
+      artMap: { value: artTexture(def.art) }, artMap2: { value: artTexture(def.artPeak || def.art) }, artMix: { value: 0 }, artMixSide: { value: 0 }, artRect: { value: new THREE.Vector4(...def.artRect) },
+      artDark: { value: new THREE.Vector3(...def.c[2]) }, artPhase: { value: -1 }, artBlast: { value: -9 }, artMode: { value: { bronze: 1, glass: 2, resin: 2, jade: 2, lacquer: 3, gilt: 3, orrery: 5, forge: 4, amber: 6 }[def.artLook] || 0 },
     });
   } else if (sakura) {
     const [gold, pink, pearl, black] = def.c.map(c => new THREE.Vector3(...c));
@@ -613,7 +613,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       uniform vec3 hdEdgeCol;
       #ifdef TRI_ART
         uniform sampler2D artMap, artMap2;      // artMap2: a second painting the inspect can fade into (artMix)
-        uniform float artMix;
+        uniform float artMix, artMixSide;      // artMixSide: 0 both sides, or only the side of x this sign
         uniform vec4 artRect;
         uniform vec3 artDark;
         uniform float artMode, artBlast;
@@ -701,7 +701,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         vec3 kArt = mix(texture2D(artMap, kuv, 5.0).rgb, texture2D(artMap, kuv).rgb, kSide);
         // the second painting sweeps in from the muzzle to the stock as artMix rises (and back out as it falls)
         float kWipe = mix(artRect.x - 0.05, artRect.y + 0.05, artMix);
-        if (artMix > 0.0) kArt = mix(kArt, mix(texture2D(artMap2, kuv, 5.0).rgb, texture2D(artMap2, kuv).rgb, kSide), sstep(0.015, -0.015, vTriPos.z - kWipe));
+        if (artMix > 0.0) kArt = mix(kArt, mix(texture2D(artMap2, kuv, 5.0).rgb, texture2D(artMap2, kuv).rgb, kSide), sstep(0.015, -0.015, vTriPos.z - kWipe) * (artMixSide == 0.0 ? 1.0 : step(0.0, vTriPos.x * artMixSide)));
         float kLum = dot(kArt, vec3(0.3, 0.59, 0.11)), kSat = max(kArt.r, max(kArt.g, kArt.b)) - min(kArt.r, min(kArt.g, kArt.b));
         // grey in the painting = the silver-filled seams and the moon
         float kSilver = sstep(0.09, 0.035, kSat) * sstep(0.12, 0.3, kLum);
