@@ -1,5 +1,5 @@
-import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=ff1351a-mwdffqzl';
-import { packArt } from './pack-art.js?v=ff1351a-mwdffqzl';
+import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=9bb8248-mwdfnlob';
+import { packArt } from './pack-art.js?v=9bb8248-mwdfnlob';
 // GPU-baked textures for ultra graphics. Everything is procedural and drawn by a fragment
 // shader into a render target once (milliseconds on a graphics card), so 4096 x 4096 maps
 // cost nothing at start-up and nothing is downloaded.
@@ -10,7 +10,7 @@ import { packArt } from './pack-art.js?v=ff1351a-mwdffqzl';
 //   bakeSkin(renderer, index, size): one of SKINS, { albedo, rm } (rm: G roughness, B metalness).
 //   triplanar(material, opts): shader patch that maps a skin and/or detail by the surface's
 //        own 3D position (no UV stretching on long thin parts), with edge wear from UVs.
-import * as THREE from '../../vendor/three/three.module.min.js?v=ff1351a-mwdffqzl';
+import * as THREE from '../../vendor/three/three.module.min.js?v=9bb8248-mwdfnlob';
 
 const VERT = /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
@@ -629,25 +629,6 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
           }
           return 1.0 - smoothstep(0.0, 0.07, d2 - d1);
         }
-        // distance to the nearest edge of a cracked crust (Voronoi cells, jittered edges)
-        float artCrackEdge(vec2 p) {
-          vec2 i = floor(p), f = fract(p);
-          float d1 = 8.0, d2 = 8.0;
-          for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
-            vec2 g = vec2(float(x), float(y));
-            vec2 o = fract(sin(vec2(dot(i + g, vec2(127.1, 311.7)), dot(i + g, vec2(269.5, 183.3)))) * 43758.5453);
-            float d = length(g + o - f);
-            if (d < d1) { d2 = d1; d1 = d; } else if (d < d2) d2 = d;
-          }
-          return d2 - d1;
-        }
-        // the magma crust: big irregular plates (a warped cell pattern), p in metres
-        float artMagma(vec2 p) {
-          vec2 q = p * 19.0;
-          q += 0.38 * vec2(sin(q.y * 1.7 + sin(q.x * 1.3)), sin(q.x * 1.9 + sin(q.y * 1.1)));
-          q += 0.1 * vec2(sin(q.y * 5.3 + q.x), sin(q.x * 4.7 - q.y));
-          return artCrackEdge(q);
-        }
       #endif
       #ifdef TRI_SAKURA
         uniform vec3 sakuraGold, sakuraPink, sakuraPearl, sakuraBlack;
@@ -862,25 +843,6 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         vec3 kNearArt = texture2D(artMap, kuv, 4.0).rgb;                  // blurred: is the seam close by?
         float kNear = kForge * sstep(0.04, 0.16, kNearArt.r - kNearArt.b);
         totalEmissiveRadiance += vec3(0.45, 0.03, 0.0) * kNear * (1.0 - sstep(0.03, 0.1, kLum)) * kHeat * (0.15 + 0.35 * kHot);
-        // then the whole skin heats through: molten steel, deep red to orange to yellow-white at the
-        // peak, brightest in the cracks, flickering as it boils
-        // ... then the whole gun cracks open like cooling lava: big irregular dark plates, rough and
-        // grey, with fine dark hairlines, split by magma that is yellow-orange in the middle of each
-        // crack and deep red at its edges; its light catches the plates' rims
-        float kMagma = (1.0 - sstep(kWide * 0.6, kWide, kEdge)) * step(0.001, kMeltAll);
-        float kCore = 1.0 - sstep(0.0, kWide * 0.45, kEdge);
-        float kHair = (1.0 - sstep(0.0, 0.035, artCrackEdge(kCp * 85.0 + 3.1))) * (1.0 - kMagma);
-        float kBoil = 0.8 + 0.2 * sin(triTime * 5.0 + kCp.x * 70.0 + 2.0 * sin(kCp.y * 110.0 + triTime * 3.0));
-        vec3 kLava = mix(vec3(0.85, 0.1, 0.0), vec3(1.0, 0.5, 0.06), kCore);
-        vec3 kRock = vec3(0.018, 0.016, 0.015) * (0.75 + 0.5 * fract(sin(dot(floor(kCp * 600.0), vec2(12.9898, 78.233))) * 43758.5453));
-        diffuseColor.rgb = mix(diffuseColor.rgb, kRock * (1.0 - 0.7 * kHair), kMeltAll * 0.9);
-        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.02, 0.005, 0.0), kMagma);
-        roughnessFactor = mix(roughnessFactor, 0.22, kMeltAll);   // glossy obsidian-black crust
-        metalnessFactor = mix(metalnessFactor, 0.0, kMeltAll);
-        totalEmissiveRadiance += kMeltAll * (kLava * kMagma * (0.9 + 0.8 * kCore) * (0.85 + 0.4 * kHot) * kBoil
-          + vec3(1.0, 0.22, 0.0) * exp(-(kEdge - kWide) * 30.0) * step(kWide, kEdge) * 0.5);
-        // the plates' rims shade dark where they turn down into the crack (beyond the glow)
-        diffuseColor.rgb *= 1.0 - 0.55 * kMeltAll * (1.0 - sstep(kWide, kWide * 2.2, kEdge)) * step(kWide, kEdge);
       #endif
       #ifdef TRI_SKIN
         // Glowing lines; they pulse while inspecting.
@@ -895,24 +857,6 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         float lx = dot(texture2D(artMap, kuv + vec2(e.x, 0.0)).rgb, vec3(0.3, 0.59, 0.11)) - kLum;
         float ly = dot(texture2D(artMap, kuv + vec2(0.0, e.y)).rgb, vec3(0.3, 0.59, 0.11)) - kLum;
         normal = normalize(normal - (vTriAZ * lx + vTriAY * ly) * 2.2 * kSide);
-      }
-      // Forgeheart's magma crust (the glow is in the emissive below): where the heat has reached,
-      // plates with edges that slope down into the cracks
-      float kForgeN = step(3.5, artMode) * step(artMode, 4.5);
-      float kHotN = artPhase < 0.0 ? 0.0 : sstep(0.42, 0.57, artPhase) * (1.0 - sstep(0.6, 0.86, artPhase));
-      float kMeltAll = artPhase < 0.0 ? 0.0 : kForgeN * sstep(0.0, 0.05, mix(-0.5, 0.45, sstep(0.18, 0.46, artPhase)) - vTriPos.z) * sstep(0.26, 0.48, artPhase) * (1.0 - sstep(0.72, 0.9, artPhase));
-      vec2 kCp = vec2(vTriPos.z + vTriPos.x * 0.7, vTriPos.y + vTriPos.x * 0.4);
-      float kEdge = artMagma(kCp);
-      float kWide = (0.025 + 0.11 * kMeltAll * (0.6 + 0.4 * kHotN)) * (0.45 + 0.55 * (0.5 + 0.5 * sin(kCp.x * 60.0 + kCp.y * 45.0 + 1.7 * sin(kCp.y * 80.0))));
-      if (kMeltAll > 0.001) {
-        float ee = 0.0015, ex = artMagma(kCp + vec2(ee, 0.0)), ey = artMagma(kCp + vec2(0.0, ee));
-        vec2 kg = vec2(ex - kEdge, ey - kEdge) / ee;
-        // each plate is domed, its rim bevelled steeply down into the crack (height rises with the
-        // distance from the crack; the normal leans away from the uphill direction), with rough grain
-        float rim = (1.0 - sstep(kWide, kWide * 3.0, kEdge)) * step(kWide * 0.6, kEdge);
-        float slope = 0.016 + 0.11 * rim;
-        vec2 kGrain = vec2(fract(sin(dot(floor(kCp * 900.0), vec2(12.9898, 78.233))) * 43758.5453), fract(sin(dot(floor(kCp * 900.0), vec2(39.3468, 11.135))) * 24634.6345)) - 0.5;
-        normal = normalize(normal - ((vTriAZ * kg.x + vTriAY * kg.y) * slope + (vTriAZ * kGrain.x + vTriAY * kGrain.y) * 0.1) * kMeltAll * kSide);
       }
       {
         // Storm Kiln: water ripples run over the glaze, rings spreading from three points and a swell

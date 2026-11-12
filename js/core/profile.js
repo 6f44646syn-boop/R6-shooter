@@ -5,8 +5,8 @@
 // Points: KILL_POINTS per battle kill (+ HEADSHOT_BONUS for a headshot kill), WIN_POINTS for
 // winning a battle. A pack costs PACK_COST and gives one random skin; a duplicate refunds
 // points instead (by rarity).
-import { RARITIES, CATALOGUE, SKIN_COUNT, LEGEND_ID, skinFits } from './skins.js?v=ff1351a-mwdffqzl';
-import { HISTORY_LIMIT, START_RATING, ratingOf } from './ranked.js?v=ff1351a-mwdffqzl';
+import { RARITIES, CATALOGUE, SKIN_COUNT, LEGEND_ID, skinFits } from './skins.js?v=9bb8248-mwdfnlob';
+import { HISTORY_LIMIT, START_RATING, ratingOf } from './ranked.js?v=9bb8248-mwdfnlob';
 
 export const KILL_POINTS = 20, HEADSHOT_BONUS = 10, WIN_POINTS = 50, PACK_COST = 100;
 const KEY = 'recoilRange.profile.v1';
