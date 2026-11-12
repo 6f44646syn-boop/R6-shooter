@@ -1,60 +1,60 @@
-import { loadPackArt } from './render/pack-art.js?v=6419a29-mwcpnaz0';
-import { loadPackAnims } from './scene/weapon-anims.js?v=6419a29-mwcpnaz0';
-import { packMats } from './render/pack-materials.js?v=6419a29-mwcpnaz0';
-import { loadSkinSheets } from './render/skins2.js?v=6419a29-mwcpnaz0';
-import { connectAudioPack } from './audio/pack-bridge.js?v=6419a29-mwcpnaz0';
-import { initBombUtility, utilityFor } from './balance/bomb-utility.js?v=6419a29-mwcpnaz0';
-import { createAcoustics } from './audio/acoustics.js?v=6419a29-mwcpnaz0';
-import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=6419a29-mwcpnaz0';
-import { mountControls, mountFirstLaunch, tabs } from './ui/m7-menu.js?v=6419a29-mwcpnaz0';
+import { loadPackArt } from './render/pack-art.js?v=99c5c3a-mwcr7mqy';
+import { loadPackAnims } from './scene/weapon-anims.js?v=99c5c3a-mwcr7mqy';
+import { packMats } from './render/pack-materials.js?v=99c5c3a-mwcr7mqy';
+import { loadSkinSheets } from './render/skins2.js?v=99c5c3a-mwcr7mqy';
+import { connectAudioPack } from './audio/pack-bridge.js?v=99c5c3a-mwcr7mqy';
+import { initBombUtility, utilityFor } from './balance/bomb-utility.js?v=99c5c3a-mwcr7mqy';
+import { createAcoustics } from './audio/acoustics.js?v=99c5c3a-mwcr7mqy';
+import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=99c5c3a-mwcr7mqy';
+import { mountControls, mountFirstLaunch, tabs } from './ui/m7-menu.js?v=99c5c3a-mwcr7mqy';
 // Recoil Range entry point: wires input, camera, scene, HUD and the frame loop together.
-import * as THREE from '../vendor/three/three.module.min.js?v=6419a29-mwcpnaz0';
-import { Look, PITCH_LIMIT } from './core/look.js?v=6419a29-mwcpnaz0';
-import { Player } from './core/player.js?v=6419a29-mwcpnaz0';
-import { PointerLock } from './core/pointer-lock.js?v=6419a29-mwcpnaz0';
-import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=6419a29-mwcpnaz0';
-import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=6419a29-mwcpnaz0';
-import { Weapon } from './core/weapon.js?v=6419a29-mwcpnaz0';
-import { RecoilEngine } from './core/recoil.js?v=6419a29-mwcpnaz0';
-import { Spread } from './core/spread.js?v=6419a29-mwcpnaz0';
-import { loadGameData } from './core/guns.js?v=6419a29-mwcpnaz0';
-import { initLoadout, effectiveGun, sanitize, slotIn, baseOf, SLOTS as ATTACH_SLOTS, allowed as attachAllowed, measuredCode, describe as describeAttach, hint as attachHint } from './core/loadout.js?v=6419a29-mwcpnaz0';
-import { randomSeed } from './core/prng.js?v=6419a29-mwcpnaz0';
-import { Range, EYE_HEIGHT } from './scene/range.js?v=6419a29-mwcpnaz0';
-import { RING_STEP } from './scene/range-tex.js?v=6419a29-mwcpnaz0';
-import { WeaponRig, setUltraTexSize, skinName, setSkinResolver } from './scene/viewmodel.js?v=6419a29-mwcpnaz0';
-import { LensPost } from './render/lens-post.js?v=6419a29-mwcpnaz0';
-import { reticleTextures } from './ui/reticle-tex.js?v=6419a29-mwcpnaz0';
-import { DOT_POINTS } from './scene/dots.js?v=6419a29-mwcpnaz0';
-import { Voices } from './audio/voice.js?v=6419a29-mwcpnaz0';
-import { ModeGame } from './modes/game.js?v=6419a29-mwcpnaz0';
-import { Sfx } from './audio/sfx.js?v=6419a29-mwcpnaz0';
-import { DebugHud } from './ui/debug-hud.js?v=6419a29-mwcpnaz0';
-import { drawCrosshair } from './ui/crosshair.js?v=6419a29-mwcpnaz0';
-import { Hud } from './ui/hud.js?v=6419a29-mwcpnaz0';
-import { MagPlot } from './ui/plot.js?v=6419a29-mwcpnaz0';
-import { SettingsUI } from './ui/settings-ui.js?v=6419a29-mwcpnaz0';
-import { sensKeys, zoomKey } from './core/optics.js?v=6419a29-mwcpnaz0';
+import * as THREE from '../vendor/three/three.module.min.js?v=99c5c3a-mwcr7mqy';
+import { Look, PITCH_LIMIT } from './core/look.js?v=99c5c3a-mwcr7mqy';
+import { Player } from './core/player.js?v=99c5c3a-mwcr7mqy';
+import { PointerLock } from './core/pointer-lock.js?v=99c5c3a-mwcr7mqy';
+import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=99c5c3a-mwcr7mqy';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=99c5c3a-mwcr7mqy';
+import { Weapon } from './core/weapon.js?v=99c5c3a-mwcr7mqy';
+import { RecoilEngine } from './core/recoil.js?v=99c5c3a-mwcr7mqy';
+import { Spread } from './core/spread.js?v=99c5c3a-mwcr7mqy';
+import { loadGameData } from './core/guns.js?v=99c5c3a-mwcr7mqy';
+import { initLoadout, effectiveGun, sanitize, slotIn, baseOf, SLOTS as ATTACH_SLOTS, allowed as attachAllowed, measuredCode, describe as describeAttach, hint as attachHint } from './core/loadout.js?v=99c5c3a-mwcr7mqy';
+import { randomSeed } from './core/prng.js?v=99c5c3a-mwcr7mqy';
+import { Range, EYE_HEIGHT } from './scene/range.js?v=99c5c3a-mwcr7mqy';
+import { RING_STEP } from './scene/range-tex.js?v=99c5c3a-mwcr7mqy';
+import { WeaponRig, setUltraTexSize, skinName, setSkinResolver, setHiResSkins } from './scene/viewmodel.js?v=99c5c3a-mwcr7mqy';
+import { LensPost } from './render/lens-post.js?v=99c5c3a-mwcr7mqy';
+import { reticleTextures } from './ui/reticle-tex.js?v=99c5c3a-mwcr7mqy';
+import { DOT_POINTS } from './scene/dots.js?v=99c5c3a-mwcr7mqy';
+import { Voices } from './audio/voice.js?v=99c5c3a-mwcr7mqy';
+import { ModeGame } from './modes/game.js?v=99c5c3a-mwcr7mqy';
+import { Sfx } from './audio/sfx.js?v=99c5c3a-mwcr7mqy';
+import { DebugHud } from './ui/debug-hud.js?v=99c5c3a-mwcr7mqy';
+import { drawCrosshair } from './ui/crosshair.js?v=99c5c3a-mwcr7mqy';
+import { Hud } from './ui/hud.js?v=99c5c3a-mwcr7mqy';
+import { MagPlot } from './ui/plot.js?v=99c5c3a-mwcr7mqy';
+import { SettingsUI } from './ui/settings-ui.js?v=99c5c3a-mwcr7mqy';
+import { sensKeys, zoomKey } from './core/optics.js?v=99c5c3a-mwcr7mqy';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
 function sensRows(catalogue, sens) {
   const keys = new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)]);
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
-import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=6419a29-mwcpnaz0';
-import { Battle } from './battle/battle.js?v=6419a29-mwcpnaz0';
-import { initCore, coreLoaded } from './wasm/core.js?v=6419a29-mwcpnaz0';
-import { createJoinRequest, acceptJoin } from './net/link.js?v=6419a29-mwcpnaz0';
-import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt } from './net/relay.js?v=6419a29-mwcpnaz0';
-import { Profile, WIN_POINTS } from './core/profile.js?v=6419a29-mwcpnaz0';
-import { skinFits, skinById } from './core/skins.js?v=6419a29-mwcpnaz0';
-import { PackUI } from './ui/packs.js?v=6419a29-mwcpnaz0';
-import { HDPack } from './render/hd-pack.js?v=6419a29-mwcpnaz0';
-import { effectiveGraphics, needsPack, maxMode } from './render/quality.js?v=6419a29-mwcpnaz0';
-import { GraphicsUI } from './ui/graphics-ui.js?v=6419a29-mwcpnaz0';
-import { PerfHud } from './ui/perf-hud.js?v=6419a29-mwcpnaz0';
-import { WorldPost } from './render/world-post.js?v=6419a29-mwcpnaz0';
-import { rankOf, rankedSummary, ratingOf, rankedChange, validRankedTicket, verifyRankedResult } from './core/ranked.js?v=6419a29-mwcpnaz0';
+import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=99c5c3a-mwcr7mqy';
+import { Battle } from './battle/battle.js?v=99c5c3a-mwcr7mqy';
+import { initCore, coreLoaded } from './wasm/core.js?v=99c5c3a-mwcr7mqy';
+import { createJoinRequest, acceptJoin } from './net/link.js?v=99c5c3a-mwcr7mqy';
+import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt } from './net/relay.js?v=99c5c3a-mwcr7mqy';
+import { Profile, WIN_POINTS } from './core/profile.js?v=99c5c3a-mwcr7mqy';
+import { skinFits, skinById } from './core/skins.js?v=99c5c3a-mwcr7mqy';
+import { PackUI } from './ui/packs.js?v=99c5c3a-mwcr7mqy';
+import { HDPack } from './render/hd-pack.js?v=99c5c3a-mwcr7mqy';
+import { effectiveGraphics, needsPack, maxMode } from './render/quality.js?v=99c5c3a-mwcr7mqy';
+import { GraphicsUI } from './ui/graphics-ui.js?v=99c5c3a-mwcr7mqy';
+import { PerfHud } from './ui/perf-hud.js?v=99c5c3a-mwcr7mqy';
+import { WorldPost } from './render/world-post.js?v=99c5c3a-mwcr7mqy';
+import { rankOf, rankedSummary, ratingOf, rankedChange, validRankedTicket, verifyRankedResult } from './core/ranked.js?v=99c5c3a-mwcr7mqy';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -120,6 +120,7 @@ async function boot(data) {
     range.setGraphics(gfx(), renderer);
     if (range.env) rig.setHighEnv(range.env);
     rig.setShading(gunShading(), gfx());
+    setHiResSkins(settings.hiResSkins);     // the callers rebuild the gun
   }
   applyGraphics();
   const post = new LensPost(renderer, { samples: settings.antialias && renderer.capabilities.isWebGL2 ? 4 : 0 });
@@ -1968,7 +1969,8 @@ async function boot(data) {
       inspectAt(p) { rig.inspectHold = p; if (p < 0) rig.inspectT = -1; },
       setUltraTex(n) { Range.ULTRA_TEX = n; setUltraTexSize(n); },
       rig: () => ({ drawT: rig.drawT, magY: rig.current.userData.mag.position.y, magVisible: rig.current.userData.mag.visible,
-        flash: rig.current.userData.flash.visible, brass: rig.brass.filter((b) => b.visible).length, boltZ: rig.boltZ }),
+        flash: rig.current.userData.flash.visible, brass: rig.brass.filter((b) => b.visible).length, boltZ: rig.boltZ,
+        skinKey: (() => { let k = ''; rig.current.traverse((o) => { k ||= o.material?.userData?.skinKey || ''; }); return k; })() }),
       setHipMs(ms) { hipMs = ms; },
       noLens(on) { noLensDebug = on; },
       move(keys) { Object.assign(player.keys, keys); },

@@ -16,7 +16,7 @@
 // A client keeps a copy of the match built from the host's roster (same actor ids) and never
 // steps it; it only applies what the host sends.
 
-import { spectatorVisibility } from '../replay/spectator.js?v=6419a29-mwcpnaz0';
+import { spectatorVisibility } from '../replay/spectator.js?v=99c5c3a-mwcr7mqy';
 
 const r2 = (v) => Math.round(v * 100) / 100;
 const r1 = (v) => Math.round(v * 10) / 10;

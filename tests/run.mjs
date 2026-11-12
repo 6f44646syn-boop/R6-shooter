@@ -1111,6 +1111,11 @@ try {
       P.equip(skinSlot, res.skin.id); U.onEquip(skinSlot);
       out.hud = document.getElementById('gun-info').textContent;
       out.skinName = res.skin.name;
+      // High-res skins setting: the gun's skin bakes at full size on Standard too
+      R.setUltraTex(2048);
+      const box = document.getElementById('gx-skins');
+      box.click(); out.hiRes = R.rig().skinKey; box.click(); out.normalRes = R.rig().skinKey;
+      R.setUltraTex(512);
       // save code round trip, and a damaged code is refused
       const code = P.saveCode();
       out.codeLen = code.length;
@@ -1134,6 +1139,7 @@ try {
       return out;
     });
     check('packs: need ' + 100 + ' points; the reel lands on the won skin; reveal shows it', pk.cantOpen && pk.spinning && pk.winCard && pk.revealed && pk.owned === 1 && pk.points >= 150, JSON.stringify(pk));
+    check('High-res weapon skins setting bakes the skin at full size on Standard (' + pk.hiRes + ' vs ' + pk.normalRes + ')', /@2048$/.test(pk.hiRes) && /@1024$/.test(pk.normalRes), JSON.stringify({ hiRes: pk.hiRes, normalRes: pk.normalRes }));
     check('equipped skin is on the gun and named in the HUD (' + pk.skinName + ')', pk.hud.includes(pk.skinName), JSON.stringify(pk));
     check('save code (' + pk.codeLen + ' characters) restores everything; a damaged code is refused; old codes load', pk.roundTrip && !pk.badAccepted && pk.v1 === true, JSON.stringify(pk));
     check('a headshot kill (+30) and the win (+50) earn points, shown on the end screen', pk.earned === 80 && /earned 80 points/.test(pk.endNote), JSON.stringify(pk));

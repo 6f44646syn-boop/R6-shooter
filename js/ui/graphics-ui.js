@@ -2,8 +2,8 @@
 // Ultra (needs the Enhanced Graphics pack), download / update / remove the pack, pick a
 // performance profile, the frame-rate target and the FPS counter.
 // ctx: { settings, commit(key) (sanitise, save, apply), packSize() }
-import { HDPack } from '../render/hd-pack.js?v=6419a29-mwcpnaz0';
-import { needsPack } from '../render/quality.js?v=6419a29-mwcpnaz0';
+import { HDPack } from '../render/hd-pack.js?v=99c5c3a-mwcr7mqy';
+import { needsPack } from '../render/quality.js?v=99c5c3a-mwcr7mqy';
 
 function el(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);
@@ -98,6 +98,7 @@ export class GraphicsUI {
     this.checks = el('div', { class: 'row' },
       chk('gx-ao', 'Ambient occlusion (High / Ultra)', () => this.s.ao, (v) => { this.s.ao = v; }, 'post'),
       chk('gx-taa', 'Temporal anti-aliasing (High / Ultra)', () => this.s.taa, (v) => { this.s.taa = v; }, 'post'),
+      chk('gx-skins', 'High-res weapon skins (any graphics level)', () => this.s.hiResSkins, (v) => { this.s.hiResSkins = v; }, 'shading'),
       chk('gx-counter', 'FPS counter', () => this.s.fpsCounter, (v) => { this.s.fpsCounter = v; }, 'perf'));
     this.modal = el('div', { class: 'pk-modal gx-modal', id: 'gfx', hidden: true, role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'gx-title' },
       el('div', { class: 'pk-box gx-box' },
