@@ -7,7 +7,7 @@
 //
 // state: 'none' (not installed), 'downloading', 'installed', 'update' (installed, newer one
 // on the site), 'unsupported' (this browser cannot store or unpack it), 'error'.
-import { parseRRM } from './hd-mesh.js?v=d8fe671-mwd9takn';
+import { parseRRM } from './hd-mesh.js?v=47bc4b7-mwdas1g3';
 
 const BASE = new URL('../../hd/', import.meta.url);
 const CACHE = 'recoil-range-hd';

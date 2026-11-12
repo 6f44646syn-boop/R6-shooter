@@ -48,6 +48,64 @@ GUNS = {
              ('trigger guard', 0.016, 'black', True, lambda xx, yy: (xx >= 380) & (xx < 448) & (yy > 230))],
     mag=(0.03, lambda xx, yy: (xx >= 280) & (xx < 366) & (yy > 245)),
     rings=[(783, 368, 62, 0.42, 8, 'pane')]),
+  # The rest of the Legendaries: their concepts are 1536 x 1024; regions are in the 700-wide grid.
+  # thresh: detail, brightness and colour thresholds for these darker, smoother backdrops.
+  'ak': dict(name='AK-12', export='AK', src='docs/legendary-skins/04-forgeheart.png', tex='forgeheart', scale=0.94 / 1344, thresh=(5, 22, 16),
+    grip=(957, 0.07), hg=(415, -0.03), body_depth=0.05, fill_textured=True, body_holes=True,
+    cut=lambda xx, yy: yy > 345,
+    regions=[('front sight', 0.012, 'black', False, lambda xx, yy: (xx >= 100) & (xx < 135) & (yy < 168)),
+             ('barrel', 0.022, 'steel', False, lambda xx, yy: (xx < 142) & (yy >= 168)),
+             ('rail', 0.024, 'black', False, lambda xx, yy: (xx >= 270) & (xx < 445) & (yy < 156)),
+             ('rear sight', 0.016, 'black', False, lambda xx, yy: (xx >= 445) & (xx < 490) & (yy < 152)),
+             ('trigger guard', 0.016, 'black', True, lambda xx, yy: (xx >= 405) & (xx < 452) & (yy > 222)),
+             ('grip', 0.03, 'black', True, lambda xx, yy: (xx >= 452) & (xx < 530) & (yy > 228))],
+    mag=(0.03, lambda xx, yy: (xx >= 285) & (xx < 405) & (yy > 215)), rings=[]),
+  'evo': dict(name='Scorpion EVO 3 A1', export='EVO', src='docs/legendary-skins/05-midnight-orrery.png', tex='midnight-orrery', scale=0.63 / 1328, thresh=(5, 22, 16),
+    grip=(820, 0.07), hg=(456, -0.03), body_depth=0.046, fill_textured=True, body_holes=True,
+    cut=lambda xx, yy: yy > 392,
+    regions=[('barrel', 0.02, 'black', False, lambda xx, yy: (xx < 75) & (yy > 160)),
+             ('front sight', 0.012, 'black', True, lambda xx, yy: (xx >= 128) & (xx < 158) & (yy < 120)),
+             ('rear sight', 0.012, 'black', True, lambda xx, yy: (xx >= 425) & (xx < 450) & (yy < 120)),
+             ('trigger guard', 0.016, 'black', True, lambda xx, yy: (xx >= 300) & (xx < 380) & (yy > 232) & (yy < 285)),
+             ('grip', 0.03, 'black', True, lambda xx, yy: (xx >= 380) & (xx < 490) & (yy > 232))],
+    mag=(0.026, lambda xx, yy: (xx >= 195) & (xx < 300) & (yy > 232)), rings=[]),
+  'compact': dict(name='MP5K', export='MP5K', src='docs/legendary-skins/06-amber-reliquary.png', tex='amber-reliquary', scale=0.56 / 1294, thresh=(5, 22, 16),
+    grip=(890, 0.06), hg=(398, -0.03), body_depth=0.046, fill_textured=True, body_holes=True,
+    cut=lambda xx, yy: yy > 405,
+    regions=[('barrel', 0.02, 'black', False, lambda xx, yy: (xx < 95) & (yy > 128)),
+             ('front sight', 0.012, 'black', True, lambda xx, yy: (xx >= 95) & (xx < 128) & (yy < 95)),
+             ('rear sight', 0.02, 'black', True, lambda xx, yy: (xx >= 465) & (xx < 525) & (yy < 96)),
+             ('foregrip', 0.03, 'black', True, lambda xx, yy: (xx >= 128) & (xx < 185) & (yy > 200)),
+             ('trigger guard', 0.016, 'black', True, lambda xx, yy: (xx >= 320) & (xx < 420) & (yy > 205)),
+             ('grip', 0.03, 'black', True, lambda xx, yy: (xx >= 420) & (xx < 535) & (yy > 205))],
+    mag=(0.026, lambda xx, yy: (xx >= 195) & (xx < 320) & (yy > 205)), rings=[]),
+  'smg': dict(name='T-5 SMG', export='T5', src='docs/legendary-skins/07-jade-coil.png', tex='jade-coil', scale=0.6 / 1354, thresh=(5, 22, 16),
+    grip=(680, 0.05), hg=(468, -0.03), body_depth=0.046, fill_textured=True, body_holes=True,
+    cut=lambda xx, yy: yy > 410,
+    regions=[('barrel', 0.02, 'black', False, lambda xx, yy: (xx < 85) & (yy > 140)),
+             ('front sight', 0.012, 'black', True, lambda xx, yy: (xx >= 155) & (xx < 185) & (yy < 112)),
+             ('rear sight', 0.012, 'black', True, lambda xx, yy: (xx >= 425) & (xx < 450) & (yy < 112)),
+             ('trigger guard', 0.016, 'black', True, lambda xx, yy: (xx >= 200) & (xx < 315) & (yy > 215) & (yy < 280)),
+             ('grip', 0.03, 'black', True, lambda xx, yy: (xx >= 315) & (xx < 412) & (yy > 215) & (yy < 342))],
+    mag=(0.026, lambda xx, yy: (xx >= 340) & (xx < 440) & (yy >= 342)), rings=[]),
+  'machinepistol': dict(name='SMG-11', export='SMG11', src='docs/legendary-skins/08-velvet-ante.png', tex='velvet-ante', scale=0.6 / 1330, thresh=(5, 22, 16),
+    grip=(540, 0.03), hg=(356, -0.03), body_depth=0.042, fill_textured=True, body_holes=True,
+    cut=lambda xx, yy: yy > 412,
+    regions=[('barrel', 0.02, 'black', False, lambda xx, yy: (xx < 95) & (yy > 95)),
+             ('trigger guard', 0.016, 'black', True, lambda xx, yy: (xx >= 160) & (xx < 238) & (yy > 178) & (yy < 235)),
+             ('grip', 0.03, 'black', True, lambda xx, yy: (xx >= 238) & (xx < 335) & (yy > 178) & (yy < 300)),
+             ('stock', 0.022, 'black', True, lambda xx, yy: xx >= 440)],
+    mag=(0.024, lambda xx, yy: (xx >= 235) & (xx < 335) & (yy >= 300)), rings=[]),
+  'pdw': dict(name='MP7', export='MP7', src='docs/legendary-skins/09-opal-overture.png', tex='opal-overture', scale=0.64 / 1360, thresh=(5, 22, 16),
+    grip=(690, 0.02), hg=(416, -0.03), body_depth=0.044, fill_textured=True, body_holes=True,
+    cut=lambda xx, yy: yy > 421,
+    regions=[('barrel', 0.018, 'black', False, lambda xx, yy: (xx < 85) & (yy > 130)),
+             ('front sight', 0.012, 'black', True, lambda xx, yy: (xx >= 140) & (xx < 165) & (yy < 92)),
+             ('rear sight', 0.012, 'black', True, lambda xx, yy: (xx >= 480) & (xx < 505) & (yy < 92)),
+             ('foregrip', 0.026, 'black', True, lambda xx, yy: (xx >= 112) & (xx < 162) & (yy > 205)),
+             ('trigger guard', 0.016, 'black', True, lambda xx, yy: (xx >= 235) & (xx < 300) & (yy > 200) & (yy < 245)),
+             ('grip', 0.03, 'black', True, lambda xx, yy: (xx >= 300) & (xx < 405) & (yy > 200) & (yy < 336))],
+    mag=(0.024, lambda xx, yy: (xx >= 300) & (xx < 400) & (yy >= 336)), rings=[]),
 }
 cfg = GUNS[sys.argv[1] if len(sys.argv) > 1 else 'g8']
 S = cfg['scale']
@@ -79,7 +137,8 @@ if cfg.get('detect') == 'colour':
         d.polygon([((ow - x if cfg.get('flip') else x) * k, y * k) for x, y in poly], fill=255)
     gun |= np.asarray(extra) > 0
 else:
-    gun = (std > 2.2) | (np.abs(lum - bgl) > 14) | (a.max(2) - a.min(2) > 9)
+    T = cfg.get('thresh', (2.2, 14, 9))
+    gun = (std > T[0]) | (np.abs(lum - bgl) > T[1]) | (a.max(2) - a.min(2) > T[2])
     gun = grow(grow(gun, 3, 'or'), 3, 'and')
 gun = grow(grow(gun, 1, 'and'), 1, 'or')
 gun &= ~cfg['cut'](xx, yy)
@@ -87,6 +146,18 @@ lab, sizes = components(gun); gun = lab == max(sizes, key=sizes.get)
 hl, hs = components(~gun); edge = set(hl[0, :]) | set(hl[-1, :]) | set(hl[:, 0]) | set(hl[:, -1])
 for h, hn in hs.items():
     if h not in edge and hn < cfg.get('fill_holes', 0): gun |= hl == h      # dark ports and details inside the finish
+    # a real opening shows the smooth backdrop; a dark part of the gun is textured or darker than it
+    elif h not in edge and cfg.get('fill_textured') and (std[hl == h].mean() > 1.3 or lum[hl == h].mean() < bgl - 10): gun |= hl == h
+if cfg.get('tex') and 'tex' in sys.argv:
+    # the painted skin: the concept, its backdrop filled outwards from the gun's edge (the sides sample it)
+    full = np.asarray(im).astype(np.float32); FH, FW = full.shape[:2]
+    known = np.asarray(Image.fromarray(gun.astype(np.uint8) * 255).resize((FW, FH), Image.NEAREST)) > 0
+    col = full * known[..., None]; k = known.astype(np.float32)
+    while not known.all():
+        sc = sum(np.roll(col, d, ax) for ax in (0, 1) for d in (-1, 1)); sk = sum(np.roll(k, d, ax) for ax in (0, 1) for d in (-1, 1))
+        grow_ = ~known & (sk > 0)
+        col[grow_] = sc[grow_] / sk[grow_][:, None]; known |= grow_; k = known.astype(np.float32)
+    Image.fromarray(col.clip(0, 255).astype(np.uint8)).save('data/skins/' + cfg['tex'] + '.webp', quality=88, method=6)
 np.save('/tmp/' + sys.argv[1] + '-gun-mask.npy', gun) if len(sys.argv) > 2 else None
 
 taken = np.zeros_like(gun); parts = []

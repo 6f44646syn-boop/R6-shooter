@@ -1,9 +1,9 @@
-import { tabs } from './m7-menu.js?v=d8fe671-mwd9takn';
+import { tabs } from './m7-menu.js?v=47bc4b7-mwdas1g3';
 // Settings panel inside the Esc menu. Every change is sanitised, saved to localStorage and
 // handed to main.js through onChange(key) so it takes effect immediately.
-import { sanitize, saveSettings, clearSavedSettings, DEFAULTS, DISTANCES, CROSSHAIR_STYLES, RETICLE_COLOR_NAMES } from '../core/settings.js?v=d8fe671-mwd9takn';
-import { degPerCount, countsPer360, inchesPer360, horizontalFovDeg } from '../core/sensitivity.js?v=d8fe671-mwd9takn';
-import { drawCrosshair } from './crosshair.js?v=d8fe671-mwd9takn';
+import { sanitize, saveSettings, clearSavedSettings, DEFAULTS, DISTANCES, CROSSHAIR_STYLES, RETICLE_COLOR_NAMES } from '../core/settings.js?v=47bc4b7-mwdas1g3';
+import { degPerCount, countsPer360, inchesPer360, horizontalFovDeg } from '../core/sensitivity.js?v=47bc4b7-mwdas1g3';
+import { drawCrosshair } from './crosshair.js?v=47bc4b7-mwdas1g3';
 
 function el(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);

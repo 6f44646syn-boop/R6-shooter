@@ -5,8 +5,8 @@
 // Points: KILL_POINTS per battle kill (+ HEADSHOT_BONUS for a headshot kill), WIN_POINTS for
 // winning a battle. A pack costs PACK_COST and gives one random skin; a duplicate refunds
 // points instead (by rarity).
-import { RARITIES, CATALOGUE, SKIN_COUNT, LEGEND_ID, skinFits } from './skins.js?v=d8fe671-mwd9takn';
-import { HISTORY_LIMIT, START_RATING, ratingOf } from './ranked.js?v=d8fe671-mwd9takn';
+import { RARITIES, CATALOGUE, SKIN_COUNT, LEGEND_ID, skinFits } from './skins.js?v=47bc4b7-mwdas1g3';
+import { HISTORY_LIMIT, START_RATING, ratingOf } from './ranked.js?v=47bc4b7-mwdas1g3';
 
 export const KILL_POINTS = 20, HEADSHOT_BONUS = 10, WIN_POINTS = 50, PACK_COST = 100;
 const KEY = 'recoilRange.profile.v1';
@@ -113,7 +113,7 @@ export class Profile {
     const b = new Uint8Array(1 + 4 + this.owned.length + SLOTS + 4 + 2 + 3 + RANK_RECORD * this.rankedHistory.length);
     const dv = new DataView(b.buffer);
     let o = 0;
-    b[o++] = 3;                                   // format version (3: local ranked rating and history)
+    b[o++] = 4;                                   // format version (3: local ranked rating and history; 4: room for more than 208 skins)
     dv.setUint32(o, this.points, true); o += 4;
     b.set(this.owned, o); o += this.owned.length;
     for (let i = 0; i < SLOTS; i++) b[o++] = this.equipped[i] === null ? NONE : this.equipped[i] === LEGEND_ID ? LEGEND_BYTE : this.equipped[i];
@@ -146,21 +146,21 @@ export class Profile {
     const body = all.subarray(0, all.length - 2);
     const c = all[all.length - 2] | (all[all.length - 1] << 8);
     if (crc16(body) !== c) throw new Error('The save code does not check out (a character is wrong or missing).');
-    if (![1, 2, 3].includes(body[0])) throw new Error('This save code is from a newer version. Refresh the page (Ctrl+F5).');
+    if (![1, 2, 3, 4].includes(body[0])) throw new Error('This save code is from a newer version. Refresh the page (Ctrl+F5).');
     this._fromBytes(body);
     this._changed();
     return true;
   }
   _fromBytes(b) {
     const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
-    const len = b[0] === 1 ? 25 : Math.ceil(SKIN_COUNT / 8);
+    const len = b[0] === 1 ? 25 : b[0] < 4 ? 26 : Math.ceil(SKIN_COUNT / 8);   // owned flags: 200, then 208 skins
     const base = 1 + 4 + len + SLOTS + 4 + 2;
-    const count = b[0] === 3 ? b[base + 2] : 0;
-    const expected = b[0] === 3 ? base + 3 + RANK_RECORD * count : base;
+    const count = b[0] >= 3 ? b[base + 2] : 0;
+    const expected = b[0] >= 3 ? base + 3 + RANK_RECORD * count : base;
     if (b.length !== expected || count > HISTORY_LIMIT) throw new Error('The save code has an invalid length.');
     const history = [];
     let rating = START_RATING;
-    if (b[0] === 3) {
+    if (b[0] >= 3) {
       rating = ratingOf(dv.getUint16(base, true));
       let offset = base + 3;
       for (let i = 0; i < count; i++) {

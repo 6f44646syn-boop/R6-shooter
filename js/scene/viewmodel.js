@@ -1,24 +1,30 @@
-import { skinSheets } from '../render/skins2.js?v=d8fe671-mwd9takn';
-import { packArt } from '../render/pack-art.js?v=d8fe671-mwd9takn';
+import { skinSheets } from '../render/skins2.js?v=47bc4b7-mwdas1g3';
+import { packArt } from '../render/pack-art.js?v=47bc4b7-mwdas1g3';
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=d8fe671-mwd9takn';
-import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=d8fe671-mwd9takn';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=d8fe671-mwd9takn';
-import { matcap } from './matcap.js?v=d8fe671-mwd9takn';
-import { mulberry32 } from '../core/prng.js?v=d8fe671-mwd9takn';
-import { gunMaps } from './range-tex.js?v=d8fe671-mwd9takn';
-import { skinById, FACTORY, SAKURA_ID } from '../core/skins.js?v=d8fe671-mwd9takn';
-import { legendCanvas, onLegendChange } from '../core/legend.js?v=d8fe671-mwd9takn';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=d8fe671-mwd9takn';
-import { HDPack } from '../render/hd-pack.js?v=d8fe671-mwd9takn';
-import { epicRelief } from './skin-relief.js?v=d8fe671-mwd9takn';
-import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect } from './inspect-effects.js?v=d8fe671-mwd9takn';
-import { F2 } from './f2-model.js?v=d8fe671-mwd9takn';
-import { G8 } from './g8-model.js?v=d8fe671-mwd9takn';
-import { C8 } from './c8-model.js?v=d8fe671-mwd9takn';
-import { R4 } from './r4-model.js?v=d8fe671-mwd9takn';
+import * as THREE from '../../vendor/three/three.module.min.js?v=47bc4b7-mwdas1g3';
+import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=47bc4b7-mwdas1g3';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=47bc4b7-mwdas1g3';
+import { matcap } from './matcap.js?v=47bc4b7-mwdas1g3';
+import { mulberry32 } from '../core/prng.js?v=47bc4b7-mwdas1g3';
+import { gunMaps } from './range-tex.js?v=47bc4b7-mwdas1g3';
+import { skinById, FACTORY, SAKURA_ID } from '../core/skins.js?v=47bc4b7-mwdas1g3';
+import { legendCanvas, onLegendChange } from '../core/legend.js?v=47bc4b7-mwdas1g3';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=47bc4b7-mwdas1g3';
+import { HDPack } from '../render/hd-pack.js?v=47bc4b7-mwdas1g3';
+import { epicRelief } from './skin-relief.js?v=47bc4b7-mwdas1g3';
+import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect } from './inspect-effects.js?v=47bc4b7-mwdas1g3';
+import { F2 } from './f2-model.js?v=47bc4b7-mwdas1g3';
+import { G8 } from './g8-model.js?v=47bc4b7-mwdas1g3';
+import { C8 } from './c8-model.js?v=47bc4b7-mwdas1g3';
+import { R4 } from './r4-model.js?v=47bc4b7-mwdas1g3';
+import { AK } from './ak-model.js?v=47bc4b7-mwdas1g3';
+import { EVO } from './evo-model.js?v=47bc4b7-mwdas1g3';
+import { MP5K } from './compact-model.js?v=47bc4b7-mwdas1g3';
+import { T5 } from './smg-model.js?v=47bc4b7-mwdas1g3';
+import { SMG11 } from './machinepistol-model.js?v=47bc4b7-mwdas1g3';
+import { MP7 } from './pdw-model.js?v=47bc4b7-mwdas1g3';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -1116,7 +1122,7 @@ function traced(g, o, color, kind = 'auto') {
 }
 // Guns rebuilt from their Legendary's concept: the outlines in js/scene/*-model.js. Parts marked
 // paint wear a painted skin (the concept shows them finished), else they stay black or steel.
-const TRACED = { bullpup: F2, lmg: G8, sfw: C8, carbine: R4 };
+const TRACED = { bullpup: F2, lmg: G8, sfw: C8, carbine: R4, ak: AK, evo: EVO, compact: MP5K, smg: T5, machinepistol: SMG11, pdw: MP7 };
 function tracedGun(model) {
   return (g, c, mg) => {
     const painted = !!currentSkin()?.art;
@@ -1133,6 +1139,13 @@ Object.assign(RAILS, {
 });
 Object.assign(HAND_Z, { evo: -0.2, bullpup: -0.32, machinepistol: -0.07, ak: -0.26, compact: -0.13, sfw: -0.3, pdw: -0.09 });
 Object.assign(GRIP_Z, { evo: 0.07, bullpup: -0.12, machinepistol: 0.03, ak: 0.07, compact: 0.06, sfw: 0.05, pdw: 0.02 });
+// The rest of the Legendaries' guns, traced from their concepts (ak-, evo-, compact-, smg-,
+// machinepistol-, pdw-model.js): rail tops, muzzles, and the MP5K / MP7 hand on its vertical grip.
+const TRACED_FIT = {
+  ak: { top: 0.0728, hw: 0.025, muzzle: [-0.002, -0.585] }, evo: { top: 0.0763, hw: 0.023, muzzle: [0.0122, -0.304] },
+  compact: { top: 0.0661, hw: 0.023, muzzle: [0.0111, -0.304], hand: -0.19 }, smg: { top: 0.0905, hw: 0.023, muzzle: [0.0267, -0.238] },
+  machinepistol: { top: 0.0855, hw: 0.021, muzzle: [0.0178, -0.198] }, pdw: { top: 0.0924, hw: 0.022, muzzle: [0.0114, -0.293], hand: -0.175 },
+};
 Object.assign(SPEC, {
   evo: { hw: 0.023, port: 0, muzzle: [0.008, -0.385], trig: 0, hg: [0, -0.15, -0.25] },
   bullpup: { hw: 0.025, port: 0.05, muzzle: [0.0169, -0.535], trig: -0.228, hg: null },
@@ -1142,6 +1155,11 @@ Object.assign(SPEC, {
   sfw: { hw: 0.025, port: 0, muzzle: [0.0042, -0.544], trig: -0.04, hg: null },     // the traced C8-SFW (c8-model.js)
   pdw: { hw: 0.021, port: 0, muzzle: [0.008, -0.208], trig: 0, hg: null },
 });
+for (const [type, f] of Object.entries(TRACED_FIT)) {
+  TOP_Y[type] = f.top; RAILS[type] = [];
+  SPEC[type] = { hw: f.hw, port: GRIP_Z[type] - 0.07, muzzle: f.muzzle, trig: GRIP_Z[type] - 0.05, hg: null };
+  if (f.hand) HAND_Z[type] = f.hand;
+}
 
 
 /* ---------- Attachments (Milestone 8, js/core/loadout.js codes) ---------- */

@@ -3,9 +3,9 @@
 // and their trees and bushes, on High and Ultra. Drawn instanced: one draw per prop and
 // material. Collision is unchanged (the boxes). Each prop is made at a typical size and fitted
 // to its box; shelves, counters, benches, barriers and planters repeat a unit along the box.
-import * as THREE from '../../vendor/three/three.module.min.js?v=d8fe671-mwd9takn';
-import { HDPack } from './hd-pack.js?v=d8fe671-mwd9takn';
-import { loadLightVolume, useLightVolume } from './pack-materials.js?v=d8fe671-mwd9takn';
+import * as THREE from '../../vendor/three/three.module.min.js?v=47bc4b7-mwdas1g3';
+import { HDPack } from './hd-pack.js?v=47bc4b7-mwdas1g3';
+import { loadLightVolume, useLightVolume } from './pack-materials.js?v=47bc4b7-mwdas1g3';
 
 // Material per role: [sRGB colour, roughness, metalness] (as tools/hd/props.mjs PROP_ROLES)
 const ROLES = {
