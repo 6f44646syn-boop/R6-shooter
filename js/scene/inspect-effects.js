@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=40f072d-mwdgon9f';
-import { mulberry32 } from '../core/prng.js?v=40f072d-mwdgon9f';
-import { mergeStatic } from './sight-model.js?v=40f072d-mwdgon9f';
+import * as THREE from '../../vendor/three/three.module.min.js?v=9be6deb-mwdgwpqb';
+import { mulberry32 } from '../core/prng.js?v=9be6deb-mwdgwpqb';
+import { mergeStatic } from './sight-model.js?v=9be6deb-mwdgwpqb';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -1008,15 +1008,24 @@ export function forgeInspect(gun, { reliefs, channels, seam, shards }, quality) 
   // floating obsidian: a few glossy black chunks break off around the split at the peak, hang in the
   // air turning and bobbing (a lighter Vesper Glass), then are drawn back into the gun as it cools
   const frng = mulberry32(205103), nChunks = [10, 16, 22, 28][tier];
-  const chunkGeo = new THREE.OctahedronGeometry(1, 0);
-  const chunkMat = new THREE.MeshPhysicalMaterial({ color: 0x141110, roughness: 0.15, metalness: 0.25, clearcoat: 1, clearcoatRoughness: 0.04, emissive: 0xff3000, emissiveIntensity: 0.05, flatShading: true });
+  // an irregular faceted rock: an icosahedron with its corners pushed in and out (flat shaded, so every
+  // facet catches the light at its own angle)
+  const chunkGeo = new THREE.IcosahedronGeometry(1, 1);
+  { const pos = chunkGeo.attributes.position, v = new THREE.Vector3(), seen = new Map();
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i); const key = v.toArray().map(n => n.toFixed(3)).join();
+      if (!seen.has(key)) seen.set(key, 0.7 + frng() * 0.55);
+      v.multiplyScalar(seen.get(key)); pos.setXYZ(i, v.x, v.y, v.z);
+    }
+    chunkGeo.computeVertexNormals(); }
+  const chunkMat = new THREE.MeshPhysicalMaterial({ color: 0x060505, roughness: 0.12, metalness: 0.3, clearcoat: 1, clearcoatRoughness: 0.03, emissive: 0xff2800, emissiveIntensity: 0.015, flatShading: true });
   const chunks = new THREE.InstancedMesh(chunkGeo, chunkMat, nChunks);
   chunks.name = 'Inspect floating obsidian'; chunks.frustumCulled = false; chunks.visible = false; gun.add(chunks);
   const chunk = Array.from({ length: nChunks }, () => {
     const side = frng() < 0.5 ? -1 : 1;
     const at = new THREE.Vector3(side * half, split.y + (frng() - 0.5) * 0.04, split.x + (frng() - 0.5) * 0.36);
     const dir = new THREE.Vector3(side * (0.6 + frng() * 0.6), frng() * 0.9 - 0.2, (frng() - 0.5) * 0.8).normalize();
-    return { at, dir, dist: 0.05 + frng() * 0.12, size: new THREE.Vector3(0.004 + frng() * 0.005, 0.007 + frng() * 0.01, 0.003 + frng() * 0.004),
+    return { at, dir, dist: 0.05 + frng() * 0.12, size: new THREE.Vector3(0.005 + frng() * 0.005, 0.007 + frng() * 0.009, 0.004 + frng() * 0.004),
       axis: new THREE.Vector3(frng() - 0.5, frng() - 0.5, frng() - 0.5).normalize(), spin: 0.6 + frng() * 1.4, bob: frng() * 6.28, delay: frng() * 0.05 };
   });
   const cm = new THREE.Matrix4(), cq = new THREE.Quaternion(), cp = new THREE.Vector3(), cs = new THREE.Vector3();
@@ -1223,6 +1232,123 @@ export function orreryInspect(gun, { surface, under }, quality) {
     dispose() {
       portal.geometry.dispose(); portal.material.dispose(); starGeo.dispose(); stars.material.dispose(); dust.geometry.dispose(); dust.material.dispose();
       for (const b of planets) { b.m.traverse(o => { o.geometry?.dispose(); o.material?.dispose(); }); }
+    },
+  };
+}
+
+// Amber Reliquary: the resin sloshes in its window (shader); silver fern fronds grow and unfurl from the
+// painted fern on the handguard; and a prehistoric fly buzzes round the gun, then crashes into it and
+// tumbles away. The fern paths are in concept pixels (06-amber-reliquary.png, 1536 x 1024).
+const AMBER_SECONDS = 8.4;
+export function amberInspect(gun, art, quality) {
+  const [Z0, Z1, Y0, Y1] = [-0.32516, 0.28071, -0.26153, 0.14224];      // the MP5K's art rectangle
+  const P = ([x, y]) => new THREE.Vector3(0, Y1 - (Y1 - Y0) * y / 1024, Z0 + (Z1 - Z0) * x / 1536);
+  const half = 0.023, rng = mulberry32(207011);
+  const silver = new THREE.MeshStandardMaterial({ color: 0xc9c6bd, metalness: 1, roughness: 0.28 });
+  const leafGeo = new THREE.SphereGeometry(1, 8, 6);
+  const FRONDS = [
+    [[310, 470], [298, 420], [325, 360], [385, 305], [470, 278]],
+    [[335, 385], [430, 372], [530, 392], [630, 420], [705, 442]],
+    [[720, 455], [790, 440], [880, 470]],
+  ];
+  const fronds = [];
+  for (const side of [-1, 1]) for (const f of FRONDS) {
+    const pts = f.map(P).map(v => { v.x = side * (half + 0.0015); return v; });
+    const curve = new THREE.CatmullRomCurve3(pts), len = curve.getLength(), segs = Math.ceil(len / 0.003);
+    const stem = new THREE.Mesh(new THREE.TubeGeometry(curve, segs, 0.0011, 5, false), silver);
+    stem.geometry.setDrawRange(0, 0); stem.visible = false; gun.add(stem);
+    const leaves = [];
+    const n = Math.floor(len / 0.0055);
+    for (let i = 1; i < n; i++) {
+      const t = i / n, at = curve.getPointAt(t), tan = curve.getTangentAt(t), size = 0.0045 * (1 - t * 0.7);
+      for (const k of [-1, 1]) {
+        // a leaflet off each side of the stem, angled towards the tip, lying on the gun's side
+        const out = new THREE.Vector3(0, -tan.z, tan.y).multiplyScalar(k).addScaledVector(tan, 0.6).normalize();
+        const leaf = new THREE.Mesh(leafGeo, silver);
+        leaf.position.copy(at).addScaledVector(out, size * 0.9); leaf.position.x = side * (half + 0.0018);
+        leaf.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), out);
+        leaf.userData.base = new THREE.Vector3(size * 0.32, size, size * 0.12);
+        leaf.scale.setScalar(0.0001); leaf.visible = false; gun.add(leaf);
+        leaves.push({ leaf, t });
+      }
+    }
+    fronds.push({ stem, leaves, count: stem.geometry.index.count, start: 0.12 + rng() * 0.1 });
+  }
+  // the fly: a big prehistoric one, amber-brown, with long veined wings
+  const fly = new THREE.Group(), body = new THREE.MeshStandardMaterial({ color: 0x3a2412, roughness: 0.45, metalness: 0.2 });
+  const thorax = new THREE.Mesh(new THREE.SphereGeometry(0.0055, 14, 10), body);
+  const abdomen = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), body); abdomen.scale.set(0.0045, 0.004, 0.011); abdomen.position.z = -0.012;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.0038, 12, 8), body); head.position.z = 0.0075;
+  const eyeMat = new THREE.MeshStandardMaterial({ color: 0x8a1c0c, roughness: 0.2, metalness: 0.3 });
+  for (const k of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.0022, 10, 8), eyeMat); e.position.set(k * 0.0025, 0.001, 0.009); fly.add(e); }
+  const wingShape = new THREE.Shape(); wingShape.moveTo(0, 0); wingShape.bezierCurveTo(0.006, 0.004, 0.022, 0.006, 0.026, 0.001); wingShape.bezierCurveTo(0.02, -0.004, 0.006, -0.003, 0, 0);
+  const wingMat = new THREE.MeshPhysicalMaterial({ color: 0xe8dcc0, transparent: true, opacity: 0.4, roughness: 0.1, iridescence: 0.8, side: THREE.DoubleSide, depthWrite: false });
+  const wings = [-1, 1].map(k => {
+    const pivot = new THREE.Group(); pivot.position.set(k * 0.004, 0.003, 0);
+    const w = new THREE.Mesh(new THREE.ShapeGeometry(wingShape), wingMat); w.rotation.set(Math.PI / 2, 0, k < 0 ? Math.PI : 0); w.rotation.y = k * -0.5;
+    pivot.add(w); fly.add(pivot); return { pivot, k };
+  });
+  fly.add(thorax, abdomen, head); fly.visible = false; gun.add(fly);
+  fly.scale.setScalar(2.2);                                          // a giant, as prehistoric flies were
+  const impactFlash = flare(new THREE.Color(0xffd890)); impactFlash.visible = false; gun.add(impactFlash);
+  const pts = [...(art.surface || [])].map(a => a.point);
+  const yMid = pts.length ? pts.reduce((a, v) => a + v.y, 0) / pts.length : 0, zMid = (Z0 + Z1) / 2;
+  const target = P([600, 330]);                                       // it hits the amber window
+  const flyAt = (t) => new THREE.Vector3(Math.cos(t * 2.3) * 0.11 + 0.006 * Math.sin(t * 19), yMid + 0.06 + 0.035 * Math.sin(t * 3.1) + 0.005 * Math.sin(t * 27), zMid + Math.sin(t * 2.3) * 0.22 + 0.008 * Math.sin(t * 23));
+  const glazes = [];
+  gun.traverse(o => { const u = o.material?.userData?.tri; if (u?.artPhase && !glazes.includes(u.artPhase)) glazes.push(u.artPhase); });
+  const fwd = new THREE.Vector3(0, 0, 1), dir = new THREE.Vector3(), from = new THREE.Vector3(), hit = new THREE.Vector3();
+  const DIVE = 0.62, IMPACT = 0.67;
+  let phase = -1, side = 1;
+  return {
+    clip: KILN_CLIP, seconds: AMBER_SECONDS,
+    update(p) {
+      const active = p >= 0 && p < 1;
+      if (!active && phase < 0) return;
+      phase = active ? p : -1;
+      for (const g of glazes) g.value = active ? p : -1;
+      const t = active ? p * AMBER_SECONDS : 0;
+      // the fronds grow from their roots and their leaflets unfurl as the stem reaches them
+      for (const f of fronds) {
+        const grow = active ? smooth(p, f.start, f.start + 0.3) * (1 - smooth(p, 0.86, 0.97)) : 0;
+        f.stem.visible = grow > 0.005;
+        f.stem.geometry.setDrawRange(0, Math.floor(f.count * grow / 6) * 6);
+        for (const l of f.leaves) {
+          const k = smooth(grow, l.t - 0.02, l.t + 0.12);
+          l.leaf.visible = k > 0.01; l.leaf.scale.copy(l.leaf.userData.base).multiplyScalar(Math.max(k, 0.0001));
+        }
+      }
+      // the fly
+      fly.visible = active && p > 0.1 && p < 0.92;
+      impactFlash.visible = false;
+      if (fly.visible) {
+        let flap = 1;
+        if (p < DIVE) {
+          fly.position.copy(flyAt(t)); dir.copy(flyAt(t + 0.03)).sub(fly.position).normalize();
+          fly.quaternion.setFromUnitVectors(fwd, dir);
+          side = Math.sign(fly.position.x) || 1;
+        } else if (p < IMPACT) {
+          // a straight dive, speeding up, into the amber window on its side of the gun
+          from.copy(flyAt(DIVE * AMBER_SECONDS)); hit.copy(target); hit.x = side * (half + 0.004);
+          const k = smooth(p, DIVE, IMPACT) ** 2;
+          fly.position.copy(from).lerp(hit, k); dir.copy(hit).sub(from).normalize();
+          fly.quaternion.setFromUnitVectors(fwd, dir);
+        } else {
+          // bonk: a flash, then it bounces off and tumbles down, wings folded
+          const s = (p - IMPACT) * AMBER_SECONDS;
+          hit.copy(target); hit.x = side * (half + 0.004);
+          fly.position.copy(hit).add(new THREE.Vector3(side * 0.12 * s, 0.05 * s - 0.9 * s * s, 0.02 * s));
+          fly.rotation.set(s * 9, s * 6, s * 11);
+          flap = 0;
+          impactFlash.visible = s < 0.18; impactFlash.position.copy(hit); impactFlash.scale.setScalar(0.04 * (1 - s / 0.18));
+        }
+        for (const w of wings) w.pivot.rotation.z = w.k * (flap ? 0.2 + 0.9 * Math.sin(t * 140) : 1.2);
+      }
+    },
+    dispose() {
+      silver.dispose(); leafGeo.dispose(); body.dispose(); eyeMat.dispose(); wingMat.dispose(); impactFlash.material.dispose();
+      for (const f of fronds) f.stem.geometry.dispose();
+      fly.traverse(o => o.geometry?.dispose());
     },
   };
 }

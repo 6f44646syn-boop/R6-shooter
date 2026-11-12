@@ -1,5 +1,5 @@
-import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=40f072d-mwdgon9f';
-import { packArt } from './pack-art.js?v=40f072d-mwdgon9f';
+import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=9be6deb-mwdgwpqb';
+import { packArt } from './pack-art.js?v=9be6deb-mwdgwpqb';
 // GPU-baked textures for ultra graphics. Everything is procedural and drawn by a fragment
 // shader into a render target once (milliseconds on a graphics card), so 4096 x 4096 maps
 // cost nothing at start-up and nothing is downloaded.
@@ -10,7 +10,7 @@ import { packArt } from './pack-art.js?v=40f072d-mwdgon9f';
 //   bakeSkin(renderer, index, size): one of SKINS, { albedo, rm } (rm: G roughness, B metalness).
 //   triplanar(material, opts): shader patch that maps a skin and/or detail by the surface's
 //        own 3D position (no UV stretching on long thin parts), with edge wear from UVs.
-import * as THREE from '../../vendor/three/three.module.min.js?v=40f072d-mwdgon9f';
+import * as THREE from '../../vendor/three/three.module.min.js?v=9be6deb-mwdgwpqb';
 
 const VERT = /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
@@ -568,7 +568,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
     // from it. Looks: 'porcelain' (glaze, crazing, silver seams) or 'bronze' (metal, glowing teal inlays).
     Object.assign(uniforms, {
       artMap: { value: artTexture(def.art) }, artMap2: { value: artTexture(def.artPeak || def.art) }, artMix: { value: 0 }, artRect: { value: new THREE.Vector4(...def.artRect) },
-      artDark: { value: new THREE.Vector3(...def.c[2]) }, artPhase: { value: -1 }, artBlast: { value: -9 }, artMode: { value: { bronze: 1, glass: 2, resin: 2, lacquer: 3, gilt: 3, orrery: 5, forge: 4 }[def.artLook] || 0 },
+      artDark: { value: new THREE.Vector3(...def.c[2]) }, artPhase: { value: -1 }, artBlast: { value: -9 }, artMode: { value: { bronze: 1, glass: 2, resin: 2, lacquer: 3, gilt: 3, orrery: 5, forge: 4, amber: 6 }[def.artLook] || 0 },
     });
   } else if (sakura) {
     const [gold, pink, pearl, black] = def.c.map(c => new THREE.Vector3(...c));
@@ -691,6 +691,13 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         // The painting is a side view: faces turned away from the side (the nose, top edges, the
         // window's inner walls) take a soft local average instead of a smeared stripe.
         float kSide = sstep(0.35, 0.8, abs(normalize(vTriN).x));
+        // Amber Reliquary: in the inspect the resin sloshes, the painting inside the amber swaying in waves
+        float kAmberOn = artPhase < 0.0 ? 0.0 : step(5.5, artMode) * sstep(0.08, 0.2, artPhase) * (1.0 - sstep(0.85, 0.97, artPhase));
+        if (kAmberOn > 0.0) {
+          vec3 a0 = texture2D(artMap, kuv).rgb;
+          float amb = sstep(0.25, 0.45, a0.r) * sstep(0.15, 0.3, a0.r - a0.b) * sstep(0.04, 0.12, a0.g);
+          kuv += amb * kAmberOn * 0.006 * vec2(sin(kuv.y * 40.0 + triTime * 3.0 + 2.0 * sin(kuv.x * 18.0 - triTime * 2.2)), cos(kuv.x * 30.0 - triTime * 2.6));
+        }
         vec3 kArt = mix(texture2D(artMap, kuv, 5.0).rgb, texture2D(artMap, kuv).rgb, kSide);
         // the second painting sweeps in from the muzzle to the stock as artMix rises (and back out as it falls)
         float kWipe = mix(artRect.x - 0.05, artRect.y + 0.05, artMix);
@@ -699,7 +706,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         // grey in the painting = the silver-filled seams and the moon
         float kSilver = sstep(0.09, 0.035, kSat) * sstep(0.12, 0.3, kLum);
         float kBelow = 0.0;           // (the traced F2's grip and magazine are their own black parts)
-        float kBronze = step(0.5, artMode) * step(artMode, 1.5), kStained = step(1.5, artMode) * step(artMode, 2.5), kLacq = step(2.5, artMode);
+        float kBronze = step(0.5, artMode) * step(artMode, 1.5), kStained = step(1.5, artMode) * step(artMode, 2.5) + step(5.5, artMode), kLacq = step(2.5, artMode) * step(artMode, 5.5);
         float kGold = sstep(0.06, 0.18, kArt.r - kArt.b) * sstep(0.02, 0.08, kArt.g - kArt.b) * sstep(0.1, 0.3, kArt.g / max(kArt.r, 0.001)) * kLacq;   // lacquer: the gilt
         float kTeal = sstep(0.04, 0.14, kArt.g - kArt.r) * sstep(0.02, 0.09, kArt.b - kArt.r) * kBronze;   // bronze: the teal inlays
         float kGlass = sstep(0.06, 0.2, kSat) * kStained;                                                 // glass: the coloured panes
@@ -823,15 +830,18 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         // glass: the panes glow with their own colour; in the inspect a concentrated stained-glass
         // reflection slides along the receiver and breaks up as the angle changes
         float kSlide = artPhase < 0.0 ? 0.0 : exp(-pow(vTriPos.z - mix(-0.32, 0.26, sstep(0.25, 0.75, artPhase)) + vTriPos.y * 0.5, 2.0) * 140.0);
-        totalEmissiveRadiance += kArt * kGlass * (0.85 + kSlide * 3.4) + kArt * kSlide * (1.0 - kGlass) * 0.25 * kStained;
+        totalEmissiveRadiance += (kArt * kGlass * (0.85 + kSlide * 3.4) + kArt * kSlide * (1.0 - kGlass) * 0.25 * kStained) * (1.0 - 0.6 * step(5.5, artMode));   // (amber: a softer glow)
         // Forgeheart: the molten seam always smoulders; in the inspect a heat front runs along it from
         // the handguard into the receiver, burns yellow at the peak and cools to deep red, and a dull
         // red glow creeps through the dark cracks between the plates.
         float kForge = step(3.5, artMode) * step(artMode, 4.5);
+        // the sloshing resin's surface: a bright meniscus line tilting back and forth through the amber
+        float kAmb = kGlass * step(5.5, artMode);
+        totalEmissiveRadiance += kAmberOn * kAmb * vec3(1.0, 0.78, 0.35) * 1.2 * exp(-pow((kuv.y - 0.66 - 0.06 * sin(triTime * 1.8) * (kuv.x - 0.45) * 4.0 - 0.012 * sin(kuv.x * 40.0 + triTime * 4.0)) * 70.0, 2.0));
         totalEmissiveRadiance += kForge * step(0.001, artMix) * step(artMix, 0.999) * vec3(1.0, 0.42, 0.05) * 2.0 * exp(-pow((vTriPos.z - kWipe) * 70.0, 2.0));   // the burning edge of the sweep
         // Midnight Orrery: while the portal is open the gold constellation lines light up, a starlight
         // sweep runs along them stock to barrel, the midnight blue takes a nebula sheen and stars twinkle in it
-        float kOrr = step(4.5, artMode), kOrrOn = artPhase < 0.0 ? 0.0 : sstep(0.15, 0.3, artPhase) * (1.0 - sstep(0.85, 0.97, artPhase));
+        float kOrr = step(4.5, artMode) * step(artMode, 5.5), kOrrOn = artPhase < 0.0 ? 0.0 : sstep(0.15, 0.3, artPhase) * (1.0 - sstep(0.85, 0.97, artPhase));
         float kStarSweep = exp(-pow(vTriPos.z - mix(0.35, -0.3, sstep(0.3, 0.8, artPhase)), 2.0) * 120.0);
         totalEmissiveRadiance += kOrr * kOrrOn * (vec3(1.0, 0.72, 0.32) * kGold * (0.35 + 1.8 * kStarSweep) + vec3(0.25, 0.3, 0.9) * kArt * sstep(0.0, 0.08, kArt.b - kArt.r) * 0.9);
         vec2 kCell = floor(vTriPos.zy * 320.0), kOff = fract(vTriPos.zy * 320.0) - 0.5;

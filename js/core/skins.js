@@ -9,7 +9,7 @@
 //   p        [scale (whole number), warp, threshold shift, spare]
 //   rm       [roughness, metalness] of the base, then of the accent
 //   clearcoat, wear (bare metal at the edges), glow ([r, g, b] light from the accent lines)
-import { mulberry32 } from './prng.js?v=40f072d-mwdgon9f';
+import { mulberry32 } from './prng.js?v=9be6deb-mwdgwpqb';
 
 export const RARITIES = [
   { key: 'common', name: 'Common', color: '#b4bcc6', odds: 0.69975, refund: 20 },
@@ -62,7 +62,7 @@ const VESPER = {
 const LATE = [
   ['Forgeheart', 4, 'forgeheart', [-0.59933, 0.37984, -0.39229, 0.26025], 'forge', [[0.04, 0.035, 0.035], [0.9, 0.3, 0.05], [0.02, 0.02, 0.022], [0.55, 0.3, 0.16]]],
   ['Midnight Orrery', 0, 'midnight-orrery', [-0.31901, 0.34515, -0.25629, 0.18633], 'orrery', [[0.03, 0.05, 0.16], [0.75, 0.55, 0.22], [0.015, 0.02, 0.05], [0.85, 0.8, 0.6]]],
-  ['Amber Reliquary', 6, 'amber-reliquary', [-0.32516, 0.28071, -0.26153, 0.14224], 'resin', [[0.8, 0.45, 0.08], [0.7, 0.72, 0.74], [0.05, 0.045, 0.04], [0.45, 0.25, 0.08]]],
+  ['Amber Reliquary', 6, 'amber-reliquary', [-0.32516, 0.28071, -0.26153, 0.14224], 'amber', [[0.8, 0.45, 0.08], [0.7, 0.72, 0.74], [0.05, 0.045, 0.04], [0.45, 0.25, 0.08]]],
   ['Jade Coil', 9, 'jade-coil', [-0.25133, 0.36905, -0.23606, 0.17739], 'resin', [[0.12, 0.5, 0.3], [0.6, 0.45, 0.2], [0.02, 0.05, 0.035], [0.4, 0.7, 0.5]]],
   ['Velvet Ante', 3, 'velvet-ante', [-0.21361, 0.41797, -0.2903, 0.1306], 'gilt', [[0.35, 0.03, 0.05], [0.85, 0.65, 0.25], [0.04, 0.01, 0.015], [0.9, 0.86, 0.76]]],
   ['Opal Overture', 8, 'opal-overture', [-0.30471, 0.35412, -0.27329, 0.16576], 'resin', [[0.85, 0.75, 0.7], [0.3, 0.75, 0.75], [0.02, 0.02, 0.025], [0.55, 0.35, 0.75]]],

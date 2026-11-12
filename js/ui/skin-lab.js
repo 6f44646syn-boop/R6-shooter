@@ -1,10 +1,10 @@
 // Skin Lab (skin-lab.html): every skin on every gun it fits, drawn by the game's own weapon rig.
 // Pick a gun and a skin, switch graphics, play the inspect; first person (with hands) or a studio
 // view you can turn by dragging. Nothing here changes a profile: the skin is forced on the rig.
-import * as THREE from '../../vendor/three/three.module.min.js?v=40f072d-mwdgon9f';
-import { WeaponRig, setUltraTexSize } from '../scene/viewmodel.js?v=40f072d-mwdgon9f';
-import { loadGameData } from '../core/guns.js?v=40f072d-mwdgon9f';
-import { CATALOGUE, RARITIES, RARITY, skinFits } from '../core/skins.js?v=40f072d-mwdgon9f';
+import * as THREE from '../../vendor/three/three.module.min.js?v=9be6deb-mwdgwpqb';
+import { WeaponRig, setUltraTexSize } from '../scene/viewmodel.js?v=9be6deb-mwdgwpqb';
+import { loadGameData } from '../core/guns.js?v=9be6deb-mwdgwpqb';
+import { CATALOGUE, RARITIES, RARITY, skinFits } from '../core/skins.js?v=9be6deb-mwdgwpqb';
 
 const $ = (id) => document.getElementById(id);
 const store = { get(k) { try { return localStorage.getItem('skinLab.' + k); } catch { return null; } }, set(k, v) { try { localStorage.setItem('skinLab.' + k, v); } catch { /* blocked */ } } };
