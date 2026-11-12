@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=47bc4b7-mwdas1g3';
-import { mulberry32 } from '../core/prng.js?v=47bc4b7-mwdas1g3';
-import { mergeStatic } from './sight-model.js?v=47bc4b7-mwdas1g3';
+import * as THREE from '../../vendor/three/three.module.min.js?v=ec2c408-mwdbxv1i';
+import { mulberry32 } from '../core/prng.js?v=ec2c408-mwdbxv1i';
+import { mergeStatic } from './sight-model.js?v=ec2c408-mwdbxv1i';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -8,6 +8,7 @@ const SAKURA_SECONDS = 8.4, SAKURA_PEAK = 0.54;
 const KILN_SECONDS = 8.4, KILN_PEAK = 0.57;
 const ABYSS_SECONDS = 8.4, ABYSS_PEAK = 0.57;
 const VESPER_SECONDS = 8.4, VESPER_PEAK = 0.57;
+const FORGE_SECONDS = 8.4, FORGE_PEAK = 0.57;
 const smooth = THREE.MathUtils.smoothstep;
 
 const ICE_CLIP = { root: [
@@ -262,6 +263,17 @@ const particleVertex = /* glsl */`
           origin = (emitted * vec4(emitter, 1.0)).xyz + outward * 0.09 * smoothstep(0.0, 1.0, p);
           radius = vec2(1.0) * mix(0.0012, 0.0026, seed.z);
         #endif
+        #ifdef SPARK
+          // flicked off the seam, fast, then arcing down
+          vec3 flick = normalize(outward + (seed.xyz - 0.5) * 1.3 + vec3(0.0, 0.5, 0.0));
+          origin = (emitted * vec4(emitter, 1.0)).xyz + flick * mix(0.25, 0.6, seed.w) * age - vec3(0.0, 0.9 * age * age, 0.0);
+          radius = vec2(1.0) * mix(0.0006, 0.0013, seed.z);
+        #endif
+        #ifdef EMBER
+          // the heat shimmer: tiny embers wavering up off the seam
+          origin = (emitted * vec4(emitter, 1.0)).xyz + outward * 0.004 + vec3(sin(s + age * 9.0) * 0.002, age * mix(0.03, 0.06, seed.w), 0.0);
+          radius = vec2(1.0) * mix(0.0005, 0.001, seed.z);
+        #endif
         #ifdef BURST
           // thrown forward out of the muzzle in a wide cone, slowing in the air
           vec3 cone = normalize(outward + (seed.xyz - 0.5) * 1.1);
@@ -358,11 +370,11 @@ const particleFragment = /* glsl */`
   }
 `;
 
-const particleBudget = { mist: [22, 38, 54, 70], chip: [20, 34, 48, 62], petal: [28, 46, 64, 84], drop: [14, 22, 30, 40], drip: [80, 140, 200, 260], splash: [120, 200, 300, 400], jet: [160, 280, 400, 520], wind: [30, 50, 70, 90], gather: [40, 70, 100, 130], burst: [40, 70, 100, 140], bubble: [12, 18, 26, 34], speck: [10, 16, 22, 30], glint: [60, 100, 150, 200] };
+const particleBudget = { mist: [22, 38, 54, 70], chip: [20, 34, 48, 62], petal: [28, 46, 64, 84], drop: [14, 22, 30, 40], drip: [80, 140, 200, 260], splash: [120, 200, 300, 400], jet: [160, 280, 400, 520], wind: [30, 50, 70, 90], gather: [40, 70, 100, 130], burst: [40, 70, 100, 140], spark: [16, 26, 36, 48], ember: [20, 34, 48, 64], bubble: [12, 18, 26, 34], speck: [10, 16, 22, 30], glint: [60, 100, 150, 200] };
 const particleTier = { low: 0, standard: 1, high: 2, ultra: 3 };
 
 function particles(kind, tier, anchors, tint, trail, rng) {
-  const mist = kind === 'mist', petals = kind === 'petal', drops = ['drop', 'drip', 'splash', 'jet', 'wind'].includes(kind), deep = ['bubble', 'speck', 'glint', 'gather', 'burst'].includes(kind);
+  const mist = kind === 'mist', petals = kind === 'petal', drops = ['drop', 'drip', 'splash', 'jet', 'wind'].includes(kind), deep = ['bubble', 'speck', 'glint', 'gather', 'burst', 'spark', 'ember'].includes(kind);
   const seconds = petals ? SAKURA_SECONDS : drops ? KILN_SECONDS : deep ? ABYSS_SECONDS : FROST_SECONDS;
   const peak = (petals ? SAKURA_PEAK : drops ? KILN_PEAK : deep ? ABYSS_PEAK : FROST_PEAK) * seconds;
   const k = seconds / 4.2;                              // timings below were set for a 4.2 s inspect
@@ -393,6 +405,12 @@ function particles(kind, tier, anchors, tint, trail, rng) {
     } else if (kind === 'burst') {                        // sparks thrown out of the muzzle by the blast
       start = seconds * (0.69 + 0.03 * rng());
       life = 0.4 + rng() * 0.3;
+    } else if (kind === 'spark') {                        // hot sparks off the split, around the peak
+      start = peak + (-0.15 + rng() * 0.7) * k;
+      life = 0.3 + rng() * 0.3;
+    } else if (kind === 'ember') {                        // the shimmer: embers rising off the seam while it is hot
+      start = (1.4 + rng() * 3.4) * k;
+      life = 0.7 + rng() * 0.6;
     } else if (kind === 'splash') {                       // five bursts of spray as the waves lift and the crest surges
       start = seconds * (0.28 + 0.1 * Math.floor(rng() * 5)) + rng() * 0.18;
       life = 0.7 + rng() * 0.5;
@@ -427,7 +445,7 @@ function particles(kind, tier, anchors, tint, trail, rng) {
   geo.setAttribute('seed', new THREE.InstancedBufferAttribute(new Float32Array(seeds), 4));
   geo.setAttribute('timing', new THREE.InstancedBufferAttribute(new Float32Array(timing), 4));
   geo.instanceCount = count;
-  const defines = kind === 'jet' ? { DROP: 1, JET: 1 } : kind === 'wind' ? { WIND: 1 } : kind === 'gather' ? { SPECK: 1, GATHER: 1 } : kind === 'burst' ? { SPECK: 1, BURST: 1 } :
+  const defines = kind === 'jet' ? { DROP: 1, JET: 1 } : kind === 'wind' ? { WIND: 1 } : kind === 'gather' ? { SPECK: 1, GATHER: 1 } : kind === 'burst' ? { SPECK: 1, BURST: 1 } : kind === 'spark' ? { SPECK: 1, SPARK: 1 } : kind === 'ember' ? { SPECK: 1, EMBER: 1 } :
     mist ? { MIST: 1 } : petals ? { PETAL: 1 } : kind === 'drip' ? { DROP: 1, DRIP: 1 } : kind === 'splash' ? { DROP: 1, SPLASH: 1 } : kind === 'glint' ? { SPECK: 1, GLINT: 1 } : drops ? { DROP: 1 } : kind === 'bubble' ? { BUBBLE: 1 } : kind === 'speck' ? { SPECK: 1 } : {};
   if (mist && tier === 0) defines.LOW_INSPECT = 1;
   const material = new THREE.ShaderMaterial({
@@ -891,5 +909,56 @@ export function vesperInspect(gun, { reliefs, surface }, quality) {
       }
     },
     dispose() { for (const m of [...glints, shards]) { m.geometry.dispose(); m.material.dispose(); } cracks.traverse(o => o.geometry?.dispose()); strand.dispose(); riftMat.dispose(); spores.material.dispose(); },
+  };
+}
+
+// Forgeheart: raise the black ceramic; a dull red glow creeps under the plates and the heat front
+// traces the orange seam from the handguard into the receiver (shader, artPhase). At the peak the
+// plates lift just enough to show the molten channel under smoked glass, with sparks off the split
+// and a shimmer of embers on the seam; then the plates settle and the orange cools to deep red.
+const FORGE_CLIP = { root: [
+  [0, 0, 0, 0, 0, 0, 0],
+  [0.2, -0.07, 0.09, -0.1, 0.14, 0.86, 0.1],
+  [0.42, -0.084, 0.1, -0.128, 0.16, 1.1, 0.04],
+  [0.62, -0.088, 0.102, -0.138, 0.13, 1.14, -0.04],
+  [0.8, -0.066, 0.08, -0.098, 0.12, 0.72, -0.1],
+  [1, 0, 0, 0, 0, 0, 0],
+] };
+export function forgeInspect(gun, { reliefs, channels, seam }, quality) {
+  const trail = emitterTrail(gun), tier = particleTier[quality] ?? 1;
+  const from = seam.length ? seam : [{ point: new THREE.Vector3(), normal: new THREE.Vector3(1, 0, 0) }];
+  const sparks = particles('spark', tier, from, new THREE.Color(0xffc060), trail, mulberry32(205011));
+  const embers = particles('ember', tier, from, new THREE.Color(0xff6a20), trail, mulberry32(205029));
+  sparks.visible = embers.visible = false;
+  gun.add(sparks, embers);
+  const order = [...new Set(reliefs.map(r => Math.round(r.base.z * 1000)))].sort((a, b) => a - b);
+  const glazes = [];
+  gun.traverse(o => { const u = o.material?.userData?.tri; if (u?.artPhase && !glazes.includes(u.artPhase)) glazes.push(u.artPhase); });
+  const smoked = channels[0]?.material, hot = new THREE.Color(), deep = new THREE.Color(0xa01204), yellow = new THREE.Color(0xffc040);
+  let phase = -1;
+  return {
+    clip: FORGE_CLIP, seconds: FORGE_SECONDS,
+    update(p) {
+      const active = p >= 0 && p < 1;
+      if (!active && phase < 0) return;
+      phase = active ? p : -1;
+      for (const g of glazes) g.value = active ? p : -1;
+      sparks.visible = embers.visible = active && p > 0.15;
+      trail.update(active ? p * FORGE_SECONDS : -1);
+      // the plates lift in turn from the handguard back, a few millimetres out and up, then settle
+      reliefs.forEach((r) => {
+        const k = order.indexOf(Math.round(r.base.z * 1000)), start = FORGE_PEAK - 0.14 + k * 0.03;
+        const lift = active ? smooth(p, start, start + 0.08) * (1 - smooth(p, 0.7, 0.86)) : 0;
+        r.group.position.copy(r.base).addScaledVector(r.normal, lift * 0.0045);
+        r.group.position.y = r.base.y + lift * 0.0025;
+      });
+      if (smoked) {
+        const glow = active ? smooth(p, FORGE_PEAK - 0.16, FORGE_PEAK - 0.04) * (1 - smooth(p, 0.72, 0.9)) : 0;
+        const cool = active ? smooth(p, FORGE_PEAK + 0.04, 0.85) : 0;          // yellow at the peak, deep red as it lowers
+        smoked.emissive.copy(hot.copy(yellow).lerp(deep, cool));
+        smoked.emissiveIntensity = glow * 4;
+      }
+    },
+    dispose() { for (const m of [sparks, embers]) { m.geometry.dispose(); m.material.dispose(); } },
   };
 }

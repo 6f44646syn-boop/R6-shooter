@@ -9,7 +9,7 @@
 //   p        [scale (whole number), warp, threshold shift, spare]
 //   rm       [roughness, metalness] of the base, then of the accent
 //   clearcoat, wear (bare metal at the edges), glow ([r, g, b] light from the accent lines)
-import { mulberry32 } from './prng.js?v=47bc4b7-mwdas1g3';
+import { mulberry32 } from './prng.js?v=ec2c408-mwdbxv1i';
 
 export const RARITIES = [
   { key: 'common', name: 'Common', color: '#b4bcc6', odds: 0.69975, refund: 20 },
@@ -58,9 +58,9 @@ const VESPER = {
 };
 // The other six Legendaries: each gun traced from its concept, wearing the concept as its paint.
 // Looks: 'gilt' polishes the metals in the painting (the lacquer shading), 'resin' lets the
-// coloured stone, amber and opal glow (the glass shading). Their inspects are still to come.
+// coloured stone, amber and opal glow (the glass shading), 'forge' is gilt with a live molten seam.
 const LATE = [
-  ['Forgeheart', 4, 'forgeheart', [-0.59933, 0.37984, -0.39229, 0.26025], 'gilt', [[0.04, 0.035, 0.035], [0.9, 0.3, 0.05], [0.02, 0.02, 0.022], [0.55, 0.3, 0.16]]],
+  ['Forgeheart', 4, 'forgeheart', [-0.59933, 0.37984, -0.39229, 0.26025], 'forge', [[0.04, 0.035, 0.035], [0.9, 0.3, 0.05], [0.02, 0.02, 0.022], [0.55, 0.3, 0.16]]],
   ['Midnight Orrery', 0, 'midnight-orrery', [-0.31901, 0.34515, -0.25629, 0.18633], 'gilt', [[0.03, 0.05, 0.16], [0.75, 0.55, 0.22], [0.015, 0.02, 0.05], [0.85, 0.8, 0.6]]],
   ['Amber Reliquary', 6, 'amber-reliquary', [-0.32516, 0.28071, -0.26153, 0.14224], 'resin', [[0.8, 0.45, 0.08], [0.7, 0.72, 0.74], [0.05, 0.045, 0.04], [0.45, 0.25, 0.08]]],
   ['Jade Coil', 9, 'jade-coil', [-0.25133, 0.36905, -0.23606, 0.17739], 'resin', [[0.12, 0.5, 0.3], [0.6, 0.45, 0.2], [0.02, 0.05, 0.035], [0.4, 0.7, 0.5]]],

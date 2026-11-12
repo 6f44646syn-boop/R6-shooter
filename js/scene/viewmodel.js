@@ -1,30 +1,30 @@
-import { skinSheets } from '../render/skins2.js?v=47bc4b7-mwdas1g3';
-import { packArt } from '../render/pack-art.js?v=47bc4b7-mwdas1g3';
+import { skinSheets } from '../render/skins2.js?v=ec2c408-mwdbxv1i';
+import { packArt } from '../render/pack-art.js?v=ec2c408-mwdbxv1i';
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=47bc4b7-mwdas1g3';
-import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=47bc4b7-mwdas1g3';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=47bc4b7-mwdas1g3';
-import { matcap } from './matcap.js?v=47bc4b7-mwdas1g3';
-import { mulberry32 } from '../core/prng.js?v=47bc4b7-mwdas1g3';
-import { gunMaps } from './range-tex.js?v=47bc4b7-mwdas1g3';
-import { skinById, FACTORY, SAKURA_ID } from '../core/skins.js?v=47bc4b7-mwdas1g3';
-import { legendCanvas, onLegendChange } from '../core/legend.js?v=47bc4b7-mwdas1g3';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=47bc4b7-mwdas1g3';
-import { HDPack } from '../render/hd-pack.js?v=47bc4b7-mwdas1g3';
-import { epicRelief } from './skin-relief.js?v=47bc4b7-mwdas1g3';
-import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect } from './inspect-effects.js?v=47bc4b7-mwdas1g3';
-import { F2 } from './f2-model.js?v=47bc4b7-mwdas1g3';
-import { G8 } from './g8-model.js?v=47bc4b7-mwdas1g3';
-import { C8 } from './c8-model.js?v=47bc4b7-mwdas1g3';
-import { R4 } from './r4-model.js?v=47bc4b7-mwdas1g3';
-import { AK } from './ak-model.js?v=47bc4b7-mwdas1g3';
-import { EVO } from './evo-model.js?v=47bc4b7-mwdas1g3';
-import { MP5K } from './compact-model.js?v=47bc4b7-mwdas1g3';
-import { T5 } from './smg-model.js?v=47bc4b7-mwdas1g3';
-import { SMG11 } from './machinepistol-model.js?v=47bc4b7-mwdas1g3';
-import { MP7 } from './pdw-model.js?v=47bc4b7-mwdas1g3';
+import * as THREE from '../../vendor/three/three.module.min.js?v=ec2c408-mwdbxv1i';
+import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=ec2c408-mwdbxv1i';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=ec2c408-mwdbxv1i';
+import { matcap } from './matcap.js?v=ec2c408-mwdbxv1i';
+import { mulberry32 } from '../core/prng.js?v=ec2c408-mwdbxv1i';
+import { gunMaps } from './range-tex.js?v=ec2c408-mwdbxv1i';
+import { skinById, FACTORY, SAKURA_ID } from '../core/skins.js?v=ec2c408-mwdbxv1i';
+import { legendCanvas, onLegendChange } from '../core/legend.js?v=ec2c408-mwdbxv1i';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=ec2c408-mwdbxv1i';
+import { HDPack } from '../render/hd-pack.js?v=ec2c408-mwdbxv1i';
+import { epicRelief } from './skin-relief.js?v=ec2c408-mwdbxv1i';
+import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect, forgeInspect } from './inspect-effects.js?v=ec2c408-mwdbxv1i';
+import { F2 } from './f2-model.js?v=ec2c408-mwdbxv1i';
+import { G8 } from './g8-model.js?v=ec2c408-mwdbxv1i';
+import { C8 } from './c8-model.js?v=ec2c408-mwdbxv1i';
+import { R4 } from './r4-model.js?v=ec2c408-mwdbxv1i';
+import { AK } from './ak-model.js?v=ec2c408-mwdbxv1i';
+import { EVO } from './evo-model.js?v=ec2c408-mwdbxv1i';
+import { MP5K } from './compact-model.js?v=ec2c408-mwdbxv1i';
+import { T5 } from './smg-model.js?v=ec2c408-mwdbxv1i';
+import { SMG11 } from './machinepistol-model.js?v=ec2c408-mwdbxv1i';
+import { MP7 } from './pdw-model.js?v=ec2c408-mwdbxv1i';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -891,7 +891,25 @@ function artInlays(gun, skin, model, inspect = false) {
       if (inside(z, y + 0.006)) grow(side, z, y + 0.006, Math.PI * (0.35 + rnd() * 0.5), 34, 0.0042 + rnd() * 0.002);
     }
   }
-  return { reliefs, dials, under, surface, roots, muzzle: SPEC[Object.keys(TRACED).find((t) => TRACED[t] === model)]?.muzzle };
+  // Forgeheart: under each ceramic plate, a molten channel behind smoked glass (hidden until the
+  // plates lift), and points along the split for the sparks.
+  const channels = [], seam = [];
+  if (inspect && skin.artLook === 'forge') {
+    const smoked = new THREE.MeshPhysicalMaterial({ color: 0x120806, emissive: 0xff5a0a, emissiveIntensity: 0, roughness: 0.05, metalness: 0, clearcoat: 1, envMap: highEnv() || ENV });
+    for (const r of model.relief) for (const side of [-1, 1]) {
+      const ch = traced(gun, { outer: r.outer, depth: 0.0015 }, 0);
+      ch.material = smoked; ch.userData.hd = true;
+      ch.position.x = side * (half + 0.00075 - 0.0008);
+      channels.push(ch);
+      const low = r.outer.reduce((a, b) => (b[1] < a[1] ? b : a));        // the plate's lower edge, on the seam
+      for (let i = 0; i < 6; i++) {
+        const [pz, py] = r.outer[Math.floor(i / 6 * r.outer.length)];
+        seam.push({ point: new THREE.Vector3(side * (half + 0.001), Math.min(py, low[1] + 0.004), pz), normal: new THREE.Vector3(side, 0.3, 0).normalize() });
+      }
+    }
+    smoked.userData.forge = true;
+  }
+  return { reliefs, dials, under, surface, roots, channels, seam, muzzle: SPEC[Object.keys(TRACED).find((t) => TRACED[t] === model)]?.muzzle };
 }
 
 /* ---------- moving parts and ultra detail (gun coordinates) ---------- */
@@ -1590,7 +1608,7 @@ export class WeaponRig {
       m.add(gunG);
       if (ice) m.userData.inspectFx = frostInspect(gunG, frost, crystals, sk, INSPECT_QUALITY);
       else if (blossoms?.length) m.userData.inspectFx = sakuraInspect(gunG, blossoms, INSPECT_QUALITY, art?.roots || []);
-      else if (art) m.userData.inspectFx = sk.artLook === 'bronze' ? abyssInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'glass' ? vesperInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'porcelain' ? kilnInspect(gunG, art, INSPECT_QUALITY) : null;
+      else if (art) m.userData.inspectFx = sk.artLook === 'bronze' ? abyssInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'glass' ? vesperInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'porcelain' ? kilnInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'forge' ? forgeInspect(gunG, art, INSPECT_QUALITY) : null;
       m.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
       this.models.set(key, m);
       this.root.add(m);

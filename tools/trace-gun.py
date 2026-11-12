@@ -59,7 +59,12 @@ GUNS = {
              ('rear sight', 0.016, 'black', False, lambda xx, yy: (xx >= 445) & (xx < 490) & (yy < 152)),
              ('trigger guard', 0.016, 'black', True, lambda xx, yy: (xx >= 405) & (xx < 452) & (yy > 222)),
              ('grip', 0.03, 'black', True, lambda xx, yy: (xx >= 452) & (xx < 530) & (yy > 228))],
-    mag=(0.03, lambda xx, yy: (xx >= 285) & (xx < 405) & (yy > 215)), rings=[]),
+    mag=(0.03, lambda xx, yy: (xx >= 285) & (xx < 405) & (yy > 215)), rings=[],
+    # the ceramic plates over the molten seam on the handguard (700-wide grid): they lift in the inspect
+    plates=[[(150, 157), (200, 156), (203, 170), (198, 185), (152, 186), (148, 172)],
+            [(204, 156), (252, 156), (255, 172), (250, 188), (206, 186), (201, 171)],
+            [(256, 156), (300, 154), (303, 175), (298, 196), (258, 189), (253, 172)],
+            [(304, 154), (348, 152), (350, 170), (345, 190), (306, 196), (301, 175)]]),
   'evo': dict(name='Scorpion EVO 3 A1', export='EVO', src='docs/legendary-skins/05-midnight-orrery.png', tex='midnight-orrery', scale=0.63 / 1328, thresh=(5, 22, 16),
     grip=(820, 0.07), hg=(456, -0.03), body_depth=0.046, fill_textured=True, body_holes=True,
     cut=lambda xx, yy: yy > 392,
@@ -181,6 +186,11 @@ for cx, cy, r, inner, n, kind in cfg['rings']:
         a0, a1 = i * 2 * np.pi / n, (i + 1) * 2 * np.pi / n - 0.05
         arc = lambda rad: [(cx + rad * np.cos(t), cy + rad * np.sin(t)) for t in np.linspace(a0, a1, 5)]
         relief.append({ 'kind': kind, 'area': 0, 'outer': [gun14(x, y) for x, y in arc(r) + arc(r * inner)[::-1]], 'centre': gun14(cx, cy) })
+for poly in cfg.get('plates', []):
+    pts = [gun14(2 * x, 2 * y) for x, y in poly]
+    area = abs(sum(pts[i][0] * pts[i - 1][1] - pts[i - 1][0] * pts[i][1] for i in range(len(pts)))) / 2
+    cx, cy = sum(x for x, _ in poly) / len(poly), sum(y for _, y in poly) / len(poly)
+    relief.append({ 'kind': 'plate', 'area': round(area, 7), 'outer': pts, 'centre': gun14(2 * cx, 2 * cy) })
 out = {
   'body': { 'depth': cfg['body_depth'], 'outer': outline(body, to_gun), 'holes': [outline(hl == h, to_gun) for h, hn in hs.items() if h not in edge and hn > 25] if cfg.get('body_holes') else [] },
   'parts': parts,
