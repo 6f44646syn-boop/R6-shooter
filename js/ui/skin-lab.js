@@ -1,10 +1,11 @@
 // Skin Lab (skin-lab.html): every skin on every gun it fits, drawn by the game's own weapon rig.
 // Pick a gun and a skin, switch graphics, play the inspect; first person (with hands) or a studio
 // view you can turn by dragging. Nothing here changes a profile: the skin is forced on the rig.
-import * as THREE from '../../vendor/three/three.module.min.js?v=e347c75-mwe1k7e3';
-import { WeaponRig, setUltraTexSize } from '../scene/viewmodel.js?v=e347c75-mwe1k7e3';
-import { loadGameData } from '../core/guns.js?v=e347c75-mwe1k7e3';
-import { CATALOGUE, RARITIES, RARITY, skinFits } from '../core/skins.js?v=e347c75-mwe1k7e3';
+import * as THREE from '../../vendor/three/three.module.min.js?v=be25189-mwe3l5fi';
+import { WeaponRig, setUltraTexSize } from '../scene/viewmodel.js?v=be25189-mwe3l5fi';
+import { playInspect } from '../audio/inspect-sfx.js?v=be25189-mwe3l5fi';
+import { loadGameData } from '../core/guns.js?v=be25189-mwe3l5fi';
+import { CATALOGUE, RARITIES, RARITY, skinFits } from '../core/skins.js?v=be25189-mwe3l5fi';
 
 const $ = (id) => document.getElementById(id);
 const store = { get(k) { try { return localStorage.getItem('skinLab.' + k); } catch { return null; } }, set(k, v) { try { localStorage.setItem('skinLab.' + k, v); } catch { /* blocked */ } } };
@@ -25,6 +26,13 @@ rig.setHighEnv(rig.env);
 const bg = new THREE.Scene(); bg.background = new THREE.Color(0x1a1f27);
 // studio: the same gun without hands, on a turntable you can drag
 const studio = new WeaponRig(renderer);
+// The inspect sounds on a small audio graph of the lab's own (the game's Sfx is not loaded here).
+const labSfx = { unlock() {
+  if (!this.ctx) { this.ctx = new AudioContext(); this.master = this.ctx.createGain(); this.master.gain.value = 0.5; this.master.connect(this.ctx.destination);
+    this.noise = this.ctx.createBuffer(1, this.ctx.sampleRate, this.ctx.sampleRate); const d = this.noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+  if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+} };
+rig.onInspect = studio.onInspect = (look, seconds) => playInspect(labSfx, look, seconds);
 studio.noHands = true; studio.reloadP = -1; studio.setHighEnv(studio.env);
 studio.scene.background = new THREE.Color(0x1a1f27);
 const sKey = new THREE.DirectionalLight(0xffffff, 2.4); sKey.position.set(0.6, 1.2, 1.6);

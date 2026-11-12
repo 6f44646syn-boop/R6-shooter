@@ -7,9 +7,9 @@
 //
 // Levels: Easy, Medium, Hard and Terminator (near-instant, precise, leads moving targets,
 // hears everything, always pushes on a callout).
-import { Weapon } from '../core/weapon.js?v=e347c75-mwe1k7e3';
-import { RecoilEngine } from '../core/recoil.js?v=e347c75-mwe1k7e3';
-import { mulberry32 } from '../core/prng.js?v=e347c75-mwe1k7e3';
+import { Weapon } from '../core/weapon.js?v=be25189-mwe3l5fi';
+import { RecoilEngine } from '../core/recoil.js?v=be25189-mwe3l5fi';
+import { mulberry32 } from '../core/prng.js?v=be25189-mwe3l5fi';
 
 // Per level: reaction (s), aim error sd (deg), turn rate when not fighting (deg/s), recoil
 // control (0..1), burst [min, max] shots, pause between bursts (s), head aim chance, strafes,
@@ -170,7 +170,7 @@ export class Bot {
       if (this.weapon.startReload(t)) {
         this.weapon.releaseTrigger();
         if (tgt) {
-          this.say(battle, t, 'Reloading, cover me!');
+          this.say(battle, t, this.mate && battle.banter && this.rng() < 0.6 ? battle.banter.line('reload') : 'Reloading, cover me!');
           if (L.cover && this.mode !== 'retreat' && this.level !== 'terminator') {
             const spot = this._coverFrom(tgt, arena);
             if (spot) { this.mode = 'retreat'; this._setGoal(spot.x, spot.z, arena, t, spot.y); this.crouchWanted = spot.low; }
@@ -182,7 +182,7 @@ export class Bot {
     /* mode */
     if (L.cover && f.health < 45 && this.mode !== 'retreat' && this.mode !== 'hold' && tgt && this.level !== 'terminator') {
       const spot = this._coverFrom(tgt, arena);
-      if (spot) { this.mode = 'retreat'; this._setGoal(spot.x, spot.z, arena, t, spot.y); this.crouchWanted = spot.low; this.say(battle, t, "I'm hit, falling back!"); }
+      if (spot) { this.mode = 'retreat'; this._setGoal(spot.x, spot.z, arena, t, spot.y); this.crouchWanted = spot.low; this.say(battle, t, this.mate && battle.banter && this.rng() < 0.6 ? battle.banter.line('hurt') : "I'm hit, falling back!"); }
     }
     if (this.mode === 'hold' && t > this.holdUntil) this.mode = 'roam';
     if (royale?.outside(f, 1)) {

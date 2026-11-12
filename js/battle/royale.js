@@ -1,9 +1,9 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=e347c75-mwe1k7e3';
-import { ROYALE_BOTS } from './royale-map.js?v=e347c75-mwe1k7e3';
-import { PLATFORM_HALF, PLATFORM_MASK, RAMP_RISE, platformHeight, platformMeshes, platformSolids } from './royale-platform.js?v=e347c75-mwe1k7e3';
+import * as THREE from '../../vendor/three/three.module.min.js?v=be25189-mwe3l5fi';
+import { ROYALE_BOTS } from './royale-map.js?v=be25189-mwe3l5fi';
+import { PLATFORM_HALF, PLATFORM_MASK, RAMP_RISE, platformHeight, platformMeshes, platformSolids } from './royale-platform.js?v=be25189-mwe3l5fi';
 
 const TOKEN_CHANCE = 0.001;
-const CHEST_MATERIALS = 6;
+const CHEST_MATERIALS = 18;
 const WALL_HP = 130;
 const WALL_HEIGHT = 2.7;
 const CELL = PLATFORM_HALF * 2;        // the build grid (3.2 m): every piece sits on it, so pieces line up
@@ -125,6 +125,7 @@ export class BattleRoyale {
 
   advance(dt) {
     this.elapsed += dt;
+    this.animateChests(dt);
     const shrink = Math.max(0, Math.min(1, (this.elapsed - 20) / 160));
     const collapse = Math.max(0, Math.min(1, (this.elapsed - 190) / 25));
     this.radius = (this.startRadius * (1 - shrink) + 3 * shrink) * (1 - collapse);
@@ -143,6 +144,7 @@ export class BattleRoyale {
     const chest = this.nearby(f);
     if (!chest) return false;
     this.takeChest(chest, f);
+    this.popChest(chest);
     this.materials += CHEST_MATERIALS;
     this.lootGun(chest.gun);
     if (chest.pirate) {
@@ -152,6 +154,52 @@ export class BattleRoyale {
     const reward = chest.pirate ? 'Pirate Token found · All Black Ice skins unlocked' : chest.gun.name;
     this.notify(reward + ' · +' + CHEST_MATERIALS + ' materials');
     return true;
+  }
+
+  // Opening a chest: in its place a chest whose lid flies open on a burst of gold light, coins and
+  // sparkles spilling up out of it; then it sinks away.
+  popChest(chest) {
+    const g = new THREE.Group(), gold = chest.pirate ? 0xd070ff : 0xffc040;
+    const wood = new THREE.MeshStandardMaterial({ color: chest.pirate ? 0xab38c0 : 0x63472b, roughness: .8, transparent: true });
+    const trim = new THREE.MeshStandardMaterial({ color: 0xe4aa49, emissive: 0x5e3507, metalness: .45, transparent: true });
+    const base = new THREE.Mesh(new THREE.BoxGeometry(.9, .42, .56), wood); base.position.y = -.1;
+    const hinge = new THREE.Group(); hinge.position.set(0, .11, -.28);
+    const lid = new THREE.Mesh(new THREE.BoxGeometry(.92, .2, .58), wood); lid.position.set(0, .1, .29); hinge.add(lid);
+    for (const x of [-.25, .25]) { const t = new THREE.Mesh(new THREE.BoxGeometry(.06, .44, .58), trim); t.position.set(x, -.1, 0); base.add(t); }
+    const glow = new THREE.Mesh(new THREE.PlaneGeometry(.8, .5), new THREE.MeshBasicMaterial({ color: gold, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+    glow.rotation.x = -Math.PI / 2; glow.position.y = .1;
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(.32, .45, 3, 16, 1, true), new THREE.MeshBasicMaterial({ color: gold, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
+    beam.position.y = 1.6;
+    const coinGeo = new THREE.CylinderGeometry(.045, .045, .012, 10), coinMat = new THREE.MeshStandardMaterial({ color: 0xffd36a, metalness: 1, roughness: .25, emissive: 0x6a4000, transparent: true });
+    const coins = Array.from({ length: 16 }, () => { const m = new THREE.Mesh(coinGeo, coinMat); g.add(m); return { m, v: new THREE.Vector3((Math.random() - .5) * 1.6, 2.2 + Math.random() * 1.6, (Math.random() - .5) * 1.6), s: new THREE.Vector3(Math.random() * 14, Math.random() * 14, 0) }; });
+    g.add(base, hinge, glow, beam);
+    g.position.copy(chest.position);
+    this.arena.scene.add(g);
+    (this.pops ||= []).push({ g, hinge, glow, beam, coins, age: 0, mats: [wood, trim, glow.material, beam.material, coinMat] });
+    this.battle.deps.sfx?.reload?.(0.9);
+  }
+  animateChests(dt) {
+    if (!this.pops?.length) return;
+    for (const p of this.pops) {
+      p.age += dt; const a = p.age;
+      p.hinge.rotation.x = -1.9 * Math.min(1, a / .22) * (1 + .12 * Math.sin(Math.min(a, .6) * 18) * Math.max(0, 1 - a / .6));   // flung open, a little bounce
+      const fade = 1 - Math.max(0, Math.min(1, (a - 1.8) / .7));
+      p.glow.material.opacity = Math.min(1, a / .1) * fade * (.8 + .2 * Math.sin(a * 20));
+      p.beam.material.opacity = .45 * Math.sin(Math.min(1, a / 1.6) * Math.PI);
+      p.beam.scale.set(1, Math.min(1, a / .25), 1);
+      for (const c of p.coins) {
+        const t = Math.min(a, 1.4);
+        c.m.position.set(c.v.x * t * .5, .15 + c.v.y * t - 4.9 * t * t, c.v.z * t * .5);
+        if (c.m.position.y < -.3) c.m.position.y = -.3;
+        c.m.rotation.set(c.s.x * a, c.s.y * a, 0);
+      }
+      for (const m of p.mats) if (m !== p.beam.material && m !== p.glow.material) m.opacity = fade;
+      p.g.position.y -= a > 1.8 ? dt * .3 : 0;
+    }
+    for (const p of this.pops.filter(p => p.age > 2.6)) {
+      p.g.removeFromParent(); p.g.traverse(o => o.geometry?.dispose()); for (const m of p.mats) m.dispose();
+    }
+    this.pops = this.pops.filter(p => p.age <= 2.6);
   }
 
   lootGun(gun) {
@@ -356,7 +404,9 @@ export class BattleRoyale {
     const box = { minX:x-w/2, maxX:x+w/2, minY:y, maxY:y+(isWall ? WALL_HEIGHT : platformHeight(kind)), minZ:z-d/2, maxZ:z+d/2 };
     // A wall straddles a grid edge: test only its centre line (ends trimmed), so it can stand on the
     // edge of a floor or ramp and meet another wall at a corner, but not on top of another wall.
-    const core = !isWall ? box : alongX ? { ...box, minX: x, maxX: x, minZ: box.minZ + .2, maxZ: box.maxZ - .2 } : { ...box, minZ: z, maxZ: z, minX: box.minX + .2, maxX: box.maxX - .2 };
+    // A floor, ramp or cone tests its cell inset by 0.2 m, so it fits right against walls on the cell's
+    // edges and next to other pieces.
+    const core = !isWall ? { ...box, minX: box.minX + .2, maxX: box.maxX - .2, minZ: box.minZ + .2, maxZ: box.maxZ - .2 } : alongX ? { ...box, minX: x, maxX: x, minZ: box.minZ + .2, maxZ: box.maxZ - .2 } : { ...box, minZ: z, maxZ: z, minX: box.minX + .2, maxX: box.maxX - .2 };
     const blocked = (!previous && Math.abs(y - f.y) > .45) || box.maxY >= (arena.map.ceiling ? arena.wallH : Infinity)
       || box.minX <= -arena.hx || box.maxX >= arena.hx || box.minZ <= -arena.hz || box.maxZ >= arena.hz
       || arena.boxes.some(other => overlaps(core, other))
@@ -654,6 +704,7 @@ export class BattleRoyale {
     if (this.ghost) { for (const c of this.ghost.children) c.geometry.dispose(); this.ghost.removeFromParent(); }
     for (const f of this.battle.fighters) if (f.drop) { f.drop.chute.removeFromParent(); f.drop = null; }
     for (const mesh of [this.chestBodies,this.chestStraps]) { mesh.removeFromParent(); mesh.dispose(); }
+    for (const p of this.pops || []) { p.g.removeFromParent(); p.g.traverse(o => o.geometry?.dispose()); for (const m of p.mats) m.dispose(); }
     for (const piece of this.walls) this.disposePiece(piece);
     if (this.walls.length) this.arena.setBuilds([]);
     for (const resource of this.resources) resource.dispose();

@@ -1,61 +1,63 @@
-import { loadPackArt } from './render/pack-art.js?v=e347c75-mwe1k7e3';
-import { loadPackAnims } from './scene/weapon-anims.js?v=e347c75-mwe1k7e3';
-import { packMats } from './render/pack-materials.js?v=e347c75-mwe1k7e3';
-import { loadSkinSheets } from './render/skins2.js?v=e347c75-mwe1k7e3';
-import { connectAudioPack } from './audio/pack-bridge.js?v=e347c75-mwe1k7e3';
-import { initBombUtility, utilityFor } from './balance/bomb-utility.js?v=e347c75-mwe1k7e3';
-import { createAcoustics } from './audio/acoustics.js?v=e347c75-mwe1k7e3';
-import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=e347c75-mwe1k7e3';
-import { mountControls, mountFirstLaunch } from './ui/m7-menu.js?v=e347c75-mwe1k7e3';
+import { track as trackLoad } from './ui/busy.js?v=be25189-mwe3l5fi';
+import { loadPackArt } from './render/pack-art.js?v=be25189-mwe3l5fi';
+import { loadPackAnims } from './scene/weapon-anims.js?v=be25189-mwe3l5fi';
+import { packMats } from './render/pack-materials.js?v=be25189-mwe3l5fi';
+import { loadSkinSheets } from './render/skins2.js?v=be25189-mwe3l5fi';
+import { connectAudioPack } from './audio/pack-bridge.js?v=be25189-mwe3l5fi';
+import { initBombUtility, utilityFor } from './balance/bomb-utility.js?v=be25189-mwe3l5fi';
+import { createAcoustics } from './audio/acoustics.js?v=be25189-mwe3l5fi';
+import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=be25189-mwe3l5fi';
+import { mountControls, mountFirstLaunch } from './ui/m7-menu.js?v=be25189-mwe3l5fi';
 // Recoil Range entry point: wires input, camera, scene, HUD and the frame loop together.
-import * as THREE from '../vendor/three/three.module.min.js?v=e347c75-mwe1k7e3';
-import { Look, PITCH_LIMIT } from './core/look.js?v=e347c75-mwe1k7e3';
-import { Player } from './core/player.js?v=e347c75-mwe1k7e3';
-import { PointerLock } from './core/pointer-lock.js?v=e347c75-mwe1k7e3';
-import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=e347c75-mwe1k7e3';
-import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=e347c75-mwe1k7e3';
-import { Weapon } from './core/weapon.js?v=e347c75-mwe1k7e3';
-import { RecoilEngine } from './core/recoil.js?v=e347c75-mwe1k7e3';
-import { Spread } from './core/spread.js?v=e347c75-mwe1k7e3';
-import { loadGameData } from './core/guns.js?v=e347c75-mwe1k7e3';
-import { initLoadout, effectiveGun, sanitize, slotIn, baseOf, SLOTS as ATTACH_SLOTS, allowed as attachAllowed, measuredCode, describe as describeAttach, hint as attachHint } from './core/loadout.js?v=e347c75-mwe1k7e3';
-import { randomSeed } from './core/prng.js?v=e347c75-mwe1k7e3';
-import { Range, EYE_HEIGHT } from './scene/range.js?v=e347c75-mwe1k7e3';
-import { RING_STEP } from './scene/range-tex.js?v=e347c75-mwe1k7e3';
-import { Gamepad, padPanel } from './ui/gamepad.js?v=e347c75-mwe1k7e3';
-import { WeaponRig, setUltraTexSize, skinName, setSkinResolver, setHiResSkins } from './scene/viewmodel.js?v=e347c75-mwe1k7e3';
-import { LensPost } from './render/lens-post.js?v=e347c75-mwe1k7e3';
-import { reticleTextures } from './ui/reticle-tex.js?v=e347c75-mwe1k7e3';
-import { DOT_POINTS } from './scene/dots.js?v=e347c75-mwe1k7e3';
-import { Voices } from './audio/voice.js?v=e347c75-mwe1k7e3';
-import { ModeGame } from './modes/game.js?v=e347c75-mwe1k7e3';
-import { Sfx } from './audio/sfx.js?v=e347c75-mwe1k7e3';
-import { DebugHud } from './ui/debug-hud.js?v=e347c75-mwe1k7e3';
-import { drawCrosshair } from './ui/crosshair.js?v=e347c75-mwe1k7e3';
-import { Hud } from './ui/hud.js?v=e347c75-mwe1k7e3';
-import { MagPlot } from './ui/plot.js?v=e347c75-mwe1k7e3';
-import { SettingsUI } from './ui/settings-ui.js?v=e347c75-mwe1k7e3';
-import { sensKeys, zoomKey } from './core/optics.js?v=e347c75-mwe1k7e3';
+import * as THREE from '../vendor/three/three.module.min.js?v=be25189-mwe3l5fi';
+import { Look, PITCH_LIMIT } from './core/look.js?v=be25189-mwe3l5fi';
+import { Player } from './core/player.js?v=be25189-mwe3l5fi';
+import { PointerLock } from './core/pointer-lock.js?v=be25189-mwe3l5fi';
+import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=be25189-mwe3l5fi';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=be25189-mwe3l5fi';
+import { Weapon } from './core/weapon.js?v=be25189-mwe3l5fi';
+import { RecoilEngine } from './core/recoil.js?v=be25189-mwe3l5fi';
+import { Spread } from './core/spread.js?v=be25189-mwe3l5fi';
+import { loadGameData } from './core/guns.js?v=be25189-mwe3l5fi';
+import { initLoadout, effectiveGun, sanitize, slotIn, baseOf, SLOTS as ATTACH_SLOTS, allowed as attachAllowed, measuredCode, describe as describeAttach, hint as attachHint } from './core/loadout.js?v=be25189-mwe3l5fi';
+import { randomSeed } from './core/prng.js?v=be25189-mwe3l5fi';
+import { Range, EYE_HEIGHT } from './scene/range.js?v=be25189-mwe3l5fi';
+import { RING_STEP } from './scene/range-tex.js?v=be25189-mwe3l5fi';
+import { Gamepad, padPanel } from './ui/gamepad.js?v=be25189-mwe3l5fi';
+import { WeaponRig, setUltraTexSize, skinName, setSkinResolver, setHiResSkins } from './scene/viewmodel.js?v=be25189-mwe3l5fi';
+import { LensPost } from './render/lens-post.js?v=be25189-mwe3l5fi';
+import { reticleTextures } from './ui/reticle-tex.js?v=be25189-mwe3l5fi';
+import { DOT_POINTS } from './scene/dots.js?v=be25189-mwe3l5fi';
+import { Voices } from './audio/voice.js?v=be25189-mwe3l5fi';
+import { ModeGame } from './modes/game.js?v=be25189-mwe3l5fi';
+import { Sfx } from './audio/sfx.js?v=be25189-mwe3l5fi';
+import { playInspect } from './audio/inspect-sfx.js?v=be25189-mwe3l5fi';
+import { DebugHud } from './ui/debug-hud.js?v=be25189-mwe3l5fi';
+import { drawCrosshair } from './ui/crosshair.js?v=be25189-mwe3l5fi';
+import { Hud } from './ui/hud.js?v=be25189-mwe3l5fi';
+import { MagPlot } from './ui/plot.js?v=be25189-mwe3l5fi';
+import { SettingsUI } from './ui/settings-ui.js?v=be25189-mwe3l5fi';
+import { sensKeys, zoomKey } from './core/optics.js?v=be25189-mwe3l5fi';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
 function sensRows(catalogue, sens) {
   const keys = new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)]);
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
-import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=e347c75-mwe1k7e3';
-import { Battle } from './battle/battle.js?v=e347c75-mwe1k7e3';
-import { initCore, coreLoaded } from './wasm/core.js?v=e347c75-mwe1k7e3';
-import { createJoinRequest, acceptJoin } from './net/link.js?v=e347c75-mwe1k7e3';
-import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt } from './net/relay.js?v=e347c75-mwe1k7e3';
-import { Profile, WIN_POINTS } from './core/profile.js?v=e347c75-mwe1k7e3';
-import { skinFits, skinById } from './core/skins.js?v=e347c75-mwe1k7e3';
-import { PackUI } from './ui/packs.js?v=e347c75-mwe1k7e3';
-import { HDPack } from './render/hd-pack.js?v=e347c75-mwe1k7e3';
-import { effectiveGraphics, needsPack, maxMode } from './render/quality.js?v=e347c75-mwe1k7e3';
-import { GraphicsUI } from './ui/graphics-ui.js?v=e347c75-mwe1k7e3';
-import { PerfHud } from './ui/perf-hud.js?v=e347c75-mwe1k7e3';
-import { WorldPost } from './render/world-post.js?v=e347c75-mwe1k7e3';
-import { rankOf, rankedSummary, ratingOf, rankedChange, validRankedTicket, verifyRankedResult } from './core/ranked.js?v=e347c75-mwe1k7e3';
+import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=be25189-mwe3l5fi';
+import { Battle } from './battle/battle.js?v=be25189-mwe3l5fi';
+import { initCore, coreLoaded } from './wasm/core.js?v=be25189-mwe3l5fi';
+import { createJoinRequest, acceptJoin } from './net/link.js?v=be25189-mwe3l5fi';
+import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt } from './net/relay.js?v=be25189-mwe3l5fi';
+import { Profile, WIN_POINTS } from './core/profile.js?v=be25189-mwe3l5fi';
+import { skinFits, skinById } from './core/skins.js?v=be25189-mwe3l5fi';
+import { PackUI } from './ui/packs.js?v=be25189-mwe3l5fi';
+import { HDPack } from './render/hd-pack.js?v=be25189-mwe3l5fi';
+import { effectiveGraphics, needsPack, maxMode } from './render/quality.js?v=be25189-mwe3l5fi';
+import { GraphicsUI } from './ui/graphics-ui.js?v=be25189-mwe3l5fi';
+import { PerfHud } from './ui/perf-hud.js?v=be25189-mwe3l5fi';
+import { WorldPost } from './render/world-post.js?v=be25189-mwe3l5fi';
+import { rankOf, rankedSummary, ratingOf, rankedChange, validRankedTicket, verifyRankedResult } from './core/ranked.js?v=be25189-mwe3l5fi';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -75,10 +77,10 @@ if (embedded) {
   $('play-here').addEventListener('click', () => {
     $('embedded').hidden = true;
     $('menu').hidden = false;
-    loadAll().then(boot).catch(e => { $('data-errors').hidden = false; $('data-errors').textContent = e.message; });
+    trackLoad(loadAll(), 'Loading the game').then((d) => trackLoad(boot(d), 'Loading the game')).catch(e => { $('data-errors').hidden = false; $('data-errors').textContent = e.message; });
   }, { once: true });
 } else {
-  loadAll().then(boot).catch(e => { $('data-errors').hidden = false; $('data-errors').textContent = e.message; });
+  trackLoad(loadAll(), 'Loading the game').then((d) => trackLoad(boot(d), 'Loading the game')).catch(e => { $('data-errors').hidden = false; $('data-errors').textContent = e.message; });
 }
 
 async function boot(data) {
@@ -176,6 +178,7 @@ async function boot(data) {
   let testNoPost = false;
   const dots = range.dots;
   const sfx = new Sfx(acoustics);
+  rig.onInspect = (look, seconds) => playInspect(sfx, look, seconds);
   const audioPack = connectAudioPack(HDPack, sfx);
   sfx.spatialAudio = settings.spatialAudio;
   const voices = new Voices();
@@ -913,13 +916,13 @@ async function boot(data) {
   {
     const B = settings.battle;
     if (B.opponent === 'p2') B.opponent = 'bots';          // split screen was removed
-    bEl('b-bots').value = String(B.bots); bEl('b-level').value = B.level; bEl('b-kills').value = String(B.kills); bEl('b-map').value = B.map; bEl('b-time').value = B.night ? 'night' : 'day'; bEl('b-weather').value = B.weather; bEl('b-fog').value = B.fog ? 'on' : 'off'; bEl('b-voices').value = B.voices === false ? 'off' : 'on'; bEl('b-rank').value = B.ranked ? 'on' : 'off';
+    bEl('b-bots').value = String(B.bots); bEl('b-mates').value = String(B.mates || 0); bEl('b-level').value = B.level; bEl('b-kills').value = String(B.kills); bEl('b-map').value = B.map; bEl('b-time').value = B.night ? 'night' : 'day'; bEl('b-weather').value = B.weather; bEl('b-fog').value = B.fog ? 'on' : 'off'; bEl('b-voices').value = B.voices === false ? 'off' : 'on'; bEl('b-rank').value = B.ranked ? 'on' : 'off';
     const sync = () => {
-      Object.assign(settings.battle, { bots: Number(bEl('b-bots').value), level: bEl('b-level').value, kills: Number(bEl('b-kills').value), map: bEl('b-map').value, night: bEl('b-time').value === 'night', weather: bEl('b-weather').value, fog: bEl('b-fog').value === 'on', voices: bEl('b-voices').value === 'on', ranked: bEl('b-rank').value === 'on' });
+      Object.assign(settings.battle, { bots: Number(bEl('b-bots').value), mates: Number(bEl('b-mates').value), level: bEl('b-level').value, kills: Number(bEl('b-kills').value), map: bEl('b-map').value, night: bEl('b-time').value === 'night', weather: bEl('b-weather').value, fog: bEl('b-fog').value === 'on', voices: bEl('b-voices').value === 'on', ranked: bEl('b-rank').value === 'on' });
       saveSettings(settings);
       if (netInit) netUi();
     };
-    for (const id of ['b-bots', 'b-level', 'b-kills', 'b-map', 'b-time', 'b-weather', 'b-fog', 'b-voices', 'b-rank']) bEl(id).addEventListener('change', sync);
+    for (const id of ['b-bots', 'b-mates', 'b-level', 'b-kills', 'b-map', 'b-time', 'b-weather', 'b-fog', 'b-voices', 'b-rank']) bEl(id).addEventListener('change', sync);
     sync();
   }
   function battleDeps() {
@@ -940,7 +943,7 @@ async function boot(data) {
   function needCore(then) {
     if (coreLoaded()) return false;
     flashNotice('Loading the game engine...');
-    initCore().then(then, (err) => flashNotice('Could not load the game engine (' + (err && err.message || err) + '). Press Ctrl+F5 to load the latest version.', 9000));
+    trackLoad(initCore(), 'Loading the game engine').then(then, (err) => flashNotice('Could not load the game engine (' + (err && err.message || err) + '). Press Ctrl+F5 to load the latest version.', 9000));
     return true;
   }
   function startBattle() {
@@ -970,7 +973,7 @@ async function boot(data) {
     }
     weapon.releaseTrigger(); setAds(false); player.releaseKeys();
     try {
-      battle.start({ royale, ranked: !!B.ranked && !royale && B.opponent === 'bots' && B.bots > 0, opponent: B.opponent, bots: B.bots, level: B.level, killsToWin: B.kills, map: B.map, night: B.night, weather: B.weather, fog: B.fog, p1Gun: state.gun, p2Gun: data.guns[Math.min(B.p2Gun, data.guns.length - 1)],
+      battle.start({ royale, ranked: !!B.ranked && !royale && B.opponent === 'bots' && B.bots > 0 && !(B.mates > 0), opponent: B.opponent, bots: B.bots, mates: royale || B.opponent !== 'bots' ? 0 : B.mates, level: B.level, killsToWin: B.kills, map: B.map, night: B.night, weather: B.weather, fog: B.fog, p1Gun: state.gun, p2Gun: data.guns[Math.min(B.p2Gun, data.guns.length - 1)],
         hostName: 'Host', spectators: B.opponent === 'net' ? net.peers.filter(e => e.spectator).map(e => e.link) : [],
         remotes: B.opponent === 'net' ? net.peers.filter(e => !e.spectator).map((e) => ({ link: e.link, name: e.name, gunIndex: e.gunIndex, attach: e.attach, skin: e.skin })) : [] });
     } catch (err) {
@@ -1309,7 +1312,7 @@ async function boot(data) {
     if (battle && battle.active) leaveBattle();
     ensureModeGame();
     weapon.releaseTrigger(); setAds(false); player.releaseKeys();
-    try { await modeGame.startClient(m, net.link); }
+    try { await trackLoad(modeGame.startClient(m, net.link), 'Joining the match'); }
     catch (err) { console.error(err); flashNotice('Could not join the match (' + (err && err.message || err) + '). Press Ctrl+F5 to load the latest version.', 9000); return; }
     $('hud').hidden = true;
     flow.inGame = true;
@@ -1362,6 +1365,7 @@ async function boot(data) {
       $('b-kills-field').hidden = flow.mode === 'royale';
       $('b-map-field').hidden = flow.mode === 'royale';
       $('b-bots-field').hidden = flow.mode === 'royale';
+      $('b-mates-field').hidden = flow.mode !== 'bots';
       $('b-rank-field').hidden = flow.mode !== 'bots';
       $('royale-rules').hidden = flow.mode !== 'royale';
       $('modes-setup').hidden = !MATCH_MODES.includes(flow.mode);
@@ -1545,7 +1549,7 @@ async function boot(data) {
     modeGame.hud.again.hidden = false;
     weapon.releaseTrigger(); setAds(false); player.releaseKeys();
     try {
-      await modeGame.start({ mode: m, map: P.map[m], difficulty: P.difficulty, teamSize: P.teamSize, abilities: !!P.abilities[m], minutes: P.minutes, prepTime: P.prepTime, headshot: P.headshot, op: P.op[m], side: P.side, botRanked: !!P.ranked && !extra.net, botRating: profile.rating, attach: attachMap(), seed: testMode ? P.seed : undefined, ...extra });
+      await trackLoad(modeGame.start({ mode: m, map: P.map[m], difficulty: P.difficulty, teamSize: P.teamSize, abilities: !!P.abilities[m], minutes: P.minutes, prepTime: P.prepTime, headshot: P.headshot, op: P.op[m], side: P.side, botRanked: !!P.ranked && !extra.net, botRating: profile.rating, attach: attachMap(), seed: testMode ? P.seed : undefined, ...extra }), 'Loading the match');
     } catch (err) {
       console.error(err);
       flashNotice('Could not start the match (' + (err && err.message || err) + '). Press Ctrl+F5 to load the latest version.', 9000);
@@ -1712,6 +1716,27 @@ async function boot(data) {
   const weaponSearch = $('weapon-search');
   weaponSearch.addEventListener('input', () => { for (const card of slotButtons) card.hidden = !card.textContent.toLowerCase().includes(weaponSearch.value.toLowerCase()); });
   showPage('mode');
+  // The start menu: the game's title over a slideshow of the Legendaries; Play (or Enter) opens the menu.
+  const TITLE_ART = [['storm-kiln', 'Storm Kiln'], ['forgeheart', 'Forgeheart'], ['midnight-orrery', 'Midnight Orrery'], ['jade-coil', 'Jade Coil'], ['velvet-ante', 'Velvet Ante'], ['opal-overture', 'Opal Overture']];
+  let titleTimer = 0, titleI = 0;
+  function titleSlide() {
+    const imgs = $('title').querySelectorAll('.t-art'), [file, name] = TITLE_ART[titleI++ % TITLE_ART.length], img = imgs[titleI % 2];
+    img.onload = () => { for (const x of imgs) x.classList.toggle('on', x === img); $('t-feature').textContent = name; };
+    img.src = 'data/title/' + file + '.webp';
+  }
+  function showTitle() {
+    $('t-points').textContent = profile.points; $('t-rating').textContent = profile.rating; $('t-skins').textContent = profile.ownedCount;
+    $('title').hidden = false; titleSlide(); clearInterval(titleTimer); titleTimer = setInterval(titleSlide, 6000);
+    $('title').querySelector('.t-play').focus();
+  }
+  function hideTitle(go) {
+    $('title').hidden = true; clearInterval(titleTimer);
+    if (go && flow.page !== 'quick') $(go).click();
+  }
+  for (const b of $('title').querySelectorAll('[data-go]')) b.addEventListener('click', () => hideTitle(b.dataset.go));
+  addEventListener('keydown', (e) => { if (!$('title').hidden && e.key === 'Enter' && !(e.target.closest?.('#title button') && e.target.dataset.go !== 'go-play')) { e.preventDefault(); hideTitle('go-play'); } });
+  $('pause-quit').addEventListener('click', () => { if (!testMode) showTitle(); });
+  if ((!testMode || params.has('title')) && !flow.wizard) showTitle();      // (the first launch goes straight to its setup)
 
   /* ---------- frame loop ---------- */
   // In ?test mode the clock is driven by the test script (window.__range.step), so firing and
@@ -1952,7 +1977,7 @@ async function boot(data) {
   // Pack models into memory (only when High / Ultra is on), then rebuild what shows them.
   async function loadHD() {
     if (!HDPack.ready) return;
-    await Promise.all([HDPack.loadGuns(), loadPackArt(), loadPackAnims(), loadSkinSheets()]);
+    await trackLoad(Promise.all([HDPack.loadGuns(), loadPackArt(), loadPackAnims(), loadSkinSheets()]), 'Loading the graphics pack');
     hdLoaded = true;
     graphicsChanged();
     if (cur() && cur().active) cur().refreshGraphics();

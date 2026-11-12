@@ -9,14 +9,14 @@
 //   p        [scale (whole number), warp, threshold shift, spare]
 //   rm       [roughness, metalness] of the base, then of the accent
 //   clearcoat, wear (bare metal at the edges), glow ([r, g, b] light from the accent lines)
-import { mulberry32 } from './prng.js?v=e347c75-mwe1k7e3';
+import { mulberry32 } from './prng.js?v=be25189-mwe3l5fi';
 
 export const RARITIES = [
-  { key: 'common', name: 'Common', color: '#b4bcc6', odds: 0.689, refund: 20 },
+  { key: 'common', name: 'Common', color: '#b4bcc6', odds: 0.65, refund: 20 },
   { key: 'rare', name: 'Rare', color: '#4da3ff', odds: 0.22, refund: 40 },
   { key: 'epic', name: 'Epic', color: '#c26bff', odds: 0.07, refund: 80 },
-  { key: 'blackice', name: 'Black Ice', color: '#7ff3ff', odds: 0.01, refund: 200 },
-  { key: 'legendary', name: 'Legendary', color: '#ffc23a', odds: 0.011, refund: 400 },      // (a little above Black Ice, shared by ten skins)
+  { key: 'blackice', name: 'Black Ice', color: '#7ff3ff', odds: 0.05, refund: 200 },
+  { key: 'legendary', name: 'Legendary', color: '#ffc23a', odds: 0.01, refund: 400 },       // (shared by ten skins)
 ];
 // The Legendary skin (your photo, any gun; see legend.js) and the gold finish other players
 // see on a gun wearing it.

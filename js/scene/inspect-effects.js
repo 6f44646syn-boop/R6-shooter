@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=e347c75-mwe1k7e3';
-import { mulberry32 } from '../core/prng.js?v=e347c75-mwe1k7e3';
-import { mergeStatic } from './sight-model.js?v=e347c75-mwe1k7e3';
+import * as THREE from '../../vendor/three/three.module.min.js?v=be25189-mwe3l5fi';
+import { mulberry32 } from '../core/prng.js?v=be25189-mwe3l5fi';
+import { mergeStatic } from './sight-model.js?v=be25189-mwe3l5fi';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -1684,6 +1684,12 @@ export function jadeInspect(gun, { surface }, quality) {
   }
   const jaw = jawPivot;
   head.visible = false; gun.add(head);
+  // the dragon's pearl: a flaming pearl it chases just out of reach of its jaws
+  const pearl = new THREE.Group();
+  const pearlCore = new THREE.Mesh(new THREE.SphereGeometry(0.0085, 24, 16), new THREE.MeshPhysicalMaterial({ color: 0xfff6e0, emissive: 0xffe0a0, emissiveIntensity: 0.9, roughness: 0.08, clearcoat: 1, iridescence: 1, iridescenceIOR: 1.5 }));
+  const pearlGlow = flare(new THREE.Color(0xffd070)); pearlGlow.scale.setScalar(0.07);
+  const pearlFlame = flare(new THREE.Color(0xff8a20)); pearlFlame.scale.set(0.035, 0.06, 1);
+  pearl.add(pearlGlow, pearlFlame, pearlCore); pearl.visible = false; gun.add(pearl);
   // glowing gold: glints and rising motes off the dragon's painted path, both sides
   const trail = emitterTrail(gun), tier = particleTier[quality] ?? 1;
   const goldFrom = [];
@@ -1768,6 +1774,14 @@ export function jadeInspect(gun, { surface }, quality) {
       mtx.makeBasis(R0.copy(h.b).negate(), h.n, h.t); head.quaternion.setFromRotationMatrix(mtx); head.position.copy(h.c).addScaledVector(h.t, 0.006);   // (x = n × t: a true rotation)
       head.scale.setScalar(h.r / (rMax * 0.75));
       jaw.rotation.x = 0.1 + 0.3 * h.w * (0.5 + 0.5 * Math.sin(t * 6));
+      // the pearl hangs just ahead of the head, bobbing, pulsing and turning
+      pearl.visible = h.w > 0.2;
+      if (pearl.visible) {
+        pearl.position.copy(h.c).addScaledVector(h.t, 0.045 + 0.008 * Math.sin(t * 2.3)).addScaledVector(h.n, 0.012 + 0.006 * Math.sin(t * 3.1));
+        pearl.scale.setScalar(Math.min(1, (h.w - 0.2) * 3));
+        pearlCore.rotation.y = t * 2; pearlGlow.material.opacity = 0.7 + 0.3 * Math.sin(t * 8);
+        pearlFlame.position.y = 0.012 + 0.003 * Math.sin(t * 13); pearlFlame.material.rotation = Math.sin(t * 5) * 0.3;
+      }
       for (let k = 0; k < nSpikes; k++) {
         const s = spine[2 + k * 3];
         q.setFromUnitVectors(up, R0.copy(s.n).addScaledVector(s.t, -0.6).normalize());
@@ -1777,7 +1791,7 @@ export function jadeInspect(gun, { surface }, quality) {
       }
       spikes.instanceMatrix.needsUpdate = true;
     },
-    dispose() { probe.geometry.dispose(); probe.material.dispose(); geo.dispose(); jade.dispose(); bronze.dispose(); eyeMat.dispose(); spikes.geometry.dispose(); head.traverse(o => o.geometry?.dispose()); for (const m of gold) { m.geometry.dispose(); m.material.dispose(); } },
+    dispose() { pearlCore.geometry.dispose(); pearlCore.material.dispose(); pearlGlow.material.dispose(); pearlFlame.material.dispose(); probe.geometry.dispose(); probe.material.dispose(); geo.dispose(); jade.dispose(); bronze.dispose(); eyeMat.dispose(); spikes.geometry.dispose(); head.traverse(o => o.geometry?.dispose()); for (const m of gold) { m.geometry.dispose(); m.material.dispose(); } },
   };
 }
 
@@ -1988,7 +2002,7 @@ export function opalInspect(gun, { surface }, quality) {
   // swapped in for the inspect); faces stretched across the split are the dark throat. The same twist
   // folds the support hand and forearm away for this inspect (hand materials, ahead of the grip or out
   // on the left; the firing hand on the grip stays).
-  const JAW_Y = 0.016, JAW_HINGE = -0.03;    // (split low, through the barrel line; the lower jaw opens, hinged ahead of the grip so the grip and hand stay whole)                              // the hinge ahead of the eye; only the top jaw moves (the grip stays whole)
+  const JAW_Y = 0.016, JAW_HINGE = -0.082;    // split along the barrel line; hinged at the front of the trigger guard, so only the front of the gun opens (the trigger, grip and hand stay whole)
   const jawU = { uJawAngle: { value: 0 }, uJawY: { value: JAW_Y }, uJawHinge: { value: JAW_HINGE }, uHideSup: { value: 0 } };
   const wrapped = new Map(), swapped = [];
   const wrap = (mat) => {
@@ -2001,7 +2015,7 @@ export function opalInspect(gun, { surface }, quality) {
         Object.assign(sh.uniforms, jawU);
         sh.vertexShader = 'uniform float uJawAngle, uJawY, uJawHinge, uHideSup;\nattribute float jawSide;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
           {
-            float ja = uJawAngle * min(jawSide, 0.0) * smoothstep(uJawHinge, uJawHinge - 0.05, position.z);
+            float ja = uJawAngle * min(jawSide, 0.0) * smoothstep(uJawHinge, uJawHinge - 0.02, position.z);
             vec2 jd = vec2(transformed.y - uJawY, transformed.z - uJawHinge);
             transformed.y = uJawY + jd.x * cos(ja) - jd.y * sin(ja);
             transformed.z = uJawHinge + jd.x * sin(ja) + jd.y * cos(ja);
@@ -2058,18 +2072,46 @@ export function opalInspect(gun, { surface }, quality) {
   const mouthFrom = [];
   for (let j = 0; j < 12; j++) for (const side of [-1, 1]) mouthFrom.push({ point: new THREE.Vector3(side * 0.01, JAW_Y + 0.002, tz0 + (tz1 - tz0) * j / 11), normal: new THREE.Vector3(side * 0.6, 0.5, -0.8).normalize() });
   const prisms = [0xff7ab0, 0x7affe0, 0xb08aff, 0xffe08a].map((c, k) => { const m = particles('prism', tier, mouthFrom, new THREE.Color(c).multiplyScalar(3), trail, mulberry32(210101 + k * 9)); m.material.blending = THREE.AdditiveBlending; m.visible = false; gun.add(m); return m; });
-  // the fly: buzzing in from the side, past the jaw's front, and snapped up by the bite
-  const flyBody = new THREE.MeshStandardMaterial({ color: 0x1e1a14, roughness: 0.4, metalness: 0.3 });
-  const flyWing = new THREE.MeshPhysicalMaterial({ color: 0xe0e8f0, transparent: true, opacity: 0.45, roughness: 0.1, iridescence: 1, side: THREE.DoubleSide, depthWrite: false });
-  const fly = new THREE.Group(), flyWings = [];
-  { const b = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), flyBody); b.scale.set(0.0035, 0.003, 0.006); fly.add(b);
-    const hd = new THREE.Mesh(new THREE.SphereGeometry(0.0025, 8, 6), new THREE.MeshStandardMaterial({ color: 0x7a1010, roughness: 0.3 })); hd.position.z = 0.006; fly.add(hd);
-    for (const k of [-1, 1]) { const piv = new THREE.Group(); piv.position.set(k * 0.002, 0.002, 0); const w = new THREE.Mesh(new THREE.CircleGeometry(1, 10), flyWing); w.scale.set(0.007, 0.003, 1); w.position.x = k * 0.006; w.rotation.x = -Math.PI / 2; piv.add(w); fly.add(piv); flyWings.push({ piv, k }); } }
+  // the fly: a proper housefly (red eyes, striped abdomen, veined wings, legs) that buzzes in loops in
+  // front of the jaw on your side, then darts in and is snapped up by the bite
+  const flyBody = new THREE.MeshStandardMaterial({ color: 0x24201a, roughness: 0.5, metalness: 0.25 });
+  const flyWing = new THREE.MeshPhysicalMaterial({ color: 0xdfe6ee, transparent: true, opacity: 0.38, roughness: 0.1, iridescence: 1, side: THREE.DoubleSide, depthWrite: false });
+  const flyEye = new THREE.MeshStandardMaterial({ color: 0x8a1408, roughness: 0.25, metalness: 0.3 });
+  const fly = new THREE.Group(), flyWings = [], flyGeos = [];
+  const ball = (sx, sy, sz, x, y, z, mat) => { const g = new THREE.SphereGeometry(1, 12, 8); flyGeos.push(g); const m = new THREE.Mesh(g, mat); m.scale.set(sx, sy, sz); m.position.set(x, y, z); fly.add(m); return m; };
+  ball(0.0026, 0.0024, 0.003, 0, 0, 0.0005, flyBody);                       // thorax
+  ball(0.0024, 0.0021, 0.0042, 0, -0.0004, -0.0055, flyBody);               // abdomen
+  ball(0.0021, 0.0019, 0.0017, 0, 0.0003, 0.0042, flyBody);                 // head
+  for (const k of [-1, 1]) {
+    ball(0.0014, 0.0016, 0.0013, k * 0.0015, 0.0006, 0.0047, flyEye);     // big red eyes
+    for (let j = 0; j < 3; j++) {                                          // legs
+      const lg = new THREE.CylinderGeometry(0.00018, 0.00012, 0.0055, 4); flyGeos.push(lg);
+      const leg = new THREE.Mesh(lg, flyBody); leg.position.set(k * 0.0028, -0.002, 0.002 - j * 0.0022); leg.rotation.set(0.2 * (j - 1), 0, k * 0.9); fly.add(leg);
+    }
+    const shape = new THREE.Shape(); shape.moveTo(0, 0); shape.bezierCurveTo(0.002, 0.0026, 0.0085, 0.0022, 0.0095, 0); shape.bezierCurveTo(0.0075, -0.0016, 0.0025, -0.0012, 0, 0);
+    const wg = new THREE.ShapeGeometry(shape); flyGeos.push(wg);
+    const piv = new THREE.Group(); piv.position.set(k * 0.0012, 0.0022, 0.0005);
+    const w = new THREE.Mesh(wg, flyWing); w.rotation.set(-Math.PI / 2, 0, k > 0 ? -2.6 : -0.54); w.scale.x = k;
+    piv.add(w); fly.add(piv); flyWings.push({ piv, k });
+  }
   fly.visible = false; gun.add(fly);
   const flyCam = new THREE.Vector3(1, 0, 0), flyProbe = new THREE.Mesh(new THREE.PlaneGeometry(0.0001, 0.0001), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
   flyProbe.frustumCulled = false; gun.add(flyProbe);
   flyProbe.onBeforeRender = (r, sc, camera) => { flyCam.setFromMatrixPosition(camera.matrixWorld); gun.worldToLocal(flyCam); };
-  const fb0 = new THREE.Vector3(), fb1 = new THREE.Vector3(), fb2 = new THREE.Vector3(), fb3 = new THREE.Vector3(), fq = new THREE.Vector3(), FZ = new THREE.Vector3(0, 0, 1);
+  const fq = new THREE.Vector3(), fx = new THREE.Vector3(), fyv = new THREE.Vector3(), fm = new THREE.Matrix4(), UPV = new THREE.Vector3(0, 1, 0);
+  const FLY0 = 0.42, DART = 0.55, SNAP = 0.6;
+  // where the fly is at inspect time p: lazy figure-eights in front of the jaw, jittering like a fly, then a dart in
+  const flyPos = (p, side, out) => {
+    const mouth = fq.set(side * 0.004, JAW_Y - 0.008, tz0 + 0.03).clone(), tt = p * OPAL_SECONDS;
+    const cx = side * 0.085, cy = JAW_Y + 0.05, cz = tz0 + 0.0;
+    const a = tt * 2.6;
+    out.set(cx + side * 0.03 * Math.sin(a * 0.5), cy + 0.022 * Math.sin(a), cz + 0.05 * Math.sin(a * 0.5 + 1.2) * Math.cos(a * 0.5))
+      .add(fx.set(Math.sin(tt * 17) * 0.004 + Math.sin(tt * 29) * 0.002, Math.sin(tt * 23) * 0.003, Math.cos(tt * 19) * 0.004));
+    const comeIn = smooth(p, FLY0, FLY0 + 0.04);                            // arriving from out of shot
+    out.x += side * 0.25 * (1 - comeIn); out.y += 0.08 * (1 - comeIn);
+    const dart = smooth(p, DART, SNAP);
+    return out.lerp(mouth, dart * dart);
+  };
   const rainbow = [0xff6a8a, 0x6affd8, 0xa070ff, 0xffd06a].map((c, i) => {
     const m = particles('glint', tier, surface.length ? surface : [{ point: at.clone(), normal: new THREE.Vector3(1, 0, 0) }], new THREE.Color(c).multiplyScalar(2.5), trail, mulberry32(210011 + i * 7));
     m.material.blending = THREE.AdditiveBlending; m.visible = false; gun.add(m); return m;
@@ -2107,7 +2149,7 @@ export function opalInspect(gun, { surface }, quality) {
       // the jaw opens after the eye, chomps twice, opens wide, and shuts with the eye at the end
       const bite = active ? Math.sin(smooth(p, 0.56, 0.64) * Math.PI) : 0;      // one deliberate bite
       const gape = active ? smooth(p, 0.32, 0.5) * (1 - smooth(p, 0.8, 0.9)) * (1 - 0.9 * bite) : 0;
-      const A = 0.34 * gape;
+      const A = 0.2 * gape;                                                // (a modest gape: the jaw stays a jaw)
       jawU.uJawAngle.value = A;
       throat.visible = A > 0.01;
       if (throat.visible) {
@@ -2119,7 +2161,7 @@ export function opalInspect(gun, { surface }, quality) {
         const { x, z, k, h, r } = t.userData;
         t.visible = A > 0.01;
         if (!t.visible) continue;
-        const a = k < 0 ? -A * (1 - smooth(z, JAW_HINGE - 0.05, JAW_HINGE)) : 0;   // the lower jaw's teeth ride it
+        const a = k < 0 ? -A * (1 - smooth(z, JAW_HINGE - 0.02, JAW_HINGE)) : 0;   // the lower jaw's teeth ride it
         jawRot(JAW_Y - k * h * 0.45, z, a, tq); t.position.set(x, tq.y, tq.z);
         t.rotation.set(a + (k > 0 ? Math.PI : 0), 0, 0);                       // upper teeth point down, lower up
         t.scale.set(r, h, r);
@@ -2127,18 +2169,15 @@ export function opalInspect(gun, { surface }, quality) {
       for (const m of rainbow) m.visible = active && p > 0.25;
       for (const m of prisms) m.visible = active;
       // the fly: on your side, from out wide and above, in a buzzing curve to the jaw's front; gone at the bite
-      const FLY0 = 0.42, SNAP = 0.6;
       fly.visible = active && p > FLY0 && p < SNAP;
       if (fly.visible) {
-        const side = Math.sign(flyCam.x) || 1, tt = p * OPAL_SECONDS, mouthZ = tz0 + 0.035;
-        fb0.set(side * 0.3, JAW_Y + 0.12, mouthZ - 0.25); fb1.set(side * 0.22, JAW_Y + 0.02, mouthZ - 0.02);
-        fb2.set(side * 0.1, JAW_Y + 0.08, mouthZ + 0.12); fb3.set(side * 0.004, JAW_Y + 0.012, mouthZ);
-        const u = smooth(p, FLY0, SNAP - 0.005), v = 1 - u;
-        const bez = (w, out) => { const z = 1 - w; return out.copy(fb0).multiplyScalar(z * z * z).addScaledVector(fb1, 3 * z * z * w).addScaledVector(fb2, 3 * z * w * w).addScaledVector(fb3, w * w * w); };
-        bez(u, fly.position); fly.position.add(fq.set(Math.sin(tt * 23) * 0.006, Math.sin(tt * 31) * 0.005, Math.cos(tt * 19) * 0.006).multiplyScalar(v));
-        bez(Math.min(1, u + 0.03), fq); fly.quaternion.setFromUnitVectors(FZ, fq.sub(fly.position).normalize());
-        fly.scale.setScalar(3);
-        for (const w of flyWings) w.piv.rotation.z = w.k * (0.3 + 0.9 * Math.sin(tt * 150));
+        const side = Math.sign(flyCam.x) || 1, tt = p * OPAL_SECONDS;
+        flyPos(p, side, fly.position); flyPos(p + 0.004, side, fyv);
+        const fwd = fyv.sub(fly.position).normalize(), right = fx.crossVectors(UPV, fwd).normalize(), up = fq.crossVectors(fwd, right);
+        fm.makeBasis(right, up, fwd); fly.quaternion.setFromRotationMatrix(fm);
+        fly.rotateZ(Math.sin(tt * 3) * 0.35);                               // banking through the loops
+        fly.scale.setScalar(2.4);
+        for (const w of flyWings) w.piv.rotation.z = w.k * (0.15 + 0.75 * Math.sin(tt * 160));
       }
       trail.update(active ? t : -1);
     },
@@ -2146,7 +2185,7 @@ export function opalInspect(gun, { surface }, quality) {
       for (const [o, m, g] of swapped) { o.geometry.dispose(); o.material = m; o.geometry = g; } for (const m of wrapped.values()) m.dispose(); toothMat.dispose(); toothGeo.dispose(); gumGeo.dispose(); gumMat.dispose();
       eyeGeo.dispose(); upperGeo.dispose(); lowerGeo.dispose(); eyeMat.dispose(); lidMat.dispose(); probe.geometry.dispose(); probe.material.dispose();
       for (const m of [...rainbow, ...prisms]) { m.geometry.dispose(); m.material.dispose(); }
-      fly.traverse(o => { o.geometry?.dispose(); if (o.material && o.material !== flyBody && o.material !== flyWing) o.material.dispose(); }); flyBody.dispose(); flyWing.dispose(); flyProbe.geometry.dispose(); flyProbe.material.dispose();
+      for (const g of flyGeos) g.dispose(); flyBody.dispose(); flyWing.dispose(); flyEye.dispose(); flyProbe.geometry.dispose(); flyProbe.material.dispose();
     },
   };
 }

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recoil Range</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="css/style.css?v=e347c75-mwe1k7e3">
+<link rel="stylesheet" href="css/style.css?v=be25189-mwe3l5fi">
 </head>
 <body>
 <div id="app">
@@ -44,6 +44,29 @@
     <div id="gallery-grid"></div>
   </div>
 
+  <div id="title" hidden>
+    <div class="t-bg" aria-hidden="true"><img class="t-art" alt=""><img class="t-art" alt=""></div>
+    <div class="t-shade" aria-hidden="true"></div>
+    <main class="t-main">
+      <p class="t-kicker">Tactical shooting range</p>
+      <h1 class="t-name">Recoil<br><span>Range</span></h1>
+      <p class="t-lead">Learn every spray, then take it into battles, matches and Battle Royale.</p>
+      <div class="t-stats" role="list">
+        <div role="listitem"><b id="t-points">0</b><span>points</span></div>
+        <div role="listitem"><b id="t-rating">1000</b><span>rating</span></div>
+        <div role="listitem"><b id="t-skins">0</b><span>skins</span></div>
+      </div>
+      <nav class="t-nav" aria-label="Start menu">
+        <button type="button" class="primary t-play" data-go="go-play">Play</button>
+        <button type="button" data-go="go-packs">Skins</button>
+        <button type="button" data-go="go-shop">Packs</button>
+        <button type="button" data-go="go-settings">Settings</button>
+        <button type="button" data-go="go-controls">Controls</button>
+      </nav>
+      <p class="t-hint">Press Enter to play</p>
+    </main>
+    <p class="t-feature" aria-live="polite"><span>Featured Legendary</span> <b id="t-feature">Storm Kiln</b></p>
+  </div>
   <div id="menu">
     <div id="menu-panel">
       <header class="menu-head">
@@ -105,6 +128,8 @@
               <select id="b-voices"><option value="on">On (bots read their radio out loud)</option><option value="off">Off (text only)</option></select></label>
             <label id="b-bots-field" class="field" for="b-bots"><span>Bots</span>
               <select id="b-bots"><option>0</option><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option></select></label>
+            <label id="b-mates-field" class="field" for="b-mates"><span>Bot teammates</span>
+              <select id="b-mates"><option selected>0</option><option>1</option><option>2</option><option>3</option></select></label>
             <label class="field" for="b-level"><span>Bot level</span>
               <select id="b-level"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option><option value="terminator">Terminator (much harder)</option></select></label>
             <label id="b-rank-field" class="field" for="b-rank"><span>Ranked</span>
@@ -324,6 +349,6 @@
     </div>
   </div>
 </div>
-<script type="module" src="js/main.js?v=e347c75-mwe1k7e3"></script>
+<script type="module" src="js/main.js?v=be25189-mwe3l5fi"></script>
 </body>
 </html>

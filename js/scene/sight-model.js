@@ -7,9 +7,9 @@
 // screen as the numbers in optics.json say.
 //
 // Local frame of a sight: origin at the centre of its rear opening, -z forward, y up.
-import * as THREE from '../../vendor/three/three.module.min.js?v=e347c75-mwe1k7e3';
-import { matcap } from './matcap.js?v=e347c75-mwe1k7e3';
-import { gunMaps } from './range-tex.js?v=e347c75-mwe1k7e3';
+import * as THREE from '../../vendor/three/three.module.min.js?v=be25189-mwe3l5fi';
+import { matcap } from './matcap.js?v=be25189-mwe3l5fi';
+import { gunMaps } from './range-tex.js?v=be25189-mwe3l5fi';
 
 export const VM_FOV = 50;      // vertical FOV of the weapon camera, degrees
 export const EYE_Z = 0.14;     // eye to rear of the sight, metres

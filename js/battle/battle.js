@@ -1,27 +1,28 @@
-import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=e347c75-mwe1k7e3';
-import { MatchFinale } from '../replay/finale.js?v=e347c75-mwe1k7e3';
-import { GrenadeReplay } from '../replay/grenade.js?v=e347c75-mwe1k7e3';
-import { replayCamera } from '../replay/view.js?v=e347c75-mwe1k7e3';
+import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=be25189-mwe3l5fi';
+import { MatchFinale } from '../replay/finale.js?v=be25189-mwe3l5fi';
+import { GrenadeReplay } from '../replay/grenade.js?v=be25189-mwe3l5fi';
+import { replayCamera } from '../replay/view.js?v=be25189-mwe3l5fi';
 // Battle mode: you against bots (Easy / Medium / Hard), or two local players in split
 // screen (optionally with bots as a third side). First side to the kill target wins.
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=e347c75-mwe1k7e3';
-import { Arena } from './arena.js?v=e347c75-mwe1k7e3';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=e347c75-mwe1k7e3';
-import { Bot, LEVELS } from './bot.js?v=e347c75-mwe1k7e3';
-import { Human } from './human.js?v=e347c75-mwe1k7e3';
-import { BattleNades } from './nades.js?v=e347c75-mwe1k7e3';
-import { drawCrosshair } from '../ui/crosshair.js?v=e347c75-mwe1k7e3';
-import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=e347c75-mwe1k7e3';
-import { effectiveGraphics } from '../render/quality.js?v=e347c75-mwe1k7e3';
-import { effectiveGun, slotIn } from '../core/loadout.js?v=e347c75-mwe1k7e3';
-import { BattleRoyale } from './royale.js?v=e347c75-mwe1k7e3';
-import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=e347c75-mwe1k7e3';
-import { Footprints } from '../scene/footprints.js?v=e347c75-mwe1k7e3';
-import { Minimap } from '../ui/minimap.js?v=e347c75-mwe1k7e3';
-import { botRankedChange } from '../core/ranked.js?v=e347c75-mwe1k7e3';
+import * as THREE from '../../vendor/three/three.module.min.js?v=be25189-mwe3l5fi';
+import { Arena } from './arena.js?v=be25189-mwe3l5fi';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=be25189-mwe3l5fi';
+import { Banter } from './banter.js?v=be25189-mwe3l5fi';
+import { Bot, LEVELS } from './bot.js?v=be25189-mwe3l5fi';
+import { Human } from './human.js?v=be25189-mwe3l5fi';
+import { BattleNades } from './nades.js?v=be25189-mwe3l5fi';
+import { drawCrosshair } from '../ui/crosshair.js?v=be25189-mwe3l5fi';
+import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=be25189-mwe3l5fi';
+import { effectiveGraphics } from '../render/quality.js?v=be25189-mwe3l5fi';
+import { effectiveGun, slotIn } from '../core/loadout.js?v=be25189-mwe3l5fi';
+import { BattleRoyale } from './royale.js?v=be25189-mwe3l5fi';
+import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=be25189-mwe3l5fi';
+import { Footprints } from '../scene/footprints.js?v=be25189-mwe3l5fi';
+import { Minimap } from '../ui/minimap.js?v=be25189-mwe3l5fi';
+import { botRankedChange } from '../core/ranked.js?v=be25189-mwe3l5fi';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, p7: 0xff7048, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -45,6 +46,7 @@ class Proxy {
   constructor(f) { this.f = f; this.buf = []; }
 }
 const BOT_NAMES = ['Rook', 'Vex', 'Mako', 'Quill', 'Brisk', 'Tarn'];
+const MATE_NAMES = ['Biscuit', 'Moose', 'Pickles'];   // bot teammates on your side (Battle vs bots)
 const RESPAWN_S = 3, PROTECT_S = 3, REGEN_DELAY = 5, REGEN_PER_S = 15;
 const MAX_TRACERS = 48;
 const DEG2RAD = Math.PI / 180;
@@ -156,7 +158,7 @@ export class Battle {
     this.nadesB.reset();
     for (const f of this.fighters) f.group.removeFromParent();
     // 2 to 4 fighters (1v1, 1v2, 2v2) play the small Winter Cabin and School Basement
-    const total = (opts.opponent === 'p2' ? 2 : 1) + (opts.remotes?.length || 0) + (opts.royale ? 99 : Math.max(0, Math.min(6, opts.bots | 0)));
+    const total = (opts.opponent === 'p2' ? 2 : 1) + (opts.remotes?.length || 0) + (opts.royale ? 99 : Math.max(0, Math.min(6, opts.bots | 0)) + (opts.opponent === 'bots' ? Math.max(0, Math.min(3, opts.mates | 0)) : 0));
     this._useArena(opts.map || 'yard', total <= 4);
     this.atmo = { night: !!opts.night, weather: opts.weather || 'auto', fog: !!opts.fog };
     this.remotes = []; this.proxies = [];
@@ -169,6 +171,7 @@ export class Battle {
     this.feed = [];
     this.matchPoints = 0;
     this.noises = []; this.intelQ = []; this.comms = []; this._renderComms();
+    this.banter = this.banter || new Banter(); this._banterAt = 0;
     const two = opts.opponent === 'p2';
     const mk = (i, name, team, gun, controls) => {
       const f = new Fighter({ name, team, color: TEAM_COLOR[team], human: true });
@@ -199,6 +202,16 @@ export class Battle {
       const gun = opts.royale ? null : d.guns[(i * 3 + 1) % d.guns.length];
       const b = new Bot(f, opts.level, gun, 1000 + i * 7919 + Math.floor(Math.random() * 1e6));
       if (gun) this._look(f, gun, botSkin(slotIn(d.guns, gun)));
+      this.bots.push(b); this.fighters.push(f);
+    }
+    // bot teammates on your side
+    const mates = opts.royale || opts.opponent !== 'bots' ? 0 : Math.max(0, Math.min(3, opts.mates | 0));
+    for (let i = 0; i < mates; i++) {
+      const f = new Fighter({ name: MATE_NAMES[i] + ' (' + LEVELS[opts.level].name + ')', team: 'p1', color: TEAM_COLOR.p1 });
+      const gun = d.guns[(i * 4 + 2) % d.guns.length];
+      const b = new Bot(f, opts.level, gun, 5000 + i * 6271 + Math.floor(Math.random() * 1e6));
+      b.mate = true;
+      this._look(f, gun, botSkin(slotIn(d.guns, gun)));
       this.bots.push(b); this.fighters.push(f);
     }
     this.fighters.forEach((f, i) => { f.id = i + 1; this.arena.scene.add(f.group); });
@@ -335,6 +348,7 @@ export class Battle {
         b.update(t, dt, this);
         if (!this.over && b.gun) this.nadesB.botThink(b, t);
       }
+      this._chatter(t);
       while (this.intelQ.length && this.intelQ[0].at <= t) { const q = this.intelQ.shift(); for (const b of this.bots) if (b.f.team === q.team) b.onCallout(q.intel, t, this); }
       for (const f of this.fighters) {
         if (!this.royale && !f.alive && t >= f.respawnAt) this._spawn(f, t);
@@ -496,7 +510,13 @@ export class Battle {
     by.kills++;
     this.teamScore[by.team] = (this.teamScore[by.team] || 0) + 1;
     const kb = this.bots.find((b) => b.f === by);
-    if (kb) kb.say(this, t, ['Enemy down!', 'Got one!', 'Target down.', 'One less.'][Math.floor(Math.random() * 4)], true);
+    if (kb && kb.mate) kb.say(this, t, this.banter.line('kill'), true);
+    else if (kb) kb.say(this, t, ['Enemy down!', 'Got one!', 'Target down.', 'One less.'][Math.floor(Math.random() * 4)], true);
+    // your bot teammates: a cheer for your kills, a groan when one of them goes down
+    const myMates = this.bots.filter((b) => b.mate && b.f.alive && b.f !== g);
+    if (myMates.length && this.humans[0] && by === this.humans[0].f && Math.random() < 0.55) myMates[Math.floor(Math.random() * myMates.length)].say(this, t, this.banter.line('niceShot'), true);
+    const deadMate = this.bots.find((b) => b.f === g && b.mate);
+    if (deadMate && Math.random() < 0.8) deadMate.say(this, t, this.banter.line('mateDown'), true);
     const mates = this.bots.filter((b) => b.f !== g && b.f.team === g.team && b.f.alive);
     if (this.bots.some((b) => b.f === g) && mates.length && Math.random() < 0.6) mates[0].say(this, t, g.name.split(' ')[0] + ' is down! ' + this.arena.placeName(by.x, by.z, by.y) + '.', true);
     const entry = { k: by.name, kc: by.team, kid: by.id, v: g.name, vc: g.team, vid: g.id, head: zone === 'head', nadeId: grenade?.id, t };
@@ -1281,7 +1301,20 @@ export class Battle {
   }
   // A bot shares what it saw or heard; its teammates get it a moment later.
   shareIntel(from, intel) { this.intelQ.push({ at: this.t + 0.4, team: from.f.team, intel }); }
+  // Bot teammates chat now and then: a hello at the start, idle jokes, the state of the score.
+  _chatter(t) {
+    const mates = this.bots.filter((b) => b.mate && b.f.alive);
+    if (!mates.length || this.over) return;
+    if (!this._banterAt) { this._banterAt = t + 9 + Math.random() * 6; mates[0].say(this, t, this.banter.line('start'), true); return; }
+    if (t < this._banterAt) return;
+    this._banterAt = t + 14 + Math.random() * 14;
+    const us = this.teamScore.p1 || 0, them = this.teamScore.bots || 0;
+    const kind = us - them >= 3 ? 'winning' : them - us >= 3 ? 'losing' : 'idle';
+    mates[Math.floor(Math.random() * mates.length)].say(this, t, this.banter.line(Math.random() < 0.4 && kind !== 'idle' ? kind : 'idle'));
+  }
   radio(f, text, t) {
+    // with bot teammates you hear your own team's radio only
+    if (this.bots.some((b) => b.mate) && this.humans[0] && f.team !== this.humans[0].f.team) return;
     // the same line from a teammate a moment ago: no need to repeat it
     if ((this.comms || []).some((c) => c.text === text && c.team === f.team && t - c.t < 3)) return;
     this._addComm(f.name, f.team, text, t);
