@@ -5,10 +5,12 @@
 // Points: KILL_POINTS per battle kill (+ HEADSHOT_BONUS for a headshot kill), WIN_POINTS for
 // winning a battle. A pack costs PACK_COST and gives one random skin; a duplicate refunds
 // points instead (by rarity).
-import { RARITIES, CATALOGUE, SKIN_COUNT, LEGEND_ID, skinFits } from './skins.js?v=d0aee3b-mwdla33w';
-import { HISTORY_LIMIT, START_RATING, ratingOf } from './ranked.js?v=d0aee3b-mwdla33w';
+import { RARITIES, CATALOGUE, SKIN_COUNT, LEGEND_ID, skinFits } from './skins.js?v=9fbc040-mwdp52d5';
+import { HISTORY_LIMIT, START_RATING, ratingOf } from './ranked.js?v=9fbc040-mwdp52d5';
 
 export const KILL_POINTS = 20, HEADSHOT_BONUS = 10, WIN_POINTS = 50, PACK_COST = 100;
+// The Legendary pack: one per player, a Legendary guaranteed (one you do not own yet, if any).
+export const LEGEND_PACK_COST = 1000;
 const KEY = 'recoilRange.profile.v1';
 const SLOTS = 10;
 const CODE_PREFIX = 'RRS1-';
@@ -44,7 +46,7 @@ export class Profile {
     this.points = 0;
     this.owned = new Uint8Array(Math.ceil(SKIN_COUNT / 8));
     this.equipped = new Array(SLOTS).fill(null);
-    this.kills = 0; this.packs = 0;
+    this.kills = 0; this.packs = 0; this.legendPack = false;
     this.rating = START_RATING; this.rankedHistory = [];
   }
   onChange(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
@@ -88,6 +90,19 @@ export class Profile {
   }
 
   get canOpen() { return this.points >= PACK_COST; }
+  get canOpenLegend() { return !this.legendPack && this.points >= LEGEND_PACK_COST; }
+  openLegendPack(rng = Math.random) {
+    if (!this.canOpenLegend) return null;
+    this.points -= LEGEND_PACK_COST;
+    this.packs++; this.legendPack = true;
+    const all = CATALOGUE.filter((s) => s.rarity === 'legendary' && s.id !== LEGEND_ID && !s.photo);
+    const fresh = all.filter((s) => !this.has(s.id)), pool = fresh.length ? fresh : all;
+    const skin = pool[Math.floor(rng() * pool.length)];
+    const duplicate = this.has(skin.id), refund = duplicate ? RARITIES.find((r) => r.key === 'legendary').refund : 0;
+    if (duplicate) this.points += refund; else this._own(skin.id);
+    this._changed();
+    return { skin, duplicate, refund };
+  }
   // Pick a skin for a pack: a rarity by its odds, then any skin of that rarity.
   static roll(rng = Math.random) {
     let r = rng(), rar = RARITIES[0];
@@ -118,7 +133,7 @@ export class Profile {
     b.set(this.owned, o); o += this.owned.length;
     for (let i = 0; i < SLOTS; i++) b[o++] = this.equipped[i] === null ? NONE : this.equipped[i] === LEGEND_ID ? LEGEND_BYTE : this.equipped[i];
     dv.setUint32(o, Math.min(this.kills, 0xffffffff), true); o += 4;
-    dv.setUint16(o, Math.min(this.packs, 0xffff), true); o += 2;
+    dv.setUint16(o, Math.min(this.packs, 0x7fff) | (this.legendPack ? 0x8000 : 0), true); o += 2;   // (top bit: the Legendary pack is bought; no format change)
     dv.setUint16(o, this.rating, true); o += 2;
     b[o++] = this.rankedHistory.length;
     for (const { id, delta, outcome } of this.rankedHistory) {
@@ -177,7 +192,7 @@ export class Profile {
     this.owned.set(b.slice(o, o + len)); o += len;
     for (let i = 0; i < SLOTS; i++) { const v = b[o++]; this.equipped[i] = v === LEGEND_BYTE ? LEGEND_ID : v === NONE || v >= SKIN_COUNT ? null : v; }
     this.kills = dv.getUint32(o, true); o += 4;
-    this.packs = dv.getUint16(o, true);
+    const pk = dv.getUint16(o, true); this.packs = pk & 0x7fff; this.legendPack = (pk & 0x8000) !== 0;
     this.rating = rating; this.rankedHistory = history;
   }
   save() {

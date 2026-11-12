@@ -1,9 +1,9 @@
 // Skins & packs: points, the pack opening (a slot-machine reel that slows down and lands on
 // your skin), your collection (click to put a skin on the selected gun), and the save code.
-import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById, skinFits, LEGEND_ID } from '../core/skins.js?v=d0aee3b-mwdla33w';
-import { Profile, PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=d0aee3b-mwdla33w';
-import { legendPhotoURL, setLegendPhoto, clearLegendPhoto, onLegendChange } from '../core/legend.js?v=d0aee3b-mwdla33w';
-import { skinThumb } from '../render/gpu-tex.js?v=d0aee3b-mwdla33w';
+import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById, skinFits, LEGEND_ID } from '../core/skins.js?v=9fbc040-mwdp52d5';
+import { Profile, PACK_COST, LEGEND_PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=9fbc040-mwdp52d5';
+import { legendPhotoURL, setLegendPhoto, clearLegendPhoto, onLegendChange } from '../core/legend.js?v=9fbc040-mwdp52d5';
+import { skinThumb } from '../render/gpu-tex.js?v=9fbc040-mwdp52d5';
 
 function el(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);
@@ -17,6 +17,7 @@ function el(tag, attrs = {}, ...kids) {
 
 const EARN_TEXT = () => KILL_POINTS + ' points per battle kill (+' + HEADSHOT_BONUS + ' for a headshot), +' + WIN_POINTS + ' for winning a battle. Odds: ' +
   RARITIES.map((x) => x.name + ' ' + new Intl.NumberFormat('en', { style: 'percent', maximumFractionDigits: 3 }).format(x.odds)).join(' · ') + '. A duplicate gives points back.';
+const PIRATE_TEXT = 'Pirate Token: find the Pirate Chest in Battle Royale and the token inside unlocks every Black Ice skin at once.';
 const CARD = 112, GAP = 8, REEL_LEN = 56, WIN_AT = 50, SPIN_MS = 5200;
 
 export class PackUI {
@@ -136,9 +137,12 @@ export class PackUI {
     this.shopPoints = el('b', { text: '0' });
     this.shopBtn = el('button', { type: 'button', class: 'primary pk-shop-open', id: 'shop-open', text: 'Open a pack · ' + PACK_COST + ' points', onclick: () => this.open() });
     this.shopNeed = el('p', { class: 'pk-shop-need' });
+    this.legendBtn = el('button', { type: 'button', class: 'pk-shop-open pk-legend-open', id: 'shop-legend', text: 'Legendary pack · ' + LEGEND_PACK_COST + ' points', onclick: () => this.open(Math.random, true) });
+    this.legendNote = el('p', { class: 'small' });
     root.append(el('div', { class: 'pk-shop' },
       el('div', { class: 'pk-points pk-shop-points' }, this.shopPoints, el('span', { text: ' points' })),
-      this.shopBtn, this.shopNeed, el('p', { class: 'small', text: EARN_TEXT() })));
+      this.shopBtn, this.shopNeed, this.legendBtn, this.legendNote,
+      el('p', { class: 'small', text: EARN_TEXT() }), el('p', { class: 'small pk-pirate', text: PIRATE_TEXT })));
     this.refresh();
   }
   refresh() {
@@ -147,6 +151,8 @@ export class PackUI {
     if (this.shopBtn) {
       this.shopPoints.textContent = String(p.points);
       this.shopBtn.disabled = !p.canOpen || !this.modal.hidden;
+      this.legendBtn.disabled = !p.canOpenLegend || !this.modal.hidden;
+      this.legendNote.textContent = p.legendPack ? 'Legendary pack opened: one per player.' : 'One per player: a Legendary skin guaranteed (one you do not have yet).';
       const packsNow = Math.floor(p.points / PACK_COST);
       this.shopNeed.textContent = packsNow ? 'You can open ' + packsNow + ' pack' + (packsNow > 1 ? 's' : '') + ' now.' : (PACK_COST - p.points) + ' more points for your next pack.';
     }
@@ -207,9 +213,9 @@ export class PackUI {
   }
 
   /* ---------- the slot machine ---------- */
-  open(rng = Math.random) {
+  open(rng = Math.random, legend = false) {
     if (!this.modal.hidden) return null;
-    const res = this.profile.openPack(rng);
+    const res = legend ? this.profile.openLegendPack(rng) : this.profile.openPack(rng);
     if (!res) return null;
     this.result = res;
     // A reel of random skins (same odds as packs); the winning card sits at WIN_AT.

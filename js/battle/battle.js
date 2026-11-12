@@ -1,27 +1,27 @@
-import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=d0aee3b-mwdla33w';
-import { MatchFinale } from '../replay/finale.js?v=d0aee3b-mwdla33w';
-import { GrenadeReplay } from '../replay/grenade.js?v=d0aee3b-mwdla33w';
-import { replayCamera } from '../replay/view.js?v=d0aee3b-mwdla33w';
+import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=9fbc040-mwdp52d5';
+import { MatchFinale } from '../replay/finale.js?v=9fbc040-mwdp52d5';
+import { GrenadeReplay } from '../replay/grenade.js?v=9fbc040-mwdp52d5';
+import { replayCamera } from '../replay/view.js?v=9fbc040-mwdp52d5';
 // Battle mode: you against bots (Easy / Medium / Hard), or two local players in split
 // screen (optionally with bots as a third side). First side to the kill target wins.
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=d0aee3b-mwdla33w';
-import { Arena } from './arena.js?v=d0aee3b-mwdla33w';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=d0aee3b-mwdla33w';
-import { Bot, LEVELS } from './bot.js?v=d0aee3b-mwdla33w';
-import { Human } from './human.js?v=d0aee3b-mwdla33w';
-import { BattleNades } from './nades.js?v=d0aee3b-mwdla33w';
-import { drawCrosshair } from '../ui/crosshair.js?v=d0aee3b-mwdla33w';
-import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=d0aee3b-mwdla33w';
-import { effectiveGraphics } from '../render/quality.js?v=d0aee3b-mwdla33w';
-import { effectiveGun, slotIn } from '../core/loadout.js?v=d0aee3b-mwdla33w';
-import { BattleRoyale } from './royale.js?v=d0aee3b-mwdla33w';
-import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=d0aee3b-mwdla33w';
-import { Footprints } from '../scene/footprints.js?v=d0aee3b-mwdla33w';
-import { Minimap } from '../ui/minimap.js?v=d0aee3b-mwdla33w';
-import { botRankedChange } from '../core/ranked.js?v=d0aee3b-mwdla33w';
+import * as THREE from '../../vendor/three/three.module.min.js?v=9fbc040-mwdp52d5';
+import { Arena } from './arena.js?v=9fbc040-mwdp52d5';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=9fbc040-mwdp52d5';
+import { Bot, LEVELS } from './bot.js?v=9fbc040-mwdp52d5';
+import { Human } from './human.js?v=9fbc040-mwdp52d5';
+import { BattleNades } from './nades.js?v=9fbc040-mwdp52d5';
+import { drawCrosshair } from '../ui/crosshair.js?v=9fbc040-mwdp52d5';
+import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=9fbc040-mwdp52d5';
+import { effectiveGraphics } from '../render/quality.js?v=9fbc040-mwdp52d5';
+import { effectiveGun, slotIn } from '../core/loadout.js?v=9fbc040-mwdp52d5';
+import { BattleRoyale } from './royale.js?v=9fbc040-mwdp52d5';
+import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=9fbc040-mwdp52d5';
+import { Footprints } from '../scene/footprints.js?v=9fbc040-mwdp52d5';
+import { Minimap } from '../ui/minimap.js?v=9fbc040-mwdp52d5';
+import { botRankedChange } from '../core/ranked.js?v=9fbc040-mwdp52d5';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, p7: 0xff7048, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -1098,7 +1098,7 @@ export class Battle {
       if (royaleFocus) royaleFocus.group.visible = true;
       if (grenadeCam || royaleFocus && !royaleFocus.gun || this.viewOnly && !this.watchFocus) return;
       r.clearDepth();
-      const pickaxe = this.royale && (this.kc?.pov ? this.kc.pickaxe : h.f.alive && this.royale.showPickaxe(this.t));
+      const pickaxe = this.royale && this.hud.end.dataset.finale !== 'flex' && (this.kc?.pov ? this.kc.pickaxe : h.f.alive && this.royale.showPickaxe(this.t));   // (the win flex always shows your gun)
       if (this.royale) this.royale.posePickaxe(pickaxe, this.t);
       const rig = !pickaxe && (this.watchFocus || royaleFocus || (this.kc && this.kc.pov && i === 0 && this.puppet)) ? this.puppet.rig : h.rig;
       if (pickaxe) rig.root.visible = false;

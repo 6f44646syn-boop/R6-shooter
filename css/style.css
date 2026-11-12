@@ -573,6 +573,9 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 .pk-shop { display: grid; justify-items: center; gap: 10px; padding: 18px 0 6px; text-align: center; }
 .pk-shop-points { font-size: 44px; }
 .pk-shop-open { font-size: 20px; padding: 14px 34px; }
+.pk-legend-open { font-size: 16px; padding: 10px 26px; border: 1px solid #ffc23a; color: #ffc23a; background: rgba(255, 194, 58, 0.08); }
+.pk-legend-open:disabled { opacity: 0.45; }
+.pk-pirate { color: #7ff3ff; }
 .pk-shop-need { color: var(--accent); margin: 0; }
 /* Controls & keybinds > Controller */
 .pad-binds { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px 16px; margin: 10px 0; }

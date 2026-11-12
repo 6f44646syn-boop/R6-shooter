@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=d0aee3b-mwdla33w';
-import { mulberry32 } from '../core/prng.js?v=d0aee3b-mwdla33w';
-import { mergeStatic } from './sight-model.js?v=d0aee3b-mwdla33w';
+import * as THREE from '../../vendor/three/three.module.min.js?v=9fbc040-mwdp52d5';
+import { mulberry32 } from '../core/prng.js?v=9fbc040-mwdp52d5';
+import { mergeStatic } from './sight-model.js?v=9fbc040-mwdp52d5';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).

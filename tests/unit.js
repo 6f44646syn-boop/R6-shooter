@@ -30,7 +30,7 @@ test('Sakura Gilt is the rarest pack reward and survives save-code export', () =
   const legendary = RARITIES.find(r => r.key === 'legendary');
   const ice = RARITIES.find(r => r.key === 'blackice');
   near(RARITIES.reduce((sum, r) => sum + r.odds, 0), 1, 1e-12);
-  eq(legendary.odds < ice.odds / 9, true, 'rarer than an individual Black Ice');
+  eq(legendary.odds > ice.odds && legendary.odds < ice.odds * 1.5, true, 'a little more likely than Black Ice');
   eq(CATALOGUE.filter(skin => skin.rarity === 'blackice').length, 9);
   eq(profile.has(SAKURA_ID), false, 'locked at start');
   eq(profile.has(LEGEND_ID), true, 'custom photo still available');
@@ -38,14 +38,22 @@ test('Sakura Gilt is the rarest pack reward and survives save-code export', () =
   eq(skinFits(SAKURA_ID, 4), false, 'another rifle');
   profile.unlockBlackIce();
   eq(profile.has(SAKURA_ID), false, 'Pirate Token only unlocks Black Ice');
-  eq(Profile.roll(() => 0.9997).rarity, 'blackice', 'roll just below Legendary');
+  eq(Profile.roll(() => 0.985).rarity, 'blackice', 'roll just below Legendary');
   profile.addPoints(100);
-  eq(profile.openPack(() => 0.9999).skin.id, SAKURA_ID, 'top pack roll');
+  eq(profile.openPack(() => 0.9999).skin.rarity, 'legendary', 'top pack roll');   // (one of the ten Legendaries)
+  profile.owned[SAKURA_ID >> 3] |= 1 << (SAKURA_ID & 7);
   eq(profile.equip(4, SAKURA_ID), false);
   eq(profile.equip(2, SAKURA_ID), true);
   restored.loadCode(profile.saveCode());
   eq(restored.equippedFor(2), SAKURA_ID);
-  eq(restored.ownedCount, 10);
+  eq(restored.ownedCount, 11);
+  // the Legendary pack: 1000 points, one per player, a Legendary you do not own yet, kept in the save code
+  const rich = new Profile(storage); rich.addPoints(2500);
+  const got = rich.openLegendPack(() => 0);
+  eq(got.skin.rarity, 'legendary'); eq(got.duplicate, false); eq(rich.points, 1500);
+  eq(rich.openLegendPack(), null, 'only one per player');
+  const back = new Profile(storage); back.loadCode(rich.saveCode());
+  eq(back.legendPack, true); eq(back.canOpenLegend, false); eq(back.has(got.skin.id), true);                                     // 9 Black Ice, the rolled Legendary, Sakura Gilt
 });
 
 /* ---------- sensitivity ---------- */

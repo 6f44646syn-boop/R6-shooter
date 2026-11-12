@@ -671,7 +671,7 @@ try {
       const opening = [...flowers.instanceMatrix.array];
       R.step(1.3, 120); R.renderFrame();
       const bloom = flowers.visible && petals.visible && opening.some((v, i) => Math.abs(v - flowers.instanceMatrix.array[i]) > 0.001);
-      R.step(2, 120);
+      R.step(6.2, 120);                                               // (Legendary inspects run 8.4 s)
       return { low, standard, high, ultra: vapour.geometry.instanceCount, early, peak, fade, active, surfaces, fire, ads, reload, swap, bloom,
         rest: ended(petals) && !flowers.visible };
     });
@@ -1187,8 +1187,9 @@ try {
       R.setGraphics('high'); R.step(0.1); R.renderFrame();
       return { st: R.hdState(), files: man.files.length, cached, hd, tone, hiTris, lowTris, status: document.querySelector('.gx-status').textContent, prompt: !document.querySelector('.gx-prompt').hidden };
     });
-    check('download with the button: every file checked and kept in the browser (' + p1.cached + ' files); High switches on', p1.st.state === 'installed' && p1.cached === p1.files && p1.hd && p1.tone !== 0 && !p1.prompt && /Installed/.test(p1.status), JSON.stringify(p1));
-    check('the pack\'s gun is far more detailed (' + Math.round(p1.hiTris / 1000) + 'k triangles vs ' + Math.round(p1.lowTris / 1000) + 'k)', p1.hiTris > p1.lowTris * 4, JSON.stringify(p1));
+    check('download with the button: every file checked and kept in the browser (' + p1.cached + ' files); High switches on', p1.st.state === 'installed' && p1.cached === p1.files && p1.tone !== 0 && !p1.prompt && /Installed/.test(p1.status), JSON.stringify(p1));
+    // (every gun is now its traced Legendary model at every level: the pack's gun models are not used)
+    check('the gun keeps its traced model with the pack (' + Math.round(p1.hiTris / 1000) + 'k triangles)', !p1.hd && p1.hiTris > 3000 && p1.hiTris === p1.lowTris, JSON.stringify(p1));
     // The pack's soldier in a battle (High): far more detailed than the simple one, same hit shapes.
     const sol = await page.evaluate(() => {
       const R = window.__range;
@@ -1233,7 +1234,7 @@ try {
     await page.reload({ waitUntil: 'networkidle' });
     await page.waitForFunction(() => window.__range && window.__range.ready && window.__range.hdState().loaded, null, { timeout: 120000 });   // (~100 MB from Cache Storage)
     const p2 = await page.evaluate(() => { const R = window.__range; R.manual(true); R.step(0.2); R.renderFrame(); return { st: R.hdState(), hd: R.rigHD() }; });
-    check('after a reload the pack loads from the browser (no download) and High is on', p2.st.state === 'installed' && p2.hd && (await hdReq()) === 0, JSON.stringify(p2));
+    check('after a reload the pack loads from the browser (no download) and High is on', p2.st.state === 'installed' && p2.st.effective === 'high' && (await hdReq()) === 0, JSON.stringify(p2));
     const p3 = await page.evaluate(async () => {
       const R = window.__range;
       await R.hdRemove(); R.step(0.1); R.renderFrame();
