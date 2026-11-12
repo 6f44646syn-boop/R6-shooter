@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=9bb8248-mwdfnlob';
-import { mulberry32 } from '../core/prng.js?v=9bb8248-mwdfnlob';
-import { mergeStatic } from './sight-model.js?v=9bb8248-mwdfnlob';
+import * as THREE from '../../vendor/three/three.module.min.js?v=cf12e37-mwdfx5dz';
+import { mulberry32 } from '../core/prng.js?v=cf12e37-mwdfx5dz';
+import { mergeStatic } from './sight-model.js?v=cf12e37-mwdfx5dz';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -384,7 +384,7 @@ const particleFragment = /* glsl */`
       c = vec3(0.09, 0.08, 0.08);
       a = vAlpha * 0.28 * exp(-2.5 * r) * (1.0 - vAge) * smoothstep(0.0, 0.2, vAge);
     #elif defined(WIND)
-      a = vAlpha * 0.75 * (1.0 - smoothstep(0.0, 1.0, abs(p.x))) * (1.0 - smoothstep(0.3, 1.0, abs(p.y)));
+      a = vAlpha * 0.4 * (1.0 - smoothstep(0.0, 1.0, abs(p.x))) * (1.0 - smoothstep(0.3, 1.0, abs(p.y)));
       c = vec3(0.9, 0.95, 1.0);
     #elif defined(JET)
       // white spray: soft round puffs
@@ -414,7 +414,7 @@ const particleFragment = /* glsl */`
   }
 `;
 
-const particleBudget = { mist: [22, 38, 54, 70], chip: [20, 34, 48, 62], petal: [28, 46, 64, 84], drop: [14, 22, 30, 40], drip: [80, 140, 200, 260], seaspray: [60, 100, 150, 200], seamist: [14, 24, 34, 44], splash: [120, 200, 300, 400], jet: [240, 420, 600, 780], wind: [80, 140, 200, 260], gather: [40, 70, 100, 130], burst: [40, 70, 100, 140], spark: [16, 26, 36, 48], flame: [140, 240, 340, 460], smoke: [16, 26, 36, 48], ember: [20, 34, 48, 64], bubble: [12, 18, 26, 34], speck: [10, 16, 22, 30], glint: [60, 100, 150, 200] };
+const particleBudget = { mist: [22, 38, 54, 70], chip: [20, 34, 48, 62], petal: [28, 46, 64, 84], drop: [14, 22, 30, 40], drip: [80, 140, 200, 260], seaspray: [60, 100, 150, 200], seamist: [14, 24, 34, 44], splash: [120, 200, 300, 400], jet: [240, 420, 600, 780], wind: [35, 60, 85, 110], gather: [40, 70, 100, 130], burst: [40, 70, 100, 140], spark: [16, 26, 36, 48], flame: [140, 240, 340, 460], smoke: [16, 26, 36, 48], ember: [20, 34, 48, 64], bubble: [12, 18, 26, 34], speck: [10, 16, 22, 30], glint: [60, 100, 150, 200] };
 const particleTier = { low: 0, standard: 1, high: 2, ultra: 3 };
 
 function particles(kind, tier, anchors, tint, trail, rng) {
@@ -991,7 +991,7 @@ const FORGE_CLIP = { root: [
   [0.8, -0.066, 0.08, -0.098, 0.12, 0.72, -0.1],
   [1, 0, 0, 0, 0, 0, 0],
 ] };
-export function forgeInspect(gun, { reliefs, channels, seam, surface }, quality) {
+export function forgeInspect(gun, { reliefs, channels, seam, shards }, quality) {
   const trail = emitterTrail(gun), tier = particleTier[quality] ?? 1;
   const from = seam.length ? seam : [{ point: new THREE.Vector3(), normal: new THREE.Vector3(1, 0, 0) }];
   const sparks = particles('spark', tier, from, new THREE.Color(0xffc060), trail, mulberry32(205011));
@@ -1001,30 +1001,12 @@ export function forgeInspect(gun, { reliefs, channels, seam, surface }, quality)
   const smoke = particles('smoke', tier, from, new THREE.Color(0x222222), trail, mulberry32(205063));
   sparks.visible = embers.visible = flames.visible = smoke.visible = false;
   gun.add(smoke, sparks, embers, flames);
-  // The peak, as in the concept: angular obsidian shards burst out of the handguard and receiver
-  // along the seam, leaning away from the split between them, with a starburst of light at the split.
-  // The seam path is in concept pixels (04-forgeheart.png, 1536 x 1024) on the AK-12's art rectangle.
-  const [Z0, Z1, Y0, Y1] = [-0.59933, 0.37984, -0.39229, 0.26025];
-  const toGun = ([x, y]) => new THREE.Vector2(Z0 + (Z1 - Z0) * x / 1536, Y1 - (Y1 - Y0) * y / 1024);   // (z, y)
-  const paths = [[[350, 392], [450, 400], [560, 404], [690, 398]], [[735, 392], [850, 368], [960, 345]]].map(path => path.map(toGun));
-  const split = toGun([712, 396]);
-  const along = (path, t) => { const f = t * (path.length - 1), i = Math.min(path.length - 2, Math.floor(f)); return path[i].clone().lerp(path[i + 1], f - i); };
-  const half = 0.025, srng = mulberry32(205081);
-  const crystal = new THREE.OctahedronGeometry(1, 0);
-  const obsidian = new THREE.MeshPhysicalMaterial({ color: 0x1c1817, roughness: 0.2, metalness: 0.25, clearcoat: 1, clearcoatRoughness: 0.05, emissive: 0xff3000, emissiveIntensity: 0, flatShading: true });
-  const shards = [], perPath = [4, 6, 8, 9][tier], up = new THREE.Vector3(0, 1, 0);
-  for (const side of [-1, 1]) for (const path of paths) for (let i = 0; i < perPath; i++) {
-    const t = (i + 0.2 + srng() * 0.6) / perPath, at = along(path, t), above = i % 3 !== 2 ? 1 : -1;
-    const away = Math.sign(at.x - split.x) || 1, mid = 1 - Math.abs(t - 0.55) * 1.2;
-    const dir = new THREE.Vector3(side * (0.35 + srng() * 0.3), above * (0.45 + srng() * 0.4), away * (0.8 + srng() * 0.4)).normalize();   // lying along the gun, lifting out
-    const len = (0.032 + srng() * 0.03) * (0.7 + 0.5 * mid), w = 0.014 + srng() * 0.014;
-    const m = new THREE.Mesh(crystal, obsidian);
-    m.quaternion.setFromUnitVectors(up, dir).multiply(new THREE.Quaternion().setFromAxisAngle(up, srng() * Math.PI));
-    const base = new THREE.Vector3(side * half, at.y + above * (0.002 + srng() * 0.01), at.x);
-    m.position.copy(base).addScaledVector(dir, len * 0.15);
-    m.visible = false; gun.add(m);
-    shards.push({ m, size: new THREE.Vector3(w, len, w * 0.35), start: 0.4 + Math.abs(at.x - split.x) * 0.35 });
-  }
+  // The peak, as in the owner's concept: the painting fades to the peak painting (artMix) while the
+  // traced shards rise out of the sides, from the split outwards, and a starburst flares at the split.
+  const [Z0, Z1, Y0, Y1] = [-0.59933, 0.37984, -0.39229, 0.26025];   // the AK-12's art rectangle (1536 x 1024 px concept)
+  const split = new THREE.Vector2(Z0 + (Z1 - Z0) * 705 / 1536, Y1 - (Y1 - Y0) * 398 / 1024), half = 0.025;
+  const mixes = [];
+  gun.traverse(o => { const u = o.material?.userData?.tri; if (u?.artMix && !mixes.includes(u.artMix)) mixes.push(u.artMix); });
   const bursts = [-1, 1].map(side => {
     const g = new THREE.Group(); g.position.set(side * (half + 0.006), split.y, split.x);
     const core = flare(new THREE.Color(0xffc060)), rayA = flare(new THREE.Color(0xff9a30)), rayB = flare(new THREE.Color(0xff9a30));
@@ -1053,13 +1035,14 @@ export function forgeInspect(gun, { reliefs, channels, seam, surface }, quality)
         r.group.position.copy(r.base).addScaledVector(r.normal, lift * 0.0045);
         r.group.position.y = r.base.y + lift * 0.0025;
       });
-      // the shards break out from the split outwards, hold through the peak, then sink back
+      for (const m of mixes) m.value = active ? smooth(p, 0.3, 0.46) * (1 - smooth(p, 0.76, 0.9)) : 0;
+      // the shards rise out of the sides from the split outwards, hold through the peak, then sink back
       for (const sh of shards) {
-        const k = active ? smooth(p, sh.start, sh.start + 0.06) * (1 - smooth(p, 0.74, 0.86)) : 0;
-        sh.m.visible = k > 0.01;
-        sh.m.scale.copy(sh.size).multiplyScalar(Math.max(k, 0.001));
+        const k = active ? smooth(p, sh.start, sh.start + 0.07) * (1 - smooth(p, 0.74, 0.86)) : 0;
+        sh.group.visible = k > 0.01;
+        sh.group.scale.x = Math.max(k, 0.01);
+        sh.group.position.copy(sh.base); sh.group.position.x = sh.side * (half + (sh.base.x * sh.side - half) * k + 0.004 * k);
       }
-      obsidian.emissiveIntensity = active ? 0.008 * smooth(p, 0.45, 0.55) * (1 - smooth(p, 0.7, 0.85)) : 0;
       const burst = active ? smooth(p, 0.4, 0.5) * (1 - smooth(p, 0.72, 0.84)) : 0, flick = 0.85 + 0.15 * Math.sin(p * 220);
       for (const b of bursts) {
         b.g.visible = burst > 0.01;
@@ -1073,7 +1056,7 @@ export function forgeInspect(gun, { reliefs, channels, seam, surface }, quality)
         smoked.emissiveIntensity = glow * 4;
       }
     },
-    dispose() { for (const m of [sparks, embers, flames, smoke]) { m.geometry.dispose(); m.material.dispose(); } crystal.dispose(); obsidian.dispose(); for (const b of bursts) b.g.traverse(o => o.material?.dispose()); },
+    dispose() { for (const m of [sparks, embers, flames, smoke]) { m.geometry.dispose(); m.material.dispose(); } for (const b of bursts) b.g.traverse(o => o.material?.dispose()); },
   };
 }
 

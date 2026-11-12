@@ -1,5 +1,5 @@
-import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=9bb8248-mwdfnlob';
-import { packArt } from './pack-art.js?v=9bb8248-mwdfnlob';
+import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=cf12e37-mwdfx5dz';
+import { packArt } from './pack-art.js?v=cf12e37-mwdfx5dz';
 // GPU-baked textures for ultra graphics. Everything is procedural and drawn by a fragment
 // shader into a render target once (milliseconds on a graphics card), so 4096 x 4096 maps
 // cost nothing at start-up and nothing is downloaded.
@@ -10,7 +10,7 @@ import { packArt } from './pack-art.js?v=9bb8248-mwdfnlob';
 //   bakeSkin(renderer, index, size): one of SKINS, { albedo, rm } (rm: G roughness, B metalness).
 //   triplanar(material, opts): shader patch that maps a skin and/or detail by the surface's
 //        own 3D position (no UV stretching on long thin parts), with edge wear from UVs.
-import * as THREE from '../../vendor/three/three.module.min.js?v=9bb8248-mwdfnlob';
+import * as THREE from '../../vendor/three/three.module.min.js?v=cf12e37-mwdfx5dz';
 
 const VERT = /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
@@ -567,7 +567,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
     // Painted Legendaries: the concept painting laid out in gun space (def.artRect) on the gun traced
     // from it. Looks: 'porcelain' (glaze, crazing, silver seams) or 'bronze' (metal, glowing teal inlays).
     Object.assign(uniforms, {
-      artMap: { value: artTexture(def.art) }, artRect: { value: new THREE.Vector4(...def.artRect) },
+      artMap: { value: artTexture(def.art) }, artMap2: { value: artTexture(def.artPeak || def.art) }, artMix: { value: 0 }, artRect: { value: new THREE.Vector4(...def.artRect) },
       artDark: { value: new THREE.Vector3(...def.c[2]) }, artPhase: { value: -1 }, artBlast: { value: -9 }, artMode: { value: { bronze: 1, glass: 2, resin: 2, lacquer: 3, gilt: 3, orrery: 5, forge: 4 }[def.artLook] || 0 },
     });
   } else if (sakura) {
@@ -612,7 +612,8 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       uniform float triAO, hdEdge, hdEdgeMetal, reliefDepth;
       uniform vec3 hdEdgeCol;
       #ifdef TRI_ART
-        uniform sampler2D artMap;
+        uniform sampler2D artMap, artMap2;      // artMap2: a second painting the inspect can fade into (artMix)
+        uniform float artMix;
         uniform vec4 artRect;
         uniform vec3 artDark;
         uniform float artMode, artBlast;
@@ -691,6 +692,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         // window's inner walls) take a soft local average instead of a smeared stripe.
         float kSide = sstep(0.35, 0.8, abs(normalize(vTriN).x));
         vec3 kArt = mix(texture2D(artMap, kuv, 5.0).rgb, texture2D(artMap, kuv).rgb, kSide);
+        if (artMix > 0.0) kArt = mix(kArt, mix(texture2D(artMap2, kuv, 5.0).rgb, texture2D(artMap2, kuv).rgb, kSide), artMix);
         float kLum = dot(kArt, vec3(0.3, 0.59, 0.11)), kSat = max(kArt.r, max(kArt.g, kArt.b)) - min(kArt.r, min(kArt.g, kArt.b));
         // grey in the painting = the silver-filled seams and the moon
         float kSilver = sstep(0.09, 0.035, kSat) * sstep(0.12, 0.3, kLum);
@@ -703,8 +705,6 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         float kBrush = 0.85 + 0.3 * fract(sin(floor(vTriPos.y * 2600.0) * 91.7) * 4375.5);
         vec3 kGlaze = kArt * (1.0 - kCraze * 0.16);
         diffuseColor.rgb = mix(kGlaze, artDark * kBrush, kBelow) * triGain * (1.0 + 1.3 * step(0.5, artMode) * step(artMode, 1.5));   // the bronze is a dark painting: lifted so it reads
-        // Inspect: a cool highlight travels along the gun, stock to muzzle, and lights the silver seams it reaches.
-        float kSweep = artPhase < 0.0 ? 0.0 : exp(-pow(vTriPos.z - mix(0.4, -0.45, sstep(0.1, 0.62, artPhase)) + vTriPos.y * 0.5, 2.0) * 160.0);
       #elif defined( TRI_SKIN )
         vec3 triP = vTriPos * triScale;     // fixed to the gun (it used to flow while inspecting)
         float relief = 0.5;
@@ -812,7 +812,6 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       #endif`);
     f = f.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
       #ifdef TRI_ART
-        totalEmissiveRadiance += vec3(0.62, 0.74, 0.95) * kSweep * (0.35 + kSilver * 2.2) * (1.0 - kBelow) * (1.0 - kBronze - kStained - kLacq);
         // bronze: the teal inlays glow faintly; while inspecting, caustics drift through them
         float kc = pow(0.5 + 0.5 * sin(vTriPos.z * 190.0 + triTime * 2.1 + 2.0 * sin(vTriPos.y * 160.0 - triTime * 1.6)), 6.0);
         float kRise = artPhase < 0.0 ? 0.0 : sin(clamp(artPhase, 0.0, 1.0) * 3.14159);
@@ -862,7 +861,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         // Storm Kiln: water ripples run over the glaze, rings spreading from three points and a swell
         // along the gun; faint at rest, strong in the inspect (the light rolls over them in 3D)
         if (artMode < 0.5) {
-          float rAmp = artPhase < 0.0 ? 0.12 : 0.12 + 0.9 * sstep(0.08, 0.22, artPhase) * (1.0 - sstep(0.85, 0.97, artPhase));
+          float rAmp = artPhase < 0.0 ? 0.2 : 0.2 + 1.8 * sstep(0.08, 0.22, artPhase) * (1.0 - sstep(0.85, 0.97, artPhase));
           vec2 rp = vTriPos.zy, rg = vec2(0.0);
           for (int i = 0; i < 3; i++) {
             vec2 c = vec2(-0.3 + 0.25 * float(i), 0.03 - 0.025 * float(i)), v = rp - c;

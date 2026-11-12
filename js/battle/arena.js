@@ -7,18 +7,18 @@
 //
 // Coordinates: metres, x right, y up, z towards the "A" side. Same yaw convention as the
 // range: yaw 0 looks along -z, positive turns right.
-import { applyPackMaterials, revertPackMaterials } from '../render/pack-materials.js?v=9bb8248-mwdfnlob';
-import { maxMode } from '../render/quality.js?v=9bb8248-mwdfnlob';
-import * as THREE from '../../vendor/three/three.module.min.js?v=9bb8248-mwdfnlob';
-import { MAPS, SMALL } from './maps.js?v=9bb8248-mwdfnlob';
-import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=9bb8248-mwdfnlob';
-import { flatMaterial } from '../scene/low.js?v=9bb8248-mwdfnlob';
-import { BulletHoles } from '../scene/holes.js?v=9bb8248-mwdfnlob';
-import { LightPool } from '../render/light-pool.js?v=9bb8248-mwdfnlob';
-import { mulberry32 } from '../core/prng.js?v=9bb8248-mwdfnlob';
-import { layoutSolids, layoutPieces, edgeSolids, span, piece, stairCount, rampCount } from './solids.js?v=9bb8248-mwdfnlob';
-import { CoreWorld, BODY_R, STEP, BODY_H, VAULT_MAX } from '../wasm/world.js?v=9bb8248-mwdfnlob';
-import { BLACKTIDE, ROYALE_MAP_ID } from './royale-map.js?v=9bb8248-mwdfnlob';
+import { applyPackMaterials, revertPackMaterials } from '../render/pack-materials.js?v=cf12e37-mwdfx5dz';
+import { maxMode } from '../render/quality.js?v=cf12e37-mwdfx5dz';
+import * as THREE from '../../vendor/three/three.module.min.js?v=cf12e37-mwdfx5dz';
+import { MAPS, SMALL } from './maps.js?v=cf12e37-mwdfx5dz';
+import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=cf12e37-mwdfx5dz';
+import { flatMaterial } from '../scene/low.js?v=cf12e37-mwdfx5dz';
+import { BulletHoles } from '../scene/holes.js?v=cf12e37-mwdfx5dz';
+import { LightPool } from '../render/light-pool.js?v=cf12e37-mwdfx5dz';
+import { mulberry32 } from '../core/prng.js?v=cf12e37-mwdfx5dz';
+import { layoutSolids, layoutPieces, edgeSolids, span, piece, stairCount, rampCount } from './solids.js?v=cf12e37-mwdfx5dz';
+import { CoreWorld, BODY_R, STEP, BODY_H, VAULT_MAX } from '../wasm/world.js?v=cf12e37-mwdfx5dz';
+import { BLACKTIDE, ROYALE_MAP_ID } from './royale-map.js?v=cf12e37-mwdfx5dz';
 
 export const HALF_X = 18, HALF_Z = 14, WALL_H = 4.5;
 // Landmark names for callouts, by kind of cover.

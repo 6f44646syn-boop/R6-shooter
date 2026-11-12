@@ -9,7 +9,7 @@
 //   p        [scale (whole number), warp, threshold shift, spare]
 //   rm       [roughness, metalness] of the base, then of the accent
 //   clearcoat, wear (bare metal at the edges), glow ([r, g, b] light from the accent lines)
-import { mulberry32 } from './prng.js?v=9bb8248-mwdfnlob';
+import { mulberry32 } from './prng.js?v=cf12e37-mwdfx5dz';
 
 export const RARITIES = [
   { key: 'common', name: 'Common', color: '#b4bcc6', odds: 0.69975, refund: 20 },
@@ -68,6 +68,7 @@ const LATE = [
   ['Opal Overture', 8, 'opal-overture', [-0.30471, 0.35412, -0.27329, 0.16576], 'resin', [[0.85, 0.75, 0.7], [0.3, 0.75, 0.75], [0.02, 0.02, 0.025], [0.55, 0.35, 0.75]]],
 ].map(([name, gun, file, artRect, artLook, c], i) => ({
   id: 205 + i, name, rarity: 'legendary', guns: [gun], pattern: 18, art: 'data/skins/' + file + '.webp', artRect, artLook, c,
+  ...(file === 'forgeheart' ? { artPeak: 'data/skins/forgeheart-peak.webp' } : {}),      // the inspect's peak (04-forgeheart-peak.webp)
   rm: [0.2, 0.6, 0.1, 0.3], clearcoat: 0.8, wear: 0, glow: [0, 0, 0],
 }));
 export const RARITY = Object.fromEntries(RARITIES.map((r) => [r.key, r]));
