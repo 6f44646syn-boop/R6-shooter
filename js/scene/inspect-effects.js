@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=12fb79e-mwdixmnf';
-import { mulberry32 } from '../core/prng.js?v=12fb79e-mwdixmnf';
-import { mergeStatic } from './sight-model.js?v=12fb79e-mwdixmnf';
+import * as THREE from '../../vendor/three/three.module.min.js?v=a67ff2c-mwdl7zvj';
+import { mulberry32 } from '../core/prng.js?v=a67ff2c-mwdl7zvj';
+import { mergeStatic } from './sight-model.js?v=a67ff2c-mwdl7zvj';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -228,6 +228,12 @@ const particleVertex = /* glsl */`
           origin = (emitted * vec4(emitter, 1.0)).xyz + fling * mix(0.22, 0.6, seed.w) * age - vec3(0.0, 1.1 * age * age, 0.0);
           radius = vec2(1.0) * mix(0.0012, 0.0032, seed.z);
         #endif
+        #ifdef RAIN
+          // rain: falling fast, a little slant
+          origin = (emitted * vec4(emitter, 1.0)).xyz + vec3(0.0, -2.4 * age, -0.25 * age);
+          radius = vec2(0.0005, mix(0.009, 0.016, seed.z));
+          spin = 0.0;
+        #endif
         #ifdef SPRAY
           // a fine sea spray: tiny droplets flicked up off the crest, hanging, then falling back
           vec3 flickUp = normalize(outward * 0.6 + vec3(0.0, 1.0, 0.0) + (seed.xyz - 0.5) * 0.8);
@@ -383,6 +389,9 @@ const particleFragment = /* glsl */`
       if (r >= 1.0) discard;
       c = vec3(0.09, 0.08, 0.08);
       a = vAlpha * 0.28 * exp(-2.5 * r) * (1.0 - vAge) * smoothstep(0.0, 0.2, vAge);
+    #elif defined(RAIN)
+      a = vAlpha * 0.55 * (1.0 - smoothstep(0.0, 1.0, abs(p.x))) * (1.0 - smoothstep(0.4, 1.0, abs(p.y)));
+      c = vec3(0.78, 0.86, 1.0);
     #elif defined(WIND)
       a = vAlpha * 0.3 * (1.0 - smoothstep(0.0, 1.0, abs(p.x))) * (1.0 - smoothstep(0.3, 1.0, abs(p.y)));
       c = vec3(0.9, 0.95, 1.0);
@@ -408,11 +417,11 @@ const particleFragment = /* glsl */`
   }
 `;
 
-const particleBudget = { mist: [22, 38, 54, 70], chip: [20, 34, 48, 62], petal: [28, 46, 64, 84], drop: [14, 22, 30, 40], drip: [80, 140, 200, 260], seaspray: [60, 100, 150, 200], seamist: [14, 24, 34, 44], splash: [120, 200, 300, 400], jet: [160, 280, 400, 520], wind: [15, 25, 35, 45], gather: [40, 70, 100, 130], burst: [40, 70, 100, 140], spark: [16, 26, 36, 48], flame: [140, 240, 340, 460], smoke: [16, 26, 36, 48], ember: [20, 34, 48, 64], bubble: [120, 200, 300, 400], speck: [10, 16, 22, 30], glint: [60, 100, 150, 200] };
+const particleBudget = { mist: [22, 38, 54, 70], chip: [20, 34, 48, 62], petal: [28, 46, 64, 84], drop: [14, 22, 30, 40], drip: [80, 140, 200, 260], rain: [80, 140, 200, 260], seaspray: [60, 100, 150, 200], seamist: [14, 24, 34, 44], splash: [120, 200, 300, 400], jet: [160, 280, 400, 520], wind: [15, 25, 35, 45], gather: [40, 70, 100, 130], burst: [40, 70, 100, 140], spark: [16, 26, 36, 48], flame: [140, 240, 340, 460], smoke: [16, 26, 36, 48], ember: [20, 34, 48, 64], bubble: [120, 200, 300, 400], speck: [10, 16, 22, 30], glint: [60, 100, 150, 200] };
 const particleTier = { low: 0, standard: 1, high: 2, ultra: 3 };
 
 function particles(kind, tier, anchors, tint, trail, rng) {
-  const mist = kind === 'mist', petals = kind === 'petal', drops = ['drop', 'drip', 'splash', 'jet', 'wind', 'seaspray', 'seamist'].includes(kind), deep = ['bubble', 'speck', 'glint', 'gather', 'burst', 'spark', 'ember', 'flame', 'smoke'].includes(kind);
+  const mist = kind === 'mist', petals = kind === 'petal', drops = ['drop', 'drip', 'splash', 'jet', 'wind', 'seaspray', 'seamist', 'rain'].includes(kind), deep = ['bubble', 'speck', 'glint', 'gather', 'burst', 'spark', 'ember', 'flame', 'smoke'].includes(kind);
   const seconds = petals ? SAKURA_SECONDS : drops ? KILN_SECONDS : deep ? ABYSS_SECONDS : FROST_SECONDS;
   const peak = (petals ? SAKURA_PEAK : drops ? KILN_PEAK : deep ? ABYSS_PEAK : FROST_PEAK) * seconds;
   const k = seconds / 4.2;                              // timings below were set for a 4.2 s inspect
@@ -431,6 +440,9 @@ function particles(kind, tier, anchors, tint, trail, rng) {
     } else if (mist) {
       start = peak - 0.08 + rng() * 0.16;
       life = 0.64 + rng() * 0.23;
+    } else if (kind === 'rain') {                         // rain on the glaze, all through the storm
+      start = seconds * (0.16 + 0.68 * rng());
+      life = 0.22 + rng() * 0.16;
     } else if (kind === 'seaspray') {                     // fine spray flicked up off the painted crests, all through
       start = seconds * (0.18 + 0.65 * rng());
       life = 0.4 + rng() * 0.3;
@@ -498,7 +510,7 @@ function particles(kind, tier, anchors, tint, trail, rng) {
   geo.setAttribute('seed', new THREE.InstancedBufferAttribute(new Float32Array(seeds), 4));
   geo.setAttribute('timing', new THREE.InstancedBufferAttribute(new Float32Array(timing), 4));
   geo.instanceCount = count;
-  const defines = kind === 'seamist' ? { MIST: 1 } : kind === 'seaspray' ? { DROP: 1, SPRAY: 1 } : kind === 'jet' ? { DROP: 1, JET: 1 } : kind === 'wind' ? { WIND: 1 } : kind === 'gather' ? { SPECK: 1, GATHER: 1 } : kind === 'burst' ? { SPECK: 1, BURST: 1 } : kind === 'spark' ? { SPECK: 1, SPARK: 1 } : kind === 'ember' ? { SPECK: 1, EMBER: 1 } : kind === 'flame' ? { FLAME: 1 } : kind === 'smoke' ? { SMOKE: 1 } :
+  const defines = kind === 'rain' ? { RAIN: 1 } : kind === 'seamist' ? { MIST: 1 } : kind === 'seaspray' ? { DROP: 1, SPRAY: 1 } : kind === 'jet' ? { DROP: 1, JET: 1 } : kind === 'wind' ? { WIND: 1 } : kind === 'gather' ? { SPECK: 1, GATHER: 1 } : kind === 'burst' ? { SPECK: 1, BURST: 1 } : kind === 'spark' ? { SPECK: 1, SPARK: 1 } : kind === 'ember' ? { SPECK: 1, EMBER: 1 } : kind === 'flame' ? { FLAME: 1 } : kind === 'smoke' ? { SMOKE: 1 } :
     mist ? { MIST: 1 } : petals ? { PETAL: 1 } : kind === 'drip' ? { DROP: 1, DRIP: 1 } : kind === 'splash' ? { DROP: 1, SPLASH: 1 } : kind === 'glint' ? { SPECK: 1, GLINT: 1 } : drops ? { DROP: 1 } : kind === 'bubble' ? { BUBBLE: 1 } : kind === 'speck' ? { SPECK: 1 } : {};
   if (mist && tier === 0) defines.LOW_INSPECT = 1;
   const material = new THREE.ShaderMaterial({
@@ -681,27 +693,91 @@ export function sakuraInspect(gun, blossoms, quality, roots = []) {
 // Storm Kiln: the raised waves lift in turn from handguard to receiver, the tallest crest rolls
 // over once and throws a short arc of droplets, a cool highlight runs over the silver seams,
 // then everything settles back into the glaze.
+// Storm Kiln's wave: the painted wave comes alive, a curling breaker of clear water with white foam on
+// its crest and lip. A ribbon swept along its profile (travelling towards -z), across a short width.
+const WAVE_VERTEX = `uniform float uTime; varying vec2 vUv; varying vec3 vN, vV;
+  void main() {
+    vUv = uv; vec3 p = position;
+    p += normal * 0.0015 * sin(uv.x * 26.0 + uv.y * 9.0 - uTime * 7.0);
+    vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(p, 1.0); vV = -mv.xyz;
+    gl_Position = projectionMatrix * mv;
+  }`;
+const WAVE_FRAGMENT = `uniform float uTime, uFade; varying vec2 vUv; varying vec3 vN, vV;
+  float h(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  float n(vec2 p) { vec2 i = floor(p), f = fract(p); f *= f * (3.0 - 2.0 * f); return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1)), f.x), f.y); }
+  void main() {
+    vec3 N = normalize(vN), V = normalize(vV); if (!gl_FrontFacing) N = -N;
+    float fres = pow(1.0 - abs(dot(N, V)), 2.5);
+    vec3 deep = vec3(0.04, 0.16, 0.42), light = vec3(0.32, 0.66, 0.88);
+    vec3 c = mix(deep, light, smoothstep(0.0, 0.7, vUv.x)) + fres * vec3(0.5, 0.75, 0.95);
+    // foam: on the crest and down the curling lip, streaked, churning
+    float foamN = n(vec2(vUv.x * 30.0 - uTime * 2.0, vUv.y * 12.0)) * 0.6 + n(vec2(vUv.x * 70.0, vUv.y * 30.0 + uTime)) * 0.4;
+    float foam = smoothstep(0.6, 0.8, vUv.x) * smoothstep(0.35, 0.65, foamN + vUv.x * 0.4 - 0.2) + smoothstep(0.92, 1.0, vUv.x);
+    c = mix(c, vec3(0.97, 0.98, 1.0), clamp(foam, 0.0, 1.0));
+    c += vec3(1.0) * pow(max(dot(reflect(-V, N), normalize(vec3(0.3, 0.9, 0.3))), 0.0), 50.0) * 0.8;
+    gl_FragColor = vec4(c, (0.72 + 0.28 * clamp(foam, 0.0, 1.0) + fres * 0.2) * uFade);
+  }`;
+function waveGeometry() {
+  const prof = new THREE.CatmullRomCurve3([[0.13, 0], [0.07, 0.012], [0.035, 0.036], [0.012, 0.066], [-0.006, 0.086], [-0.032, 0.089], [-0.052, 0.076], [-0.06, 0.056], [-0.052, 0.04], [-0.039, 0.037]].map(([z, y]) => new THREE.Vector3(0, y, z)));
+  const U = 48, C = 8, W = 0.09, pos = [], uv = [], idx = [];
+  for (let i = 0; i <= U; i++) { const pt = prof.getPointAt(i / U); for (let j = 0; j <= C; j++) { pos.push(j / C * W, pt.y, pt.z); uv.push(i / U, j / C); } }
+  for (let i = 0; i < U; i++) for (let j = 0; j < C; j++) { const a = i * (C + 1) + j, b = a + C + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+  return g;
+}
+let cloudTex = null;
+function stormCloud() {
+  if (cloudTex) return cloudTex;
+  const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+  for (let i = 0; i < 26; i++) {
+    const x = 26 + Math.random() * 76, y = 44 + Math.random() * 40, r = 18 + Math.random() * 22, gr = g.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, 'rgba(120,124,138,1)'); gr.addColorStop(0.6, 'rgba(70,72,84,0.85)'); gr.addColorStop(1, 'rgba(40,42,50,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+  }
+  cloudTex = new THREE.CanvasTexture(c); return cloudTex;
+}
 export function kilnInspect(gun, { reliefs, under, surface, muzzle, charm }, quality) {
   const trail = emitterTrail(gun), tier = particleTier[quality] ?? 1;
   // water runs off the porcelain: beads form all along the underside and drip
   const drops = particles('drip', tier, under.length ? under : [{ point: new THREE.Vector3(), normal: new THREE.Vector3(0, -1, 0) }], new THREE.Color(0xbfdcff), trail, mulberry32(202077));
   const spray = [...surface, ...reliefs.map(r => ({ point: r.base.clone(), normal: r.normal.clone() }))];
   const splash = particles('splash', tier, spray.length ? spray : [{ point: new THREE.Vector3(), normal: new THREE.Vector3(0, 1, 0) }], new THREE.Color(0xbfdcff), trail, mulberry32(202093));
-  // the hydrant out of the barrel, and wind rushing along the gun to the muzzle
   const [my, mz] = muzzle || [0, -0.5], tip = new THREE.Vector3(0, my, mz);
-  const jet = particles('jet', tier, [{ point: tip.clone(), normal: new THREE.Vector3(0, 0.12, -1).normalize() }], new THREE.Color(0xbfdcff), trail, mulberry32(202101));
-  const gusts = (surface.length ? surface : [{ point: new THREE.Vector3(), normal: new THREE.Vector3(1, 0, 0) }]).map((a, i) => {
-    const from = a.point.clone().addScaledVector(a.normal, 0.04 + (i * 37 % 10) * 0.012).add(new THREE.Vector3(0, ((i * 13 % 7) - 3) * 0.012, 0.06));
-    return { point: from, normal: tip.clone().sub(from).normalize() };
+  const pts = (surface.length ? surface : [{ point: new THREE.Vector3() }]).map(a => a.point);
+  const zMax = Math.max(...pts.map(v => v.z)), yTop = Math.max(...pts.map(v => v.y)), yBot = Math.min(...pts.map(v => v.y));
+  const half = Math.max(...pts.map(v => Math.abs(v.x)));
+  // the wave: rising out of the painting at the stock on both sides, rolling to the muzzle, crashing there
+  const waveU = { uTime: { value: 0 }, uFade: { value: 1 } };
+  const waveMat = new THREE.ShaderMaterial({ uniforms: waveU, vertexShader: WAVE_VERTEX, fragmentShader: WAVE_FRAGMENT, transparent: true, side: THREE.DoubleSide, depthWrite: false });
+  const waveGeo = waveGeometry();
+  const waves = [-1, 1].map(side => { const m = new THREE.Mesh(waveGeo, waveMat); m.scale.x = side; m.visible = false; m.frustumCulled = false; gun.add(m); return m; });
+  const crash = particles('burst', tier, [{ point: tip.clone(), normal: new THREE.Vector3(0, 0.6, -1).normalize() }], new THREE.Color(0xeef6ff), trail, mulberry32(202151));
+  // the storm: clouds gathering above, lightning striking the silver seams, rain
+  const clouds = Array.from({ length: 14 }, (_, i) => {
+    const m = new THREE.Sprite(new THREE.SpriteMaterial({ map: stormCloud(), color: 0x3a3e4c, transparent: true, opacity: 0, depthWrite: false }));
+    m.userData = { z: tip.z - 0.04 + (zMax - tip.z + 0.08) * ((i * 0.37) % 1), y: yTop + 0.1 + (i % 3) * 0.03, s: 0.2 + (i % 4) * 0.05, ph: i * 1.7 };
+    m.material.rotation = i * 1.3;
+    gun.add(m); return m;
   });
-  const wind = particles('wind', tier, gusts, new THREE.Color(0xffffff), trail, mulberry32(202117));
+  // lightning: a forked bolt, a white-hot core in a wide violet-blue glow
+  const boltMat = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false, transparent: true, opacity: 0, depthWrite: false });
+  const glowMat = new THREE.MeshBasicMaterial({ color: 0x7aa8ff, toneMapped: false, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  const bolt = new THREE.Group(); gun.add(bolt);
+  const boltFlash = flare(new THREE.Color(0xbfe0ff)); boltFlash.visible = false; gun.add(boltFlash);
+  const STRIKES = [0.34, 0.45, 0.53, 0.6, 0.72];
+  const brng = mulberry32(202171);
+  let lastStrike = -1;
+  const rainFrom = Array.from({ length: 60 }, (_, i) => ({ point: new THREE.Vector3((brng() - 0.5) * 0.2, yTop + 0.16, tip.z + (zMax - tip.z + 0.08) * brng()), normal: new THREE.Vector3(0, -1, 0) }));
+  const rain = particles('rain', tier, rainFrom, new THREE.Color(0xd8e8ff), trail, mulberry32(202181));
+  rain.visible = crash.visible = false; gun.add(rain, crash);
+  const blasts = [];
+  gun.traverse(o => { const u = o.material?.userData?.tri; if (u?.artBlast && !blasts.includes(u.artBlast)) blasts.push(u.artBlast); });
   // sea spray and a fine mist rising off the blue crests painted along the barrel (the front half)
   const crests = surface.filter(a => a.point.z < -0.15);
   const crestFrom = crests.length ? crests : spray.length ? spray : [{ point: new THREE.Vector3(), normal: new THREE.Vector3(0, 1, 0) }];
   const seaSpray = particles('seaspray', tier, crestFrom, new THREE.Color(0xdcecff), trail, mulberry32(202131));
   const seaMist = particles('seamist', tier, crestFrom, new THREE.Color(0xe6f0ff), trail, mulberry32(202143));
-  drops.visible = splash.visible = jet.visible = wind.visible = seaSpray.visible = seaMist.visible = false;
-  gun.add(seaMist, drops, splash, jet, wind, seaSpray);
+  drops.visible = splash.visible = seaSpray.visible = seaMist.visible = false;
+  gun.add(seaMist, drops, splash, seaSpray);
   const order = [...new Set(reliefs.map(r => Math.round(r.base.z * 1000)))].sort((a, b) => a - b);
   const glazes = [];
   gun.traverse(o => { const u = o.material?.userData?.tri; if (u?.artPhase && !glazes.includes(u.artPhase)) glazes.push(u.artPhase); });
@@ -713,8 +789,51 @@ export function kilnInspect(gun, { reliefs, under, surface, muzzle, charm }, qua
       if (!active && phase < 0) return;
       phase = active ? p : -1;
       for (const g of glazes) g.value = active ? p : -1;
-      drops.visible = splash.visible = jet.visible = wind.visible = seaSpray.visible = seaMist.visible = active && p > 0.12;
+      drops.visible = splash.visible = seaSpray.visible = seaMist.visible = active && p > 0.12;
+      rain.visible = active && p > 0.14; crash.visible = active;
       trail.update(active ? p * KILN_SECONDS : -1);
+      const t = active ? p * KILN_SECONDS : 0;
+      // the wave: rises (0.16-0.28), rolls stock to muzzle (to 0.64), pitches over and crashes (to 0.7)
+      const rise = active ? smooth(p, 0.16, 0.28) : 0, roll = active ? smooth(p, 0.2, 0.64) : 0, fall = active ? smooth(p, 0.62, 0.7) : 0;
+      waveU.uTime.value = t; waveU.uFade.value = 1 - smooth(p, 0.66, 0.72);
+      for (const w of waves) {
+        w.visible = active && rise > 0.01 && p < 0.72;
+        w.position.set(w.scale.x * (half - 0.03), yBot - 0.01 - 0.03 * fall, zMax - 0.02 + (tip.z + 0.06 - zMax) * roll);
+        w.scale.y = rise * (1 - 0.6 * fall) * 1.9; w.scale.z = 1.7 + 0.4 * fall;
+        w.rotation.x = -0.5 * fall;                                         // pitching over as it breaks
+      }
+      // the storm
+      const gather = active ? smooth(p, 0.1, 0.26) * (1 - smooth(p, 0.82, 0.95)) : 0;
+      let flash = 0;
+      for (const st of STRIKES) { const d = p - st; if (d >= 0 && d < 0.018) flash = Math.max(flash, (1 - d / 0.018) * (0.6 + 0.4 * Math.sin(d * 900))); }
+      clouds.forEach((c, i) => {
+        const u = c.userData; c.visible = gather > 0.01;
+        c.position.set(Math.sin(t * 0.3 + u.ph) * 0.02, u.y, u.z + Math.sin(t * 0.2 + u.ph) * 0.02);
+        c.scale.setScalar(u.s * (0.7 + 0.3 * gather)); c.material.opacity = gather;
+        c.material.color.setHex(0x3a3e4c).lerp(new THREE.Color(0xc8d8ff), flash * 0.8);   // lit from inside by the strikes
+      });
+      const strike = STRIKES.findIndex(st => p >= st && p < st + 0.018);
+      if (strike >= 0 && strike !== lastStrike) {
+        // a new bolt: jagged, from a cloud down to a point on the gun's top
+        lastStrike = strike;
+        const c = clouds[strike % clouds.length].position, hit = pts[Math.floor(brng() * pts.length)].clone(); hit.y = Math.max(hit.y, yTop - 0.02);
+        const jag = (a, b, n, amp) => { const out = []; for (let k = 0; k <= n; k++) { const v = a.clone().lerp(b, k / n); if (k && k < n) v.add(new THREE.Vector3((brng() - 0.5) * amp, (brng() - 0.5) * amp * 0.3, (brng() - 0.5) * amp)); out.push(v); } return out; };
+        const main = jag(c, hit, 14, 0.035), forks = [main];
+        for (let f = 0; f < 3; f++) {                                       // forks off the main channel
+          const from = main[3 + Math.floor(brng() * 8)], to = from.clone().add(new THREE.Vector3((brng() - 0.5) * 0.12, -0.04 - brng() * 0.06, (brng() - 0.5) * 0.12));
+          forks.push(jag(from, to, 6, 0.02));
+        }
+        for (const ch of [...bolt.children]) { ch.geometry.dispose(); bolt.remove(ch); }
+        forks.forEach((path, k) => {
+          const curve = new THREE.CatmullRomCurve3(path, false, 'catmullrom', 0), w = k ? 0.5 : 1;
+          const core = new THREE.Mesh(new THREE.TubeGeometry(curve, path.length * 4, 0.0016 * w, 5, false), boltMat);
+          const glow = new THREE.Mesh(new THREE.TubeGeometry(curve, path.length * 4, 0.009 * w, 6, false), glowMat);
+          core.frustumCulled = glow.frustumCulled = false; bolt.add(glow, core);
+        });
+        boltFlash.position.copy(hit);
+      }
+      bolt.visible = boltFlash.visible = flash > 0.01; boltMat.opacity = Math.min(1, flash * 1.5); glowMat.opacity = flash * 0.45; boltFlash.scale.setScalar(0.18 * flash);
+      for (const b of blasts) b.value = flash > 0.01 ? flash : -9;          // the silver seams flash (shader)
       reliefs.forEach((r) => {
         const k = order.indexOf(Math.round(r.base.z * 1000)), start = 0.17 + k * 0.045;
         const lift = active ? smooth(p, start, start + 0.12) * (1 - smooth(p, 0.72, 0.93)) : 0;
@@ -724,12 +843,12 @@ export function kilnInspect(gun, { reliefs, under, surface, muzzle, charm }, qua
       });
       // the charm thrashes in the wind, blown towards the muzzle
       if (charm) {
-        const gust = active ? smooth(p, 0.15, 0.3) * (1 - smooth(p, 0.82, 0.95)) : 0, t = p * KILN_SECONDS;
+        const gust = active ? smooth(p, 0.15, 0.3) * (1 - smooth(p, 0.82, 0.95)) : 0;   // swinging in the storm
         charm.rotation.x = gust * (0.75 + 0.3 * Math.sin(t * 23) + 0.18 * Math.sin(t * 41));
         charm.rotation.z = gust * 0.35 * Math.sin(t * 17 + 1.3) + (active ? 0 : 0);
       }
     },
-    dispose() { for (const m of [drops, splash, jet, wind, seaSpray, seaMist]) { m.geometry.dispose(); m.material.dispose(); } },
+    dispose() { for (const m of [drops, splash, seaSpray, seaMist, rain, crash]) { m.geometry.dispose(); m.material.dispose(); } waveGeo.dispose(); waveMat.dispose(); bolt.children.forEach(c => c.geometry.dispose()); boltMat.dispose(); glowMat.dispose(); boltFlash.material.dispose(); for (const c of clouds) c.material.dispose(); },
   };
 }
 
@@ -801,7 +920,7 @@ function kraken(gun, pts, quality) {
           reach.x += Math.sin(t * 2.2 + s * 6 + k.ph) * 0.03 * (1 - s); reach.z += Math.cos(t * 1.7 + s * 5 + k.ph) * 0.03 * (1 - s);
           sp.c.copy(reach).lerp(coil, wrap * wrap * (3 - 2 * wrap));
           sp.c.y -= (1 - rise) * 0.35;                                     // rising from below
-          sp.r = (0.0035 + 0.019 * Math.pow(s, 0.8)) * (0.85 + 0.15 * Math.sin(t * 5 + s * 9 + k.ph));
+          sp.r = (0.006 + 0.028 * Math.pow(s, 0.75)) * (0.85 + 0.15 * Math.sin(t * 5 + s * 9 + k.ph));
         }
         for (let i = 0; i < N; i++) {
           const sp = k.spine[i], a = k.spine[Math.max(0, i - 1)].c, b = k.spine[Math.min(N - 1, i + 1)].c;

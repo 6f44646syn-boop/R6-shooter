@@ -1,5 +1,5 @@
-import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=12fb79e-mwdixmnf';
-import { packArt } from './pack-art.js?v=12fb79e-mwdixmnf';
+import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=a67ff2c-mwdl7zvj';
+import { packArt } from './pack-art.js?v=a67ff2c-mwdl7zvj';
 // GPU-baked textures for ultra graphics. Everything is procedural and drawn by a fragment
 // shader into a render target once (milliseconds on a graphics card), so 4096 x 4096 maps
 // cost nothing at start-up and nothing is downloaded.
@@ -10,7 +10,7 @@ import { packArt } from './pack-art.js?v=12fb79e-mwdixmnf';
 //   bakeSkin(renderer, index, size): one of SKINS, { albedo, rm } (rm: G roughness, B metalness).
 //   triplanar(material, opts): shader patch that maps a skin and/or detail by the surface's
 //        own 3D position (no UV stretching on long thin parts), with edge wear from UVs.
-import * as THREE from '../../vendor/three/three.module.min.js?v=12fb79e-mwdixmnf';
+import * as THREE from '../../vendor/three/three.module.min.js?v=a67ff2c-mwdl7zvj';
 
 const VERT = /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
@@ -821,6 +821,8 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       #endif`);
     f = f.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
       #ifdef TRI_ART
+        // porcelain: lightning strikes light the silver repair seams (artBlast: the flash, -9 when off)
+        totalEmissiveRadiance += vec3(0.75, 0.86, 1.0) * kSilver * max(artBlast, 0.0) * (1.0 - step(0.5, artMode)) * 4.0;
         // bronze: the teal inlays glow faintly; while inspecting, caustics drift through them
         float kc = pow(0.5 + 0.5 * sin(vTriPos.z * 190.0 + triTime * 2.1 + 2.0 * sin(vTriPos.y * 160.0 - triTime * 1.6)), 6.0);
         float kRise = artPhase < 0.0 ? 0.0 : sin(clamp(artPhase, 0.0, 1.0) * 3.14159);

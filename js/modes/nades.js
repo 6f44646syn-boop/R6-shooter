@@ -3,7 +3,7 @@
 // damage, lethal within 1.8 m, nothing behind solid cover. They break soft walls and boarded
 // doors close by and destroy gadgets. A Catcher zaps them out of the air.
 // Bots throw at enemies they know are behind cover, using a lob that lands on the spot.
-import { dirFrom } from './geom.js?v=12fb79e-mwdixmnf';
+import { dirFrom } from './geom.js?v=a67ff2c-mwdl7zvj';
 
 export const NADE = { count: 2, fuse: 2.5, speed: 15, radius: 6, lethal: 1.8, damage: 130, gravity: 9.8, wallBreak: 1.4, every: 1.0 };
 
