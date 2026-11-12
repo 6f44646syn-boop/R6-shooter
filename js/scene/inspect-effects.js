@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=9fbc040-mwdp52d5';
-import { mulberry32 } from '../core/prng.js?v=9fbc040-mwdp52d5';
-import { mergeStatic } from './sight-model.js?v=9fbc040-mwdp52d5';
+import * as THREE from '../../vendor/three/three.module.min.js?v=e347c75-mwe1k7e3';
+import { mulberry32 } from '../core/prng.js?v=e347c75-mwe1k7e3';
+import { mergeStatic } from './sight-model.js?v=e347c75-mwe1k7e3';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -395,6 +395,12 @@ const particleFragment = /* glsl */`
     #elif defined(WIND)
       a = vAlpha * 0.3 * (1.0 - smoothstep(0.0, 1.0, abs(p.x))) * (1.0 - smoothstep(0.3, 1.0, abs(p.y)));
       c = vec3(0.9, 0.95, 1.0);
+    #elif defined(MOLTEN)
+      // a glowing drop: hot core, the tint at its rim
+      float r = dot(p, p);
+      if (r >= 1.0) discard;
+      c = mix(vec3(1.0, 0.92, 0.6), tint, smoothstep(0.0, 0.8, r)) * 1.6;
+      a = vAlpha * (1.0 - smoothstep(0.6, 1.0, r));
     #elif defined(DROP)
       // a clear bead: dark refracted rim, bright catch-light up and to the left
       float r = dot(p, p);
@@ -417,17 +423,19 @@ const particleFragment = /* glsl */`
   }
 `;
 
-const particleBudget = { mist: [22, 38, 54, 70], chip: [20, 34, 48, 62], petal: [28, 46, 64, 84], drop: [14, 22, 30, 40], drip: [80, 140, 200, 260], rain: [80, 140, 200, 260], seaspray: [60, 100, 150, 200], seamist: [14, 24, 34, 44], splash: [120, 200, 300, 400], jet: [160, 280, 400, 520], wind: [15, 25, 35, 45], gather: [40, 70, 100, 130], burst: [40, 70, 100, 140], spark: [16, 26, 36, 48], prism: [60, 100, 150, 200], flame: [140, 240, 340, 460], smoke: [16, 26, 36, 48], ember: [20, 34, 48, 64], bubble: [120, 200, 300, 400], speck: [10, 16, 22, 30], glint: [60, 100, 150, 200] };
+const particleBudget = { mist: [22, 38, 54, 70], chip: [20, 34, 48, 62], petal: [28, 46, 64, 84], drop: [14, 22, 30, 40], drip: [80, 140, 200, 260], rain: [80, 140, 200, 260], seaspray: [60, 100, 150, 200], seamist: [14, 24, 34, 44], splash: [120, 200, 300, 400], jet: [160, 280, 400, 520], wind: [15, 25, 35, 45], gather: [40, 70, 100, 130], burst: [40, 70, 100, 140], spark: [16, 26, 36, 48], molten: [24, 40, 56, 72], zap: [70, 112, 168, 224], prism: [60, 100, 150, 200], flame: [140, 240, 340, 460], smoke: [16, 26, 36, 48], ember: [20, 34, 48, 64], bubble: [120, 200, 300, 400], speck: [10, 16, 22, 30], glint: [60, 100, 150, 200] };
 const particleTier = { low: 0, standard: 1, high: 2, ultra: 3 };
+// Storm Kiln's lightning: when each strike lands (inspect fraction); each hits the gun at its own point
+const KILN_STRIKES = [0.26, 0.31, 0.35, 0.4, 0.43, 0.47, 0.5, 0.53, 0.57, 0.6, 0.63, 0.67, 0.71, 0.76];
 
 function particles(kind, tier, anchors, tint, trail, rng) {
-  const mist = kind === 'mist', petals = kind === 'petal', drops = ['drop', 'drip', 'splash', 'jet', 'wind', 'seaspray', 'seamist', 'rain'].includes(kind), deep = ['bubble', 'speck', 'glint', 'gather', 'burst', 'spark', 'ember', 'flame', 'smoke', 'prism'].includes(kind);
+  const mist = kind === 'mist', petals = kind === 'petal', drops = ['drop', 'drip', 'splash', 'jet', 'wind', 'seaspray', 'seamist', 'rain'].includes(kind), deep = ['bubble', 'speck', 'glint', 'gather', 'burst', 'spark', 'ember', 'flame', 'smoke', 'prism', 'zap', 'molten'].includes(kind);
   const seconds = petals ? SAKURA_SECONDS : drops ? KILN_SECONDS : deep ? ABYSS_SECONDS : FROST_SECONDS;
   const peak = (petals ? SAKURA_PEAK : drops ? KILN_PEAK : deep ? ABYSS_PEAK : FROST_PEAK) * seconds;
   const k = seconds / 4.2;                              // timings below were set for a 4.2 s inspect
   const count = particleBudget[kind][tier], positions = [], directions = [], seeds = [], timing = [];
   for (let i = 0; i < count; i++) {
-    const anchor = anchors[Math.floor(rng() * anchors.length)];
+    const anchor = kind === 'zap' ? anchors[i % anchors.length] : anchors[Math.floor(rng() * anchors.length)];
     positions.push(...anchor.point.toArray());
     directions.push(...anchor.normal.toArray());
     seeds.push(rng(), rng(), rng(), rng());
@@ -464,6 +472,12 @@ function particles(kind, tier, anchors, tint, trail, rng) {
     } else if (kind === 'prism') {                        // Opal Overture: pouring out of the open jaw, a burst on the bite
       start = seconds * (i % 3 === 0 ? 0.61 + 0.02 * rng() : 0.4 + 0.42 * rng());
       life = 0.5 + rng() * 0.5;
+    } else if (kind === 'molten') {                       // drops swelling on an edge and falling, while it is hot (or oozing)
+      start = seconds * (0.3 + 0.52 * rng());
+      life = 0.7 + rng() * 0.5;
+    } else if (kind === 'zap') {                          // sparks off the gun where each lightning strike lands
+      start = seconds * KILN_STRIKES[i % anchors.length] + rng() * 0.04;
+      life = 0.25 + rng() * 0.3;
     } else if (kind === 'spark') {                        // hot sparks off the split, around the peak
       start = peak + (-0.15 + rng() * 0.7) * k;
       life = 0.3 + rng() * 0.3;
@@ -513,7 +527,7 @@ function particles(kind, tier, anchors, tint, trail, rng) {
   geo.setAttribute('seed', new THREE.InstancedBufferAttribute(new Float32Array(seeds), 4));
   geo.setAttribute('timing', new THREE.InstancedBufferAttribute(new Float32Array(timing), 4));
   geo.instanceCount = count;
-  const defines = kind === 'rain' ? { RAIN: 1 } : kind === 'seamist' ? { MIST: 1 } : kind === 'seaspray' ? { DROP: 1, SPRAY: 1 } : kind === 'jet' ? { DROP: 1, JET: 1 } : kind === 'wind' ? { WIND: 1 } : kind === 'gather' ? { SPECK: 1, GATHER: 1 } : kind === 'burst' ? { SPECK: 1, BURST: 1 } : kind === 'spark' ? { SPECK: 1, SPARK: 1 } : kind === 'prism' ? { SPECK: 1, BURST: 1 } : kind === 'ember' ? { SPECK: 1, EMBER: 1 } : kind === 'flame' ? { FLAME: 1 } : kind === 'smoke' ? { SMOKE: 1 } :
+  const defines = kind === 'rain' ? { RAIN: 1 } : kind === 'seamist' ? { MIST: 1 } : kind === 'seaspray' ? { DROP: 1, SPRAY: 1 } : kind === 'jet' ? { DROP: 1, JET: 1 } : kind === 'wind' ? { WIND: 1 } : kind === 'gather' ? { SPECK: 1, GATHER: 1 } : kind === 'burst' ? { SPECK: 1, BURST: 1 } : kind === 'spark' || kind === 'zap' ? { SPECK: 1, SPARK: 1 } : kind === 'molten' ? { DROP: 1, DRIP: 1, MOLTEN: 1 } : kind === 'prism' ? { SPECK: 1, BURST: 1 } : kind === 'ember' ? { SPECK: 1, EMBER: 1 } : kind === 'flame' ? { FLAME: 1 } : kind === 'smoke' ? { SMOKE: 1 } :
     mist ? { MIST: 1 } : petals ? { PETAL: 1 } : kind === 'drip' ? { DROP: 1, DRIP: 1 } : kind === 'splash' ? { DROP: 1, SPLASH: 1 } : kind === 'glint' ? { SPECK: 1, GLINT: 1 } : drops ? { DROP: 1 } : kind === 'bubble' ? { BUBBLE: 1 } : kind === 'speck' ? { SPECK: 1 } : {};
   if (mist && tier === 0) defines.LOW_INSPECT = 1;
   const material = new THREE.ShaderMaterial({
@@ -748,12 +762,6 @@ export function kilnInspect(gun, { reliefs, under, surface, muzzle, charm }, qua
   const pts = (surface.length ? surface : [{ point: new THREE.Vector3() }]).map(a => a.point);
   const zMax = Math.max(...pts.map(v => v.z)), yTop = Math.max(...pts.map(v => v.y)), yBot = Math.min(...pts.map(v => v.y));
   const half = Math.max(...pts.map(v => Math.abs(v.x)));
-  // the wave: rising out of the painting at the stock on both sides, rolling to the muzzle, crashing there
-  const waveU = { uTime: { value: 0 }, uFade: { value: 1 } };
-  const waveMat = new THREE.ShaderMaterial({ uniforms: waveU, vertexShader: WAVE_VERTEX, fragmentShader: WAVE_FRAGMENT, transparent: true, side: THREE.DoubleSide, depthWrite: false });
-  const waveGeo = waveGeometry();
-  const waves = [-1, 1].map(side => { const m = new THREE.Mesh(waveGeo, waveMat); m.scale.x = side; m.visible = false; m.frustumCulled = false; gun.add(m); return m; });
-  const crash = particles('burst', tier, [{ point: tip.clone(), normal: new THREE.Vector3(0, 0.6, -1).normalize() }], new THREE.Color(0xeef6ff), trail, mulberry32(202151));
   // the storm: clouds gathering above, lightning striking the silver seams, rain
   const clouds = Array.from({ length: 14 }, (_, i) => {
     const m = new THREE.Sprite(new THREE.SpriteMaterial({ map: stormCloud(), color: 0x3a3e4c, transparent: true, opacity: 0, depthWrite: false }));
@@ -766,12 +774,15 @@ export function kilnInspect(gun, { reliefs, under, surface, muzzle, charm }, qua
   const glowMat = new THREE.MeshBasicMaterial({ color: 0x7aa8ff, toneMapped: false, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
   const bolt = new THREE.Group(); gun.add(bolt);
   const boltFlash = flare(new THREE.Color(0xbfe0ff)); boltFlash.visible = false; gun.add(boltFlash);
-  const STRIKES = [0.34, 0.45, 0.53, 0.6, 0.72];
-  const brng = mulberry32(202171);
+  const STRIKES = KILN_STRIKES, brng = mulberry32(202171);
+  // where each strike hits: a point on the gun's side or top, just off the surface
+  const hits = STRIKES.map(() => { const a = (surface.length ? surface : [{ point: new THREE.Vector3(), normal: new THREE.Vector3(0, 1, 0) }])[Math.floor(brng() * Math.max(1, surface.length))]; return { point: a.point.clone().addScaledVector(a.normal, 0.002), normal: a.normal.clone().add(new THREE.Vector3(0, 0.6, 0)).normalize() }; });
+  const zaps = particles('zap', tier, hits, new THREE.Color(0xd8ecff).multiplyScalar(3), trail, mulberry32(202191));
+  zaps.material.blending = THREE.AdditiveBlending; zaps.visible = false; gun.add(zaps);
   let lastStrike = -1;
   const rainFrom = Array.from({ length: 60 }, (_, i) => ({ point: new THREE.Vector3((brng() - 0.5) * 0.2, yTop + 0.16, tip.z + (zMax - tip.z + 0.08) * brng()), normal: new THREE.Vector3(0, -1, 0) }));
   const rain = particles('rain', tier, rainFrom, new THREE.Color(0xd8e8ff), trail, mulberry32(202181));
-  rain.visible = crash.visible = false; gun.add(rain, crash);
+  rain.visible = false; gun.add(rain);
   const blasts = [];
   gun.traverse(o => { const u = o.material?.userData?.tri; if (u?.artBlast && !blasts.includes(u.artBlast)) blasts.push(u.artBlast); });
   // sea spray and a fine mist rising off the blue crests painted along the barrel (the front half)
@@ -793,38 +804,33 @@ export function kilnInspect(gun, { reliefs, under, surface, muzzle, charm }, qua
       phase = active ? p : -1;
       for (const g of glazes) g.value = active ? p : -1;
       drops.visible = splash.visible = seaSpray.visible = seaMist.visible = active && p > 0.12;
-      rain.visible = active && p > 0.14; crash.visible = active;
+      rain.visible = active && p > 0.14; zaps.visible = active;
       trail.update(active ? p * KILN_SECONDS : -1);
       const t = active ? p * KILN_SECONDS : 0;
-      // the wave: rises (0.16-0.28), rolls stock to muzzle (to 0.64), pitches over and crashes (to 0.7)
-      const rise = active ? smooth(p, 0.16, 0.28) : 0, roll = active ? smooth(p, 0.2, 0.64) : 0, fall = active ? smooth(p, 0.62, 0.7) : 0;
-      waveU.uTime.value = t; waveU.uFade.value = 1 - smooth(p, 0.66, 0.72);
-      for (const w of waves) {
-        w.visible = active && rise > 0.01 && p < 0.72;
-        w.position.set(w.scale.x * (half - 0.03), yBot - 0.01 - 0.03 * fall, zMax - 0.02 + (tip.z + 0.06 - zMax) * roll);
-        w.scale.y = rise * (1 - 0.6 * fall) * 1.9; w.scale.z = 1.7 + 0.4 * fall;
-        w.rotation.x = -0.5 * fall;                                         // pitching over as it breaks
-      }
       // the storm
       const gather = active ? smooth(p, 0.1, 0.26) * (1 - smooth(p, 0.82, 0.95)) : 0;
       let flash = 0;
-      for (const st of STRIKES) { const d = p - st; if (d >= 0 && d < 0.018) flash = Math.max(flash, (1 - d / 0.018) * (0.6 + 0.4 * Math.sin(d * 900))); }
+      for (const st of STRIKES) { const d = p - st; if (d >= 0 && d < 0.016) flash = Math.max(flash, (1 - d / 0.018) * (0.6 + 0.4 * Math.sin(d * 900))); }
       clouds.forEach((c, i) => {
         const u = c.userData; c.visible = gather > 0.01;
         c.position.set(Math.sin(t * 0.3 + u.ph) * 0.02, u.y, u.z + Math.sin(t * 0.2 + u.ph) * 0.02);
         c.scale.setScalar(u.s * (0.7 + 0.3 * gather)); c.material.opacity = gather;
         c.material.color.setHex(0x3a3e4c).lerp(new THREE.Color(0xc8d8ff), flash * 0.8);   // lit from inside by the strikes
       });
-      const strike = STRIKES.findIndex(st => p >= st && p < st + 0.018);
+      const strike = STRIKES.findIndex(st => p >= st && p < st + 0.016);
       if (strike >= 0 && strike !== lastStrike) {
         // a new bolt: jagged, from a cloud down to a point on the gun's top
         lastStrike = strike;
-        const c = clouds[strike % clouds.length].position, hit = pts[Math.floor(brng() * pts.length)].clone(); hit.y = Math.max(hit.y, yTop - 0.02);
+        const c = clouds[(strike * 5) % clouds.length].position, hit = hits[strike].point;
         const jag = (a, b, n, amp) => { const out = []; for (let k = 0; k <= n; k++) { const v = a.clone().lerp(b, k / n); if (k && k < n) v.add(new THREE.Vector3((brng() - 0.5) * amp, (brng() - 0.5) * amp * 0.3, (brng() - 0.5) * amp)); out.push(v); } return out; };
         const main = jag(c, hit, 14, 0.035), forks = [main];
         for (let f = 0; f < 3; f++) {                                       // forks off the main channel
           const from = main[3 + Math.floor(brng() * 8)], to = from.clone().add(new THREE.Vector3((brng() - 0.5) * 0.12, -0.04 - brng() * 0.06, (brng() - 0.5) * 0.12));
           forks.push(jag(from, to, 6, 0.02));
+        }
+        for (let f = 0; f < 4; f++) {                                       // crackling over the gun where it lands
+          const to = hit.clone().add(new THREE.Vector3((brng() - 0.5) * 0.02, (brng() - 0.5) * 0.03, (brng() - 0.5) * 0.08));
+          forks.push(jag(hit, to, 5, 0.01));
         }
         for (const ch of [...bolt.children]) { ch.geometry.dispose(); bolt.remove(ch); }
         forks.forEach((path, k) => {
@@ -851,7 +857,7 @@ export function kilnInspect(gun, { reliefs, under, surface, muzzle, charm }, qua
         charm.rotation.z = gust * 0.35 * Math.sin(t * 17 + 1.3) + (active ? 0 : 0);
       }
     },
-    dispose() { for (const m of [drops, splash, seaSpray, seaMist, rain, crash]) { m.geometry.dispose(); m.material.dispose(); } waveGeo.dispose(); waveMat.dispose(); bolt.children.forEach(c => c.geometry.dispose()); boltMat.dispose(); glowMat.dispose(); boltFlash.material.dispose(); for (const c of clouds) c.material.dispose(); },
+    dispose() { for (const m of [drops, splash, seaSpray, seaMist, rain, zaps]) { m.geometry.dispose(); m.material.dispose(); } bolt.children.forEach(c => c.geometry.dispose()); boltMat.dispose(); glowMat.dispose(); boltFlash.material.dispose(); for (const c of clouds) c.material.dispose(); },
   };
 }
 
@@ -878,7 +884,8 @@ function flare(tint) {
 function kraken(gun, pts, quality) {
   const zs = pts.map(v => v.z), ys = pts.map(v => v.y);
   const zMin = Math.min(...zs), zMax = Math.max(...zs), yTop = Math.max(...ys), yBot = Math.min(...ys);
-  const yc = (yTop + yBot) / 2, R = Math.max(0.045, (yTop - yBot) * 0.62);
+  // the coil stands clear of the gun: wider than it (plus the tentacle's own thickness) and centred high
+  const yc = (yTop + yBot) / 2 + 0.014, RX = 0.066, RY = (yTop - yBot) / 2 + 0.036;
   const N = 70, M = 10, rng = mulberry32(203101);
   const skin = new THREE.MeshPhysicalMaterial({ color: 0x3a1022, roughness: 0.3, metalness: 0, clearcoat: 0.8, clearcoatRoughness: 0.15, sheen: 0.5, sheenColor: 0xc06090, emissive: 0x0a2a2a, emissiveIntensity: 0.4 });
   const suckerMat = new THREE.MeshStandardMaterial({ color: 0xe8b8b0, roughness: 0.5 });
@@ -904,7 +911,7 @@ function kraken(gun, pts, quality) {
         const vis = rise > 0.01;
         k.body.visible = k.suckers.visible = k.spots.visible = vis;
         if (!vis) continue;
-        const squeeze = active ? 1 - 0.12 * smooth(p, 0.42, 0.5) * (1 - smooth(p, 0.7, 0.76)) * (0.5 + 0.5 * Math.sin(t * 7 + k.ph)) : 1;
+        const squeeze = active ? 1 - 0.06 * smooth(p, 0.42, 0.5) * (1 - smooth(p, 0.7, 0.76)) * (0.5 + 0.5 * Math.sin(t * 7 + k.ph)) : 1;
         const base = new THREE.Vector3(k.side * 0.13, yBot - 0.32, k.z + 0.06);
         for (let i = 0; i < N; i++) {
           const s = i / (N - 1), sp = k.spine[i];                         // s: 0 at the tip, 1 at the base
@@ -913,9 +920,9 @@ function kraken(gun, pts, quality) {
           let coil;
           if (s < 0.6) {
             const th = k.th0 + k.side * (0.6 - s) / 0.6 * k.turns * Math.PI * 2;
-            coil = O.set(Math.cos(th) * R * squeeze, yc + Math.sin(th) * R * 0.9 * squeeze, k.z + (s - 0.3) * 0.12);
+            coil = O.set(Math.cos(th) * RX * squeeze, yc + Math.sin(th) * RY * squeeze, k.z + (s - 0.3) * 0.12);
           } else {
-            const th = k.th0, start = A.set(Math.cos(th) * R, yc + Math.sin(th) * R * 0.9, k.z + 0.036);
+            const th = k.th0, start = A.set(Math.cos(th) * RX, yc + Math.sin(th) * RY, k.z + 0.036);
             coil = O.copy(start).lerp(base, (s - 0.6) / 0.4);
           }
           // reaching: hanging up from the base in a loose curl, swaying
@@ -1201,6 +1208,9 @@ export function forgeInspect(gun, { reliefs, channels, seam, shards }, quality) 
   const flames = particles('flame', tier, from, new THREE.Color(0xff8020), trail, mulberry32(205047));
   flames.material.blending = THREE.AdditiveBlending;
   const smoke = particles('smoke', tier, from, new THREE.Color(0x222222), trail, mulberry32(205063));
+  const drip = from.map(a => ({ point: a.point.clone(), normal: new THREE.Vector3(0, -1, 0) }));
+  const molten = particles('molten', tier, drip, new THREE.Color(0xff5a08), trail, mulberry32(205121));
+  molten.material.blending = THREE.AdditiveBlending; molten.visible = false; gun.add(molten);
   sparks.visible = embers.visible = flames.visible = smoke.visible = false;
   gun.add(smoke, sparks, embers, flames);
   // The peak, as in the owner's concept: the painting fades to the peak painting (artMix) while the
@@ -1252,7 +1262,7 @@ export function forgeInspect(gun, { reliefs, channels, seam, shards }, quality) 
       if (!active && phase < 0) return;
       phase = active ? p : -1;
       for (const g of glazes) g.value = active ? p : -1;
-      sparks.visible = embers.visible = flames.visible = smoke.visible = active && p > 0.15;
+      sparks.visible = embers.visible = flames.visible = smoke.visible = molten.visible = active && p > 0.15;
       trail.update(active ? p * FORGE_SECONDS : -1);
       // the plates lift in turn from the handguard back, a few millimetres out and up, then settle
       reliefs.forEach((r) => {
@@ -1295,7 +1305,7 @@ export function forgeInspect(gun, { reliefs, channels, seam, shards }, quality) 
         smoked.emissiveIntensity = glow * 4;
       }
     },
-    dispose() { for (const m of [sparks, embers, flames, smoke]) { m.geometry.dispose(); m.material.dispose(); } for (const b of bursts) b.g.traverse(o => o.material?.dispose()); chunkGeo.dispose(); chunkMat.dispose(); },
+    dispose() { for (const m of [sparks, embers, flames, smoke, molten]) { m.geometry.dispose(); m.material.dispose(); } for (const b of bursts) b.g.traverse(o => o.material?.dispose()); chunkGeo.dispose(); chunkMat.dispose(); },
   };
 }
 
@@ -1508,6 +1518,14 @@ export function amberInspect(gun, art, quality) {
   const ringMat = new THREE.MeshBasicMaterial({ color: 0xffd08a, transparent: true, opacity: 0, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false });
   const ring = new THREE.Mesh(new THREE.RingGeometry(0.7, 1, 40), ringMat); ring.visible = false; gun.add(ring);
   const trail = emitterTrail(gun), tier = particleTier[quality] ?? 1;
+  // golden resin oozing from the bottom of the amber window and dripping; glowing pollen off the ferns
+  const ooze = [], pollenFrom = [];
+  for (let x = 520; x <= 1140; x += 30) for (const k of [-1, 1]) { const v = P([x, 405 - Math.abs(x - 830) * 0.04]); v.x = k * (half + 0.002); ooze.push({ point: v, normal: new THREE.Vector3(0, -1, 0) }); }
+  for (const f of FRONDS) for (const pt of f) for (const k of [-1, 1]) { const v = P(pt); v.x = k * (half + 0.004); pollenFrom.push({ point: v, normal: new THREE.Vector3(k, 0.4, 0).normalize() }); }
+  const resin = particles('molten', tier, ooze, new THREE.Color(0xd88a10), trail, mulberry32(207051));
+  const pollen = particles('ember', tier, pollenFrom, new THREE.Color(0xffe070).multiplyScalar(2.5), trail, mulberry32(207067));
+  pollen.material.blending = THREE.AdditiveBlending;
+  for (const m of [resin, pollen]) { m.visible = false; gun.add(m); }
   const pts = [...(art.surface || [])].map(a => a.point);
   const yMid = pts.length ? pts.reduce((a, v) => a + v.y, 0) / pts.length : 0, zMid = (Z0 + Z1) / 2;
   const target = P([600, 330]);                                       // it hits the amber window
@@ -1587,11 +1605,12 @@ export function amberInspect(gun, art, quality) {
         ring.scale.setScalar(0.006 + 0.05 * Math.sqrt(hs / 0.35)); ringMat.opacity = 0.8 * (1 - hs / 0.35);
       }
       puffs[0].visible = active && side < 0; puffs[1].visible = active && side > 0;
+      resin.visible = pollen.visible = active;
       trail.update(active ? t : -1);
     },
     dispose() {
       silver.dispose(); leafGeo.dispose(); body.dispose(); eyeMat.dispose(); wingMat.dispose(); impactFlash.material.dispose(); ring.geometry.dispose(); ringMat.dispose();
-      for (const m of puffs) { m.geometry.dispose(); m.material.dispose(); }
+      for (const m of [...puffs, resin, pollen]) { m.geometry.dispose(); m.material.dispose(); }
       for (const f of fronds) f.stem.geometry.dispose();
       fly.traverse(o => o.geometry?.dispose());
     },
@@ -1969,7 +1988,7 @@ export function opalInspect(gun, { surface }, quality) {
   // swapped in for the inspect); faces stretched across the split are the dark throat. The same twist
   // folds the support hand and forearm away for this inspect (hand materials, ahead of the grip or out
   // on the left; the firing hand on the grip stays).
-  const JAW_Y = 0.04, JAW_HINGE = 0.03;                              // the hinge ahead of the eye; only the top jaw moves (the grip stays whole)
+  const JAW_Y = 0.016, JAW_HINGE = -0.03;    // (split low, through the barrel line; the lower jaw opens, hinged ahead of the grip so the grip and hand stay whole)                              // the hinge ahead of the eye; only the top jaw moves (the grip stays whole)
   const jawU = { uJawAngle: { value: 0 }, uJawY: { value: JAW_Y }, uJawHinge: { value: JAW_HINGE }, uHideSup: { value: 0 } };
   const wrapped = new Map(), swapped = [];
   const wrap = (mat) => {
@@ -1982,7 +2001,7 @@ export function opalInspect(gun, { surface }, quality) {
         Object.assign(sh.uniforms, jawU);
         sh.vertexShader = 'uniform float uJawAngle, uJawY, uJawHinge, uHideSup;\nattribute float jawSide;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
           {
-            float ja = uJawAngle * max(jawSide, 0.0) * smoothstep(uJawHinge, uJawHinge - 0.05, position.z);
+            float ja = uJawAngle * min(jawSide, 0.0) * smoothstep(uJawHinge, uJawHinge - 0.05, position.z);
             vec2 jd = vec2(transformed.y - uJawY, transformed.z - uJawHinge);
             transformed.y = uJawY + jd.x * cos(ja) - jd.y * sin(ja);
             transformed.z = uJawHinge + jd.x * sin(ja) + jd.y * cos(ja);
@@ -2037,8 +2056,20 @@ export function opalInspect(gun, { surface }, quality) {
   });
   const trail = emitterTrail(gun);
   const mouthFrom = [];
-  for (let j = 0; j < 12; j++) for (const side of [-1, 1]) mouthFrom.push({ point: new THREE.Vector3(side * 0.01, 0.042, tz0 + (tz1 - tz0) * j / 11), normal: new THREE.Vector3(side * 0.6, 0.5, -0.8).normalize() });
+  for (let j = 0; j < 12; j++) for (const side of [-1, 1]) mouthFrom.push({ point: new THREE.Vector3(side * 0.01, JAW_Y + 0.002, tz0 + (tz1 - tz0) * j / 11), normal: new THREE.Vector3(side * 0.6, 0.5, -0.8).normalize() });
   const prisms = [0xff7ab0, 0x7affe0, 0xb08aff, 0xffe08a].map((c, k) => { const m = particles('prism', tier, mouthFrom, new THREE.Color(c).multiplyScalar(3), trail, mulberry32(210101 + k * 9)); m.material.blending = THREE.AdditiveBlending; m.visible = false; gun.add(m); return m; });
+  // the fly: buzzing in from the side, past the jaw's front, and snapped up by the bite
+  const flyBody = new THREE.MeshStandardMaterial({ color: 0x1e1a14, roughness: 0.4, metalness: 0.3 });
+  const flyWing = new THREE.MeshPhysicalMaterial({ color: 0xe0e8f0, transparent: true, opacity: 0.45, roughness: 0.1, iridescence: 1, side: THREE.DoubleSide, depthWrite: false });
+  const fly = new THREE.Group(), flyWings = [];
+  { const b = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), flyBody); b.scale.set(0.0035, 0.003, 0.006); fly.add(b);
+    const hd = new THREE.Mesh(new THREE.SphereGeometry(0.0025, 8, 6), new THREE.MeshStandardMaterial({ color: 0x7a1010, roughness: 0.3 })); hd.position.z = 0.006; fly.add(hd);
+    for (const k of [-1, 1]) { const piv = new THREE.Group(); piv.position.set(k * 0.002, 0.002, 0); const w = new THREE.Mesh(new THREE.CircleGeometry(1, 10), flyWing); w.scale.set(0.007, 0.003, 1); w.position.x = k * 0.006; w.rotation.x = -Math.PI / 2; piv.add(w); fly.add(piv); flyWings.push({ piv, k }); } }
+  fly.visible = false; gun.add(fly);
+  const flyCam = new THREE.Vector3(1, 0, 0), flyProbe = new THREE.Mesh(new THREE.PlaneGeometry(0.0001, 0.0001), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+  flyProbe.frustumCulled = false; gun.add(flyProbe);
+  flyProbe.onBeforeRender = (r, sc, camera) => { flyCam.setFromMatrixPosition(camera.matrixWorld); gun.worldToLocal(flyCam); };
+  const fb0 = new THREE.Vector3(), fb1 = new THREE.Vector3(), fb2 = new THREE.Vector3(), fb3 = new THREE.Vector3(), fq = new THREE.Vector3(), FZ = new THREE.Vector3(0, 0, 1);
   const rainbow = [0xff6a8a, 0x6affd8, 0xa070ff, 0xffd06a].map((c, i) => {
     const m = particles('glint', tier, surface.length ? surface : [{ point: at.clone(), normal: new THREE.Vector3(1, 0, 0) }], new THREE.Color(c).multiplyScalar(2.5), trail, mulberry32(210011 + i * 7));
     m.material.blending = THREE.AdditiveBlending; m.visible = false; gun.add(m); return m;
@@ -2080,7 +2111,7 @@ export function opalInspect(gun, { surface }, quality) {
       jawU.uJawAngle.value = A;
       throat.visible = A > 0.01;
       if (throat.visible) {
-        jawRot(JAW_Y, -0.225, A, gumC); jawRot(JAW_Y, -0.225, 0, gumD);
+        jawRot(JAW_Y, -0.225, 0, gumC); jawRot(JAW_Y, -0.225, -A, gumD);
         throatPos.set([0, JAW_Y, JAW_HINGE - 0.03, 0, gumC.y, gumC.z, 0, gumD.y, gumD.z]);
         gumGeo.attributes.position.needsUpdate = true; gumGeo.computeVertexNormals();
       }
@@ -2088,19 +2119,34 @@ export function opalInspect(gun, { surface }, quality) {
         const { x, z, k, h, r } = t.userData;
         t.visible = A > 0.01;
         if (!t.visible) continue;
-        const a = k > 0 ? A * (1 - smooth(z, JAW_HINGE - 0.05, JAW_HINGE)) : 0;   // the top jaw's teeth ride it
+        const a = k < 0 ? -A * (1 - smooth(z, JAW_HINGE - 0.05, JAW_HINGE)) : 0;   // the lower jaw's teeth ride it
         jawRot(JAW_Y - k * h * 0.45, z, a, tq); t.position.set(x, tq.y, tq.z);
         t.rotation.set(a + (k > 0 ? Math.PI : 0), 0, 0);                       // upper teeth point down, lower up
         t.scale.set(r, h, r);
       }
       for (const m of rainbow) m.visible = active && p > 0.25;
       for (const m of prisms) m.visible = active;
+      // the fly: on your side, from out wide and above, in a buzzing curve to the jaw's front; gone at the bite
+      const FLY0 = 0.42, SNAP = 0.6;
+      fly.visible = active && p > FLY0 && p < SNAP;
+      if (fly.visible) {
+        const side = Math.sign(flyCam.x) || 1, tt = p * OPAL_SECONDS, mouthZ = tz0 + 0.035;
+        fb0.set(side * 0.3, JAW_Y + 0.12, mouthZ - 0.25); fb1.set(side * 0.22, JAW_Y + 0.02, mouthZ - 0.02);
+        fb2.set(side * 0.1, JAW_Y + 0.08, mouthZ + 0.12); fb3.set(side * 0.004, JAW_Y + 0.012, mouthZ);
+        const u = smooth(p, FLY0, SNAP - 0.005), v = 1 - u;
+        const bez = (w, out) => { const z = 1 - w; return out.copy(fb0).multiplyScalar(z * z * z).addScaledVector(fb1, 3 * z * z * w).addScaledVector(fb2, 3 * z * w * w).addScaledVector(fb3, w * w * w); };
+        bez(u, fly.position); fly.position.add(fq.set(Math.sin(tt * 23) * 0.006, Math.sin(tt * 31) * 0.005, Math.cos(tt * 19) * 0.006).multiplyScalar(v));
+        bez(Math.min(1, u + 0.03), fq); fly.quaternion.setFromUnitVectors(FZ, fq.sub(fly.position).normalize());
+        fly.scale.setScalar(3);
+        for (const w of flyWings) w.piv.rotation.z = w.k * (0.3 + 0.9 * Math.sin(tt * 150));
+      }
       trail.update(active ? t : -1);
     },
     dispose() {
       for (const [o, m, g] of swapped) { o.geometry.dispose(); o.material = m; o.geometry = g; } for (const m of wrapped.values()) m.dispose(); toothMat.dispose(); toothGeo.dispose(); gumGeo.dispose(); gumMat.dispose();
       eyeGeo.dispose(); upperGeo.dispose(); lowerGeo.dispose(); eyeMat.dispose(); lidMat.dispose(); probe.geometry.dispose(); probe.material.dispose();
       for (const m of [...rainbow, ...prisms]) { m.geometry.dispose(); m.material.dispose(); }
+      fly.traverse(o => { o.geometry?.dispose(); if (o.material && o.material !== flyBody && o.material !== flyWing) o.material.dispose(); }); flyBody.dispose(); flyWing.dispose(); flyProbe.geometry.dispose(); flyProbe.material.dispose();
     },
   };
 }
