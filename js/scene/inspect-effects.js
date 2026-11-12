@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=1e8153e-mwd9o8rz';
-import { mulberry32 } from '../core/prng.js?v=1e8153e-mwd9o8rz';
-import { mergeStatic } from './sight-model.js?v=1e8153e-mwd9o8rz';
+import * as THREE from '../../vendor/three/three.module.min.js?v=d8fe671-mwd9takn';
+import { mulberry32 } from '../core/prng.js?v=d8fe671-mwd9takn';
+import { mergeStatic } from './sight-model.js?v=d8fe671-mwd9takn';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -773,18 +773,35 @@ export function vesperInspect(gun, { reliefs, surface }, quality) {
   const jag = (a, b, n) => { const pts = [a]; for (let k = 1; k < n; k++) pts.push(a.clone().lerp(b, k / n).add(new THREE.Vector3(rng() - 0.5, rng() - 0.5, 0).multiplyScalar(0.012))); pts.push(b); return pts; };
   const tubes = [], rifts = [];
   const riftU = { uTime: { value: 0 }, uOpen: { value: 0 } };
-  const riftMat = new THREE.ShaderMaterial({ uniforms: riftU, transparent: true, depthWrite: false, side: THREE.DoubleSide,
-    vertexShader: 'varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-    fragmentShader: `uniform float uTime, uOpen; varying vec2 vP;
+  // A tear in space: a long jagged slit with a glowing pale green / cyan lip, and inside another world,
+  // deep blue going to crimson with drifting wisps. It starts as a thin glowing crack and opens wide.
+  const riftMat = new THREE.ShaderMaterial({ uniforms: Object.assign(riftU, { uShow: { value: 0 } }), transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    vertexShader: `attribute float aW; uniform float uOpen; varying float vEdge, vU;
+      void main(){ vEdge = abs(sign(aW)); vU = position.x; vec3 q = position; q.y += aW * max(uOpen, 0.04);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(q, 1.0); }`,
+    fragmentShader: `uniform float uTime, uOpen, uShow; varying float vEdge, vU;
       void main(){
-        vec2 q = vP / vec2(0.42, 0.95); float d = clamp(length(q), 0.0, 1.0), a = atan(q.y, q.x);
-        float swirl = sin(a * 3.0 + uTime * 2.2 - d * 9.0) * 0.5 + 0.5;
-        float veins = pow(abs(sin(a * 7.0 - uTime * 0.7 + sin(d * 14.0 + uTime) * 1.5)), 12.0) * (1.0 - d);
-        vec3 deep = vec3(0.03, 0.0, 0.02), red = vec3(0.85, 0.06, 0.04);
-        vec3 c = mix(deep, red * 0.6, swirl * (1.0 - d) * 0.7) + red * veins * 1.4;
-        c += vec3(1.0, 0.35, 0.12) * pow(d, 5.0) * 2.4;          // the burning lip
-        gl_FragColor = vec4(c, uOpen * (0.92 + 0.08 * d));
+        float rim = smoothstep(0.55, 1.0, vEdge);
+        vec3 lip = mix(vec3(0.6, 1.0, 0.55), vec3(0.45, 0.9, 1.0), sin(vU * 9.0 + uTime * 1.5) * 0.5 + 0.5) * 2.2;
+        vec3 deep = vec3(0.10, 0.05, 0.42), crimson = vec3(0.55, 0.04, 0.17);
+        vec3 c = mix(crimson, deep, clamp(smoothstep(0.05, 0.8, vEdge) + 0.25 * sin(vU * 3.0 + uTime * 0.6), 0.0, 1.0));
+        float wisp = pow(abs(sin(vU * 13.0 + vEdge * 5.0 + sin(vU * 4.0 - uTime * 0.8) * 2.2)), 16.0);
+        c += vec3(0.85, 0.45, 0.75) * wisp * 0.45 * (1.0 - rim);
+        gl_FragColor = vec4(mix(c, lip, rim), uShow);
       }` });
+  const tear = () => {             // the slit along x in -1..1: a jagged centre line with ragged top and bottom lips
+    const N = 40, pos = [], w = [], idx = []; let yc = 0;
+    for (let i = 0; i < N; i++) {
+      const x = -1 + 2 * i / (N - 1), body = Math.pow(1 - x * x, 0.7) * 0.2;
+      yc += (rng() - 0.5) * 0.07;
+      pos.push(x, yc, 0, x, yc, 0, x, yc, 0);
+      w.push(body * (0.6 + rng() * 0.7), 0, -body * (0.6 + rng() * 0.7));
+      if (i) { const a = (i - 1) * 3, b = i * 3; idx.push(a, a + 1, b, b, a + 1, b + 1, a + 1, a + 2, b + 1, b + 1, a + 2, b + 2); }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('aW', new THREE.Float32BufferAttribute(w, 1)); g.setIndex(idx);
+    return g;
+  };
   // spores drifting out of the rifts
   const nSpores = [30, 60, 90, 120][particleTier[quality] ?? 1], spore = [];
   const sporeGeo = new THREE.BufferGeometry(); sporeGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(nSpores * 3), 3));
@@ -802,11 +819,10 @@ export function vesperInspect(gun, { reliefs, surface }, quality) {
       if (rng() < 0.25) continue;
       tubes.push({ pane, pts: jag(ends[i].clone().multiplyScalar(f * (0.9 + rng() * 0.2)), ends[(i + 1) % spokes].clone().multiplyScalar(f * (0.9 + rng() * 0.2)), 3), w: 0.0007 });
     }
-    // the rift: the break tears open into a tall slit onto another dimension, dark and red-lit inside
-    const lip = [];
-    for (let i = 0; i < 28; i++) { const a = i / 28 * Math.PI * 2, j = 0.85 + rng() * 0.3; lip.push(new THREE.Vector2(Math.cos(a) * 0.42 * j, Math.sin(a) * 0.95 * j)); }
-    const rift = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape(lip)), riftMat);
-    rift.position.z = 0.0005; rift.scale.x = 0.001; rift.userData.R = R; pane.add(rift); rifts.push(rift);
+    // the rift: a tear across the break, turned diagonally
+    const rift = new THREE.Mesh(tear(), riftMat);
+    rift.position.z = 0.0005; rift.scale.setScalar(R * 1.15); rift.rotation.z = (rng() < 0.5 ? -1 : 1) * (0.45 + rng() * 0.45);
+    pane.add(rift); rifts.push(rift);
     // somewhere around the gun, turned a different way each
     const dir = new THREE.Vector3(rng() - 0.5, rng() * 0.6 - 0.1, rng() - 0.5).normalize();
     pane.position.copy(centre).addScaledVector(dir, 0.12 + rng() * 0.12);
@@ -852,10 +868,9 @@ export function vesperInspect(gun, { reliefs, surface }, quality) {
       cracks.visible = spread * seal > 0.01;
       for (const pane of panes) pane.scale.setScalar(Math.max(0.001, spread));
       strand.opacity = spread * seal * (0.75 + 0.25 * ((tick % 3) / 2));
-      // the rifts tear open after the cracks, hold while time is caught, then close before the seal
-      const open = active ? smooth(p, 0.46, 0.52) * (1 - smooth(p, 0.58, 0.64)) : 0;
-      riftU.uOpen.value = open; riftU.uTime.value = active ? p * VESPER_SECONDS : 0;
-      for (const r of rifts) r.scale.set(r.userData.R * Math.max(0.001, open), r.userData.R * (0.6 + 0.4 * open), 1);
+      // each tear shows as a glowing crack with the others, tears open while time is caught, then closes
+      const open = active ? smooth(p, 0.47, 0.53) * (1 - smooth(p, 0.58, 0.63)) : 0;
+      riftU.uOpen.value = open; riftU.uShow.value = spread * seal; riftU.uTime.value = active ? p * VESPER_SECONDS : 0;
       spores.visible = open > 0.01; spores.material.opacity = open * 0.9;
       if (spores.visible) {
         const pos = sporeGeo.attributes.position, w = new THREE.Vector3();
