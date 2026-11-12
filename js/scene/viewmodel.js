@@ -1,30 +1,30 @@
-import { skinSheets } from '../render/skins2.js?v=ce24bfe-mwdhgcv1';
-import { packArt } from '../render/pack-art.js?v=ce24bfe-mwdhgcv1';
+import { skinSheets } from '../render/skins2.js?v=d449e87-mwdhjwml';
+import { packArt } from '../render/pack-art.js?v=d449e87-mwdhjwml';
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=ce24bfe-mwdhgcv1';
-import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=ce24bfe-mwdhgcv1';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=ce24bfe-mwdhgcv1';
-import { matcap } from './matcap.js?v=ce24bfe-mwdhgcv1';
-import { mulberry32 } from '../core/prng.js?v=ce24bfe-mwdhgcv1';
-import { gunMaps } from './range-tex.js?v=ce24bfe-mwdhgcv1';
-import { skinById, FACTORY, SAKURA_ID } from '../core/skins.js?v=ce24bfe-mwdhgcv1';
-import { legendCanvas, onLegendChange } from '../core/legend.js?v=ce24bfe-mwdhgcv1';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=ce24bfe-mwdhgcv1';
-import { HDPack } from '../render/hd-pack.js?v=ce24bfe-mwdhgcv1';
-import { epicRelief } from './skin-relief.js?v=ce24bfe-mwdhgcv1';
-import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect, forgeInspect, orreryInspect, amberInspect, jadeInspect } from './inspect-effects.js?v=ce24bfe-mwdhgcv1';
-import { F2 } from './f2-model.js?v=ce24bfe-mwdhgcv1';
-import { G8 } from './g8-model.js?v=ce24bfe-mwdhgcv1';
-import { C8 } from './c8-model.js?v=ce24bfe-mwdhgcv1';
-import { R4 } from './r4-model.js?v=ce24bfe-mwdhgcv1';
-import { AK } from './ak-model.js?v=ce24bfe-mwdhgcv1';
-import { EVO } from './evo-model.js?v=ce24bfe-mwdhgcv1';
-import { MP5K } from './compact-model.js?v=ce24bfe-mwdhgcv1';
-import { T5 } from './smg-model.js?v=ce24bfe-mwdhgcv1';
-import { SMG11 } from './machinepistol-model.js?v=ce24bfe-mwdhgcv1';
-import { MP7 } from './pdw-model.js?v=ce24bfe-mwdhgcv1';
+import * as THREE from '../../vendor/three/three.module.min.js?v=d449e87-mwdhjwml';
+import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=d449e87-mwdhjwml';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=d449e87-mwdhjwml';
+import { matcap } from './matcap.js?v=d449e87-mwdhjwml';
+import { mulberry32 } from '../core/prng.js?v=d449e87-mwdhjwml';
+import { gunMaps } from './range-tex.js?v=d449e87-mwdhjwml';
+import { skinById, FACTORY, SAKURA_ID } from '../core/skins.js?v=d449e87-mwdhjwml';
+import { legendCanvas, onLegendChange } from '../core/legend.js?v=d449e87-mwdhjwml';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=d449e87-mwdhjwml';
+import { HDPack } from '../render/hd-pack.js?v=d449e87-mwdhjwml';
+import { epicRelief } from './skin-relief.js?v=d449e87-mwdhjwml';
+import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect, forgeInspect, orreryInspect, amberInspect, jadeInspect } from './inspect-effects.js?v=d449e87-mwdhjwml';
+import { F2 } from './f2-model.js?v=d449e87-mwdhjwml';
+import { G8 } from './g8-model.js?v=d449e87-mwdhjwml';
+import { C8 } from './c8-model.js?v=d449e87-mwdhjwml';
+import { R4 } from './r4-model.js?v=d449e87-mwdhjwml';
+import { AK } from './ak-model.js?v=d449e87-mwdhjwml';
+import { EVO } from './evo-model.js?v=d449e87-mwdhjwml';
+import { MP5K } from './compact-model.js?v=d449e87-mwdhjwml';
+import { T5 } from './smg-model.js?v=d449e87-mwdhjwml';
+import { SMG11 } from './machinepistol-model.js?v=d449e87-mwdhjwml';
+import { MP7 } from './pdw-model.js?v=d449e87-mwdhjwml';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 

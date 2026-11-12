@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=ce24bfe-mwdhgcv1';
-import { mulberry32 } from '../core/prng.js?v=ce24bfe-mwdhgcv1';
-import { mergeStatic } from './sight-model.js?v=ce24bfe-mwdhgcv1';
+import * as THREE from '../../vendor/three/three.module.min.js?v=d449e87-mwdhjwml';
+import { mulberry32 } from '../core/prng.js?v=d449e87-mwdhjwml';
+import { mergeStatic } from './sight-model.js?v=d449e87-mwdhjwml';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -1434,16 +1434,32 @@ export function jadeInspect(gun, { surface }, quality) {
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); geo.setIndex(idx);
   const jade = new THREE.MeshPhysicalMaterial({ color: 0xb8d49c, map: jadeScales(), bumpMap: jadeScales(), bumpScale: 1.5, roughness: 0.22, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.08, sheen: 0.6, sheenColor: 0xd8f070, emissive: 0x1c3008, emissiveIntensity: 0.6 });
   const body = new THREE.Mesh(geo, jade); body.frustumCulled = false; body.visible = false; gun.add(body);
-  // the head: skull, jaw, bronze horns, gold eyes
-  const head = new THREE.Group(), bronze = new THREE.MeshStandardMaterial({ color: 0xb08a4a, metalness: 1, roughness: 0.3 });
-  const skull = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), jade); skull.scale.set(0.0085, 0.0065, 0.016); skull.position.z = 0.006;
-  const jaw = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), jade); jaw.scale.set(0.006, 0.0035, 0.013); jaw.position.set(0, -0.0045, 0.009);
+  // the head, built at full size facing +z with +y up: cranium, a long snout and nose, a jaw that
+  // opens, brows over gold eyes, two long horns swept back, a jade mane, and trailing whiskers
+  const head = new THREE.Group(), bronze = new THREE.MeshStandardMaterial({ color: 0xc8a050, metalness: 1, roughness: 0.28 });
+  const blob = (sx, sy, sz, x, y, z, mat = jade) => { const m = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 12), mat); m.scale.set(sx, sy, sz); m.position.set(x, y, z); return m; };
+  const tube = (pts, r0, r1, mat) => {
+    const curve = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(...p))), g = new THREE.TubeGeometry(curve, 16, 1, 6, false);
+    const pa = g.attributes.position, c = new THREE.Vector3(), v = new THREE.Vector3();
+    for (let i = 0; i <= 16; i++) { curve.getPointAt(i / 16, c); const r = r0 + (r1 - r0) * i / 16; for (let j = 0; j <= 6; j++) { const n = i * 7 + j; v.fromBufferAttribute(pa, n).sub(c).multiplyScalar(r).add(c); pa.setXYZ(n, v.x, v.y, v.z); } }
+    g.computeVertexNormals(); return new THREE.Mesh(g, mat);
+  };
+  head.add(blob(0.013, 0.011, 0.015, 0, 0.002, 0), blob(0.0095, 0.0068, 0.02, 0, -0.001, 0.02), blob(0.0068, 0.0058, 0.007, 0, 0.0015, 0.037));
+  const jawPivot = new THREE.Group(); jawPivot.position.set(0, -0.006, 0.004);
+  jawPivot.add(blob(0.0078, 0.0036, 0.017, 0, -0.002, 0.016)); head.add(jawPivot);
   const eyeMat = new THREE.MeshStandardMaterial({ color: 0xffd040, emissive: 0xffb000, emissiveIntensity: 1.5 });
-  head.add(skull, jaw);
   for (const k of [-1, 1]) {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.0018, 10, 8), eyeMat); eye.position.set(k * 0.0055, 0.0025, 0.012); head.add(eye);
-    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.0018, 0.014, 8), bronze); horn.position.set(k * 0.004, 0.006, -0.002); horn.rotation.set(-1.9, 0, k * 0.35); head.add(horn);
+    head.add(blob(0.0055, 0.0032, 0.01, k * 0.008, 0.008, 0.011));                                    // brow
+    head.add(blob(0.0034, 0.0034, 0.0034, k * 0.0102, 0.0045, 0.013, eyeMat));                         // eye
+    head.add(blob(0.0016, 0.0012, 0.0016, k * 0.004, 0.004, 0.043, bronze));                            // nostril
+    head.add(tube([[k * 0.006, 0.01, -0.002], [k * 0.011, 0.02, -0.02], [k * 0.014, 0.024, -0.04], [k * 0.012, 0.022, -0.058]], 0.0026, 0.0006, bronze));   // horn
+    head.add(tube([[k * 0.007, -0.003, 0.038], [k * 0.02, -0.006, 0.03], [k * 0.03, -0.012, 0.005], [k * 0.034, -0.02, -0.02]], 0.0009, 0.0003, bronze));  // whisker
   }
+  for (let m = 0; m < 5; m++) {                                                                       // the mane
+    const fin = new THREE.Mesh(new THREE.ConeGeometry(0.004, 0.022, 4), jade);
+    fin.scale.z = 0.35; fin.position.set(0, 0.01 - m * 0.001, -0.006 - m * 0.008); fin.rotation.x = -1.9 + m * 0.08; head.add(fin);
+  }
+  const jaw = jawPivot;
   head.visible = false; gun.add(head);
   // which side faces the camera: the dragon that comes alive is the one you can see
   let viewSide = 1, side = 1; const camAt = new THREE.Vector3();
@@ -1465,7 +1481,7 @@ export function jadeInspect(gun, { surface }, quality) {
       phase = active ? p : -1;
       for (const g of glazes) g.value = active ? p : -1;
       // the painting sweeps to the bare gun as the dragon peels off head first, and back as it lies down
-      for (const u of mixes) if (u.artMix) { u.artMix.value = active ? smooth(p, 0.1, 0.28) * (1 - smooth(p, 0.74, 0.92)) : 0; u.artMixSide.value = side; }
+      for (const u of mixes) if (u.artMix) { u.artMix.value = active ? smooth(p, 0.08, 0.5) * (1 - smooth(p, 0.76, 0.95)) : 0; u.artMixSide.value = side; }
       const t = active ? p * JADE_SECONDS : 0;
       if (p < 0.1) side = viewSide;
       let any = false;
@@ -1473,8 +1489,8 @@ export function jadeInspect(gun, { surface }, quality) {
       const spin = t * 2.6, zc = (Z0 + Z1) / 2 - 0.08 + 0.07 * Math.sin(t * 0.7);
       for (let i = 0; i < N; i++) {
         const f = i / (N - 1), s = spine[i];
-        const peel = active ? smooth(p, 0.1 + f * 0.14, 0.2 + f * 0.14) : 0;
-        const settle = active ? smooth(p, 0.74 + (1 - f) * 0.1, 0.82 + (1 - f) * 0.1) : 1;
+        const peel = active ? smooth(p, 0.08 + f * 0.3, 0.22 + f * 0.3) : 0;          // slowly, head first, the tail last
+        const settle = active ? smooth(p, 0.76 + (1 - f) * 0.1, 0.85 + (1 - f) * 0.1) : 1;
         s.w = peel * (1 - settle);
         if (s.w > 0.001) any = true;
         const taper = (0.75 + 0.25 * Math.sin(Math.min(1, f * 4) * Math.PI / 2)) * (1 - 0.85 * f * f);
@@ -1506,8 +1522,8 @@ export function jadeInspect(gun, { surface }, quality) {
       }
       geo.attributes.position.needsUpdate = true; geo.computeVertexNormals();
       const h = spine[0];
-      mtx.makeBasis(h.b, h.n, h.t); head.quaternion.setFromRotationMatrix(mtx); head.position.copy(h.c).addScaledVector(h.t, 0.004);
-      head.scale.setScalar(1.5 * h.r / (rMax * 0.75));
+      mtx.makeBasis(h.b, h.n, h.t); head.quaternion.setFromRotationMatrix(mtx); head.position.copy(h.c).addScaledVector(h.t, 0.006);
+      head.scale.setScalar(h.r / (rMax * 0.75));
       jaw.rotation.x = 0.1 + 0.3 * h.w * (0.5 + 0.5 * Math.sin(t * 6));
       for (let k = 0; k < nSpikes; k++) {
         const s = spine[2 + k * 3];
