@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=9be6deb-mwdgwpqb';
-import { mulberry32 } from '../core/prng.js?v=9be6deb-mwdgwpqb';
-import { mergeStatic } from './sight-model.js?v=9be6deb-mwdgwpqb';
+import * as THREE from '../../vendor/three/three.module.min.js?v=282f1f7-mwdh0d0l';
+import { mulberry32 } from '../core/prng.js?v=282f1f7-mwdh0d0l';
+import { mergeStatic } from './sight-model.js?v=282f1f7-mwdh0d0l';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -1250,17 +1250,23 @@ export function amberInspect(gun, art, quality) {
     [[310, 470], [298, 420], [325, 360], [385, 305], [470, 278]],
     [[335, 385], [430, 372], [530, 392], [630, 420], [705, 442]],
     [[720, 455], [790, 440], [880, 470]],
+    // ... and on over the whole gun: above and below the amber, onto the stock, down the magazine and grip
+    [[560, 268], [700, 256], [850, 262], [1000, 252], [1120, 264]],
+    [[700, 445], [820, 456], [950, 444], [1080, 432]],
+    [[1180, 300], [1260, 330], [1330, 380], [1400, 450]],
+    [[560, 520], [545, 620], [525, 720], [505, 800]],
+    [[950, 525], [985, 610], [1025, 700], [1060, 770]],
   ];
   const fronds = [];
   for (const side of [-1, 1]) for (const f of FRONDS) {
     const pts = f.map(P).map(v => { v.x = side * (half + 0.0015); return v; });
     const curve = new THREE.CatmullRomCurve3(pts), len = curve.getLength(), segs = Math.ceil(len / 0.003);
-    const stem = new THREE.Mesh(new THREE.TubeGeometry(curve, segs, 0.0011, 5, false), silver);
+    const stem = new THREE.Mesh(new THREE.TubeGeometry(curve, segs, 0.0015, 5, false), silver);
     stem.geometry.setDrawRange(0, 0); stem.visible = false; gun.add(stem);
     const leaves = [];
     const n = Math.floor(len / 0.0055);
     for (let i = 1; i < n; i++) {
-      const t = i / n, at = curve.getPointAt(t), tan = curve.getTangentAt(t), size = 0.0045 * (1 - t * 0.7);
+      const t = i / n, at = curve.getPointAt(t), tan = curve.getTangentAt(t), size = 0.0068 * (1 - t * 0.6);
       for (const k of [-1, 1]) {
         // a leaflet off each side of the stem, angled towards the tip, lying on the gun's side
         const out = new THREE.Vector3(0, -tan.z, tan.y).multiplyScalar(k).addScaledVector(tan, 0.6).normalize();
@@ -1272,7 +1278,7 @@ export function amberInspect(gun, art, quality) {
         leaves.push({ leaf, t });
       }
     }
-    fronds.push({ stem, leaves, count: stem.geometry.index.count, start: 0.12 + rng() * 0.1 });
+    fronds.push({ stem, leaves, count: stem.geometry.index.count, start: 0.1 + rng() * 0.16 });
   }
   // the fly: a big prehistoric one, amber-brown, with long veined wings
   const fly = new THREE.Group(), body = new THREE.MeshStandardMaterial({ color: 0x3a2412, roughness: 0.45, metalness: 0.2 });
@@ -1289,6 +1295,9 @@ export function amberInspect(gun, art, quality) {
     pivot.add(w); fly.add(pivot); return { pivot, k };
   });
   fly.add(thorax, abdomen, head); fly.visible = false; gun.add(fly);
+  // which side of the gun faces the camera (it crashes into that one)
+  let viewSide = 1; const camAt = new THREE.Vector3();
+  thorax.onBeforeRender = (renderer, scene, camera) => { camAt.setFromMatrixPosition(camera.matrixWorld); gun.worldToLocal(camAt); viewSide = Math.sign(camAt.x) || 1; };
   fly.scale.setScalar(2.2);                                          // a giant, as prehistoric flies were
   const impactFlash = flare(new THREE.Color(0xffd890)); impactFlash.visible = false; gun.add(impactFlash);
   const pts = [...(art.surface || [])].map(a => a.point);
@@ -1326,7 +1335,7 @@ export function amberInspect(gun, art, quality) {
         if (p < DIVE) {
           fly.position.copy(flyAt(t)); dir.copy(flyAt(t + 0.03)).sub(fly.position).normalize();
           fly.quaternion.setFromUnitVectors(fwd, dir);
-          side = Math.sign(fly.position.x) || 1;
+          side = viewSide;
         } else if (p < IMPACT) {
           // a straight dive, speeding up, into the amber window on its side of the gun
           from.copy(flyAt(DIVE * AMBER_SECONDS)); hit.copy(target); hit.x = side * (half + 0.004);
