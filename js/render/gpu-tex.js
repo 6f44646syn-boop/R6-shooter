@@ -1,5 +1,5 @@
-import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=cf12e37-mwdfx5dz';
-import { packArt } from './pack-art.js?v=cf12e37-mwdfx5dz';
+import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=077023c-mwdg8dho';
+import { packArt } from './pack-art.js?v=077023c-mwdg8dho';
 // GPU-baked textures for ultra graphics. Everything is procedural and drawn by a fragment
 // shader into a render target once (milliseconds on a graphics card), so 4096 x 4096 maps
 // cost nothing at start-up and nothing is downloaded.
@@ -10,7 +10,7 @@ import { packArt } from './pack-art.js?v=cf12e37-mwdfx5dz';
 //   bakeSkin(renderer, index, size): one of SKINS, { albedo, rm } (rm: G roughness, B metalness).
 //   triplanar(material, opts): shader patch that maps a skin and/or detail by the surface's
 //        own 3D position (no UV stretching on long thin parts), with edge wear from UVs.
-import * as THREE from '../../vendor/three/three.module.min.js?v=cf12e37-mwdfx5dz';
+import * as THREE from '../../vendor/three/three.module.min.js?v=077023c-mwdg8dho';
 
 const VERT = /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
@@ -692,7 +692,9 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         // window's inner walls) take a soft local average instead of a smeared stripe.
         float kSide = sstep(0.35, 0.8, abs(normalize(vTriN).x));
         vec3 kArt = mix(texture2D(artMap, kuv, 5.0).rgb, texture2D(artMap, kuv).rgb, kSide);
-        if (artMix > 0.0) kArt = mix(kArt, mix(texture2D(artMap2, kuv, 5.0).rgb, texture2D(artMap2, kuv).rgb, kSide), artMix);
+        // the second painting sweeps in from the muzzle to the stock as artMix rises (and back out as it falls)
+        float kWipe = mix(artRect.x - 0.05, artRect.y + 0.05, artMix);
+        if (artMix > 0.0) kArt = mix(kArt, mix(texture2D(artMap2, kuv, 5.0).rgb, texture2D(artMap2, kuv).rgb, kSide), sstep(0.015, -0.015, vTriPos.z - kWipe));
         float kLum = dot(kArt, vec3(0.3, 0.59, 0.11)), kSat = max(kArt.r, max(kArt.g, kArt.b)) - min(kArt.r, min(kArt.g, kArt.b));
         // grey in the painting = the silver-filled seams and the moon
         float kSilver = sstep(0.09, 0.035, kSat) * sstep(0.12, 0.3, kLum);
@@ -826,6 +828,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         // the handguard into the receiver, burns yellow at the peak and cools to deep red, and a dull
         // red glow creeps through the dark cracks between the plates.
         float kForge = step(3.5, artMode) * step(artMode, 4.5);
+        totalEmissiveRadiance += kForge * step(0.001, artMix) * step(artMix, 0.999) * vec3(1.0, 0.42, 0.05) * 2.0 * exp(-pow((vTriPos.z - kWipe) * 70.0, 2.0));   // the burning edge of the sweep
         // Midnight Orrery: while the portal is open the gold constellation lines light up, a starlight
         // sweep runs along them stock to barrel, the midnight blue takes a nebula sheen and stars twinkle in it
         float kOrr = step(4.5, artMode), kOrrOn = artPhase < 0.0 ? 0.0 : sstep(0.15, 0.3, artPhase) * (1.0 - sstep(0.85, 0.97, artPhase));
@@ -861,15 +864,18 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         // Storm Kiln: water ripples run over the glaze, rings spreading from three points and a swell
         // along the gun; faint at rest, strong in the inspect (the light rolls over them in 3D)
         if (artMode < 0.5) {
-          float rAmp = artPhase < 0.0 ? 0.2 : 0.2 + 1.8 * sstep(0.08, 0.22, artPhase) * (1.0 - sstep(0.85, 0.97, artPhase));
-          vec2 rp = vTriPos.zy, rg = vec2(0.0);
+          float rAmp = artPhase < 0.0 ? 0.28 : 0.28 + 2.4 * sstep(0.08, 0.22, artPhase) * (1.0 - sstep(0.85, 0.97, artPhase));
+          vec2 rp = vTriPos.zy, rg = vec2(0.0); float rh = 0.0;
           for (int i = 0; i < 3; i++) {
             vec2 c = vec2(-0.3 + 0.25 * float(i), 0.03 - 0.025 * float(i)), v = rp - c;
             float d = length(v) + 1e-4;
             rg += cos(170.0 * d - triTime * 5.0 - float(i) * 2.0) * v / d * exp(-d * 5.0);
+            rh += sin(170.0 * d - triTime * 5.0 - float(i) * 2.0) * exp(-d * 5.0);
           }
           rg.x += 0.6 * cos(rp.x * 110.0 + rp.y * 40.0 + triTime * 3.2);
+          rh += 0.6 * sin(rp.x * 110.0 + rp.y * 40.0 + triTime * 3.2);
           normal = normalize(normal - (vTriAZ * rg.x + vTriAY * rg.y) * rAmp * kSide);
+          diffuseColor.rgb *= 1.0 + 0.08 * rAmp * rh * kSide;          // crests catch light, troughs fall into shade
         }
       }
       #endif

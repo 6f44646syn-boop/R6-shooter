@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=cf12e37-mwdfx5dz';
-import { mulberry32 } from '../core/prng.js?v=cf12e37-mwdfx5dz';
-import { mergeStatic } from './sight-model.js?v=cf12e37-mwdfx5dz';
+import * as THREE from '../../vendor/three/three.module.min.js?v=077023c-mwdg8dho';
+import { mulberry32 } from '../core/prng.js?v=077023c-mwdg8dho';
+import { mergeStatic } from './sight-model.js?v=077023c-mwdg8dho';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -235,10 +235,10 @@ const particleVertex = /* glsl */`
           radius = vec2(1.0) * mix(0.0005, 0.0011, seed.z);
         #endif
         #ifdef JET
-          // out of the barrel like a fire hose on full: a huge cone of white spray that barely drops
-          vec3 aim = normalize(outward + (seed.xyz - 0.5) * 0.55);
-          origin = (emitted * vec4(emitter, 1.0)).xyz + aim * mix(2.2, 3.6, seed.w) * age - vec3(0.0, 0.3 * age * age, 0.0);
-          radius = vec2(1.0) * mix(0.007, 0.015, seed.z) * (1.0 + 4.0 * age);
+          // out of the barrel like a fire hydrant: a hard, straight stream that barely drops
+          vec3 aim = normalize(outward + (seed.xyz - 0.5) * 0.06);
+          origin = (emitted * vec4(emitter, 1.0)).xyz + aim * mix(3.2, 4.4, seed.w) * age - vec3(0.0, 0.3 * age * age, 0.0);
+          radius = vec2(1.0) * mix(0.0016, 0.0042, seed.z) * (1.0 + age);
         #endif
         #ifdef WIND
           // a streak blown along to the muzzle, drawn along its own direction
@@ -255,7 +255,7 @@ const particleVertex = /* glsl */`
           // underwater: drift out of the seam, then rise and wobble (no gravity)
           origin = (emitted * vec4(emitter, 1.0)).xyz + outward * 0.012 * (1.0 - exp(-3.0 * age))
             + vec3(sin(s + age * 5.5) * 0.004, age * mix(0.035, 0.07, seed.w), cos(s + age * 4.0) * 0.003);
-          radius = vec2(1.0) * mix(0.0012, 0.0032, seed.z);
+          radius = vec2(1.0) * mix(0.0025, 0.006, seed.z);
           #ifdef SPECK
             radius = vec2(1.0) * mix(0.0006, 0.0013, seed.z);
           #endif
@@ -360,7 +360,7 @@ const particleFragment = /* glsl */`
       float rimB = smoothstep(0.55, 0.95, r);
       float glint = 1.0 - smoothstep(0.0, 0.06, dot(p - vec2(-0.35, 0.4), p - vec2(-0.35, 0.4)));
       c = mix(vec3(0.2, 0.55, 0.5), vec3(0.75, 1.0, 0.95), rimB) + glint;
-      a = vAlpha * (0.08 + rimB * 0.55 + glint * 0.7);
+      a = vAlpha * (0.14 + rimB * 0.75 + glint * 0.8);
     #elif defined(SPECK)
       float r = dot(p, p);
       if (r >= 1.0) discard;
@@ -384,14 +384,8 @@ const particleFragment = /* glsl */`
       c = vec3(0.09, 0.08, 0.08);
       a = vAlpha * 0.28 * exp(-2.5 * r) * (1.0 - vAge) * smoothstep(0.0, 0.2, vAge);
     #elif defined(WIND)
-      a = vAlpha * 0.4 * (1.0 - smoothstep(0.0, 1.0, abs(p.x))) * (1.0 - smoothstep(0.3, 1.0, abs(p.y)));
+      a = vAlpha * 0.3 * (1.0 - smoothstep(0.0, 1.0, abs(p.x))) * (1.0 - smoothstep(0.3, 1.0, abs(p.y)));
       c = vec3(0.9, 0.95, 1.0);
-    #elif defined(JET)
-      // white spray: soft round puffs
-      float r = dot(p, p);
-      if (r >= 1.0) discard;
-      c = vec3(0.95, 0.97, 1.0);
-      a = vAlpha * 0.8 * exp(-2.0 * r);
     #elif defined(DROP)
       // a clear bead: dark refracted rim, bright catch-light up and to the left
       float r = dot(p, p);
@@ -414,7 +408,7 @@ const particleFragment = /* glsl */`
   }
 `;
 
-const particleBudget = { mist: [22, 38, 54, 70], chip: [20, 34, 48, 62], petal: [28, 46, 64, 84], drop: [14, 22, 30, 40], drip: [80, 140, 200, 260], seaspray: [60, 100, 150, 200], seamist: [14, 24, 34, 44], splash: [120, 200, 300, 400], jet: [240, 420, 600, 780], wind: [35, 60, 85, 110], gather: [40, 70, 100, 130], burst: [40, 70, 100, 140], spark: [16, 26, 36, 48], flame: [140, 240, 340, 460], smoke: [16, 26, 36, 48], ember: [20, 34, 48, 64], bubble: [12, 18, 26, 34], speck: [10, 16, 22, 30], glint: [60, 100, 150, 200] };
+const particleBudget = { mist: [22, 38, 54, 70], chip: [20, 34, 48, 62], petal: [28, 46, 64, 84], drop: [14, 22, 30, 40], drip: [80, 140, 200, 260], seaspray: [60, 100, 150, 200], seamist: [14, 24, 34, 44], splash: [120, 200, 300, 400], jet: [160, 280, 400, 520], wind: [15, 25, 35, 45], gather: [40, 70, 100, 130], burst: [40, 70, 100, 140], spark: [16, 26, 36, 48], flame: [140, 240, 340, 460], smoke: [16, 26, 36, 48], ember: [20, 34, 48, 64], bubble: [120, 200, 300, 400], speck: [10, 16, 22, 30], glint: [60, 100, 150, 200] };
 const particleTier = { low: 0, standard: 1, high: 2, ultra: 3 };
 
 function particles(kind, tier, anchors, tint, trail, rng) {
@@ -458,6 +452,9 @@ function particles(kind, tier, anchors, tint, trail, rng) {
     } else if (kind === 'spark') {                        // hot sparks off the split, around the peak
       start = peak + (-0.15 + rng() * 0.7) * k;
       life = 0.3 + rng() * 0.3;
+    } else if (kind === 'bubble') {                       // bubbling off the whole gun from the start
+      start = seconds * (0.02 + 0.82 * rng());
+      life = 0.9 + rng() * 0.7;
     } else if (kind === 'flame') {                        // the gun on fire while it is molten
       start = seconds * (0.38 + 0.4 * rng());
       life = 0.35 + rng() * 0.35;
@@ -692,7 +689,7 @@ export function kilnInspect(gun, { reliefs, under, surface, muzzle, charm }, qua
   const splash = particles('splash', tier, spray.length ? spray : [{ point: new THREE.Vector3(), normal: new THREE.Vector3(0, 1, 0) }], new THREE.Color(0xbfdcff), trail, mulberry32(202093));
   // the hydrant out of the barrel, and wind rushing along the gun to the muzzle
   const [my, mz] = muzzle || [0, -0.5], tip = new THREE.Vector3(0, my, mz);
-  const jet = particles('jet', tier, [{ point: tip.clone(), normal: new THREE.Vector3(0, 0.12, -1).normalize() }], new THREE.Color(0xffffff), trail, mulberry32(202101));
+  const jet = particles('jet', tier, [{ point: tip.clone(), normal: new THREE.Vector3(0, 0.12, -1).normalize() }], new THREE.Color(0xbfdcff), trail, mulberry32(202101));
   const gusts = (surface.length ? surface : [{ point: new THREE.Vector3(), normal: new THREE.Vector3(1, 0, 0) }]).map((a, i) => {
     const from = a.point.clone().addScaledVector(a.normal, 0.04 + (i * 37 % 10) * 0.012).add(new THREE.Vector3(0, ((i * 13 % 7) - 3) * 0.012, 0.06));
     return { point: from, normal: tip.clone().sub(from).normalize() };
@@ -753,11 +750,12 @@ function flare(tint) {
   m.renderOrder = 5;
   return m;
 }
-export function abyssInspect(gun, { reliefs, dials, muzzle }, quality) {
+export function abyssInspect(gun, { reliefs, dials, muzzle, surface, under }, quality) {
   const trail = emitterTrail(gun), tier = particleTier[quality] ?? 1;
   const anchors = reliefs.map(r => ({ point: r.base.clone().add(new THREE.Vector3(0, ...(r.ring ? [r.ring[1], r.ring[0]] : [0, 0]))), normal: r.normal.clone() }));
   const fallback = [{ point: new THREE.Vector3(), normal: new THREE.Vector3(1, 0, 0) }];
-  const bubbles = particles('bubble', tier, anchors.length ? anchors : fallback, new THREE.Color(0x9ff5e6), trail, mulberry32(203011));
+  const allOver = [...anchors, ...surface, ...under];
+  const bubbles = particles('bubble', tier, allOver.length ? allOver : fallback, new THREE.Color(0x9ff5e6), trail, mulberry32(203011));
   const specks = particles('speck', tier, anchors.length ? anchors : fallback, new THREE.Color(0x8dffb0), trail, mulberry32(203029));
   for (const m of [bubbles, specks]) { m.visible = false; gun.add(m); }
   const glazes = [], blasts = [];
@@ -789,7 +787,7 @@ export function abyssInspect(gun, { reliefs, dials, muzzle }, quality) {
       if (!active && phase < 0) return;
       phase = active ? p : -1;
       for (const g of glazes) g.value = active ? p : -1;
-      bubbles.visible = specks.visible = active && p > 0.3;
+      bubbles.visible = active; specks.visible = active && p > 0.3;
       trail.update(active ? p * ABYSS_SECONDS : -1);
       const sink = active ? smooth(p, 0.2, 0.5) * (1 - smooth(p, 0.7, 0.92)) : 0;
       // the shell winds up faster and faster (six full turns, so it ends where it began) ...
