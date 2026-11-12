@@ -1,24 +1,24 @@
-import { skinSheets } from '../render/skins2.js?v=b021b19-mwd8gat8';
-import { packArt } from '../render/pack-art.js?v=b021b19-mwd8gat8';
+import { skinSheets } from '../render/skins2.js?v=d976dff-mwd8qn13';
+import { packArt } from '../render/pack-art.js?v=d976dff-mwd8qn13';
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=b021b19-mwd8gat8';
-import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=b021b19-mwd8gat8';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=b021b19-mwd8gat8';
-import { matcap } from './matcap.js?v=b021b19-mwd8gat8';
-import { mulberry32 } from '../core/prng.js?v=b021b19-mwd8gat8';
-import { gunMaps } from './range-tex.js?v=b021b19-mwd8gat8';
-import { skinById, FACTORY, SAKURA_ID } from '../core/skins.js?v=b021b19-mwd8gat8';
-import { legendCanvas, onLegendChange } from '../core/legend.js?v=b021b19-mwd8gat8';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=b021b19-mwd8gat8';
-import { HDPack } from '../render/hd-pack.js?v=b021b19-mwd8gat8';
-import { epicRelief } from './skin-relief.js?v=b021b19-mwd8gat8';
-import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect } from './inspect-effects.js?v=b021b19-mwd8gat8';
-import { F2 } from './f2-model.js?v=b021b19-mwd8gat8';
-import { G8 } from './g8-model.js?v=b021b19-mwd8gat8';
-import { C8 } from './c8-model.js?v=b021b19-mwd8gat8';
-import { R4 } from './r4-model.js?v=b021b19-mwd8gat8';
+import * as THREE from '../../vendor/three/three.module.min.js?v=d976dff-mwd8qn13';
+import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=d976dff-mwd8qn13';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=d976dff-mwd8qn13';
+import { matcap } from './matcap.js?v=d976dff-mwd8qn13';
+import { mulberry32 } from '../core/prng.js?v=d976dff-mwd8qn13';
+import { gunMaps } from './range-tex.js?v=d976dff-mwd8qn13';
+import { skinById, FACTORY, SAKURA_ID } from '../core/skins.js?v=d976dff-mwd8qn13';
+import { legendCanvas, onLegendChange } from '../core/legend.js?v=d976dff-mwd8qn13';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=d976dff-mwd8qn13';
+import { HDPack } from '../render/hd-pack.js?v=d976dff-mwd8qn13';
+import { epicRelief } from './skin-relief.js?v=d976dff-mwd8qn13';
+import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect } from './inspect-effects.js?v=d976dff-mwd8qn13';
+import { F2 } from './f2-model.js?v=d976dff-mwd8qn13';
+import { G8 } from './g8-model.js?v=d976dff-mwd8qn13';
+import { C8 } from './c8-model.js?v=d976dff-mwd8qn13';
+import { R4 } from './r4-model.js?v=d976dff-mwd8qn13';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -816,7 +816,37 @@ function artInlays(gun, skin, model, inspect = false) {
     seed = (seed * 16807) % 2147483647; const y = yMin + (yMax - yMin) * (seed / 2147483647);
     if (inside(z, y)) { const side = i % 2 ? 1 : -1; surface.push({ point: new THREE.Vector3(side * (half + 0.002), y, z), normal: new THREE.Vector3(side, 0, 0) }); }
   }
-  return { reliefs, dials, under, surface, muzzle: SPEC[Object.keys(TRACED).find((t) => TRACED[t] === model)]?.muzzle };
+  // Sakura Gilt: roots that creep over both sides in the inspect (grown along their length)
+  const roots = [];
+  if (inspect && skin.artLook === 'lacquer') {
+    const bark = new THREE.MeshStandardMaterial({ color: 0x2b1a12, roughness: 0.85, metalness: 0, envMap: highEnv() || ENV, envMapIntensity: 0.4 });
+    let seed = 11;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const grow = (side, z, y, heading, steps, r) => {
+      const pts = [new THREE.Vector3(side * (half + 0.0015), y, z)];
+      for (let i = 0; i < steps; i++) {
+        let ok = false;
+        for (let t = 0; t < 4 && !ok; t++) {
+          heading += (rnd() - 0.5) * 0.7 + (t ? 0.9 : 0);
+          const nz = z + Math.cos(heading) * 0.011, ny = y + Math.sin(heading) * 0.011;
+          if (inside(nz, ny)) { z = nz; y = ny; ok = true; }
+        }
+        if (!ok) break;
+        pts.push(new THREE.Vector3(side * (half + 0.0015), y, z));
+        if (r > 0.0012 && rnd() < 0.12) grow(side, z, y, heading + (rnd() < 0.5 ? 1 : -1) * (0.6 + rnd() * 0.6), Math.floor(steps * 0.5), r * 0.6);   // a side root
+      }
+      if (pts.length < 3) return;
+      const mesh = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), pts.length * 3, r, 5, false), bark);
+      mesh.userData.hd = true; mesh.geometry.setDrawRange(0, 0); mesh.visible = false;
+      gun.add(mesh); roots.push(mesh);
+    };
+    for (const side of [-1, 1]) for (let n = 0; n < 7; n++) {
+      // from the grip and the stock, climbing up and spreading forward
+      const [z, y] = bins.size ? [...bins.values()][Math.floor(rnd() * bins.size)] : [0, 0];
+      if (inside(z, y + 0.006)) grow(side, z, y + 0.006, Math.PI * (0.35 + rnd() * 0.5), 34, 0.0022 + rnd() * 0.0012);
+    }
+  }
+  return { reliefs, dials, under, surface, roots, muzzle: SPEC[Object.keys(TRACED).find((t) => TRACED[t] === model)]?.muzzle };
 }
 
 /* ---------- moving parts and ultra detail (gun coordinates) ---------- */
@@ -1502,7 +1532,7 @@ export class WeaponRig {
       gunG.position.set(0, sight.railY - TOP_Y[type] * s, -EYE_Z - 0.05);
       m.add(gunG);
       if (ice) m.userData.inspectFx = frostInspect(gunG, frost, crystals, sk, INSPECT_QUALITY);
-      else if (blossoms?.length) m.userData.inspectFx = sakuraInspect(gunG, blossoms, INSPECT_QUALITY);
+      else if (blossoms?.length) m.userData.inspectFx = sakuraInspect(gunG, blossoms, INSPECT_QUALITY, art?.roots || []);
       else if (art) m.userData.inspectFx = sk.artLook === 'bronze' ? abyssInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'glass' ? vesperInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'porcelain' ? kilnInspect(gunG, art, INSPECT_QUALITY) : null;
       m.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
       this.models.set(key, m);

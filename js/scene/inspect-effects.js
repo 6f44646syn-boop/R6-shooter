@@ -1,12 +1,13 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=b021b19-mwd8gat8';
-import { mulberry32 } from '../core/prng.js?v=b021b19-mwd8gat8';
-import { mergeStatic } from './sight-model.js?v=b021b19-mwd8gat8';
+import * as THREE from '../../vendor/three/three.module.min.js?v=d976dff-mwd8qn13';
+import { mulberry32 } from '../core/prng.js?v=d976dff-mwd8qn13';
+import { mergeStatic } from './sight-model.js?v=d976dff-mwd8qn13';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
-const SAKURA_SECONDS = 4.2, SAKURA_PEAK = 0.54;
-const KILN_SECONDS = 4.2, KILN_PEAK = 0.57;
-const ABYSS_SECONDS = 4.2, ABYSS_PEAK = 0.57;
-const VESPER_SECONDS = 4.2, VESPER_PEAK = 0.57;
+// The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
+const SAKURA_SECONDS = 8.4, SAKURA_PEAK = 0.54;
+const KILN_SECONDS = 8.4, KILN_PEAK = 0.57;
+const ABYSS_SECONDS = 8.4, ABYSS_PEAK = 0.57;
+const VESPER_SECONDS = 8.4, VESPER_PEAK = 0.57;
 const smooth = THREE.MathUtils.smoothstep;
 
 const ICE_CLIP = { root: [
@@ -219,6 +220,12 @@ const particleVertex = /* glsl */`
           radius = vec2(0.0034, 0.004) * mix(0.55, 1.3, seed.z);
           spin = 0.0;
         #endif
+        #ifdef SPLASH
+          // flung off the glaze in every direction, then falling
+          vec3 fling = normalize(outward + (seed.xyz - 0.5) * 1.8 + vec3(0.0, 0.7, 0.0));
+          origin = (emitted * vec4(emitter, 1.0)).xyz + fling * mix(0.22, 0.6, seed.w) * age - vec3(0.0, 1.1 * age * age, 0.0);
+          radius = vec2(1.0) * mix(0.0012, 0.0032, seed.z);
+        #endif
         #ifdef DRIP
           // a bead swells on the edge, then lets go and falls
           origin = (emitted * vec4(emitter, 1.0)).xyz - vec3(0.0, age * 0.006 + 1.6 * pow(max(0.0, age - 0.18), 2.0), 0.0);
@@ -322,13 +329,14 @@ const particleFragment = /* glsl */`
   }
 `;
 
-const particleBudget = { mist: [22, 38, 54, 70], chip: [20, 34, 48, 62], petal: [28, 46, 64, 84], drop: [14, 22, 30, 40], drip: [40, 70, 100, 130], bubble: [12, 18, 26, 34], speck: [10, 16, 22, 30], glint: [60, 100, 150, 200] };
+const particleBudget = { mist: [22, 38, 54, 70], chip: [20, 34, 48, 62], petal: [28, 46, 64, 84], drop: [14, 22, 30, 40], drip: [40, 70, 100, 130], splash: [60, 100, 150, 200], bubble: [12, 18, 26, 34], speck: [10, 16, 22, 30], glint: [60, 100, 150, 200] };
 const particleTier = { low: 0, standard: 1, high: 2, ultra: 3 };
 
 function particles(kind, tier, anchors, tint, trail, rng) {
-  const mist = kind === 'mist', petals = kind === 'petal', drops = kind === 'drop' || kind === 'drip', deep = kind === 'bubble' || kind === 'speck' || kind === 'glint';
+  const mist = kind === 'mist', petals = kind === 'petal', drops = kind === 'drop' || kind === 'drip' || kind === 'splash', deep = kind === 'bubble' || kind === 'speck' || kind === 'glint';
   const seconds = petals ? SAKURA_SECONDS : drops ? KILN_SECONDS : deep ? ABYSS_SECONDS : FROST_SECONDS;
   const peak = (petals ? SAKURA_PEAK : drops ? KILN_PEAK : deep ? ABYSS_PEAK : FROST_PEAK) * seconds;
+  const k = seconds / 4.2;                              // timings below were set for a 4.2 s inspect
   const count = particleBudget[kind][tier], positions = [], directions = [], seeds = [], timing = [];
   for (let i = 0; i < count; i++) {
     const anchor = anchors[Math.floor(rng() * anchors.length)];
@@ -344,20 +352,23 @@ function particles(kind, tier, anchors, tint, trail, rng) {
     } else if (mist) {
       start = peak - 0.08 + rng() * 0.16;
       life = 0.64 + rng() * 0.23;
+    } else if (kind === 'splash') {                       // five bursts of spray as the waves lift and the crest surges
+      start = seconds * (0.28 + 0.1 * Math.floor(rng() * 5)) + rng() * 0.18;
+      life = 0.7 + rng() * 0.5;
     } else if (kind === 'drip') {                         // water beads up all over the underside and falls, all through
-      start = 0.9 + rng() * 2.6;
+      start = (0.9 + rng() * 2.6) * k;
       life = 0.55 + rng() * 0.5;
     } else if (kind === 'glint') {                        // glints all over the glass from the first light to the end
-      start = 0.7 + rng() * 2.6;
+      start = (0.7 + rng() * 2.6) * k;
       life = 0.6 + rng() * 0.8;
     } else if (deep) {                                   // a sparse stream from the seams around the peak, rising slowly
-      start = peak - 0.35 + rng() * 1.0;
+      start = peak + (-0.35 + rng() * 1.0) * k;
       life = 0.9 + rng() * 0.7;
     } else if (drops) {                                  // one short arc of droplets off the crest
       start = peak - 0.04 + rng() * 0.14;
       life = 0.42 + rng() * 0.3;
     } else if (petals) {
-      start = burst ? peak - 0.15 + rng() * 0.29 : peak - 0.55 + rng() * 1.25;
+      start = burst ? peak + (-0.15 + rng() * 0.29) * k : peak + (-0.55 + rng() * 1.25) * k;
       life = 0.63 + rng() * 0.60;
     } else {
       start = burst ? peak - 0.10 + rng() * 0.24 : 1.03 + rng() * 1.33;
@@ -375,7 +386,7 @@ function particles(kind, tier, anchors, tint, trail, rng) {
   geo.setAttribute('seed', new THREE.InstancedBufferAttribute(new Float32Array(seeds), 4));
   geo.setAttribute('timing', new THREE.InstancedBufferAttribute(new Float32Array(timing), 4));
   geo.instanceCount = count;
-  const defines = mist ? { MIST: 1 } : petals ? { PETAL: 1 } : kind === 'drip' ? { DROP: 1, DRIP: 1 } : kind === 'glint' ? { SPECK: 1, GLINT: 1 } : drops ? { DROP: 1 } : kind === 'bubble' ? { BUBBLE: 1 } : kind === 'speck' ? { SPECK: 1 } : {};
+  const defines = mist ? { MIST: 1 } : petals ? { PETAL: 1 } : kind === 'drip' ? { DROP: 1, DRIP: 1 } : kind === 'splash' ? { DROP: 1, SPLASH: 1 } : kind === 'glint' ? { SPECK: 1, GLINT: 1 } : drops ? { DROP: 1 } : kind === 'bubble' ? { BUBBLE: 1 } : kind === 'speck' ? { SPECK: 1 } : {};
   if (mist && tier === 0) defines.LOW_INSPECT = 1;
   const material = new THREE.ShaderMaterial({
     defines,
@@ -482,7 +493,7 @@ function cherryHeart(material) {
   return group.children[0].geometry;
 }
 
-export function sakuraInspect(gun, blossoms, quality) {
+export function sakuraInspect(gun, blossoms, quality, roots = []) {
   const trail = emitterTrail(gun), tier = particleTier[quality] ?? 1;
   const anchors = blossoms.flatMap(flower => Array.from({ length: 5 }, (_, i) => {
     const angle = i * Math.PI * 0.4 + flower.point.z * 14;
@@ -517,6 +528,12 @@ export function sakuraInspect(gun, blossoms, quality) {
       phase = active ? p : -1;
       for (const mesh of meshes) mesh.visible = active && p > 0.13 && p < 0.98;
       trail.update(active ? p * SAKURA_SECONDS : -1);
+      // roots creep over the gun, then draw back before idle
+      const reach = active ? smooth(p, 0.1, 0.55) * (1 - smooth(p, 0.8, 0.97)) : 0;
+      for (const root of roots) {
+        const n = Math.floor(root.geometry.index.count * reach / 30) * 30;    // whole rings of the tube
+        root.geometry.setDrawRange(0, n); root.visible = n > 0;
+      }
       if (!petals.visible) return;
       for (let i = 0; i < blossoms.length; i++) {
         const flower = blossoms[i], start = 0.17 + 0.13 * (i * 7 % 11) / 10;
@@ -547,12 +564,14 @@ export function sakuraInspect(gun, blossoms, quality) {
 // Storm Kiln: the raised waves lift in turn from handguard to receiver, the tallest crest rolls
 // over once and throws a short arc of droplets, a cool highlight runs over the silver seams,
 // then everything settles back into the glaze.
-export function kilnInspect(gun, { reliefs, under }, quality) {
+export function kilnInspect(gun, { reliefs, under, surface }, quality) {
   const trail = emitterTrail(gun), tier = particleTier[quality] ?? 1;
   // water runs off the porcelain: beads form all along the underside and drip
   const drops = particles('drip', tier, under.length ? under : [{ point: new THREE.Vector3(), normal: new THREE.Vector3(0, -1, 0) }], new THREE.Color(0xbfdcff), trail, mulberry32(202077));
-  drops.visible = false;
-  gun.add(drops);
+  const spray = [...surface, ...reliefs.map(r => ({ point: r.base.clone(), normal: r.normal.clone() }))];
+  const splash = particles('splash', tier, spray.length ? spray : [{ point: new THREE.Vector3(), normal: new THREE.Vector3(0, 1, 0) }], new THREE.Color(0xbfdcff), trail, mulberry32(202093));
+  drops.visible = splash.visible = false;
+  gun.add(drops, splash);
   const order = [...new Set(reliefs.map(r => Math.round(r.base.z * 1000)))].sort((a, b) => a - b);
   const glazes = [];
   gun.traverse(o => { const u = o.material?.userData?.tri; if (u?.artPhase && !glazes.includes(u.artPhase)) glazes.push(u.artPhase); });
@@ -564,7 +583,7 @@ export function kilnInspect(gun, { reliefs, under }, quality) {
       if (!active && phase < 0) return;
       phase = active ? p : -1;
       for (const g of glazes) g.value = active ? p : -1;
-      drops.visible = active && p > 0.2;
+      drops.visible = splash.visible = active && p > 0.2;
       trail.update(active ? p * KILN_SECONDS : -1);
       reliefs.forEach((r) => {
         const k = order.indexOf(Math.round(r.base.z * 1000)), start = 0.17 + k * 0.045;
@@ -574,7 +593,7 @@ export function kilnInspect(gun, { reliefs, under }, quality) {
         r.group.position.copy(r.base).addScaledVector(r.normal, lift * (r.crest ? 0.012 : 0.008) + surge);
       });
     },
-    dispose() { drops.geometry.dispose(); drops.material.dispose(); },
+    dispose() { for (const m of [drops, splash]) { m.geometry.dispose(); m.material.dispose(); } },
   };
 }
 
@@ -658,6 +677,36 @@ export function vesperInspect(gun, { reliefs, surface }, quality) {
   const over = [...anchors, ...surface];
   const glints = [new THREE.Color(0xff3a4e), new THREE.Color(0xb05cff), new THREE.Color(0xffb04a)].map((tint, i) => particles('glint', particleTier[quality] ?? 1, over.length ? over : fallback, tint, trail, mulberry32(204001 + i * 17)));
   for (const m of glints) { m.visible = false; gun.add(m); }
+  // The temporal fracture: shards of glass burst off the gun, hang in the air stuttering as if time
+  // has caught, while cracks of light split the space around it; then it all runs backwards.
+  const rng = mulberry32(204077), nShards = [40, 80, 120, 160][particleTier[quality] ?? 1];
+  const tri = new THREE.BufferGeometry();
+  tri.setAttribute('position', new THREE.Float32BufferAttribute([0, 0.006, 0, -0.0045, -0.004, 0, 0.005, -0.003, 0.0006], 3));
+  tri.computeVertexNormals();
+  const shards = new THREE.InstancedMesh(tri, new THREE.MeshPhysicalMaterial({ color: 0xe6d8ff, emissive: 0x3a1250, roughness: 0.04, metalness: 0,
+    transparent: true, opacity: 0.6, iridescence: 1, iridescenceIOR: 1.5, side: THREE.DoubleSide, depthWrite: false }), nShards);
+  shards.name = 'Inspect glass shards'; shards.frustumCulled = false; shards.visible = false;
+  const from = over.length ? over : fallback;
+  const shard = Array.from({ length: nShards }, () => {
+    const a = from[Math.floor(rng() * from.length)];
+    const dir = a.normal.clone().multiplyScalar(0.9).add(new THREE.Vector3(rng() - 0.5, rng() - 0.3, rng() - 0.5)).normalize();
+    return { at: a.point.clone(), dir, dist: 0.05 + rng() * 0.2, axis: new THREE.Vector3(rng() - 0.5, rng() - 0.5, rng() - 0.5).normalize(), turn: 2 + rng() * 6, size: 0.6 + rng() * 1.6 };
+  });
+  const centre = from.reduce((c, a) => c.add(a.point), new THREE.Vector3()).multiplyScalar(1 / from.length);
+  const crackPts = [];
+  for (let i = 0; i < 18; i++) {           // jagged lines of light on a shell around the gun
+    let q = centre.clone().add(new THREE.Vector3(rng() - 0.5, rng() - 0.5, rng() - 0.5).normalize().multiplyScalar(0.1 + rng() * 0.2));
+    const d = new THREE.Vector3(rng() - 0.5, rng() - 0.5, rng() - 0.5).normalize();
+    for (let j = 0; j < 6; j++) {
+      const nq = q.clone().addScaledVector(d, 0.02 + rng() * 0.03).add(new THREE.Vector3(rng() - 0.5, rng() - 0.5, rng() - 0.5).multiplyScalar(0.02));
+      crackPts.push(q.x, q.y, q.z, nq.x, nq.y, nq.z); q = nq;
+    }
+  }
+  const crackGeo = new THREE.BufferGeometry(); crackGeo.setAttribute('position', new THREE.Float32BufferAttribute(crackPts, 3));
+  const cracks = new THREE.LineSegments(crackGeo, new THREE.LineBasicMaterial({ color: 0xffd6ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+  cracks.name = 'Inspect time cracks'; cracks.frustumCulled = false; cracks.visible = false;
+  gun.add(shards, cracks);
+  const sm = new THREE.Matrix4(), sq = new THREE.Quaternion(), sp = new THREE.Vector3(), ss = new THREE.Vector3();
   const glazes = [];
   gun.traverse(o => { const u = o.material?.userData?.tri; if (u?.artPhase && !glazes.includes(u.artPhase)) glazes.push(u.artPhase); });
   const M = new THREE.Matrix4(), R = new THREE.Matrix4(), T = new THREE.Matrix4();
@@ -671,6 +720,23 @@ export function vesperInspect(gun, { reliefs, surface }, quality) {
       phase = active ? p : -1;
       for (const g of glazes) g.value = active ? p : -1;
       for (const m of glints) m.visible = active && p > 0.15;
+      // burst (0.36-0.46), caught in time and stuttering (to 0.62), then rewinding into the gun (to 0.74)
+      const out = active ? smooth(p, 0.36, 0.46) * (1 - smooth(p, 0.62, 0.74)) : 0;
+      const caught = active && p > 0.46 && p < 0.62, tick = Math.floor(p * 160);
+      shards.visible = out > 0.002;
+      if (shards.visible) {
+        shard.forEach((h, i) => {
+          const j = caught ? (((tick * 31 + i * 17) % 7) - 3) * 0.0012 : 0;      // the stutter: jumps between frozen frames
+          sp.copy(h.at).addScaledVector(h.dir, h.dist * out + j);
+          sq.setFromAxisAngle(h.axis, h.turn * out + (caught ? j * 40 : 0));
+          ss.setScalar(h.size * Math.min(1, out * 3));
+          shards.setMatrixAt(i, sm.compose(sp, sq, ss));
+        });
+        shards.instanceMatrix.needsUpdate = true;
+      }
+      const crack = active ? smooth(p, 0.42, 0.48) * (1 - smooth(p, 0.6, 0.66)) : 0;
+      cracks.visible = crack > 0.01;
+      cracks.material.opacity = crack * (0.55 + 0.45 * ((tick % 3) / 2));
       trail.update(active ? p * VESPER_SECONDS : -1);
       const turn = active ? smooth(p, VESPER_PEAK - 0.1, VESPER_PEAK + 0.04) * (1 - smooth(p, 0.74, 0.9)) * 0.17 : 0;   // about 10 degrees
       for (const r of reliefs) {
@@ -680,6 +746,6 @@ export function vesperInspect(gun, { reliefs, surface }, quality) {
         r.group.matrix.copy(M);
       }
     },
-    dispose() { for (const m of glints) { m.geometry.dispose(); m.material.dispose(); } },
+    dispose() { for (const m of [...glints, shards, cracks]) { m.geometry.dispose(); m.material.dispose(); } },
   };
 }
