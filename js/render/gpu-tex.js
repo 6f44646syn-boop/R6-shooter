@@ -1,5 +1,5 @@
-import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=99c5c3a-mwcr7mqy';
-import { packArt } from './pack-art.js?v=99c5c3a-mwcr7mqy';
+import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=b7bb65d-mwd0pp62';
+import { packArt } from './pack-art.js?v=b7bb65d-mwd0pp62';
 // GPU-baked textures for ultra graphics. Everything is procedural and drawn by a fragment
 // shader into a render target once (milliseconds on a graphics card), so 4096 x 4096 maps
 // cost nothing at start-up and nothing is downloaded.
@@ -10,7 +10,7 @@ import { packArt } from './pack-art.js?v=99c5c3a-mwcr7mqy';
 //   bakeSkin(renderer, index, size): one of SKINS, { albedo, rm } (rm: G roughness, B metalness).
 //   triplanar(material, opts): shader patch that maps a skin and/or detail by the surface's
 //        own 3D position (no UV stretching on long thin parts), with edge wear from UVs.
-import * as THREE from '../../vendor/three/three.module.min.js?v=99c5c3a-mwcr7mqy';
+import * as THREE from '../../vendor/three/three.module.min.js?v=b7bb65d-mwd0pp62';
 
 const VERT = /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
@@ -546,7 +546,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
     // Look per rarity: a colour fade along the gun, and the inspect-only animations
     // (triAnim 0..1 is driven by the weapon rig while you inspect; triTime is seconds).
     fadeA: { value: new THREE.Vector3() }, fadeB: { value: new THREE.Vector3() }, fadeAmt: { value: 0 },
-    triTime: { value: 0 }, triAnim: { value: 0 }, animFlow: { value: 0 }, sweepCol: { value: new THREE.Vector3(1, 1, 1) },
+    triTime: { value: 0 }, triAnim: { value: 0 }, sweepCol: { value: new THREE.Vector3(1, 1, 1) },
     reliefK: { value: (skin?.def?.pattern === 10 ? 1.65 : 0.9) * (hd ? 1.5 : 1) },
     triAO: { value: hd ? 1 : 0 }, hdEdge: { value: hdEdge }, hdEdgeCol: { value: new THREE.Vector3(...hdEdgeCol) }, hdEdgeMetal: { value: hdEdgeMetal },
     reliefDepth: { value: depth },
@@ -564,7 +564,6 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
     uniforms.fadeA.value.set(...def.c[1]);
     uniforms.fadeB.value.set(...(def.rarity === 'common' ? def.c[0] : def.c[3]));
     uniforms.fadeAmt.value = L[0];
-    uniforms.animFlow.value = L[1];
     const g = def.glow && def.glow.some((v) => v > 0) ? def.glow : def.c[1];
     uniforms.sweepCol.value.set(...g.map((v) => Math.min(1, 0.35 + v * 0.6))).multiplyScalar(L[2]);
   }
@@ -591,7 +590,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       varying vec3 vTriPos; varying vec3 vTriN; varying vec3 vTriAX; varying vec3 vTriAY; varying vec3 vTriAZ;
       uniform float triScale, detScale, detStrength, skinWear, triGain;
       uniform vec3 skinGlow, fadeA, fadeB, sweepCol;
-      uniform float fadeAmt, triTime, triAnim, animFlow, reliefK;
+      uniform float fadeAmt, triTime, triAnim, reliefK;
       uniform sampler2D skinAlbedo, skinRM, skinNormal, detailMap;
       uniform float triAO, hdEdge, hdEdgeMetal, reliefDepth;
       uniform vec3 hdEdgeCol;
@@ -651,8 +650,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         finish = mix(finish, vec3(0.48, 0.42, 0.34), scratch * 0.38 + chips * 0.56);
         diffuseColor.rgb = finish * triGain;
       #elif defined( TRI_SKIN )
-        // While inspecting, Epic and Black Ice patterns flow slowly across the gun.
-        vec3 triP = vTriPos * triScale + vec3(0.0, triTime * 0.05, triTime * 0.035) * triAnim * animFlow;
+        vec3 triP = vTriPos * triScale;     // fixed to the gun (it used to flow while inspecting)
         float relief = 0.5;
         #ifdef TRI_PARALLAX
         {

@@ -1,4 +1,4 @@
-import { ACTIONS, inputCode, inputLabel } from "./m7-raw-input.js?v=99c5c3a-mwcr7mqy";
+import { ACTIONS, inputCode, inputLabel } from "./m7-raw-input.js?v=b7bb65d-mwd0pp62";
 const node = (tag, text) => {
   const n = document.createElement(tag);
   if (text) n.textContent = text;
@@ -52,7 +52,7 @@ export function tabs(root, groups, label) {
   return select;
 }
 
-export function mountControls(root, api) {
+export function mountControls(root, api, padPanel = null) {
   let capture = null;
   const status = node("p");
   status.setAttribute("role", "status");
@@ -247,11 +247,13 @@ export function mountControls(root, api) {
     ),
   );
   root.append(status, devicePanel, table);
+  if (padPanel) root.append(padPanel);
   tabs(
     root,
     [
       { label: "Device & aim", panel: devicePanel },
-      { label: "Bindings", panel: table },
+      { label: "Keybinds", panel: table },
+      ...(padPanel ? [{ label: "Controller", panel: padPanel }] : []),
     ],
     "Controls categories",
   );
@@ -264,7 +266,7 @@ export function mountControls(root, api) {
   render();
 }
 
-export function mountFirstLaunch(api) {
+export function mountFirstLaunch(api, onDone = () => {}) {
   if (api.selected) return;
   const dialog = node("dialog");
   dialog.className = "m7-welcome";
@@ -273,7 +275,7 @@ export function mountFirstLaunch(api) {
   title.id = "m7-welcome-title";
   const copy = node(
     "p",
-    "Choose the device you use to aim. You can customise every primary action and change profiles in Controls.",
+    "Choose the device you use to aim. You can change any key later in Controls & keybinds.",
   );
   dialog.append(title, copy);
   for (const [id, label] of [
@@ -289,7 +291,7 @@ export function mountFirstLaunch(api) {
       api.save();
       dialog.close();
       dialog.remove();
-      document.getElementById("go-controls").focus();
+      onDone();
     });
     dialog.append(b);
   }

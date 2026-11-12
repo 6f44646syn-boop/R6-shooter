@@ -5,7 +5,7 @@
 //   Jammer       box with three antennas and a spinning dish; a cyan ring shows its reach
 //   Catcher      tripod with a green dome and a turning ring; a green beam when it zaps
 //   Drone        small wheeled box;  Wall charge: red slab;  Breach round: orange glow
-import * as THREE from '../../vendor/three/three.module.min.js?v=99c5c3a-mwcr7mqy';
+import * as THREE from '../../vendor/three/three.module.min.js?v=b7bb65d-mwd0pp62';
 
 const mat = (o) => new THREE.MeshLambertMaterial(o);
 const glow = (color, opacity = 1) => new THREE.MeshBasicMaterial({ color, transparent: opacity < 1, opacity, toneMapped: false });

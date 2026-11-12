@@ -1,9 +1,9 @@
-import { tabs } from './m7-menu.js?v=99c5c3a-mwcr7mqy';
+import { tabs } from './m7-menu.js?v=b7bb65d-mwd0pp62';
 // Settings panel inside the Esc menu. Every change is sanitised, saved to localStorage and
 // handed to main.js through onChange(key) so it takes effect immediately.
-import { sanitize, saveSettings, clearSavedSettings, DEFAULTS, DISTANCES, CROSSHAIR_STYLES, RETICLE_COLOR_NAMES } from '../core/settings.js?v=99c5c3a-mwcr7mqy';
-import { degPerCount, countsPer360, inchesPer360, horizontalFovDeg } from '../core/sensitivity.js?v=99c5c3a-mwcr7mqy';
-import { drawCrosshair } from './crosshair.js?v=99c5c3a-mwcr7mqy';
+import { sanitize, saveSettings, clearSavedSettings, DEFAULTS, DISTANCES, CROSSHAIR_STYLES, RETICLE_COLOR_NAMES } from '../core/settings.js?v=b7bb65d-mwd0pp62';
+import { degPerCount, countsPer360, inchesPer360, horizontalFovDeg } from '../core/sensitivity.js?v=b7bb65d-mwd0pp62';
+import { drawCrosshair } from './crosshair.js?v=b7bb65d-mwd0pp62';
 
 function el(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);
@@ -186,6 +186,7 @@ export class SettingsUI {
         this.check('set-aa', 'Antialiasing (after reload)', () => this.s.antialias, (v) => { this.s.antialias = v; }, 'aa'),
         this.check('set-anim', 'Weapon animations', () => this.s.animations, (v) => { this.s.animations = v; }, 'anim'),
         this.check('set-viewmodel', 'Show gun model', () => this.s.showViewmodel, (v) => { this.s.showViewmodel = v; }, 'viewmodel'),
+        this.check('set-minimap', 'Mini map (battles and matches)', () => this.s.minimap, (v) => { this.s.minimap = v; }, 'minimap'),
         this.check('set-debug', 'Debug readout (F3)', () => this.s.debugHud, (v) => { this.s.debugHud = v; }, 'debug'),
       ));
 

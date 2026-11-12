@@ -1,25 +1,27 @@
-import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=99c5c3a-mwcr7mqy';
-import { MatchFinale } from '../replay/finale.js?v=99c5c3a-mwcr7mqy';
-import { GrenadeReplay } from '../replay/grenade.js?v=99c5c3a-mwcr7mqy';
-import { replayCamera } from '../replay/view.js?v=99c5c3a-mwcr7mqy';
+import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=b7bb65d-mwd0pp62';
+import { MatchFinale } from '../replay/finale.js?v=b7bb65d-mwd0pp62';
+import { GrenadeReplay } from '../replay/grenade.js?v=b7bb65d-mwd0pp62';
+import { replayCamera } from '../replay/view.js?v=b7bb65d-mwd0pp62';
 // Battle mode: you against bots (Easy / Medium / Hard), or two local players in split
 // screen (optionally with bots as a third side). First side to the kill target wins.
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=99c5c3a-mwcr7mqy';
-import { Arena } from './arena.js?v=99c5c3a-mwcr7mqy';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=99c5c3a-mwcr7mqy';
-import { Bot, LEVELS } from './bot.js?v=99c5c3a-mwcr7mqy';
-import { Human } from './human.js?v=99c5c3a-mwcr7mqy';
-import { BattleNades } from './nades.js?v=99c5c3a-mwcr7mqy';
-import { drawCrosshair } from '../ui/crosshair.js?v=99c5c3a-mwcr7mqy';
-import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=99c5c3a-mwcr7mqy';
-import { effectiveGraphics } from '../render/quality.js?v=99c5c3a-mwcr7mqy';
-import { effectiveGun, slotIn } from '../core/loadout.js?v=99c5c3a-mwcr7mqy';
-import { BattleRoyale } from './royale.js?v=99c5c3a-mwcr7mqy';
-import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=99c5c3a-mwcr7mqy';
-import { Footprints } from '../scene/footprints.js?v=99c5c3a-mwcr7mqy';
+import * as THREE from '../../vendor/three/three.module.min.js?v=b7bb65d-mwd0pp62';
+import { Arena } from './arena.js?v=b7bb65d-mwd0pp62';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=b7bb65d-mwd0pp62';
+import { Bot, LEVELS } from './bot.js?v=b7bb65d-mwd0pp62';
+import { Human } from './human.js?v=b7bb65d-mwd0pp62';
+import { BattleNades } from './nades.js?v=b7bb65d-mwd0pp62';
+import { drawCrosshair } from '../ui/crosshair.js?v=b7bb65d-mwd0pp62';
+import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=b7bb65d-mwd0pp62';
+import { effectiveGraphics } from '../render/quality.js?v=b7bb65d-mwd0pp62';
+import { effectiveGun, slotIn } from '../core/loadout.js?v=b7bb65d-mwd0pp62';
+import { BattleRoyale } from './royale.js?v=b7bb65d-mwd0pp62';
+import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=b7bb65d-mwd0pp62';
+import { Footprints } from '../scene/footprints.js?v=b7bb65d-mwd0pp62';
+import { Minimap } from '../ui/minimap.js?v=b7bb65d-mwd0pp62';
+import { botRankedChange } from '../core/ranked.js?v=b7bb65d-mwd0pp62';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, p7: 0xff7048, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -268,6 +270,7 @@ export class Battle {
   }
 
   stop() {
+    if (this.active && !this.over) this._ranked('loss');           // quitting a ranked battle is a loss
     this.royale?.dispose();
     this.royale = null;
     this.hud.leave.textContent = 'Back to the range';
@@ -355,10 +358,22 @@ export class Battle {
     if (this.royale && !this.over && !this.kc && !this.humans[0].f.alive) {
       const f = this.royale.focus = this.fighters.find(g => g.alive);
       if (f) {
+        // Their view as in a kill cam: their gun and sight, aiming in and leaning when they do.
         this.watchCam = this.watch.camera;
-        replayCamera(this.watchCam, { x:f.x, y:f.y, z:f.z, yaw:f.yaw, pitch:f.pitch, eye:1.6 - .5 * f.crouch },
-          this.deps.settings, this.deps.settings.fov);
+        const P = f.gun ? this._puppet(f) : null, ads = f.gun ? Math.max(0, Math.min(1, f.ads || 0)) : 0;
+        replayCamera(this.watchCam, { x:f.x, y:f.y, z:f.z, yaw:f.yaw + (f.viewDY || 0), pitch:f.pitch + (f.viewDP || 0), eye:1.6 - .5 * f.crouch, ads, lean: f.lean || 0 },
+          this.deps.settings, P ? this.deps.adsVFov(P.optic) : this.deps.settings.fov);
+        if (P) {
+          P.rig.animations = this.deps.settings.animations; P.rig.reloadP = -1; P.rig.sprinting = false; P.rig.bobY = 0; P.rig.root.visible = true;
+          P.rig.update(dt, ads, t);
+          if (P.reticle) P.reticle.material.opacity = Math.min(1, Math.max(0, (ads - 0.55) / 0.35));
+        }
       }
+    }
+    if (this.royale) {
+      const out = !this.over && !this.humans[0].f.alive && !this.viewOnly;
+      this.hud.skip.hidden = !out;
+      if (out) this.hud.skip.textContent = this.kc ? 'Skip kill cam ▸  (Space / click)' : 'Skip to results ▸  (Space / click)';
     }
     if (!this.kc && !this.paused && !this.over && this.humans[0]?.f.alive) {
       this.grenadeCam = this.grenadeView.live(t, this.arena.world);
@@ -508,6 +523,20 @@ export class Battle {
     if (live.length === 1) this._end(live[0].team, royale.lastKill?.killer);
   }
 
+  // Battle Royale, after you are out: skip the kill cam, then skip watching to your results.
+  skipRoyale() {
+    if (this.kc) { this.kc = null; return; }
+    const me = this.humans[0].f, r = this.royale;
+    if (!r || me.alive || this.over) return;
+    const place = (f) => this.fighters.length - r.eliminated.indexOf(f);
+    const rows = [...this.fighters.filter((g) => g.alive), ...r.eliminated.slice().reverse()].map((f) => [f.name, f.team, f.kills, f.deaths, f.alive ? 0 : place(f)]);
+    this.over = true; this.watchCam = null; r.focus = null;
+    this.hud.skip.hidden = true;
+    this._showEnd('You placed #' + place(me), rows, true, me.team, this.t, null);
+    for (const h of this.humans) h.releaseAll();
+    this.deps.onEnd();
+  }
+
   _end(team, killer = null) {
     this.over = true;
     const two = this.opts.opponent === 'p2';
@@ -526,10 +555,18 @@ export class Battle {
     }
     if (this.humans[0] && this.humans[0].f.team === team) this._earn('win');
     this._showEnd(title, rows, true, team, this.t, killer);
+    const ranked = this._ranked(this.humans[0]?.f.team === team ? 'win' : 'loss');
+    if (ranked) this.hud.endNote.textContent += ' Ranked: ' + ranked;
     for (const h of this.humans) h.releaseAll();
     this.deps.onEnd();
   }
 
+  // Ranked against bots (Battle vs bots only): Medium bots count as Normal.
+  _ranked(outcome) {
+    if (!this.opts.ranked || this.net) return '';
+    this.opts.ranked = false;          // once a battle
+    return this.deps.onRanked?.(botRankedChange(this.deps.rating(), this.opts.level === 'medium' ? 'normal' : this.opts.level, outcome)) || '';
+  }
   _showEnd(title, rows, canRestart, team, t, killer) {
     this.over = true;
     this.watch.reset();
@@ -907,6 +944,7 @@ export class Battle {
     const h = this.humans[0];
     if (!h) return;
     if (h.f.drop && (b === 0 || b === 2)) { h.in.fire = h.in.ads = false; return; }     // no shooting from the parachute
+    if (this.royale && !h.f.alive) { if (down && b === 0 && !this.over) this.skipRoyale(); return; }
     if (this.royale?.editing && (b === 0 || b === 2)) {
       if (b === 0) this.royale.dragEdit(down);
       if (down && b === 2) this.royale.cancelEdit();
@@ -935,6 +973,7 @@ export class Battle {
       return true;
     }
     if (p2 && p2.controls !== 'mouse' && p2.key(code, down)) return true;
+    if (code === 'Space' && this.royale && !p1.f.alive && !this.over) { if (down) this.skipRoyale(); return true; }
     if (code === 'Space' && this.kc && !p1.f.alive) { if (down) this.kc = null; return true; }
     if (this.royale && code === 'OperatorAbility') {
       if (down && !this.paused && !this.over && p1.f.alive) this.royale.edit(p1);
@@ -1051,11 +1090,11 @@ export class Battle {
       if (wp && wp.active) wp.draw(this.arena.scene, camera); else r.render(this.arena.scene, camera);
       h.f.group.visible = ownVis;
       if (royaleFocus) royaleFocus.group.visible = true;
-      if (grenadeCam || royaleFocus || this.viewOnly && !this.watchFocus) return;
+      if (grenadeCam || royaleFocus && !royaleFocus.gun || this.viewOnly && !this.watchFocus) return;
       r.clearDepth();
       const pickaxe = this.royale && (this.kc?.pov ? this.kc.pickaxe : h.f.alive && this.royale.showPickaxe(this.t));
       if (this.royale) this.royale.posePickaxe(pickaxe, this.t);
-      const rig = !pickaxe && (this.watchFocus || (this.kc && this.kc.pov && i === 0 && this.puppet)) ? this.puppet.rig : h.rig;
+      const rig = !pickaxe && (this.watchFocus || royaleFocus || (this.kc && this.kc.pov && i === 0 && this.puppet)) ? this.puppet.rig : h.rig;
       if (pickaxe) rig.root.visible = false;
       rig.setAspect(aspect, v.h);
       r.render(rig.scene, rig.camera);
@@ -1130,8 +1169,11 @@ export class Battle {
     box.append(endTitle, endTable, row, endNote);
     end.append(box);
     root.append(end);
+    const skip = el('button', 'primary b-skip', ''); skip.type = 'button'; skip.hidden = true;     // Battle Royale, after you are out
+    skip.addEventListener('click', () => this.skipRoyale());
+    root.append(skip);
     this.deps.hudRoot.insertBefore(root, this.deps.hudRoot.querySelector('#menu'));   // under the menu
-    this.hud = { root, score, royale, feed, comms, end, endTitle, endTable, endNote, again, leave, views: [] };
+    this.hud = { root, score, royale, feed, comms, end, endTitle, endTable, endNote, again, leave, skip, views: [] };
   }
   _layoutHud() {
     for (const v of this.hud.views) v.box.remove();
@@ -1153,8 +1195,9 @@ export class Battle {
       const pts = el('div', 'b-points', '');
       const rep = el('div', 'b-report'); rep.hidden = true;
       box.append(nades, vig, lowhp, hurt, cross, hit, pts, dead, prot, rep, name, hp, hpText, ammo, ctl);
+      const minimap = i === 0 ? new Minimap(box) : null;
       this.hud.root.insertBefore(box, this.hud.root.firstChild);
-      return { nades, vig, lowhp, vigT: -9, box, cross, hit, hurt, dead, prot, rep, hpFill, hpText, ammo, ctl, pts, ptsUntil: 0, hitUntil: 0, hurtUntil: 0, last: {} };
+      return { minimap, nades, vig, lowhp, vigT: -9, box, cross, hit, hurt, dead, prot, rep, hpFill, hpText, ammo, ctl, pts, ptsUntil: 0, hitUntil: 0, hurtUntil: 0, last: {} };
     });
   }
   /* ---------- bodies do not overlap ---------- */
@@ -1497,6 +1540,16 @@ export class Battle {
       const v = this.hud.views[i];
       if (!v) return;
       const f = h.f, L = v.last;
+      if (v.minimap) {
+        if (this.deps.settings.minimap && f.alive && !this.over && !this.kc && !f.drop) {
+          if (t - (v.mmT || 0) > 1 / 15) {
+            v.mmT = t;
+            const fired = new Set((this.rec?.shots || []).filter((s) => t - s.t < 2).map((s) => s.by));
+            const team = (g) => g.team === f.team;
+            v.minimap.draw(this.arena.boxes, f, this.fighters.filter((g) => g.alive && g !== f && team(g)), this.fighters.filter((g) => g.alive && g !== f && !team(g) && fired.has(g.id)));
+          }
+        } else v.minimap.hide();
+      }
       const hp = Math.ceil(f.health);
       if (L.hp !== hp) { L.hp = hp; v.hpFill.style.width = hp + '%'; v.hpFill.className = hp > 60 ? '' : hp > 30 ? 'mid' : 'low'; v.hpText.textContent = String(hp); }
       const ammo = !h.gun ? '' : h.weapon.reloading ? 'reloading' : h.weapon.ammo + ' / ' + h.gun.magSize;

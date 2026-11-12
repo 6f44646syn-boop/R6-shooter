@@ -52,17 +52,10 @@ try {
     (await page.locator("dialog[open]").count()) === 0,
   );
   await page.click("#go-settings");
-  await page.focus("#all-settings-tab");
-  await page.keyboard.press("Home");
   check(
-    "keyboard navigation skips hidden match tab",
-    await page
-      .locator("#all-settings-tab")
-      .evaluate(
-        (e) =>
-          e === document.activeElement &&
-          e.getAttribute("aria-selected") === "true",
-      ),
+    "Settings shows every setting and no match options",
+    (await page.locator("#all-settings").isVisible()) &&
+      !(await page.locator("#match-settings").isVisible()),
   );
   await page.click("#m7-settings-1-tab");
   check(
@@ -256,13 +249,10 @@ try {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.click("#go-play");
   await page.screenshot({ path: "tests/output/m7/menu.png" });
-  await page.click("[data-mode-filter=online]");
   check(
-    "online filter shows the existing network mode",
-    (await page.locator(".mode-card:visible").count()) === 1 &&
-      (await page.locator("[data-mode=net]").isVisible()),
+    "every mode card is on the menu",
+    (await page.locator(".mode-card:visible").count()) === 7,
   );
-  await page.click("[data-mode-filter=all]");
   await page.click("[data-mode=tdm]");
   await page.click("#setup-next");
   await page.waitForSelector(".op-card");

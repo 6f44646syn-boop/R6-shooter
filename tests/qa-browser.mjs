@@ -9,12 +9,12 @@ const server = await startServer(8150);
 const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM || undefined });
 let failures = 0;
 const check = (name, ok, detail = '') => { console.log((ok ? '  PASS ' : '  FAIL ') + name); if (!ok) { failures++; if (detail) console.log('       ' + detail); } };
-async function openPage() {
+async function openPage(query = '', pickProfile = true) {
   const page = await browser.newPage({ viewport: { width: 640, height: 360 } });
   const errors = []; page.on('pageerror', (e) => errors.push(String(e)));
   await page.addInitScript(() => { if (!localStorage.getItem('recoilRange.settings.v1')) localStorage.setItem('recoilRange.settings.v1', JSON.stringify({ graphics: 'low', renderScale: 0.5 })); });
-  await page.goto('http://127.0.0.1:8150/index.html?test', { waitUntil: 'networkidle' });
-  await page.waitForFunction(() => window.__range?.ready); await page.click('[data-first-profile=mouse]');
+  await page.goto('http://127.0.0.1:8150/index.html?test' + query, { waitUntil: 'networkidle' });
+  await page.waitForFunction(() => window.__range?.ready); if (pickProfile) await page.click('[data-first-profile=mouse]');
   return { page, errors };
 }
 const deploy = async (page) => { for (let i = 0; i < 6; i++) { if (await page.evaluate(() => document.getElementById('menu').hidden && document.getElementById('armory').hidden)) return; await page.locator('#menu button.primary:visible, #armory button.primary:visible').last().click(); await page.waitForTimeout(500); } };
@@ -49,6 +49,8 @@ try {
     const seen = new Set(); let hudHidden = false, ammo = '';
     for (let k = 0; k < 120 && died; k++) { const r = await page.evaluate(() => { const R = window.__range, g = R.modeGame(); R.step(1 / 30, 60); return { on: [...g.hud.kcKeys.querySelectorAll('span.on')].map((e) => e.textContent), cam: g.camOverride === g.kcCam, hid: g.hud.view.classList.contains('mg-killcam'), ammo: g.hud.kcKeys.lastChild.textContent }; }); if (r.cam) { r.on.forEach((x) => seen.add(x)); hudHidden ||= r.hid; ammo ||= r.ammo; } }
     check('Bomb kill cam: plays the killer\'s view after a bot kills you', died, 'not killed in time');
+    const leaned = await page.evaluate(() => { const g = window.__range.modeGame(); return (g.kc?.rec.frames || g.rec.frames).some((fr) => { for (let i = 0; i * fr.stride < fr.s.length; i++) if (Math.abs(fr.s[i * fr.stride + 8]) > 0.3) return true; return false; }); });
+    check('bots lean while aiming, so kill cams show it', leaned, 'no lean in the recorded frames');
     check('Bomb kill cam: shows the killer\'s inputs (fire and ADS, or knife / grenade, lit) and ammo, hides your own HUD', (seen.has('Fire') ? seen.has('ADS') : seen.has('Knife') || seen.has('G')) && hudHidden && / \/ /.test(ammo), JSON.stringify({ seen: [...seen], hudHidden, ammo }));
     await page.close();
   }
@@ -74,6 +76,96 @@ try {
     await step(page, 3);
     const dead = await page.evaluate(() => !window.__range.battle().humans[0].f.alive);
     check('Battle Royale: eliminated by the zone, the game runs on without errors', dead && !errors.length, errors.slice(0, 2).join('\n'));
+    const watching = await page.evaluate(() => { const b = window.__range.battle(); b.kc = null; window.__range.step(0.5, 30); const f = b.royale.focus; return { skip: !b.hud.skip.hidden && b.hud.skip.textContent, puppet: !!(f && f.gun ? b.puppet : true) }; });
+    await page.evaluate(() => window.__range.battle().hud.skip.click());
+    const out = await page.evaluate(() => { const b = window.__range.battle(); return { over: b.over, title: b.hud.endTitle.textContent, again: !b.hud.again.hidden }; });
+    check('Battle Royale: when you are out, Skip goes to your results with Play again', /Skip to results/.test(watching.skip) && watching.puppet && out.over && /You placed #\d+/.test(out.title) && out.again, JSON.stringify({ watching, out }));
+    const relock = await page.evaluate(() => { let asked = false; const c = document.querySelector('canvas'); c.requestPointerLock = () => { asked = true; return Promise.resolve(); }; c.click(); return asked; });
+    check('after the match ends, a click on the game does not capture the mouse again (Play again stays clickable)', !relock, 'the click asked for pointer lock');
+    await page.close();
+  }
+  // 4. First launch goes through the steps in order: controls, graphics, settings, mode
+  {
+    const { page, errors } = await openPage('&wizard', false);
+    const on = () => page.evaluate(() => document.querySelector('.steps button.on')?.dataset.step || '');
+    await page.click('[data-first-profile=trackpad]');
+    const gfx = await page.locator('#gfx').isVisible();
+    await page.locator('#gfx .pk-skip button.primary').click();
+    const settingsStep = await on(), onlySettings = await page.locator('#all-settings').isVisible() && !(await page.locator('#match-settings').isVisible());
+    await page.click('#setup-next');
+    const shopStep = await on(), shop = await page.locator('#shop-open').isVisible();
+    await page.click('#shop-next');
+    const modeStep = await on(), modes = await page.locator('#page-mode').isVisible();
+    check('first launch: controls, graphics, settings, packs, then the mode', gfx && settingsStep === '3' && onlySettings && shopStep === '4' && shop && modeStep === '5' && modes && !errors.length, JSON.stringify({ gfx, settingsStep, onlySettings, shopStep, shop, modeStep, modes, errors }));
+    await page.close();
+  }
+  // 5. Ranked against bots (quitting is a loss) and the optional mini map in a match and in Battle
+  {
+    const { page, errors } = await openPage();
+    await page.evaluate(() => document.getElementById('set-minimap').click());
+    await page.click('#go-play'); await page.click('[data-mode=tdm]'); await page.selectOption('#md-rank', 'on');
+    const note = await page.locator('#md-note').textContent();
+    await page.click('#setup-next'); await page.waitForTimeout(300); await page.click('#ops-go');
+    await page.waitForFunction(() => window.__range.modeGame()?.active && document.getElementById('menu').hidden, null, { timeout: 40000 });
+    await page.mouse.move(1, 1); await page.evaluate(() => window.__range.manual(true)); await step(page, 1);
+    const mapMatch = await page.locator('.minimap:visible').count();
+    const before = await page.evaluate(() => window.__range.profile().rating);
+    await page.evaluate(() => window.__range.modeGame().stop());
+    const after = await page.evaluate(() => { const P = window.__range.profile(); return { rating: P.rating, last: P.rankedHistory[0]?.outcome }; });
+    check('ranked vs bots: the menu shows your rank, and leaving a ranked match costs Elo', /Ranked: you are/.test(note) && after.rating < before && after.last === 'loss', JSON.stringify({ note: note.slice(-80), before, after }));
+    await page.evaluate(() => window.__range.battleStart({ opponent: 'bots', bots: 2, ranked: true })); await step(page, 1);
+    const mapBattle = await page.locator('.minimap:visible').count();
+    const battleRank = await page.evaluate(() => { const P = window.__range.profile(), r0 = P.rating; window.__range.battle().stop(); return { r0, r1: P.rating, n: P.rankedHistory.length }; });
+    check('ranked Battle vs bots: leaving costs Elo too', battleRank.r1 < battleRank.r0 && battleRank.n === 2, JSON.stringify(battleRank));
+    check('mini map: shown in a match and in Battle when turned on', mapMatch === 1 && mapBattle === 1 && !errors.length, JSON.stringify({ mapMatch, mapBattle, errors }));
+    await page.close();
+  }
+  // 6. Packs: the Packs menu opens a pack, and the pause menu links to it
+  {
+    const { page, errors } = await openPage();
+    await page.evaluate(() => window.__range.profile().addPoints(150));
+    await page.click('#go-shop');
+    const before = await page.evaluate(() => window.__range.profile().points);
+    await page.click('#shop-open'); await page.waitForTimeout(300);
+    const after = await page.evaluate(() => window.__range.profile().points);
+    const reel = await page.locator('.pk-modal:not([hidden]) .pk-reel').count();
+    const inPause = await page.locator('#pause-shop').count();
+    check('Packs menu: opening a pack spends 100 points and spins the reel; the pause menu has Open packs', after < before && reel === 1 && inPause === 1 && !errors.length, JSON.stringify({ before, after, reel, inPause, errors }));
+    await page.close();
+  }
+  // 7. Controller: menus with the D-pad and A, then play a battle (move, look, fire) and pause with Start
+  {
+    const page = await browser.newPage({ viewport: { width: 640, height: 360 } });
+    const errors = []; page.on('pageerror', (e) => errors.push(String(e)));
+    await page.addInitScript(() => {
+      localStorage.setItem('recoilRange.settings.v1', JSON.stringify({ graphics: 'low', renderScale: 0.5 }));
+      const pad = { id: 'Test pad (STANDARD GAMEPAD)', index: 0, connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })) };
+      window.__pad = pad;
+      window.__press = (i, on) => { pad.buttons[i].pressed = on; pad.buttons[i].value = on ? 1 : 0; };
+      navigator.getGamepads = () => [pad];
+    });
+    await page.goto('http://127.0.0.1:8150/index.html?test', { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => window.__range?.ready); await page.click('[data-first-profile=mouse]');
+    const tap = async (i) => { await page.evaluate((i) => window.__press(i, true), i); await page.waitForTimeout(150); await page.evaluate((i) => window.__press(i, false), i); await page.waitForTimeout(150); };
+    await page.evaluate(() => document.activeElement?.blur());
+    await tap(0); const f1 = await page.evaluate(() => document.activeElement?.textContent);
+    await tap(13); const f2 = await page.evaluate(() => document.activeElement?.textContent);
+    await page.evaluate(() => document.querySelector('[data-mode=bots]').focus()); await tap(0);
+    const setup = await page.locator('#page-setup').isVisible();
+    await page.selectOption('#b-bots', '1');
+    await page.evaluate(() => document.getElementById('setup-next').focus()); await tap(0); await page.waitForTimeout(400);
+    await page.evaluate(() => [...document.querySelectorAll('#armory button.primary')].filter((b) => b.offsetParent).at(-1).focus()); await tap(0);
+    await page.waitForFunction(() => window.__range.battle()?.active && document.getElementById('menu').hidden, null, { timeout: 40000 });
+    const s0 = await page.evaluate(() => { const h = window.__range.battle().humans[0]; for (const b of window.__range.battle().bots) { b.f.x = 999; b.update = () => {}; } return { yaw: h.look.yaw, x: h.f.x, z: h.f.z, ammo: h.weapon.ammo }; });
+    await page.evaluate(() => { window.__pad.axes = [0, -1, 1, 0]; window.__press(7, true); });
+    await page.waitForTimeout(1500);
+    await page.evaluate(() => { window.__pad.axes = [0, 0, 0, 0]; window.__press(7, false); });
+    await page.waitForTimeout(200);
+    const s1 = await page.evaluate(() => { const h = window.__range.battle().humans[0]; return { yaw: h.look.yaw, x: h.f.x, z: h.f.z, ammo: h.weapon.ammo, reloading: h.weapon.reloading }; });
+    await tap(9); const paused = await page.locator('#page-pause').isVisible();
+    await tap(9); const resumed = await page.evaluate(() => document.getElementById('menu').hidden);
+    check('controller: D-pad and A work the menus', !!f1 && f1 !== f2 && setup, JSON.stringify({ f1, f2, setup }));
+    check('controller: left stick moves, right stick looks, RT fires; Start pauses and resumes', Math.abs(s1.yaw - s0.yaw) > 20 && Math.hypot(s1.x - s0.x, s1.z - s0.z) > 0.3 && (s1.ammo < s0.ammo || s1.reloading) && paused && resumed && !errors.length, JSON.stringify({ s0, s1, paused, resumed, errors }));
     await page.close();
   }
 } catch (e) { failures++; console.log('  FAIL ' + (e.stack || e)); }

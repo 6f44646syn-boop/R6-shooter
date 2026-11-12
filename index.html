@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recoil Range</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="css/style.css?v=99c5c3a-mwcr7mqy">
+<link rel="stylesheet" href="css/style.css?v=b7bb65d-mwd0pp62">
 </head>
 <body>
 <div id="app">
@@ -51,15 +51,14 @@
           <h1>Recoil Range</h1>
           <p class="menu-lead" id="menu-crumbs">Choose a mode</p>
         </div>
-        <div class="steps" aria-hidden="true"><span data-step="1">1 Mode</span><span data-step="2">2 Settings</span><span data-step="3">3 Weapon</span></div>
+        <nav class="steps" aria-label="Steps"><button type="button" data-step="1">1 Controls</button><button type="button" data-step="2">2 Graphics</button><button type="button" data-step="3">3 Settings</button><button type="button" data-step="4">4 Packs</button><button type="button" data-step="5">5 Mode</button><button type="button" data-step="6">6 Weapon</button></nav>
       </header>
-      <nav class="row" aria-label="Main menu"><button type="button" id="go-play">Play</button><button type="button" id="go-settings">Settings</button><button type="button" id="go-controls">Controls</button><button type="button" id="go-packs">Customisation <span id="mini-points"></span></button></nav>
+      <nav class="row" aria-label="Main menu"><button type="button" id="go-play">Play</button><button type="button" id="go-controls">Controls &amp; keybinds</button><button type="button" id="go-graphics">Graphics</button><button type="button" id="go-settings">Settings</button><button type="button" id="go-shop">Packs <span id="mini-points"></span></button><button type="button" id="go-packs">Skins</button></nav>
       <p id="lock-hint" class="hint" hidden></p>
       <p id="menu-note" class="hint" hidden role="status"></p>
       <p id="data-errors" class="errors" hidden></p>
 
       <section class="page" id="page-mode">
-        <div class="row" role="group" aria-label="Filter game modes"><button type="button" data-mode-filter="all" aria-pressed="true">All modes</button><button type="button" data-mode-filter="training" aria-pressed="false">Training</button><button type="button" data-mode-filter="combat" aria-pressed="false">Bot matches</button><button type="button" data-mode-filter="online" aria-pressed="false">Online</button></div>
         <div class="modes">
           <button type="button" class="mode-card" data-mode="range"><b>Shooting range</b><span>Practise spray control on a dummy, a paper target or red dots. Measured sprays, every sight.</span></button>
           <button type="button" class="mode-card" data-mode="bots"><b>Battle vs bots</b><span>An arena with cover against 1-6 bots: Easy, Medium or Hard. Kills earn points for packs.</span></button>
@@ -78,7 +77,8 @@
           <button id="start-btn" type="button" class="primary">Resume</button>
           <button id="pause-loadout" type="button">Change weapon</button>
           <button id="pause-settings" type="button">Settings</button>
-          <button id="pause-packs" type="button">Skins &amp; packs</button>
+          <button id="pause-shop" type="button">Open packs <span id="pause-points"></span></button>
+          <button id="pause-packs" type="button">Skins</button>
           <button id="clear-btn" type="button">Clear bullet holes and data (C)</button>
           <button id="pause-quit" type="button">Main menu</button>
         </div>
@@ -107,6 +107,8 @@
               <select id="b-bots"><option>0</option><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option></select></label>
             <label class="field" for="b-level"><span>Bot level</span>
               <select id="b-level"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option><option value="terminator">Terminator (much harder)</option></select></label>
+            <label id="b-rank-field" class="field" for="b-rank"><span>Ranked</span>
+              <select id="b-rank"><option value="off">Off (casual)</option><option value="on">On (win or lose Elo against the bots)</option></select></label>
             <label id="b-kills-field" class="field" for="b-kills"><span>Kills to win</span>
               <select id="b-kills"><option>5</option><option selected>10</option><option>20</option><option>30</option></select></label>
           </div>
@@ -181,6 +183,8 @@
             <label class="field" for="md-map"><span>Map</span><select id="md-map"></select></label>
             <label class="field" for="md-diff"><span>Bot difficulty</span>
               <select id="md-diff"><option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option><option value="terminator">Terminator</option></select></label>
+            <label class="field" for="md-rank"><span>Ranked</span>
+              <select id="md-rank"><option value="off">Off (casual)</option><option value="on">On (win or lose Elo against the bots)</option></select></label>
             <label class="field" for="md-size"><span>Teams</span>
               <select id="md-size"><option value="3">3v3</option><option value="5" selected>5v5</option></select></label>
             <label class="field" for="md-ab"><span>Abilities</span>
@@ -220,6 +224,16 @@
         </div>
       </section>
 
+      <section class="page" id="page-shop" hidden>
+        <h2>Packs</h2>
+        <div id="shop-root"></div>
+        <div class="row nav">
+          <button type="button" id="shop-back">Back</button>
+          <button type="button" id="shop-skins">Your skins and save code</button>
+          <button type="button" id="shop-next" class="primary">Next: choose a mode</button>
+        </div>
+      </section>
+
       <section class="page" id="page-packs" hidden>
         <section class="set-group packs" id="packs-root"></section>
         <div class="row nav"><button type="button" class="back-btn" data-back="prev">Back</button></div>
@@ -252,7 +266,7 @@
           <dt>F4</dt><dd>Sight gallery (every sight side by side)</dd>
           <dt>Esc</dt><dd>Pause (resume, change weapon, settings, skins, main menu)</dd>
         </dl></details>
-        <div class="row nav"><button type="button" class="back-btn" data-back="mode">Back</button></div>
+        <div class="row nav"><button type="button" class="back-btn" data-back="mode">Back</button><button type="button" id="controls-next" class="primary">Next: graphics</button></div>
       </section>
     </div>
   </div>
@@ -299,6 +313,6 @@
     </div>
   </div>
 </div>
-<script type="module" src="js/main.js?v=99c5c3a-mwcr7mqy"></script>
+<script type="module" src="js/main.js?v=b7bb65d-mwd0pp62"></script>
 </body>
 </html>

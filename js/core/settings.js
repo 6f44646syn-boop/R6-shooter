@@ -2,7 +2,7 @@
 // Storage can be missing or throw (private window, blocked site data), so every access is
 // wrapped and the app always works with the defaults.
 
-import { sensToCm360, cm360ToSens } from './sensitivity.js?v=99c5c3a-mwcr7mqy';
+import { sensToCm360, cm360ToSens } from './sensitivity.js?v=b7bb65d-mwd0pp62';
 
 const KEY = 'recoilRange.settings.v1';
 
@@ -34,6 +34,7 @@ export const DEFAULTS = Object.freeze({
   antialias: true,       // MSAA; takes effect after a reload
   graphics: 'standard',  // 'low' (flat colours, slowest PCs), 'standard' (fast, school PCs), 'high' (shadows, PBR textures, filmic tone mapping) or 'ultra' (graphics card: 4K textures, weapon skins)
   animations: true,      // weapon animations: draw, reload, sprint pose, bolt, muzzle flash, brass
+  minimap: false,        // a small radar in the top-left corner during battles and matches
   hiResSkins: false,     // weapon skins baked at 4096 even on Low / Standard (your own gun)
   weaponShading: 'fast', // gun and sight look: 'fast' (matcap, cheap) or 'detailed' (PBR metal)
   lensQuality: 'auto',   // ADS lens pass: 'auto' or 3 (all) / 2 (no blur) / 1 (no blur, fringing) / 0 (no glare either)
@@ -129,6 +130,7 @@ export function sanitize(input) {
   out.fpsTarget = [60, 120, 144, 240].includes(s.fpsTarget) ? s.fpsTarget : DEFAULTS.fpsTarget;
   out.ao = typeof s.ao === 'boolean' ? s.ao : DEFAULTS.ao;
   out.hiResSkins = s.hiResSkins === true;
+  out.minimap = s.minimap === true;
   out.taa = s.taa === true;
   out.sharpen = [0, 0.25, 0.4, 0.6].includes(s.sharpen) ? s.sharpen : DEFAULTS.sharpen;
   out.fixedSeed = (typeof s.fixedSeed === 'string' && /^\d{0,10}$/.test(s.fixedSeed.trim())) ? s.fixedSeed.trim() : '';
@@ -144,6 +146,7 @@ export function sanitize(input) {
     weather: ['auto', 'clear', 'rain', 'storm', 'snow'].includes(bi.weather) ? bi.weather : 'auto',
     fog: bi.fog === true || bi.weather === 'fog',
     voices: bi.voices !== false,
+    ranked: bi.ranked === true,
   };
   out.gunIndex = Number.isInteger(s.gunIndex) && s.gunIndex >= 0 ? s.gunIndex : DEFAULTS.gunIndex;
   out.distance = DISTANCES.includes(s.distance) ? s.distance : DEFAULTS.distance;

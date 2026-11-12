@@ -230,8 +230,9 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 
 /* ---------- menu flow: mode -> settings -> weapon ---------- */
 .steps { display: flex; gap: 6px; font-size: 12px; }
-.steps span { padding: 3px 8px; border-radius: 10px; border: 1px solid var(--panel-edge); color: var(--muted); }
-.steps span.on { border-color: var(--accent); color: var(--accent); }
+.steps button { padding: 3px 8px; border-radius: 10px; border: 1px solid var(--panel-edge); color: var(--muted); background: none; font-size: 12px; min-height: 0; }
+.steps button.on { border-color: var(--accent); color: var(--accent); }
+.steps button.done { color: var(--text, #ddd); }
 .steps[hidden] { display: none; }
 .page { display: grid; gap: 14px; }
 .modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
@@ -563,3 +564,21 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 .mg-kckeys span { min-width: 26px; padding: 4px 6px; border: 1px solid rgba(255, 255, 255, 0.35); border-radius: 4px; background: rgba(12, 14, 18, 0.7); color: rgba(255, 255, 255, 0.55); font: 600 12px/1 system-ui, sans-serif; text-align: center; }
 .mg-kckeys span.on { background: #ff6a50; border-color: #ff6a50; color: #111; }
 .mg-kckeys b { margin-left: 10px; white-space: nowrap; color: #fff; font: 700 20px/1 system-ui, sans-serif; text-shadow: 0 1px 2px #000; }
+
+/* optional mini map (Settings > Video) */
+.minimap { position: absolute; left: 16px; top: 64px; width: 168px; height: 168px; pointer-events: none; z-index: 3; }
+.minimap[hidden], .mg-killcam .minimap { display: none; }
+
+/* Packs menu */
+.pk-shop { display: grid; justify-items: center; gap: 10px; padding: 18px 0 6px; text-align: center; }
+.pk-shop-points { font-size: 44px; }
+.pk-shop-open { font-size: 20px; padding: 14px 34px; }
+.pk-shop-need { color: var(--accent); margin: 0; }
+/* Controls & keybinds > Controller */
+.pad-binds { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px 16px; margin: 10px 0; }
+.pad-bind { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pad-bind button { min-width: 130px; }
+
+/* Battle Royale: skip the kill cam / watching after you are out */
+.b-skip { position: absolute; right: 24px; bottom: 110px; z-index: 6; pointer-events: auto; }
+.b-skip[hidden] { display: none; }

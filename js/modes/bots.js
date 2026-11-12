@@ -8,8 +8,8 @@
 // Navigation: the core's A* over every level of the map (floors, stairs, ramps), smoothed,
 // with a stuck watchdog (no progress for 3 s: re-path; still stuck: step to the nearest
 // open spot).
-import { SKILL, EYE, NOISE } from './sim.js?v=99c5c3a-mwcr7mqy';
-import { dirFrom, yawTo, wrap180, DEG } from './geom.js?v=99c5c3a-mwcr7mqy';
+import { SKILL, EYE, NOISE } from './sim.js?v=b7bb65d-mwd0pp62';
+import { dirFrom, yawTo, wrap180, DEG } from './geom.js?v=b7bb65d-mwd0pp62';
 
 const VIEW = 55, RANGE = 45;
 
@@ -297,6 +297,9 @@ export class Brain {
     // aim down sights while engaging someone in view (not sprinting, not point blank); eases like a player's
     const adsOn = !!sees && !frozen && !a.reloadUntil && Math.hypot(a.vx, a.vz) < 4.4 && Math.hypot(tgt.x - a.x, tgt.z - a.z) > 3;
     a.ads = Math.max(0, Math.min(1, (a.ads || 0) + (adsOn ? dt / 0.3 : -dt / 0.2)));
+    // Lean while aiming in, like players peeking (one side, or none, per fight); shown in kill cams.
+    const leanWant = a.ads > 0.5 ? [-1, 0, 1][Math.floor(Math.max(0, this.seenAt) * 10) % 3] * 0.9 : 0;
+    a.lean = (a.lean || 0) + (leanWant - (a.lean || 0)) * (1 - Math.exp(-8 * dt));
     // fire
     if (frozen || !sees || m.rules.noFire(a)) return;
     // close enough to knife (faster than a burst, works while reloading)

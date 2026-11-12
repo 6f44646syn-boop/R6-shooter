@@ -1,9 +1,9 @@
 // Skins & packs: points, the pack opening (a slot-machine reel that slows down and lands on
 // your skin), your collection (click to put a skin on the selected gun), and the save code.
-import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById, skinFits, LEGEND_ID } from '../core/skins.js?v=99c5c3a-mwcr7mqy';
-import { Profile, PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=99c5c3a-mwcr7mqy';
-import { legendPhotoURL, setLegendPhoto, clearLegendPhoto, onLegendChange } from '../core/legend.js?v=99c5c3a-mwcr7mqy';
-import { skinThumb } from '../render/gpu-tex.js?v=99c5c3a-mwcr7mqy';
+import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById, skinFits, LEGEND_ID } from '../core/skins.js?v=b7bb65d-mwd0pp62';
+import { Profile, PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=b7bb65d-mwd0pp62';
+import { legendPhotoURL, setLegendPhoto, clearLegendPhoto, onLegendChange } from '../core/legend.js?v=b7bb65d-mwd0pp62';
+import { skinThumb } from '../render/gpu-tex.js?v=b7bb65d-mwd0pp62';
 
 function el(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);
@@ -15,6 +15,8 @@ function el(tag, attrs = {}, ...kids) {
   return e;
 }
 
+const EARN_TEXT = () => KILL_POINTS + ' points per battle kill (+' + HEADSHOT_BONUS + ' for a headshot), +' + WIN_POINTS + ' for winning a battle. Odds: ' +
+  RARITIES.map((x) => x.name + ' ' + new Intl.NumberFormat('en', { style: 'percent', maximumFractionDigits: 3 }).format(x.odds)).join(' · ') + '. A duplicate gives points back.';
 const CARD = 112, GAP = 8, REEL_LEN = 56, WIN_AT = 50, SPIN_MS = 5200;
 
 export class PackUI {
@@ -103,8 +105,7 @@ export class PackUI {
       el('div', { class: 'pk-top' },
         el('div', { class: 'pk-points' }, this.pointsEl, el('span', { text: ' points' })),
         this.openBtn),
-      el('p', { class: 'small', text: KILL_POINTS + ' points per battle kill (+' + HEADSHOT_BONUS + ' for a headshot), +' + WIN_POINTS + ' for winning a battle. Odds: ' +
-        RARITIES.map((x) => x.name + ' ' + new Intl.NumberFormat('en', { style: 'percent', maximumFractionDigits: 3 }).format(x.odds)).join(' · ') + '. A duplicate gives points back.' }),
+      el('p', { class: 'small', text: EARN_TEXT() }),
       this._legendBox(),
       el('div', { class: 'pk-top' }, el('h3', { class: 'pk-h3' }, el('span', { text: 'Collection ' }), this.countEl, el('span', { text: ' / ' + SKIN_COUNT })), this.allBtn),
       this.grid, this.slotNote,
@@ -129,9 +130,25 @@ export class PackUI {
     this.app.append(this.modal);
   }
 
+  // The Packs menu (its own page): points, one big open button, how to earn points and the odds.
+  mountShop(root) {
+    this.shopPoints = el('b', { text: '0' });
+    this.shopBtn = el('button', { type: 'button', class: 'primary pk-shop-open', id: 'shop-open', text: 'Open a pack · ' + PACK_COST + ' points', onclick: () => this.open() });
+    this.shopNeed = el('p', { class: 'pk-shop-need' });
+    root.append(el('div', { class: 'pk-shop' },
+      el('div', { class: 'pk-points pk-shop-points' }, this.shopPoints, el('span', { text: ' points' })),
+      this.shopBtn, this.shopNeed, el('p', { class: 'small', text: EARN_TEXT() })));
+    this.refresh();
+  }
   refresh() {
     const p = this.profile;
     this.pointsEl.textContent = String(p.points);
+    if (this.shopBtn) {
+      this.shopPoints.textContent = String(p.points);
+      this.shopBtn.disabled = !p.canOpen || !this.modal.hidden;
+      const packsNow = Math.floor(p.points / PACK_COST);
+      this.shopNeed.textContent = packsNow ? 'You can open ' + packsNow + ' pack' + (packsNow > 1 ? 's' : '') + ' now.' : (PACK_COST - p.points) + ' more points for your next pack.';
+    }
     this.openBtn.disabled = !p.canOpen || !this.modal.hidden;
     this.countEl.textContent = String(p.ownedCount);
     this.codeOut.value = p.saveCode();

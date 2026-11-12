@@ -19,6 +19,13 @@ export function eloDelta(rating, opponent, score) {
   return Math.round(32 * (score - expected));
 }
 
+// Ranked against bots: the bots' rating by difficulty; leaving early counts as a loss.
+export const BOT_RATING = { easy: 850, normal: 1050, hard: 1250, terminator: 1500 };
+export function botRankedChange(rating, difficulty, outcome) {
+  const delta = eloDelta(ratingOf(rating), BOT_RATING[difficulty] ?? BOT_RATING.normal, outcome === 'win' ? 1 : outcome === 'draw' ? 0.5 : 0);
+  return { id: crypto.randomUUID().replaceAll('-', ''), outcome, delta };
+}
+
 export function rankedSummary(ratings) {
   const values = ratings.map(ratingOf);
   return {

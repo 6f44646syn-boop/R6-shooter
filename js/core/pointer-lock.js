@@ -20,6 +20,7 @@ export class PointerLock {
 
     document.addEventListener('pointerlockchange', () => {
       const locked = document.pointerLockElement === this.el;
+      if (locked) this.virtual = false;               // the mouse took over from a controller
       if (locked === this.locked) return;
       this.locked = locked;
       if (!locked) this.raw = false;
@@ -75,7 +76,16 @@ export class PointerLock {
     }
   }
 
+  // Controller play: no mouse capture (a pad press is not a user gesture), the game just runs.
+  holdVirtual() {
+    if (this.locked) return true;
+    this.locked = true; this.virtual = true;
+    this.onChange(true);
+    return true;
+  }
+
   exit() {
+    if (this.virtual) { this.virtual = false; this.locked = false; this.onChange(false); return; }
     if (document.pointerLockElement) document.exitPointerLock();
   }
 }
