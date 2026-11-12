@@ -69,6 +69,10 @@ try {
     await page.keyboard.press('KeyC'); await step(page, 1);
     const z = await page.evaluate(() => window.__range.battle().humans[0].f.z);
     check('Battle: a quick C tap vaults over low cover', z > spot, `ended at z ${z.toFixed(2)}, cover ends at ${spot.toFixed(2)}`);
+    const flex = await page.evaluate(() => { const R = window.__range, B = R.battle(), h = B.humans[0];
+      B._end(h.f.team); R.step(0.1, 6); const during = { phase: B.hud.end.dataset.finale, inspecting: h.rig.inspectT >= 0 };
+      R.step(9, 270); return { during, after: B.hud.end.dataset.finale }; });
+    check('Battle: when you win, your view plays the weapon inspect, then the results', flex.during.phase === 'flex' && flex.during.inspecting && flex.after === 'results', JSON.stringify(flex));
     check('no page errors (Battle)', !errors.length, errors.join('\n'));
     await page.close();
   }

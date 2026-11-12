@@ -1,4 +1,4 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=4283f07-mwd2mdhc';
+import * as THREE from '../../vendor/three/three.module.min.js?v=7d32aaa-mwd4tpe8';
 
 export class MatchFinale {
   constructor(end, table) {
@@ -21,7 +21,7 @@ export class MatchFinale {
     this.label = document.createElement('strong');
     const skip = document.createElement('button');
     skip.type = 'button';
-    skip.textContent = 'Skip replay';
+    skip.textContent = 'Skip';
     skip.addEventListener('click', () => { this.finish(); end.querySelector('.b-end-box button:not([hidden])')?.focus(); });
     this.replayBar.append(this.label, skip);
     end.append(this.replayBar);
@@ -35,9 +35,11 @@ export class MatchFinale {
     delete this.end.dataset.finale;
   }
 
-  begin(t, entrants, clip) {
+  // flex: you won; after the replay your own view plays your weapon inspect, then the results.
+  begin(t, entrants, clip, flex = false) {
     this.reset();
     this.active = true;
+    this.flex = flex;
     const visible = entrants.slice(0, 6);
     visible.forEach(({ figure, name }, i) => {
       if (!figure) return;
@@ -60,7 +62,7 @@ export class MatchFinale {
       this.lineup.add(model);
     });
     this.names.textContent = visible.map(entry => entry.name).join(' · ');
-    if (!clip) { this.finish(); return; }
+    if (!clip) { if (flex) this._flex(t); else this.finish(); return; }
     this.until = t + clip.seconds;
     this.label.textContent = 'Final kill · ' + clip.name;
     this.end.dataset.finale = 'replay';
@@ -71,9 +73,21 @@ export class MatchFinale {
     this.end.dataset.finale = 'results';
     this.replayBar.hidden = true;
   }
+  _flex(t) {
+    this.end.dataset.finale = 'flex';
+    this.until = t + 8;                       // at most; the game ends it when the inspect is done
+    this.label.textContent = 'Victory';
+    this.replayBar.hidden = false;
+  }
 
   replaying(t) {
     if (this.end.dataset.finale !== 'replay') return false;
+    if (t < this.until) return true;
+    if (this.flex) this._flex(t); else this.finish();
+    return false;
+  }
+  flexing(t) {
+    if (this.end.dataset.finale !== 'flex') return false;
     if (t < this.until) return true;
     this.finish();
     return false;

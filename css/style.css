@@ -514,8 +514,8 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 }
 
 .battle-hud:has(> .b-end[data-finale]:not([hidden])) > :not(.b-end) { visibility: hidden; }
-.b-end[data-finale="replay"] { background: none; pointer-events: none; }
-.b-end[data-finale="replay"] .b-end-box { visibility: hidden; }
+.b-end[data-finale="replay"], .b-end[data-finale="flex"] { background: none; pointer-events: none; }
+.b-end[data-finale="replay"] .b-end-box, .b-end[data-finale="flex"] .b-end-box { visibility: hidden; }
 .b-finale-replay {
   position: absolute; inset: 20px 20px auto; display: flex; align-items: center;
   justify-content: space-between; gap: 12px; padding: 10px 14px;

@@ -1,27 +1,27 @@
-import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=4283f07-mwd2mdhc';
-import { MatchFinale } from '../replay/finale.js?v=4283f07-mwd2mdhc';
-import { GrenadeReplay } from '../replay/grenade.js?v=4283f07-mwd2mdhc';
-import { replayCamera } from '../replay/view.js?v=4283f07-mwd2mdhc';
+import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=7d32aaa-mwd4tpe8';
+import { MatchFinale } from '../replay/finale.js?v=7d32aaa-mwd4tpe8';
+import { GrenadeReplay } from '../replay/grenade.js?v=7d32aaa-mwd4tpe8';
+import { replayCamera } from '../replay/view.js?v=7d32aaa-mwd4tpe8';
 // Battle mode: you against bots (Easy / Medium / Hard), or two local players in split
 // screen (optionally with bots as a third side). First side to the kill target wins.
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=4283f07-mwd2mdhc';
-import { Arena } from './arena.js?v=4283f07-mwd2mdhc';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=4283f07-mwd2mdhc';
-import { Bot, LEVELS } from './bot.js?v=4283f07-mwd2mdhc';
-import { Human } from './human.js?v=4283f07-mwd2mdhc';
-import { BattleNades } from './nades.js?v=4283f07-mwd2mdhc';
-import { drawCrosshair } from '../ui/crosshair.js?v=4283f07-mwd2mdhc';
-import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=4283f07-mwd2mdhc';
-import { effectiveGraphics } from '../render/quality.js?v=4283f07-mwd2mdhc';
-import { effectiveGun, slotIn } from '../core/loadout.js?v=4283f07-mwd2mdhc';
-import { BattleRoyale } from './royale.js?v=4283f07-mwd2mdhc';
-import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=4283f07-mwd2mdhc';
-import { Footprints } from '../scene/footprints.js?v=4283f07-mwd2mdhc';
-import { Minimap } from '../ui/minimap.js?v=4283f07-mwd2mdhc';
-import { botRankedChange } from '../core/ranked.js?v=4283f07-mwd2mdhc';
+import * as THREE from '../../vendor/three/three.module.min.js?v=7d32aaa-mwd4tpe8';
+import { Arena } from './arena.js?v=7d32aaa-mwd4tpe8';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=7d32aaa-mwd4tpe8';
+import { Bot, LEVELS } from './bot.js?v=7d32aaa-mwd4tpe8';
+import { Human } from './human.js?v=7d32aaa-mwd4tpe8';
+import { BattleNades } from './nades.js?v=7d32aaa-mwd4tpe8';
+import { drawCrosshair } from '../ui/crosshair.js?v=7d32aaa-mwd4tpe8';
+import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=7d32aaa-mwd4tpe8';
+import { effectiveGraphics } from '../render/quality.js?v=7d32aaa-mwd4tpe8';
+import { effectiveGun, slotIn } from '../core/loadout.js?v=7d32aaa-mwd4tpe8';
+import { BattleRoyale } from './royale.js?v=7d32aaa-mwd4tpe8';
+import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=7d32aaa-mwd4tpe8';
+import { Footprints } from '../scene/footprints.js?v=7d32aaa-mwd4tpe8';
+import { Minimap } from '../ui/minimap.js?v=7d32aaa-mwd4tpe8';
+import { botRankedChange } from '../core/ranked.js?v=7d32aaa-mwd4tpe8';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, p7: 0xff7048, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -590,8 +590,10 @@ export class Battle {
     }
     const lineup = this.fighters.filter(f => !team || f.team === team)
       .sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
+    const me = this.humans[0], won = !this.viewOnly && !!me && me.f.team === team && me.f.alive && !!me.gun;
+    this._flexAt = -1;
     this.finale.begin(t, lineup.map(f => ({ name: f.name, figure: f })),
-      this.kc ? { name: killer.name, seconds: this.kc.until - t } : null);
+      this.kc ? { name: killer.name, seconds: this.kc.until - t } : null, won);
   }
 
   // Points for you (player 1 on this PC): a kill or a win. Shows "+N" under the crosshair.
@@ -1385,7 +1387,17 @@ export class Battle {
       this._updateTracers(t);
     } else {
       this.kc = null;
+      if (this.finale.flexing(t)) this._flex(t);
     }
+  }
+  // You won: back in your own eyes, inspecting your gun; the results follow when it is done.
+  _flex(t) {
+    const h = this.humans[0], dt = Math.min(0.1, Math.max(0, t - (this._flexT ?? t)));
+    this._flexT = t;
+    if (this._flexAt < 0) { this._flexAt = t; this.watchCam = null; h.rig.animations = true; h.rig.reloadP = -1; h.rig.inspect(); }
+    else if (h.rig.inspectT < 0 && t - this._flexAt > 0.5) { this.finale.finish(); return; }
+    h.rig.sprinting = false; h.rig.update(dt, 0, t);
+    this.deps.sfx.listen(h.camera);
   }
   _killCam(t) {
     if (this.over && this.finale.active) { this._updateFinale(t); return; }

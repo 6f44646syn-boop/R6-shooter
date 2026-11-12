@@ -1,39 +1,39 @@
-import { applyMapArt } from '../render/pack-art.js?v=4283f07-mwd2mdhc';
-import { applyPackMaterials, packMats, envMap } from '../render/pack-materials.js?v=4283f07-mwd2mdhc';
-import { applyPackProps } from '../render/pack-props.js?v=4283f07-mwd2mdhc';
-import { sensoryFor } from '../balance/bomb-utility.js?v=4283f07-mwd2mdhc';
-import { createRankedSession, rankedChange, ratingOf, signRankedResult, botRankedChange } from '../core/ranked.js?v=4283f07-mwd2mdhc';
-import { SpectatorTools } from '../replay/spectator.js?v=4283f07-mwd2mdhc';
-import { MatchFinale } from '../replay/finale.js?v=4283f07-mwd2mdhc';
-import { GrenadeReplay } from '../replay/grenade.js?v=4283f07-mwd2mdhc';
-import { replayCamera } from '../replay/view.js?v=4283f07-mwd2mdhc';
+import { applyMapArt } from '../render/pack-art.js?v=7d32aaa-mwd4tpe8';
+import { applyPackMaterials, packMats, envMap } from '../render/pack-materials.js?v=7d32aaa-mwd4tpe8';
+import { applyPackProps } from '../render/pack-props.js?v=7d32aaa-mwd4tpe8';
+import { sensoryFor } from '../balance/bomb-utility.js?v=7d32aaa-mwd4tpe8';
+import { createRankedSession, rankedChange, ratingOf, signRankedResult, botRankedChange } from '../core/ranked.js?v=7d32aaa-mwd4tpe8';
+import { SpectatorTools } from '../replay/spectator.js?v=7d32aaa-mwd4tpe8';
+import { MatchFinale } from '../replay/finale.js?v=7d32aaa-mwd4tpe8';
+import { GrenadeReplay } from '../replay/grenade.js?v=7d32aaa-mwd4tpe8';
+import { replayCamera } from '../replay/view.js?v=7d32aaa-mwd4tpe8';
 // Team Deathmatch, Capture the Flag and Bomb in the browser: draws the match simulation
 // (sim.js) and runs your player with the range's own systems (look, sensitivity, recoil,
 // spread, sights, weapon model: battle/human.js), at a fixed 60 Hz simulation.
 //
 // Map: flat-shaded low poly from the map file; static walls merged into one mesh, breakable
 // panels in one instanced mesh, one directional light (a 1024 shadow map in High / Ultra).
-import * as THREE from '../../vendor/three/three.module.min.js?v=4283f07-mwd2mdhc';
-import { BulletHoles, crackTexture } from '../scene/holes.js?v=4283f07-mwd2mdhc';
-import { MatchMap } from './map.js?v=4283f07-mwd2mdhc';
-import { initCore } from '../wasm/core.js?v=4283f07-mwd2mdhc';
-import { Match, TICK } from './sim.js?v=4283f07-mwd2mdhc';
-import { yawTo, wrap180, DEG } from './geom.js?v=4283f07-mwd2mdhc';
-import { Fighter } from '../battle/fighter.js?v=4283f07-mwd2mdhc';
-import { slotIn, effectiveGun } from '../core/loadout.js?v=4283f07-mwd2mdhc';
-import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=4283f07-mwd2mdhc';
-import { buildMapLook, panelTextures } from './look.js?v=4283f07-mwd2mdhc';
-import { Arena } from '../battle/arena.js?v=4283f07-mwd2mdhc';
-import { Human } from '../battle/human.js?v=4283f07-mwd2mdhc';
-import { drawCrosshair } from '../ui/crosshair.js?v=4283f07-mwd2mdhc';
-import { effectiveGraphics, maxMode } from '../render/quality.js?v=4283f07-mwd2mdhc';
-import { MatchHost, MatchClient } from './net-match.js?v=4283f07-mwd2mdhc';
-import { Brain } from './bots.js?v=4283f07-mwd2mdhc';
-import { skyPalette } from '../render/sky.js?v=4283f07-mwd2mdhc';
-import { dressMap } from './dressing.js?v=4283f07-mwd2mdhc';
-import { LightPool } from '../render/light-pool.js?v=4283f07-mwd2mdhc';
-import { Footprints } from '../scene/footprints.js?v=4283f07-mwd2mdhc';
-import { Minimap } from '../ui/minimap.js?v=4283f07-mwd2mdhc';
+import * as THREE from '../../vendor/three/three.module.min.js?v=7d32aaa-mwd4tpe8';
+import { BulletHoles, crackTexture } from '../scene/holes.js?v=7d32aaa-mwd4tpe8';
+import { MatchMap } from './map.js?v=7d32aaa-mwd4tpe8';
+import { initCore } from '../wasm/core.js?v=7d32aaa-mwd4tpe8';
+import { Match, TICK } from './sim.js?v=7d32aaa-mwd4tpe8';
+import { yawTo, wrap180, DEG } from './geom.js?v=7d32aaa-mwd4tpe8';
+import { Fighter } from '../battle/fighter.js?v=7d32aaa-mwd4tpe8';
+import { slotIn, effectiveGun } from '../core/loadout.js?v=7d32aaa-mwd4tpe8';
+import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=7d32aaa-mwd4tpe8';
+import { buildMapLook, panelTextures } from './look.js?v=7d32aaa-mwd4tpe8';
+import { Arena } from '../battle/arena.js?v=7d32aaa-mwd4tpe8';
+import { Human } from '../battle/human.js?v=7d32aaa-mwd4tpe8';
+import { drawCrosshair } from '../ui/crosshair.js?v=7d32aaa-mwd4tpe8';
+import { effectiveGraphics, maxMode } from '../render/quality.js?v=7d32aaa-mwd4tpe8';
+import { MatchHost, MatchClient } from './net-match.js?v=7d32aaa-mwd4tpe8';
+import { Brain } from './bots.js?v=7d32aaa-mwd4tpe8';
+import { skyPalette } from '../render/sky.js?v=7d32aaa-mwd4tpe8';
+import { dressMap } from './dressing.js?v=7d32aaa-mwd4tpe8';
+import { LightPool } from '../render/light-pool.js?v=7d32aaa-mwd4tpe8';
+import { Footprints } from '../scene/footprints.js?v=7d32aaa-mwd4tpe8';
+import { Minimap } from '../ui/minimap.js?v=7d32aaa-mwd4tpe8';
 
 const reducedMotion = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 const TEAM_COLOR = { A: 0x5b8cff, B: 0xff7048 };
@@ -1547,7 +1547,17 @@ export class ModeGame {
     } else {
       this._endKc();
       this.camOverride = null;
+      if (this.finale.flexing(t)) this._flex(t);
     }
+  }
+  // You won: back in your own eyes, inspecting your gun; the results follow when it is done.
+  _flex(t) {
+    const h = this.h, dt = Math.min(0.1, Math.max(0, t - (this._flexT ?? t)));
+    this._flexT = t;
+    if (this._flexAt < 0) { this._flexAt = t; h.rig.animations = true; h.rig.reloadP = -1; h.rig.inspect(); }
+    else if (h.rig.inspectT < 0 && t - this._flexAt > 0.5) { this.finale.finish(); return; }
+    h.rig.sprinting = false; h.rig.update(dt, 0, t);
+    this.deps.sfx.listen(h.camera);
   }
   _botRanked(outcome) {
     const label = this.deps.onRanked?.(botRankedChange(this.opts.botRating, this.opts.difficulty, outcome)) || '';
@@ -1576,8 +1586,10 @@ export class ModeGame {
     this.kc = replayable ? { ...clip, grenade: null, final: true, start: t, prevT: t, si: 0, fi: 0 } : null;
     if (this.kc && !this.kcCam) this.kcCam = new THREE.PerspectiveCamera(70, 1, 0.03, 300);
     const seconds = replayable ? clip.deathT - clip.from + 0.3 : 0;
+    this._flexAt = -1;
+    const flex = !this.viewOnly && winner === this.me.team && this.me.alive;
     this.finale.begin(t, lineup.map(actor => ({ name: actor.name, figure: this.fig.get(actor.id) })),
-      replayable ? { name: clip.name, seconds } : null);
+      replayable ? { name: clip.name, seconds } : null, flex);
     this.h.releaseAll();
     this.deps.onEnd();
   }

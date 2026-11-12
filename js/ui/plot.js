@@ -1,6 +1,6 @@
 // Magazine plot: where each bullet of the last magazine crossed the target plane, relative to
 // the aim point (the dummy's head centre, or the nearest red dot), to scale in centimetres.
-import { drawDummyOutline } from '../scene/dummy.js?v=4283f07-mwd2mdhc';
+import { drawDummyOutline } from '../scene/dummy.js?v=7d32aaa-mwd4tpe8';
 
 export class MagPlot {
   constructor(canvas) {
