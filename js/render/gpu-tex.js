@@ -1,5 +1,5 @@
-import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=d976dff-mwd8qn13';
-import { packArt } from './pack-art.js?v=d976dff-mwd8qn13';
+import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=22ac50c-mwd93u7a';
+import { packArt } from './pack-art.js?v=22ac50c-mwd93u7a';
 // GPU-baked textures for ultra graphics. Everything is procedural and drawn by a fragment
 // shader into a render target once (milliseconds on a graphics card), so 4096 x 4096 maps
 // cost nothing at start-up and nothing is downloaded.
@@ -10,7 +10,7 @@ import { packArt } from './pack-art.js?v=d976dff-mwd8qn13';
 //   bakeSkin(renderer, index, size): one of SKINS, { albedo, rm } (rm: G roughness, B metalness).
 //   triplanar(material, opts): shader patch that maps a skin and/or detail by the surface's
 //        own 3D position (no UV stretching on long thin parts), with edge wear from UVs.
-import * as THREE from '../../vendor/three/three.module.min.js?v=d976dff-mwd8qn13';
+import * as THREE from '../../vendor/three/three.module.min.js?v=22ac50c-mwd93u7a';
 
 const VERT = /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
@@ -702,7 +702,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         float kCraze = (1.0 - kBronze - kStained - kLacq) * artCraze(vec2(vTriPos.z + vTriPos.x * 0.6, vTriPos.y) * 150.0) * (1.0 - kSilver) * sstep(0.35, 0.6, kLum);
         float kBrush = 0.85 + 0.3 * fract(sin(floor(vTriPos.y * 2600.0) * 91.7) * 4375.5);
         vec3 kGlaze = kArt * (1.0 - kCraze * 0.16);
-        diffuseColor.rgb = mix(kGlaze, artDark * kBrush, kBelow) * triGain * (1.0 + 0.8 * step(0.5, artMode) * step(artMode, 1.5));   // the bronze is a dark painting: lifted so it reads
+        diffuseColor.rgb = mix(kGlaze, artDark * kBrush, kBelow) * triGain * (1.0 + 1.3 * step(0.5, artMode) * step(artMode, 1.5));   // the bronze is a dark painting: lifted so it reads
         // Inspect: a cool highlight travels along the gun and lights the silver seams it reaches.
         float kSweep = artPhase < 0.0 ? 0.0 : exp(-pow(vTriPos.z - mix(-0.45, 0.4, sstep(0.1, 0.62, artPhase)) + vTriPos.y * 0.5, 2.0) * 160.0);
       #elif defined( TRI_SKIN )
@@ -790,7 +790,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       #ifdef TRI_SAKURA
         metalnessFactor = mix(sakuraRM.y, sakuraRM.w, enamel);
       #elif defined( TRI_ART )
-        metalnessFactor = mix(mix(mix(kSilver, 0.75, kBelow), 0.5 * (1.0 - kTeal), kBronze), 0.55 * (1.0 - kGlass), kStained);
+        metalnessFactor = mix(mix(mix(kSilver, 0.75, kBelow), 0.35 * (1.0 - kTeal), kBronze), 0.55 * (1.0 - kGlass), kStained);
         metalnessFactor = mix(metalnessFactor, mix(0.2, 0.92, kGold), kLacq);
       #elif defined( TRI_SKIN )
         metalnessFactor = mix(skrm.b, 1.0, triWear);
@@ -819,8 +819,6 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         totalEmissiveRadiance += vec3(0.08, 0.85, 0.72) * kTeal * (0.05 + kc * (0.12 + kRise * 1.1));
         // the blast of light the spinning shell sends down the barrel (artBlast: its z, -9 when off)
         totalEmissiveRadiance += vec3(0.25, 1.0, 0.85) * exp(-pow(vTriPos.z - artBlast, 2.0) * 900.0) * 3.5 * kBronze;
-        // the whole relic glows while you inspect it: its own colours, warmed with teal
-        totalEmissiveRadiance += (kArt * 0.9 + vec3(0.02, 0.16, 0.13)) * kRise * kBronze;
         // glass: the panes glow with their own colour; in the inspect a concentrated stained-glass
         // reflection slides along the receiver and breaks up as the angle changes
         float kSlide = artPhase < 0.0 ? 0.0 : exp(-pow(vTriPos.z - mix(-0.32, 0.26, sstep(0.25, 0.75, artPhase)) + vTriPos.y * 0.5, 2.0) * 140.0);

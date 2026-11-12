@@ -6,7 +6,7 @@
 //   outside: drainpipes on the building's corners, wall lamps and AC units on its walls,
 //   puddles, utility poles with sagging wires beyond the fence, a tree line and far hills that
 //   fade into the fog
-import * as THREE from '../../vendor/three/three.module.min.js?v=d976dff-mwd8qn13';
+import * as THREE from '../../vendor/three/three.module.min.js?v=22ac50c-mwd93u7a';
 
 const H = 3.2;
 function rng(seed) { let s = seed >>> 0 || 1; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }

@@ -1,24 +1,24 @@
-import { skinSheets } from '../render/skins2.js?v=d976dff-mwd8qn13';
-import { packArt } from '../render/pack-art.js?v=d976dff-mwd8qn13';
+import { skinSheets } from '../render/skins2.js?v=22ac50c-mwd93u7a';
+import { packArt } from '../render/pack-art.js?v=22ac50c-mwd93u7a';
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=d976dff-mwd8qn13';
-import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=d976dff-mwd8qn13';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=d976dff-mwd8qn13';
-import { matcap } from './matcap.js?v=d976dff-mwd8qn13';
-import { mulberry32 } from '../core/prng.js?v=d976dff-mwd8qn13';
-import { gunMaps } from './range-tex.js?v=d976dff-mwd8qn13';
-import { skinById, FACTORY, SAKURA_ID } from '../core/skins.js?v=d976dff-mwd8qn13';
-import { legendCanvas, onLegendChange } from '../core/legend.js?v=d976dff-mwd8qn13';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=d976dff-mwd8qn13';
-import { HDPack } from '../render/hd-pack.js?v=d976dff-mwd8qn13';
-import { epicRelief } from './skin-relief.js?v=d976dff-mwd8qn13';
-import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect } from './inspect-effects.js?v=d976dff-mwd8qn13';
-import { F2 } from './f2-model.js?v=d976dff-mwd8qn13';
-import { G8 } from './g8-model.js?v=d976dff-mwd8qn13';
-import { C8 } from './c8-model.js?v=d976dff-mwd8qn13';
-import { R4 } from './r4-model.js?v=d976dff-mwd8qn13';
+import * as THREE from '../../vendor/three/three.module.min.js?v=22ac50c-mwd93u7a';
+import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=22ac50c-mwd93u7a';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=22ac50c-mwd93u7a';
+import { matcap } from './matcap.js?v=22ac50c-mwd93u7a';
+import { mulberry32 } from '../core/prng.js?v=22ac50c-mwd93u7a';
+import { gunMaps } from './range-tex.js?v=22ac50c-mwd93u7a';
+import { skinById, FACTORY, SAKURA_ID } from '../core/skins.js?v=22ac50c-mwd93u7a';
+import { legendCanvas, onLegendChange } from '../core/legend.js?v=22ac50c-mwd93u7a';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=22ac50c-mwd93u7a';
+import { HDPack } from '../render/hd-pack.js?v=22ac50c-mwd93u7a';
+import { epicRelief } from './skin-relief.js?v=22ac50c-mwd93u7a';
+import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect } from './inspect-effects.js?v=22ac50c-mwd93u7a';
+import { F2 } from './f2-model.js?v=22ac50c-mwd93u7a';
+import { G8 } from './g8-model.js?v=22ac50c-mwd93u7a';
+import { C8 } from './c8-model.js?v=22ac50c-mwd93u7a';
+import { R4 } from './r4-model.js?v=22ac50c-mwd93u7a';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -822,8 +822,26 @@ function artInlays(gun, skin, model, inspect = false) {
     const bark = new THREE.MeshStandardMaterial({ color: 0x2b1a12, roughness: 0.85, metalness: 0, envMap: highEnv() || ENV, envMapIntensity: 0.4 });
     let seed = 11;
     const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const stem = new THREE.MeshStandardMaterial({ color: 0x5f8f3c, roughness: 0.6 }), leaf = new THREE.MeshStandardMaterial({ color: 0x86c45a, roughness: 0.5, side: THREE.DoubleSide });
+    const STEM = new THREE.CylinderGeometry(0.0004, 0.0009, 0.012, 5), LEAF = new THREE.SphereGeometry(1, 8, 6);
+    // a sprout: a little stem out of the root and two leaves (each its own mesh: they grow in the inspect)
+    const sprout = (side, at, p) => {
+      const out = [], tilt = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(side, 0.5 + rnd() * 0.6, rnd() - 0.6).normalize());
+      const s = new THREE.Mesh(STEM, stem);
+      s.position.copy(p).add(new THREE.Vector3(0, 0.006, 0).applyQuaternion(tilt)); s.quaternion.copy(tilt); out.push(s);
+      const tipP = p.clone().add(new THREE.Vector3(0, 0.012, 0).applyQuaternion(tilt));
+      for (const k of [-1, 1]) {
+        const l = new THREE.Mesh(LEAF, leaf);
+        l.position.copy(tipP).add(new THREE.Vector3(k * 0.003, 0, 0).applyQuaternion(tilt));
+        l.quaternion.copy(tilt).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), k * 0.9));
+        l.scale.set(0.0042, 0.0014, 0.0026); out.push(l);
+      }
+      for (const m of out) { m.userData.hd = true; m.userData.at = at; m.userData.base = m.scale.clone(); m.visible = false; gun.add(m); }
+      return out;
+    };
     const grow = (side, z, y, heading, steps, r) => {
-      const pts = [new THREE.Vector3(side * (half + 0.0015), y, z)];
+      const lift = side * (half + r * 0.7);                  // half sunk into the glaze, half standing out
+      const pts = [new THREE.Vector3(lift, y, z)];
       for (let i = 0; i < steps; i++) {
         let ok = false;
         for (let t = 0; t < 4 && !ok; t++) {
@@ -832,18 +850,28 @@ function artInlays(gun, skin, model, inspect = false) {
           if (inside(nz, ny)) { z = nz; y = ny; ok = true; }
         }
         if (!ok) break;
-        pts.push(new THREE.Vector3(side * (half + 0.0015), y, z));
+        pts.push(new THREE.Vector3(lift, y, z));
         if (r > 0.0012 && rnd() < 0.12) grow(side, z, y, heading + (rnd() < 0.5 ? 1 : -1) * (0.6 + rnd() * 0.6), Math.floor(steps * 0.5), r * 0.6);   // a side root
       }
       if (pts.length < 3) return;
-      const mesh = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), pts.length * 3, r, 5, false), bark);
+      const curve = new THREE.CatmullRomCurve3(pts), segs = pts.length * 3;
+      const geo = new THREE.TubeGeometry(curve, segs, r, 6, false), pos = geo.attributes.position, c = new THREE.Vector3(), v = new THREE.Vector3();
+      for (let i = 0; i <= segs; i++) {                      // thick at the base, thin at the tip
+        curve.getPointAt(i / segs, c);
+        const k = 1 - 0.82 * i / segs;
+        for (let j = 0; j <= 6; j++) { const n = i * 7 + j; v.fromBufferAttribute(pos, n).sub(c).multiplyScalar(k).add(c); pos.setXYZ(n, v.x, v.y, v.z); }
+      }
+      geo.computeVertexNormals();
+      const mesh = new THREE.Mesh(geo, bark);
       mesh.userData.hd = true; mesh.geometry.setDrawRange(0, 0); mesh.visible = false;
+      mesh.userData.sprouts = [];
+      for (let i = 4; i < pts.length; i += 5) mesh.userData.sprouts.push(...sprout(side, i / pts.length, pts[i]));
       gun.add(mesh); roots.push(mesh);
     };
     for (const side of [-1, 1]) for (let n = 0; n < 7; n++) {
       // from the grip and the stock, climbing up and spreading forward
       const [z, y] = bins.size ? [...bins.values()][Math.floor(rnd() * bins.size)] : [0, 0];
-      if (inside(z, y + 0.006)) grow(side, z, y + 0.006, Math.PI * (0.35 + rnd() * 0.5), 34, 0.0022 + rnd() * 0.0012);
+      if (inside(z, y + 0.006)) grow(side, z, y + 0.006, Math.PI * (0.35 + rnd() * 0.5), 34, 0.0042 + rnd() * 0.002);
     }
   }
   return { reliefs, dials, under, surface, roots, muzzle: SPEC[Object.keys(TRACED).find((t) => TRACED[t] === model)]?.muzzle };
