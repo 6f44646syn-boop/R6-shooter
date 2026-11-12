@@ -1,9 +1,9 @@
-import { tabs } from './m7-menu.js?v=b7bb65d-mwd0pp62';
+import { tabs } from './m7-menu.js?v=4283f07-mwd2mdhc';
 // Settings panel inside the Esc menu. Every change is sanitised, saved to localStorage and
 // handed to main.js through onChange(key) so it takes effect immediately.
-import { sanitize, saveSettings, clearSavedSettings, DEFAULTS, DISTANCES, CROSSHAIR_STYLES, RETICLE_COLOR_NAMES } from '../core/settings.js?v=b7bb65d-mwd0pp62';
-import { degPerCount, countsPer360, inchesPer360, horizontalFovDeg } from '../core/sensitivity.js?v=b7bb65d-mwd0pp62';
-import { drawCrosshair } from './crosshair.js?v=b7bb65d-mwd0pp62';
+import { sanitize, saveSettings, clearSavedSettings, DEFAULTS, DISTANCES, CROSSHAIR_STYLES, RETICLE_COLOR_NAMES } from '../core/settings.js?v=4283f07-mwd2mdhc';
+import { degPerCount, countsPer360, inchesPer360, horizontalFovDeg } from '../core/sensitivity.js?v=4283f07-mwd2mdhc';
+import { drawCrosshair } from './crosshair.js?v=4283f07-mwd2mdhc';
 
 function el(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);
@@ -241,6 +241,28 @@ export class SettingsUI {
   }
 
   // Push current settings into every control (after load or reset, and when the menu opens).
+  // Quick setup (new players, after Graphics): only the settings that matter on day one.
+  quick(root) {
+    const xh = () => this.s.crosshair;
+    root.append(el('div', { class: 'set-grid' },
+      this.num('q-dpi', 'Mouse DPI (from your mouse software; 800 or 1600 if unsure)', { min: 50, max: 32000, step: 50 }, () => this.s.dpi, (v) => { this.s.dpi = v; }, 'sens'),
+      this.range('q-sens', 'Sensitivity', { min: 1, max: 50, step: 1, fmt: (v) => String(v) }, () => this.s.sensH, (v) => { this.s.sensH = this.s.sensV = v; }, 'sens'),
+      this.range('q-fov', 'Field of view', { min: 60, max: 90, step: 1, fmt: (v) => v + '\u00b0' }, () => this.s.fov, (v) => { this.s.fov = v; }, 'fov'),
+      this.range('q-volume', 'Volume', { min: 0, max: 1, step: 0.05, fmt: (v) => Math.round(v * 100) + '%' }, () => this.s.volume, (v) => { this.s.volume = v; }, 'volume'),
+      this.field('Crosshair colour', (() => {
+        const i = el('input', { type: 'color' });
+        i.addEventListener('input', () => { xh().color = i.value; this.commit('crosshair'); });
+        i._get = () => xh().color;
+        return i;
+      })(), 'q-xh-color'),
+      this.select('q-reticle', 'Sight reticle colour', RETICLE_COLOR_NAMES.map((v) => [v, v[0].toUpperCase() + v.slice(1)]), () => this.s.reticleColor, (v) => { this.s.reticleColor = v; }, 'reticle')),
+      el('div', { class: 'row' },
+        this.check('q-minimap', 'Mini map', () => this.s.minimap, (v) => { this.s.minimap = v; }, 'minimap'),
+        this.check('q-autoreload', 'Auto reload when empty', () => this.s.autoReload, (v) => { this.s.autoReload = v; }, 'reload'),
+        this.check('q-fps', 'FPS counter', () => this.s.fpsCounter, (v) => { this.s.fpsCounter = v; }, 'perf')));
+    this.refresh();
+  }
+
   refresh() {
     for (const i of Object.values(this.inputs)) {
       if (!i._get) continue;

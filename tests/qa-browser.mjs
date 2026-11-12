@@ -44,8 +44,13 @@ try {
     await page.waitForFunction(() => window.__range.modeGame()?.active && document.getElementById('menu').hidden, null, { timeout: 40000 });
     await page.mouse.move(1, 1);
     const died = await page.evaluate(() => { const R = window.__range, g = R.modeGame(), m = g.m; R.manual(true); for (let i = 0; i < 400 && m.rules.phase === 'prep'; i++) R.step(0.1, 30);
-      const en = m.actors.find((a) => a.team !== g.me.team && a.alive), f = g.h.f; f.x = g.me.x = en.x + 6; f.z = g.me.z = en.z; f.y = g.me.y = en.y;
-      for (let i = 0; i < 3000 && g.me.alive; i++) R.step(0.05, 60); return !g.me.alive && !!g.kc; });
+      // stand 6 m from each enemy in turn (some spots are behind a wall) until one kills you
+      for (const en of m.actors.filter((a) => a.team !== g.me.team)) {
+        if (!g.me.alive || !en.alive) continue;
+        const f = g.h.f; f.x = g.me.x = en.x + 6; f.z = g.me.z = en.z; f.y = g.me.y = en.y;
+        for (let i = 0; i < 1200 && g.me.alive; i++) R.step(0.05, 60);
+      }
+      return !g.me.alive && !!g.kc; });
     const seen = new Set(); let hudHidden = false, ammo = '';
     for (let k = 0; k < 120 && died; k++) { const r = await page.evaluate(() => { const R = window.__range, g = R.modeGame(); R.step(1 / 30, 60); return { on: [...g.hud.kcKeys.querySelectorAll('span.on')].map((e) => e.textContent), cam: g.camOverride === g.kcCam, hid: g.hud.view.classList.contains('mg-killcam'), ammo: g.hud.kcKeys.lastChild.textContent }; }); if (r.cam) { r.on.forEach((x) => seen.add(x)); hudHidden ||= r.hid; ammo ||= r.ammo; } }
     check('Bomb kill cam: plays the killer\'s view after a bot kills you', died, 'not killed in time');
@@ -91,12 +96,13 @@ try {
     await page.click('[data-first-profile=trackpad]');
     const gfx = await page.locator('#gfx').isVisible();
     await page.locator('#gfx .pk-skip button.primary').click();
-    const settingsStep = await on(), onlySettings = await page.locator('#all-settings').isVisible() && !(await page.locator('#match-settings').isVisible());
-    await page.click('#setup-next');
+    const settingsStep = await on(), onlySettings = await page.locator('#q-sens').isVisible() && await page.locator('#q-dpi').isVisible();
+    await page.fill('#q-dpi', '800'); const dpi = await page.evaluate(() => JSON.parse(localStorage.getItem('recoilRange.settings.v1')).dpi);
+    await page.click('#quick-next');
     const shopStep = await on(), shop = await page.locator('#shop-open').isVisible();
     await page.click('#shop-next');
     const modeStep = await on(), modes = await page.locator('#page-mode').isVisible();
-    check('first launch: controls, graphics, settings, packs, then the mode', gfx && settingsStep === '3' && onlySettings && shopStep === '4' && shop && modeStep === '5' && modes && !errors.length, JSON.stringify({ gfx, settingsStep, onlySettings, shopStep, shop, modeStep, modes, errors }));
+    check('first launch: controls, graphics, quick setup (saved), packs, then the mode', gfx && settingsStep === '3' && onlySettings && dpi === 800 && shopStep === '4' && shop && modeStep === '5' && modes && !errors.length, JSON.stringify({ gfx, settingsStep, onlySettings, shopStep, shop, modeStep, modes, errors }));
     await page.close();
   }
   // 5. Ranked against bots (quitting is a loss) and the optional mini map in a match and in Battle

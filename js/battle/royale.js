@@ -1,11 +1,13 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=b7bb65d-mwd0pp62';
-import { ROYALE_BOTS } from './royale-map.js?v=b7bb65d-mwd0pp62';
-import { PLATFORM_HALF, PLATFORM_MASK, RAMP_RISE, platformHeight, platformMeshes, platformSolids } from './royale-platform.js?v=b7bb65d-mwd0pp62';
+import * as THREE from '../../vendor/three/three.module.min.js?v=4283f07-mwd2mdhc';
+import { ROYALE_BOTS } from './royale-map.js?v=4283f07-mwd2mdhc';
+import { PLATFORM_HALF, PLATFORM_MASK, RAMP_RISE, platformHeight, platformMeshes, platformSolids } from './royale-platform.js?v=4283f07-mwd2mdhc';
 
 const TOKEN_CHANCE = 0.001;
 const CHEST_MATERIALS = 6;
 const WALL_HP = 130;
 const WALL_HEIGHT = 2.7;
+const CELL = PLATFORM_HALF * 2;        // the build grid (3.2 m): every piece sits on it, so pieces line up
+const cellMid = (v) => (Math.floor(v / CELL) + 0.5) * CELL;
 const GRID = 3;
 const FULL_WALL = (1 << GRID ** 2) - 1;
 const PIECES = ['wall', 'ramp', 'cone'];
@@ -328,8 +330,7 @@ export class BattleRoyale {
     const player = f === this.battle.humans[0].f;
     const { arena } = this;
     const kind = player ? selected : 'wall', isWall = kind === 'wall';
-    const angle = yaw * Math.PI / 180, dx = Math.sin(angle), dz = -Math.cos(angle);
-    const distance = isWall ? 1.7 : (PLATFORM_HALF+.78) / Math.max(Math.abs(dx),Math.abs(dz));
+    const angle = yaw * Math.PI / 180, dx = Math.sin(angle), dz = -Math.cos(angle), alongX = Math.abs(dx) > Math.abs(dz);
     const dir = -Math.round(yaw / 90);
     const forwardX = -Math.round(Math.sin(dir * Math.PI/2)), forwardZ = -Math.round(Math.cos(dir * Math.PI/2));
     const previous = kind === 'ramp' && this.walls.find(ramp => {
@@ -341,21 +342,30 @@ export class BattleRoyale {
         && Math.abs(f.y - (p.y+RAMP_RISE)) <= .55;
     });
     if (previous && previous.level >= MAX_RAMPS) return { limit: true };
-    const x = previous ? previous.mesh.position.x + forwardX * PLATFORM_HALF*2 : Math.round((f.x + dx * distance) * 2) / 2;
-    const z = previous ? previous.mesh.position.z + forwardZ * PLATFORM_HALF*2 : Math.round((f.z + dz * distance) * 2) / 2;
-    const w = isWall ? (Math.abs(dx) > Math.abs(dz) ? .32 : 2.8) : PLATFORM_HALF * 2;
-    const d = isWall ? (w > 1 ? .32 : 2.8) : w;
+    // On the grid: a wall on the nearest cell edge in front of you, a floor / ramp / cone in the next cell.
+    // (the first edge / cell clear of your body, 0.46 m around you)
+    const edge = (v, s) => (s > 0 ? Math.ceil((v + .46) / CELL) : Math.floor((v - .46) / CELL)) * CELL;
+    const ahead = (v, s) => edge(v, s) + Math.sign(s) * CELL / 2;
+    const gx = (isWall ? edge : ahead)(f.x, dx), gz = (isWall ? edge : ahead)(f.z, dz);
+    const x0 = alongX ? gx : cellMid(f.x), z0 = alongX ? cellMid(f.z) : gz;
+    const x = previous ? previous.mesh.position.x + forwardX * CELL : x0;
+    const z = previous ? previous.mesh.position.z + forwardZ * CELL : z0;
+    const w = isWall ? (alongX ? .32 : CELL) : CELL;
+    const d = isWall ? (w > 1 ? .32 : CELL) : w;
     const y = previous ? previous.mesh.position.y + RAMP_RISE : arena.groundAt(x, z, f.y);
     const box = { minX:x-w/2, maxX:x+w/2, minY:y, maxY:y+(isWall ? WALL_HEIGHT : platformHeight(kind)), minZ:z-d/2, maxZ:z+d/2 };
+    // A wall straddles a grid edge: test only its centre line (ends trimmed), so it can stand on the
+    // edge of a floor or ramp and meet another wall at a corner, but not on top of another wall.
+    const core = !isWall ? box : alongX ? { ...box, minX: x, maxX: x, minZ: box.minZ + .2, maxZ: box.maxZ - .2 } : { ...box, minZ: z, maxZ: z, minX: box.minX + .2, maxX: box.maxX - .2 };
     const blocked = (!previous && Math.abs(y - f.y) > .45) || box.maxY >= (arena.map.ceiling ? arena.wallH : Infinity)
       || box.minX <= -arena.hx || box.maxX >= arena.hx || box.minZ <= -arena.hz || box.maxZ >= arena.hz
-      || arena.boxes.some(other => overlaps(box, other))
+      || arena.boxes.some(other => overlaps(core, other))
       || !arena.sightLine([f.x, f.y + 1.2, f.z], [x, y + .7, z])
       || this.occupied(box, previous ? f : null);
     return { kind, isWall, previous, dir, box, x, y, z, w, d, blocked };
   }
-  // The ghost: while B is held, a see-through copy of the piece where it will go (blue: it fits,
-  // red: no room). Releasing B builds it there.
+  // The ghost: in build mode (B toggles it), a see-through copy of the piece where it will go
+  // (blue: it fits, red: no room). Fire builds it there.
   updateGhost(h) {
     const want = this.preview && h.f.alive && !h.f.drop && !this.editing && !this.battle.paused;
     let p = want ? this.plan(h.f, h.look.yaw, this.piece) : null;
@@ -627,7 +637,7 @@ export class BattleRoyale {
         + (this.editing.kind === 'ramp' ? ' · ' + bind('reload') + ' Rotate' : '')
         + '\n' + EDIT_PRESETS[this.editing.kind].map(([name],i) => (i+1) + ' ' + name).join(' · ')
       : chest ? bind('interact') + ' Open ' + (chest.pirate ? 'Pirate Chest' : 'chest')
-      : (b.humans[0].gun ? bind('knife') : bind('fire')) + ' Pickaxe · ' + 'hold ' + bind('underbarrel') + ' Build ' + this.piece
+      : (b.humans[0].gun ? bind('knife') : bind('fire')) + ' Pickaxe · ' + bind('underbarrel') + (this.preview ? ' Back to shooting · ' + bind('fire') + ' Build ' : ' Build mode ') + this.piece
         + ' · ' + bind('zero') + ' Change piece · ' + bind('ability') + ' Edit' + hint;
     const score = alive + ' left · ' + zone;
     const mats = this.materials + ' mats';

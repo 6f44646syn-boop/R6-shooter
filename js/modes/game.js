@@ -1,39 +1,39 @@
-import { applyMapArt } from '../render/pack-art.js?v=b7bb65d-mwd0pp62';
-import { applyPackMaterials, packMats, envMap } from '../render/pack-materials.js?v=b7bb65d-mwd0pp62';
-import { applyPackProps } from '../render/pack-props.js?v=b7bb65d-mwd0pp62';
-import { sensoryFor } from '../balance/bomb-utility.js?v=b7bb65d-mwd0pp62';
-import { createRankedSession, rankedChange, ratingOf, signRankedResult, botRankedChange } from '../core/ranked.js?v=b7bb65d-mwd0pp62';
-import { SpectatorTools } from '../replay/spectator.js?v=b7bb65d-mwd0pp62';
-import { MatchFinale } from '../replay/finale.js?v=b7bb65d-mwd0pp62';
-import { GrenadeReplay } from '../replay/grenade.js?v=b7bb65d-mwd0pp62';
-import { replayCamera } from '../replay/view.js?v=b7bb65d-mwd0pp62';
+import { applyMapArt } from '../render/pack-art.js?v=4283f07-mwd2mdhc';
+import { applyPackMaterials, packMats, envMap } from '../render/pack-materials.js?v=4283f07-mwd2mdhc';
+import { applyPackProps } from '../render/pack-props.js?v=4283f07-mwd2mdhc';
+import { sensoryFor } from '../balance/bomb-utility.js?v=4283f07-mwd2mdhc';
+import { createRankedSession, rankedChange, ratingOf, signRankedResult, botRankedChange } from '../core/ranked.js?v=4283f07-mwd2mdhc';
+import { SpectatorTools } from '../replay/spectator.js?v=4283f07-mwd2mdhc';
+import { MatchFinale } from '../replay/finale.js?v=4283f07-mwd2mdhc';
+import { GrenadeReplay } from '../replay/grenade.js?v=4283f07-mwd2mdhc';
+import { replayCamera } from '../replay/view.js?v=4283f07-mwd2mdhc';
 // Team Deathmatch, Capture the Flag and Bomb in the browser: draws the match simulation
 // (sim.js) and runs your player with the range's own systems (look, sensitivity, recoil,
 // spread, sights, weapon model: battle/human.js), at a fixed 60 Hz simulation.
 //
 // Map: flat-shaded low poly from the map file; static walls merged into one mesh, breakable
 // panels in one instanced mesh, one directional light (a 1024 shadow map in High / Ultra).
-import * as THREE from '../../vendor/three/three.module.min.js?v=b7bb65d-mwd0pp62';
-import { BulletHoles, crackTexture } from '../scene/holes.js?v=b7bb65d-mwd0pp62';
-import { MatchMap } from './map.js?v=b7bb65d-mwd0pp62';
-import { initCore } from '../wasm/core.js?v=b7bb65d-mwd0pp62';
-import { Match, TICK } from './sim.js?v=b7bb65d-mwd0pp62';
-import { yawTo, wrap180, DEG } from './geom.js?v=b7bb65d-mwd0pp62';
-import { Fighter } from '../battle/fighter.js?v=b7bb65d-mwd0pp62';
-import { slotIn, effectiveGun } from '../core/loadout.js?v=b7bb65d-mwd0pp62';
-import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=b7bb65d-mwd0pp62';
-import { buildMapLook, panelTextures } from './look.js?v=b7bb65d-mwd0pp62';
-import { Arena } from '../battle/arena.js?v=b7bb65d-mwd0pp62';
-import { Human } from '../battle/human.js?v=b7bb65d-mwd0pp62';
-import { drawCrosshair } from '../ui/crosshair.js?v=b7bb65d-mwd0pp62';
-import { effectiveGraphics, maxMode } from '../render/quality.js?v=b7bb65d-mwd0pp62';
-import { MatchHost, MatchClient } from './net-match.js?v=b7bb65d-mwd0pp62';
-import { Brain } from './bots.js?v=b7bb65d-mwd0pp62';
-import { skyPalette } from '../render/sky.js?v=b7bb65d-mwd0pp62';
-import { dressMap } from './dressing.js?v=b7bb65d-mwd0pp62';
-import { LightPool } from '../render/light-pool.js?v=b7bb65d-mwd0pp62';
-import { Footprints } from '../scene/footprints.js?v=b7bb65d-mwd0pp62';
-import { Minimap } from '../ui/minimap.js?v=b7bb65d-mwd0pp62';
+import * as THREE from '../../vendor/three/three.module.min.js?v=4283f07-mwd2mdhc';
+import { BulletHoles, crackTexture } from '../scene/holes.js?v=4283f07-mwd2mdhc';
+import { MatchMap } from './map.js?v=4283f07-mwd2mdhc';
+import { initCore } from '../wasm/core.js?v=4283f07-mwd2mdhc';
+import { Match, TICK } from './sim.js?v=4283f07-mwd2mdhc';
+import { yawTo, wrap180, DEG } from './geom.js?v=4283f07-mwd2mdhc';
+import { Fighter } from '../battle/fighter.js?v=4283f07-mwd2mdhc';
+import { slotIn, effectiveGun } from '../core/loadout.js?v=4283f07-mwd2mdhc';
+import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=4283f07-mwd2mdhc';
+import { buildMapLook, panelTextures } from './look.js?v=4283f07-mwd2mdhc';
+import { Arena } from '../battle/arena.js?v=4283f07-mwd2mdhc';
+import { Human } from '../battle/human.js?v=4283f07-mwd2mdhc';
+import { drawCrosshair } from '../ui/crosshair.js?v=4283f07-mwd2mdhc';
+import { effectiveGraphics, maxMode } from '../render/quality.js?v=4283f07-mwd2mdhc';
+import { MatchHost, MatchClient } from './net-match.js?v=4283f07-mwd2mdhc';
+import { Brain } from './bots.js?v=4283f07-mwd2mdhc';
+import { skyPalette } from '../render/sky.js?v=4283f07-mwd2mdhc';
+import { dressMap } from './dressing.js?v=4283f07-mwd2mdhc';
+import { LightPool } from '../render/light-pool.js?v=4283f07-mwd2mdhc';
+import { Footprints } from '../scene/footprints.js?v=4283f07-mwd2mdhc';
+import { Minimap } from '../ui/minimap.js?v=4283f07-mwd2mdhc';
 
 const reducedMotion = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 const TEAM_COLOR = { A: 0x5b8cff, B: 0xff7048 };
@@ -863,8 +863,9 @@ export class ModeGame {
     const dt = B.t - A.t, dx = dt > 0 ? (B.s[o] - A.s[o]) / dt : 0, dz = dt > 0 ? (B.s[o + 1] - A.s[o + 1]) / dt : 0;
     const y = fig.yaw * DEG, fwd = dx * Math.sin(y) - dz * Math.cos(y), side = dx * Math.cos(y) + dz * Math.sin(y), speed = Math.hypot(dx, dz);
     const bits = stride > 13 ? A.s[o + 13] : 0, lit = kc.lit || (kc.lit = {});
+    // Fire also checks the shot list: a one-tap kill lands after the last recorded frame.
     const on = { W: fwd > 0.5, S: fwd < -0.5, A: side < -0.5, D: side > 0.5, Shift: speed > 4.4, Crouch: fig.crouch > 0.5, Q: lean < -0.3, E: lean > 0.3,
-      Fire: A.s[o + 10] > 0 || B.s[o + 10] > 0, ADS: ads > 0.5, R: !!(bits & 1), Knife: !!(bits & 2), G: !!(bits & 4) };
+      Fire: A.s[o + 10] > 0 || B.s[o + 10] > 0 || !!kc.rec?.shots.some((x) => x.id === kc.by && x.t >= A.t - 1e-3 && x.t <= B.t + 1 / 30), ADS: ads > 0.5, R: !!(bits & 1), Knife: !!(bits & 2), G: !!(bits & 4) };
     for (const [k, v] of Object.entries(on)) if (v) lit[k] = t + (k === 'Fire' || k === 'Knife' || k === 'G' ? 0.12 : 0);   // short presses stay lit a moment
     for (const b of keys.children) if (b.dataset.k) b.classList.toggle('on', (lit[b.dataset.k] ?? -1) >= t);
     keys.lastChild.textContent = stride > 14 && A.s[o + 14] >= 0 ? Math.round(A.s[o + 14]) + ' / ' + gun.magSize : '';

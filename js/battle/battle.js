@@ -1,27 +1,27 @@
-import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=b7bb65d-mwd0pp62';
-import { MatchFinale } from '../replay/finale.js?v=b7bb65d-mwd0pp62';
-import { GrenadeReplay } from '../replay/grenade.js?v=b7bb65d-mwd0pp62';
-import { replayCamera } from '../replay/view.js?v=b7bb65d-mwd0pp62';
+import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=4283f07-mwd2mdhc';
+import { MatchFinale } from '../replay/finale.js?v=4283f07-mwd2mdhc';
+import { GrenadeReplay } from '../replay/grenade.js?v=4283f07-mwd2mdhc';
+import { replayCamera } from '../replay/view.js?v=4283f07-mwd2mdhc';
 // Battle mode: you against bots (Easy / Medium / Hard), or two local players in split
 // screen (optionally with bots as a third side). First side to the kill target wins.
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=b7bb65d-mwd0pp62';
-import { Arena } from './arena.js?v=b7bb65d-mwd0pp62';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=b7bb65d-mwd0pp62';
-import { Bot, LEVELS } from './bot.js?v=b7bb65d-mwd0pp62';
-import { Human } from './human.js?v=b7bb65d-mwd0pp62';
-import { BattleNades } from './nades.js?v=b7bb65d-mwd0pp62';
-import { drawCrosshair } from '../ui/crosshair.js?v=b7bb65d-mwd0pp62';
-import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=b7bb65d-mwd0pp62';
-import { effectiveGraphics } from '../render/quality.js?v=b7bb65d-mwd0pp62';
-import { effectiveGun, slotIn } from '../core/loadout.js?v=b7bb65d-mwd0pp62';
-import { BattleRoyale } from './royale.js?v=b7bb65d-mwd0pp62';
-import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=b7bb65d-mwd0pp62';
-import { Footprints } from '../scene/footprints.js?v=b7bb65d-mwd0pp62';
-import { Minimap } from '../ui/minimap.js?v=b7bb65d-mwd0pp62';
-import { botRankedChange } from '../core/ranked.js?v=b7bb65d-mwd0pp62';
+import * as THREE from '../../vendor/three/three.module.min.js?v=4283f07-mwd2mdhc';
+import { Arena } from './arena.js?v=4283f07-mwd2mdhc';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=4283f07-mwd2mdhc';
+import { Bot, LEVELS } from './bot.js?v=4283f07-mwd2mdhc';
+import { Human } from './human.js?v=4283f07-mwd2mdhc';
+import { BattleNades } from './nades.js?v=4283f07-mwd2mdhc';
+import { drawCrosshair } from '../ui/crosshair.js?v=4283f07-mwd2mdhc';
+import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=4283f07-mwd2mdhc';
+import { effectiveGraphics } from '../render/quality.js?v=4283f07-mwd2mdhc';
+import { effectiveGun, slotIn } from '../core/loadout.js?v=4283f07-mwd2mdhc';
+import { BattleRoyale } from './royale.js?v=4283f07-mwd2mdhc';
+import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=4283f07-mwd2mdhc';
+import { Footprints } from '../scene/footprints.js?v=4283f07-mwd2mdhc';
+import { Minimap } from '../ui/minimap.js?v=4283f07-mwd2mdhc';
+import { botRankedChange } from '../core/ranked.js?v=4283f07-mwd2mdhc';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, p7: 0xff7048, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -950,6 +950,11 @@ export class Battle {
       if (down && b === 2) this.royale.cancelEdit();
       return;
     }
+    if (this.royale?.preview && (b === 0 || b === 2)) {      // build mode: fire builds, as often as you click
+      h.in.fire = h.in.ads = false;
+      if (down && b === 0 && !this.paused && !this.over && h.f.alive) this.royale.build(h.f, h.look.yaw);
+      return;
+    }
     if (this.royale && !h.gun && b === 0) {
       if (down && !this.paused && !this.over) this.royale.swing(h);
       return;
@@ -992,9 +997,8 @@ export class Battle {
       if (down && !this.paused && !this.over && !p1.f.drop) this.royale.swing(p1);
       return true;
     }
-    if (this.royale && code === 'KeyB') {                  // hold: the ghost shows where it goes; release: build
-      if (down) this.royale.preview = !this.paused && !this.over;
-      else if (this.royale.preview) { this.royale.preview = false; if (!this.paused && !this.over) this.royale.build(p1.f, p1.look.yaw); }
+    if (this.royale && code === 'KeyB') {                  // build mode on / off: fire builds where the ghost shows
+      if (down && !this.paused && !this.over) { this.royale.preview = !this.royale.preview; p1.in.fire = p1.in.ads = false; }
       return true;
     }
     if (this.royale && (code === 'Interact' || code === 'KeyF') && down

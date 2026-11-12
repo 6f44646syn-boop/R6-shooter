@@ -1,7 +1,7 @@
-import { Hearing } from './hearing.js?v=b7bb65d-mwd0pp62';
-import { decodeAudioPack } from './audio-pack.js?v=b7bb65d-mwd0pp62';
+import { Hearing } from './hearing.js?v=4283f07-mwd2mdhc';
+import { decodeAudioPack } from './audio-pack.js?v=4283f07-mwd2mdhc';
 // WebAudio output only: sound propagation, surface profiles and step cadence are Rust-owned.
-import { cameraPose } from './acoustics.js?v=b7bb65d-mwd0pp62';
+import { cameraPose } from './acoustics.js?v=4283f07-mwd2mdhc';
 const clamp = (v, lo, hi) =>
   Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo;
 export class Sfx {

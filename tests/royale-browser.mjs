@@ -63,14 +63,34 @@ try {
     b.key('KeyB', true); R.step(.05);
     const held = { shown: r.ghost.visible, built: r.walls.length - n, at: [r.ghost.position.x, r.ghost.position.z] };
     b.key('KeyB', false); R.step(.05);
+    const toggled = { shown: r.ghost.visible, built: r.walls.length - n };          // still in build mode after B is let go
+    b.mouseButton(0, true); b.mouseButton(0, false);                                  // fire builds
+    b.key('KeyB', true); b.key('KeyB', false); R.step(.05);                          // B again: back to shooting
     const w = r.walls[r.walls.length - 1];
-    const out = { held, built: r.walls.length - n, same: !!w && Math.abs(w.mesh.position.x - held.at[0]) < 1e-6 && Math.abs(w.mesh.position.z - held.at[1]) < 1e-6, hidden: !r.ghost.visible, spent: 3 - r.materials };
+    const out = { held, toggled, built: r.walls.length - n, same: !!w && Math.abs(w.mesh.position.x - held.at[0]) < 1e-6 && Math.abs(w.mesh.position.z - held.at[1]) < 1e-6, hidden: !r.ghost.visible, spent: 3 - r.materials,
+      onGrid: !!w && (() => { const g = 3.2, on = (v) => Math.abs(v / g - Math.round(v / g)) < 1e-6, mid = (v) => on(v - g / 2), p = w.mesh.position, longX = w.box.maxX - w.box.minX > 1;
+        return longX ? mid(p.x) && on(p.z) && Math.abs(w.box.maxX - w.box.minX - g) < 1e-6 : on(p.x) && mid(p.z); })() };
     if (w) { r.disposePiece(w); r.walls.splice(r.walls.indexOf(w), 1); r.syncWalls(); }   // leave the island as it was for the checks below
     r.materials = 0;
     return out;
   });
-  assert.deepEqual(ghost, { held: { shown: true, built: 0, at: ghost.held.at }, built: 1, same: true, hidden: true, spent: 1 });
-  console.log('PASS holding B shows the ghost where the piece will go; releasing builds it there');
+  assert.deepEqual(ghost, { held: { shown: true, built: 0, at: ghost.held.at }, toggled: { shown: true, built: 0 }, built: 1, same: true, hidden: true, spent: 1, onGrid: true });
+  console.log('PASS B toggles build mode: the ghost shows where the piece goes on the grid, fire builds it, B again goes back to shooting');
+  const corner = await page.evaluate(() => {
+    const b = __range.battle(), r = b.royale, h = b.humans[0], a = b.arena;
+    r.materials = 4; const n = r.walls.length;
+    for (let i = 0; i < a.nodeCount; i += 13) {
+      if (a.nodeY[i] > .01) continue;
+      Object.assign(h.f, { x: a.nodeX[i], y: 0, z: a.nodeZ[i] });
+      if (!r.plan(h.f, 0, 'wall').blocked && !r.plan(h.f, 90, 'wall').blocked) break;
+    }
+    const w1 = r.build(h.f, 0, 'wall'), w2 = r.build(h.f, 90, 'wall'), again = r.plan(h.f, 0, 'wall').blocked;
+    const out = { both: !!w1 && !!w2, touch: !!w1 && !!w2 && Math.abs(w1.box.maxX - w2.mesh.position.x) < .2 && Math.abs(w2.box.minZ - w1.mesh.position.z) < .2, sameSpotBlocked: again };
+    for (const w of r.walls.slice(n)) { r.disposePiece(w); r.walls.splice(r.walls.indexOf(w), 1); } r.syncWalls(); r.materials = 0;
+    return out;
+  });
+  assert.deepEqual(corner, { both: true, touch: true, sameSpotBlocked: true });
+  console.log('PASS grid walls meet at a corner, and a second wall on the same edge is refused');
   const tiers = await page.evaluate(() => {
     const b = __range.battle(), a = b.arena, world = a.world;
     const counts = ['low','standard','high','ultra'].map(q => {
@@ -149,7 +169,7 @@ try {
     for (let i = 0; i < a.nodeCount && !r.walls.length; i += 7) {
       if (a.nodeY[i] > .01) continue;
       Object.assign(h.f, {x:a.nodeX[i], y:a.nodeY[i], z:a.nodeZ[i]});
-      b.key('KeyB', true); b.key('KeyB', false);
+      b.key('KeyB', true); b.key('KeyB', false); b.mouseButton(0, true); b.mouseButton(0, false); b.key('KeyB', true); b.key('KeyB', false);
     }
     const wall = r.walls[0];
     if (!wall) return null;
@@ -157,7 +177,7 @@ try {
     const blocked = a.raycast(start, [0,0,-1], 2) < 2 && a.world.hit === a.baseBoxCount;
     const navReused = a.world !== a._baseWorld && a.world.nodeCount === 0;
     const solid = !a.world.free(wall.mesh.position.x, wall.mesh.position.z);
-    b.key('KeyB', true); b.key('KeyB', false);
+    b.key('KeyB', true); b.key('KeyB', false); b.mouseButton(0, true); b.mouseButton(0, false); b.key('KeyB', true); b.key('KeyB', false);
     const spent = r.materials;
     h.camera.position.set(...start);
     h.camera.lookAt(wall.mesh.position);
@@ -229,7 +249,7 @@ try {
     const place = (x,z) => {
       Object.assign(h.f,{x,y:0,z});
       h.look.yaw = 0;
-      b.key('KeyB', true); b.key('KeyB', false);
+      b.key('KeyB', true); b.key('KeyB', false); b.mouseButton(0, true); b.mouseButton(0, false); b.key('KeyB', true); b.key('KeyB', false);
       return r.walls.at(-1);
     };
     const aimTile = (piece,x,z) => {
@@ -273,7 +293,7 @@ try {
     r.materials = 11;
     const before = r.walls.length;
     for (let level = 1; level <= 10; level++) {
-      b.key('KeyB', true); b.key('KeyB', false);
+      b.key('KeyB', true); b.key('KeyB', false); b.mouseButton(0, true); b.mouseButton(0, false); b.key('KeyB', true); b.key('KeyB', false);
       const ramp = r.walls.at(-1);
       if (r.walls.length !== before+level || ramp.level !== level) return {stuck:level, y:h.f.y, notice:r.notice};
       const top = ramp.box.minZ+.15;
@@ -282,7 +302,7 @@ try {
       }
       if (h.f.z > top+.03 || h.f.y < ramp.box.minY+1.5) return {stuck:level, y:h.f.y,z:h.f.z,top};
     }
-    b.key('KeyB', true); b.key('KeyB', false);
+    b.key('KeyB', true); b.key('KeyB', false); b.mouseButton(0, true); b.mouseButton(0, false); b.key('KeyB', true); b.key('KeyB', false);
     return {ramps:r.walls.length-before,climbed:h.f.y>16,blockedAtTen:r.notice==='10-ramp height limit',mats:r.materials};
   });
   assert.deepEqual(climb, {ramps:10,climbed:true,blockedAtTen:true,mats:1});
