@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=ef9b523-mwd9feqb';
-import { mulberry32 } from '../core/prng.js?v=ef9b523-mwd9feqb';
-import { mergeStatic } from './sight-model.js?v=ef9b523-mwd9feqb';
+import * as THREE from '../../vendor/three/three.module.min.js?v=1e8153e-mwd9o8rz';
+import { mulberry32 } from '../core/prng.js?v=1e8153e-mwd9o8rz';
+import { mergeStatic } from './sight-model.js?v=1e8153e-mwd9o8rz';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -227,9 +227,9 @@ const particleVertex = /* glsl */`
           radius = vec2(1.0) * mix(0.0012, 0.0032, seed.z);
         #endif
         #ifdef JET
-          // out of the barrel like a fire hydrant: fast, a little spread, falling away
-          vec3 aim = normalize(outward + (seed.xyz - 0.5) * 0.12);
-          origin = (emitted * vec4(emitter, 1.0)).xyz + aim * mix(1.4, 2.1, seed.w) * age - vec3(0.0, 1.6 * age * age, 0.0);
+          // out of the barrel like a fire hydrant: a hard, straight stream that barely drops
+          vec3 aim = normalize(outward + (seed.xyz - 0.5) * 0.06);
+          origin = (emitted * vec4(emitter, 1.0)).xyz + aim * mix(3.2, 4.4, seed.w) * age - vec3(0.0, 0.3 * age * age, 0.0);
           radius = vec2(1.0) * mix(0.0016, 0.0042, seed.z) * (1.0 + age);
         #endif
         #ifdef WIND
@@ -767,10 +767,9 @@ export function vesperInspect(gun, { reliefs, surface }, quality) {
   const centre = from.reduce((c, a) => c.add(a.point), new THREE.Vector3()).multiplyScalar(1 / from.length);
   // The fractures in the air: spider-web breaks in invisible panes around the gun. From each impact
   // point jagged cracks run outwards, joined by rings, built as thin solid strands (they catch the
-  // light from every angle) over a faint iridescent pane of broken space. They spread from the impact.
+  // light from every angle). They spread from the impact.
   const cracks = new THREE.Group(), panes = [];
   const strand = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xd9c8ff, emissiveIntensity: 1.6, roughness: 0.15, metalness: 0, transparent: true, opacity: 0 });
-  const sheet = new THREE.MeshPhysicalMaterial({ color: 0xe8e0ff, roughness: 0.02, metalness: 0, iridescence: 1, iridescenceIOR: 1.6, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false });
   const jag = (a, b, n) => { const pts = [a]; for (let k = 1; k < n; k++) pts.push(a.clone().lerp(b, k / n).add(new THREE.Vector3(rng() - 0.5, rng() - 0.5, 0).multiplyScalar(0.012))); pts.push(b); return pts; };
   const tubes = [], rifts = [];
   const riftU = { uTime: { value: 0 }, uOpen: { value: 0 } };
@@ -803,8 +802,6 @@ export function vesperInspect(gun, { reliefs, surface }, quality) {
       if (rng() < 0.25) continue;
       tubes.push({ pane, pts: jag(ends[i].clone().multiplyScalar(f * (0.9 + rng() * 0.2)), ends[(i + 1) % spokes].clone().multiplyScalar(f * (0.9 + rng() * 0.2)), 3), w: 0.0007 });
     }
-    const outline = new THREE.Shape(ends.map(e => new THREE.Vector2(e.x, e.y)));
-    pane.add(new THREE.Mesh(new THREE.ShapeGeometry(outline), sheet));
     // the rift: the break tears open into a tall slit onto another dimension, dark and red-lit inside
     const lip = [];
     for (let i = 0; i < 28; i++) { const a = i / 28 * Math.PI * 2, j = 0.85 + rng() * 0.3; lip.push(new THREE.Vector2(Math.cos(a) * 0.42 * j, Math.sin(a) * 0.95 * j)); }
@@ -855,7 +852,6 @@ export function vesperInspect(gun, { reliefs, surface }, quality) {
       cracks.visible = spread * seal > 0.01;
       for (const pane of panes) pane.scale.setScalar(Math.max(0.001, spread));
       strand.opacity = spread * seal * (0.75 + 0.25 * ((tick % 3) / 2));
-      sheet.opacity = spread * seal * 0.12;
       // the rifts tear open after the cracks, hold while time is caught, then close before the seal
       const open = active ? smooth(p, 0.46, 0.52) * (1 - smooth(p, 0.58, 0.64)) : 0;
       riftU.uOpen.value = open; riftU.uTime.value = active ? p * VESPER_SECONDS : 0;
@@ -879,6 +875,6 @@ export function vesperInspect(gun, { reliefs, surface }, quality) {
         r.group.matrix.copy(M);
       }
     },
-    dispose() { for (const m of [...glints, shards]) { m.geometry.dispose(); m.material.dispose(); } cracks.traverse(o => o.geometry?.dispose()); strand.dispose(); sheet.dispose(); riftMat.dispose(); spores.material.dispose(); },
+    dispose() { for (const m of [...glints, shards]) { m.geometry.dispose(); m.material.dispose(); } cracks.traverse(o => o.geometry?.dispose()); strand.dispose(); riftMat.dispose(); spores.material.dispose(); },
   };
 }
