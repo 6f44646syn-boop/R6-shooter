@@ -1,5 +1,5 @@
-import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=c833319-mwdf0xz1';
-import { packArt } from './pack-art.js?v=c833319-mwdf0xz1';
+import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=b1ec427-mwdf9okj';
+import { packArt } from './pack-art.js?v=b1ec427-mwdf9okj';
 // GPU-baked textures for ultra graphics. Everything is procedural and drawn by a fragment
 // shader into a render target once (milliseconds on a graphics card), so 4096 x 4096 maps
 // cost nothing at start-up and nothing is downloaded.
@@ -10,7 +10,7 @@ import { packArt } from './pack-art.js?v=c833319-mwdf0xz1';
 //   bakeSkin(renderer, index, size): one of SKINS, { albedo, rm } (rm: G roughness, B metalness).
 //   triplanar(material, opts): shader patch that maps a skin and/or detail by the surface's
 //        own 3D position (no UV stretching on long thin parts), with edge wear from UVs.
-import * as THREE from '../../vendor/three/three.module.min.js?v=c833319-mwdf0xz1';
+import * as THREE from '../../vendor/three/three.module.min.js?v=b1ec427-mwdf9okj';
 
 const VERT = /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
@@ -629,6 +629,18 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
           }
           return 1.0 - smoothstep(0.0, 0.07, d2 - d1);
         }
+        // distance to the nearest edge of a cracked crust (Voronoi cells, jittered edges)
+        float artCrackEdge(vec2 p) {
+          vec2 i = floor(p), f = fract(p);
+          float d1 = 8.0, d2 = 8.0;
+          for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
+            vec2 g = vec2(float(x), float(y));
+            vec2 o = fract(sin(vec2(dot(i + g, vec2(127.1, 311.7)), dot(i + g, vec2(269.5, 183.3)))) * 43758.5453);
+            float d = length(g + o - f);
+            if (d < d1) { d2 = d1; d1 = d; } else if (d < d2) d2 = d;
+          }
+          return d2 - d1;
+        }
       #endif
       #ifdef TRI_SAKURA
         uniform vec3 sakuraGold, sakuraPink, sakuraPearl, sakuraBlack;
@@ -845,12 +857,18 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         totalEmissiveRadiance += vec3(0.45, 0.03, 0.0) * kNear * (1.0 - sstep(0.03, 0.1, kLum)) * kHeat * (0.15 + 0.35 * kHot);
         // then the whole skin heats through: molten steel, deep red to orange to yellow-white at the
         // peak, brightest in the cracks, flickering as it boils
-        float kCrack = sstep(0.006, 0.03, abs(kLum - dot(kNearArt, vec3(0.3, 0.59, 0.11))));   // the painting's fine lines: veins of molten metal
-        float kBoil = 0.7 + 0.3 * sin(triTime * 7.0 + kLum * 60.0 + vTriPos.z * 25.0);
+        // ... then the whole gun cracks open like cooling lava: black crust plates split by glowing
+        // red-orange magma, the cracks widening as the heat spreads, hottest (orange) in their middles
         float kMeltAll = artPhase < 0.0 ? 0.0 : kForge * sstep(0.0, 0.05, mix(-0.5, 0.45, sstep(0.18, 0.46, artPhase)) - vTriPos.z) * sstep(0.26, 0.48, artPhase) * (1.0 - sstep(0.72, 0.9, artPhase));
-        vec3 kCrust = mix(vec3(0.9, 0.16, 0.0), vec3(1.0, 0.3, 0.01), sstep(0.3, 0.5, artPhase) * (1.0 - sstep(0.62, 0.85, artPhase)));
-        diffuseColor.rgb *= 1.0 - 0.6 * kMeltAll;                        // the black ceramic is lost in the glow
-        totalEmissiveRadiance += kMeltAll * (kCrust * (0.1 + 0.08 * kBoil) + vec3(1.0, 0.36, 0.02) * kCrack * (0.45 + 0.6 * kHot) * kBoil);   // kept low: bright orange tone-maps to gold
+        vec2 kCp = vec2(vTriPos.z + vTriPos.x * 0.7, vTriPos.y + vTriPos.x * 0.4);
+        float kEdge = min(artCrackEdge(kCp * 38.0 + 0.07 * sin(kCp.yx * 110.0)), artCrackEdge(kCp * 110.0 + 7.3) + 0.09);
+        float kWide = 0.02 + 0.1 * kMeltAll * (0.6 + 0.4 * kHot);
+        float kMagma = (1.0 - sstep(0.0, kWide, kEdge)) * step(0.001, kMeltAll);
+        float kCore = 1.0 - sstep(0.0, kWide * 0.35, kEdge);
+        float kBoil = 0.75 + 0.25 * sin(triTime * 6.0 + kCp.x * 90.0 + 2.0 * sin(kCp.y * 130.0 + triTime * 4.0));
+        vec3 kLava = mix(vec3(0.9, 0.08, 0.0), vec3(1.0, 0.38, 0.02), kCore);
+        diffuseColor.rgb = mix(diffuseColor.rgb * (1.0 - 0.35 * kMeltAll), vec3(0.02, 0.005, 0.0), kMagma);
+        totalEmissiveRadiance += kMeltAll * (kLava * kMagma * (0.9 + 0.7 * kHot) * kBoil + vec3(0.5, 0.04, 0.0) * exp(-kEdge * 18.0) * 0.12);
       #endif
       #ifdef TRI_SKIN
         // Glowing lines; they pulse while inspecting.
