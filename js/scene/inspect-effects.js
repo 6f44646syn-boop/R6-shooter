@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=d449e87-mwdhjwml';
-import { mulberry32 } from '../core/prng.js?v=d449e87-mwdhjwml';
-import { mergeStatic } from './sight-model.js?v=d449e87-mwdhjwml';
+import * as THREE from '../../vendor/three/three.module.min.js?v=5cd0ef3-mwdhofew';
+import { mulberry32 } from '../core/prng.js?v=5cd0ef3-mwdhofew';
+import { mergeStatic } from './sight-model.js?v=5cd0ef3-mwdhofew';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -1461,6 +1461,14 @@ export function jadeInspect(gun, { surface }, quality) {
   }
   const jaw = jawPivot;
   head.visible = false; gun.add(head);
+  // glowing gold: glints and rising motes off the dragon's painted path, both sides
+  const trail = emitterTrail(gun), tier = particleTier[quality] ?? 1;
+  const goldFrom = [];
+  for (let i = 0; i <= 40; i++) for (const k of [-1, 1]) { const v = painted.getPointAt(i / 40); v.x = k * (half + 0.004); goldFrom.push({ point: v, normal: new THREE.Vector3(k, 0.3, 0).normalize() }); }
+  const glints = particles('glint', tier, goldFrom, new THREE.Color(0xffc840).multiplyScalar(2.5), trail, mulberry32(208041));
+  const glints2 = particles('glint', tier, goldFrom, new THREE.Color(0xffe080).multiplyScalar(2.5), trail, mulberry32(208049));
+  const motes = particles('ember', tier, goldFrom, new THREE.Color(0xffd860).multiplyScalar(3), trail, mulberry32(208057));
+  for (const m of [glints, glints2, motes]) { m.material.blending = THREE.AdditiveBlending; m.visible = false; gun.add(m); }
   // which side faces the camera: the dragon that comes alive is the one you can see
   let viewSide = 1, side = 1; const camAt = new THREE.Vector3();
   body.onBeforeRender = (renderer, scene, camera) => { camAt.setFromMatrixPosition(camera.matrixWorld); gun.worldToLocal(camAt); viewSide = Math.sign(camAt.x) || 1; };
@@ -1481,22 +1489,28 @@ export function jadeInspect(gun, { surface }, quality) {
       phase = active ? p : -1;
       for (const g of glazes) g.value = active ? p : -1;
       // the painting sweeps to the bare gun as the dragon peels off head first, and back as it lies down
-      for (const u of mixes) if (u.artMix) { u.artMix.value = active ? smooth(p, 0.08, 0.5) * (1 - smooth(p, 0.76, 0.95)) : 0; u.artMixSide.value = side; }
+      // the painting sweeps away muzzle to stock (the shader's wipe front, in gun z); the dragon comes off
+      // where it has gone, and lies back down just before it returns
+      const mixAt = (q) => active ? smooth(q, 0.08, 0.5) * (1 - smooth(q, 0.76, 0.95)) : 0;
+      const frontAt = (q) => Z0 - 0.05 + (Z1 - Z0 + 0.1) * mixAt(q);
+      const front = frontAt(p), soon = frontAt(Math.min(1, p + 0.06));
+      for (const u of mixes) if (u.artMix) { u.artMix.value = mixAt(p); u.artMixSide.value = side; }
       const t = active ? p * JADE_SECONDS : 0;
       if (p < 0.1) side = viewSide;
+      glints.visible = glints2.visible = motes.visible = active && p > 0.08; trail.update(active ? t : -1);
       let any = false;
       // the coil: a corkscrew round the gun, head towards the muzzle, swimming round and drifting along
       const spin = t * 2.6, zc = (Z0 + Z1) / 2 - 0.08 + 0.07 * Math.sin(t * 0.7);
       for (let i = 0; i < N; i++) {
         const f = i / (N - 1), s = spine[i];
-        const peel = active ? smooth(p, 0.08 + f * 0.3, 0.22 + f * 0.3) : 0;          // slowly, head first, the tail last
-        const settle = active ? smooth(p, 0.76 + (1 - f) * 0.1, 0.85 + (1 - f) * 0.1) : 1;
-        s.w = peel * (1 - settle);
-        if (s.w > 0.001) any = true;
         const taper = (0.75 + 0.25 * Math.sin(Math.min(1, f * 4) * Math.PI / 2)) * (1 - 0.85 * f * f);
-        s.r = rMax * taper;
         // where it lies in the painting, half sunk into the side
-        painted.getPointAt(f, Pp); Pp.x = side * (half + s.r * 0.3);
+        painted.getPointAt(f, Pp);
+        const shown = smooth((front - Pp.z) / 0.03, 0, 1);              // the painting has gone here: it is solid
+        s.w = smooth((Math.min(front, soon) - Pp.z) / 0.09, 0, 1);       // ... and lifting off (back down before the paint returns)
+        s.r = rMax * taper * shown;
+        if (shown > 0.001) any = true;
+        Pp.x = side * (half + s.r * 0.3);
         // where it is in the coil
         const a = side * (Math.PI * 0.5 - spin + f * 1.3 * Math.PI * 2) + (side < 0 ? Math.PI : 0);
         C.set(Math.cos(a) * RX, yc + Math.sin(a) * RY, zc - 0.1 + f * 0.3);
@@ -1522,7 +1536,7 @@ export function jadeInspect(gun, { surface }, quality) {
       }
       geo.attributes.position.needsUpdate = true; geo.computeVertexNormals();
       const h = spine[0];
-      mtx.makeBasis(h.b, h.n, h.t); head.quaternion.setFromRotationMatrix(mtx); head.position.copy(h.c).addScaledVector(h.t, 0.006);
+      mtx.makeBasis(R0.copy(h.b).negate(), h.n, h.t); head.quaternion.setFromRotationMatrix(mtx); head.position.copy(h.c).addScaledVector(h.t, 0.006);   // (x = n × t: a true rotation)
       head.scale.setScalar(h.r / (rMax * 0.75));
       jaw.rotation.x = 0.1 + 0.3 * h.w * (0.5 + 0.5 * Math.sin(t * 6));
       for (let k = 0; k < nSpikes; k++) {
@@ -1534,6 +1548,6 @@ export function jadeInspect(gun, { surface }, quality) {
       }
       spikes.instanceMatrix.needsUpdate = true;
     },
-    dispose() { geo.dispose(); jade.dispose(); bronze.dispose(); eyeMat.dispose(); spikes.geometry.dispose(); head.traverse(o => o.geometry?.dispose()); },
+    dispose() { geo.dispose(); jade.dispose(); bronze.dispose(); eyeMat.dispose(); spikes.geometry.dispose(); head.traverse(o => o.geometry?.dispose()); for (const m of [glints, glints2, motes]) { m.geometry.dispose(); m.material.dispose(); } },
   };
 }

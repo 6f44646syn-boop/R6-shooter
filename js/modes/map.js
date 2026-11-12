@@ -32,7 +32,7 @@
 // panel is a grid of cells (3 across, 4 up, each about 0.5 x 0.55 m): bullets and knives
 // break single cells (a murder hole), blasts break the cells near them, a Wall Charge breaks
 // the whole panel. The part above 2.2 m stays. Defenders reinforce soft panels in prep.
-import { CoreWorld, BODY_R, STEP, DOOR_GAP, KIND, PATH } from '../wasm/world.js?v=d449e87-mwdhjwml';
+import { CoreWorld, BODY_R, STEP, DOOR_GAP, KIND, PATH } from '../wasm/world.js?v=5cd0ef3-mwdhofew';
 
 export const PANEL_W = 1.5, HOLE_H = 2.2, DOOR_HP = 100, CELL_HP = 120, CELL_ROWS = 4, CELL_COLS = 3;
 export { BODY_R, STEP, DOOR_GAP };
