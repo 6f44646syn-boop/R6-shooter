@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=c21a8fc-mwdidpy7';
-import { mulberry32 } from '../core/prng.js?v=c21a8fc-mwdidpy7';
-import { mergeStatic } from './sight-model.js?v=c21a8fc-mwdidpy7';
+import * as THREE from '../../vendor/three/three.module.min.js?v=1821833-mwdioqgs';
+import { mulberry32 } from '../core/prng.js?v=1821833-mwdioqgs';
+import { mergeStatic } from './sight-model.js?v=1821833-mwdioqgs';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -1711,27 +1711,106 @@ const EYE_FRAGMENT = `uniform float uTime, uWake; uniform vec2 uLook; varying ve
   void main() {
     vec3 N = normalize(vN), V = normalize(vV);
     float facing = dot(N, V);
-    // play of colour: patches of spectral fire whose colour turns with the viewing angle
     vec2 f2 = vP.xz;                                   // the dome rises on +y: its face is x, z
-    vec2 q = f2 * 5.0 + vec2(sin(f2.y * 7.0 + uTime * 0.4), cos(f2.x * 6.0 - uTime * 0.3)) * 0.35;
-    vec2 cell = floor(q); float r = h(cell), blot = smoothstep(0.55, 0.0, length(fract(q) - 0.5 - (vec2(h(cell + 1.7), h(cell + 4.1)) - 0.5) * 0.5));
-    vec3 fire = hue(r + facing * 1.6 + uTime * 0.05) * blot * (0.5 + 1.2 * pow(h(cell + 9.3), 2.0));
-    vec3 c = vec3(0.02, 0.015, 0.04) + fire * (1.0 + 1.4 * uWake);
-    // the eye: a gold iris ring and a slit pupil looking your way
-    vec2 e = f2 - uLook;
-    float d = length(e * vec2(1.0, 0.75));
-    float iris = smoothstep(0.62, 0.5, d) * smoothstep(0.1, 0.3, d);
-    c = mix(c, c * 0.5 + vec3(1.0, 0.68, 0.2) * (0.8 + 0.5 * sin(atan(e.y, e.x) * 24.0 + uTime)), iris * 0.85 * uWake);
-    float pupil = smoothstep(0.26, 0.2, length(e * vec2(1.0, 3.0)));     // a slit, upright on the gun
-    c = mix(c, vec3(0.0), pupil * uWake);
-    // the glassy dome: a sharp highlight and a rim
-    c += vec3(1.0) * pow(max(dot(reflect(-V, N), normalize(vec3(0.3, 0.8, 0.5))), 0.0), 60.0) * 1.5;
-    c += hue(facing * 2.0 + uTime * 0.1) * pow(1.0 - facing, 3.0) * 0.6;
+    float d = length(f2), ang = atan(f2.y, f2.x);
+    // the white: pearly, a faint opal sheen, thin red veins towards the edge
+    vec3 c = vec3(0.9, 0.88, 0.84) * (0.85 + 0.15 * facing) + hue(facing * 2.0) * 0.06;
+    c -= vec3(0.0, 0.35, 0.3) * pow(abs(sin(ang * 9.0 + d * 14.0 + sin(ang * 3.0) * 2.0)), 60.0) * smoothstep(0.55, 0.95, d);
+    // the iris, looking your way: black opal fire in fibres round the pupil, a dark ring at its edge
+    vec2 e = f2 - uLook; float di = length(e), ai = atan(e.y, e.x);
+    float irisM = smoothstep(0.5, 0.46, di);
+    vec2 q = e * 6.0 + vec2(sin(ai * 5.0 + uTime * 0.4), cos(ai * 4.0 - uTime * 0.3)) * 0.4;
+    vec2 cell = floor(q); float r = h(cell);
+    vec3 fire = hue(r + facing * 1.4 + uTime * 0.06) * (0.6 + 0.9 * pow(h(cell + 2.3), 2.0));
+    vec3 iris = mix(vec3(0.03, 0.02, 0.06), fire, 0.75) * (0.75 + 0.25 * sin(ai * 40.0));
+    iris *= 1.0 - smoothstep(0.34, 0.48, di) * 0.75;                       // the dark limbal ring
+    c = mix(c, iris, irisM);
+    // the pupil: a slit, upright, widening as it wakes
+    float pupil = smoothstep(0.24, 0.2, length(e * vec2(1.0, mix(5.0, 2.6, uWake))));
+    c = mix(c, vec3(0.0), pupil);
+    // wet glass: a catchlight and a sharp highlight
+    c += vec3(1.0) * smoothstep(0.1, 0.05, length(f2 - vec2(0.22, -0.2))) * 0.9;
+    c += vec3(1.0) * pow(max(dot(reflect(-V, N), normalize(vec3(0.3, 0.8, 0.5))), 0.0), 80.0);
     gl_FragColor = vec4(c, 1.0);
-  }`;
+  }`;;
+// Cut a geometry along the plane y = y0 so no triangle spans it, tagging every vertex with the side
+// its triangle lies on (attribute jawSide: +1 above, -1 below). (For Opal Overture's jaw.)
+function splitAtY(geo, y0) {
+  const g = geo.index ? geo.toNonIndexed() : geo;
+  const names = Object.keys(g.attributes).filter(nm => nm !== 'jawSide'), src = names.map(nm => g.attributes[nm]);
+  const out = names.map(() => []), sides = [], P = g.attributes.position, pi = names.indexOf('position');
+  const vtx = (i) => src.map(a => { const v = []; for (let c = 0; c < a.itemSize; c++) v.push(a.getComponent(i, c)); return v; });
+  const lerpV = (A, B, t) => A.map((arr, k) => arr.map((v, c) => v + (B[k][c] - v) * t));
+  const tri = (a, b, c) => { const side = (a[pi][1] + b[pi][1] + c[pi][1]) / 3 > y0 ? 1 : -1; for (const v of [a, b, c]) { v.forEach((arr, k) => out[k].push(...arr)); sides.push(side); } };
+  for (let i = 0; i < P.count; i += 3) {
+    const vs = [vtx(i), vtx(i + 1), vtx(i + 2)], ys = vs.map(v => v[pi][1] - y0), up = ys.map(y => y > 0);
+    if (up[0] === up[1] && up[1] === up[2]) { tri(...vs); continue; }
+    const lone = up.filter(Boolean).length === 1 ? up.indexOf(true) : up.indexOf(false);
+    const a = vs[lone], b = vs[(lone + 1) % 3], c = vs[(lone + 2) % 3], ya = ys[lone], yb = ys[(lone + 1) % 3], yc = ys[(lone + 2) % 3];
+    const ab = lerpV(a, b, ya / (ya - yb)), ac = lerpV(a, c, ya / (ya - yc));
+    tri(a, ab, ac); tri(ab, b, c); tri(ab, c, ac);
+  }
+  const res = new THREE.BufferGeometry();
+  names.forEach((nm, k) => res.setAttribute(nm, new THREE.Float32BufferAttribute(out[k], src[k].itemSize, src[k].normalized)));
+  res.setAttribute('jawSide', new THREE.Float32BufferAttribute(sides, 1));
+  return res;
+}
 export function opalInspect(gun, { surface }, quality) {
   const [Z0, Z1, Y0, Y1] = [-0.30471, 0.35412, -0.27329, 0.16576];   // the MP7's art rectangle
   const half = 0.022, tier = particleTier[quality] ?? 1;
+  // The jaw: the gun splits along a line just above the barrel and opens about a hinge behind the grip,
+  // the top half up, the bottom half down. Every material on the gun gets a vertex twist for it (copies,
+  // swapped in for the inspect); faces stretched across the split are the dark throat. The same twist
+  // folds the support hand and forearm away for this inspect (hand materials, ahead of the grip or out
+  // on the left; the firing hand on the grip stays).
+  const JAW_Y = 0.04, JAW_HINGE = 0.06;
+  const jawU = { uJawAngle: { value: 0 }, uJawY: { value: JAW_Y }, uJawHinge: { value: JAW_HINGE }, uHideSup: { value: 0 } };
+  const wrapped = new Map(), swapped = [];
+  const wrap = (mat) => {
+    if (!wrapped.has(mat)) {
+      const ud = mat.userData; mat.userData = {};                      // (userData holds textures: not cloned)
+      const m = mat.clone(); mat.userData = ud; m.userData = ud;
+      const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey.bind(mat), hand = !!ud.hand;
+      m.onBeforeCompile = (sh, r) => {
+        prev.call(mat, sh, r);
+        Object.assign(sh.uniforms, jawU);
+        sh.vertexShader = 'uniform float uJawAngle, uJawY, uJawHinge, uHideSup;\nattribute float jawSide;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+          {
+            float ja = uJawAngle * jawSide * smoothstep(uJawHinge, uJawHinge - 0.05, position.z);
+            vec2 jd = vec2(transformed.y - uJawY, transformed.z - uJawHinge);
+            transformed.y = uJawY + jd.x * cos(ja) - jd.y * sin(ja);
+            transformed.z = uJawHinge + jd.x * sin(ja) + jd.y * cos(ja);
+          }
+          ${hand ? 'if (uHideSup > 0.5 && (position.z < -0.07 || position.x < -0.06)) transformed = vec3(0.0, -2.0, 0.0);' : ''}`);
+      };
+      m.customProgramCacheKey = () => prevKey() + '|jaw' + (hand ? 'h' : '');
+      wrapped.set(mat, m);
+    }
+    return wrapped.get(mat);
+  };
+  gun.traverse(o => {
+    if (!o.isMesh || o.material.isShaderMaterial) return;
+    swapped.push([o, o.material, o.geometry]);
+    o.material = Array.isArray(o.material) ? o.material.map(wrap) : wrap(o.material);
+    o.geometry = splitAtY(o.geometry, JAW_Y - o.position.y);
+  });
+  // the throat: a dark red wedge down the middle of the gun between the jaws (it stretches as they open)
+  const gumMat = new THREE.MeshStandardMaterial({ color: 0x3a060c, emissive: 0x2a0408, emissiveIntensity: 0.9, roughness: 0.55, side: THREE.DoubleSide });
+  const throatPos = new Float32Array(9), gumGeo = new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(throatPos, 3));
+  const throat = new THREE.Mesh(gumGeo, gumMat); throat.frustumCulled = false; throat.visible = false; gun.add(throat);
+  const gumC = new THREE.Vector3(), gumD = new THREE.Vector3();
+  const packSup = gun.children.find(c => c.userData.arm);             // (pack guns: a separate support hand and arm)
+  // the teeth: two rows each side, riding the jaws (inside the gun while it is shut), fangs near the front
+  const toothMat = new THREE.MeshPhysicalMaterial({ color: 0xf2ead6, roughness: 0.25, clearcoat: 1 });
+  const toothGeo = new THREE.ConeGeometry(1, 1, 8);
+  const teeth = [], NT = 10, tz0 = -0.215, tz1 = JAW_HINGE - 0.04;
+  for (const side of [-1, 1]) for (const k of [1, -1]) for (let j = 0; j < NT; j++) {
+    const u = j / (NT - 1), fang = j === 1, t = new THREE.Mesh(toothGeo, toothMat);
+    t.userData = { x: side * (half - 0.004), z: tz0 + (tz1 - tz0) * u, k, h: fang ? 0.024 : 0.011 + 0.004 * Math.sin(Math.PI * u), r: fang ? 0.0045 : 0.0034 };
+    t.visible = false; gun.add(t); teeth.push(t);
+  }
+  const jawRot = (y, z, a, out) => { const dy = y - JAW_Y, dz = z - JAW_HINGE; return out.set(0, JAW_Y + dy * Math.cos(a) - dz * Math.sin(a), JAW_HINGE + dy * Math.sin(a) + dz * Math.cos(a)); };
+  const tq = new THREE.Vector3();
   const at = new THREE.Vector3(0, Y1 - (Y1 - Y0) * 318 / 1024, Z0 + (Z1 - Z0) * 945 / 1536);
   const rz = (Z1 - Z0) * 44 / 1536, ry = (Y1 - Y0) * 38 / 1024, depth = 0.008;
   const eyeU = { uTime: { value: 0 }, uWake: { value: 0 }, uLook: { value: new THREE.Vector2() } };
@@ -1782,10 +1861,34 @@ export function opalInspect(gun, { surface }, quality) {
           eyeU.uLook.value.set(THREE.MathUtils.clamp(dy / dx * 0.5, -0.35, 0.35), THREE.MathUtils.clamp(dz / dx * 0.5, -0.35, 0.35));
         }
       }
+      // no support hand in this inspect
+      jawU.uHideSup.value = active ? 1 : 0;
+      if (packSup) { packSup.visible = !active; packSup.userData.arm.visible = !active; if (packSup.userData.arm.userData.upper) packSup.userData.arm.userData.upper.visible = !active; }
+      // the jaw opens after the eye, chomps twice, opens wide, and shuts with the eye at the end
+      const chomp = active ? Math.abs(Math.sin(smooth(p, 0.52, 0.66) * Math.PI * 2)) : 0;
+      const gape = active ? smooth(p, 0.34, 0.45) * (1 - smooth(p, 0.8, 0.88)) * (1 - 0.85 * chomp) : 0;
+      const A = 0.3 * gape;
+      jawU.uJawAngle.value = A;
+      throat.visible = A > 0.01;
+      if (throat.visible) {
+        jawRot(JAW_Y, -0.225, A, gumC); jawRot(JAW_Y, -0.225, -A, gumD);
+        throatPos.set([0, JAW_Y, JAW_HINGE - 0.03, 0, gumC.y, gumC.z, 0, gumD.y, gumD.z]);
+        gumGeo.attributes.position.needsUpdate = true; gumGeo.computeVertexNormals();
+      }
+      for (const t of teeth) {
+        const { x, z, k, h, r } = t.userData;
+        t.visible = A > 0.01;
+        if (!t.visible) continue;
+        const a = A * k * (1 - smooth(z, JAW_HINGE - 0.05, JAW_HINGE));      // the jaw this tooth is in
+        jawRot(JAW_Y - k * h * 0.45, z, a, tq); t.position.set(x, tq.y, tq.z);
+        t.rotation.set(a + (k > 0 ? Math.PI : 0), 0, 0);                       // upper teeth point down, lower up
+        t.scale.set(r, h, r);
+      }
       for (const m of rainbow) m.visible = active && p > 0.25;
       trail.update(active ? t : -1);
     },
     dispose() {
+      for (const [o, m, g] of swapped) { o.geometry.dispose(); o.material = m; o.geometry = g; } for (const m of wrapped.values()) m.dispose(); toothMat.dispose(); toothGeo.dispose(); gumGeo.dispose(); gumMat.dispose();
       eyeGeo.dispose(); upperGeo.dispose(); lowerGeo.dispose(); eyeMat.dispose(); lidMat.dispose(); probe.geometry.dispose(); probe.material.dispose();
       for (const m of rainbow) { m.geometry.dispose(); m.material.dispose(); }
     },
