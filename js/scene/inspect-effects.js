@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=b88a0f9-mwdem3ss';
-import { mulberry32 } from '../core/prng.js?v=b88a0f9-mwdem3ss';
-import { mergeStatic } from './sight-model.js?v=b88a0f9-mwdem3ss';
+import * as THREE from '../../vendor/three/three.module.min.js?v=79b9476-mwderefs';
+import { mulberry32 } from '../core/prng.js?v=79b9476-mwderefs';
+import { mergeStatic } from './sight-model.js?v=79b9476-mwderefs';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -227,6 +227,12 @@ const particleVertex = /* glsl */`
           origin = (emitted * vec4(emitter, 1.0)).xyz + fling * mix(0.22, 0.6, seed.w) * age - vec3(0.0, 1.1 * age * age, 0.0);
           radius = vec2(1.0) * mix(0.0012, 0.0032, seed.z);
         #endif
+        #ifdef SPRAY
+          // a fine sea spray: tiny droplets flicked up off the crest, hanging, then falling back
+          vec3 flickUp = normalize(outward * 0.6 + vec3(0.0, 1.0, 0.0) + (seed.xyz - 0.5) * 0.8);
+          origin = (emitted * vec4(emitter, 1.0)).xyz + flickUp * mix(0.15, 0.35, seed.w) * age - vec3(0.0, 0.6 * age * age, 0.0);
+          radius = vec2(1.0) * mix(0.0005, 0.0011, seed.z);
+        #endif
         #ifdef JET
           // out of the barrel like a fire hose on full: a huge cone of white spray that barely drops
           vec3 aim = normalize(outward + (seed.xyz - 0.5) * 0.55);
@@ -407,11 +413,11 @@ const particleFragment = /* glsl */`
   }
 `;
 
-const particleBudget = { mist: [22, 38, 54, 70], chip: [20, 34, 48, 62], petal: [28, 46, 64, 84], drop: [14, 22, 30, 40], drip: [80, 140, 200, 260], splash: [120, 200, 300, 400], jet: [240, 420, 600, 780], wind: [80, 140, 200, 260], gather: [40, 70, 100, 130], burst: [40, 70, 100, 140], spark: [16, 26, 36, 48], flame: [140, 240, 340, 460], smoke: [16, 26, 36, 48], ember: [20, 34, 48, 64], bubble: [12, 18, 26, 34], speck: [10, 16, 22, 30], glint: [60, 100, 150, 200] };
+const particleBudget = { mist: [22, 38, 54, 70], chip: [20, 34, 48, 62], petal: [28, 46, 64, 84], drop: [14, 22, 30, 40], drip: [80, 140, 200, 260], seaspray: [60, 100, 150, 200], seamist: [14, 24, 34, 44], splash: [120, 200, 300, 400], jet: [240, 420, 600, 780], wind: [80, 140, 200, 260], gather: [40, 70, 100, 130], burst: [40, 70, 100, 140], spark: [16, 26, 36, 48], flame: [140, 240, 340, 460], smoke: [16, 26, 36, 48], ember: [20, 34, 48, 64], bubble: [12, 18, 26, 34], speck: [10, 16, 22, 30], glint: [60, 100, 150, 200] };
 const particleTier = { low: 0, standard: 1, high: 2, ultra: 3 };
 
 function particles(kind, tier, anchors, tint, trail, rng) {
-  const mist = kind === 'mist', petals = kind === 'petal', drops = ['drop', 'drip', 'splash', 'jet', 'wind'].includes(kind), deep = ['bubble', 'speck', 'glint', 'gather', 'burst', 'spark', 'ember', 'flame', 'smoke'].includes(kind);
+  const mist = kind === 'mist', petals = kind === 'petal', drops = ['drop', 'drip', 'splash', 'jet', 'wind', 'seaspray', 'seamist'].includes(kind), deep = ['bubble', 'speck', 'glint', 'gather', 'burst', 'spark', 'ember', 'flame', 'smoke'].includes(kind);
   const seconds = petals ? SAKURA_SECONDS : drops ? KILN_SECONDS : deep ? ABYSS_SECONDS : FROST_SECONDS;
   const peak = (petals ? SAKURA_PEAK : drops ? KILN_PEAK : deep ? ABYSS_PEAK : FROST_PEAK) * seconds;
   const k = seconds / 4.2;                              // timings below were set for a 4.2 s inspect
@@ -430,6 +436,12 @@ function particles(kind, tier, anchors, tint, trail, rng) {
     } else if (mist) {
       start = peak - 0.08 + rng() * 0.16;
       life = 0.64 + rng() * 0.23;
+    } else if (kind === 'seaspray') {                     // fine spray flicked up off the painted crests, all through
+      start = seconds * (0.18 + 0.65 * rng());
+      life = 0.4 + rng() * 0.3;
+    } else if (kind === 'seamist') {                      // and a fine mist rising off them
+      start = seconds * (0.15 + 0.68 * rng());
+      life = 1.0 + rng() * 0.5;
     } else if (kind === 'jet') {                          // the hydrant: a steady stream out of the barrel
       start = seconds * (0.35 + 0.42 * rng());
       life = 0.5 + rng() * 0.3;
@@ -488,7 +500,7 @@ function particles(kind, tier, anchors, tint, trail, rng) {
   geo.setAttribute('seed', new THREE.InstancedBufferAttribute(new Float32Array(seeds), 4));
   geo.setAttribute('timing', new THREE.InstancedBufferAttribute(new Float32Array(timing), 4));
   geo.instanceCount = count;
-  const defines = kind === 'jet' ? { DROP: 1, JET: 1 } : kind === 'wind' ? { WIND: 1 } : kind === 'gather' ? { SPECK: 1, GATHER: 1 } : kind === 'burst' ? { SPECK: 1, BURST: 1 } : kind === 'spark' ? { SPECK: 1, SPARK: 1 } : kind === 'ember' ? { SPECK: 1, EMBER: 1 } : kind === 'flame' ? { FLAME: 1 } : kind === 'smoke' ? { SMOKE: 1 } :
+  const defines = kind === 'seamist' ? { MIST: 1 } : kind === 'seaspray' ? { DROP: 1, SPRAY: 1 } : kind === 'jet' ? { DROP: 1, JET: 1 } : kind === 'wind' ? { WIND: 1 } : kind === 'gather' ? { SPECK: 1, GATHER: 1 } : kind === 'burst' ? { SPECK: 1, BURST: 1 } : kind === 'spark' ? { SPECK: 1, SPARK: 1 } : kind === 'ember' ? { SPECK: 1, EMBER: 1 } : kind === 'flame' ? { FLAME: 1 } : kind === 'smoke' ? { SMOKE: 1 } :
     mist ? { MIST: 1 } : petals ? { PETAL: 1 } : kind === 'drip' ? { DROP: 1, DRIP: 1 } : kind === 'splash' ? { DROP: 1, SPLASH: 1 } : kind === 'glint' ? { SPECK: 1, GLINT: 1 } : drops ? { DROP: 1 } : kind === 'bubble' ? { BUBBLE: 1 } : kind === 'speck' ? { SPECK: 1 } : {};
   if (mist && tier === 0) defines.LOW_INSPECT = 1;
   const material = new THREE.ShaderMaterial({
@@ -685,8 +697,13 @@ export function kilnInspect(gun, { reliefs, under, surface, muzzle, charm }, qua
     return { point: from, normal: tip.clone().sub(from).normalize() };
   });
   const wind = particles('wind', tier, gusts, new THREE.Color(0xffffff), trail, mulberry32(202117));
-  drops.visible = splash.visible = jet.visible = wind.visible = false;
-  gun.add(drops, splash, jet, wind);
+  // sea spray and a fine mist rising off the blue crests painted along the barrel (the front half)
+  const crests = surface.filter(a => a.point.z < -0.15);
+  const crestFrom = crests.length ? crests : spray.length ? spray : [{ point: new THREE.Vector3(), normal: new THREE.Vector3(0, 1, 0) }];
+  const seaSpray = particles('seaspray', tier, crestFrom, new THREE.Color(0xdcecff), trail, mulberry32(202131));
+  const seaMist = particles('seamist', tier, crestFrom, new THREE.Color(0xe6f0ff), trail, mulberry32(202143));
+  drops.visible = splash.visible = jet.visible = wind.visible = seaSpray.visible = seaMist.visible = false;
+  gun.add(seaMist, drops, splash, jet, wind, seaSpray);
   const order = [...new Set(reliefs.map(r => Math.round(r.base.z * 1000)))].sort((a, b) => a - b);
   const glazes = [];
   gun.traverse(o => { const u = o.material?.userData?.tri; if (u?.artPhase && !glazes.includes(u.artPhase)) glazes.push(u.artPhase); });
@@ -698,7 +715,7 @@ export function kilnInspect(gun, { reliefs, under, surface, muzzle, charm }, qua
       if (!active && phase < 0) return;
       phase = active ? p : -1;
       for (const g of glazes) g.value = active ? p : -1;
-      drops.visible = splash.visible = jet.visible = wind.visible = active && p > 0.12;
+      drops.visible = splash.visible = jet.visible = wind.visible = seaSpray.visible = seaMist.visible = active && p > 0.12;
       trail.update(active ? p * KILN_SECONDS : -1);
       reliefs.forEach((r) => {
         const k = order.indexOf(Math.round(r.base.z * 1000)), start = 0.17 + k * 0.045;
@@ -714,7 +731,7 @@ export function kilnInspect(gun, { reliefs, under, surface, muzzle, charm }, qua
         charm.rotation.z = gust * 0.35 * Math.sin(t * 17 + 1.3) + (active ? 0 : 0);
       }
     },
-    dispose() { for (const m of [drops, splash, jet, wind]) { m.geometry.dispose(); m.material.dispose(); } },
+    dispose() { for (const m of [drops, splash, jet, wind, seaSpray, seaMist]) { m.geometry.dispose(); m.material.dispose(); } },
   };
 }
 

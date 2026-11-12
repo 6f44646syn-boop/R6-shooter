@@ -15,7 +15,7 @@
 //      (screen-space: rays marched through the depth from upward-facing surfaces, stronger
 //      when wet), distance and height fog, then colour grading and a vignette in the resolve.
 // The weapon is drawn afterwards straight to the screen, so it never smears or blurs.
-import * as THREE from '../../vendor/three/three.module.min.js?v=b88a0f9-mwdem3ss';
+import * as THREE from '../../vendor/three/three.module.min.js?v=79b9476-mwderefs';
 
 const VERT = /* glsl */`varying vec2 vUv; void main() { vUv = position.xy * 0.5 + 0.5; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 const DEPTH = /* glsl */`
