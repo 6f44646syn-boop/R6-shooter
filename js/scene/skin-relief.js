@@ -1,5 +1,5 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=6d74fc2-mwdehnjk';
-import { mulberry32 } from '../core/prng.js?v=6d74fc2-mwdehnjk';
+import * as THREE from '../../vendor/three/three.module.min.js?v=b88a0f9-mwdem3ss';
+import { mulberry32 } from '../core/prng.js?v=b88a0f9-mwdem3ss';
 
 const AXIS = new THREE.Vector3(0, 0, 1);
 const regular = (n, r, x = 0, y = 0, phase = 0) => Array.from({ length: n }, (_, i) => {

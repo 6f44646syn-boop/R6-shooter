@@ -1,5 +1,5 @@
-import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=6d74fc2-mwdehnjk';
-import { packArt } from './pack-art.js?v=6d74fc2-mwdehnjk';
+import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=b88a0f9-mwdem3ss';
+import { packArt } from './pack-art.js?v=b88a0f9-mwdem3ss';
 // GPU-baked textures for ultra graphics. Everything is procedural and drawn by a fragment
 // shader into a render target once (milliseconds on a graphics card), so 4096 x 4096 maps
 // cost nothing at start-up and nothing is downloaded.
@@ -10,7 +10,7 @@ import { packArt } from './pack-art.js?v=6d74fc2-mwdehnjk';
 //   bakeSkin(renderer, index, size): one of SKINS, { albedo, rm } (rm: G roughness, B metalness).
 //   triplanar(material, opts): shader patch that maps a skin and/or detail by the surface's
 //        own 3D position (no UV stretching on long thin parts), with edge wear from UVs.
-import * as THREE from '../../vendor/three/three.module.min.js?v=6d74fc2-mwdehnjk';
+import * as THREE from '../../vendor/three/three.module.min.js?v=b88a0f9-mwdem3ss';
 
 const VERT = /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
@@ -840,9 +840,9 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         float kCrack = sstep(0.006, 0.03, abs(kLum - dot(kNearArt, vec3(0.3, 0.59, 0.11))));   // the painting's fine lines: veins of molten metal
         float kBoil = 0.7 + 0.3 * sin(triTime * 7.0 + kLum * 60.0 + vTriPos.z * 25.0);
         float kMeltAll = artPhase < 0.0 ? 0.0 : kForge * sstep(0.0, 0.05, mix(-0.5, 0.45, sstep(0.18, 0.46, artPhase)) - vTriPos.z) * sstep(0.26, 0.48, artPhase) * (1.0 - sstep(0.72, 0.9, artPhase));
-        vec3 kCrust = mix(vec3(0.6, 0.04, 0.0), vec3(1.0, 0.24, 0.02), sstep(0.3, 0.5, artPhase) * (1.0 - sstep(0.62, 0.85, artPhase)));
+        vec3 kCrust = mix(vec3(0.9, 0.16, 0.0), vec3(1.0, 0.3, 0.01), sstep(0.3, 0.5, artPhase) * (1.0 - sstep(0.62, 0.85, artPhase)));
         diffuseColor.rgb *= 1.0 - 0.6 * kMeltAll;                        // the black ceramic is lost in the glow
-        totalEmissiveRadiance += kMeltAll * (kCrust * (0.16 + 0.14 * kBoil) + vec3(1.0, 0.42, 0.05) * kCrack * (0.9 + 1.4 * kHot) * kBoil);
+        totalEmissiveRadiance += kMeltAll * (kCrust * (0.1 + 0.08 * kBoil) + vec3(1.0, 0.36, 0.02) * kCrack * (0.45 + 0.6 * kHot) * kBoil);   // kept low: bright orange tone-maps to gold
       #endif
       #ifdef TRI_SKIN
         // Glowing lines; they pulse while inspecting.
