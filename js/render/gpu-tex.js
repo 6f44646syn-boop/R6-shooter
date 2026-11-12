@@ -1,5 +1,5 @@
-import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=077023c-mwdg8dho';
-import { packArt } from './pack-art.js?v=077023c-mwdg8dho';
+import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=40f072d-mwdgon9f';
+import { packArt } from './pack-art.js?v=40f072d-mwdgon9f';
 // GPU-baked textures for ultra graphics. Everything is procedural and drawn by a fragment
 // shader into a render target once (milliseconds on a graphics card), so 4096 x 4096 maps
 // cost nothing at start-up and nothing is downloaded.
@@ -10,7 +10,7 @@ import { packArt } from './pack-art.js?v=077023c-mwdg8dho';
 //   bakeSkin(renderer, index, size): one of SKINS, { albedo, rm } (rm: G roughness, B metalness).
 //   triplanar(material, opts): shader patch that maps a skin and/or detail by the surface's
 //        own 3D position (no UV stretching on long thin parts), with edge wear from UVs.
-import * as THREE from '../../vendor/three/three.module.min.js?v=077023c-mwdg8dho';
+import * as THREE from '../../vendor/three/three.module.min.js?v=40f072d-mwdgon9f';
 
 const VERT = /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
@@ -865,6 +865,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         // along the gun; faint at rest, strong in the inspect (the light rolls over them in 3D)
         if (artMode < 0.5) {
           float rAmp = artPhase < 0.0 ? 0.28 : 0.28 + 2.4 * sstep(0.08, 0.22, artPhase) * (1.0 - sstep(0.85, 0.97, artPhase));
+          rAmp *= 1.0 + 1.8 * sstep(-0.05, -0.4, vTriPos.z);          // strongest along the front end
           vec2 rp = vTriPos.zy, rg = vec2(0.0); float rh = 0.0;
           for (int i = 0; i < 3; i++) {
             vec2 c = vec2(-0.3 + 0.25 * float(i), 0.03 - 0.025 * float(i)), v = rp - c;

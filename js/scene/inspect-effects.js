@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=077023c-mwdg8dho';
-import { mulberry32 } from '../core/prng.js?v=077023c-mwdg8dho';
-import { mergeStatic } from './sight-model.js?v=077023c-mwdg8dho';
+import * as THREE from '../../vendor/three/three.module.min.js?v=40f072d-mwdgon9f';
+import { mulberry32 } from '../core/prng.js?v=40f072d-mwdgon9f';
+import { mergeStatic } from './sight-model.js?v=40f072d-mwdgon9f';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -1005,6 +1005,21 @@ export function forgeInspect(gun, { reliefs, channels, seam, shards }, quality) 
   const split = new THREE.Vector2(Z0 + (Z1 - Z0) * 705 / 1536, Y1 - (Y1 - Y0) * 398 / 1024), half = 0.025;
   const mixes = [];
   gun.traverse(o => { const u = o.material?.userData?.tri; if (u?.artMix && !mixes.includes(u.artMix)) mixes.push(u.artMix); });
+  // floating obsidian: a few glossy black chunks break off around the split at the peak, hang in the
+  // air turning and bobbing (a lighter Vesper Glass), then are drawn back into the gun as it cools
+  const frng = mulberry32(205103), nChunks = [10, 16, 22, 28][tier];
+  const chunkGeo = new THREE.OctahedronGeometry(1, 0);
+  const chunkMat = new THREE.MeshPhysicalMaterial({ color: 0x141110, roughness: 0.15, metalness: 0.25, clearcoat: 1, clearcoatRoughness: 0.04, emissive: 0xff3000, emissiveIntensity: 0.05, flatShading: true });
+  const chunks = new THREE.InstancedMesh(chunkGeo, chunkMat, nChunks);
+  chunks.name = 'Inspect floating obsidian'; chunks.frustumCulled = false; chunks.visible = false; gun.add(chunks);
+  const chunk = Array.from({ length: nChunks }, () => {
+    const side = frng() < 0.5 ? -1 : 1;
+    const at = new THREE.Vector3(side * half, split.y + (frng() - 0.5) * 0.04, split.x + (frng() - 0.5) * 0.36);
+    const dir = new THREE.Vector3(side * (0.6 + frng() * 0.6), frng() * 0.9 - 0.2, (frng() - 0.5) * 0.8).normalize();
+    return { at, dir, dist: 0.05 + frng() * 0.12, size: new THREE.Vector3(0.004 + frng() * 0.005, 0.007 + frng() * 0.01, 0.003 + frng() * 0.004),
+      axis: new THREE.Vector3(frng() - 0.5, frng() - 0.5, frng() - 0.5).normalize(), spin: 0.6 + frng() * 1.4, bob: frng() * 6.28, delay: frng() * 0.05 };
+  });
+  const cm = new THREE.Matrix4(), cq = new THREE.Quaternion(), cp = new THREE.Vector3(), cs = new THREE.Vector3();
   const bursts = [-1, 1].map(side => {
     const g = new THREE.Group(); g.position.set(side * (half + 0.006), split.y, split.x);
     const core = flare(new THREE.Color(0xffc060)), rayA = flare(new THREE.Color(0xff9a30)), rayB = flare(new THREE.Color(0xff9a30));
@@ -1033,6 +1048,19 @@ export function forgeInspect(gun, { reliefs, channels, seam, shards }, quality) 
         r.group.position.copy(r.base).addScaledVector(r.normal, lift * 0.0045);
         r.group.position.y = r.base.y + lift * 0.0025;
       });
+      // the floating obsidian: out from the split, hanging and bobbing, then back in
+      const t = active ? p * FORGE_SECONDS : 0;
+      chunks.visible = active && p > 0.4 && p < 0.88;
+      if (chunks.visible) {
+        chunk.forEach((c, i) => {
+          const out = smooth(p, 0.42 + c.delay, 0.52 + c.delay) * (1 - smooth(p, 0.74, 0.86));
+          cp.copy(c.at).addScaledVector(c.dir, c.dist * out); cp.y += Math.sin(t * 1.6 + c.bob) * 0.006 * out;
+          cq.setFromAxisAngle(c.axis, c.bob + t * c.spin);
+          cs.copy(c.size).multiplyScalar(Math.max(out, 0.001));
+          chunks.setMatrixAt(i, cm.compose(cp, cq, cs));
+        });
+        chunks.instanceMatrix.needsUpdate = true;
+      }
       for (const m of mixes) m.value = active ? smooth(p, 0.3, 0.46) * (1 - smooth(p, 0.76, 0.9)) : 0;
       // the shards rise out of the sides from the split outwards, hold through the peak, then sink back
       for (const sh of shards) {
@@ -1054,7 +1082,7 @@ export function forgeInspect(gun, { reliefs, channels, seam, shards }, quality) 
         smoked.emissiveIntensity = glow * 4;
       }
     },
-    dispose() { for (const m of [sparks, embers, flames, smoke]) { m.geometry.dispose(); m.material.dispose(); } for (const b of bursts) b.g.traverse(o => o.material?.dispose()); },
+    dispose() { for (const m of [sparks, embers, flames, smoke]) { m.geometry.dispose(); m.material.dispose(); } for (const b of bursts) b.g.traverse(o => o.material?.dispose()); chunkGeo.dispose(); chunkMat.dispose(); },
   };
 }
 
