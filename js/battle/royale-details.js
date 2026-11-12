@@ -1,5 +1,5 @@
-import { BoxGeometry, BufferGeometry, Float32BufferAttribute, IcosahedronGeometry } from '../../vendor/three/three.module.min.js?v=099f307-mwdirh82';
-import { mulberry32 } from '../core/prng.js?v=099f307-mwdirh82';
+import { BoxGeometry, BufferGeometry, Float32BufferAttribute, IcosahedronGeometry } from '../../vendor/three/three.module.min.js?v=12fb79e-mwdixmnf';
+import { mulberry32 } from '../core/prng.js?v=12fb79e-mwdixmnf';
 
 export const blacktideTrails = [
   [[-47,-23],[-33,-16],[-23,-10],[-12,-7],[-4,-5]],

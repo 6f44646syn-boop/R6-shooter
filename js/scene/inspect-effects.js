@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=099f307-mwdirh82';
-import { mulberry32 } from '../core/prng.js?v=099f307-mwdirh82';
-import { mergeStatic } from './sight-model.js?v=099f307-mwdirh82';
+import * as THREE from '../../vendor/three/three.module.min.js?v=12fb79e-mwdixmnf';
+import { mulberry32 } from '../core/prng.js?v=12fb79e-mwdixmnf';
+import { mergeStatic } from './sight-model.js?v=12fb79e-mwdixmnf';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -750,6 +750,86 @@ function flare(tint) {
   m.renderOrder = 5;
   return m;
 }
+// A kraken takes the gun (Abyssal Crown): tentacles reach up from below, coil round the gun base to tip,
+// squeeze in pulses while the shell fires, then uncoil and sink away. Each is a tube rebuilt along its
+// spine every frame, with pale suckers on the side against the gun and glowing teal spots.
+function kraken(gun, pts, quality) {
+  const zs = pts.map(v => v.z), ys = pts.map(v => v.y);
+  const zMin = Math.min(...zs), zMax = Math.max(...zs), yTop = Math.max(...ys), yBot = Math.min(...ys);
+  const yc = (yTop + yBot) / 2, R = Math.max(0.045, (yTop - yBot) * 0.62);
+  const N = 70, M = 10, rng = mulberry32(203101);
+  const skin = new THREE.MeshPhysicalMaterial({ color: 0x3a1022, roughness: 0.3, metalness: 0, clearcoat: 0.8, clearcoatRoughness: 0.15, sheen: 0.5, sheenColor: 0xc06090, emissive: 0x0a2a2a, emissiveIntensity: 0.4 });
+  const suckerMat = new THREE.MeshStandardMaterial({ color: 0xe8b8b0, roughness: 0.5 });
+  const spotMat = new THREE.MeshBasicMaterial({ color: 0x40ffe0, toneMapped: false });
+  const suckerGeo = new THREE.TorusGeometry(1, 0.45, 6, 12), spotGeo = new THREE.SphereGeometry(1, 6, 4);
+  const tents = [-0.32, -0.12, 0.08, 0.28].map((f, i) => {
+    const z = zMin + (zMax - zMin) * (0.5 + f), side = i % 2 ? 1 : -1;
+    const pos = new Float32Array(N * M * 3), idx = [];
+    for (let a = 0; a < N - 1; a++) for (let b = 0; b < M; b++) { const p0 = a * M + b, p1 = a * M + (b + 1) % M; idx.push(p0, p0 + M, p1, p1, p0 + M, p1 + M); }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setIndex(idx);
+    const body = new THREE.Mesh(geo, skin); body.frustumCulled = false; body.visible = false; gun.add(body);
+    const nS = 14, suckers = new THREE.InstancedMesh(suckerGeo, suckerMat, nS), spots = new THREE.InstancedMesh(spotGeo, spotMat, nS);
+    for (const m of [suckers, spots]) { m.frustumCulled = false; m.visible = false; gun.add(m); }
+    return { z, side, pos, geo, body, suckers, spots, nS, th0: rng() * Math.PI * 2, turns: 1.4 + rng() * 0.5, delay: i * 0.03, ph: rng() * 6.28,
+      spine: Array.from({ length: N }, () => ({ c: new THREE.Vector3(), n: new THREE.Vector3(), b: new THREE.Vector3(), t: new THREE.Vector3(), r: 0 })) };
+  });
+  const A = new THREE.Vector3(), Bv = new THREE.Vector3(), O = new THREE.Vector3(), mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), Y = new THREE.Vector3(0, 0, 1);
+  return {
+    update(p, t) {
+      const active = p >= 0 && p < 1;
+      for (const k of tents) {
+        const rise = active ? smooth(p, 0.08 + k.delay, 0.26 + k.delay) * (1 - smooth(p, 0.84, 0.97)) : 0;
+        const vis = rise > 0.01;
+        k.body.visible = k.suckers.visible = k.spots.visible = vis;
+        if (!vis) continue;
+        const squeeze = active ? 1 - 0.12 * smooth(p, 0.42, 0.5) * (1 - smooth(p, 0.7, 0.76)) * (0.5 + 0.5 * Math.sin(t * 7 + k.ph)) : 1;
+        const base = new THREE.Vector3(k.side * 0.13, yBot - 0.32, k.z + 0.06);
+        for (let i = 0; i < N; i++) {
+          const s = i / (N - 1), sp = k.spine[i];                         // s: 0 at the tip, 1 at the base
+          // coiled: the first 60% wraps round the gun, the rest runs down to the base below
+          const wrap = active ? smooth(p, 0.2 + k.delay + (1 - s) * 0.12, 0.34 + k.delay + (1 - s) * 0.12) * (1 - smooth(p, 0.72 + s * 0.06, 0.84 + s * 0.06)) : 0;
+          let coil;
+          if (s < 0.6) {
+            const th = k.th0 + k.side * (0.6 - s) / 0.6 * k.turns * Math.PI * 2;
+            coil = O.set(Math.cos(th) * R * squeeze, yc + Math.sin(th) * R * 0.9 * squeeze, k.z + (s - 0.3) * 0.12);
+          } else {
+            const th = k.th0, start = A.set(Math.cos(th) * R, yc + Math.sin(th) * R * 0.9, k.z + 0.036);
+            coil = O.copy(start).lerp(base, (s - 0.6) / 0.4);
+          }
+          // reaching: hanging up from the base in a loose curl, swaying
+          const reach = Bv.copy(base).lerp(new THREE.Vector3(k.side * 0.08, yc + 0.02, k.z - 0.03), 1 - s);
+          reach.x += Math.sin(t * 2.2 + s * 6 + k.ph) * 0.03 * (1 - s); reach.z += Math.cos(t * 1.7 + s * 5 + k.ph) * 0.03 * (1 - s);
+          sp.c.copy(reach).lerp(coil, wrap * wrap * (3 - 2 * wrap));
+          sp.c.y -= (1 - rise) * 0.35;                                     // rising from below
+          sp.r = (0.0035 + 0.019 * Math.pow(s, 0.8)) * (0.85 + 0.15 * Math.sin(t * 5 + s * 9 + k.ph));
+        }
+        for (let i = 0; i < N; i++) {
+          const sp = k.spine[i], a = k.spine[Math.max(0, i - 1)].c, b = k.spine[Math.min(N - 1, i + 1)].c;
+          sp.t.copy(b).sub(a).normalize();
+          A.set(sp.c.x, sp.c.y - yc, 0).normalize();                       // outward from the gun
+          sp.b.crossVectors(sp.t, A).normalize(); sp.n.crossVectors(sp.b, sp.t).normalize();
+          for (let j = 0; j < M; j++) {
+            const an = j / M * Math.PI * 2;
+            O.copy(sp.c).addScaledVector(sp.n, Math.cos(an) * sp.r).addScaledVector(sp.b, Math.sin(an) * sp.r);
+            k.pos.set([O.x, O.y, O.z], (i * M + j) * 3);
+          }
+        }
+        k.geo.attributes.position.needsUpdate = true; k.geo.computeVertexNormals();
+        // suckers on the inner side (against the gun), glowing spots on the outer
+        for (let j = 0; j < k.nS; j++) {
+          const sp = k.spine[3 + j * 3];
+          q.setFromUnitVectors(Y, O.copy(sp.n).negate());
+          A.copy(sp.c).addScaledVector(sp.n, -sp.r * 0.95); sc.setScalar(sp.r * 0.45);
+          k.suckers.setMatrixAt(j, mtx.compose(A, q, sc));
+          A.copy(sp.c).addScaledVector(sp.n, sp.r * 0.9).addScaledVector(sp.b, sp.r * 0.4 * (j % 2 ? 1 : -1)); sc.setScalar(sp.r * 0.18);
+          k.spots.setMatrixAt(j, mtx.compose(A, q, sc));
+        }
+        k.suckers.instanceMatrix.needsUpdate = k.spots.instanceMatrix.needsUpdate = true;
+      }
+    },
+    dispose() { skin.dispose(); suckerMat.dispose(); spotMat.dispose(); suckerGeo.dispose(); spotGeo.dispose(); for (const k of tents) k.geo.dispose(); },
+  };
+}
 export function abyssInspect(gun, { reliefs, dials, muzzle, surface, under }, quality) {
   const trail = emitterTrail(gun), tier = particleTier[quality] ?? 1;
   const anchors = reliefs.map(r => ({ point: r.base.clone().add(new THREE.Vector3(0, ...(r.ring ? [r.ring[1], r.ring[0]] : [0, 0]))), normal: r.normal.clone() }));
@@ -758,6 +838,7 @@ export function abyssInspect(gun, { reliefs, dials, muzzle, surface, under }, qu
   const bubbles = particles('bubble', tier, allOver.length ? allOver : fallback, new THREE.Color(0x9ff5e6), trail, mulberry32(203011));
   const specks = particles('speck', tier, anchors.length ? anchors : fallback, new THREE.Color(0x8dffb0), trail, mulberry32(203029));
   for (const m of [bubbles, specks]) { m.visible = false; gun.add(m); }
+  const squid = kraken(gun, (surface.length ? [...surface, ...under] : allOver).map(a => a.point), quality);
   const glazes = [], blasts = [];
   gun.traverse(o => { const u = o.material?.userData?.tri; if (u?.artPhase && !glazes.includes(u.artPhase)) { glazes.push(u.artPhase); blasts.push(u.artBlast); } });
   // the nautilus on the handguard spins (the ring nearest the muzzle); the stock's opens its ribs
@@ -789,6 +870,7 @@ export function abyssInspect(gun, { reliefs, dials, muzzle, surface, under }, qu
       for (const g of glazes) g.value = active ? p : -1;
       bubbles.visible = active; specks.visible = active && p > 0.3;
       trail.update(active ? p * ABYSS_SECONDS : -1);
+      squid.update(p, active ? p * ABYSS_SECONDS : 0);
       const sink = active ? smooth(p, 0.2, 0.5) * (1 - smooth(p, 0.7, 0.92)) : 0;
       // the shell winds up faster and faster (six full turns, so it ends where it began) ...
       const spin = active ? Math.pow(smooth(p, 0.22, 0.62), 3) * Math.PI * 12 : 0;
@@ -817,7 +899,7 @@ export function abyssInspect(gun, { reliefs, dials, muzzle, surface, under }, qu
         r.group.position.copy(r.base).addScaledVector(r.normal, open * 0.0045);
       });
     },
-    dispose() { for (const m of [bubbles, specks, gather, sparks, ring]) { m.geometry.dispose(); m.material.dispose(); } for (const f of [glow, ...cores]) f.material.dispose(); },
+    dispose() { squid.dispose(); for (const m of [bubbles, specks, gather, sparks, ring]) { m.geometry.dispose(); m.material.dispose(); } for (const f of [glow, ...cores]) f.material.dispose(); },
   };
 }
 
