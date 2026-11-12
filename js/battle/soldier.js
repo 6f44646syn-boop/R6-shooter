@@ -1,13 +1,13 @@
-import { packArt } from '../render/pack-art.js?v=282f1f7-mwdh0d0l';
+import { packArt } from '../render/pack-art.js?v=d062206-mwdh3x64';
 // The battle soldier: a helmeted figure in a plate carrier holding a rifle at the ready.
 // Hits are decided on simple shapes (a sphere head and capsules: SOLDIER_PARTS) laid out in
 // the same pose as the model, so what you see is what can be hit. The gear (helmet, vest,
 // pouches, pack, boots) sits snugly over those shapes.
 //
 // Coordinates: metres, the soldier's own frame: x right, y up from the feet, z forward.
-import * as THREE from '../../vendor/three/three.module.min.js?v=282f1f7-mwdh0d0l';
-import { HDPack } from '../render/hd-pack.js?v=282f1f7-mwdh0d0l';
-import { sightShading } from '../scene/sight-model.js?v=282f1f7-mwdh0d0l';
+import * as THREE from '../../vendor/three/three.module.min.js?v=d062206-mwdh3x64';
+import { HDPack } from '../render/hd-pack.js?v=d062206-mwdh3x64';
+import { sightShading } from '../scene/sight-model.js?v=d062206-mwdh3x64';
 
 const L = -1, R = 1;
 const cap = (a, b, r, zone) => ({ t: 'capsule', a, b, r, zone });

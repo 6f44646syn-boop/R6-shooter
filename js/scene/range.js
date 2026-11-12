@@ -6,18 +6,18 @@
 // panels that opens up to a truss roof over the far end, side benches with spent brass, and
 // a control screen beside the lane. Standard graphics uses Lambert materials and no shadows;
 // high graphics (setGraphics) swaps in textured PBR materials, shadows and tone mapping.
-import * as THREE from '../../vendor/three/three.module.min.js?v=282f1f7-mwdh0d0l';
-import { BulletHoles } from './holes.js?v=282f1f7-mwdh0d0l';
-import { buildDummy, raycastDummy } from './dummy.js?v=282f1f7-mwdh0d0l';
-import { DotField } from './dots.js?v=282f1f7-mwdh0d0l';
-import { mergeStatic, makeEnvMap } from './sight-model.js?v=282f1f7-mwdh0d0l';
-import { bakeDetail, bakeNormal, triplanar } from '../render/gpu-tex.js?v=282f1f7-mwdh0d0l';
-import { flatMaterial } from './low.js?v=282f1f7-mwdh0d0l';
-import { mulberry32 } from '../core/prng.js?v=282f1f7-mwdh0d0l';
+import * as THREE from '../../vendor/three/three.module.min.js?v=d062206-mwdh3x64';
+import { BulletHoles } from './holes.js?v=d062206-mwdh3x64';
+import { buildDummy, raycastDummy } from './dummy.js?v=d062206-mwdh3x64';
+import { DotField } from './dots.js?v=d062206-mwdh3x64';
+import { mergeStatic, makeEnvMap } from './sight-model.js?v=d062206-mwdh3x64';
+import { bakeDetail, bakeNormal, triplanar } from '../render/gpu-tex.js?v=d062206-mwdh3x64';
+import { flatMaterial } from './low.js?v=d062206-mwdh3x64';
+import { mulberry32 } from '../core/prng.js?v=d062206-mwdh3x64';
 import {
   backstopPlate, backstopMaps, duskSky, padTexture, concreteTiles, floorGrate, wallPanels, ceilingConcrete,
   hazardStripes, ledgeFace, paperTarget, drawPanel, withRes, setNormalBaker,
-} from './range-tex.js?v=282f1f7-mwdh0d0l';
+} from './range-tex.js?v=d062206-mwdh3x64';
 
 export const EYE_HEIGHT = 1.6;
 export const ROOM = { halfWidth: 4, height: 3.6, near: 3, far: 24 };

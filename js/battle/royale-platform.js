@@ -1,4 +1,4 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=282f1f7-mwdh0d0l';
+import * as THREE from '../../vendor/three/three.module.min.js?v=d062206-mwdh3x64';
 
 export const PLATFORM_HALF = 1.6;
 export const PLATFORM_MASK = 15;

@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=282f1f7-mwdh0d0l';
-import { mulberry32 } from '../core/prng.js?v=282f1f7-mwdh0d0l';
-import { mergeStatic } from './sight-model.js?v=282f1f7-mwdh0d0l';
+import * as THREE from '../../vendor/three/three.module.min.js?v=d062206-mwdh3x64';
+import { mulberry32 } from '../core/prng.js?v=d062206-mwdh3x64';
+import { mergeStatic } from './sight-model.js?v=d062206-mwdh3x64';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -1300,14 +1300,26 @@ export function amberInspect(gun, art, quality) {
   thorax.onBeforeRender = (renderer, scene, camera) => { camAt.setFromMatrixPosition(camera.matrixWorld); gun.worldToLocal(camAt); viewSide = Math.sign(camAt.x) || 1; };
   fly.scale.setScalar(2.2);                                          // a giant, as prehistoric flies were
   const impactFlash = flare(new THREE.Color(0xffd890)); impactFlash.visible = false; gun.add(impactFlash);
+  // the hit: a shockwave ring spreading over the surface, and a puff of amber dust off it (one per side)
+  const ringMat = new THREE.MeshBasicMaterial({ color: 0xffd08a, transparent: true, opacity: 0, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false });
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.7, 1, 40), ringMat); ring.visible = false; gun.add(ring);
+  const trail = emitterTrail(gun), tier = particleTier[quality] ?? 1;
   const pts = [...(art.surface || [])].map(a => a.point);
   const yMid = pts.length ? pts.reduce((a, v) => a + v.y, 0) / pts.length : 0, zMid = (Z0 + Z1) / 2;
   const target = P([600, 330]);                                       // it hits the amber window
   const flyAt = (t) => new THREE.Vector3(Math.cos(t * 2.3) * 0.11 + 0.006 * Math.sin(t * 19), yMid + 0.06 + 0.035 * Math.sin(t * 3.1) + 0.005 * Math.sin(t * 27), zMid + Math.sin(t * 2.3) * 0.22 + 0.008 * Math.sin(t * 23));
   const glazes = [];
   gun.traverse(o => { const u = o.material?.userData?.tri; if (u?.artPhase && !glazes.includes(u.artPhase)) glazes.push(u.artPhase); });
-  const fwd = new THREE.Vector3(0, 0, 1), dir = new THREE.Vector3(), from = new THREE.Vector3(), hit = new THREE.Vector3();
-  const DIVE = 0.62, IMPACT = 0.67;
+  const puffs = [-1, 1].map(k => {
+    const at = target.clone(); at.x = k * (half + 0.004);
+    const m = particles('burst', tier, [{ point: at, normal: new THREE.Vector3(k, 0.2, 0).normalize() }], new THREE.Color(0xe8b060), trail, mulberry32(207031 + k));
+    m.visible = false; gun.add(m); return m;
+  });
+  const fwd = new THREE.Vector3(0, 0, 1), dir = new THREE.Vector3(), hit = new THREE.Vector3();
+  const b0 = new THREE.Vector3(), b1 = new THREE.Vector3(), b2 = new THREE.Vector3(), b3 = new THREE.Vector3(), q = new THREE.Vector3();
+  // a cubic Bezier: from where it was buzzing, out away from the gun, round in a turn, and straight in
+  const bez = (u, out) => { const v = 1 - u; return out.copy(b0).multiplyScalar(v * v * v).addScaledVector(b1, 3 * v * v * u).addScaledVector(b2, 3 * v * u * u).addScaledVector(b3, u * u * u); };
+  const DIVE = 0.55, IMPACT = 0.69;                                   // (the dust puff is timed to the impact)
   let phase = -1, side = 1;
   return {
     clip: KILN_CLIP, seconds: AMBER_SECONDS,
@@ -1337,25 +1349,45 @@ export function amberInspect(gun, art, quality) {
           fly.quaternion.setFromUnitVectors(fwd, dir);
           side = viewSide;
         } else if (p < IMPACT) {
-          // a straight dive, speeding up, into the amber window on its side of the gun
-          from.copy(flyAt(DIVE * AMBER_SECONDS)); hit.copy(target); hit.x = side * (half + 0.004);
-          const k = smooth(p, DIVE, IMPACT) ** 2;
-          fly.position.copy(from).lerp(hit, k); dir.copy(hit).sub(from).normalize();
+          // it flies off away from the gun, banks round, and comes back fast into the amber window
+          hit.copy(target); hit.x = side * (half + 0.006);
+          b0.copy(flyAt(DIVE * AMBER_SECONDS));
+          b1.copy(b0).add(new THREE.Vector3(side * 0.2, 0.06, (b0.z > hit.z ? 1 : -1) * 0.08));
+          b2.copy(hit).add(new THREE.Vector3(side * 0.28, 0.05, (b0.z > hit.z ? 1 : -1) * 0.12));
+          b3.copy(hit);
+          const u = Math.pow((p - DIVE) / (IMPACT - DIVE), 1.5);          // slow out, fast in
+          bez(u, fly.position); bez(Math.min(1, u + 0.02), q);
+          dir.copy(q).sub(fly.position).normalize();
           fly.quaternion.setFromUnitVectors(fwd, dir);
+          fly.rotateZ(Math.sin(u * Math.PI) * side * 0.9);                  // banking through the turn
+          fly.scale.setScalar(2.2);
         } else {
-          // bonk: a flash, then it bounces off and tumbles down, wings folded
+          // the hit: it squashes flat against the window, then bounces back stunned, tumbling down
           const s = (p - IMPACT) * AMBER_SECONDS;
-          hit.copy(target); hit.x = side * (half + 0.004);
-          fly.position.copy(hit).add(new THREE.Vector3(side * 0.12 * s, 0.05 * s - 0.9 * s * s, 0.02 * s));
-          fly.rotation.set(s * 9, s * 6, s * 11);
+          hit.copy(target); hit.x = side * (half + 0.006);
+          const squash = s < 0.08 ? 1 - Math.sin(s / 0.08 * Math.PI) * 0.45 : 1;
+          const b = Math.max(0, s - 0.08);
+          fly.position.copy(hit).add(new THREE.Vector3(side * (0.003 + 0.09 * b), 0.03 * b - 0.8 * b * b, 0.015 * b));
+          fly.rotation.set(b * 7, b * 4, b * 13);
+          fly.scale.set(2.2, 2.2, 2.2 * squash);
           flap = 0;
-          impactFlash.visible = s < 0.18; impactFlash.position.copy(hit); impactFlash.scale.setScalar(0.04 * (1 - s / 0.18));
+          impactFlash.visible = s < 0.2; impactFlash.position.copy(hit); impactFlash.scale.setScalar(0.07 * (1 - s / 0.2));
         }
         for (const w of wings) w.pivot.rotation.z = w.k * (flap ? 0.2 + 0.9 * Math.sin(t * 140) : 1.2);
       }
+      // the shockwave and the dust, on the side it hit
+      const hs = active ? (p - IMPACT) * AMBER_SECONDS : -1;
+      ring.visible = hs >= 0 && hs < 0.35;
+      if (ring.visible) {
+        ring.position.copy(target); ring.position.x = side * (half + 0.0025); ring.rotation.set(0, side * Math.PI / 2, 0);
+        ring.scale.setScalar(0.006 + 0.05 * Math.sqrt(hs / 0.35)); ringMat.opacity = 0.8 * (1 - hs / 0.35);
+      }
+      puffs[0].visible = active && side < 0; puffs[1].visible = active && side > 0;
+      trail.update(active ? t : -1);
     },
     dispose() {
-      silver.dispose(); leafGeo.dispose(); body.dispose(); eyeMat.dispose(); wingMat.dispose(); impactFlash.material.dispose();
+      silver.dispose(); leafGeo.dispose(); body.dispose(); eyeMat.dispose(); wingMat.dispose(); impactFlash.material.dispose(); ring.geometry.dispose(); ringMat.dispose();
+      for (const m of puffs) { m.geometry.dispose(); m.material.dispose(); }
       for (const f of fronds) f.stem.geometry.dispose();
       fly.traverse(o => o.geometry?.dispose());
     },

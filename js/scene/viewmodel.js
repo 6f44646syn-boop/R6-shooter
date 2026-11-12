@@ -1,30 +1,30 @@
-import { skinSheets } from '../render/skins2.js?v=282f1f7-mwdh0d0l';
-import { packArt } from '../render/pack-art.js?v=282f1f7-mwdh0d0l';
+import { skinSheets } from '../render/skins2.js?v=d062206-mwdh3x64';
+import { packArt } from '../render/pack-art.js?v=d062206-mwdh3x64';
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=282f1f7-mwdh0d0l';
-import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=282f1f7-mwdh0d0l';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=282f1f7-mwdh0d0l';
-import { matcap } from './matcap.js?v=282f1f7-mwdh0d0l';
-import { mulberry32 } from '../core/prng.js?v=282f1f7-mwdh0d0l';
-import { gunMaps } from './range-tex.js?v=282f1f7-mwdh0d0l';
-import { skinById, FACTORY, SAKURA_ID } from '../core/skins.js?v=282f1f7-mwdh0d0l';
-import { legendCanvas, onLegendChange } from '../core/legend.js?v=282f1f7-mwdh0d0l';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=282f1f7-mwdh0d0l';
-import { HDPack } from '../render/hd-pack.js?v=282f1f7-mwdh0d0l';
-import { epicRelief } from './skin-relief.js?v=282f1f7-mwdh0d0l';
-import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect, forgeInspect, orreryInspect, amberInspect } from './inspect-effects.js?v=282f1f7-mwdh0d0l';
-import { F2 } from './f2-model.js?v=282f1f7-mwdh0d0l';
-import { G8 } from './g8-model.js?v=282f1f7-mwdh0d0l';
-import { C8 } from './c8-model.js?v=282f1f7-mwdh0d0l';
-import { R4 } from './r4-model.js?v=282f1f7-mwdh0d0l';
-import { AK } from './ak-model.js?v=282f1f7-mwdh0d0l';
-import { EVO } from './evo-model.js?v=282f1f7-mwdh0d0l';
-import { MP5K } from './compact-model.js?v=282f1f7-mwdh0d0l';
-import { T5 } from './smg-model.js?v=282f1f7-mwdh0d0l';
-import { SMG11 } from './machinepistol-model.js?v=282f1f7-mwdh0d0l';
-import { MP7 } from './pdw-model.js?v=282f1f7-mwdh0d0l';
+import * as THREE from '../../vendor/three/three.module.min.js?v=d062206-mwdh3x64';
+import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=d062206-mwdh3x64';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=d062206-mwdh3x64';
+import { matcap } from './matcap.js?v=d062206-mwdh3x64';
+import { mulberry32 } from '../core/prng.js?v=d062206-mwdh3x64';
+import { gunMaps } from './range-tex.js?v=d062206-mwdh3x64';
+import { skinById, FACTORY, SAKURA_ID } from '../core/skins.js?v=d062206-mwdh3x64';
+import { legendCanvas, onLegendChange } from '../core/legend.js?v=d062206-mwdh3x64';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=d062206-mwdh3x64';
+import { HDPack } from '../render/hd-pack.js?v=d062206-mwdh3x64';
+import { epicRelief } from './skin-relief.js?v=d062206-mwdh3x64';
+import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect, forgeInspect, orreryInspect, amberInspect } from './inspect-effects.js?v=d062206-mwdh3x64';
+import { F2 } from './f2-model.js?v=d062206-mwdh3x64';
+import { G8 } from './g8-model.js?v=d062206-mwdh3x64';
+import { C8 } from './c8-model.js?v=d062206-mwdh3x64';
+import { R4 } from './r4-model.js?v=d062206-mwdh3x64';
+import { AK } from './ak-model.js?v=d062206-mwdh3x64';
+import { EVO } from './evo-model.js?v=d062206-mwdh3x64';
+import { MP5K } from './compact-model.js?v=d062206-mwdh3x64';
+import { T5 } from './smg-model.js?v=d062206-mwdh3x64';
+import { SMG11 } from './machinepistol-model.js?v=d062206-mwdh3x64';
+import { MP7 } from './pdw-model.js?v=d062206-mwdh3x64';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
