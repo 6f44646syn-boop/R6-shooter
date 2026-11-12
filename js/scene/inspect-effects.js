@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=d083d0f-mwdex9qh';
-import { mulberry32 } from '../core/prng.js?v=d083d0f-mwdex9qh';
-import { mergeStatic } from './sight-model.js?v=d083d0f-mwdex9qh';
+import * as THREE from '../../vendor/three/three.module.min.js?v=c833319-mwdf0xz1';
+import { mulberry32 } from '../core/prng.js?v=c833319-mwdf0xz1';
+import { mergeStatic } from './sight-model.js?v=c833319-mwdf0xz1';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -1037,29 +1037,45 @@ export function forgeInspect(gun, { reliefs, channels, seam, surface }, quality)
 // fly out of it and orbit the gun, the orbit travelling from the stock to the barrel, then they are
 // drawn back in and the portal closes.
 const PORTAL_VERTEX = 'varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }';
-const PORTAL_FRAGMENT = `uniform float uTime, uOpen; varying vec2 vP;
+const PORTAL_FRAGMENT = `uniform float uTime, uOpen, uR; varying vec2 vP;
   float h(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
   float n(vec2 p) { vec2 i = floor(p), f = fract(p); f *= f * (3.0 - 2.0 * f);
     return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1)), f.x), f.y); }
   void main() {
-    float r = length(vP) / max(uOpen, 0.001), a = atan(vP.y, vP.x);
-    if (r > 1.0) discard;
-    // the nebula turns, faster towards the eye of the portal
-    float tw = a + uTime * 0.35 + (1.0 - r) * 2.5;
-    vec2 q = vec2(cos(tw), sin(tw)) * r * 3.0;
-    float neb = n(q * 2.0 + uTime * 0.1) * 0.6 + n(q * 4.5 - uTime * 0.07) * 0.4;
-    vec3 c = mix(vec3(0.01, 0.01, 0.05), vec3(0.08, 0.05, 0.3), neb);
-    c += vec3(0.45, 0.12, 0.55) * pow(neb, 3.0) * (1.0 - r) * 1.4;
-    c += vec3(0.1, 0.35, 0.7) * pow(n(q * 3.0 + 7.0), 4.0) * 0.8;
-    // stars, twinkling
-    vec2 sp = vP * 90.0 / max(uOpen, 0.001); vec2 cell = floor(sp);
-    float st = h(cell); vec2 off = fract(sp) - 0.5 - (vec2(h(cell + 3.1), h(cell + 7.7)) - 0.5) * 0.6;
-    c += vec3(1.0, 0.95, 0.85) * step(0.93, st) * smoothstep(0.12, 0.0, length(off)) * (0.6 + 0.4 * sin(uTime * 4.0 + st * 50.0));
-    // the golden rim, with sparkle, and the light falling off at the edge
-    float rim = smoothstep(0.86, 0.97, r) * (1.0 - smoothstep(0.97, 1.0, r));
-    c += vec3(1.0, 0.75, 0.3) * rim * (1.4 + 0.6 * sin(a * 24.0 - uTime * 3.0));
-    c += vec3(0.6, 0.45, 0.9) * smoothstep(0.6, 0.95, r) * 0.25;
-    gl_FragColor = vec4(c, smoothstep(1.0, 0.985, r) * 0.96);
+    float o = max(uOpen, 0.001), r = length(vP) / (uR * o), a = atan(vP.y, vP.x);
+    // the edge wavers like a flame front
+    vec2 dir = vec2(cos(a), sin(a));                      // (noise on the direction: no seam where the angle wraps)
+    float e = 1.0 + 0.035 * (n(dir * 3.0 + uTime * 0.6) - 0.5) + 0.02 * sin(a * 9.0 + uTime * 2.0);
+    vec3 c = vec3(0.0); float alpha = 0.0;
+    if (r < e) {
+      // inside: the nebula turns, faster towards the eye of the portal
+      float tw = a + uTime * 0.35 + (1.0 - r) * 2.5;
+      vec2 q = vec2(cos(tw), sin(tw)) * r * 3.0;
+      float neb = n(q * 2.0 + uTime * 0.1) * 0.6 + n(q * 4.5 - uTime * 0.07) * 0.4;
+      c = mix(vec3(0.01, 0.01, 0.05), vec3(0.08, 0.05, 0.3), neb);
+      c += vec3(0.45, 0.12, 0.55) * pow(neb, 3.0) * (1.0 - r) * 1.4;
+      c += vec3(0.1, 0.35, 0.7) * pow(n(q * 3.0 + 7.0), 4.0) * 0.8;
+      vec2 sp = vP * 90.0 / o; vec2 cell = floor(sp);
+      float st = h(cell); vec2 off = fract(sp) - 0.5 - (vec2(h(cell + 3.1), h(cell + 7.7)) - 0.5) * 0.6;
+      c += vec3(1.0, 0.95, 0.85) * step(0.93, st) * smoothstep(0.12, 0.0, length(off)) * (0.6 + 0.4 * sin(uTime * 4.0 + st * 50.0));
+      c += vec3(0.6, 0.45, 0.9) * smoothstep(0.7, 1.0, r / e) * 0.35;
+      alpha = 0.96;
+    }
+    // the burning rim: white-gold at the edge, gold, then violet wisps streaming off it
+    float d = r - e;
+    float rim = exp(-abs(d) * 60.0);
+    float wisps = n(dir * 6.0 + vec2(uTime * 0.6, r * 9.0 - uTime * 1.8)) * n(dir * 11.0 + vec2(r * 5.0, -uTime * 0.4));
+    float halo = d > 0.0 ? exp(-d * 9.0) * (0.35 + 1.4 * wisps) : 0.0;
+    c += vec3(1.0, 0.92, 0.7) * rim * 2.2 + vec3(1.0, 0.65, 0.2) * exp(-abs(d) * 18.0) * 0.8;
+    c += mix(vec3(0.95, 0.6, 0.2), vec3(0.55, 0.25, 0.95), smoothstep(0.0, 0.2, d)) * halo;
+    // an astrolabe ring around it: a fine gold circle with ticks, and twelve stars, turning slowly
+    float ra = abs(r - 1.2), aa = a + uTime * 0.15;
+    float ring = exp(-ra * 400.0) + step(0.82, fract(aa * 72.0 / 6.2832)) * step(ra, 0.025) * step(r, 1.2);
+    float signs = smoothstep(0.03, 0.0, length(vec2(fract((a - uTime * 0.1) * 12.0 / 6.2832) - 0.5, (r - 1.3) * 6.0))) ;
+    c += vec3(1.0, 0.8, 0.4) * (ring * 0.9 + signs * 2.0);
+    alpha = max(alpha, clamp(rim + halo * 0.8 + ring * 0.8 + signs + exp(-abs(d) * 18.0) * 0.6, 0.0, 1.0));
+    if (alpha < 0.003) discard;
+    gl_FragColor = vec4(c, alpha);
   }`;
 const STAR_VERTEX = `attribute float size; varying float vTw; uniform float uTime;
   void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); vTw = 0.6 + 0.4 * sin(uTime * 6.0 + size * 900.0);
@@ -1069,15 +1085,15 @@ const STAR_FRAGMENT = `uniform float uOpacity; varying float vTw;
     float core = exp(-dot(p, p) * 9.0), rays = exp(-abs(p.x) * 14.0) * exp(-abs(p.y) * 2.5) + exp(-abs(p.y) * 14.0) * exp(-abs(p.x) * 2.5);
     gl_FragColor = vec4(vec3(1.0, 0.92, 0.75) * (core + rays * 0.7) * vTw, uOpacity * (core + rays * 0.7)); }`;
 export function orreryInspect(gun, { surface, under }, quality) {
+  const trail = emitterTrail(gun);
   const pts = [...surface, ...under].map(a => a.point);
   const zs = pts.map(v => v.z), ys = pts.map(v => v.y);
   const zMin = pts.length ? Math.min(...zs) : -0.3, zMax = pts.length ? Math.max(...zs) : 0.3;
   const yMid = pts.length ? (Math.min(...ys) + Math.max(...ys)) / 2 : 0;
   const centre = new THREE.Vector3(0, yMid, (zMin + zMax) / 2), length = zMax - zMin;
   // the portal: a disc that always sits behind the gun as you look at it, facing you
-  const portalU = { uTime: { value: 0 }, uOpen: { value: 0 } };
-  const R = length * 0.75;
-  const portal = new THREE.Mesh(new THREE.CircleGeometry(R, 64), new THREE.ShaderMaterial({ uniforms: portalU, vertexShader: PORTAL_VERTEX, fragmentShader: PORTAL_FRAGMENT, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+  const R = length * 0.75, portalU = { uTime: { value: 0 }, uOpen: { value: 0 }, uR: { value: R } };
+  const portal = new THREE.Mesh(new THREE.CircleGeometry(R * 1.45, 96), new THREE.ShaderMaterial({ uniforms: portalU, vertexShader: PORTAL_VERTEX, fragmentShader: PORTAL_FRAGMENT, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
   portal.name = 'Inspect portal'; portal.frustumCulled = false; portal.visible = false; portal.renderOrder = -1;
   const portalAt = centre.clone(), cam = new THREE.Vector3();
   portal.onBeforeRender = (renderer, scene, camera) => {
@@ -1109,6 +1125,9 @@ export function orreryInspect(gun, { surface, under }, quality) {
   const starU = { uTime: { value: 0 }, uOpacity: { value: 0 } };
   const stars = new THREE.Points(starGeo, new THREE.ShaderMaterial({ uniforms: starU, vertexShader: STAR_VERTEX, fragmentShader: STAR_FRAGMENT, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
   stars.name = 'Inspect stars'; stars.frustumCulled = false; stars.visible = false; gun.add(stars);
+  // stardust: gold glints drifting off the gun's skin
+  const dust = particles('glint', tier, surface.length ? surface : [{ point: centre.clone(), normal: new THREE.Vector3(1, 0, 0) }], new THREE.Color(0xffd890), trail, mulberry32(206041));
+  dust.visible = false; gun.add(dust);
   const star = Array.from({ length: nStars }, () => ({ r: 0.05 + rng() * 0.12, a0: rng() * Math.PI * 2, speed: 1.5 + rng() * 3, dz: (rng() - 0.5) * length * 0.5, tilt: 0.5 + rng() * 0.5, delay: rng() * 0.06 }));
   const glazes = [];
   gun.traverse(o => { const u = o.material?.userData?.tri; if (u?.artPhase && !glazes.includes(u.artPhase)) glazes.push(u.artPhase); });
@@ -1141,6 +1160,7 @@ export function orreryInspect(gun, { surface, under }, quality) {
         b.m.rotation.y = t * 1.5;
       }
       stars.visible = out > 0.01; starU.uOpacity.value = out; starU.uTime.value = t;
+      dust.visible = active && p > 0.15; trail.update(active ? t : -1);
       if (stars.visible) {
         const pos = starGeo.attributes.position;
         star.forEach((b, i) => { place(b, p, t, at); pos.setXYZ(i, at.x, at.y, at.z); });
@@ -1148,7 +1168,7 @@ export function orreryInspect(gun, { surface, under }, quality) {
       }
     },
     dispose() {
-      portal.geometry.dispose(); portal.material.dispose(); starGeo.dispose(); stars.material.dispose();
+      portal.geometry.dispose(); portal.material.dispose(); starGeo.dispose(); stars.material.dispose(); dust.geometry.dispose(); dust.material.dispose();
       for (const b of planets) { b.m.traverse(o => { o.geometry?.dispose(); o.material?.dispose(); }); }
     },
   };

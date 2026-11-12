@@ -1,5 +1,5 @@
-import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=d083d0f-mwdex9qh';
-import { packArt } from './pack-art.js?v=d083d0f-mwdex9qh';
+import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=c833319-mwdf0xz1';
+import { packArt } from './pack-art.js?v=c833319-mwdf0xz1';
 // GPU-baked textures for ultra graphics. Everything is procedural and drawn by a fragment
 // shader into a render target once (milliseconds on a graphics card), so 4096 x 4096 maps
 // cost nothing at start-up and nothing is downloaded.
@@ -10,7 +10,7 @@ import { packArt } from './pack-art.js?v=d083d0f-mwdex9qh';
 //   bakeSkin(renderer, index, size): one of SKINS, { albedo, rm } (rm: G roughness, B metalness).
 //   triplanar(material, opts): shader patch that maps a skin and/or detail by the surface's
 //        own 3D position (no UV stretching on long thin parts), with edge wear from UVs.
-import * as THREE from '../../vendor/three/three.module.min.js?v=d083d0f-mwdex9qh';
+import * as THREE from '../../vendor/three/three.module.min.js?v=c833319-mwdf0xz1';
 
 const VERT = /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
@@ -568,7 +568,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
     // from it. Looks: 'porcelain' (glaze, crazing, silver seams) or 'bronze' (metal, glowing teal inlays).
     Object.assign(uniforms, {
       artMap: { value: artTexture(def.art) }, artRect: { value: new THREE.Vector4(...def.artRect) },
-      artDark: { value: new THREE.Vector3(...def.c[2]) }, artPhase: { value: -1 }, artBlast: { value: -9 }, artMode: { value: { bronze: 1, glass: 2, resin: 2, lacquer: 3, gilt: 3, orrery: 3, forge: 4 }[def.artLook] || 0 },
+      artDark: { value: new THREE.Vector3(...def.c[2]) }, artPhase: { value: -1 }, artBlast: { value: -9 }, artMode: { value: { bronze: 1, glass: 2, resin: 2, lacquer: 3, gilt: 3, orrery: 5, forge: 4 }[def.artLook] || 0 },
     });
   } else if (sakura) {
     const [gold, pink, pearl, black] = def.c.map(c => new THREE.Vector3(...c));
@@ -826,7 +826,15 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         // Forgeheart: the molten seam always smoulders; in the inspect a heat front runs along it from
         // the handguard into the receiver, burns yellow at the peak and cools to deep red, and a dull
         // red glow creeps through the dark cracks between the plates.
-        float kForge = step(3.5, artMode);
+        float kForge = step(3.5, artMode) * step(artMode, 4.5);
+        // Midnight Orrery: while the portal is open the gold constellation lines light up, a starlight
+        // sweep runs along them stock to barrel, the midnight blue takes a nebula sheen and stars twinkle in it
+        float kOrr = step(4.5, artMode), kOrrOn = artPhase < 0.0 ? 0.0 : sstep(0.15, 0.3, artPhase) * (1.0 - sstep(0.85, 0.97, artPhase));
+        float kStarSweep = exp(-pow(vTriPos.z - mix(0.35, -0.3, sstep(0.3, 0.8, artPhase)), 2.0) * 120.0);
+        totalEmissiveRadiance += kOrr * kOrrOn * (vec3(1.0, 0.72, 0.32) * kGold * (0.35 + 1.8 * kStarSweep) + vec3(0.25, 0.3, 0.9) * kArt * sstep(0.0, 0.08, kArt.b - kArt.r) * 0.9);
+        vec2 kCell = floor(vTriPos.zy * 320.0), kOff = fract(vTriPos.zy * 320.0) - 0.5;
+        float kSeed = fract(sin(dot(kCell, vec2(127.1, 311.7))) * 43758.5453);
+        totalEmissiveRadiance += kOrr * kOrrOn * vec3(0.85, 0.9, 1.0) * 2.5 * step(0.975, kSeed) * sstep(0.3, 0.0, length(kOff)) * (0.5 + 0.5 * sin(triTime * 5.0 + kSeed * 40.0)) * kSide;
         float kMolten = kForge * sstep(0.4, 0.75, kArt.r) * sstep(0.25, 0.5, kArt.r - kArt.b);
         float kHeat = artPhase < 0.0 ? 0.0 : sstep(0.0, 0.05, mix(-0.5, 0.2, sstep(0.08, 0.42, artPhase)) - vTriPos.z) * (1.0 - sstep(0.8, 0.97, artPhase));
         float kHot = artPhase < 0.0 ? 0.0 : sstep(0.42, 0.57, artPhase) * (1.0 - sstep(0.6, 0.86, artPhase));
