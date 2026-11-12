@@ -1,5 +1,5 @@
-import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=3cb2659-mwdfdtc4';
-import { packArt } from './pack-art.js?v=3cb2659-mwdfdtc4';
+import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=ff1351a-mwdffqzl';
+import { packArt } from './pack-art.js?v=ff1351a-mwdffqzl';
 // GPU-baked textures for ultra graphics. Everything is procedural and drawn by a fragment
 // shader into a render target once (milliseconds on a graphics card), so 4096 x 4096 maps
 // cost nothing at start-up and nothing is downloaded.
@@ -10,7 +10,7 @@ import { packArt } from './pack-art.js?v=3cb2659-mwdfdtc4';
 //   bakeSkin(renderer, index, size): one of SKINS, { albedo, rm } (rm: G roughness, B metalness).
 //   triplanar(material, opts): shader patch that maps a skin and/or detail by the surface's
 //        own 3D position (no UV stretching on long thin parts), with edge wear from UVs.
-import * as THREE from '../../vendor/three/three.module.min.js?v=3cb2659-mwdfdtc4';
+import * as THREE from '../../vendor/three/three.module.min.js?v=ff1351a-mwdffqzl';
 
 const VERT = /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
@@ -872,10 +872,11 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         float kHair = (1.0 - sstep(0.0, 0.035, artCrackEdge(kCp * 85.0 + 3.1))) * (1.0 - kMagma);
         float kBoil = 0.8 + 0.2 * sin(triTime * 5.0 + kCp.x * 70.0 + 2.0 * sin(kCp.y * 110.0 + triTime * 3.0));
         vec3 kLava = mix(vec3(0.85, 0.1, 0.0), vec3(1.0, 0.5, 0.06), kCore);
-        vec3 kRock = vec3(0.055, 0.05, 0.047) * (0.75 + 0.5 * fract(sin(dot(floor(kCp * 600.0), vec2(12.9898, 78.233))) * 43758.5453));
+        vec3 kRock = vec3(0.018, 0.016, 0.015) * (0.75 + 0.5 * fract(sin(dot(floor(kCp * 600.0), vec2(12.9898, 78.233))) * 43758.5453));
         diffuseColor.rgb = mix(diffuseColor.rgb, kRock * (1.0 - 0.7 * kHair), kMeltAll * 0.9);
         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.02, 0.005, 0.0), kMagma);
-        roughnessFactor = mix(roughnessFactor, 0.82, kMeltAll); metalnessFactor = mix(metalnessFactor, 0.0, kMeltAll);
+        roughnessFactor = mix(roughnessFactor, 0.22, kMeltAll);   // glossy obsidian-black crust
+        metalnessFactor = mix(metalnessFactor, 0.0, kMeltAll);
         totalEmissiveRadiance += kMeltAll * (kLava * kMagma * (0.9 + 0.8 * kCore) * (0.85 + 0.4 * kHot) * kBoil
           + vec3(1.0, 0.22, 0.0) * exp(-(kEdge - kWide) * 30.0) * step(kWide, kEdge) * 0.5);
         // the plates' rims shade dark where they turn down into the crack (beyond the glow)
@@ -909,9 +910,9 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         // each plate is domed, its rim bevelled steeply down into the crack (height rises with the
         // distance from the crack; the normal leans away from the uphill direction), with rough grain
         float rim = (1.0 - sstep(kWide, kWide * 3.0, kEdge)) * step(kWide * 0.6, kEdge);
-        float slope = 0.006 + 0.05 * rim;
+        float slope = 0.016 + 0.11 * rim;
         vec2 kGrain = vec2(fract(sin(dot(floor(kCp * 900.0), vec2(12.9898, 78.233))) * 43758.5453), fract(sin(dot(floor(kCp * 900.0), vec2(39.3468, 11.135))) * 24634.6345)) - 0.5;
-        normal = normalize(normal - ((vTriAZ * kg.x + vTriAY * kg.y) * slope + (vTriAZ * kGrain.x + vTriAY * kGrain.y) * 0.35) * kMeltAll * kSide);
+        normal = normalize(normal - ((vTriAZ * kg.x + vTriAY * kg.y) * slope + (vTriAZ * kGrain.x + vTriAY * kGrain.y) * 0.1) * kMeltAll * kSide);
       }
       {
         // Storm Kiln: water ripples run over the glaze, rings spreading from three points and a swell
