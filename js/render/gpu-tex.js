@@ -1,5 +1,5 @@
-import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=e672d16-mwd7mual';
-import { packArt } from './pack-art.js?v=e672d16-mwd7mual';
+import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=b021b19-mwd8gat8';
+import { packArt } from './pack-art.js?v=b021b19-mwd8gat8';
 // GPU-baked textures for ultra graphics. Everything is procedural and drawn by a fragment
 // shader into a render target once (milliseconds on a graphics card), so 4096 x 4096 maps
 // cost nothing at start-up and nothing is downloaded.
@@ -10,7 +10,7 @@ import { packArt } from './pack-art.js?v=e672d16-mwd7mual';
 //   bakeSkin(renderer, index, size): one of SKINS, { albedo, rm } (rm: G roughness, B metalness).
 //   triplanar(material, opts): shader patch that maps a skin and/or detail by the surface's
 //        own 3D position (no UV stretching on long thin parts), with edge wear from UVs.
-import * as THREE from '../../vendor/three/three.module.min.js?v=e672d16-mwd7mual';
+import * as THREE from '../../vendor/three/three.module.min.js?v=b021b19-mwd8gat8';
 
 const VERT = /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
@@ -568,7 +568,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
     // from it. Looks: 'porcelain' (glaze, crazing, silver seams) or 'bronze' (metal, glowing teal inlays).
     Object.assign(uniforms, {
       artMap: { value: artTexture(def.art) }, artRect: { value: new THREE.Vector4(...def.artRect) },
-      artDark: { value: new THREE.Vector3(...def.c[2]) }, artPhase: { value: -1 }, artMode: { value: { bronze: 1, glass: 2 }[def.artLook] || 0 },
+      artDark: { value: new THREE.Vector3(...def.c[2]) }, artPhase: { value: -1 }, artBlast: { value: -9 }, artMode: { value: { bronze: 1, glass: 2, lacquer: 3 }[def.artLook] || 0 },
     });
   } else if (sakura) {
     const [gold, pink, pearl, black] = def.c.map(c => new THREE.Vector3(...c));
@@ -615,7 +615,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         uniform sampler2D artMap;
         uniform vec4 artRect;
         uniform vec3 artDark;
-        uniform float artMode;
+        uniform float artMode, artBlast;
         uniform float artPhase;
         // Fine crazing in the glaze: the edges of small irregular cells.
         float artCraze(vec2 p) {
@@ -695,10 +695,11 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         // grey in the painting = the silver-filled seams and the moon
         float kSilver = sstep(0.09, 0.035, kSat) * sstep(0.12, 0.3, kLum);
         float kBelow = 0.0;           // (the traced F2's grip and magazine are their own black parts)
-        float kBronze = step(0.5, artMode) * step(artMode, 1.5), kStained = step(1.5, artMode);
+        float kBronze = step(0.5, artMode) * step(artMode, 1.5), kStained = step(1.5, artMode) * step(artMode, 2.5), kLacq = step(2.5, artMode);
+        float kGold = sstep(0.06, 0.18, kArt.r - kArt.b) * sstep(0.02, 0.08, kArt.g - kArt.b) * sstep(0.1, 0.3, kArt.g / max(kArt.r, 0.001)) * kLacq;   // lacquer: the gilt
         float kTeal = sstep(0.04, 0.14, kArt.g - kArt.r) * sstep(0.02, 0.09, kArt.b - kArt.r) * kBronze;   // bronze: the teal inlays
         float kGlass = sstep(0.06, 0.2, kSat) * kStained;                                                 // glass: the coloured panes
-        float kCraze = (1.0 - kBronze - kStained) * artCraze(vec2(vTriPos.z + vTriPos.x * 0.6, vTriPos.y) * 150.0) * (1.0 - kSilver) * sstep(0.35, 0.6, kLum);
+        float kCraze = (1.0 - kBronze - kStained - kLacq) * artCraze(vec2(vTriPos.z + vTriPos.x * 0.6, vTriPos.y) * 150.0) * (1.0 - kSilver) * sstep(0.35, 0.6, kLum);
         float kBrush = 0.85 + 0.3 * fract(sin(floor(vTriPos.y * 2600.0) * 91.7) * 4375.5);
         vec3 kGlaze = kArt * (1.0 - kCraze * 0.16);
         diffuseColor.rgb = mix(kGlaze, artDark * kBrush, kBelow) * triGain;
@@ -773,6 +774,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         roughnessFactor = mix(mix(sakuraRM.x, sakuraRM.z, enamel), 0.51, weathering);
       #elif defined( TRI_ART )
         roughnessFactor = mix(mix(mix(mix(0.12, 0.2, kSilver), 0.34, kBelow), mix(0.42, 0.07, kTeal), kBronze), mix(0.45, 0.05, kGlass), kStained);
+        roughnessFactor = mix(roughnessFactor, mix(0.14, 0.18, kGold), kLacq);
       #elif defined( TRI_SKIN )
         vec4 skrm = triTex(skinRM, triP, tw);
         roughnessFactor = mix(skrm.g, 0.3, triWear);
@@ -789,6 +791,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         metalnessFactor = mix(sakuraRM.y, sakuraRM.w, enamel);
       #elif defined( TRI_ART )
         metalnessFactor = mix(mix(mix(kSilver, 0.75, kBelow), 0.5 * (1.0 - kTeal), kBronze), 0.55 * (1.0 - kGlass), kStained);
+        metalnessFactor = mix(metalnessFactor, mix(0.2, 0.92, kGold), kLacq);
       #elif defined( TRI_SKIN )
         metalnessFactor = mix(skrm.b, 1.0, triWear);
       #endif
@@ -809,15 +812,17 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       #endif`);
     f = f.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
       #ifdef TRI_ART
-        totalEmissiveRadiance += vec3(0.62, 0.74, 0.95) * kSweep * (0.35 + kSilver * 2.2) * (1.0 - kBelow) * (1.0 - kBronze - kStained);
+        totalEmissiveRadiance += vec3(0.62, 0.74, 0.95) * kSweep * (0.35 + kSilver * 2.2) * (1.0 - kBelow) * (1.0 - kBronze - kStained - kLacq);
         // bronze: the teal inlays glow faintly; while inspecting, caustics drift through them
         float kc = pow(0.5 + 0.5 * sin(vTriPos.z * 190.0 + triTime * 2.1 + 2.0 * sin(vTriPos.y * 160.0 - triTime * 1.6)), 6.0);
         float kRise = artPhase < 0.0 ? 0.0 : sin(clamp(artPhase, 0.0, 1.0) * 3.14159);
         totalEmissiveRadiance += vec3(0.08, 0.85, 0.72) * kTeal * (0.05 + kc * (0.12 + kRise * 1.1));
+        // the blast of light the spinning shell sends down the barrel (artBlast: its z, -9 when off)
+        totalEmissiveRadiance += vec3(0.25, 1.0, 0.85) * exp(-pow(vTriPos.z - artBlast, 2.0) * 900.0) * 3.5 * kBronze;
         // glass: the panes glow with their own colour; in the inspect a concentrated stained-glass
         // reflection slides along the receiver and breaks up as the angle changes
         float kSlide = artPhase < 0.0 ? 0.0 : exp(-pow(vTriPos.z - mix(-0.32, 0.26, sstep(0.25, 0.75, artPhase)) + vTriPos.y * 0.5, 2.0) * 140.0);
-        totalEmissiveRadiance += kArt * kGlass * (0.35 + kSlide * 2.4) + kArt * kSlide * (1.0 - kGlass) * 0.25 * kStained;
+        totalEmissiveRadiance += kArt * kGlass * (0.85 + kSlide * 3.4) + kArt * kSlide * (1.0 - kGlass) * 0.25 * kStained;
       #endif
       #ifdef TRI_SKIN
         // Glowing lines; they pulse while inspecting.

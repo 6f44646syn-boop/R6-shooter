@@ -23,6 +23,21 @@ GUNS = {
              ('trigger guard', 0.02, 'black', True, lambda xx, yy: (xx >= 398) & (xx < 455) & (yy > 236))],
     mag=(0.062, lambda xx, yy: (xx >= 322) & (xx < 398) & (yy > 228)),
     rings=[(627, 405, 48, 0.38, 10, 'rib'), (1300, 440, 52, 0.38, 10, 'rib')]),
+  'r4': dict(name='R4-C', export='R4', src='docs/legendary-skins/00-sakura-gilt-r4c.jpg', flip=True, scale=0.80 / 1382,
+    detect='colour', orig_w=768, fill_holes=900, close=7,
+    black=[[(346,300),(436,300),(452,380),(455,440),(445,465),(385,472),(368,440),(355,370)],                 # magazine
+           [(668,221),(768,221),(768,243),(668,243)],                                                            # barrel
+           [(676,216),(698,172),(722,150),(734,154),(730,216)],                                                  # front sight
+           [(6,206),(30,204),(33,346),(9,348)]],                                                                 # butt pad
+    grip=(990, 0.05), hg=(483, -0.03), body_depth=0.05,
+    cut=lambda xx, yy: (yy > 432) | ((xx >= 72) & (xx < 205) & (yy < 158)),
+    regions=[('barrel', 0.022, 'black', False, lambda xx, yy: (xx < 86) & (yy > 140)),
+             ('front sight', 0.012, 'black', False, lambda xx, yy: (xx >= 22) & (xx < 82) & (yy <= 180)),
+             ('rear sight', 0.016, 'black', True, lambda xx, yy: (xx >= 418) & (xx < 462) & (yy < 186)),
+             ('grip', 0.03, 'black', True, lambda xx, yy: (xx >= 449) & (xx < 540) & (yy > 262)),
+             ('trigger guard', 0.016, 'black', True, lambda xx, yy: (xx >= 385) & (xx < 449) & (yy > 262))],
+    mag=(0.03, lambda xx, yy: (xx >= 282) & (xx < 388) & (yy > 258)),
+    rings=[]),
   'c8': dict(name='C8-SFW', export='C8', src='docs/legendary-skins/03-vesper-glass.png', scale=0.84 / 1350,
     grip=(980, 0.05), hg=(410, -0.03), body_depth=0.05,
     cut=lambda xx, yy: (yy >= 369) | ((yy > 346) & (xx > 452) & (xx < 530)) | ((yy > 336) & ~(((xx > 282) & (xx < 364)) | ((xx > 452) & (xx < 530)))) | ((xx >= 316) & (xx < 404) & (yy < 142)),
@@ -40,18 +55,38 @@ GX, GZ = cfg['grip']; HY, HYG = cfg['hg']
 def gun14(x, y): return [round(GZ + (x - GX) * S, 5), round(HYG - (y - HY) * S, 5)]
 to_gun = lambda x, y: gun14(2 * x, 2 * y)
 
-a = np.asarray(Image.open(cfg['src']).convert('RGB').resize((700, 466), Image.LANCZOS)).astype(np.float32)
+im = Image.open(cfg['src']).convert('RGB')
+if cfg.get('flip'): im = im.transpose(Image.FLIP_LEFT_RIGHT)       # muzzle to the left, like the others
+H14 = round(1400 * im.height / im.width)                            # concept units: 1400 wide
+a = np.asarray(im.resize((700, H14 // 2), Image.LANCZOS)).astype(np.float32)
 lum = a.mean(2); H, W = lum.shape
 def box(m, r):
     c = np.cumsum(np.cumsum(np.pad(m, ((r + 1, r), (r + 1, r)), mode='edge'), 0), 1)
     return (c[2*r+1:, 2*r+1:] - c[:-2*r-1, 2*r+1:] - c[2*r+1:, :-2*r-1] + c[:-2*r-1, :-2*r-1]) / (2 * r + 1) ** 2
 mean = box(lum, 2); std = np.sqrt(np.maximum(box(lum * lum, 2) - mean * mean, 0))
 bgl = cfg.get('bg') or np.median(np.concatenate([lum[:20].ravel(), lum[-20:].ravel()]))
-gun = (std > 2.2) | (np.abs(lum - bgl) > 14) | (a.max(2) - a.min(2) > 9)
-gun = grow(grow(gun, 3, 'or'), 3, 'and'); gun = grow(grow(gun, 1, 'and'), 1, 'or')
 yy, xx = np.mgrid[0:H, 0:W]
+if cfg.get('detect') == 'colour':
+    # a coloured finish on a noisy backdrop: the body by colour, the black parts drawn from the image
+    sat = a.max(2) - a.min(2)
+    gun = ((sat > 22) & (lum > 60)) | (lum > 150)
+    r = cfg.get('close', 3)
+    gun = grow(grow(gun, r, 'or'), r, 'and')
+    from PIL import ImageDraw
+    extra = Image.new('L', (W, H)); d = ImageDraw.Draw(extra)
+    ow = cfg['orig_w']; k = 700 / ow
+    for poly in cfg['black']:
+        d.polygon([((ow - x if cfg.get('flip') else x) * k, y * k) for x, y in poly], fill=255)
+    gun |= np.asarray(extra) > 0
+else:
+    gun = (std > 2.2) | (np.abs(lum - bgl) > 14) | (a.max(2) - a.min(2) > 9)
+    gun = grow(grow(gun, 3, 'or'), 3, 'and')
+gun = grow(grow(gun, 1, 'and'), 1, 'or')
 gun &= ~cfg['cut'](xx, yy)
 lab, sizes = components(gun); gun = lab == max(sizes, key=sizes.get)
+hl, hs = components(~gun); edge = set(hl[0, :]) | set(hl[-1, :]) | set(hl[:, 0]) | set(hl[:, -1])
+for h, hn in hs.items():
+    if h not in edge and hn < cfg.get('fill_holes', 0): gun |= hl == h      # dark ports and details inside the finish
 np.save('/tmp/' + sys.argv[1] + '-gun-mask.npy', gun) if len(sys.argv) > 2 else None
 
 taken = np.zeros_like(gun); parts = []
@@ -80,7 +115,7 @@ out = {
   'parts': parts,
   'mag': { 'name': 'magazine', 'depth': md, 'color': 'black', 'paint': True, 'outer': outline(mag, to_gun), 'holes': [] },
   'relief': relief,
-  'art': [gun14(0, 0)[0], gun14(1400, 0)[0], gun14(0, 933)[1], gun14(0, 0)[1]],
+  'art': [gun14(0, 0)[0], gun14(1400, 0)[0], gun14(0, H14)[1], gun14(0, 0)[1]],
 }
 name = sys.argv[1] if len(sys.argv) > 1 else 'g8'
 open('js/scene/' + name + '-model.js', 'w').write(

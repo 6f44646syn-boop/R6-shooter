@@ -1,23 +1,24 @@
-import { skinSheets } from '../render/skins2.js?v=e672d16-mwd7mual';
-import { packArt } from '../render/pack-art.js?v=e672d16-mwd7mual';
+import { skinSheets } from '../render/skins2.js?v=b021b19-mwd8gat8';
+import { packArt } from '../render/pack-art.js?v=b021b19-mwd8gat8';
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=e672d16-mwd7mual';
-import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=e672d16-mwd7mual';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=e672d16-mwd7mual';
-import { matcap } from './matcap.js?v=e672d16-mwd7mual';
-import { mulberry32 } from '../core/prng.js?v=e672d16-mwd7mual';
-import { gunMaps } from './range-tex.js?v=e672d16-mwd7mual';
-import { skinById, FACTORY, SAKURA_ID } from '../core/skins.js?v=e672d16-mwd7mual';
-import { legendCanvas, onLegendChange } from '../core/legend.js?v=e672d16-mwd7mual';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=e672d16-mwd7mual';
-import { HDPack } from '../render/hd-pack.js?v=e672d16-mwd7mual';
-import { epicRelief, giltPatches } from './skin-relief.js?v=e672d16-mwd7mual';
-import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect } from './inspect-effects.js?v=e672d16-mwd7mual';
-import { F2 } from './f2-model.js?v=e672d16-mwd7mual';
-import { G8 } from './g8-model.js?v=e672d16-mwd7mual';
-import { C8 } from './c8-model.js?v=e672d16-mwd7mual';
+import * as THREE from '../../vendor/three/three.module.min.js?v=b021b19-mwd8gat8';
+import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=b021b19-mwd8gat8';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=b021b19-mwd8gat8';
+import { matcap } from './matcap.js?v=b021b19-mwd8gat8';
+import { mulberry32 } from '../core/prng.js?v=b021b19-mwd8gat8';
+import { gunMaps } from './range-tex.js?v=b021b19-mwd8gat8';
+import { skinById, FACTORY, SAKURA_ID } from '../core/skins.js?v=b021b19-mwd8gat8';
+import { legendCanvas, onLegendChange } from '../core/legend.js?v=b021b19-mwd8gat8';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=b021b19-mwd8gat8';
+import { HDPack } from '../render/hd-pack.js?v=b021b19-mwd8gat8';
+import { epicRelief } from './skin-relief.js?v=b021b19-mwd8gat8';
+import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect } from './inspect-effects.js?v=b021b19-mwd8gat8';
+import { F2 } from './f2-model.js?v=b021b19-mwd8gat8';
+import { G8 } from './g8-model.js?v=b021b19-mwd8gat8';
+import { C8 } from './c8-model.js?v=b021b19-mwd8gat8';
+import { R4 } from './r4-model.js?v=b021b19-mwd8gat8';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -306,7 +307,7 @@ function topRail(g, y, from, to) {
 }
 const RAILS = {   // [top y, rear z, front z]
   rifle: [[0.035, 0.12, -0.17], [0.029, -0.18, -0.38]],
-  carbine: [[0.034, 0.1, -0.14]],
+  carbine: [],
   smg: [[0.0375, 0.08, -0.11]],
   lmg: [],
   marksman: [[0.035, 0.12, -0.16], [0.0245, -0.17, -0.4]],
@@ -656,6 +657,8 @@ function epicInlays(gun, skin) {
   epicRelief(gun, skin, epicMats.get(key));
 }
 
+// on the painted flowers of the R4-C concept: [y, z, size] (tools: the concept's pixels, see r4-model.js)
+const SAKURA_SPOTS = [[0.009, -0.2878, 0.0104], [0.0238, -0.3163, 0.0066], [0.0079, -0.35, 0.0104], [0.0058, -0.4038, 0.0095], [-0.0543, -0.1137, 0.0104], [-0.0374, -0.139, 0.0076], [-0.0628, -0.1369, 0.0057]];
 function sakuraInlays(gun, inspect = false) {
   const sh = shading();
   if (!sakuraMats.has(sh)) {
@@ -669,7 +672,7 @@ function sakuraInlays(gun, inspect = false) {
   }
   const [pink, rose, gold, agedGold] = sakuraMats.get(sh);
   agedGold.name = 'Tarnished gilt';
-  giltPatches(gun, gold, agedGold);
+  // (the gilt is in the painting now: no separate gold plates)
   const surfaces = [...gun.children];
   gun.updateMatrixWorld(true);
   const ray = new THREE.Raycaster();
@@ -678,9 +681,7 @@ function sakuraInlays(gun, inspect = false) {
   const blossoms = [];
   // Sample the real exterior at the receiver, grip, handguard and stock on each model LOD.
   for (const side of [-1, 1]) {
-    for (const [y, z, size] of [[-0.021, -0.057, 0.014], [-0.028, -0.093, 0.006],
-      [0.014, -0.263, 0.010], [0.016, -0.23, 0.005], [-0.09, 0.052, 0.010],
-      [-0.104, 0.068, 0.005], [0.018, 0.264, 0.009], [0.02, 0.292, 0.006]]) {
+    for (const [y, z, size] of SAKURA_SPOTS) {
       ray.ray.origin.set(side * 0.09, y, z);
       ray.ray.direction.set(-side, 0, 0);
       const hit = ray.intersectObjects(surfaces, false)[0];
@@ -802,14 +803,27 @@ function artInlays(gun, skin, model, inspect = false) {
       }
     }
   }
-  return { reliefs, dials };
+  // where water drips from (the underside of the body) and where glints rise (points over the sides)
+  const under = [], surface = [], out = model.body.outer;
+  const bins = new Map();
+  for (const [z, y] of out) { const k = Math.round(z / 0.02); if (!bins.has(k) || y < bins.get(k)[1]) bins.set(k, [z, y]); }
+  for (const [z, y] of bins.values()) for (const side of [-1, 1]) under.push({ point: new THREE.Vector3(side * half * 0.8, y, z), normal: new THREE.Vector3(0, -1, 0) });
+  const inside = (z, y) => { let c = false; for (let i = 0, j = out.length - 1; i < out.length; j = i++) { const [zi, yi] = out[i], [zj, yj] = out[j]; if ((yi > y) !== (yj > y) && z < (zj - zi) * (y - yi) / (yj - yi) + zi) c = !c; } return c; };
+  const zs = out.map((p) => p[0]), ys = out.map((p) => p[1]);
+  const [zMin, zMax, yMin, yMax] = [Math.min(...zs), Math.max(...zs), Math.min(...ys), Math.max(...ys)];
+  for (let i = 0, seed = 7; surface.length < 80 && i < 2000; i++) {
+    seed = (seed * 16807) % 2147483647; const z = zMin + (zMax - zMin) * (seed / 2147483647);
+    seed = (seed * 16807) % 2147483647; const y = yMin + (yMax - yMin) * (seed / 2147483647);
+    if (inside(z, y)) { const side = i % 2 ? 1 : -1; surface.push({ point: new THREE.Vector3(side * (half + 0.002), y, z), normal: new THREE.Vector3(side, 0, 0) }); }
+  }
+  return { reliefs, dials, under, surface, muzzle: SPEC[Object.keys(TRACED).find((t) => TRACED[t] === model)]?.muzzle };
 }
 
 /* ---------- moving parts and ultra detail (gun coordinates) ---------- */
 // half receiver width, ejection port z, muzzle [y, z], trigger z, handguard [y, from, to]
 const SPEC = {
   rifle: { hw: 0.025, port: 0.0, muzzle: [0.012, -0.545], trig: 0.0, hg: [0.004, -0.19, -0.37] },
-  carbine: { hw: 0.025, port: 0.0, muzzle: [0.018, -0.44], trig: -0.005, hg: [0.004, -0.16, -0.28] },
+  carbine: { hw: 0.025, port: 0.0, muzzle: [0.0047, -0.523], trig: -0.029, hg: null },     // the traced R4-C (r4-model.js)
   smg: { hw: 0.024, port: 0.02, muzzle: [0.01, -0.225], trig: 0.0, hg: null },
   lmg: { hw: 0.0275, port: 0.0, muzzle: [0.0076, -0.639], trig: -0.004, hg: null },     // the traced G8A1 (g8-model.js)
   marksman: { hw: 0.024, port: 0.0, muzzle: [0.012, -0.655], trig: 0.0, hg: [0.002, -0.18, -0.4] },
@@ -911,7 +925,7 @@ function flashGroup() {
 }
 const smooth01 = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
-const TOP_Y = { rifle: 0.035, carbine: 0.034, smg: 0.0375, lmg: 0.049, marksman: 0.035 };
+const TOP_Y = { rifle: 0.035, carbine: 0.0545, smg: 0.0375, lmg: 0.049, marksman: 0.035 };
 
 /* ---------- a model per gun ---------- */
 // Each gun gets its own model (original low-poly shapes that suggest each gun's layout).
@@ -1033,7 +1047,7 @@ function traced(g, o, color, kind = 'auto') {
 }
 // Guns rebuilt from their Legendary's concept: the outlines in js/scene/*-model.js. Parts marked
 // paint wear a painted skin (the concept shows them finished), else they stay black or steel.
-const TRACED = { bullpup: F2, lmg: G8, sfw: C8 };
+const TRACED = { bullpup: F2, lmg: G8, sfw: C8, carbine: R4 };
 function tracedGun(model) {
   return (g, c, mg) => {
     const painted = !!currentSkin()?.art;
@@ -1489,7 +1503,7 @@ export class WeaponRig {
       m.add(gunG);
       if (ice) m.userData.inspectFx = frostInspect(gunG, frost, crystals, sk, INSPECT_QUALITY);
       else if (blossoms?.length) m.userData.inspectFx = sakuraInspect(gunG, blossoms, INSPECT_QUALITY);
-      else if (art) m.userData.inspectFx = sk.artLook === 'bronze' ? abyssInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'glass' ? vesperInspect(gunG, art, INSPECT_QUALITY) : kilnInspect(gunG, art.reliefs, INSPECT_QUALITY);
+      else if (art) m.userData.inspectFx = sk.artLook === 'bronze' ? abyssInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'glass' ? vesperInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'porcelain' ? kilnInspect(gunG, art, INSPECT_QUALITY) : null;
       m.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
       this.models.set(key, m);
       this.root.add(m);

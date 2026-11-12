@@ -1,8 +1,8 @@
 // How the match maps look (the Battle maps keep Battle's own scenery). Everything is drawn in
 // code on small canvases; no image files. Boxes are merged per look into a few meshes:
 // walls and floors tile in world space, furniture is fitted per face.
-import * as THREE from '../../vendor/three/three.module.min.js?v=e672d16-mwd7mual';
-import { makeSky, skyPalette } from '../render/sky.js?v=e672d16-mwd7mual';
+import * as THREE from '../../vendor/three/three.module.min.js?v=b021b19-mwd8gat8';
+import { makeSky, skyPalette } from '../render/sky.js?v=b021b19-mwd8gat8';
 
 /* ---------- textures ---------- */
 const cache = new Map();

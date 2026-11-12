@@ -9,7 +9,7 @@
 //   p        [scale (whole number), warp, threshold shift, spare]
 //   rm       [roughness, metalness] of the base, then of the accent
 //   clearcoat, wear (bare metal at the edges), glow ([r, g, b] light from the accent lines)
-import { mulberry32 } from './prng.js?v=e672d16-mwd7mual';
+import { mulberry32 } from './prng.js?v=b021b19-mwd8gat8';
 
 export const RARITIES = [
   { key: 'common', name: 'Common', color: '#b4bcc6', odds: 0.69975, refund: 20 },
@@ -26,7 +26,8 @@ export const LEGEND = { id: LEGEND_ID, name: 'Legend', rarity: 'legendary', phot
 export const LEGEND_GOLD = { ...LEGEND, id: LEGEND_GOLD_ID, name: 'Legend', photo: false, rm: [0.25, 1, 0.2, 1], wear: 0.2 };
 export const SAKURA_ID = 201;
 const SAKURA = {
-  id: SAKURA_ID, name: 'Sakura Gilt', rarity: 'legendary', guns: [2], pattern: 17,
+  id: SAKURA_ID, name: 'Sakura Gilt', rarity: 'legendary', guns: [2], pattern: 18, art: 'data/skins/sakura-gilt.webp',
+  artRect: [-0.52308, 0.28734, -0.35822, 0.24959], artLook: 'lacquer',      // painted from the R4-C concept (00-sakura-gilt-r4c.jpg)
   c: [[0.98, 0.69, 0.14], [0.46, 0.054, 0.13], [0.71, 0.17, 0.32], [0.011, 0.012, 0.016]],
   rm: [0.085, 0.88, 0.087, 0.62], clearcoat: 1, wear: 0, glow: [0, 0, 0],
 };
