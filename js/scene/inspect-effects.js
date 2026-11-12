@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=5cd0ef3-mwdhofew';
-import { mulberry32 } from '../core/prng.js?v=5cd0ef3-mwdhofew';
-import { mergeStatic } from './sight-model.js?v=5cd0ef3-mwdhofew';
+import * as THREE from '../../vendor/three/three.module.min.js?v=3884a5c-mwdhrmgv';
+import { mulberry32 } from '../core/prng.js?v=3884a5c-mwdhrmgv';
+import { mergeStatic } from './sight-model.js?v=3884a5c-mwdhrmgv';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -1471,7 +1471,10 @@ export function jadeInspect(gun, { surface }, quality) {
   for (const m of [glints, glints2, motes]) { m.material.blending = THREE.AdditiveBlending; m.visible = false; gun.add(m); }
   // which side faces the camera: the dragon that comes alive is the one you can see
   let viewSide = 1, side = 1; const camAt = new THREE.Vector3();
-  body.onBeforeRender = (renderer, scene, camera) => { camAt.setFromMatrixPosition(camera.matrixWorld); gun.worldToLocal(camAt); viewSide = Math.sign(camAt.x) || 1; };
+  // (read off a tiny, invisible marker drawn every frame: the dragon itself is not drawn until it comes out)
+  const probe = new THREE.Mesh(new THREE.PlaneGeometry(0.0001, 0.0001), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+  probe.frustumCulled = false; gun.add(probe);
+  probe.onBeforeRender = (renderer, scene, camera) => { camAt.setFromMatrixPosition(camera.matrixWorld); gun.worldToLocal(camAt); viewSide = Math.sign(camAt.x) || 1; };
   // the crest along its back
   const nSpikes = 28, spikes = new THREE.InstancedMesh(new THREE.ConeGeometry(0.0016, 0.006, 6), bronze, nSpikes);
   spikes.frustumCulled = false; spikes.visible = false; gun.add(spikes);
@@ -1507,10 +1510,12 @@ export function jadeInspect(gun, { surface }, quality) {
         // where it lies in the painting, half sunk into the side
         painted.getPointAt(f, Pp);
         const shown = smooth((front - Pp.z) / 0.03, 0, 1);              // the painting has gone here: it is solid
-        s.w = smooth((Math.min(front, soon) - Pp.z) / 0.09, 0, 1);       // ... and lifting off (back down before the paint returns)
+        // it lies still in its place until it is all out, then lifts off head first (and lies back down
+        // just before the paint returns)
+        s.w = Math.min(active ? smooth(p, 0.48 + f * 0.1, 0.6 + f * 0.1) : 0, smooth((soon - Pp.z) / 0.09, 0, 1));
         s.r = rMax * taper * shown;
         if (shown > 0.001) any = true;
-        Pp.x = side * (half + s.r * 0.3);
+        Pp.x = side * (half + s.r * 0.55);                              // standing out of the side
         // where it is in the coil
         const a = side * (Math.PI * 0.5 - spin + f * 1.3 * Math.PI * 2) + (side < 0 ? Math.PI : 0);
         C.set(Math.cos(a) * RX, yc + Math.sin(a) * RY, zc - 0.1 + f * 0.3);
@@ -1548,6 +1553,6 @@ export function jadeInspect(gun, { surface }, quality) {
       }
       spikes.instanceMatrix.needsUpdate = true;
     },
-    dispose() { geo.dispose(); jade.dispose(); bronze.dispose(); eyeMat.dispose(); spikes.geometry.dispose(); head.traverse(o => o.geometry?.dispose()); for (const m of [glints, glints2, motes]) { m.geometry.dispose(); m.material.dispose(); } },
+    dispose() { probe.geometry.dispose(); probe.material.dispose(); geo.dispose(); jade.dispose(); bronze.dispose(); eyeMat.dispose(); spikes.geometry.dispose(); head.traverse(o => o.geometry?.dispose()); for (const m of [glints, glints2, motes]) { m.geometry.dispose(); m.material.dispose(); } },
   };
 }
