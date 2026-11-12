@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=e5abbf7-mwd96xd4';
-import { mulberry32 } from '../core/prng.js?v=e5abbf7-mwd96xd4';
-import { mergeStatic } from './sight-model.js?v=e5abbf7-mwd96xd4';
+import * as THREE from '../../vendor/three/three.module.min.js?v=ef9b523-mwd9feqb';
+import { mulberry32 } from '../core/prng.js?v=ef9b523-mwd9feqb';
+import { mergeStatic } from './sight-model.js?v=ef9b523-mwd9feqb';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -358,7 +358,7 @@ const particleFragment = /* glsl */`
   }
 `;
 
-const particleBudget = { mist: [22, 38, 54, 70], chip: [20, 34, 48, 62], petal: [28, 46, 64, 84], drop: [14, 22, 30, 40], drip: [40, 70, 100, 130], splash: [60, 100, 150, 200], jet: [80, 140, 200, 260], wind: [30, 50, 70, 90], gather: [40, 70, 100, 130], burst: [40, 70, 100, 140], bubble: [12, 18, 26, 34], speck: [10, 16, 22, 30], glint: [60, 100, 150, 200] };
+const particleBudget = { mist: [22, 38, 54, 70], chip: [20, 34, 48, 62], petal: [28, 46, 64, 84], drop: [14, 22, 30, 40], drip: [80, 140, 200, 260], splash: [120, 200, 300, 400], jet: [160, 280, 400, 520], wind: [30, 50, 70, 90], gather: [40, 70, 100, 130], burst: [40, 70, 100, 140], bubble: [12, 18, 26, 34], speck: [10, 16, 22, 30], glint: [60, 100, 150, 200] };
 const particleTier = { low: 0, standard: 1, high: 2, ultra: 3 };
 
 function particles(kind, tier, anchors, tint, trail, rng) {
@@ -707,9 +707,9 @@ export function abyssInspect(gun, { reliefs, dials, muzzle }, quality) {
       bubbles.visible = specks.visible = active && p > 0.3;
       trail.update(active ? p * ABYSS_SECONDS : -1);
       const sink = active ? smooth(p, 0.2, 0.5) * (1 - smooth(p, 0.7, 0.92)) : 0;
-      for (const d of dials) d.needle.rotation.z = d.rest - sink * 2.3 + (active ? Math.sin(p * 40) * 0.03 * sink : 0);
       // the shell winds up faster and faster (six full turns, so it ends where it began) ...
       const spin = active ? Math.pow(smooth(p, 0.22, 0.62), 3) * Math.PI * 12 : 0;
+      for (const d of dials) d.needle.rotation.z = d.rest - sink * 2.3 - spin * 2 + (active ? Math.sin(p * 40) * 0.03 * sink : 0);
       for (const r of shell) {
         R.makeRotationX(spin * Math.sign(r.normal.x || 1));
         M.makeTranslation(r.base.x, r.ring[1], r.ring[0]).multiply(R).multiply(T.makeTranslation(0, -r.ring[1], -r.ring[0]));
@@ -772,7 +772,25 @@ export function vesperInspect(gun, { reliefs, surface }, quality) {
   const strand = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xd9c8ff, emissiveIntensity: 1.6, roughness: 0.15, metalness: 0, transparent: true, opacity: 0 });
   const sheet = new THREE.MeshPhysicalMaterial({ color: 0xe8e0ff, roughness: 0.02, metalness: 0, iridescence: 1, iridescenceIOR: 1.6, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false });
   const jag = (a, b, n) => { const pts = [a]; for (let k = 1; k < n; k++) pts.push(a.clone().lerp(b, k / n).add(new THREE.Vector3(rng() - 0.5, rng() - 0.5, 0).multiplyScalar(0.012))); pts.push(b); return pts; };
-  const tubes = [];
+  const tubes = [], rifts = [];
+  const riftU = { uTime: { value: 0 }, uOpen: { value: 0 } };
+  const riftMat = new THREE.ShaderMaterial({ uniforms: riftU, transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    vertexShader: 'varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `uniform float uTime, uOpen; varying vec2 vP;
+      void main(){
+        vec2 q = vP / vec2(0.42, 0.95); float d = clamp(length(q), 0.0, 1.0), a = atan(q.y, q.x);
+        float swirl = sin(a * 3.0 + uTime * 2.2 - d * 9.0) * 0.5 + 0.5;
+        float veins = pow(abs(sin(a * 7.0 - uTime * 0.7 + sin(d * 14.0 + uTime) * 1.5)), 12.0) * (1.0 - d);
+        vec3 deep = vec3(0.03, 0.0, 0.02), red = vec3(0.85, 0.06, 0.04);
+        vec3 c = mix(deep, red * 0.6, swirl * (1.0 - d) * 0.7) + red * veins * 1.4;
+        c += vec3(1.0, 0.35, 0.12) * pow(d, 5.0) * 2.4;          // the burning lip
+        gl_FragColor = vec4(c, uOpen * (0.92 + 0.08 * d));
+      }` });
+  // spores drifting out of the rifts
+  const nSpores = [30, 60, 90, 120][particleTier[quality] ?? 1], spore = [];
+  const sporeGeo = new THREE.BufferGeometry(); sporeGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(nSpores * 3), 3));
+  const spores = new THREE.Points(sporeGeo, new THREE.PointsMaterial({ color: 0xffd9c8, size: 0.004, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+  spores.frustumCulled = false; spores.visible = false;
   for (let n = 0; n < 4; n++) {
     const pane = new THREE.Group();
     const R = 0.07 + rng() * 0.06, spokes = 9 + Math.floor(rng() * 5), ends = [];
@@ -787,6 +805,11 @@ export function vesperInspect(gun, { reliefs, surface }, quality) {
     }
     const outline = new THREE.Shape(ends.map(e => new THREE.Vector2(e.x, e.y)));
     pane.add(new THREE.Mesh(new THREE.ShapeGeometry(outline), sheet));
+    // the rift: the break tears open into a tall slit onto another dimension, dark and red-lit inside
+    const lip = [];
+    for (let i = 0; i < 28; i++) { const a = i / 28 * Math.PI * 2, j = 0.85 + rng() * 0.3; lip.push(new THREE.Vector2(Math.cos(a) * 0.42 * j, Math.sin(a) * 0.95 * j)); }
+    const rift = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape(lip)), riftMat);
+    rift.position.z = 0.0005; rift.scale.x = 0.001; rift.userData.R = R; pane.add(rift); rifts.push(rift);
     // somewhere around the gun, turned a different way each
     const dir = new THREE.Vector3(rng() - 0.5, rng() * 0.6 - 0.1, rng() - 0.5).normalize();
     pane.position.copy(centre).addScaledVector(dir, 0.12 + rng() * 0.12);
@@ -794,6 +817,8 @@ export function vesperInspect(gun, { reliefs, surface }, quality) {
     cracks.add(pane); panes.push(pane);
   }
   for (const t of tubes) t.pane.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(t.pts, false, 'catmullrom', 0.1), t.pts.length * 2, t.w, 3, false), strand));
+  for (let i = 0; i < nSpores; i++) spore.push({ pane: panes[i % panes.length], x: (rng() - 0.5) * 0.05, y: (rng() - 0.5) * 0.12, v: new THREE.Vector3(rng() - 0.5, rng() * 0.5 + 0.2, rng() * 1.2 + 0.3).multiplyScalar(0.05), t0: rng() });
+  cracks.add(spores);
   cracks.name = 'Inspect time cracks'; cracks.visible = false;
   cracks.traverse(o => { o.frustumCulled = false; });
   gun.add(shards, cracks);
@@ -831,6 +856,20 @@ export function vesperInspect(gun, { reliefs, surface }, quality) {
       for (const pane of panes) pane.scale.setScalar(Math.max(0.001, spread));
       strand.opacity = spread * seal * (0.75 + 0.25 * ((tick % 3) / 2));
       sheet.opacity = spread * seal * 0.12;
+      // the rifts tear open after the cracks, hold while time is caught, then close before the seal
+      const open = active ? smooth(p, 0.46, 0.52) * (1 - smooth(p, 0.58, 0.64)) : 0;
+      riftU.uOpen.value = open; riftU.uTime.value = active ? p * VESPER_SECONDS : 0;
+      for (const r of rifts) r.scale.set(r.userData.R * Math.max(0.001, open), r.userData.R * (0.6 + 0.4 * open), 1);
+      spores.visible = open > 0.01; spores.material.opacity = open * 0.9;
+      if (spores.visible) {
+        const pos = sporeGeo.attributes.position, w = new THREE.Vector3();
+        spore.forEach((s, i) => {
+          const age = ((p - 0.46) / 0.18 + s.t0) % 1;
+          w.set(s.x * open, s.y, 0).addScaledVector(s.v, age).applyMatrix4(s.pane.matrix);
+          pos.setXYZ(i, w.x, w.y, w.z);
+        });
+        pos.needsUpdate = true;
+      }
       trail.update(active ? p * VESPER_SECONDS : -1);
       const turn = active ? smooth(p, VESPER_PEAK - 0.1, VESPER_PEAK + 0.04) * (1 - smooth(p, 0.74, 0.9)) * 0.17 : 0;   // about 10 degrees
       for (const r of reliefs) {
@@ -840,6 +879,6 @@ export function vesperInspect(gun, { reliefs, surface }, quality) {
         r.group.matrix.copy(M);
       }
     },
-    dispose() { for (const m of [...glints, shards]) { m.geometry.dispose(); m.material.dispose(); } cracks.traverse(o => o.geometry?.dispose()); strand.dispose(); sheet.dispose(); },
+    dispose() { for (const m of [...glints, shards]) { m.geometry.dispose(); m.material.dispose(); } cracks.traverse(o => o.geometry?.dispose()); strand.dispose(); sheet.dispose(); riftMat.dispose(); spores.material.dispose(); },
   };
 }

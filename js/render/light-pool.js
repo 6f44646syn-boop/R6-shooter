@@ -3,7 +3,7 @@
 // lamps and dark corners between them. A fixed count keeps the shaders stable (no recompiles
 // as you move); fixtures out of reach just stay emissive.
 //   fixture: { p: Vector3, dir: Vector3 (where it shines), color, intensity, distance, angle }
-import * as THREE from '../../vendor/three/three.module.min.js?v=e5abbf7-mwd96xd4';
+import * as THREE from '../../vendor/three/three.module.min.js?v=ef9b523-mwd9feqb';
 
 export class LightPool {
   constructor(scene, n) {
