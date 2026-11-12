@@ -6,6 +6,7 @@ const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 const SAKURA_SECONDS = 4.2, SAKURA_PEAK = 0.54;
 const KILN_SECONDS = 4.2, KILN_PEAK = 0.57;
 const ABYSS_SECONDS = 4.2, ABYSS_PEAK = 0.57;
+const VESPER_SECONDS = 4.2, VESPER_PEAK = 0.57;
 const smooth = THREE.MathUtils.smoothstep;
 
 const ICE_CLIP = { root: [
@@ -288,7 +289,7 @@ const particleFragment = /* glsl */`
     #elif defined(SPECK)
       float r = dot(p, p);
       if (r >= 1.0) discard;
-      c = vec3(0.45, 1.0, 0.7) * 1.6;
+      c = tint * 1.6;
       a = vAlpha * exp(-3.0 * r) * (0.6 + 0.4 * sin(vAge * 30.0 + vSeed.x * 20.0));
     #elif defined(DROP)
       // a clear bead: dark refracted rim, bright catch-light up and to the left
@@ -594,5 +595,41 @@ export function abyssInspect(gun, { reliefs, dials }, quality) {
       });
     },
     dispose() { for (const m of [bubbles, specks]) { m.geometry.dispose(); m.material.dispose(); } },
+  };
+}
+
+// Vesper Glass: turn the dark pewter into the light so the panes catch it one arch at a time
+// (shader, artPhase); at the peak the rose window's inner ring turns a few degrees in its frame and
+// a concentrated reflection slides across the receiver; a few coloured glints fade beside the glass;
+// the ring seats flush again before idle.
+export function vesperInspect(gun, { reliefs }, quality) {
+  const trail = emitterTrail(gun), tier = Math.max(0, (particleTier[quality] ?? 1) - 1);
+  const anchors = reliefs.map(r => ({ point: new THREE.Vector3(r.base.x, r.ring[1], r.ring[0]), normal: r.normal.clone() }));
+  const fallback = [{ point: new THREE.Vector3(), normal: new THREE.Vector3(1, 0, 0) }];
+  const glints = [new THREE.Color(0xff3a4e), new THREE.Color(0xffb04a)].map((tint, i) => particles('speck', tier, anchors.length ? anchors : fallback, tint, trail, mulberry32(204001 + i * 17)));
+  for (const m of glints) { m.visible = false; gun.add(m); }
+  const glazes = [];
+  gun.traverse(o => { const u = o.material?.userData?.tri; if (u?.artPhase && !glazes.includes(u.artPhase)) glazes.push(u.artPhase); });
+  const M = new THREE.Matrix4(), R = new THREE.Matrix4(), T = new THREE.Matrix4();
+  for (const r of reliefs) r.group.matrixAutoUpdate = false;
+  let phase = -1;
+  return {
+    clip: KILN_CLIP, seconds: VESPER_SECONDS,
+    update(p) {
+      const active = p >= 0 && p < 1;
+      if (!active && phase < 0) return;
+      phase = active ? p : -1;
+      for (const g of glazes) g.value = active ? p : -1;
+      for (const m of glints) m.visible = active && p > 0.45;
+      trail.update(active ? p * VESPER_SECONDS : -1);
+      const turn = active ? smooth(p, VESPER_PEAK - 0.1, VESPER_PEAK + 0.04) * (1 - smooth(p, 0.74, 0.9)) * 0.17 : 0;   // about 10 degrees
+      for (const r of reliefs) {
+        // turn about the rose window's centre, around the gun's side normal
+        R.makeRotationX(turn * Math.sign(r.normal.x || 1));
+        M.makeTranslation(r.base.x, r.ring[1], r.ring[0]).multiply(R).multiply(T.makeTranslation(0, -r.ring[1], -r.ring[0]));
+        r.group.matrix.copy(M);
+      }
+    },
+    dispose() { for (const m of glints) { m.geometry.dispose(); m.material.dispose(); } },
   };
 }

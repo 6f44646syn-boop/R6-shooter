@@ -14,9 +14,10 @@ import { legendCanvas, onLegendChange } from '../core/legend.js?v=e672d16-mwd7mu
 import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=e672d16-mwd7mual';
 import { HDPack } from '../render/hd-pack.js?v=e672d16-mwd7mual';
 import { epicRelief, giltPatches } from './skin-relief.js?v=e672d16-mwd7mual';
-import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect } from './inspect-effects.js?v=e672d16-mwd7mual';
+import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect } from './inspect-effects.js?v=e672d16-mwd7mual';
 import { F2 } from './f2-model.js?v=e672d16-mwd7mual';
 import { G8 } from './g8-model.js?v=e672d16-mwd7mual';
+import { C8 } from './c8-model.js?v=e672d16-mwd7mual';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -750,7 +751,7 @@ function artInlays(gun, skin, model, inspect = false) {
   const half = (model.body.depth || 0.05) / 2;
   for (const side of [-1, 1]) {
     const [mz, my] = at(822, 300);
-    const m = skin.artLook !== 'bronze' && onSurface(side, my, mz);
+    const m = skin.artLook === 'porcelain' && onSurface(side, my, mz);
     if (m) {
       const moon = new THREE.Mesh(MOON, steel);
       moon.position.copy(m.point).addScaledVector(m.normal, 0.0004);
@@ -1032,7 +1033,7 @@ function traced(g, o, color, kind = 'auto') {
 }
 // Guns rebuilt from their Legendary's concept: the outlines in js/scene/*-model.js. Parts marked
 // paint wear a painted skin (the concept shows them finished), else they stay black or steel.
-const TRACED = { bullpup: F2, lmg: G8 };
+const TRACED = { bullpup: F2, lmg: G8, sfw: C8 };
 function tracedGun(model) {
   return (g, c, mg) => {
     const painted = !!currentSkin()?.art;
@@ -1042,10 +1043,10 @@ function tracedGun(model) {
   };
 }
 for (const [type, model] of Object.entries(TRACED)) BUILDERS[type] = tracedGun(model);
-Object.assign(TOP_Y, { evo: 0.032, bullpup: 0.1305, machinepistol: 0.035, ak: 0.044, compact: 0.035, sfw: 0.034, pdw: 0.035 });
+Object.assign(TOP_Y, { evo: 0.032, bullpup: 0.1305, machinepistol: 0.035, ak: 0.044, compact: 0.035, sfw: 0.0459, pdw: 0.035 });
 Object.assign(RAILS, {
   evo: [[0.032, 0.14, -0.24]], bullpup: [], machinepistol: [[0.035, 0.08, -0.08]],
-  ak: [[0.044, 0.12, -0.12]], compact: [[0.035, 0.1, -0.1]], sfw: [[0.034, 0.1, -0.14], [0.032, -0.16, -0.44]], pdw: [[0.035, 0.11, -0.12]],
+  ak: [[0.044, 0.12, -0.12]], compact: [[0.035, 0.1, -0.1]], sfw: [], pdw: [[0.035, 0.11, -0.12]],
 });
 Object.assign(HAND_Z, { evo: -0.2, bullpup: -0.32, machinepistol: -0.07, ak: -0.26, compact: -0.13, sfw: -0.3, pdw: -0.09 });
 Object.assign(GRIP_Z, { evo: 0.07, bullpup: -0.12, machinepistol: 0.03, ak: 0.07, compact: 0.06, sfw: 0.05, pdw: 0.02 });
@@ -1055,7 +1056,7 @@ Object.assign(SPEC, {
   machinepistol: { hw: 0.02, port: 0, muzzle: [0.01, -0.158], trig: 0, hg: null },
   ak: { hw: 0.025, port: 0, muzzle: [0.01, -0.595], trig: 0, hg: [0, -0.18, -0.35] },
   compact: { hw: 0.022, port: 0.02, muzzle: [0, -0.21], trig: 0.02, hg: null },
-  sfw: { hw: 0.025, port: 0, muzzle: [0.012, -0.61], trig: 0, hg: [0.004, -0.17, -0.43] },
+  sfw: { hw: 0.025, port: 0, muzzle: [0.0042, -0.544], trig: -0.04, hg: null },     // the traced C8-SFW (c8-model.js)
   pdw: { hw: 0.021, port: 0, muzzle: [0.008, -0.208], trig: 0, hg: null },
 });
 
@@ -1488,7 +1489,7 @@ export class WeaponRig {
       m.add(gunG);
       if (ice) m.userData.inspectFx = frostInspect(gunG, frost, crystals, sk, INSPECT_QUALITY);
       else if (blossoms?.length) m.userData.inspectFx = sakuraInspect(gunG, blossoms, INSPECT_QUALITY);
-      else if (art) m.userData.inspectFx = sk.artLook === 'bronze' ? abyssInspect(gunG, art, INSPECT_QUALITY) : kilnInspect(gunG, art.reliefs, INSPECT_QUALITY);
+      else if (art) m.userData.inspectFx = sk.artLook === 'bronze' ? abyssInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'glass' ? vesperInspect(gunG, art, INSPECT_QUALITY) : kilnInspect(gunG, art.reliefs, INSPECT_QUALITY);
       m.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
       this.models.set(key, m);
       this.root.add(m);

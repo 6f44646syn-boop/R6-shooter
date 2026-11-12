@@ -47,6 +47,14 @@ const ABYSS = {
   c: [[0.3, 0.2, 0.1], [0.06, 0.45, 0.4], [0.04, 0.05, 0.045], [0.55, 0.42, 0.25]],
   rm: [0.32, 0.9, 0.08, 0], clearcoat: 0.4, wear: 0, glow: [0, 0, 0],
 };
+// Vesper Glass (C8-SFW only): blackened pewter tracery and garnet, violet and amber glass, a rose window.
+export const VESPER_ID = 204;
+const VESPER = {
+  id: VESPER_ID, name: 'Vesper Glass', rarity: 'legendary', guns: [7], pattern: 18, art: 'data/skins/vesper-glass.webp',
+  artRect: [-0.55978, 0.31133, -0.35542, 0.22511], artLook: 'glass',
+  c: [[0.06, 0.055, 0.06], [0.45, 0.04, 0.08], [0.03, 0.03, 0.035], [0.3, 0.08, 0.35]],
+  rm: [0.45, 0.55, 0.05, 0], clearcoat: 0.6, wear: 0, glow: [0, 0, 0],
+};
 export const RARITY = Object.fromEntries(RARITIES.map((r) => [r.key, r]));
 export const PATTERN_NAMES = ['Contour', 'Pixel', 'Woodland', 'Tiger', 'Veteran', 'Hexcore', 'Damascus', 'Blot', 'Weave', 'Shard', 'Black Ice', 'Fade', 'Line', 'Marble', 'Circuit', 'Blossom', 'Tide', 'Gilt Blossom', 'Storm Kiln'];
 
@@ -137,6 +145,7 @@ function make(id) {
   if (id === SAKURA_ID) return SAKURA;
   if (id === KILN_ID) return KILN;
   if (id === ABYSS_ID) return ABYSS;
+  if (id === VESPER_ID) return VESPER;
   const [word, hue, frost, depth, tint, scale, coverage, shape] = ICE[id - 192];
   return { id, rarity: 'blackice', name: 'Black Ice ' + word, pattern: 10,
     ice: hsl(frost, 0.58, tint), crystalShape: shape, scale: 1.85,
@@ -145,7 +154,7 @@ function make(id) {
     glow: hsl(frost, 0.64, 0.66).map((v) => v * 0.48) };
 }
 
-export const SKIN_COUNT = 204;      // 100 Common, 60 Rare, 32 Epic, 9 Black Ice, 3 Legendary (Sakura Gilt, Storm Kiln, Abyssal Crown)
+export const SKIN_COUNT = 205;      // 100 Common, 60 Rare, 32 Epic, 9 Black Ice, 4 Legendary (Sakura Gilt, Storm Kiln, Abyssal Crown, Vesper Glass)
 export const CATALOGUE = Array.from({ length: SKIN_COUNT }, (_, i) => make(i));
 // Unique names (the same word + pattern can come up twice).
 {
