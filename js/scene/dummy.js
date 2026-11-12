@@ -4,7 +4,7 @@
 //
 // Coordinates: metres in the target group's frame. x right, y up from the floor, z towards the
 // player. The head centre is at eye height (1.6 m), so a level aim is a head-height aim.
-import * as THREE from '../../vendor/three/three.module.min.js?v=a67ff2c-mwdl7zvj';
+import * as THREE from '../../vendor/three/three.module.min.js?v=d0aee3b-mwdla33w';
 
 export const DUMMY_HEAD_Y = 1.6;
 

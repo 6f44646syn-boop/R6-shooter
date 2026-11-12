@@ -1,5 +1,5 @@
-import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=a67ff2c-mwdl7zvj';
-import { packArt } from './pack-art.js?v=a67ff2c-mwdl7zvj';
+import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=d0aee3b-mwdla33w';
+import { packArt } from './pack-art.js?v=d0aee3b-mwdla33w';
 // GPU-baked textures for ultra graphics. Everything is procedural and drawn by a fragment
 // shader into a render target once (milliseconds on a graphics card), so 4096 x 4096 maps
 // cost nothing at start-up and nothing is downloaded.
@@ -10,7 +10,7 @@ import { packArt } from './pack-art.js?v=a67ff2c-mwdl7zvj';
 //   bakeSkin(renderer, index, size): one of SKINS, { albedo, rm } (rm: G roughness, B metalness).
 //   triplanar(material, opts): shader patch that maps a skin and/or detail by the surface's
 //        own 3D position (no UV stretching on long thin parts), with edge wear from UVs.
-import * as THREE from '../../vendor/three/three.module.min.js?v=a67ff2c-mwdl7zvj';
+import * as THREE from '../../vendor/three/three.module.min.js?v=d0aee3b-mwdla33w';
 
 const VERT = /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 

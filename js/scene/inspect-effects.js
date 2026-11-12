@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=a67ff2c-mwdl7zvj';
-import { mulberry32 } from '../core/prng.js?v=a67ff2c-mwdl7zvj';
-import { mergeStatic } from './sight-model.js?v=a67ff2c-mwdl7zvj';
+import * as THREE from '../../vendor/three/three.module.min.js?v=d0aee3b-mwdla33w';
+import { mulberry32 } from '../core/prng.js?v=d0aee3b-mwdla33w';
+import { mergeStatic } from './sight-model.js?v=d0aee3b-mwdla33w';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -417,11 +417,11 @@ const particleFragment = /* glsl */`
   }
 `;
 
-const particleBudget = { mist: [22, 38, 54, 70], chip: [20, 34, 48, 62], petal: [28, 46, 64, 84], drop: [14, 22, 30, 40], drip: [80, 140, 200, 260], rain: [80, 140, 200, 260], seaspray: [60, 100, 150, 200], seamist: [14, 24, 34, 44], splash: [120, 200, 300, 400], jet: [160, 280, 400, 520], wind: [15, 25, 35, 45], gather: [40, 70, 100, 130], burst: [40, 70, 100, 140], spark: [16, 26, 36, 48], flame: [140, 240, 340, 460], smoke: [16, 26, 36, 48], ember: [20, 34, 48, 64], bubble: [120, 200, 300, 400], speck: [10, 16, 22, 30], glint: [60, 100, 150, 200] };
+const particleBudget = { mist: [22, 38, 54, 70], chip: [20, 34, 48, 62], petal: [28, 46, 64, 84], drop: [14, 22, 30, 40], drip: [80, 140, 200, 260], rain: [80, 140, 200, 260], seaspray: [60, 100, 150, 200], seamist: [14, 24, 34, 44], splash: [120, 200, 300, 400], jet: [160, 280, 400, 520], wind: [15, 25, 35, 45], gather: [40, 70, 100, 130], burst: [40, 70, 100, 140], spark: [16, 26, 36, 48], prism: [60, 100, 150, 200], flame: [140, 240, 340, 460], smoke: [16, 26, 36, 48], ember: [20, 34, 48, 64], bubble: [120, 200, 300, 400], speck: [10, 16, 22, 30], glint: [60, 100, 150, 200] };
 const particleTier = { low: 0, standard: 1, high: 2, ultra: 3 };
 
 function particles(kind, tier, anchors, tint, trail, rng) {
-  const mist = kind === 'mist', petals = kind === 'petal', drops = ['drop', 'drip', 'splash', 'jet', 'wind', 'seaspray', 'seamist', 'rain'].includes(kind), deep = ['bubble', 'speck', 'glint', 'gather', 'burst', 'spark', 'ember', 'flame', 'smoke'].includes(kind);
+  const mist = kind === 'mist', petals = kind === 'petal', drops = ['drop', 'drip', 'splash', 'jet', 'wind', 'seaspray', 'seamist', 'rain'].includes(kind), deep = ['bubble', 'speck', 'glint', 'gather', 'burst', 'spark', 'ember', 'flame', 'smoke', 'prism'].includes(kind);
   const seconds = petals ? SAKURA_SECONDS : drops ? KILN_SECONDS : deep ? ABYSS_SECONDS : FROST_SECONDS;
   const peak = (petals ? SAKURA_PEAK : drops ? KILN_PEAK : deep ? ABYSS_PEAK : FROST_PEAK) * seconds;
   const k = seconds / 4.2;                              // timings below were set for a 4.2 s inspect
@@ -461,6 +461,9 @@ function particles(kind, tier, anchors, tint, trail, rng) {
     } else if (kind === 'burst') {                        // sparks thrown out of the muzzle by the blast
       start = seconds * (0.69 + 0.03 * rng());
       life = 0.4 + rng() * 0.3;
+    } else if (kind === 'prism') {                        // Opal Overture: pouring out of the open jaw, a burst on the bite
+      start = seconds * (i % 3 === 0 ? 0.61 + 0.02 * rng() : 0.4 + 0.42 * rng());
+      life = 0.5 + rng() * 0.5;
     } else if (kind === 'spark') {                        // hot sparks off the split, around the peak
       start = peak + (-0.15 + rng() * 0.7) * k;
       life = 0.3 + rng() * 0.3;
@@ -510,7 +513,7 @@ function particles(kind, tier, anchors, tint, trail, rng) {
   geo.setAttribute('seed', new THREE.InstancedBufferAttribute(new Float32Array(seeds), 4));
   geo.setAttribute('timing', new THREE.InstancedBufferAttribute(new Float32Array(timing), 4));
   geo.instanceCount = count;
-  const defines = kind === 'rain' ? { RAIN: 1 } : kind === 'seamist' ? { MIST: 1 } : kind === 'seaspray' ? { DROP: 1, SPRAY: 1 } : kind === 'jet' ? { DROP: 1, JET: 1 } : kind === 'wind' ? { WIND: 1 } : kind === 'gather' ? { SPECK: 1, GATHER: 1 } : kind === 'burst' ? { SPECK: 1, BURST: 1 } : kind === 'spark' ? { SPECK: 1, SPARK: 1 } : kind === 'ember' ? { SPECK: 1, EMBER: 1 } : kind === 'flame' ? { FLAME: 1 } : kind === 'smoke' ? { SMOKE: 1 } :
+  const defines = kind === 'rain' ? { RAIN: 1 } : kind === 'seamist' ? { MIST: 1 } : kind === 'seaspray' ? { DROP: 1, SPRAY: 1 } : kind === 'jet' ? { DROP: 1, JET: 1 } : kind === 'wind' ? { WIND: 1 } : kind === 'gather' ? { SPECK: 1, GATHER: 1 } : kind === 'burst' ? { SPECK: 1, BURST: 1 } : kind === 'spark' ? { SPECK: 1, SPARK: 1 } : kind === 'prism' ? { SPECK: 1, BURST: 1 } : kind === 'ember' ? { SPECK: 1, EMBER: 1 } : kind === 'flame' ? { FLAME: 1 } : kind === 'smoke' ? { SMOKE: 1 } :
     mist ? { MIST: 1 } : petals ? { PETAL: 1 } : kind === 'drip' ? { DROP: 1, DRIP: 1 } : kind === 'splash' ? { DROP: 1, SPLASH: 1 } : kind === 'glint' ? { SPECK: 1, GLINT: 1 } : drops ? { DROP: 1 } : kind === 'bubble' ? { BUBBLE: 1 } : kind === 'speck' ? { SPECK: 1 } : {};
   if (mist && tier === 0) defines.LOW_INSPECT = 1;
   const material = new THREE.ShaderMaterial({
@@ -1915,11 +1918,13 @@ const EYE_FRAGMENT = `uniform float uTime, uWake; uniform vec2 uLook; varying ve
     vec2 f2 = vP.xz;                                   // the dome rises on +y: its face is x, z
     float d = length(f2), ang = atan(f2.y, f2.x);
     // the white: pearly, a faint opal sheen, thin red veins towards the edge
-    vec3 c = vec3(0.9, 0.88, 0.84) * (0.85 + 0.15 * facing) + hue(facing * 2.0) * 0.06;
-    c -= vec3(0.0, 0.35, 0.3) * pow(abs(sin(ang * 9.0 + d * 14.0 + sin(ang * 3.0) * 2.0)), 60.0) * smoothstep(0.55, 0.95, d);
+    // the sclera: black opal, a faint fire drifting in it, darkening to the rim
+    vec2 sq = f2 * 4.0 + vec2(uTime * 0.05, 0.0); vec2 sc = floor(sq);
+    vec3 c = vec3(0.025, 0.02, 0.04) + hue(h(sc) + facing * 1.2) * 0.12 * smoothstep(0.5, 0.0, length(fract(sq) - 0.5)) * (1.0 - d);
     // the iris, looking your way: black opal fire in fibres round the pupil, a dark ring at its edge
     vec2 e = f2 - uLook; float di = length(e), ai = atan(e.y, e.x);
     float irisM = smoothstep(0.5, 0.46, di);
+    c += vec3(0.85, 0.65, 0.3) * smoothstep(0.03, 0.0, abs(di - 0.5)) * 0.8;      // a fine gold ring round the iris
     vec2 q = e * 6.0 + vec2(sin(ai * 5.0 + uTime * 0.4), cos(ai * 4.0 - uTime * 0.3)) * 0.4;
     vec2 cell = floor(q); float r = h(cell);
     vec3 fire = hue(r + facing * 1.4 + uTime * 0.06) * (0.6 + 0.9 * pow(h(cell + 2.3), 2.0));
@@ -1996,18 +2001,18 @@ export function opalInspect(gun, { surface }, quality) {
     o.geometry = splitAtY(o.geometry, JAW_Y - o.position.y);
   });
   // the throat: a dark red wedge down the middle of the gun between the jaws (it stretches as they open)
-  const gumMat = new THREE.MeshStandardMaterial({ color: 0x3a060c, emissive: 0x2a0408, emissiveIntensity: 0.9, roughness: 0.55, side: THREE.DoubleSide });
+  const gumMat = new THREE.MeshPhysicalMaterial({ color: 0x0c0814, emissive: 0x2a1450, emissiveIntensity: 0.7, roughness: 0.2, iridescence: 1, iridescenceIOR: 1.8, side: THREE.DoubleSide });
   const throatPos = new Float32Array(9), gumGeo = new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(throatPos, 3));
   const throat = new THREE.Mesh(gumGeo, gumMat); throat.frustumCulled = false; throat.visible = false; gun.add(throat);
   const gumC = new THREE.Vector3(), gumD = new THREE.Vector3();
   const packSup = gun.children.find(c => c.userData.arm);             // (pack guns: a separate support hand and arm)
   // the teeth: two rows each side, riding the jaws (inside the gun while it is shut), fangs near the front
-  const toothMat = new THREE.MeshPhysicalMaterial({ color: 0xf2ead6, roughness: 0.25, clearcoat: 1 });
+  const toothMat = new THREE.MeshPhysicalMaterial({ color: 0xe8e4ec, metalness: 0.6, roughness: 0.12, clearcoat: 1, iridescence: 0.9, iridescenceIOR: 1.6 });   // pearl-silver
   const toothGeo = new THREE.ConeGeometry(1, 1, 8);
-  const teeth = [], NT = 10, tz0 = -0.215, tz1 = JAW_HINGE - 0.04;
+  const teeth = [], NT = 13, tz0 = -0.215, tz1 = JAW_HINGE - 0.04;
   for (const side of [-1, 1]) for (const k of [1, -1]) for (let j = 0; j < NT; j++) {
     const u = j / (NT - 1), fang = j === 1, t = new THREE.Mesh(toothGeo, toothMat);
-    t.userData = { x: side * (half - 0.004), z: tz0 + (tz1 - tz0) * u, k, h: fang ? 0.024 : 0.011 + 0.004 * Math.sin(Math.PI * u), r: fang ? 0.0045 : 0.0034 };
+    t.userData = { x: side * (half - 0.004), z: tz0 + (tz1 - tz0) * u, k, h: fang ? 0.026 : 0.009 + 0.003 * Math.sin(Math.PI * u), r: fang ? 0.0028 : 0.0017 };
     t.visible = false; gun.add(t); teeth.push(t);
   }
   const jawRot = (y, z, a, out) => { const dy = y - JAW_Y, dz = z - JAW_HINGE; return out.set(0, JAW_Y + dy * Math.cos(a) - dz * Math.sin(a), JAW_HINGE + dy * Math.sin(a) + dz * Math.cos(a)); };
@@ -2031,6 +2036,9 @@ export function opalInspect(gun, { surface }, quality) {
     return { g, upper, lower, side };
   });
   const trail = emitterTrail(gun);
+  const mouthFrom = [];
+  for (let j = 0; j < 12; j++) for (const side of [-1, 1]) mouthFrom.push({ point: new THREE.Vector3(side * 0.01, 0.042, tz0 + (tz1 - tz0) * j / 11), normal: new THREE.Vector3(side * 0.6, 0.5, -0.8).normalize() });
+  const prisms = [0xff7ab0, 0x7affe0, 0xb08aff, 0xffe08a].map((c, k) => { const m = particles('prism', tier, mouthFrom, new THREE.Color(c).multiplyScalar(3), trail, mulberry32(210101 + k * 9)); m.material.blending = THREE.AdditiveBlending; m.visible = false; gun.add(m); return m; });
   const rainbow = [0xff6a8a, 0x6affd8, 0xa070ff, 0xffd06a].map((c, i) => {
     const m = particles('glint', tier, surface.length ? surface : [{ point: at.clone(), normal: new THREE.Vector3(1, 0, 0) }], new THREE.Color(c).multiplyScalar(2.5), trail, mulberry32(210011 + i * 7));
     m.material.blending = THREE.AdditiveBlending; m.visible = false; gun.add(m); return m;
@@ -2066,9 +2074,9 @@ export function opalInspect(gun, { surface }, quality) {
       jawU.uHideSup.value = active ? 1 : 0;
       if (packSup) { packSup.visible = !active; packSup.userData.arm.visible = !active; if (packSup.userData.arm.userData.upper) packSup.userData.arm.userData.upper.visible = !active; }
       // the jaw opens after the eye, chomps twice, opens wide, and shuts with the eye at the end
-      const chomp = active ? Math.abs(Math.sin(smooth(p, 0.52, 0.66) * Math.PI * 2)) : 0;
-      const gape = active ? smooth(p, 0.34, 0.45) * (1 - smooth(p, 0.8, 0.88)) * (1 - 0.85 * chomp) : 0;
-      const A = 0.45 * gape;
+      const bite = active ? Math.sin(smooth(p, 0.56, 0.64) * Math.PI) : 0;      // one deliberate bite
+      const gape = active ? smooth(p, 0.32, 0.5) * (1 - smooth(p, 0.8, 0.9)) * (1 - 0.9 * bite) : 0;
+      const A = 0.34 * gape;
       jawU.uJawAngle.value = A;
       throat.visible = A > 0.01;
       if (throat.visible) {
@@ -2086,12 +2094,13 @@ export function opalInspect(gun, { surface }, quality) {
         t.scale.set(r, h, r);
       }
       for (const m of rainbow) m.visible = active && p > 0.25;
+      for (const m of prisms) m.visible = active;
       trail.update(active ? t : -1);
     },
     dispose() {
       for (const [o, m, g] of swapped) { o.geometry.dispose(); o.material = m; o.geometry = g; } for (const m of wrapped.values()) m.dispose(); toothMat.dispose(); toothGeo.dispose(); gumGeo.dispose(); gumMat.dispose();
       eyeGeo.dispose(); upperGeo.dispose(); lowerGeo.dispose(); eyeMat.dispose(); lidMat.dispose(); probe.geometry.dispose(); probe.material.dispose();
-      for (const m of rainbow) { m.geometry.dispose(); m.material.dispose(); }
+      for (const m of [...rainbow, ...prisms]) { m.geometry.dispose(); m.material.dispose(); }
     },
   };
 }
