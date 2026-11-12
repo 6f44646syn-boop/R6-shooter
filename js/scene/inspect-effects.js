@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=bbc2366-mwdhu71j';
-import { mulberry32 } from '../core/prng.js?v=bbc2366-mwdhu71j';
-import { mergeStatic } from './sight-model.js?v=bbc2366-mwdhu71j';
+import * as THREE from '../../vendor/three/three.module.min.js?v=29e6b7d-mwdhze2p';
+import { mulberry32 } from '../core/prng.js?v=29e6b7d-mwdhze2p';
+import { mergeStatic } from './sight-model.js?v=29e6b7d-mwdhze2p';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
@@ -1495,7 +1495,7 @@ export function jadeInspect(gun, { surface }, quality) {
       // the painting sweeps to the bare gun as the dragon peels off head first, and back as it lies down
       // the painting sweeps away muzzle to stock (the shader's wipe front, in gun z); the dragon comes off
       // where it has gone, and lies back down just before it returns
-      const mixAt = (q) => active ? smooth(q, 0.0, 0.42) * (1 - smooth(q, 0.76, 0.95)) : 0;   // (from the start, while the gun is still coming up)
+      const mixAt = (q) => active ? smooth(q, 0.0, 0.25) * (1 - smooth(q, 0.76, 0.95)) : 0;   // (from the start, while the gun is still coming up)
       const frontAt = (q) => Z0 - 0.05 + (Z1 - Z0 + 0.1) * mixAt(q);
       const front = frontAt(p), soon = frontAt(Math.min(1, p + 0.06));
       for (const u of mixes) if (u.artMix) { u.artMix.value = mixAt(p); u.artMixSide.value = side; }
@@ -1513,7 +1513,7 @@ export function jadeInspect(gun, { surface }, quality) {
         const shown = smooth((front - Pp.z) / 0.03, 0, 1);              // the painting has gone here: it is solid
         // it lies still in its place until it is all out, then lifts off head first (and lies back down
         // just before the paint returns)
-        s.w = Math.min(active ? smooth(p, 0.42 + f * 0.1, 0.54 + f * 0.1) : 0, smooth((soon - Pp.z) / 0.09, 0, 1));
+        s.w = Math.min(active ? smooth(p, 0.3 + f * 0.1, 0.42 + f * 0.1) : 0, smooth((soon - Pp.z) / 0.09, 0, 1));
         s.r = rMax * taper * shown;
         if (shown > 0.001) any = true;
         Pp.x = side * (half + s.r * 0.55);                              // standing out of the side
@@ -1555,5 +1555,114 @@ export function jadeInspect(gun, { surface }, quality) {
       spikes.instanceMatrix.needsUpdate = true;
     },
     dispose() { probe.geometry.dispose(); probe.material.dispose(); geo.dispose(); jade.dispose(); bronze.dispose(); eyeMat.dispose(); spikes.geometry.dispose(); head.traverse(o => o.geometry?.dispose()); for (const m of gold) { m.geometry.dispose(); m.material.dispose(); } },
+  };
+}
+
+// Velvet Ante: playing cards, charged with a pink glow, fly in from all round and spin about the gun,
+// then sweep into a ring in front of you, facing you, charge up, and drop one by one, fluttering down.
+const VELVET_SECONDS = 8.4;
+let cardTex = null;
+function cardTextures() {
+  if (cardTex) return cardTex;
+  const make = (draw) => { const c = document.createElement('canvas'); c.width = 128; c.height = 180; draw(c.getContext('2d')); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; };
+  const round = (g, x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); };
+  const back = make((g) => {
+    g.fillStyle = '#4a0c18'; round(g, 0, 0, 128, 180, 10); g.fill();
+    g.strokeStyle = '#d8b25a'; g.lineWidth = 3; round(g, 7, 7, 114, 166, 7); g.stroke();
+    g.lineWidth = 1.5; round(g, 13, 13, 102, 154, 5); g.stroke();
+    for (let i = 0; i < 9; i++) { g.beginPath(); g.arc(64, 118, 12 + i * 7, Math.PI * 1.15, Math.PI * 1.85); g.stroke(); }   // an Art Deco fan
+    g.fillStyle = '#d8b25a'; g.beginPath(); g.moveTo(64, 112); g.lineTo(70, 124); g.lineTo(64, 136); g.lineTo(58, 124); g.closePath(); g.fill();
+  });
+  const fronts = [['A', '\u2660', '#111'], ['K', '\u2665', '#b0182a'], ['Q', '\u2666', '#b0182a'], ['J', '\u2663', '#111'], ['10', '\u2665', '#b0182a']].map(([rank, suit, col]) => make((g) => {
+    g.fillStyle = '#f3ecdb'; round(g, 0, 0, 128, 180, 10); g.fill();
+    g.strokeStyle = '#c8a64e'; g.lineWidth = 2; round(g, 5, 5, 118, 170, 7); g.stroke();
+    g.fillStyle = col; g.font = 'bold 26px Georgia, serif'; g.textAlign = 'center';
+    g.fillText(rank, 20, 32); g.font = '22px serif'; g.fillText(suit, 20, 54);
+    g.save(); g.translate(108, 148); g.rotate(Math.PI); g.font = 'bold 26px Georgia, serif'; g.fillText(rank, 0, 0); g.font = '22px serif'; g.fillText(suit, 0, 22); g.restore();
+    g.font = '72px serif'; g.fillText(suit, 64, 116);
+  }));
+  const glow = make((g) => {
+    const r = g.createRadialGradient(64, 90, 10, 64, 90, 92);
+    r.addColorStop(0, 'rgba(255,90,200,0.9)'); r.addColorStop(0.55, 'rgba(255,60,170,0.45)'); r.addColorStop(1, 'rgba(255,40,160,0)');
+    g.fillStyle = r; g.fillRect(0, 0, 128, 180);
+  });
+  cardTex = { back, fronts, glow };
+  return cardTex;
+}
+export function velvetInspect(gun, { surface }, quality) {
+  const tier = particleTier[quality] ?? 1, n = [10, 14, 18, 22][tier], rng = mulberry32(209013);
+  const pts = surface.map(a => a.point);
+  const G = pts.length ? pts.reduce((a, v) => a.add(v), new THREE.Vector3()).multiplyScalar(1 / pts.length) : new THREE.Vector3();
+  const tex = cardTextures(), W = 0.036, H = 0.05;
+  const plane = new THREE.PlaneGeometry(W, H), glowPlane = new THREE.PlaneGeometry(W * 1.7, H * 1.6);
+  const backMat = new THREE.MeshStandardMaterial({ map: tex.back, roughness: 0.4, metalness: 0.1, transparent: true });
+  const frontMats = tex.fronts.map(map => new THREE.MeshStandardMaterial({ map, roughness: 0.35, transparent: true }));
+  const glowMat = new THREE.MeshBasicMaterial({ map: tex.glow, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, opacity: 0 });
+  const cards = Array.from({ length: n }, (_, i) => {
+    const g = new THREE.Group();
+    const front = new THREE.Mesh(plane, frontMats[i % frontMats.length]);
+    const back = new THREE.Mesh(plane, backMat); back.rotation.y = Math.PI; back.position.z = -0.0003;
+    const glow = new THREE.Mesh(glowPlane, glowMat); glow.position.z = -0.0006;
+    g.add(glow, front, back); g.visible = false; gun.add(g);
+    const from = new THREE.Vector3(rng() - 0.5, rng() * 0.8 - 0.2, rng() - 0.5).normalize().multiplyScalar(0.9).add(G);
+    return { g, from, a0: i / n * Math.PI * 2, r: 0.1 + rng() * 0.05, h: (rng() - 0.5) * 0.06, dz: (rng() - 0.5) * 0.3,
+      axis: new THREE.Vector3(rng() - 0.5, rng() - 0.5, rng() - 0.5).normalize(), spin: 5 + rng() * 6, delay: rng() * 0.08, drop: rng() * 0.12,
+      sway: rng() * 6.28, fall: new THREE.Vector3((rng() - 0.5) * 0.1, 0, (rng() - 0.5) * 0.1) };
+  });
+  // where the camera is (gun space): the ring forms between it and the gun, facing it
+  const cam = new THREE.Vector3(1, 0, 0), camAt = new THREE.Vector3();
+  const probe = new THREE.Mesh(new THREE.PlaneGeometry(0.0001, 0.0001), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+  probe.frustumCulled = false; gun.add(probe);
+  probe.onBeforeRender = (renderer, scene, camera) => { camAt.setFromMatrixPosition(camera.matrixWorld); gun.worldToLocal(camAt); cam.copy(camAt); };
+  const P1 = new THREE.Vector3(), P2 = new THREE.Vector3(), dir = new THREE.Vector3(), right = new THREE.Vector3(), upV = new THREE.Vector3(), radial = new THREE.Vector3();
+  const q1 = new THREE.Quaternion(), q2 = new THREE.Quaternion(), mtx = new THREE.Matrix4(), zero = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0), X = new THREE.Vector3(1, 0, 0);
+  const glazes = [];
+  gun.traverse(o => { const u = o.material?.userData?.tri; if (u?.artPhase && !glazes.includes(u.artPhase)) glazes.push(u.artPhase); });
+  let phase = -1;
+  return {
+    clip: KILN_CLIP, seconds: VELVET_SECONDS,
+    update(p) {
+      const active = p >= 0 && p < 1;
+      if (!active && phase < 0) return;
+      phase = active ? p : -1;
+      for (const g of glazes) g.value = active ? p : -1;
+      const t = active ? p * VELVET_SECONDS : 0;
+      // the ring in front of you: between the camera and the gun, facing the camera
+      dir.copy(cam).sub(G); const dist = dir.length(); dir.normalize();
+      const ringC = G.clone().addScaledVector(dir, Math.min(0.16, dist * 0.45));
+      right.crossVectors(Y, dir).normalize(); upV.crossVectors(dir, right).normalize();
+      const charge = active ? smooth(p, 0.58, 0.7) * (1 - smooth(p, 0.76, 0.84)) : 0;
+      glowMat.opacity = active ? (0.35 + 0.25 * Math.sin(t * 9) + charge * 0.8) * (1 - smooth(p, 0.86, 0.97)) : 0;
+      for (const m of [backMat, ...frontMats]) m.opacity = 1 - smooth(p, 0.9, 0.98);
+      cards.forEach((c, i) => {
+        c.g.visible = active && p > 0.06 + c.delay && p < 0.99;
+        if (!c.g.visible) return;
+        // spinning round the gun (its long axis), each card turning end over end
+        const a = c.a0 + t * 2.4;
+        P1.set(Math.cos(a) * c.r, G.y + c.h + Math.sin(a) * c.r * 0.8, G.z + c.dz);
+        q1.setFromAxisAngle(c.axis, t * c.spin);
+        // flying in from far off along a curve
+        const inK = smooth(p, 0.06 + c.delay, 0.22 + c.delay);
+        if (inK < 1) { P2.copy(c.from).lerp(P1, inK); P2.y += Math.sin(inK * Math.PI) * 0.08; P1.copy(P2); }
+        // into the ring in front of you, card faces to you, the ring turning slowly
+        const ra = i / n * Math.PI * 2 + t * 0.6, R = 0.14;
+        P2.copy(ringC).addScaledVector(right, Math.cos(ra) * R).addScaledVector(upV, Math.sin(ra) * R);
+        radial.copy(right).multiplyScalar(Math.cos(ra)).addScaledVector(upV, Math.sin(ra));
+        mtx.lookAt(dir, zero, radial); q2.setFromRotationMatrix(mtx);
+        const ringK = smooth(p, 0.5 + i / n * 0.06, 0.6 + i / n * 0.06);
+        // ... then dropped one by one, fluttering down
+        const dropAt = 0.76 + c.drop, fallK = active ? Math.max(0, p - dropAt) * VELVET_SECONDS : 0;
+        c.g.position.copy(P1).lerp(P2, ringK);
+        c.g.quaternion.copy(q1).slerp(q2, ringK);
+        if (fallK > 0) {
+          c.g.position.addScaledVector(c.fall, fallK).add(new THREE.Vector3(Math.sin(fallK * 5 + c.sway) * 0.012, -0.35 * fallK * fallK - 0.02 * fallK, 0));
+          c.g.quaternion.multiply(q1.setFromAxisAngle(X, Math.sin(fallK * 6 + c.sway) * 0.9)).multiply(q2.setFromAxisAngle(Y, fallK * 3));
+        }
+      });
+    },
+    dispose() {
+      plane.dispose(); glowPlane.dispose(); backMat.dispose(); glowMat.dispose(); for (const m of frontMats) m.dispose();
+      probe.geometry.dispose(); probe.material.dispose();
+    },
   };
 }

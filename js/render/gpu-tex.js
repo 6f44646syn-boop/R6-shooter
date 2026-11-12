@@ -1,5 +1,5 @@
-import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=bbc2366-mwdhu71j';
-import { packArt } from './pack-art.js?v=bbc2366-mwdhu71j';
+import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=29e6b7d-mwdhze2p';
+import { packArt } from './pack-art.js?v=29e6b7d-mwdhze2p';
 // GPU-baked textures for ultra graphics. Everything is procedural and drawn by a fragment
 // shader into a render target once (milliseconds on a graphics card), so 4096 x 4096 maps
 // cost nothing at start-up and nothing is downloaded.
@@ -10,7 +10,7 @@ import { packArt } from './pack-art.js?v=bbc2366-mwdhu71j';
 //   bakeSkin(renderer, index, size): one of SKINS, { albedo, rm } (rm: G roughness, B metalness).
 //   triplanar(material, opts): shader patch that maps a skin and/or detail by the surface's
 //        own 3D position (no UV stretching on long thin parts), with edge wear from UVs.
-import * as THREE from '../../vendor/three/three.module.min.js?v=bbc2366-mwdhu71j';
+import * as THREE from '../../vendor/three/three.module.min.js?v=29e6b7d-mwdhze2p';
 
 const VERT = /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
@@ -568,7 +568,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
     // from it. Looks: 'porcelain' (glaze, crazing, silver seams) or 'bronze' (metal, glowing teal inlays).
     Object.assign(uniforms, {
       artMap: { value: artTexture(def.art) }, artMap2: { value: artTexture(def.artPeak || def.art) }, artMix: { value: 0 }, artMixSide: { value: 0 }, artRect: { value: new THREE.Vector4(...def.artRect) },
-      artDark: { value: new THREE.Vector3(...def.c[2]) }, artPhase: { value: -1 }, artBlast: { value: -9 }, artMode: { value: { bronze: 1, glass: 2, resin: 2, jade: 2, lacquer: 3, gilt: 3, orrery: 5, forge: 4, amber: 6 }[def.artLook] || 0 },
+      artDark: { value: new THREE.Vector3(...def.c[2]) }, artPhase: { value: -1 }, artBlast: { value: -9 }, artMode: { value: { bronze: 1, glass: 2, resin: 2, jade: 2, lacquer: 3, gilt: 3, velvet: 3, orrery: 5, forge: 4, amber: 6 }[def.artLook] || 0 },
     });
   } else if (sakura) {
     const [gold, pink, pearl, black] = def.c.map(c => new THREE.Vector3(...c));
