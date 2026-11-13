@@ -11,7 +11,7 @@
 // host) therefore uses the same effective numbers. All the numbers come from Rust.
 //
 // A loadout code is four digits, one per slot: muzzle, grip, underbarrel, magazine.
-import { smoothPath } from './recoil.js?v=66e6c20-mwe5ta04';
+import { smoothPath } from './recoil.js?v=ee5991e-mweaippm';
 
 export const SLOTS = [
   { key: 'muzzle', name: 'Muzzle', options: ['None', 'Flash hider', 'Compensator', 'Muzzle brake', 'Suppressor', 'Extended barrel'] },
@@ -21,7 +21,7 @@ export const SLOTS = [
 ];
 // What each option does, for the armory (the numbers are read from Rust at load).
 const HINT = [
-  ['', 'Less climb and sideways kick, small flash', 'Much less sideways kick', 'Much less climb, louder', 'Quiet, no flash, less damage', 'More damage, slower to aim'],
+  ['', 'Less climb and sideways kick, small flash', 'Much less sideways kick', 'Much less climb, much faster recoil settle, louder', 'Quiet, no flash, less damage', 'More damage, slower to aim'],
   ['', 'Less climb', 'Faster to aim'],
   ['', 'Tighter hip fire'],
   ['', 'More rounds, slower reload', 'Faster reload'],
@@ -115,6 +115,8 @@ export function effectiveGun(gun, code) {
     sprayPath: path, sprayPathSmooth: smooth,
     jitter: { yawDeg: base.jitter.yawDeg * jit, pitchDeg: base.jitter.pitchDeg * jit },
     hipCone: hip, noise, flash,
+    // Muzzle brake: the gun settles back on your aim sooner and faster between shots and bursts.
+    recovery: ci[0] === 3 ? { delaySeconds: base.recovery.delaySeconds * 0.6, degPerSecond: base.recovery.degPerSecond * 1.8 } : base.recovery,
     suppressed: e.lo_out(11) === 1, laser: e.lo_out(12) === 1,
   });
   per.set(c, g);
@@ -130,6 +132,7 @@ export function describe(gun, code) {
   const add = (label, a, b, lowerIsBetter = true) => { const d = pct(a, b); if (d) out.push({ label, value: (d > 0 ? '+' : '') + d + '%', better: lowerIsBetter ? d < 0 : d > 0 }); };
   add('Climb', climb(g.sprayPath), Math.max(1e-6, climb(base.sprayPath)));
   add('Sideways', side(g.sprayPath), Math.max(1e-6, side(base.sprayPath)));
+  add('Recoil settle time', 1 / g.recovery.degPerSecond, 1 / base.recovery.degPerSecond);
   add('Aim time', g.adsSeconds, base.adsSeconds || 0.3);
   add('Reload', g.reloadSeconds, base.reloadSeconds);
   if (g.magSize !== base.magSize) out.push({ label: 'Rounds', value: base.magSize + ' → ' + g.magSize, better: g.magSize > base.magSize });

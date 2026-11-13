@@ -24,8 +24,10 @@ try {
     const B = R.battle(), h = B.humans[0], k = B.bots[0].f;
     for (const bot of B.bots) bot.update = () => {};
     R.step(0.1, 60);
-    B.key('KeyG', true); R.step(0.15, 60);
-    const held = B.grenadeCam === B.grenadeView.camera;
+    B.key('KeyG', true); R.step(0.1, 60);
+    const tap = !B.grenadeCam;                     // a tap throws without the grenade camera
+    R.step(0.3, 60);
+    const held = tap && B.grenadeCam === B.grenadeView.camera;
     B.key('KeyG', false); R.step(0.05, 60);
     const released = !B.grenadeCam;
     const n = B.nadesB.throw(k, k.yaw, 0, B.t);
@@ -53,7 +55,7 @@ try {
       if (mode === 'bomb') m.rules.phase = 'action';
       me.protectUntil = foe.protectUntil = 0;
       R.step(0.12,60);
-      G.key('KeyG',true); R.step(0.12,60);
+      G.key('KeyG',true); R.step(0.4,60);
       const held = G.camOverride === G.grenadeView.camera;
       G.key('KeyG',false); R.step(0.05,60);
       const released = G.camOverride !== G.grenadeView.camera;

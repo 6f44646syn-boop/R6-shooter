@@ -1,30 +1,30 @@
-import { skinSheets } from '../render/skins2.js?v=66e6c20-mwe5ta04';
-import { packArt } from '../render/pack-art.js?v=66e6c20-mwe5ta04';
+import { skinSheets } from '../render/skins2.js?v=ee5991e-mweaippm';
+import { packArt } from '../render/pack-art.js?v=ee5991e-mweaippm';
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=66e6c20-mwe5ta04';
-import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=66e6c20-mwe5ta04';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=66e6c20-mwe5ta04';
-import { matcap } from './matcap.js?v=66e6c20-mwe5ta04';
-import { mulberry32 } from '../core/prng.js?v=66e6c20-mwe5ta04';
-import { gunMaps } from './range-tex.js?v=66e6c20-mwe5ta04';
-import { skinById, FACTORY, SAKURA_ID } from '../core/skins.js?v=66e6c20-mwe5ta04';
-import { legendCanvas, onLegendChange } from '../core/legend.js?v=66e6c20-mwe5ta04';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=66e6c20-mwe5ta04';
-import { HDPack } from '../render/hd-pack.js?v=66e6c20-mwe5ta04';
-import { epicRelief } from './skin-relief.js?v=66e6c20-mwe5ta04';
-import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect, forgeInspect, orreryInspect, amberInspect, jadeInspect, velvetInspect, opalInspect } from './inspect-effects.js?v=66e6c20-mwe5ta04';
-import { F2 } from './f2-model.js?v=66e6c20-mwe5ta04';
-import { G8 } from './g8-model.js?v=66e6c20-mwe5ta04';
-import { C8 } from './c8-model.js?v=66e6c20-mwe5ta04';
-import { R4 } from './r4-model.js?v=66e6c20-mwe5ta04';
-import { AK } from './ak-model.js?v=66e6c20-mwe5ta04';
-import { EVO } from './evo-model.js?v=66e6c20-mwe5ta04';
-import { MP5K } from './compact-model.js?v=66e6c20-mwe5ta04';
-import { T5 } from './smg-model.js?v=66e6c20-mwe5ta04';
-import { SMG11 } from './machinepistol-model.js?v=66e6c20-mwe5ta04';
-import { MP7 } from './pdw-model.js?v=66e6c20-mwe5ta04';
+import * as THREE from '../../vendor/three/three.module.min.js?v=ee5991e-mweaippm';
+import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=ee5991e-mweaippm';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=ee5991e-mweaippm';
+import { matcap } from './matcap.js?v=ee5991e-mweaippm';
+import { mulberry32 } from '../core/prng.js?v=ee5991e-mweaippm';
+import { gunMaps } from './range-tex.js?v=ee5991e-mweaippm';
+import { skinById, FACTORY, SAKURA_ID } from '../core/skins.js?v=ee5991e-mweaippm';
+import { legendCanvas, onLegendChange } from '../core/legend.js?v=ee5991e-mweaippm';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=ee5991e-mweaippm';
+import { HDPack } from '../render/hd-pack.js?v=ee5991e-mweaippm';
+import { epicRelief } from './skin-relief.js?v=ee5991e-mweaippm';
+import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect, forgeInspect, orreryInspect, amberInspect, jadeInspect, velvetInspect, opalInspect } from './inspect-effects.js?v=ee5991e-mweaippm';
+import { F2 } from './f2-model.js?v=ee5991e-mweaippm';
+import { G8 } from './g8-model.js?v=ee5991e-mweaippm';
+import { C8 } from './c8-model.js?v=ee5991e-mweaippm';
+import { R4 } from './r4-model.js?v=ee5991e-mweaippm';
+import { AK } from './ak-model.js?v=ee5991e-mweaippm';
+import { EVO } from './evo-model.js?v=ee5991e-mweaippm';
+import { MP5K } from './compact-model.js?v=ee5991e-mweaippm';
+import { T5 } from './smg-model.js?v=ee5991e-mweaippm';
+import { SMG11 } from './machinepistol-model.js?v=ee5991e-mweaippm';
+import { MP7 } from './pdw-model.js?v=ee5991e-mweaippm';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -73,6 +73,7 @@ function currentSkin() {
   return skinFor(SKIN_SLOT);
 }
 const skins = new Map();        // skin id + size -> baked skin; the last few are kept
+const LIVE = new Map();         // rig -> the baked skin key its gun on screen wears (never evicted)
 let detailPaint = null, detailBrushed = null;
 // The Legendary skin: your photo as the colour (tiled bigger than patterns), a smooth lacquered
 // finish; it updates when you choose another photo.
@@ -95,10 +96,11 @@ function bakedSkin(def) {
   if (!skins.has(key)) {
     skins.set(key, bakeSkin(RENDERER, def, size));
     const big = [...skins.keys()].filter((k) => !k.endsWith('@512'));
-    if (big.length > 4) {            // big maps: keep a few guns' worth (small third-person ones stay)
-      const old = big[0], sk = skins.get(old);
+    const live = new Set(LIVE.values()), old = big.length > 4 && big.find((k) => k !== key && !live.has(k));
+    if (old) {                       // big maps: keep a few guns' worth (small third-person ones stay)
+      const sk = skins.get(old);
       disposeBaked(sk.albedo); disposeBaked(sk.rm); disposeBaked(sk.normal); skins.delete(old);
-      for (const [k, m] of mats) if (m.userData.skinKey === old) { m.dispose(); mats.delete(k); }
+      for (const [k, m] of mats) if (m.userData.skinKey === old) { m.userData.evicted = true; m.dispose(); mats.delete(k); }
     }
   }
   return skins.get(key);
@@ -354,16 +356,50 @@ function watchFace() {
   g.lineWidth = 3; g.beginPath(); g.moveTo(64, 64); g.lineTo(64 - 8, 64 - 42); g.stroke();
   return new THREE.CanvasTexture(c);
 }
+// Woven fabric as a normal map (from a height field): a fine knit for the glove, ripstop (a
+// weave with a raised grid) for the shirt, a pebbled grain for the suede palm.
+const fabricMaps = new Map();
+function fabricNormal(kind) {
+  if (fabricMaps.has(kind)) return fabricMaps.get(kind);
+  const n = 256, h = new Float32Array(n * n);
+  let s = 11; const r = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  const noise = new Float32Array(n * n).map(() => r());
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const T = Math.PI * 2 / n;
+    let v;
+    if (kind === 'sleeve') v = 0.5 * Math.pow(Math.sin(x * T * 64), 2) * (((x >> 2) + (y >> 2)) & 1 ? 1 : 0.4) + 0.5 * Math.pow(Math.sin(y * T * 64), 2) * (((x >> 2) + (y >> 2)) & 1 ? 0.4 : 1) + ((x % 32 < 2 || y % 32 < 2) ? 0.9 : 0);
+    else if (kind === 'glove') v = 0.6 * Math.abs(Math.sin(x * T * 48 + Math.sin(y * T * 96) * 0.8)) + 0.4 * Math.abs(Math.sin(y * T * 96));
+    else v = 0;
+    h[y * n + x] = v + noise[y * n + x] * (kind === 'palm' ? 1.4 : 0.25);
+  }
+  if (kind === 'palm') for (let k = 0; k < 2; k++) for (let i = 0; i < n * n; i++) h[i] = (h[i] + h[(i + 1) % (n * n)] + h[(i + n) % (n * n)]) / 3;   // soften to a grain
+  const c = document.createElement('canvas'); c.width = c.height = n;
+  const g = c.getContext('2d'), img = g.createImageData(n, n), K = kind === 'palm' ? 3 : 2;
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const dx = (h[y * n + (x + 1) % n] - h[y * n + (x + n - 1) % n]) * K, dy = (h[((y + 1) % n) * n + x] - h[((y + n - 1) % n) * n + x]) * K;
+    const l = Math.hypot(dx, dy, 1), o = (y * n + x) * 4;
+    img.data[o] = (-dx / l * 0.5 + 0.5) * 255; img.data[o + 1] = (dy / l * 0.5 + 0.5) * 255; img.data[o + 2] = (1 / l * 0.5 + 0.5) * 255; img.data[o + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(kind === 'sleeve' ? 14 : 8, kind === 'sleeve' ? 14 : 8);
+  fabricMaps.set(kind, t);
+  return t;
+}
 function handMat(kind) {
   const sh = sightShading(), key = sh + kind;
   if (handMats.has(key)) return handMats.get(key);
-  const P = { skin: [0xa87456, 0.56, 0], leather: [0x4a2e20, 0.5, 0], strap: [0x7a4f30, 0.55, 0], nail: [0xd8aa98, 0.28, 0], steel: [0x1b1d20, 0.3, 0.8], face: [0xffffff, 0.2, 0], sleeve: [SLEEVE, 0.95, 0] }[kind];
+  // [colour, roughness, metalness]: a charcoal synthetic glove, a dark suede palm, hard rubber
+  // knuckles and strap, darker seams, a ranger-green combat shirt
+  const P = { glove: [0x2b2d2f, 0.78, 0], palm: [0x4a443c, 0.92, 0], knuckle: [0x161718, 0.42, 0], strap: [0x1e2022, 0.6, 0], seam: [0x121314, 0.9, 0],
+    sleeve: [0x3c4234, 0.95, 0], skin: [0xa87456, 0.56, 0], leather: [0x4a2e20, 0.5, 0], nail: [0xd8aa98, 0.28, 0], steel: [0x1b1d20, 0.3, 0.8], face: [0xffffff, 0.2, 0] }[kind];
   let m;
   if (sh === 'fast') m = new THREE.MeshMatcapMaterial({ color: new THREE.Color(P[0]).multiplyScalar(1.9), matcap: matcap(kind === 'steel' ? 'metal' : 'rubber') });
   else {
-    m = new THREE.MeshStandardMaterial({ color: P[0], roughness: P[1], metalness: P[2], envMap: sh === 'high' || sh === 'ultra' ? highEnv() : ENV, envMapIntensity: kind === 'skin' ? 0.35 : 0.6 });
-    if (kind === 'leather' || kind === 'strap') { m.bumpMap = grainTex(); m.bumpScale = 0.6; }
-    if (kind === 'skin') { m.emissive = new THREE.Color(0x4a1a0c); m.emissiveIntensity = 0.05; m.bumpMap = grainTex(); m.bumpScale = 0.12; m.bumpMap.repeat.set(9, 9); }   // pores; a little warmth in the shade
+    m = new THREE.MeshStandardMaterial({ color: P[0], roughness: P[1], metalness: P[2], envMap: sh === 'high' || sh === 'ultra' ? highEnv() : ENV, envMapIntensity: kind === 'knuckle' ? 0.9 : 0.5 });
+    if (kind === 'glove' || kind === 'sleeve' || kind === 'palm') { m.normalMap = fabricNormal(kind); m.normalScale.setScalar(kind === 'sleeve' ? 0.45 : 0.7); }
+    if (kind === 'sleeve') m.emissive = new THREE.Color(0x0c0e09), m.emissiveIntensity = 1;   // a little lift in the shade
+    if (kind === 'leather' || kind === 'strap') { m.bumpMap = grainTex(); m.bumpScale = 0.4; }
     if (kind === 'face') { m.map = watchFace(); m.emissiveMap = m.map; m.emissive = new THREE.Color(0x3a4a30); }
   }
   m.userData.hand = true;
@@ -374,140 +410,133 @@ const ell = (g, kind, sx, sy, sz, x, y, z, rx = 0, ry = 0, rz = 0) => {
   const b = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), handMat(kind));
   b.scale.set(sx, sy, sz); b.position.set(x, y, z); b.rotation.set(rx, ry, rz); g.add(b); return b;
 };
-// A smooth tapering tube through points (radius r0 to r1): one piece, no ball joints.
-function taperTube(g, pts, r0, r1, kind) {
-  const curve = new THREE.CatmullRomCurve3(pts), seg = 14, rad = 10;
+// A rounded box (a superellipsoid: e < 1 squares it off): palms, the back of the hand, pads.
+const blobGeos = new Map();
+function blob(g, kind, sx, sy, sz, x, y, z, rx = 0, ry = 0, rz = 0, e = 0.45) {
+  let geo = blobGeos.get(e);
+  if (!geo) {
+    geo = new THREE.SphereGeometry(1, 30, 22); const P = geo.attributes.position, f = (c) => Math.sign(c) * Math.pow(Math.abs(c), e);
+    for (let i = 0; i < P.count; i++) P.setXYZ(i, f(P.getX(i)), f(P.getY(i)), f(P.getZ(i)));
+    geo.computeVertexNormals(); blobGeos.set(e, geo);
+  }
+  const b = new THREE.Mesh(geo, handMat(kind));
+  b.scale.set(sx, sy, sz); b.position.set(x, y, z); b.rotation.set(rx, ry, rz); g.add(b); return b;
+}
+// A smooth tube through points; rf(t) gives the radius along it (0 at the first point, 1 at the last).
+function limb(g, pts, rf, kind, seg = 26, rad = 14) {
+  const curve = new THREE.CatmullRomCurve3(pts);
   const geo = new THREE.TubeGeometry(curve, seg, 1, rad, false), P = geo.attributes.position, c = new THREE.Vector3(), v = new THREE.Vector3();
   for (let i = 0; i < P.count; i++) {
     const t = Math.floor(i / (rad + 1)) / seg;
-    curve.getPointAt(t, c); v.fromBufferAttribute(P, i).sub(c).multiplyScalar(r0 + (r1 - r0) * t).add(c); P.setXYZ(i, v.x, v.y, v.z);
+    curve.getPointAt(t, c); v.fromBufferAttribute(P, i).sub(c).multiplyScalar(rf(t)).add(c); P.setXYZ(i, v.x, v.y, v.z);
   }
   geo.computeVertexNormals();
   const m = new THREE.Mesh(geo, handMat(kind)); g.add(m); return m;
 }
-// A finger from knuckle to tip through the joints: the glove covers the first segment (with a
-// rolled edge), then bare skin, a rounded tip and a nail on the back (nb: the nail's outward side).
+// A gloved finger from the knuckle to the tip: thick, tapering, swelling a little at each joint,
+// a rounded tip (nb, the back of the finger, is kept for callers).
 function finger(g, pts, r, nb) {
-  const V = pts.map((p) => new THREE.Vector3(...p)), cut = V[0].clone().lerp(V[1], 0.62);
-  taperTube(g, [V[0].clone().addScaledVector(V[0].clone().sub(V[1]).normalize(), r * 0.6), V[0], cut], r * 1.12, r * 1.08, 'leather');
-  const edge = new THREE.Mesh(new THREE.TorusGeometry(r * 1.06, r * 0.18, 8, 18), handMat('leather'));
-  edge.position.copy(cut); edge.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), V[1].clone().sub(V[0]).normalize()); g.add(edge);
-  taperTube(g, [V[0].clone().lerp(V[1], 0.5), V[1], V[2], V[3]], r, r * 0.84, 'skin');
-  const dir = V[3].clone().sub(V[2]).normalize(), n = new THREE.Vector3(...nb).normalize();
-  ell(g, 'skin', r * 0.84, r * 0.84, r * 0.84, ...V[3].toArray());                                  // fingertip
-  const nail = ell(g, 'nail', r * 0.6, r * 0.2, r * 0.78, ...V[3].clone().addScaledVector(dir, -r * 0.45).addScaledVector(n, r * 0.7).toArray());
-  nail.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3().crossVectors(n, dir).normalize(), n, dir));
+  const V = pts.map((p) => new THREE.Vector3(...p));
+  const dir0 = V[1].clone().sub(V[0]).normalize(), base = V[0].clone().addScaledVector(dir0, -r * 0.9);
+  const L = [base.distanceTo(V[0]), V[0].distanceTo(V[1]), V[1].distanceTo(V[2]), V[2].distanceTo(V[3])], tot = L.reduce((a, b) => a + b);
+  const j1 = (L[0] + L[1]) / tot, j2 = (L[0] + L[1] + L[2]) / tot, R = r * 1.2;
+  const bump = (t, at) => Math.exp(-Math.pow((t - at) / 0.06, 2));
+  limb(g, [base, V[0], V[1], V[2], V[3]], (t) => R * (1.06 - 0.2 * t + 0.07 * bump(t, j1) + 0.05 * bump(t, j2) - 0.05 * bump(t, (j1 + j2) / 2)), 'glove');
+  const dir = V[3].clone().sub(V[2]).normalize();
+  const tip = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 12), handMat('glove'));
+  tip.scale.set(R * 0.86, R * 0.86, R * 0.98); tip.position.copy(V[3]).addScaledVector(dir, R * 0.08);
+  tip.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir); g.add(tip);
 }
-// Vent holes in the back of the glove: skin showing through, with a stitched rim.
-function vents(g, at, n, along, k = 3) {
-  const N = new THREE.Vector3(...n).normalize(), A = new THREE.Vector3(...along).normalize();
-  const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), N);
-  for (let i = 0; i < k; i++) {
-    const p = new THREE.Vector3(...at).addScaledVector(A, (i - (k - 1) / 2) * 0.013);
-    const hole = new THREE.Mesh(new THREE.CylinderGeometry(0.0042, 0.0042, 0.002, 20), handMat('skin'));
-    hole.position.copy(p).addScaledVector(N, 0.0004); hole.quaternion.copy(q); g.add(hole);
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.0046, 0.0009, 6, 20), handMat('leather'));
-    rim.position.copy(p).addScaledVector(N, 0.0012); rim.quaternion.copy(q).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2)); g.add(rim);
+// The hard knuckle guard over the back of the hand: a plate with a ridge per knuckle.
+// at: centre, along: the row of knuckles, out: the back of the hand, len: row length.
+function knuckleGuard(g, at, along, out, len) {
+  const A = new THREE.Vector3(...along).normalize(), N = new THREE.Vector3(...out).normalize(), S = new THREE.Vector3().crossVectors(A, N).normalize();
+  const basis = new THREE.Matrix4().makeBasis(S, N, A), P = new THREE.Vector3(...at);
+  const plate = blob(g, 'knuckle', 0.011, 0.003, len / 2 + 0.003, ...P.toArray(), 0, 0, 0, 0.4);
+  plate.quaternion.setFromRotationMatrix(basis);
+  for (let i = 0; i < 4; i++) {
+    const p = P.clone().addScaledVector(A, (i - 1.5) * len / 4).addScaledVector(N, 0.0022);
+    const k = blob(g, 'knuckle', 0.0075, 0.003, 0.0068, ...p.toArray(), 0, 0, 0, 0.6);
+    k.quaternion.setFromRotationMatrix(basis);
   }
 }
-// A bare forearm along +y from the wrist (y = 0), oval and tapering, with the forearm muscles
-// swelling towards the elbow; length 1 (scaled to fit).
+// The glove's cuff over the wrist: a flared collar, a strap round it and its pull tab.
+function gloveCuff(g, at, axis, r) {
+  const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(...axis).normalize());
+  // a soft collar: a short tube that swells out to the strap and rolls in at both ends
+  const ax = new THREE.Vector3(...axis).normalize(), c0 = new THREE.Vector3(...at);
+  limb(g, [c0.clone().addScaledVector(ax, 0.014), c0, c0.clone().addScaledVector(ax, -0.014)], (t) => r * (0.93 + 0.12 * Math.sin(t * Math.PI)), 'glove', 12, 24);
+  const strap = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.07, r * 1.09, 0.011, 30), handMat('strap'));
+  strap.position.set(...at); strap.quaternion.copy(q); strap.translateY(0.002); g.add(strap);
+  const tab = blob(g, 'strap', 0.007, 0.0028, 0.0105, 0, 0, 0, 0, 0, 0, 0.4);
+  tab.quaternion.copy(q); tab.position.set(...at); tab.translateY(0.002); tab.translateZ(r * 1.1);
+}
+// A sleeved forearm along +y from the wrist (y = 0): oval, the forearm muscles swelling towards the
+// elbow, and the shirt's loose folds over it; length 1 (scaled to fit).
 function forearmGeo(r0, r1) {
-  const geo = new THREE.CylinderGeometry(r1, r0, 1, 28, 30, false);
+  const geo = new THREE.CylinderGeometry(r1, r0, 1, 36, 48, false);
   geo.translate(0, 0.5, 0);
   const P = geo.attributes.position;
   for (let i = 0; i < P.count; i++) {
     const x = P.getX(i), y = P.getY(i), z = P.getZ(i), a = Math.atan2(z, x);
-    const swell = 1 + 0.18 * Math.exp(-Math.pow((y - 0.42) / 0.2, 2)) * (0.6 + 0.4 * Math.cos(a - 0.6)) + 0.04 * Math.exp(-Math.pow((y - 0.06) / 0.04, 2));
-    P.setX(i, x * swell * 1.12); P.setZ(i, z * swell * 0.88);              // oval: wider than deep
+    const swell = 1 + 0.14 * Math.exp(-Math.pow((y - 0.42) / 0.22, 2)) * (0.6 + 0.4 * Math.cos(a - 0.6));
+    const bunch = (1 + 1.6 * Math.exp(-Math.pow((y - 0.1) / 0.08, 2))) * Math.min(1, y / 0.05);   // bunched just behind the glove's cuff (smooth inside it)
+    const folds = 1 + bunch * (0.05 * Math.sin(y * 34 + Math.sin(a * 2) * 1.8) * Math.max(0, Math.cos(a * 3 + y * 8)) + 0.028 * Math.sin(a * 5 + y * 15 + Math.sin(y * 9)));
+    const k = swell * folds;
+    P.setX(i, x * k * 1.1); P.setZ(i, z * k * 0.9);              // oval: wider than deep
   }
   geo.computeVertexNormals();
   return geo;
 }
-// The support forearm for pack guns, laid each frame from the wrist to a shoulder point fixed in
-// view space (bottom left, off screen): bare skin, a watch near the wrist, the sleeve rolled up
-// near the elbow. Its +z side faces the camera (where the watch face is).
-const SHOULDER = new THREE.Vector3(-0.4, -0.4, 0.1);
-function supportArm() {
-  const arm = new THREE.Group(), skin = new THREE.Mesh(forearmGeo(0.016, 0.026), handMat('skin'));
-  const roll = new THREE.Mesh(new THREE.TorusGeometry(0.036, 0.011, 10, 24), handMat('sleeve'));
-  const watch = new THREE.Group();
-  const strap = new THREE.Mesh(new THREE.CylinderGeometry(0.0195, 0.0195, 0.012, 32, 1, true), handMat('strap'));
-  strap.scale.set(1.12, 1, 0.9);
-  const caseM = new THREE.Mesh(new THREE.CylinderGeometry(0.0115, 0.0125, 0.007, 32), handMat('steel'));
-  caseM.rotation.x = Math.PI / 2; caseM.position.z = 0.0185;
-  const bezel = new THREE.Mesh(new THREE.TorusGeometry(0.0108, 0.0018, 8, 32), handMat('steel'));
-  bezel.position.z = 0.0222;
-  const face = new THREE.Mesh(new THREE.CircleGeometry(0.0095, 32), handMat('face'));
-  face.position.z = 0.0221;
-  const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.0018, 0.0018, 0.004, 10), handMat('steel'));
-  crown.rotation.z = Math.PI / 2; crown.position.set(0.0135, 0, 0.0185);
-  watch.add(strap, caseM, bezel, face, crown);
-  watch.position.y = 0.04;
-  arm.add(skin, watch);
-  arm.userData.sleeve = skin;
-  // the elbow and the upper arm (its sleeve pushed up, rolled just above the elbow)
-  const upper = new THREE.Group(), elbow = new THREE.Mesh(new THREE.SphereGeometry(0.028, 24, 16), handMat('skin'));
-  elbow.scale.set(1.05, 1, 0.92);
-  const sleeveGeo = new THREE.CylinderGeometry(0.042, 0.036, 1, 24, 12, true); sleeveGeo.translate(0, 0.5, 0);
-  const sleeve = new THREE.Mesh(sleeveGeo, handMat('sleeve'));
-  roll.rotation.x = Math.PI / 2; roll.position.y = 0.035; roll.scale.setScalar(1.15);
-  upper.add(elbow, sleeve, roll);
-  upper.userData.sleeve = sleeve;
-  arm.userData.upper = upper;
-  return arm;
-}
-// sup (optional): a group for the support hand, so the pack's animations can move it. Its
-// origin is the palm (returned), and its parts are placed relative to that.
-function hands(g0, type, sup) {
-  // Support (left) hand: palm under the handguard, fingers wrapping up the left side, the thumb
-  // along the right. Fingerless leather glove: vented back, padded knuckles, a wrist strap.
-  const hz = HAND_Z[type];
-  let g = sup || g0;
-  ell(g, 'leather', 0.028, 0.0135, 0.047, -0.004, -0.043, hz, 0, 0, 0.25);               // palm
-  ell(g, 'leather', 0.023, 0.013, 0.024, 0.012, -0.047, hz + 0.028, 0, 0, 0.2);           // heel of the thumb
-  ell(g, 'leather', 0.012, 0.027, 0.045, -0.03, -0.038, hz + 0.004, 0, 0, -0.35);         // back of the hand
-  vents(g, [-0.041, -0.032, hz - 0.004], [-1, -0.35, 0], [0, 0, 1]);
-  const LEN = [0.92, 1, 0.96, 0.8];                                                       // index .. little
-  for (let i = 0; i < 4; i++) {
-    const z = hz - 0.03 + i * 0.02, k = LEN[i], r = 0.0086 - i * 0.0004;
-    finger(g, [[-0.027, -0.045, z], [-0.039, -0.023, z - 0.002], [-0.04, -0.002 * k, z - 0.004], [-0.028, 0.013 * k, z - 0.006]], r, [-1, 0.1, 0]);
-    ell(g, 'leather', 0.0075, 0.006, 0.0085, -0.042, -0.026, z - 0.002);                 // knuckle pad
+// The body of a gloved hand as one smooth shape: from inside the cuff at the wrist W out to the
+// knuckle row K, a rounded-rectangle section widening from the wrist to the knuckles and thinning
+// a little; across: the direction of the knuckle row.
+function handBody(g, W, K, across, wid, wrist, thick) {
+  const T = K.clone().sub(W), len = T.length(); T.normalize();
+  const S = across.clone().addScaledVector(T, -across.dot(T)).normalize(), N = new THREE.Vector3().crossVectors(T, S);
+  const seg = 22, rad = 32, pos = [], idx = [], c = new THREE.Vector3(), p = new THREE.Vector3();
+  const sq = (v) => Math.sign(v) * Math.pow(Math.abs(v), 0.72);           // squarer than an ellipse
+  for (let i = 0; i <= seg; i++) {
+    const u = i / seg, end = u > 0.74 ? Math.sqrt(Math.max(0, 1 - Math.pow((u - 0.74) / 0.26, 2))) : 1;
+    c.copy(W).addScaledVector(T, -0.014 + (len + 0.018) * u);
+    const w = (wrist + (wid - wrist) * smooth01(0, 0.72, u)) / 2 * (0.62 + 0.38 * end), h = thick * (1.18 - 0.22 * u) / 2 * (0.25 + 0.75 * end);
+    for (let j = 0; j < rad; j++) {
+      const a = j / rad * Math.PI * 2;
+      p.copy(c).addScaledVector(S, sq(Math.cos(a)) * w).addScaledVector(N, sq(Math.sin(a)) * h); pos.push(p.x, p.y, p.z);
+      if (i < seg) { const a0 = i * rad + j, a1 = i * rad + (j + 1) % rad; idx.push(a0, a1, a0 + rad, a1, a1 + rad, a0 + rad); }
+    }
   }
-  finger(g, [[0.014, -0.048, hz + 0.034], [0.024, -0.034, hz + 0.016], [0.029, -0.02, hz + 0.0], [0.03, -0.006, hz - 0.016]], 0.0094, [1, 0, 0]);   // thumb
-  if (!sup) capsule(g, handMat('skin'), 0.019, [-0.012, -0.062, hz + 0.042], [-0.034, -0.085, hz + 0.075]);   // wrist (pack guns: the laid forearm is the wrist)
-  const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.027, 0.016, 28), handMat('leather'));
-  cuff.position.set(-0.016, -0.067, hz + 0.05);
-  cuff.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(-0.024, -0.025, 0.035).normalize());
-  g.add(cuff);
-  // forearm: fixed under the gun when the hand never moves; pack guns lay it to the shoulder
-  // every frame (supportArm), so it never swings through the gun
-  if (!sup) {
-    const fa = new THREE.Mesh(forearmGeo(0.021, 0.034), handMat('skin')), A = new THREE.Vector3(-0.034, -0.085, hz + 0.075), B = new THREE.Vector3(-0.17, -0.38, hz + 0.34);
-    fa.position.copy(A); fa.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), B.clone().sub(A).normalize()); fa.scale.y = A.distanceTo(B); g.add(fa);
-  } else sup.userData.wrist = new THREE.Vector3(-0.02 + 0.004, -0.07 + 0.04, 0.054);   // palm-relative, inside the glove's cuff (no gap)
-  const palm0 = new THREE.Vector3(-0.004, -0.04, hz);
-  if (sup) { for (const c of sup.children) c.position.sub(palm0); sup.position.copy(palm0); }
-  g = g0;
-  // Firing (right) hand round the grip: fist on the right side, three fingers round the front,
-  // the index finger straight along the frame, the thumb over the left side.
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx);
+  const uv = []; for (let i = 0; i <= seg; i++) for (let j = 0; j < rad; j++) uv.push(j / rad * 3, i / seg * 2);
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); geo.computeVertexNormals();
+  const m = new THREE.Mesh(geo, handMat('glove')); g.add(m); return m;
+}
+// A sleeved forearm laid from the wrist W along D for len metres (tucked into the glove's cuff).
+function sleeveArm(g, W, D, len, r0, r1) {
+  const fa = new THREE.Mesh(forearmGeo(r0, r1), handMat('sleeve')), d = D.clone().normalize();
+  fa.position.copy(W).addScaledVector(d, 0.006); fa.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d); fa.scale.y = len; g.add(fa);
+}
+// The firing hand (there is no front hand); returns the palm point the pack's clips use as their
+// hand anchor.
+function hands(g0, type) {
+  const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
+  // No support (front) hand: only the firing hand holds the gun, in every animation.
+  const hz = HAND_Z[type], palm0 = V3(-0.004, -0.04, hz);
+  const g = g0;
+  // Firing (right) hand round the grip: the back of the hand on the right side, three fingers round
+  // the front, the index finger straight along the frame, the thumb over the left side.
   const gz = GRIP_Z[type];
-  ell(g, 'leather', 0.02, 0.036, 0.027, 0.014, -0.088, gz + 0.03, 0.3, 0, 0);             // the fist's back and palm
-  vents(g, [0.034, -0.08, gz + 0.03], [1, 0, 0.2], [0, -1, 0.3]);
+  const W2 = V3(0.025, -0.114, gz + 0.07), K2 = V3(0.02, -0.078, gz + 0.012), B2 = V3(0.14, -0.4, gz + 0.32);   // (the wrist bent ~20 degrees, as on a pistol grip)
+  handBody(g, W2, K2, V3(0, -1, 0), 0.072, 0.048, 0.027);
+  knuckleGuard(g, [0.034, -0.08, gz + 0.016], [0, -1, 0.05], [1, 0, 0.2], 0.052);
   for (let k = 0; k < 3; k++) {
     const y = -0.07 - k * 0.017;
-    finger(g, [[0.026, y, gz + 0.012], [0.02, y, gz - 0.022], [0.0, y - 0.002, gz - 0.03], [-0.016, y - 0.004, gz - 0.02]], 0.0085 - k * 0.0005, [0, 0, -1]);
-    ell(g, 'leather', 0.006, 0.0075, 0.0075, 0.031, y, gz + 0.008);                       // knuckle pad
+    finger(g, [[0.024, y, gz + 0.012], [0.02, y, gz - 0.022], [0.0, y - 0.002, gz - 0.03], [-0.016, y - 0.004, gz - 0.02]], 0.0085 - k * 0.0005, [0, 0, -1]);
   }
-  finger(g, [[0.026, -0.05, gz + 0.012], [0.027, -0.038, gz - 0.012], [0.027, -0.033, gz - 0.035], [0.027, -0.031, gz - 0.056]], 0.0082, [1, 0.3, 0]);   // index along the frame
-  finger(g, [[0.01, -0.06, gz + 0.04], [-0.006, -0.052, gz + 0.03], [-0.022, -0.052, gz + 0.016], [-0.026, -0.056, gz - 0.002]], 0.0095, [-1, 0.3, 0]);    // thumb
-  capsule(g, handMat('skin'), 0.025, [0.02, -0.12, gz + 0.055], [0.05, -0.18, gz + 0.1]);   // wrist
-  const cuff2 = new THREE.Mesh(new THREE.CylinderGeometry(0.029, 0.031, 0.018, 28), handMat('leather'));
-  cuff2.position.set(0.022, -0.125, gz + 0.058);
-  cuff2.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0.03, -0.06, 0.045).normalize());
-  g.add(cuff2);
-  const fa2 = new THREE.Mesh(forearmGeo(0.025, 0.038), handMat('skin')), A2 = new THREE.Vector3(0.05, -0.18, gz + 0.1), B2 = new THREE.Vector3(0.14, -0.44, gz + 0.24);
-  fa2.position.copy(A2); fa2.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), B2.clone().sub(A2).normalize()); fa2.scale.y = A2.distanceTo(B2); g.add(fa2);
+  finger(g, [[0.024, -0.052, gz + 0.012], [0.027, -0.04, gz - 0.012], [0.027, -0.033, gz - 0.035], [0.027, -0.031, gz - 0.056]], 0.0082, [1, 0.3, 0]);   // index along the frame
+  finger(g, [[0.012, -0.064, gz + 0.044], [-0.006, -0.054, gz + 0.03], [-0.022, -0.052, gz + 0.016], [-0.026, -0.056, gz - 0.002]], 0.0095, [-1, 0.3, 0]);    // thumb
+  gloveCuff(g, W2.toArray(), B2.clone().sub(W2).toArray(), 0.026);
+  sleeveArm(g, W2, B2.clone().sub(W2), W2.distanceTo(B2), 0.023, 0.046);
   return palm0;
 }
 
@@ -1590,6 +1619,10 @@ export class WeaponRig {
     const hdm = hdModel(type);
     const key = gun.id + '|' + optic.id + '|' + (sk ? sk.id : '-') + (this.noHands ? '|nh' : '') + (hdm ? '|hd' + (packAnims.set ? 'a' + packAnims.revision : '') : TRACED[type] && packAnims.set ? '|ta' + packAnims.revision : '') + (gun.attach ? '|a' + gun.attach : '');   // a skin or attachment change builds a new model
     let m = this.models.get(key);
+    if (m?.userData.skinMats?.some((x) => x.userData.evicted)) {   // its skin's textures were freed: build it again
+      if (m === this.current) this.current = null;
+      m.removeFromParent(); this.models.delete(key); m = null;
+    }
     if (!m) {
       m = new THREE.Group();
       const sight = buildSight(optic, ENV);
@@ -1619,12 +1652,12 @@ export class WeaponRig {
       const frost = ice ? prepareFrost(gunG, magG, sight.group) : null;
       const crystals = ice ? iceCrystals(gunG, sk, type, muzzle) : null;
       // Pack guns with the pack's animations: the support hand is its own part (it reloads).
-      const sup = (hdm || TRACED[type]) && packAnims.set && !this.noHands ? new THREE.Group() : null;   // (traced guns take the pack's keyframed reloads too)
+      const sup = (hdm || TRACED[type]) && packAnims.set && !this.noHands ? new THREE.Group() : null;   // the clips' hand anchor: empty (no front hand is drawn)   // (traced guns take the pack's keyframed reloads too)
       let palm = null;
-      if (!this.noHands) palm = hands(gunG, type, sup);
+      if (!this.noHands) palm = hands(gunG, type);
       SKIN_FORCE = undefined;
       mergeStatic(gunG);
-      if (sup) { mergeStatic(sup); gunG.add(sup); sup.userData.arm = supportArm(); m.add(sup.userData.arm, sup.userData.arm.userData.upper); }
+      if (sup) { sup.position.copy(palm || new THREE.Vector3(-0.004, -0.04, HAND_Z[type] ?? -0.2)); gunG.add(sup); }   // (no front hand or arm in it)
       const mb = new THREE.Box3().setFromObject(magG);
       mergeStatic(magG);
       gunG.add(magG);
@@ -1680,6 +1713,7 @@ export class WeaponRig {
     this.gunId = gun.id;
     this.flashMul = gun.flash ?? 1;          // attachments: flash hider smaller, suppressor none
     this.current = m;
+    if (this.live !== false) LIVE.set(this, m.userData.skinMats?.[0]?.userData.skinKey);   // (replay puppets set live = false: they rebuild instead)
   }
 
   // The flashlight on the gun (night battles).
@@ -1708,36 +1742,6 @@ export class WeaponRig {
   }
 
   // Pack clip events: the magazine slap and the charging handle nudge the gun.
-  // Lay the pack support forearm from the wrist to the shoulder (see supportArm).
-  _layArm() {
-    const u = this.current && this.current.userData, sup = u && u.support, arm = sup && sup.userData.arm;
-    if (!arm) return;
-    arm.visible = arm.userData.upper.visible = sup.visible;
-    if (!sup.visible) return;
-    this.root.updateMatrixWorld(true);
-    const m = this.current, up = arm.userData.upper, V = (k) => this['_v' + k] || (this['_v' + k] = new THREE.Vector3());
-    const view = (v) => (this.root.parent ? this.root.parent.localToWorld(v) : v);
-    const w = m.worldToLocal(sup.localToWorld(V('w').copy(sup.userData.wrist)));
-    const sh = m.worldToLocal(view(V('s').copy(SHOULDER)));
-    const cam = m.worldToLocal(view(V('c').set(0, 0, 0)));
-    const pole = m.worldToLocal(view(V('p').set(-0.5, -1, 0.3).add(SHOULDER))).sub(sh).normalize();   // the elbow bends down and out
-    // two bones: the elbow where a 0.27 m forearm and a 0.32 m upper arm meet (stretched if out of reach)
-    const L1 = 0.27, L2 = 0.32, d = V('d').subVectors(sh, w), dist = d.length(); d.divideScalar(dist);
-    const k = Math.max(1, dist / (L1 + L2) * 1.0001), l1 = L1 * k, l2 = L2 * k;
-    const a = (l1 * l1 - l2 * l2 + dist * dist) / (2 * dist), hgt = Math.sqrt(Math.max(0, l1 * l1 - a * a));
-    const side = V('h').copy(pole).addScaledVector(d, -pole.dot(d)).normalize();
-    const el = V('e').copy(w).addScaledVector(d, a).addScaledVector(side, hgt);
-    const place = (g, from, to, len) => {
-      const dir = V('q').subVectors(to, from).divideScalar(len);
-      const zc = V('z').subVectors(cam, from); zc.addScaledVector(dir, -zc.dot(dir)).normalize();      // +z (the watch face) towards the eye
-      g.position.copy(from);
-      g.quaternion.setFromRotationMatrix((this._am || (this._am = new THREE.Matrix4())).makeBasis(V('x').crossVectors(dir, zc), dir, zc));
-    };
-    place(arm, w, el, l1); arm.userData.sleeve.scale.y = l1;
-    place(up, el, sh, l2); up.userData.sleeve.scale.y = l2;
-    up.visible = true;
-  }
-
   _clipEvent(name) {
     if (name === 'slap') { this.vp += 0.6; this.vz += 0.15; }
     else if (name === 'charge') { this.vp += 0.35; this.vz += 0.1; }
@@ -1822,7 +1826,6 @@ export class WeaponRig {
       pv.applyQuaternion(this.root.quaternion);
       this.root.position.add(before.sub(pv));
     }
-    this._layArm();
     if (this.meleeT >= 0) {
       this.meleeT += Math.min(dt, 0.1) / 0.38;
       if (this.meleeT >= 1) this.meleeT = -1;

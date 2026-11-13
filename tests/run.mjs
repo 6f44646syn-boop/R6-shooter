@@ -166,7 +166,7 @@ try {
     const wantShots = Math.floor(1 / (60 / rate.rpm) + 1e-9) + 1;   // shots at t = 0, 1 interval, ... <= 1 s
     check(rate.rpm + ' rpm for 1 s = ' + wantShots + ' shots', rate.shots === wantShots, 'got ' + rate.shots);
 
-    // e) no recovery: after you stop firing the view stays where the recoil left it.
+    // e) recoil settle: after you stop firing the view drifts back to where you aimed.
     const rec = await page.evaluate(() => {
       const R = window.__range;
       R.manual(true); R.selectGun(0); R.clear(); R.setAim(0, 0);
@@ -179,7 +179,7 @@ try {
       return { during, stopped, after: st.viewPitch, offset: st.offset };
     });
     check('recoil offset climbs while firing (' + rec.during.toFixed(3) + ' deg)', rec.during > 0.5, 'offset ' + rec.during);
-    check('view does not drift back after firing (' + rec.stopped.toFixed(3) + ' deg up, still ' + rec.after.toFixed(3) + ' after 3 s)', Math.abs(rec.after - rec.stopped) < 1e-9 && rec.after > 0.5, JSON.stringify(rec));
+    check('view settles back to the aim point after firing (' + rec.stopped.toFixed(3) + ' deg up, ' + rec.after.toFixed(3) + ' after 3 s)', rec.stopped > 0.5 && Math.abs(rec.after) < 0.05 && Math.abs(rec.offset[1]) < 0.05, JSON.stringify(rec));
     check('leftover recoil is folded into the aim after the spray', rec.offset[0] === 0 && rec.offset[1] === 0, JSON.stringify(rec));
 
     // Aiming: the spray follows the smoothed path (and the aimed strength); hip-fire stays exact.
@@ -611,10 +611,39 @@ try {
       return out;
     });
     check('Standard keeps the procedural animations (no separate hand)', r.standardSplit === false, JSON.stringify(r));
-    check('High with the pack: the support hand is its own animated part', r.install && r.highSplit === true, JSON.stringify(r));
+    check('High with the pack: the clip hand anchor is its own animated part (no front hand drawn)', r.install && r.highSplit === true, JSON.stringify(r));
     check('empty reload: the hand leaves the handguard, the old magazine drops, the charging handle is pulled', r.clip === 'empty' && r.far > 0.1 && r.hidden && r.bolt > 0.03, JSON.stringify(r));
     check('after the reload the hand and magazine are back at rest', r.endRest, JSON.stringify(r));
     check('reload takes the same time with the pack clips as without (within one frame)', Math.abs(r.steps - r.steps2) <= 1, r.steps + ' vs ' + r.steps2);
+    // Opening your last pack (any skin, fitting your gun or not) never locks you in the reel.
+    const stuck = await page.evaluate(() => {
+      const P = window.__range.packs(), prof = window.__range.profile(), bad = [];
+      for (let i = 0; i < 40; i++) {
+        let s = i * 7919 + 1; const rng = () => ((s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296);
+        prof.points = 100; P.open(rng); P._finish();
+        const btns = [...P.reveal.querySelectorAll('button')], close = btns.find((b) => b.textContent === 'Close');
+        if (!close || close.disabled) bad.push(P.result.skin.name);
+        close?.click();
+        if (!P.modal.hidden) bad.push('modal still open');
+      }
+      return bad;
+    });
+    check('last pack: Close always works, out of points or not', stuck.length === 0, stuck.join(', '));
+    // The gun in your hands keeps its skin while other skins load (only 4 big skin maps are kept).
+    const kept = await page.evaluate(() => {
+      const R = window.__range, P = R.profile(), rig = R.rigObj(), slot = 0;
+      R.setUltraTex(1024);   // (tests run at 512: big enough to count as a held gun's skin)
+      let id = 0;
+      for (id = 0; id < 60; id++) { P._own(id); if (P.equip(slot, id)) break; }
+      R.selectGun(slot);
+      const mats = rig.current.userData.skinMats || [], key = mats[0]?.userData.skinKey || '';
+      let freed = false; for (const m of mats) m.addEventListener('dispose', () => { freed = true; });
+      for (let i = 1; i <= 6; i++) R.skinShot((id + i * 7) % 150);
+      R.selectGun(slot);
+      R.setUltraTex(512);
+      return { id, key, big: !key.endsWith('@512'), evicted: freed || mats.some((m) => m.userData.evicted), same: rig.current.userData.skinMats?.[0] === mats[0] };
+    });
+    check('the gun you hold keeps its skin while 6 others load', kept.key && kept.big && !kept.evicted && kept.same, JSON.stringify(kept));
     check('no page errors', errors.length === 0, errors.join('\n'));
     await page.close();
   }
@@ -654,7 +683,7 @@ try {
       let surfaces = 0;
       rig.current.traverse(o => { if (o.name === 'Inspect surface frost') surfaces++; });
       start(); R.renderFrame();
-      const active = vapour.visible && get('Inspect ice flecks').visible && u.support.visible && u.support.userData.arm.visible;
+      const active = vapour.visible && get('Inspect ice flecks').visible && u.support.visible;
       R.trigger(true); R.step(0.04); R.trigger(false);
       const fire = ended(vapour) && R.state().shots > 0;
       start(); R.setAds(true);

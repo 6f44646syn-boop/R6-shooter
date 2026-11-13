@@ -1,28 +1,28 @@
-import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=66e6c20-mwe5ta04';
-import { MatchFinale } from '../replay/finale.js?v=66e6c20-mwe5ta04';
-import { GrenadeReplay } from '../replay/grenade.js?v=66e6c20-mwe5ta04';
-import { replayCamera } from '../replay/view.js?v=66e6c20-mwe5ta04';
+import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=ee5991e-mweaippm';
+import { MatchFinale } from '../replay/finale.js?v=ee5991e-mweaippm';
+import { GrenadeReplay } from '../replay/grenade.js?v=ee5991e-mweaippm';
+import { replayCamera } from '../replay/view.js?v=ee5991e-mweaippm';
 // Battle mode: you against bots (Easy / Medium / Hard), or two local players in split
 // screen (optionally with bots as a third side). First side to the kill target wins.
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=66e6c20-mwe5ta04';
-import { Arena } from './arena.js?v=66e6c20-mwe5ta04';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=66e6c20-mwe5ta04';
-import { Banter } from './banter.js?v=66e6c20-mwe5ta04';
-import { Bot, LEVELS } from './bot.js?v=66e6c20-mwe5ta04';
-import { Human } from './human.js?v=66e6c20-mwe5ta04';
-import { BattleNades } from './nades.js?v=66e6c20-mwe5ta04';
-import { drawCrosshair } from '../ui/crosshair.js?v=66e6c20-mwe5ta04';
-import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=66e6c20-mwe5ta04';
-import { effectiveGraphics } from '../render/quality.js?v=66e6c20-mwe5ta04';
-import { effectiveGun, slotIn } from '../core/loadout.js?v=66e6c20-mwe5ta04';
-import { BattleRoyale } from './royale.js?v=66e6c20-mwe5ta04';
-import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=66e6c20-mwe5ta04';
-import { Footprints } from '../scene/footprints.js?v=66e6c20-mwe5ta04';
-import { Minimap } from '../ui/minimap.js?v=66e6c20-mwe5ta04';
-import { botRankedChange } from '../core/ranked.js?v=66e6c20-mwe5ta04';
+import * as THREE from '../../vendor/three/three.module.min.js?v=ee5991e-mweaippm';
+import { Arena } from './arena.js?v=ee5991e-mweaippm';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=ee5991e-mweaippm';
+import { Banter } from './banter.js?v=ee5991e-mweaippm';
+import { Bot, LEVELS } from './bot.js?v=ee5991e-mweaippm';
+import { Human } from './human.js?v=ee5991e-mweaippm';
+import { BattleNades } from './nades.js?v=ee5991e-mweaippm';
+import { drawCrosshair } from '../ui/crosshair.js?v=ee5991e-mweaippm';
+import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=ee5991e-mweaippm';
+import { effectiveGraphics } from '../render/quality.js?v=ee5991e-mweaippm';
+import { effectiveGun, slotIn } from '../core/loadout.js?v=ee5991e-mweaippm';
+import { BattleRoyale } from './royale.js?v=ee5991e-mweaippm';
+import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=ee5991e-mweaippm';
+import { Footprints } from '../scene/footprints.js?v=ee5991e-mweaippm';
+import { Minimap } from '../ui/minimap.js?v=ee5991e-mweaippm';
+import { botRankedChange } from '../core/ranked.js?v=ee5991e-mweaippm';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, p7: 0xff7048, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -229,6 +229,7 @@ export class Battle {
     }
     if (opts.royale) this.royale = new BattleRoyale(this);
     for (const f of this.fighters) this._spawn(f, t);
+    if (!opts.royale) for (const f of this.fighters) if (f.gun && !this.humans.some((h) => h.f === f)) this._puppet(f);   // build kill-cam guns now, not mid-fight
     this.active = true; this.paused = false; this.over = false;
     this.hud.root.hidden = false;
     this.hud.end.hidden = true;
@@ -1398,18 +1399,23 @@ export class Battle {
     if (this.kc.shot < 0) this.kc.shot = rec.shots.length;
   }
   // A stand-in player that carries your killer's gun (with their skin) for the replay.
+  // One built puppet per loadout (building a gun costs a visible hitch), the bots' made at the start.
   _puppet(k, recorded) {
-    if (!this.puppet) {
-      const pf = new Fighter({ name: 'replay', team: 'bots', color: 0xffffff, human: true });
-      this.puppet = new Human(pf, 'mouse', { ...this.deps }, this.deps.slotOf);
-    }
-    const P = this.puppet, base = recorded ? this.deps.guns[recorded[11]] : null;
+    const base = recorded ? this.deps.guns[recorded[11]] : null;
     const gun = base ? effectiveGun(base, recorded[12]) : k.gun || this.deps.guns[0];
     const skin = recorded && recorded.length > 13 ? recorded[13] : k.skin;
     const optic = this.deps.opticById?.(recorded?.[14] ?? k.viewOptic, gun) || this.deps.opticFor(gun);
     const key = gun.id + '|' + (gun.attach || '') + '|' + skin + '|' + optic.id;
-    if (P._key !== key) { P.deps = { ...this.deps, opticFor: () => optic }; P.rig.forceSkin = skin ?? null; P.setGun(gun); P._key = key; }
-    return P;
+    const pool = this.puppets ||= new Map();
+    let P = pool.get(key);
+    if (!P) {
+      if (pool.size >= 12) {         // shortcut: reuse the oldest instead of an LRU; fine for <= 12 loadouts in play
+        const [oldKey, old] = pool.entries().next().value; pool.delete(oldKey); P = old;
+      } else { P = new Human(new Fighter({ name: 'replay', team: 'bots', color: 0xffffff, human: true }), 'mouse', { ...this.deps }, this.deps.slotOf); P.rig.live = false; }
+      P.deps = { ...this.deps, opticFor: () => optic }; P.rig.forceSkin = skin ?? null; P.setGun(gun); P._key = key;
+    } else { pool.delete(key); if (P.rig.current?.userData.skinMats?.some((x) => x.userData.evicted)) P.setGun(gun); }   // its skin was freed meanwhile
+    pool.set(key, P);                // most recently used last
+    return (this.puppet = P);
   }
   _updateFinale(t) {
     this.grenadeCam = null;

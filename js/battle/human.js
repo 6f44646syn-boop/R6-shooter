@@ -8,16 +8,16 @@
 //                       B crouch, A vault, L3 sprint, LB/RB lean.
 //   keys  (player 2, no gamepad): I J K L move, arrow keys look, Enter fire,
 //                       Right Shift aim, Backspace reload, / crouch.
-import * as THREE from '../../vendor/three/three.module.min.js?v=66e6c20-mwe5ta04';
-import { Look, PITCH_LIMIT } from '../core/look.js?v=66e6c20-mwe5ta04';
-import { Weapon } from '../core/weapon.js?v=66e6c20-mwe5ta04';
-import { RecoilEngine } from '../core/recoil.js?v=66e6c20-mwe5ta04';
-import { Spread } from '../core/spread.js?v=66e6c20-mwe5ta04';
-import { focalRatio } from '../core/sensitivity.js?v=66e6c20-mwe5ta04';
-import { WeaponRig } from '../scene/viewmodel.js?v=66e6c20-mwe5ta04';
-import { EYE_Z, VIEW_H } from '../scene/sight-model.js?v=66e6c20-mwe5ta04';
-import { reticleTextures } from '../ui/reticle-tex.js?v=66e6c20-mwe5ta04';
-import { RETICLE_COLORS } from '../ui/scope.js?v=66e6c20-mwe5ta04';
+import * as THREE from '../../vendor/three/three.module.min.js?v=ee5991e-mweaippm';
+import { Look, PITCH_LIMIT } from '../core/look.js?v=ee5991e-mweaippm';
+import { Weapon } from '../core/weapon.js?v=ee5991e-mweaippm';
+import { RecoilEngine } from '../core/recoil.js?v=ee5991e-mweaippm';
+import { Spread } from '../core/spread.js?v=ee5991e-mweaippm';
+import { focalRatio } from '../core/sensitivity.js?v=ee5991e-mweaippm';
+import { WeaponRig } from '../scene/viewmodel.js?v=ee5991e-mweaippm';
+import { EYE_Z, VIEW_H } from '../scene/sight-model.js?v=ee5991e-mweaippm';
+import { reticleTextures } from '../ui/reticle-tex.js?v=ee5991e-mweaippm';
+import { RETICLE_COLORS } from '../ui/scope.js?v=ee5991e-mweaippm';
 
 const DEG = Math.PI / 180;
 const WALK = 3.4, SPRINT = 5.6, CROUCH_WALK = 1.6, ADS_WALK = 2.2;
@@ -211,9 +211,10 @@ export class Human {
     if (ev === 'reloaded') this.deps.sfx.reload();
     if (s.autoReload && f.alive && this.weapon.ammo === 0 && !this.weapon.reloading && this.weapon.startReload(t)) this.deps.sfx.reload();
 
-    // Recoil view offset; leftover recoil folds into the aim after the spray (no recovery).
+    // Recoil view offset: it settles back to the aim (recovery); with no recovery rate the
+    // leftover recoil folds into the aim after the spray.
     this.recoil.offsetAt(t, this.offset);
-    if (this.gun && (this.offset[0] || this.offset[1]) && t - this.recoil.lastShot > Math.max(this.gun.resetSeconds, this.recoil.easeDur)) {
+    if (this.gun && !this.gun.recovery.degPerSecond && (this.offset[0] || this.offset[1]) && t - this.recoil.lastShot > Math.max(this.gun.resetSeconds, this.recoil.easeDur)) {
       this.look.setAngles(this.look.yaw + this.offset[0], this.look.pitch + this.offset[1]);
       this.recoil.clearOffset();
       this.offset[0] = this.offset[1] = 0;

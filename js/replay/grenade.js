@@ -1,9 +1,10 @@
 // Presentation-only history for the grenade camera. The simulation owns the projectile.
-import * as THREE from '../../vendor/three/three.module.min.js?v=66e6c20-mwe5ta04';
+import * as THREE from '../../vendor/three/three.module.min.js?v=ee5991e-mweaippm';
 
 const SAMPLE_INTERVAL = 1 / 30;
 const FLIGHT_LIMIT = 1.6;
 const BLAST_HOLD = 1;
+const HOLD_DELAY = 0.3;
 
 export class GrenadeReplay {
   constructor() {
@@ -77,6 +78,7 @@ export class GrenadeReplay {
   live(t, world) {
     const track = this.held;
     if (!track) return null;
+    if (t - (track.samples[0]?.t ?? t) < HOLD_DELAY) return null;   // a tap throws; only holding the key follows the grenade
     if (track.blast && t - track.blast.t < BLAST_HOLD) return this.place(track.blast, world);
     return track.active ? this.place(track.latest, world) : null;
   }

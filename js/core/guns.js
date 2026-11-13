@@ -1,7 +1,7 @@
 // Loads and validates data/guns.json, data/optics.json and data/sens.json.
 // Bad guns are skipped with a clear message naming the gun and the field; the rest still load.
-import { validateCatalogue, resolveGunOptics } from './optics.js?v=66e6c20-mwe5ta04';
-import { smoothPath } from './recoil.js?v=66e6c20-mwe5ta04';
+import { validateCatalogue, resolveGunOptics } from './optics.js?v=ee5991e-mweaippm';
+import { smoothPath } from './recoil.js?v=ee5991e-mweaippm';
 
 const MODELS = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 // Default model when the field is missing: guess from the id ("smg-01" -> smg).
@@ -12,6 +12,9 @@ const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
 const SIDES = ['attacker', 'defender'];
 
 // Returns { guns, errors, warnings }. `catalogue` is validateCatalogue(optics.json).
+// Recoil settle: once you stop firing (after the gun's delaySeconds) the view punch returns to
+// your aim point at this rate, for guns without a measured rate (the data has none yet).
+export const SETTLE_DEG_PER_S = 14;
 export function validateGuns(data, catalogue) {
   const errors = [];
   const warnings = [];
@@ -99,7 +102,7 @@ export function validateGuns(data, catalogue) {
       sprayPath: g.sprayPath.map((p) => [p[0], p[1]]),
       sprayPathSmooth: smoothPath(g.sprayPath),
       jitter: { yawDeg: g.jitter.yawDeg, pitchDeg: g.jitter.pitchDeg },
-      recovery: { delaySeconds: g.recovery.delaySeconds, degPerSecond: g.recovery.degPerSecond },
+      recovery: { delaySeconds: g.recovery.delaySeconds, degPerSecond: g.recovery.degPerSecond || SETTLE_DEG_PER_S },
     });
   });
   return { guns, errors, warnings };

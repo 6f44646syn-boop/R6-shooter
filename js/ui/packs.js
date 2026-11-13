@@ -1,9 +1,9 @@
 // Skins & packs: points, the pack opening (a slot-machine reel that slows down and lands on
 // your skin), your collection (click to put a skin on the selected gun), and the save code.
-import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById, skinFits, LEGEND_ID } from '../core/skins.js?v=66e6c20-mwe5ta04';
-import { Profile, PACK_COST, LEGEND_PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=66e6c20-mwe5ta04';
-import { legendPhotoURL, setLegendPhoto, clearLegendPhoto, onLegendChange } from '../core/legend.js?v=66e6c20-mwe5ta04';
-import { skinThumb } from '../render/gpu-tex.js?v=66e6c20-mwe5ta04';
+import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById, skinFits, LEGEND_ID } from '../core/skins.js?v=ee5991e-mweaippm';
+import { Profile, PACK_COST, LEGEND_PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=ee5991e-mweaippm';
+import { legendPhotoURL, setLegendPhoto, clearLegendPhoto, onLegendChange } from '../core/legend.js?v=ee5991e-mweaippm';
+import { skinThumb } from '../render/gpu-tex.js?v=ee5991e-mweaippm';
 
 function el(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);
@@ -276,7 +276,6 @@ export class PackUI {
             : el('span', { class: 'pk-only', text: this.onlyFor(skin.id) }),
           el('button', { type: 'button', text: 'Open another (' + PACK_COST + ')', disabled: this.profile.canOpen ? null : '', onclick: () => { this.close(); this.open(); } }),
           el('button', { type: 'button', text: 'Close', onclick: () => this.close() }))));
-    if (!this.profile.canOpen) this.reveal.querySelectorAll('button')[1].disabled = true;
     this.reveal.hidden = false;
     if (this.sfx) this.sfx.reload();
   }

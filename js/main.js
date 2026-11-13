@@ -1,63 +1,63 @@
-import { track as trackLoad } from './ui/busy.js?v=66e6c20-mwe5ta04';
-import { loadPackArt } from './render/pack-art.js?v=66e6c20-mwe5ta04';
-import { loadPackAnims } from './scene/weapon-anims.js?v=66e6c20-mwe5ta04';
-import { packMats } from './render/pack-materials.js?v=66e6c20-mwe5ta04';
-import { loadSkinSheets } from './render/skins2.js?v=66e6c20-mwe5ta04';
-import { connectAudioPack } from './audio/pack-bridge.js?v=66e6c20-mwe5ta04';
-import { initBombUtility, utilityFor } from './balance/bomb-utility.js?v=66e6c20-mwe5ta04';
-import { createAcoustics } from './audio/acoustics.js?v=66e6c20-mwe5ta04';
-import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=66e6c20-mwe5ta04';
-import { mountControls, mountFirstLaunch } from './ui/m7-menu.js?v=66e6c20-mwe5ta04';
+import { track as trackLoad } from './ui/busy.js?v=ee5991e-mweaippm';
+import { loadPackArt } from './render/pack-art.js?v=ee5991e-mweaippm';
+import { loadPackAnims } from './scene/weapon-anims.js?v=ee5991e-mweaippm';
+import { packMats } from './render/pack-materials.js?v=ee5991e-mweaippm';
+import { loadSkinSheets } from './render/skins2.js?v=ee5991e-mweaippm';
+import { connectAudioPack } from './audio/pack-bridge.js?v=ee5991e-mweaippm';
+import { initBombUtility, utilityFor } from './balance/bomb-utility.js?v=ee5991e-mweaippm';
+import { createAcoustics } from './audio/acoustics.js?v=ee5991e-mweaippm';
+import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=ee5991e-mweaippm';
+import { mountControls, mountFirstLaunch } from './ui/m7-menu.js?v=ee5991e-mweaippm';
 // Recoil Range entry point: wires input, camera, scene, HUD and the frame loop together.
-import * as THREE from '../vendor/three/three.module.min.js?v=66e6c20-mwe5ta04';
-import { Look, PITCH_LIMIT } from './core/look.js?v=66e6c20-mwe5ta04';
-import { Player } from './core/player.js?v=66e6c20-mwe5ta04';
-import { PointerLock } from './core/pointer-lock.js?v=66e6c20-mwe5ta04';
-import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=66e6c20-mwe5ta04';
-import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=66e6c20-mwe5ta04';
-import { Weapon } from './core/weapon.js?v=66e6c20-mwe5ta04';
-import { RecoilEngine } from './core/recoil.js?v=66e6c20-mwe5ta04';
-import { Spread } from './core/spread.js?v=66e6c20-mwe5ta04';
-import { loadGameData } from './core/guns.js?v=66e6c20-mwe5ta04';
-import { initLoadout, effectiveGun, sanitize, slotIn, baseOf, SLOTS as ATTACH_SLOTS, allowed as attachAllowed, measuredCode, describe as describeAttach, hint as attachHint } from './core/loadout.js?v=66e6c20-mwe5ta04';
-import { randomSeed } from './core/prng.js?v=66e6c20-mwe5ta04';
-import { Range, EYE_HEIGHT } from './scene/range.js?v=66e6c20-mwe5ta04';
-import { RING_STEP } from './scene/range-tex.js?v=66e6c20-mwe5ta04';
-import { Gamepad, padPanel } from './ui/gamepad.js?v=66e6c20-mwe5ta04';
-import { WeaponRig, setUltraTexSize, skinName, setSkinResolver, setHiResSkins } from './scene/viewmodel.js?v=66e6c20-mwe5ta04';
-import { LensPost } from './render/lens-post.js?v=66e6c20-mwe5ta04';
-import { reticleTextures } from './ui/reticle-tex.js?v=66e6c20-mwe5ta04';
-import { DOT_POINTS } from './scene/dots.js?v=66e6c20-mwe5ta04';
-import { Voices } from './audio/voice.js?v=66e6c20-mwe5ta04';
-import { ModeGame } from './modes/game.js?v=66e6c20-mwe5ta04';
-import { Sfx } from './audio/sfx.js?v=66e6c20-mwe5ta04';
-import { playInspect } from './audio/inspect-sfx.js?v=66e6c20-mwe5ta04';
-import { DebugHud } from './ui/debug-hud.js?v=66e6c20-mwe5ta04';
-import { drawCrosshair } from './ui/crosshair.js?v=66e6c20-mwe5ta04';
-import { Hud } from './ui/hud.js?v=66e6c20-mwe5ta04';
-import { MagPlot } from './ui/plot.js?v=66e6c20-mwe5ta04';
-import { SettingsUI } from './ui/settings-ui.js?v=66e6c20-mwe5ta04';
-import { sensKeys, zoomKey } from './core/optics.js?v=66e6c20-mwe5ta04';
+import * as THREE from '../vendor/three/three.module.min.js?v=ee5991e-mweaippm';
+import { Look, PITCH_LIMIT } from './core/look.js?v=ee5991e-mweaippm';
+import { Player } from './core/player.js?v=ee5991e-mweaippm';
+import { PointerLock } from './core/pointer-lock.js?v=ee5991e-mweaippm';
+import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=ee5991e-mweaippm';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=ee5991e-mweaippm';
+import { Weapon } from './core/weapon.js?v=ee5991e-mweaippm';
+import { RecoilEngine } from './core/recoil.js?v=ee5991e-mweaippm';
+import { Spread } from './core/spread.js?v=ee5991e-mweaippm';
+import { loadGameData } from './core/guns.js?v=ee5991e-mweaippm';
+import { initLoadout, effectiveGun, sanitize, slotIn, baseOf, SLOTS as ATTACH_SLOTS, allowed as attachAllowed, measuredCode, describe as describeAttach, hint as attachHint } from './core/loadout.js?v=ee5991e-mweaippm';
+import { randomSeed } from './core/prng.js?v=ee5991e-mweaippm';
+import { Range, EYE_HEIGHT } from './scene/range.js?v=ee5991e-mweaippm';
+import { RING_STEP } from './scene/range-tex.js?v=ee5991e-mweaippm';
+import { Gamepad, padPanel } from './ui/gamepad.js?v=ee5991e-mweaippm';
+import { WeaponRig, setUltraTexSize, skinName, setSkinResolver, setHiResSkins } from './scene/viewmodel.js?v=ee5991e-mweaippm';
+import { LensPost } from './render/lens-post.js?v=ee5991e-mweaippm';
+import { reticleTextures } from './ui/reticle-tex.js?v=ee5991e-mweaippm';
+import { DOT_POINTS } from './scene/dots.js?v=ee5991e-mweaippm';
+import { Voices } from './audio/voice.js?v=ee5991e-mweaippm';
+import { ModeGame } from './modes/game.js?v=ee5991e-mweaippm';
+import { Sfx } from './audio/sfx.js?v=ee5991e-mweaippm';
+import { playInspect } from './audio/inspect-sfx.js?v=ee5991e-mweaippm';
+import { DebugHud } from './ui/debug-hud.js?v=ee5991e-mweaippm';
+import { drawCrosshair } from './ui/crosshair.js?v=ee5991e-mweaippm';
+import { Hud } from './ui/hud.js?v=ee5991e-mweaippm';
+import { MagPlot } from './ui/plot.js?v=ee5991e-mweaippm';
+import { SettingsUI } from './ui/settings-ui.js?v=ee5991e-mweaippm';
+import { sensKeys, zoomKey } from './core/optics.js?v=ee5991e-mweaippm';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
 function sensRows(catalogue, sens) {
   const keys = new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)]);
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
-import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=66e6c20-mwe5ta04';
-import { Battle } from './battle/battle.js?v=66e6c20-mwe5ta04';
-import { initCore, coreLoaded } from './wasm/core.js?v=66e6c20-mwe5ta04';
-import { createJoinRequest, acceptJoin } from './net/link.js?v=66e6c20-mwe5ta04';
-import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt } from './net/relay.js?v=66e6c20-mwe5ta04';
-import { Profile, WIN_POINTS } from './core/profile.js?v=66e6c20-mwe5ta04';
-import { skinFits, skinById } from './core/skins.js?v=66e6c20-mwe5ta04';
-import { PackUI } from './ui/packs.js?v=66e6c20-mwe5ta04';
-import { HDPack } from './render/hd-pack.js?v=66e6c20-mwe5ta04';
-import { effectiveGraphics, needsPack, maxMode } from './render/quality.js?v=66e6c20-mwe5ta04';
-import { GraphicsUI } from './ui/graphics-ui.js?v=66e6c20-mwe5ta04';
-import { PerfHud } from './ui/perf-hud.js?v=66e6c20-mwe5ta04';
-import { WorldPost } from './render/world-post.js?v=66e6c20-mwe5ta04';
-import { rankOf, rankedSummary, ratingOf, rankedChange, validRankedTicket, verifyRankedResult } from './core/ranked.js?v=66e6c20-mwe5ta04';
+import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=ee5991e-mweaippm';
+import { Battle } from './battle/battle.js?v=ee5991e-mweaippm';
+import { initCore, coreLoaded } from './wasm/core.js?v=ee5991e-mweaippm';
+import { createJoinRequest, acceptJoin } from './net/link.js?v=ee5991e-mweaippm';
+import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt } from './net/relay.js?v=ee5991e-mweaippm';
+import { Profile, WIN_POINTS } from './core/profile.js?v=ee5991e-mweaippm';
+import { skinFits, skinById } from './core/skins.js?v=ee5991e-mweaippm';
+import { PackUI } from './ui/packs.js?v=ee5991e-mweaippm';
+import { HDPack } from './render/hd-pack.js?v=ee5991e-mweaippm';
+import { effectiveGraphics, needsPack, maxMode } from './render/quality.js?v=ee5991e-mweaippm';
+import { GraphicsUI } from './ui/graphics-ui.js?v=ee5991e-mweaippm';
+import { PerfHud } from './ui/perf-hud.js?v=ee5991e-mweaippm';
+import { WorldPost } from './render/world-post.js?v=ee5991e-mweaippm';
+import { rankOf, rankedSummary, ratingOf, rankedChange, validRankedTicket, verifyRankedResult } from './core/ranked.js?v=ee5991e-mweaippm';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -72,15 +72,17 @@ let embedded = false;
 try { embedded = window.self !== window.top; } catch (e) { embedded = true; }
 if (embedded) {
   $('menu').hidden = true;
+  $('boot-screen').style.display = 'none';      // (shown again once 'Play here' starts loading)
   $('embedded').hidden = false;
   $('open-tab').href = location.href;
   $('play-here').addEventListener('click', () => {
     $('embedded').hidden = true;
+    $('boot-screen').style.display = 'grid';
     $('menu').hidden = false;
-    trackLoad(loadAll(), 'Loading the game').then((d) => trackLoad(boot(d), 'Loading the game')).catch(e => { $('data-errors').hidden = false; $('data-errors').textContent = e.message; });
+    trackLoad(loadAll(), 'Loading the game').then((d) => trackLoad(boot(d), 'Loading the game')).catch(e => { $('boot-screen')?.remove(); $('data-errors').hidden = false; $('data-errors').textContent = e.message; });
   }, { once: true });
 } else {
-  trackLoad(loadAll(), 'Loading the game').then((d) => trackLoad(boot(d), 'Loading the game')).catch(e => { $('data-errors').hidden = false; $('data-errors').textContent = e.message; });
+  trackLoad(loadAll(), 'Loading the game').then((d) => trackLoad(boot(d), 'Loading the game')).catch(e => { $('boot-screen')?.remove(); $('data-errors').hidden = false; $('data-errors').textContent = e.message; });
 }
 
 async function boot(data) {
@@ -534,7 +536,7 @@ async function boot(data) {
   $('start-btn').addEventListener('click', startLock);
   // Clicking the game resumes it (not on the mode / weapon screens).
   // (not once the match is over: the shot that wins ends with a click on the game, and Play again needs the cursor)
-  canvas.addEventListener('click', () => { if (!lock.locked && flow.inGame && $('armory').hidden && !cur()?.over) startLock(); });
+  canvas.addEventListener('click', () => { if (!lock.locked && flow.inGame && $('armory').hidden && !(cur()?.active && cur().over)) startLock(); });
 
   /* ---------- mouse look: every event, straight to yaw/pitch ---------- */
   document.addEventListener('mousemove', (e) => { if (lock.locked && !lock.virtual) lookBy(e.movementX, e.movementY); });
@@ -643,6 +645,8 @@ async function boot(data) {
     }
   }
   const actionKeys = {forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD',sprint:'ShiftLeft',crouch:'Space',leanLeft:'KeyQ',leanRight:'KeyE',ability:'OperatorAbility',interact:'Interact',reload:'KeyR',vault:'KeyC',grenade:'KeyG',knife:'KeyK',inspect:'KeyI',scoreboard:'Tab',recall:'KeyV',droneZap:'DroneZap',underbarrel:'KeyB',reset:'KeyX',target:'KeyM',zero:'KeyZ'};
+  // A Mac sends Caps Lock's key-up only on the next press: a tap there is a press and release (no grenade camera).
+  if (/Mac/.test(navigator.platform)) document.addEventListener('keydown', (e) => { if (e.code === 'CapsLock' && !e.repeat) setTimeout(() => controls.onAction('grenade', false), 0); });
   controls.onAction = (id,down) => {
     const event = {code:actionKeys[id],button:id==='fire'?0:2,timeStamp:performance.now(),preventDefault(){}};
     if(id==='fire'||id==='ads') (down?handleMouseDown:handleMouseUp)(event);
@@ -947,8 +951,16 @@ async function boot(data) {
     trackLoad(initCore(), 'Loading the game engine').then(then, (err) => flashNotice('Could not load the game engine (' + (err && err.message || err) + '). Press Ctrl+F5 to load the latest version.', 9000));
     return true;
   }
+  // The black loading screen over a match's first frames, where shaders compile and guns get built (hitches nobody sees).
+  function loadingCover() {
+    const c = $('boot-screen'); if (!c) return;
+    c.style.display = 'grid'; c.style.pointerEvents = 'none';   // clicks still reach the game
+    const t0 = performance.now(), off = (n) => requestAnimationFrame(() => (n > 0 || performance.now() - t0 < 350 ? off(n - 1) : (c.style.display = 'none')));
+    off(4);
+  }
   function startBattle() {
     if (needCore(startBattle)) return;
+    loadingCover();
     controls.release();
     const royale = flow.mode === 'royale';
     const B = royale ? { ...settings.battle, opponent: 'bots' } : settings.battle;
@@ -1020,6 +1032,7 @@ async function boot(data) {
     const royale = !!battle?.royale;
     leaveBattle();
     if (royale) { flow.inGame = false; showPage('mode'); $('menu').hidden = false; }
+    else startLock();   // the click is a gesture: capture the mouse again so the range is playable
   }
   $('battle-btn').addEventListener('click', startBattle);
 
@@ -1543,6 +1556,7 @@ async function boot(data) {
   async function startMode(mode = flow.mode, extra = {}) {
     if (modeStarting) return false;
     modeStarting = true;
+    loadingCover();
     controls.release();
     const m = mode, P = modePrefs;
     if (battle && battle.active) leaveBattle();
@@ -1764,8 +1778,8 @@ async function boot(data) {
 
     // View = aim + recoil offset (view punch), so the crosshair visibly climbs.
     recoil.offsetAt(t, offset);
-    // No recovery (degPerSecond 0): once the spray is over, the recoil that is left becomes
-    // part of the aim. The view does not move; the next spray starts from a clean offset.
+    // Recoil settle: the offset returns to the aim at the gun's recovery rate. With no rate
+    // (degPerSecond 0) the recoil that is left becomes part of the aim instead.
     const gr = state.gun.recovery;
     if (gr.degPerSecond === 0 && (offset[0] !== 0 || offset[1] !== 0) &&
         t - recoil.lastShot > Math.max(state.gun.resetSeconds, recoil.easeDur)) {
@@ -1992,6 +2006,7 @@ async function boot(data) {
   });
   HDPack.init().then(() => { if (HDPack.ready && needsPack(settings.graphics)) loadHD(); else if (needsPack(settings.graphics)) graphicsChanged(); });
 
+  requestAnimationFrame(() => requestAnimationFrame(() => { $('boot-screen').style.display = 'none'; }));   // everything is built and painted: the black loading screen gives way to the menu
   /* ---------- test hooks (only with ?test in the URL) ---------- */
   if (testMode) {
     window.__range = {
