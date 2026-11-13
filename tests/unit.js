@@ -2,14 +2,18 @@
 // the same JS engine as the game. Results go to window.__results for tests/run.mjs.
 import { degPerCount, countsPer360, inchesPer360, verticalFovDeg, zoomedFovDeg } from '../js/core/sensitivity.js';
 import { Look, MAX_EVENT_COUNTS } from '../js/core/look.js';
-import { sprayStep, sprayTarget, sampleSpray, easeOutCubic, RecoilEngine, EASE_FRACTION, smoothPath } from '../js/core/recoil.js';
+import { sprayStep, sprayTarget, sampleSpray, easeOutCubic, RecoilEngine, EASE_FRACTION, smoothPath, ADS_SETTLE } from '../js/core/recoil.js';
 import { GaussianRng, mulberry32 } from '../js/core/prng.js';
 import { validateGuns, validateSens } from '../js/core/guns.js';
 import { validateCatalogue, resolveGunOptics, sensKeys } from '../js/core/optics.js';
 import { sanitize } from '../js/core/settings.js';
 import { raycastDummy } from '../js/scene/dummy.js';
+import { addMatch, totals, matches } from '../js/core/history.js';
 import { CATALOGUE, LEGEND_ID, RARITIES, SAKURA_ID, skinFits } from '../js/core/skins.js';
-import { Profile } from '../js/core/profile.js';
+import { Profile, TRADE_UP } from '../js/core/profile.js';
+import { challengesFor, record, progressOf, isPaid, matchStats } from '../js/core/challenges.js';
+import { PAD_ASSIST, nearestAim, assistLook } from '../js/core/pad-assist.js';
+import { MatchStats } from '../js/core/mvp.js';
 
 const results = [];
 function test(name, fn) {
@@ -192,6 +196,31 @@ test('RecoilEngine: off (trackpad) fires every bullet on the aim, hip or aimed',
   const o = [0, 0];
   for (let i = 0; i < 6; i++) { r.aimed = i % 2 === 0; r.fire(10 + i * 0.1, o); eq(o[0] === 0 && o[1] === 0, true, 'bullet ' + i); }
 });
+test('RecoilEngine: aimed sprays settle ADS_SETTLE times faster', () => {
+  const r = new RecoilEngine(); r.setGun(testGun({ sprayPath: [[0, 0], [0, 2]] })); r.newMagazine(1);
+  r.aimed = true; r.fire(0, [0, 0]);
+  near(r.offsetAt(0.25, [0, 0])[1], 2 - 10 * ADS_SETTLE * 0.05, 1e-12, '0.05 s into recovery, aimed');
+  r.aimed = false;
+  near(r.offsetAt(0.25, [0, 0])[1], 2 - 10 * ADS_SETTLE * 0.05, 1e-12, 'letting go of aim mid-settle keeps the rate');
+});
+test('RecoilEngine: the settle never drags you below where the spray started', () => {
+  const g = testGun({ sprayPath: [[0, 0], [0, 2]] }), o = [0, 0];
+  const look = { yaw: 0, pitch: 0, setAngles(y, p) { this.yaw = y; this.pitch = p; } };
+  let r = new RecoilEngine(); r.setGun(g); r.newMagazine(1);
+  r.fire(0, o, look.pitch);                       // started at 0, the kick takes the view to +2
+  look.pitch = -3;                                // pulled down: the view is at -1, under the start
+  eq(r.settleStop(0.15, look), false, 'nothing during the hold');
+  eq(r.settleStop(0.25, look), true, 'no drag down');
+  near(look.pitch, -1, 1e-12, 'view stays where it was'); near(r.offsetAt(0.3, o)[1], 0, 1e-12);
+  look.pitch = 0; r = new RecoilEngine(); r.setGun(g); r.newMagazine(1);
+  r.fire(0, o, 0); look.pitch = -1;               // view at +1: it settles, but only down to 0
+  eq(r.settleStop(0.25, look), false, 'still above the start');
+  eq(r.settleStop(0.35, look), true, 'reached the start');
+  near(look.pitch, 0, 1e-12, 'stops at the start');
+  look.pitch = 0; r = new RecoilEngine(); r.setGun(g); r.newMagazine(1);
+  r.fire(0, o, 0);                                // no pull at all: settles back to the aim as before
+  eq(r.settleStop(1, look), false); near(r.offsetAt(1, o)[1], 0, 1e-12);
+});
 test('RecoilEngine: shotIndex resets after resetSeconds', () => {
   const r = new RecoilEngine(); r.setGun(testGun()); r.newMagazine(1);
   const o = [0, 0];
@@ -324,6 +353,63 @@ test('dummy raycast: head, chest, gap between legs, miss beside', () => {
   eq(ray(0, 0.3), false, 'between the shins');
   eq(ray(0.6, 1.2), false, 'beside the arm');
   eq(ray(0.28, 0.95), true, 'forearm'); eq(out.zone, 'limb');
+});
+
+test('match history: newest first, totals, K/D and most-used gun', () => {
+  try { localStorage.removeItem('recoilRange.history.v1'); } catch { /* blocked */ }
+  const before = matches().length;
+  addMatch({ mode: 'battle', result: 'win', kills: 6, deaths: 2, gun: 'R4-C' });
+  addMatch({ mode: 'tdm', result: 'loss', kills: 2, deaths: 4, gun: 'MP7' });
+  eq(matches().length, before + 2); eq(matches()[0].mode, 'tdm', 'newest first');
+  const t = totals();
+  if (before === 0) { eq(t.wins, 1); eq(t.kills, 8); near(t.kd, 8 / 6, 1e-9); eq(t.best, 'R4-C'); }
+});
+
+test('profile v5: duplicates, trade-up, charms survive a save code; v4 codes still load', () => {
+  const mem = { getItem: () => null, setItem() {} };
+  const p = new Profile(mem); p.points = 2000;
+  p.dups.common = TRADE_UP + 1;
+  const r = p.tradeUp('common', () => 0.3);
+  eq(r.skin.rarity, 'rare', 'next rarity'); eq(p.dups.common, 1);
+  eq(p.tradeUp('common'), null, 'not enough duplicates');
+  eq(p.buyCharm(2), true); eq(p.charm, 2); eq(p.buyCharm(2), false, 'only once');
+  const q = new Profile(mem); q.loadCode(p.saveCode());
+  eq(q.dups.common, 1); eq(q.charm, 2); eq(q.hasCharm(2), true); eq(q.points, p.points); eq(q.has(r.skin.id), true);
+  const old = new Profile(mem); old.loadCode('RRS1-BBAnAAD__________________________________wf_____________AAAAAAAA6AMAeso');
+  eq(old.points, 10000, 'v4 code'); eq(old.charm, null);
+});
+
+test('challenges: one daily and one weekly per mode, the same all day, paid once', () => {
+  try { localStorage.removeItem('recoilRange.challenges.v1'); } catch { /* blocked */ }
+  const now = Date.UTC(2026, 10, 13, 12), all = challengesFor(now);
+  eq(all.length, 14); eq(JSON.stringify(challengesFor(now + 3600000)), JSON.stringify(all), 'same later that day');
+  const daily = all.find((c) => c.mode === 'battle' && c.period === 'daily');
+  let done = [];
+  for (let i = 0; i < 30 && !done.some((c) => c.id === daily.id); i++) done = record('battle', matchStats({ mode: 'battle', result: 'win', kills: 20 }), now);
+  eq(isPaid(daily), true); eq(progressOf(daily), daily.goal);
+  eq(record('battle', matchStats({ mode: 'battle', result: 'win', kills: 20 }), now).some((c) => c.id === daily.id), false, 'not paid twice');
+  eq(matchStats({ mode: 'royale', result: 'loss', place: 4, kills: 2 }).top5, 1);
+});
+
+test('controller aim assist: finds the visible enemy, slows and nudges only while moving', () => {
+  const clear = () => true, wall = () => false, eye = [0, 1.6, 0];
+  const target = [Math.sin(2 * Math.PI / 180) * 10, 1.6, -Math.cos(2 * Math.PI / 180) * 10];   // 2 deg right
+  const a = nearestAim(eye, 0, 0, [target], 6, clear);
+  near(a.ey, 2, 1e-9); near(a.ep, 0, 1e-9);
+  eq(nearestAim(eye, 0, 0, [target], 6, wall), null, 'not through walls');
+  eq(nearestAim(eye, 0, 0, [target], 1.5, clear), null, 'outside the cone');
+  const [x, y] = assistLook(PAD_ASSIST.standard, 0.5, 0, a);
+  eq(x < 0.5, true, 'slower near the target'); eq(x > 0, true); near(y, 0, 1e-12);
+  const still = assistLook(PAD_ASSIST.standard, 0, 0, a);
+  eq(still[0] === 0 && still[1] === 0, true, 'no pull with the stick still');
+  eq(JSON.stringify(assistLook(PAD_ASSIST.off, 0.5, 0, a)), '[0.5,0]', 'off');
+});
+test('MVP stats: longest kill, fastest double, damage; the standout first', () => {
+  const m = new MatchStats();
+  m.hit(100); m.kill(10, 12); m.hit(100); m.kill(10.5, 42);
+  const c = m.card();
+  eq(c[0].key, 'double'); near(m.double, 0.5, 1e-12); eq(m.longest, 42); eq(m.damage, 200);
+  eq(new MatchStats().card(), null);
 });
 
 window.__results = results;

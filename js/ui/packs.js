@@ -1,9 +1,16 @@
 // Skins & packs: points, the pack opening (a slot-machine reel that slows down and lands on
 // your skin), your collection (click to put a skin on the selected gun), and the save code.
-import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById, skinFits, LEGEND_ID } from '../core/skins.js?v=ee5991e-mweaippm';
-import { Profile, PACK_COST, LEGEND_PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=ee5991e-mweaippm';
-import { legendPhotoURL, setLegendPhoto, clearLegendPhoto, onLegendChange } from '../core/legend.js?v=ee5991e-mweaippm';
-import { skinThumb } from '../render/gpu-tex.js?v=ee5991e-mweaippm';
+import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById, skinFits, LEGEND_ID } from '../core/skins.js?v=a5f1e9c-mweog2sf';
+import { Profile, PACK_COST, LEGEND_PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=a5f1e9c-mweog2sf';
+import { legendPhotoURL, setLegendPhoto, clearLegendPhoto, onLegendChange } from '../core/legend.js?v=a5f1e9c-mweog2sf';
+import { skinThumb } from '../render/gpu-tex.js?v=a5f1e9c-mweog2sf';
+import { matches, totals } from '../core/history.js?v=a5f1e9c-mweog2sf';
+import { CHARMS } from '../core/charms.js?v=a5f1e9c-mweog2sf';
+import { TRADE_UP, TRADE_NEXT } from '../core/profile.js?v=a5f1e9c-mweog2sf';
+import { mulberry32 } from '../core/prng.js?v=a5f1e9c-mweog2sf';
+
+// Weekly shop prices (a pack is 100 points for a random skin).
+const SHOP_PRICE = { common: 120, rare: 250, epic: 450, blackice: 900, legendary: 1500 };
 
 function el(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);
@@ -102,6 +109,7 @@ export class PackUI {
     this.codeOut = el('textarea', { readonly: '', spellcheck: 'false', rows: '2', id: 'pk-code-out' });
     this.codeIn = el('input', { type: 'text', spellcheck: 'false', id: 'pk-code-in', placeholder: 'RRS1-...' });
     this.codeMsg = el('p', { class: 'small', role: 'status' });
+    this.statsEl = el('div', { class: 'pk-stats' });
     r.append(
       el('h2', { text: 'Skins & packs' }),
       el('div', { class: 'pk-top' },
@@ -111,6 +119,7 @@ export class PackUI {
       this._legendBox(),
       el('div', { class: 'pk-top' }, el('h3', { class: 'pk-h3' }, el('span', { text: 'Collection ' }), this.countEl, el('span', { text: ' / ' + SKIN_COUNT })), this.allBtn),
       this.grid, this.slotNote,
+      this.statsEl,
       el('div', { class: 'pk-save' },
         el('label', { class: 'field', for: 'pk-code-out' }, el('span', { text: 'Save code: copy it to keep your progress on another PC or browser' }), this.codeOut),
         el('div', { class: 'row' }, el('button', { type: 'button', text: 'Copy save code', onclick: () => this.copyCode() })),
@@ -143,6 +152,8 @@ export class PackUI {
       el('div', { class: 'pk-points pk-shop-points' }, this.shopPoints, el('span', { text: ' points' })),
       this.shopBtn, this.shopNeed, this.legendBtn, this.legendNote,
       el('p', { class: 'small', text: EARN_TEXT() }), el('p', { class: 'small pk-pirate', text: PIRATE_TEXT })));
+    this.weekEl = el('div', { class: 'pk-extra' }); this.tradeEl = el('div', { class: 'pk-extra' }); this.charmEl = el('div', { class: 'pk-extra' });
+    root.append(this.weekEl, this.tradeEl, this.charmEl);
     this.refresh();
   }
   refresh() {
@@ -159,6 +170,8 @@ export class PackUI {
     this.openBtn.disabled = !p.canOpen || !this.modal.hidden;
     this.countEl.textContent = String(p.ownedCount);
     this.codeOut.value = p.saveCode();
+    this._stats();
+    this._shopExtras();
     const slot = this.gunIndex(), gun = this.guns[slot];
     const eq = p.equippedFor(slot);
     this.slotNote.textContent = 'Click a skin to put it on ' + gun.name + ' (slot ' + ((slot + 1) % 10) + ', selected in Loadout).';
@@ -199,6 +212,22 @@ export class PackUI {
     }
     container.replaceChildren(...cards);
   }
+  // Your stats: totals over the last 50 matches and the last 10 of them.
+  _stats() {
+    const t = totals(), MODE = { battle: 'Battle', endless: 'Endless', royale: 'Battle Royale', tdm: 'Team Deathmatch', ctf: 'Capture the Flag', bomb: 'Bomb' };
+    const kids = [el('h3', { class: 'pk-h3', text: 'Your stats' })];
+    if (!t.matches) kids.push(el('p', { class: 'small', text: 'Finish a match and it shows up here.' }));
+    else {
+      kids.push(el('p', { class: 'small', text: t.matches + ' matches · ' + t.wins + ' wins (' + Math.round(t.wins / t.matches * 100) + '%) · ' + t.kills + ' kills · K/D ' + t.kd.toFixed(2) + (t.best ? ' · most kills with ' + t.best : '') }));
+      kids.push(el('div', { class: 'pk-hist', role: 'list' }, ...matches().slice(0, 10).map((m) => el('div', { class: 'pk-hrow r-' + m.result, role: 'listitem' },
+        el('span', { text: m.result === 'win' ? 'Win' : m.result === 'draw' ? 'Draw' : m.place ? '#' + m.place : 'Loss' }),
+        el('span', { text: MODE[m.mode] || m.mode }),
+        el('span', { text: m.kills + ' / ' + m.deaths }),
+        el('span', { text: m.gun }),
+        el('span', { class: 'pk-when', text: new Date(m.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) })))));
+    }
+    this.statsEl.replaceChildren(...kids);
+  }
   // Can skin id go on the gun in this slot? (Some skins are made for certain guns only.)
   fits(id, slot) { return skinFits(id, slot); }
   onlyFor(id) { const s = skinById(id); return s.guns ? 'Only for ' + s.guns.map((i) => this.guns[i] ? this.guns[i].name : '?').join(', ') : ''; }
@@ -212,10 +241,40 @@ export class PackUI {
     catch (e) { this.codeMsg.textContent = e.message; }
   }
 
+  // This week's shop: a Rare, an Epic and a Black Ice or Legendary skin, plus a charm (the same
+  // for everyone, new each Monday).
+  weekOffers(now = Date.now()) {
+    const week = Math.floor((now / 86400000 + 3) / 7), rng = mulberry32(week * 2654435761 >>> 0);
+    const pick = (rarity) => { const pool = CATALOGUE.filter((s) => s.rarity === rarity && s.id !== LEGEND_ID && !s.photo); return pool[Math.floor(rng() * pool.length)]; };
+    const skins = [pick('rare'), pick('epic'), pick(week % 2 ? 'legendary' : 'blackice')];
+    return { week, skins, charm: CHARMS[Math.floor(rng() * CHARMS.length)], ends: (week + 1) * 7 * 86400000 - 3 * 86400000 };
+  }
+  _shopExtras() {
+    if (!this.weekEl) return;
+    const p = this.profile, w = this.weekOffers(), days = Math.max(1, Math.ceil((w.ends - Date.now()) / 86400000));
+    const buy = (label, price, owned, fn) => el('button', { type: 'button', class: 'primary', text: owned ? 'Owned' : label + ' · ' + price, disabled: owned || p.points < price ? '' : null, onclick: () => { if (fn()) { this.refresh(); this.onEquip(this.gunIndex()); } } });
+    this.weekEl.replaceChildren(el('h3', { class: 'pk-h3', text: 'This week · new skins in ' + days + ' day' + (days > 1 ? 's' : '') }),
+      el('div', { class: 'pk-offers' },
+        ...w.skins.map((s) => el('div', { class: 'pk-offer r-' + s.rarity }, this.thumbImg(s.id), el('span', { class: 'pk-name', text: s.name }), el('span', { class: 'pk-rar', text: RARITY[s.rarity].name + (s.guns ? ' · ' + this.onlyFor(s.id) : '') }),
+          buy('Buy', SHOP_PRICE[s.rarity], p.has(s.id), () => p.buySkin(s.id, SHOP_PRICE[s.rarity])))),
+        el('div', { class: 'pk-offer pk-charm-offer' }, el('span', { class: 'pk-charm-dot', style: 'background:#' + w.charm.color.toString(16).padStart(6, '0') }), el('span', { class: 'pk-name', text: w.charm.name }), el('span', { class: 'pk-rar', text: 'Charm' }),
+          buy('Buy', w.charm.price, p.hasCharm(w.charm.id), () => p.buyCharm(w.charm.id)))));
+    this.tradeEl.replaceChildren(el('h3', { class: 'pk-h3', text: 'Trade up' }),
+      el('p', { class: 'small', text: 'Duplicates from packs count here (you still get their points). ' + TRADE_UP + ' duplicates of one rarity become a skin of the next rarity, one you do not have yet when there is one.' }),
+      el('div', { class: 'pk-trades' }, ...Object.keys(TRADE_NEXT).map((r) => el('button', { type: 'button', class: 'pk-trade r-' + r, disabled: p.canTradeUp(r) && this.modal.hidden ? null : '',
+        text: p.dups[r] + ' / ' + TRADE_UP + ' ' + RARITY[r].name + ' → ' + RARITY[TRADE_NEXT[r]].name, onclick: () => this.open(Math.random, false, p.tradeUp(r)) }))));
+    this.charmEl.replaceChildren(el('h3', { class: 'pk-h3', text: 'Your charms' }),
+      el('div', { class: 'pk-trades' },
+        el('button', { type: 'button', class: p.charm === null ? 'on' : '', text: 'No charm', onclick: () => { p.wearCharm(null); this.refresh(); this.onEquip(this.gunIndex()); } }),
+        ...CHARMS.map((c) => el('button', { type: 'button', class: p.charm === c.id ? 'on' : '', disabled: p.hasCharm(c.id) ? null : '', title: p.hasCharm(c.id) ? 'Hang it on your guns' : 'Comes to the weekly shop now and then (' + c.price + ' points)',
+          text: c.name, onclick: () => { p.wearCharm(c.id); this.refresh(); this.onEquip(this.gunIndex()); } }))));
+  }
+
   /* ---------- the slot machine ---------- */
-  open(rng = Math.random, legend = false) {
+  // given: a result made elsewhere (a trade-up) to show on the reel.
+  open(rng = Math.random, legend = false, given = null) {
     if (!this.modal.hidden) return null;
-    const res = legend ? this.profile.openLegendPack(rng) : this.profile.openPack(rng);
+    const res = given || (legend ? this.profile.openLegendPack(rng) : this.profile.openPack(rng));
     if (!res) return null;
     this.result = res;
     // A reel of random skins (same odds as packs); the winning card sits at WIN_AT.

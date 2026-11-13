@@ -202,6 +202,13 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 .r-rare { border-color: #2f6fb5; } .r-rare .pk-rar { color: #4da3ff; }
 .r-epic { border-color: #8a3fc0; } .r-epic .pk-rar { color: #c26bff; }
 .r-blackice { border-color: #5fd6e6; background: #071016; box-shadow: 0 0 10px rgba(127, 243, 255, 0.35); } .r-blackice .pk-rar { color: #7ff3ff; }
+.pk-stats { display: grid; gap: 6px; padding-top: 6px; border-top: 1px solid var(--panel-edge); }
+.pk-hist { display: grid; gap: 2px; font: 12px/1.4 var(--mono); }
+.pk-hrow { display: grid; grid-template-columns: 3.5em minmax(0, 1.4fr) 4.5em minmax(0, 1fr) 4em; gap: 8px; padding: 2px 6px; border-radius: 3px; background: rgba(255,255,255,0.03); }
+.pk-hrow span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pk-hrow.r-win span:first-child { color: #7fe0a0; }
+.pk-hrow.r-loss span:first-child { color: #e08a7f; }
+.pk-when { opacity: 0.6; text-align: right; }
 .pk-save { display: grid; gap: 8px; padding-top: 6px; border-top: 1px solid var(--panel-edge); }
 .pk-save textarea, .pk-save input { width: 100%; padding: 6px 8px; background: #0b0d10; border: 1px solid var(--panel-edge); border-radius: 4px; color: var(--fg); font: 12px/1.35 var(--mono); word-break: break-all; }
 .pk-modal { position: absolute; inset: 0; z-index: 20; display: grid; place-items: center; background: rgba(4, 6, 8, 0.8); padding: 16px; }
@@ -570,6 +577,12 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 .minimap[hidden], .mg-killcam .minimap { display: none; }
 
 /* Packs menu */
+.pk-extra { display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid var(--panel-edge); }
+.pk-offers { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.pk-offer { display: grid; gap: 4px; justify-items: center; padding: 8px; border-radius: 6px; background: rgba(255,255,255,0.04); text-align: center; }
+.pk-charm-dot { width: 56px; height: 56px; border-radius: 50%; box-shadow: inset -6px -8px 14px rgba(0,0,0,0.45); margin: 10px; }
+.pk-trades { display: flex; flex-wrap: wrap; gap: 6px; }
+.pk-trades button.on { outline: 2px solid var(--accent, #f2b33d); }
 .pk-shop { display: grid; justify-items: center; gap: 10px; padding: 18px 0 6px; text-align: center; }
 .pk-shop-points { font-size: 44px; }
 .pk-shop-open { font-size: 20px; padding: 14px 34px; }
@@ -616,3 +629,35 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 .t-feature b { display: block; color: #ffc23a; font-size: 18px; letter-spacing: 0.04em; }
 @media (max-width: 720px) { .t-art { right: -30vw; width: 140vw; opacity: 0; } .t-art.on { opacity: 0.35; } .t-nav { grid-template-columns: repeat(2, auto); } }
 @media (prefers-reduced-motion: reduce) { .t-art { transition: opacity 0.4s; transform: translateY(-50%); } .t-art.on { transform: translateY(-50%); } }
+
+/* Daily and weekly challenges (mode page) */
+.ch-head { margin: 14px 0 6px; font-size: 15px; }
+.ch-head .small { font-weight: 400; opacity: 0.7; margin-left: 6px; }
+.challenges { display: grid; gap: 4px; }
+.ch-row { display: grid; grid-template-columns: 9.5em minmax(0, 1fr) minmax(0, 1fr); gap: 8px; align-items: center; font-size: 12px; }
+.ch-cell { position: relative; padding: 4px 8px; border-radius: 4px; background: rgba(255,255,255,0.04); overflow: hidden; }
+.ch-cell span { position: relative; z-index: 1; }
+.ch-cell i { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(242,179,61,0.18); }
+.ch-cell.done { color: #7fe0a0; }
+@media (max-width: 640px) { .ch-row { grid-template-columns: 1fr; } }
+
+/* MVP card (end of match) */
+.mvp-card { display: grid; gap: 4px; margin: 8px auto; padding: 10px 16px; max-width: 320px; border-radius: 8px; background: linear-gradient(135deg, rgba(242,179,61,0.22), rgba(242,179,61,0.06)); border: 1px solid rgba(242,179,61,0.5); text-align: center; animation: mvp-in 0.35s ease-out; }
+.mvp-top { display: grid; gap: 2px; }
+.mvp-tag { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.75; }
+.mvp-top b { font-size: 28px; color: #ffd27a; }
+.mvp-rest { font-size: 12px; opacity: 0.8; }
+@keyframes mvp-in { from { transform: scale(0.9); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* Match presets */
+.presets { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.presets .ch-head { flex-basis: 100%; }
+.preset { display: inline-flex; gap: 2px; }
+.preset-save { gap: 6px; margin-top: 8px; }
+.preset-save input { flex: 1; min-width: 0; max-width: 220px; padding: 6px 8px; }
+
+/* Setting tips: one line under the setting you point at or tab to */
+.field, .check { position: relative; }
+.field .tip, .check .tip { display: none; position: absolute; left: 0; top: 100%; z-index: 30; margin-top: 2px; max-width: 320px; padding: 5px 8px; border-radius: 4px; background: #0d1014; border: 1px solid var(--panel-edge); color: #cfd6de; font-size: 12px; line-height: 1.35; font-weight: 400; pointer-events: none; box-shadow: 0 4px 14px rgba(0,0,0,0.4); }
+.field:hover .tip, .field:focus-within .tip, .check:hover .tip, .check:focus-within .tip { display: block; }
+.fov-preview { width: 220px; height: 90px; flex: none; }

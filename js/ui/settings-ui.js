@@ -1,9 +1,13 @@
-import { tabs } from './m7-menu.js?v=ee5991e-mweaippm';
+import { tabs } from './m7-menu.js?v=a5f1e9c-mweog2sf';
 // Settings panel inside the Esc menu. Every change is sanitised, saved to localStorage and
 // handed to main.js through onChange(key) so it takes effect immediately.
-import { sanitize, saveSettings, clearSavedSettings, DEFAULTS, DISTANCES, CROSSHAIR_STYLES, RETICLE_COLOR_NAMES } from '../core/settings.js?v=ee5991e-mweaippm';
-import { degPerCount, countsPer360, inchesPer360, horizontalFovDeg } from '../core/sensitivity.js?v=ee5991e-mweaippm';
-import { drawCrosshair } from './crosshair.js?v=ee5991e-mweaippm';
+import { sanitize, saveSettings, clearSavedSettings, DEFAULTS, DISTANCES, CROSSHAIR_STYLES, RETICLE_COLOR_NAMES } from '../core/settings.js?v=a5f1e9c-mweog2sf';
+import { degPerCount, countsPer360, inchesPer360, horizontalFovDeg } from '../core/sensitivity.js?v=a5f1e9c-mweog2sf';
+import { drawCrosshair } from './crosshair.js?v=a5f1e9c-mweog2sf';
+
+// One line per setting, shown when you point at it (or tab to it).
+const TIPS = {"dpi": "Counts per inch your mouse sends, from its own software. Used to work out cm per 360°.", "sens-h": "Turn speed left and right; the cm/360 below shows what it means on your desk.", "sens-v": "Turn speed up and down. Lower than horizontal makes pulling down for recoil steadier.", "ads-sens": "How aiming down sights changes your speed: matched to the zoom, or your own table.", "mdm": "Which point on screen keeps the same speed when you zoom: 0% the crosshair, 100% the edge.", "assist": "Pulls your aim gently onto range targets. Practice only: never in battles or matches.", "gun": "The gun you hold on the range.", "distance": "How far away the range target stands.", "aim-recoil": "Scales the measured recoil when aiming. 100% is the real pattern.", "aim-smooth": "Rounds off the bumps in the measured spray so the pull is easier to learn.", "reload": "Speeds reloads up on the range (battles always use the real time).", "hip-recoil": "How much harder the gun kicks when you fire without aiming.", "hip-spread": "Hip-fire bullets spread out randomly, more the longer you hold the trigger.", "auto-reload": "Reloads by itself when the magazine runs dry.", "hole": "How big bullet holes look on range targets.", "target": "What you shoot at on the range. M cycles through them.", "dot-count": "How many red dots appear at once.", "dot-size": "Size of each red dot.", "dot-speed": "How fast moving dots travel.", "seed": "Locks the random part of recoil, so every magazine sprays the same. Blank: random.", "fov": "How much you see top to bottom. Higher shows more but makes things smaller.", "scale": "Draws the game sharper (above 100%) or faster (below 100%).", "graphics": "Overall detail. Lower it if the game stutters; High and up need the free download.", "royale-distance": "How far you can see on Blacktide Island. Lower is faster.", "shading": "How shiny guns and sights look on Standard graphics.", "lens": "Blur, colour fringing and glare in scopes. Lower if aiming feels slow.", "aa": "Smooths jagged edges. Takes effect after a reload of the page.", "anim": "Draw, reload and inspect animations. Off makes everything instant.", "viewmodel": "Shows the gun in your hands. Off leaves just the crosshair.", "minimap": "A small map in the corner during battles and matches.", "debug": "Numbers for checking your setup: sensitivity, FOV, recoil. Also F3.", "volume": "Loudness of everything in the game.", "spatial-audio": "Lets you hear direction and height in headphones. Turn off on speakers.", "reticle": "The colour of the dot or cross inside sights.", "xh-style": "The shape of your crosshair (see the preview).", "xh-size": "How long the crosshair lines are.", "xh-gap": "Space in the middle of the crosshair.", "xh-thick": "How thick the crosshair lines are.", "xh-outline": "A thin black edge so the crosshair shows on bright walls.", "fps": "Frame rate and hitches in the corner.", "pad-assist": "Slows your aim over enemies and nudges it along: controller only, never mouse."};
+const tipFor = (id) => TIPS[id.replace(/^(set|q)-/, '')] || (id === 'q-sens' ? TIPS['sens-h'] : id === 'q-autoreload' ? TIPS['auto-reload'] : '');
 
 function el(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);
@@ -43,7 +47,8 @@ export class SettingsUI {
   field(label, input, id) {
     input.id = id;
     this.inputs[id] = input;
-    return el('label', { class: 'field', for: id }, el('span', { text: label }), input);
+    const tip = tipFor(id || '');
+    return el('label', { class: 'field', for: id }, el('span', { text: label }), input, tip ? el('span', { class: 'tip', role: 'note', text: tip }) : null);
   }
 
   num(id, label, { min, max, step }, get, set, key) {
@@ -83,7 +88,8 @@ export class SettingsUI {
     this.inputs[id] = i;
     i.addEventListener('change', () => { set(i.checked); this.commit(key); });
     i._get = get;
-    return el('label', { class: 'check', for: id }, i, el('span', { text: label }));
+    const tip = tipFor(id);
+    return el('label', { class: 'check', for: id }, i, el('span', { text: label }), tip ? el('span', { class: 'tip', role: 'note', text: tip }) : null);
   }
 
   group(title, ...kids) {
@@ -103,6 +109,7 @@ export class SettingsUI {
         this.range('set-sens-v', 'Vertical sensitivity', { min: 1, max: 50, step: 1, fmt: (v) => String(v) }, () => this.s.sensV, (v) => { this.s.sensV = v; }, 'sens'),
         this.select('set-ads-sens', 'Aimed sensitivity', [['focal', 'Match screen distance (focal length)'], ['game', 'My game values (sens.json)']], () => this.s.adsSens, (v) => { this.s.adsSens = v; }, 'sens'),
         this.range('set-mdm', 'Monitor distance (focal mode)', { min: 0, max: 1, step: 0.05, fmt: (v) => Math.round(v * 100) + '%' + (v === 0 ? ' (match at crosshair)' : v === 1 ? ' (match at screen edge)' : '') }, () => this.s.mdm, (v) => { this.s.mdm = v; }, 'sens'),
+        this.select('set-pad-assist', 'Controller aim assist', [['off', 'Off'], ['light', 'Light'], ['standard', 'Standard']], () => this.s.padAssist, (v) => { this.s.padAssist = v; }, 'assist'),
         this.range('set-assist', 'Range training aim assist (offline only)', { min: 0, max: 1, step: 0.05, fmt: (v) => v === 0 ? 'off' : Math.round(v * 100) + '%' }, () => this.s.aimAssist, (v) => { this.s.aimAssist = v; }, 'assist'),
       ),
       this.derived);
@@ -171,6 +178,7 @@ export class SettingsUI {
 
     /* View */
     this.fovNote = el('span', { class: 'small' });
+    this.fovPreview = el('canvas', { class: 'fov-preview', width: '220', height: '90', 'aria-hidden': 'true' });
     const view = this.group('View',
       el('div', { class: 'set-grid' },
         this.range('set-fov', 'Vertical FOV', { min: 60, max: 90, step: 1, fmt: (v) => v + '\u00b0' }, () => this.s.fov, (v) => { this.s.fov = v; }, 'fov'),
@@ -180,7 +188,7 @@ export class SettingsUI {
         this.select('set-shading', 'Gun and sight shading (Standard graphics)', [['fast', 'Fast (recommended)'], ['detailed', 'Detailed metal (slower)']], () => this.s.weaponShading, (v) => { this.s.weaponShading = v; }, 'shading'),
         this.select('set-lens', 'Lens effects when aiming', [['auto', 'Auto (drops if aiming is slow)'], ['3', 'High: blur, fringing, glare'], ['2', 'Medium: no blur'], ['1', 'Low (fast): glare, darkening, reticle'], ['0', 'Off (fast): darkening and reticle']], () => this.s.lensQuality, (v) => { this.s.lensQuality = v; }, 'lens'),
       ),
-      this.fovNote,
+      el('div', { class: 'row' }, this.fovPreview, this.fovNote),
       el('div', { class: 'row' },
         this.ctx.openGraphics ? (() => { const b = el('button', { type: 'button', id: 'set-open-graphics', text: 'Graphics & performance\u2026' }); b.addEventListener('click', () => this.ctx.openGraphics()); return b; })() : null,
         this.check('set-aa', 'Antialiasing (after reload)', () => this.s.antialias, (v) => { this.s.antialias = v; }, 'aa'),
@@ -298,7 +306,20 @@ export class SettingsUI {
     const aspect = window.innerWidth / Math.max(1, window.innerHeight);
     this.fovNote.textContent = 'Vertical, like the game\u2019s FOV slider. Measured recoil assumes 83\u00b0. Horizontal FOV at this window size: ' + horizontalFovDeg(s.fov, aspect).toFixed(2) + '\u00b0. ' +
       'ADS FOV = 2 · atan(tan(hip FOV / 2) / zoom).';
+    line('mouse travel for a 180\u00b0 turn', fmt(s.cm360 / 2, 1) + ' cm');
     drawCrosshair(this.preview, s.crosshair);
     this.preview.style.margin = '0';
+    this.drawFov(horizontalFovDeg(s.fov, aspect));
+  }
+  // Top-down: you at the bottom, the cone you see (horizontal FOV at this window size).
+  drawFov(h) {
+    const c = this.fovPreview, g = c?.getContext('2d');
+    if (!g) return;
+    const W = c.width, H = c.height, a = (h / 2) * Math.PI / 180, r = H - 10, cx = W / 2, cy = H - 4;
+    g.clearRect(0, 0, W, H);
+    g.fillStyle = 'rgba(242,179,61,0.22)'; g.strokeStyle = '#f2b33d'; g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, r, -Math.PI / 2 - a, -Math.PI / 2 + a); g.closePath(); g.fill(); g.stroke();
+    g.fillStyle = '#d8dee6'; g.font = '12px system-ui, sans-serif'; g.textAlign = 'center';
+    g.fillText(h.toFixed(0) + '\u00b0 wide', cx, 14);
   }
 }

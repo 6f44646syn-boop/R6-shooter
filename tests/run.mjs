@@ -644,6 +644,41 @@ try {
       return { id, key, big: !key.endsWith('@512'), evicted: freed || mats.some((m) => m.userData.evicted), same: rig.current.userData.skinMats?.[0] === mats[0] };
     });
     check('the gun you hold keeps its skin while 6 others load', kept.key && kept.big && !kept.evicted && kept.same, JSON.stringify(kept));
+    // Too slow for 10 s: the menu offers the next lower graphics level.
+    const slow = await page.evaluate(() => {
+      const R = window.__range; R.setGraphics('standard'); R.slowOffer(24);
+      const shown = !document.getElementById('slow-offer').hidden, label = document.getElementById('slow-lower').textContent;
+      document.getElementById('slow-lower').click();
+      const g = JSON.parse(localStorage.getItem('recoilRange.settings.v1')).graphics, gone = document.getElementById('slow-offer').hidden;
+      R.setGraphics('standard');
+      return { shown, label, g, gone };
+    });
+    check('slow PC: the menu offers lower graphics and the button switches', slow.shown && slow.label === 'Switch to Low graphics' && slow.g === 'low' && slow.gone, JSON.stringify(slow));
+    // The weekly shop, trade-up and charms.
+    const shop = await page.evaluate(() => {
+      const P = window.__range.packs(), prof = window.__range.profile();
+      prof.points = 3000; prof.dups.rare = 5; P.refresh();
+      const offers = P.weekEl.querySelectorAll('.pk-offer').length, first = P.weekOffers().skins[0], had = prof.has(first.id);
+      P.weekEl.querySelector('.pk-offer button').click();
+      const bought = had || prof.has(first.id);
+      [...P.tradeEl.querySelectorAll('button')].find((b) => !b.disabled)?.click(); P._finish();
+      const traded = P.result?.skin.rarity; P.close();
+      [...P.weekEl.querySelectorAll('.pk-offer button')].at(-1).click();
+      return { offers, bought, traded, dups: prof.dups.rare, charm: prof.charm };
+    });
+    check('weekly shop: 3 skins + a charm, buying works, 5 rare duplicates trade up to an Epic', shop.offers === 4 && shop.bought && shop.traded === 'epic' && shop.dups === 0 && shop.charm !== null, JSON.stringify(shop));
+    const charm = await page.evaluate(() => {
+      const R = window.__range, prof = R.profile(), rig = R.rigObj();
+      prof.charms = 255; prof.wearCharm(4); R.selectGun(4); R.manual(true);
+      const c = rig.charm, on = !!c && c.pivot.parent === rig.current.userData.gun;
+      for (let i = 0; i < 30; i++) R.step(1 / 60);
+      rig.root.position.x += 0.05; R.step(1 / 60); rig.root.position.x -= 0.05;
+      for (let i = 0; i < 6; i++) R.step(1 / 60);
+      const swing = Math.hypot(c.ax, c.az);
+      prof.wearCharm(null); R.selectGun(0); R.selectGun(4);
+      return { name: c?.def.name, on, swing, off: !rig.charm };
+    });
+    check('a worn charm hangs on the gun, swings when the gun jolts, and comes off', charm.on && charm.swing > 0.02 && charm.off, JSON.stringify(charm));
     check('no page errors', errors.length === 0, errors.join('\n'));
     await page.close();
   }

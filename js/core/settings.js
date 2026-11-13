@@ -2,7 +2,7 @@
 // Storage can be missing or throw (private window, blocked site data), so every access is
 // wrapped and the app always works with the defaults.
 
-import { sensToCm360, cm360ToSens } from './sensitivity.js?v=ee5991e-mweaippm';
+import { sensToCm360, cm360ToSens } from './sensitivity.js?v=a5f1e9c-mweog2sf';
 
 const KEY = 'recoilRange.settings.v1';
 
@@ -12,6 +12,7 @@ export const DEFAULTS = Object.freeze({
   sensV: 7,              // vertical sensitivity (1-50)
   cm360: 14.25,          // derived from DPI and sensH (kept for display and the maths)
   aimAssist: 0,
+  padAssist: 'standard',   // controller aim assist: off / light / standard (controllers only)
   adsSens: 'focal',      // 'focal' = screen-distance matched (focal length scaling); 'game' = your game's aimed values (sens.json)
   mdm: 0,                // monitor distance coefficient for 'focal' (0 = match at the crosshair)          // 0..1 slight pull and slowdown near a target (0 = off)
   fov: 83,               // VERTICAL degrees, like the game's FOV slider (60-90)
@@ -131,6 +132,7 @@ export function sanitize(input) {
   out.ao = typeof s.ao === 'boolean' ? s.ao : DEFAULTS.ao;
   out.hiResSkins = s.hiResSkins === true;
   out.minimap = s.minimap === true;
+  out.padAssist = ['off', 'light', 'standard'].includes(s.padAssist) ? s.padAssist : DEFAULTS.padAssist;
   out.taa = s.taa === true;
   out.sharpen = [0, 0.25, 0.4, 0.6].includes(s.sharpen) ? s.sharpen : DEFAULTS.sharpen;
   out.fixedSeed = (typeof s.fixedSeed === 'string' && /^\d{0,10}$/.test(s.fixedSeed.trim())) ? s.fixedSeed.trim() : '';

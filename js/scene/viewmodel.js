@@ -1,30 +1,32 @@
-import { skinSheets } from '../render/skins2.js?v=ee5991e-mweaippm';
-import { packArt } from '../render/pack-art.js?v=ee5991e-mweaippm';
+import { Charm } from './charm.js?v=a5f1e9c-mweog2sf';
+import { charmById } from '../core/charms.js?v=a5f1e9c-mweog2sf';
+import { skinSheets } from '../render/skins2.js?v=a5f1e9c-mweog2sf';
+import { packArt } from '../render/pack-art.js?v=a5f1e9c-mweog2sf';
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=ee5991e-mweaippm';
-import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=ee5991e-mweaippm';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=ee5991e-mweaippm';
-import { matcap } from './matcap.js?v=ee5991e-mweaippm';
-import { mulberry32 } from '../core/prng.js?v=ee5991e-mweaippm';
-import { gunMaps } from './range-tex.js?v=ee5991e-mweaippm';
-import { skinById, FACTORY, SAKURA_ID } from '../core/skins.js?v=ee5991e-mweaippm';
-import { legendCanvas, onLegendChange } from '../core/legend.js?v=ee5991e-mweaippm';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=ee5991e-mweaippm';
-import { HDPack } from '../render/hd-pack.js?v=ee5991e-mweaippm';
-import { epicRelief } from './skin-relief.js?v=ee5991e-mweaippm';
-import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect, forgeInspect, orreryInspect, amberInspect, jadeInspect, velvetInspect, opalInspect } from './inspect-effects.js?v=ee5991e-mweaippm';
-import { F2 } from './f2-model.js?v=ee5991e-mweaippm';
-import { G8 } from './g8-model.js?v=ee5991e-mweaippm';
-import { C8 } from './c8-model.js?v=ee5991e-mweaippm';
-import { R4 } from './r4-model.js?v=ee5991e-mweaippm';
-import { AK } from './ak-model.js?v=ee5991e-mweaippm';
-import { EVO } from './evo-model.js?v=ee5991e-mweaippm';
-import { MP5K } from './compact-model.js?v=ee5991e-mweaippm';
-import { T5 } from './smg-model.js?v=ee5991e-mweaippm';
-import { SMG11 } from './machinepistol-model.js?v=ee5991e-mweaippm';
-import { MP7 } from './pdw-model.js?v=ee5991e-mweaippm';
+import * as THREE from '../../vendor/three/three.module.min.js?v=a5f1e9c-mweog2sf';
+import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=a5f1e9c-mweog2sf';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=a5f1e9c-mweog2sf';
+import { matcap } from './matcap.js?v=a5f1e9c-mweog2sf';
+import { mulberry32 } from '../core/prng.js?v=a5f1e9c-mweog2sf';
+import { gunMaps } from './range-tex.js?v=a5f1e9c-mweog2sf';
+import { skinById, FACTORY, SAKURA_ID } from '../core/skins.js?v=a5f1e9c-mweog2sf';
+import { legendCanvas, onLegendChange } from '../core/legend.js?v=a5f1e9c-mweog2sf';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=a5f1e9c-mweog2sf';
+import { HDPack } from '../render/hd-pack.js?v=a5f1e9c-mweog2sf';
+import { epicRelief } from './skin-relief.js?v=a5f1e9c-mweog2sf';
+import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect, forgeInspect, orreryInspect, amberInspect, jadeInspect, velvetInspect, opalInspect } from './inspect-effects.js?v=a5f1e9c-mweog2sf';
+import { F2 } from './f2-model.js?v=a5f1e9c-mweog2sf';
+import { G8 } from './g8-model.js?v=a5f1e9c-mweog2sf';
+import { C8 } from './c8-model.js?v=a5f1e9c-mweog2sf';
+import { R4 } from './r4-model.js?v=a5f1e9c-mweog2sf';
+import { AK } from './ak-model.js?v=a5f1e9c-mweog2sf';
+import { EVO } from './evo-model.js?v=a5f1e9c-mweog2sf';
+import { MP5K } from './compact-model.js?v=a5f1e9c-mweog2sf';
+import { T5 } from './smg-model.js?v=a5f1e9c-mweog2sf';
+import { SMG11 } from './machinepistol-model.js?v=a5f1e9c-mweog2sf';
+import { MP7 } from './pdw-model.js?v=a5f1e9c-mweog2sf';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -52,6 +54,9 @@ export function setHiResSkins(on) { HIRES_SKINS = !!on; }
 // Which skin a slot wears: (slot) -> skin id or null (set by main.js from your profile).
 let RESOLVE = () => null;
 export function setSkinResolver(fn) { RESOLVE = fn; }
+// Which charm hangs on your guns: () -> charm id or null (main.js, from your profile).
+let CHARM_OF = () => null;
+export function setCharmResolver(fn) { CHARM_OF = fn; }
 // The skin a slot shows right now: equipped, else (ultra only) its factory skin, else none.
 export function skinFor(slot) {
   const id = RESOLVE(slot);
@@ -1654,6 +1659,11 @@ export class WeaponRig {
       // Pack guns with the pack's animations: the support hand is its own part (it reloads).
       const sup = (hdm || TRACED[type]) && packAnims.set && !this.noHands ? new THREE.Group() : null;   // the clips' hand anchor: empty (no front hand is drawn)   // (traced guns take the pack's keyframed reloads too)
       let palm = null;
+      // The charm's mount (gun only, before the hands; gunG is unparented here, so world = local):
+      // on the side you see (left), ahead of the middle (the rear sits below the screen), near the top.
+      gunG.updateMatrixWorld(true);
+      const cb = new THREE.Box3().setFromObject(gunG), len = cb.max.z - cb.min.z;
+      const charmAt = new THREE.Vector3(cb.min.x - 0.002, cb.min.y + (cb.max.y - cb.min.y) * 0.8, cb.min.z + len * 0.24);
       if (!this.noHands) palm = hands(gunG, type);
       SKIN_FORCE = undefined;
       mergeStatic(gunG);
@@ -1676,6 +1686,7 @@ export class WeaponRig {
       flash.position.set(0, my, mz - 0.035 - ext);
       gunG.add(flash);
       m.userData = { torch, mag: magG, bolt, boltZ: bolt.position.z, flash, port: new THREE.Vector3(SPEC[type].hw + 0.01, 0.014, SPEC[type].port), gun: gunG, hd: !!hdm, type };
+      m.userData.charmAt = charmAt;
       if (sup) {
         // Anchors for the keyframed hand (gun space), measured on this model.
         const c = mb.isEmpty() ? new THREE.Vector3(0, -0.1, 0) : mb.getCenter(new THREE.Vector3());
@@ -1713,6 +1724,7 @@ export class WeaponRig {
     this.gunId = gun.id;
     this.flashMul = gun.flash ?? 1;          // attachments: flash hider smaller, suppressor none
     this.current = m;
+    this._hangCharm(m);
     if (this.live !== false) LIVE.set(this, m.userData.skinMats?.[0]?.userData.skinKey);   // (replay puppets set live = false: they rebuild instead)
   }
 
@@ -1840,6 +1852,15 @@ export class WeaponRig {
     this.skinAnim = (this.skinAnim || 0) + (target - (this.skinAnim || 0)) * Math.min(1, dt * 5);
     if (this.skinAnim < 0.002) this.skinAnim = 0;
     this.animateSkins(t, this.skinAnim);
+    this.charm?.step(dt);
+  }
+  // Your charm (not on replays of other people's guns), moved onto the gun now in your hands.
+  _hangCharm(m) {
+    const id = this.forceSkin !== undefined ? null : CHARM_OF(), def = id === null || id === undefined ? null : charmById(id);
+    if (this.charm && this.charm.def !== def) { this.charm.detach(); this.charm = null; }
+    if (!def || !m.userData.charmAt) { this.charm?.detach(); return; }
+    this.charm ||= new Charm(def);
+    this.charm.attach(m.userData.gun, m.userData.charmAt);
   }
 
   // Where the sight's window is on screen right now (for the lens pass), in pixels from the

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recoil Range</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="css/style.css?v=ee5991e-mweaippm">
+<link rel="stylesheet" href="css/style.css?v=a5f1e9c-mweog2sf">
 </head>
 <body>
 <div id="boot-screen" role="status" style="position:fixed;inset:0;z-index:2147483000;background:#000;color:#c9d1db;display:grid;place-items:center;font:600 16px/1 system-ui,sans-serif;letter-spacing:0.3em;cursor:none">LOADING…</div>
@@ -80,18 +80,23 @@
       <nav class="row" aria-label="Main menu"><button type="button" id="go-play">Play</button><button type="button" id="go-controls">Controls &amp; keybinds</button><button type="button" id="go-graphics">Graphics</button><button type="button" id="go-settings">Settings</button><button type="button" id="go-shop">Packs <span id="mini-points"></span></button><button type="button" id="go-packs">Skins</button></nav>
       <p id="lock-hint" class="hint" hidden></p>
       <p id="menu-note" class="hint" hidden role="status"></p>
+      <div id="slow-offer" class="hint row" hidden role="status"><span id="slow-text"></span><button type="button" id="slow-lower" class="primary"></button><button type="button" id="slow-keep">Keep these graphics</button></div>
       <p id="data-errors" class="errors" hidden></p>
 
       <section class="page" id="page-mode">
         <div class="modes">
           <button type="button" class="mode-card" data-mode="range"><b>Shooting range</b><span>Practise spray control on a dummy, a paper target or red dots. Measured sprays, every sight.</span></button>
           <button type="button" class="mode-card" data-mode="bots"><b>Battle vs bots</b><span>An arena with cover against 1-6 bots: Easy, Medium or Hard. Kills earn points for packs.</span></button>
+          <button type="button" class="mode-card mode-new" data-mode="endless"><b>Endless</b><span>Waves of bots that never stop: every 4 kills one more bot joins and they get tougher. Three lives. Beat your best.</span></button>
           <button type="button" class="mode-card" data-mode="royale"><b>Battle Royale</b><span>You and 20 rivals on Blacktide Island. Loot chests and outlast the shrinking zone.</span></button>
           <button type="button" class="mode-card mode-new" data-mode="tdm"><b>Team Deathmatch</b><span>Your team against bots, 3v3 or 5v5. First team to 40 kills, or the most kills after the time.</span></button>
           <button type="button" class="mode-card mode-new" data-mode="ctf"><b>Capture the Flag</b><span>Take the enemy flag to your own stand while yours is home. First to 3 captures.</span></button>
           <button type="button" class="mode-card mode-new" data-mode="bomb"><b>Bomb</b><span>Attackers plant, defenders stop them. One life a round, abilities on, first to 4 rounds.</span></button>
           <button type="button" class="mode-card" data-mode="net"><b>Network battle</b><span>Play friends on other PCs: over the internet with a short game code, or on the same network. Bots optional.</span></button>
         </div>
+        <div id="presets" class="presets"></div>
+        <h3 class="ch-head">Challenges <span class="small">new ones every day and every Monday</span></h3>
+        <div id="challenges" class="challenges"></div>
 
       </section>
 
@@ -115,6 +120,7 @@
           <p class="small">Target type, distance and red-dot options are in the <b>Settings → Range</b> tab (M and - / + change them in game too).</p>
         </section>
         <section class="set-group battle-setup" id="battle-setup">
+          <p id="endless-rules" class="small" hidden>Endless: starts with one Easy bot. Every 4 kills a new wave adds a bot (up to 6) and, every other wave, the bots get tougher, up to Terminator. Three lives; your kills are your score.</p>
           <p id="royale-rules" class="small" hidden>Blacktide Island · 20 bots · One life. Start with a pickaxe. Find your guns and grenades in chests. The Pirate Token has a 1 in 1,000 chance to appear each match and unlocks all nine Black Ice skins.</p>
           <div class="set-grid">
             <label id="b-map-field" class="field" for="b-map"><span>Map</span>
@@ -228,6 +234,10 @@
         <section class="all-settings" id="all-settings">
           <div id="settings-root"></div>
         </section>
+        <div class="row preset-save" id="preset-save-row">
+          <input type="text" id="preset-name" maxlength="24" placeholder="Preset name" aria-label="Preset name">
+          <button type="button" id="preset-save">Save these options as a preset</button>
+        </div>
         <div class="row nav">
           <button type="button" id="setup-back">Back</button>
           <button type="button" id="setup-next" class="primary">Next: choose your weapon</button>
@@ -350,6 +360,6 @@
     </div>
   </div>
 </div>
-<script type="module" src="js/main.js?v=ee5991e-mweaippm"></script>
+<script type="module" src="js/main.js?v=a5f1e9c-mweog2sf"></script>
 </body>
 </html>

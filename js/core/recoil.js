@@ -20,7 +20,7 @@
 // straight line to zero at recovery.degPerSecond. shotIndex goes back to 0 once resetSeconds pass
 // without a shot.
 
-import { GaussianRng } from './prng.js?v=ee5991e-mweaippm';
+import { GaussianRng } from './prng.js?v=a5f1e9c-mweog2sf';
 
 export const TAIL_STEPS = 3;
 export const EASE_FRACTION = 0.4;
@@ -99,6 +99,9 @@ export function sampleSpray(path, i, f, out) {
   return out;
 }
 
+// Aiming down sights settles this many times faster than hip-fire.
+export const ADS_SETTLE = 2;
+
 export class RecoilEngine {
   constructor() {
     this.rng = new GaussianRng(1);
@@ -158,19 +161,38 @@ export class RecoilEngine {
       return out;
     }
     const mag = Math.hypot(to[0], to[1]);
-    const left = mag - rec.degPerSecond * (t - recStart);
+    const left = mag - rec.degPerSecond * (this.settleMul || 1) * (t - recStart);
     const s = (mag > 0 && left > 0) ? left / mag : 0;
     out[0] = to[0] * s;
     out[1] = to[1] * s;
     return out;
   }
 
+  // The settle drags the view back down to your aim, but never below where the spray started:
+  // if you pulled down to (or under) that point, the view stays where it is. Folds the offset
+  // into look (yaw, pitch, setAngles) and returns true when it does.
+  settleStop(t, look) {
+    const rec = this.gun?.recovery, to = this.to;
+    if (this.startView === undefined || !rec || rec.degPerSecond <= 0 || (!to[0] && !to[1])) return false;
+    if (t < this.easeStart + this.easeDur || t <= this.lastShot + Math.max(this.interval, rec.delaySeconds)) return false;
+    const held = look.pitch + to[1], o = this.offsetAt(t, [0, 0]);
+    let pitch;
+    if (held <= this.startView) pitch = held;                                    // at or under the start: no drag at all
+    else if (look.pitch + o[1] < this.startView) pitch = this.startView;         // settled down to the start: stop there
+    else return false;
+    look.setAngles(look.yaw + (held <= this.startView ? to[0] : o[0]), pitch);
+    this.clearOffset();
+    return true;
+  }
+
   // Fire a bullet at time t. Writes the bullet's recoil offset (where it leaves relative to
   // the aim) into out, then applies the kick for the next bullet.
-  fire(t, out) {
+  // aimPitch (optional): where you aim, for the settle never to pull you below the spray's start.
+  fire(t, out, aimPitch) {
     const gun = this.gun;
     if (t - this.lastShot > gun.resetSeconds) this.shotIndex = 0;
     this.offsetAt(t, out);
+    if (this.shotIndex === 0) this.startView = aimPitch === undefined ? undefined : aimPitch + out[1];
 
     const i = this.shotIndex + 1;
     // Aiming: the smoothed path (if enabled) and the aimed strength. Hip-fire: the path exactly.
@@ -191,6 +213,7 @@ export class RecoilEngine {
     this.easeDur = EASE_FRACTION * this.interval;
     this.lastShot = t;
     this.shotIndex = i;
+    this.settleMul = this.aimed ? ADS_SETTLE : 1;   // fixed per shot: toggling aim mid-settle never jumps the view
     return out;
   }
 }

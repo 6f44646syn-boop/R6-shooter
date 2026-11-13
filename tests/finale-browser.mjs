@@ -112,6 +112,54 @@ try {
     return G.hud.endTitle.textContent === 'Draw' && G.hud.end.dataset.finale === 'results' && G.finale.lineup.children.length === G.m.actors.length;
   });
   check('Draw with no kills shows lineup and scores immediately', draw);
+  // Endless: a wave every 4 kills (one more bot, tougher), three lives, the run ends and is logged.
+  const endless = await page.evaluate(() => {
+    const R = __range;
+    R.battleLeave();
+    R.battleStart({opponent:'bots', bots:1, level:'easy', kills:99, map:'yard'});
+    const B = R.battle(), h = B.humans[0];
+    B.start({ ...B.opts, endless: true, p1Gun: h.gun });
+    const me = B.humans[0].f, start = { bots: B.bots.length, level: B.bots[0].level, wave: B.endless.wave };
+    R.step(0.1, 60);
+    for (let i = 0; i < 8; i++) B._endlessKill(me, B.bots[0].f, B.t);
+    const after = { bots: B.bots.length, level: B.bots[0].level, wave: B.endless.wave, inScene: B.bots.every((b) => b.f.group.parent) };
+    for (let i = 0; i < 3; i++) B._endlessKill(B.bots[0].f, me, B.t);
+    return { start, after, over: B.over, title: B.hud.endTitle.textContent, score: B.hud.score.textContent };
+  });
+  check('Endless: waves add bots and toughen them, three lives end the run', endless.start.bots === 1 && endless.start.level === 'easy' && endless.after.wave === 3 && endless.after.bots === 3 && endless.after.level === 'medium' && endless.after.inScene && endless.over && /Run over: 8 kills, wave 3/.test(endless.title), endless);
+  // MVP card: your best stat of the match on the results.
+  const mvp = await page.evaluate(() => {
+    const R = __range;
+    R.battleLeave();
+    R.battleStart({opponent:'bots', bots:1, level:'easy', kills:99, map:'yard'});
+    const B = R.battle(), me = B.humans[0].f, g = B.bots[0].f;
+    for (const bot of B.bots) bot.update = () => {};
+    R.step(0.1, 60);
+    me.protectUntil = g.protectUntil = 0;
+    g.x = me.x + 30; g.z = me.z;
+    B._damage(g, 500, me, 'body', B.t);
+    g.alive = true; g.health = 100; g.protectUntil = 0;
+    B._damage(g, 500, me, 'head', B.t + 0.4);
+    B._end('p1', me);
+    const card = B.hud.end.querySelector('.mvp-card');
+    return { card: card?.textContent || '', kills: B.mvp.kills, double: B.mvp.double, longest: Math.round(B.mvp.longest) };
+  });
+  check('MVP card shows your standout stat (fastest double here)', mvp.kills === 2 && Math.abs(mvp.double - 0.4) < 1e-6 && mvp.longest === 30 && /Fastest double/.test(mvp.card) && /0\.40 s/.test(mvp.card), mvp);
+  // Match presets: save a lobby on the options page, start it from the mode page in one click.
+  const preset = await page.evaluate(async () => {
+    const R = __range, $ = (id) => document.getElementById(id);
+    R.battleLeave();
+    document.querySelector('.mode-card[data-mode=bots]').click();
+    $('b-bots').value = '3'; $('b-bots').dispatchEvent(new Event('change', { bubbles: true }));
+    $('preset-name').value = 'Three bots'; $('preset-save').click();
+    $('setup-back').click();
+    const btn = [...document.querySelectorAll('#presets .preset button.primary')].find((b) => /Three bots/.test(b.textContent));
+    R.battleStart({ bots: 1 }); R.battleLeave();      // something else in between
+    btn.click();
+    await new Promise((r) => setTimeout(r, 300));
+    return { found: !!btn, active: R.battle()?.active, bots: R.battle()?.bots.length };
+  });
+  check('a saved preset starts its match in one click', preset.found && preset.active && preset.bots === 3, preset);
   check('No page errors', errors.length === 0, errors);
 } finally {
   await browser?.close();

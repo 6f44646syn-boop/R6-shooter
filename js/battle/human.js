@@ -8,16 +8,16 @@
 //                       B crouch, A vault, L3 sprint, LB/RB lean.
 //   keys  (player 2, no gamepad): I J K L move, arrow keys look, Enter fire,
 //                       Right Shift aim, Backspace reload, / crouch.
-import * as THREE from '../../vendor/three/three.module.min.js?v=ee5991e-mweaippm';
-import { Look, PITCH_LIMIT } from '../core/look.js?v=ee5991e-mweaippm';
-import { Weapon } from '../core/weapon.js?v=ee5991e-mweaippm';
-import { RecoilEngine } from '../core/recoil.js?v=ee5991e-mweaippm';
-import { Spread } from '../core/spread.js?v=ee5991e-mweaippm';
-import { focalRatio } from '../core/sensitivity.js?v=ee5991e-mweaippm';
-import { WeaponRig } from '../scene/viewmodel.js?v=ee5991e-mweaippm';
-import { EYE_Z, VIEW_H } from '../scene/sight-model.js?v=ee5991e-mweaippm';
-import { reticleTextures } from '../ui/reticle-tex.js?v=ee5991e-mweaippm';
-import { RETICLE_COLORS } from '../ui/scope.js?v=ee5991e-mweaippm';
+import * as THREE from '../../vendor/three/three.module.min.js?v=a5f1e9c-mweog2sf';
+import { Look, PITCH_LIMIT } from '../core/look.js?v=a5f1e9c-mweog2sf';
+import { Weapon } from '../core/weapon.js?v=a5f1e9c-mweog2sf';
+import { RecoilEngine } from '../core/recoil.js?v=a5f1e9c-mweog2sf';
+import { Spread } from '../core/spread.js?v=a5f1e9c-mweog2sf';
+import { focalRatio } from '../core/sensitivity.js?v=a5f1e9c-mweog2sf';
+import { WeaponRig } from '../scene/viewmodel.js?v=a5f1e9c-mweog2sf';
+import { EYE_Z, VIEW_H } from '../scene/sight-model.js?v=a5f1e9c-mweog2sf';
+import { reticleTextures } from '../ui/reticle-tex.js?v=a5f1e9c-mweog2sf';
+import { RETICLE_COLORS } from '../ui/scope.js?v=a5f1e9c-mweog2sf';
 
 const DEG = Math.PI / 180;
 const WALK = 3.4, SPRINT = 5.6, CROUCH_WALK = 1.6, ADS_WALK = 2.2;
@@ -214,6 +214,7 @@ export class Human {
     // Recoil view offset: it settles back to the aim (recovery); with no recovery rate the
     // leftover recoil folds into the aim after the spray.
     this.recoil.offsetAt(t, this.offset);
+    if (this.recoil.settleStop(t, this.look)) this.offset[0] = this.offset[1] = 0;
     if (this.gun && !this.gun.recovery.degPerSecond && (this.offset[0] || this.offset[1]) && t - this.recoil.lastShot > Math.max(this.gun.resetSeconds, this.recoil.easeDur)) {
       this.look.setAngles(this.look.yaw + this.offset[0], this.look.pitch + this.offset[1]);
       this.recoil.clearOffset();
@@ -325,7 +326,7 @@ export class Human {
   shotDirection(t, out) {
     this.recoil.aimed = this.ads;
     this.recoil.off = this.deps.controls?.profile === 'trackpad';
-    this.recoil.fire(t, this.bulletOff);
+    this.recoil.fire(t, this.bulletOff, this.look.pitch);
     const sp = this._spr;
     if (this.deps.settings.hipSpread && !this.ads && !this.recoil.off) this.spread.shot(t, this.gun, Math.hypot(this.f.vx, this.f.vz) > 0.5, this.f.crouch > 0.5, this.adsE, Math.random, sp);
     else sp[0] = sp[1] = 0;
