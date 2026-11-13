@@ -5,9 +5,9 @@
 // Points: KILL_POINTS per battle kill (+ HEADSHOT_BONUS for a headshot kill), WIN_POINTS for
 // winning a battle. A pack costs PACK_COST and gives one random skin; a duplicate refunds
 // points instead (by rarity).
-import { RARITIES, CATALOGUE, SKIN_COUNT, LEGEND_ID, skinFits } from './skins.js?v=a5f1e9c-mweog2sf';
-import { HISTORY_LIMIT, START_RATING, ratingOf } from './ranked.js?v=a5f1e9c-mweog2sf';
-import { CHARMS } from './charms.js?v=a5f1e9c-mweog2sf';
+import { RARITIES, CATALOGUE, SKIN_COUNT, LEGEND_ID, skinFits } from './skins.js?v=b95fbae-mwewwzt6';
+import { HISTORY_LIMIT, START_RATING, ratingOf } from './ranked.js?v=b95fbae-mwewwzt6';
+import { CHARMS } from './charms.js?v=b95fbae-mwewwzt6';
 
 export const KILL_POINTS = 20, HEADSHOT_BONUS = 10, WIN_POINTS = 50, PACK_COST = 100;
 // The Legendary pack: one per player, a Legendary guaranteed (one you do not own yet, if any).
@@ -131,6 +131,16 @@ export class Profile {
   buySkin(id, price) {
     if (this.has(id) || this.points < price) return false;
     this.points -= price; this._own(id); this._changed(); return true;
+  }
+  // A reward: { points } | { charm } | { skin } (a skin you have pays its duplicate refund).
+  grant(r) {
+    if (r.points) this.points += Math.round(r.points);
+    if (r.charm !== undefined && r.charm >= 0 && r.charm < CHARMS.length) this.charms |= 1 << r.charm;
+    if (r.skin !== undefined) {
+      const sk = CATALOGUE[r.skin];
+      if (sk && this.has(r.skin)) this.points += RARITIES.find((x) => x.key === sk.rarity).refund; else if (sk) this._own(r.skin);
+    }
+    this._changed();
   }
   hasCharm(id) { return id >= 0 && id < CHARMS.length && (this.charms & (1 << id)) !== 0; }
   buyCharm(id) {

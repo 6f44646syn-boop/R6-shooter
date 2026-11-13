@@ -1,13 +1,14 @@
 // Skins & packs: points, the pack opening (a slot-machine reel that slows down and lands on
 // your skin), your collection (click to put a skin on the selected gun), and the save code.
-import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById, skinFits, LEGEND_ID } from '../core/skins.js?v=a5f1e9c-mweog2sf';
-import { Profile, PACK_COST, LEGEND_PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=a5f1e9c-mweog2sf';
-import { legendPhotoURL, setLegendPhoto, clearLegendPhoto, onLegendChange } from '../core/legend.js?v=a5f1e9c-mweog2sf';
-import { skinThumb } from '../render/gpu-tex.js?v=a5f1e9c-mweog2sf';
-import { matches, totals } from '../core/history.js?v=a5f1e9c-mweog2sf';
-import { CHARMS } from '../core/charms.js?v=a5f1e9c-mweog2sf';
-import { TRADE_UP, TRADE_NEXT } from '../core/profile.js?v=a5f1e9c-mweog2sf';
-import { mulberry32 } from '../core/prng.js?v=a5f1e9c-mweog2sf';
+import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById, skinFits, LEGEND_ID } from '../core/skins.js?v=b95fbae-mwewwzt6';
+import { Profile, PACK_COST, LEGEND_PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=b95fbae-mwewwzt6';
+import { legendPhotoURL, setLegendPhoto, clearLegendPhoto, onLegendChange } from '../core/legend.js?v=b95fbae-mwewwzt6';
+import { skinThumb } from '../render/gpu-tex.js?v=b95fbae-mwewwzt6';
+import { matches, totals } from '../core/history.js?v=b95fbae-mwewwzt6';
+import { CHARMS } from '../core/charms.js?v=b95fbae-mwewwzt6';
+import { BOARD, ranking, myCode, addFriend, removeFriend, myName, setName, friends } from '../core/bests.js?v=b95fbae-mwewwzt6';
+import { TRADE_UP, TRADE_NEXT } from '../core/profile.js?v=b95fbae-mwewwzt6';
+import { mulberry32 } from '../core/prng.js?v=b95fbae-mwewwzt6';
 
 // Weekly shop prices (a pack is 100 points for a random skin).
 const SHOP_PRICE = { common: 120, rare: 250, epic: 450, blackice: 900, legendary: 1500 };
@@ -110,6 +111,7 @@ export class PackUI {
     this.codeIn = el('input', { type: 'text', spellcheck: 'false', id: 'pk-code-in', placeholder: 'RRS1-...' });
     this.codeMsg = el('p', { class: 'small', role: 'status' });
     this.statsEl = el('div', { class: 'pk-stats' });
+    this.boardEl = el('div', { class: 'pk-stats' });
     r.append(
       el('h2', { text: 'Skins & packs' }),
       el('div', { class: 'pk-top' },
@@ -118,8 +120,10 @@ export class PackUI {
       el('p', { class: 'small', text: EARN_TEXT() }),
       this._legendBox(),
       el('div', { class: 'pk-top' }, el('h3', { class: 'pk-h3' }, el('span', { text: 'Collection ' }), this.countEl, el('span', { text: ' / ' + SKIN_COUNT })), this.allBtn),
-      this.grid, this.slotNote,
+      el('div', { class: 'row' }, this.slotNote, el('button', { type: 'button', class: 'primary', text: 'Inspect on your gun', title: 'See the skin and charm on the gun in your hands (Esc or click to stop)', onclick: () => this.inspect?.() })),
+      this.grid,
       this.statsEl,
+      this.boardEl,
       el('div', { class: 'pk-save' },
         el('label', { class: 'field', for: 'pk-code-out' }, el('span', { text: 'Save code: copy it to keep your progress on another PC or browser' }), this.codeOut),
         el('div', { class: 'row' }, el('button', { type: 'button', text: 'Copy save code', onclick: () => this.copyCode() })),
@@ -171,6 +175,7 @@ export class PackUI {
     this.countEl.textContent = String(p.ownedCount);
     this.codeOut.value = p.saveCode();
     this._stats();
+    this._board();
     this._shopExtras();
     const slot = this.gunIndex(), gun = this.guns[slot];
     const eq = p.equippedFor(slot);
@@ -214,7 +219,7 @@ export class PackUI {
   }
   // Your stats: totals over the last 50 matches and the last 10 of them.
   _stats() {
-    const t = totals(), MODE = { battle: 'Battle', endless: 'Endless', royale: 'Battle Royale', tdm: 'Team Deathmatch', ctf: 'Capture the Flag', bomb: 'Bomb' };
+    const t = totals(), MODE = { battle: 'Battle', gungame: 'Gun Game', endless: 'Endless', royale: 'Battle Royale', tdm: 'Team Deathmatch', ctf: 'Capture the Flag', bomb: 'Bomb' };
     const kids = [el('h3', { class: 'pk-h3', text: 'Your stats' })];
     if (!t.matches) kids.push(el('p', { class: 'small', text: 'Finish a match and it shows up here.' }));
     else {
@@ -227,6 +232,27 @@ export class PackUI {
         el('span', { class: 'pk-when', text: new Date(m.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) })))));
     }
     this.statsEl.replaceChildren(...kids);
+  }
+  // Leaderboards: your bests against friends' (from the score codes they send you).
+  _board() {
+    const name = el('input', { type: 'text', maxlength: '16', value: myName(), 'aria-label': 'Your name on leaderboards', class: 'lb-name' });
+    name.addEventListener('change', () => { setName(name.value); this._board(); });
+    const code = el('input', { type: 'text', readonly: '', value: myCode(), 'aria-label': 'Your score code', class: 'lb-code' });
+    const paste = el('input', { type: 'text', placeholder: 'Paste a friend\'s score code (RRB1-...)', 'aria-label': 'Friend\'s score code', class: 'lb-code' });
+    const msg = el('p', { class: 'small', role: 'status' });
+    const copy = el('button', { type: 'button', text: 'Copy my code', onclick: async () => { try { await navigator.clipboard.writeText(code.value); msg.textContent = 'Copied: send it to a friend.'; } catch { code.select(); msg.textContent = 'Press Ctrl+C to copy.'; } } });
+    const add = el('button', { type: 'button', text: 'Add friend', onclick: () => { try { const n = addFriend(paste.value); this._board(); this.boardEl.querySelector('[role=status]').textContent = n + ' added.'; } catch (e) { msg.textContent = e.message; } } });
+    const boards = BOARD.map((b) => {
+      const rows = ranking(b.key);
+      return el('div', { class: 'lb-board' }, el('b', { text: b.label }),
+        ...(rows.length ? rows.slice(0, 6).map((r, i) => el('div', { class: 'lb-row' + (r.me ? ' me' : '') }, el('span', { text: (i + 1) + '. ' + r.name }), el('span', { text: r.value + b.unit }))) : [el('span', { class: 'small', text: 'No score yet' })]));
+    });
+    const fr = friends();
+    this.boardEl.replaceChildren(el('h3', { class: 'pk-h3', text: 'Leaderboards' }),
+      el('div', { class: 'row' }, el('span', { class: 'small', text: 'Your name' }), name, copy), code,
+      el('div', { class: 'row' }, paste, add), msg,
+      el('div', { class: 'lb-grid' }, ...boards),
+      fr.length ? el('div', { class: 'pk-trades' }, ...fr.map((f) => el('button', { type: 'button', text: '× ' + f.name, title: 'Remove ' + f.name, onclick: () => { removeFriend(f.name); this._board(); } }))) : null);
   }
   // Can skin id go on the gun in this slot? (Some skins are made for certain guns only.)
   fits(id, slot) { return skinFits(id, slot); }

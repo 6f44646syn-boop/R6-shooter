@@ -160,6 +160,21 @@ try {
     return { found: !!btn, active: R.battle()?.active, bots: R.battle()?.bots.length };
   });
   check('a saved preset starts its match in one click', preset.found && preset.active && preset.bots === 3, preset);
+  // Gun Game: the same gun for everyone, the next one per kill, the last gun's kill wins.
+  const gg = await page.evaluate(() => {
+    const R = __range;
+    R.battleLeave();
+    R.battleStart({opponent:'bots', bots:2, level:'easy', kills:99, map:'yard'});
+    const B = R.battle();
+    B.start({ ...B.opts, gungame: true, p1Gun: B.humans[0].gun });
+    const me = B.humans[0], N = B.gungame.guns.length;
+    const sameStart = B.fighters.every((f) => f.gun === B.gungame.guns[0]);
+    B._gunGameKill(me.f, B.bots[0].f, B.t);
+    const second = me.gun === B.gungame.guns[1] && me.f.gun === B.gungame.guns[1];
+    for (let i = 1; i < N; i++) B._gunGameKill(me.f, B.bots[0].f, B.t);
+    return { N, sameStart, second, over: B.over, title: B.hud.endTitle.textContent };
+  });
+  check('Gun Game: same first gun, next gun per kill, the last gun\'s kill wins', gg.N >= 5 && gg.sameStart && gg.second && gg.over && /You win Gun Game/.test(gg.title), gg);
   check('No page errors', errors.length === 0, errors);
 } finally {
   await browser?.close();

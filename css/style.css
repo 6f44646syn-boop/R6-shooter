@@ -661,3 +661,28 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 .field .tip, .check .tip { display: none; position: absolute; left: 0; top: 100%; z-index: 30; margin-top: 2px; max-width: 320px; padding: 5px 8px; border-radius: 4px; background: #0d1014; border: 1px solid var(--panel-edge); color: #cfd6de; font-size: 12px; line-height: 1.35; font-weight: 400; pointer-events: none; box-shadow: 0 4px 14px rgba(0,0,0,0.4); }
 .field:hover .tip, .field:focus-within .tip, .check:hover .tip, .check:focus-within .tip { display: block; }
 .fov-preview { width: 220px; height: 90px; flex: none; }
+
+/* Season pass (mode page) */
+.season { display: grid; gap: 4px; margin: 12px 0 4px; }
+.season-head { font-weight: 600; font-size: 14px; }
+.season-bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.08); overflow: hidden; }
+.season-bar i { display: block; height: 100%; background: linear-gradient(90deg, #f2b33d, #ffd27a); }
+
+/* Leaderboards (Skins page) */
+.lb-name { width: 12em; padding: 4px 6px; }
+.lb-code { width: 100%; padding: 5px 8px; font: 12px/1.35 var(--mono); background: #0b0d10; border: 1px solid var(--panel-edge); border-radius: 4px; color: var(--fg); }
+.lb-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+.lb-board { display: grid; gap: 2px; padding: 6px 8px; border-radius: 6px; background: rgba(255,255,255,0.04); font-size: 12px; }
+.lb-row { display: flex; justify-content: space-between; gap: 8px; }
+.lb-row.me { color: #ffd27a; }
+
+/* Local accounts (menu header) */
+.acct { position: relative; margin-left: auto; }
+.acct-name { cursor: pointer; padding: 6px 10px; border-radius: 4px; background: rgba(255,255,255,0.06); list-style: none; font-weight: 600; }
+.acct-name::-webkit-details-marker { display: none; }
+.acct-panel { position: absolute; right: 0; top: calc(100% + 4px); z-index: 40; display: grid; gap: 6px; width: min(420px, 90vw); padding: 10px; border-radius: 6px; background: #12161b; border: 1px solid var(--panel-edge); box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+.acct-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.acct-row > span, .acct-row > b { flex: 1; min-width: 6em; }
+.acct-row.on b { color: #ffd27a; }
+.acct-row input { min-width: 0; flex: 1; padding: 4px 6px; }
+.acct-pin { max-width: 9em; }

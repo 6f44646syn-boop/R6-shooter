@@ -1,11 +1,11 @@
 // Skin Lab (skin-lab.html): every skin on every gun it fits, drawn by the game's own weapon rig.
 // Pick a gun and a skin, switch graphics, play the inspect; first person (with hands) or a studio
 // view you can turn by dragging. Nothing here changes a profile: the skin is forced on the rig.
-import * as THREE from '../../vendor/three/three.module.min.js?v=a5f1e9c-mweog2sf';
-import { WeaponRig, setUltraTexSize } from '../scene/viewmodel.js?v=a5f1e9c-mweog2sf';
-import { playInspect } from '../audio/inspect-sfx.js?v=a5f1e9c-mweog2sf';
-import { loadGameData } from '../core/guns.js?v=a5f1e9c-mweog2sf';
-import { CATALOGUE, RARITIES, RARITY, skinFits } from '../core/skins.js?v=a5f1e9c-mweog2sf';
+import * as THREE from '../../vendor/three/three.module.min.js?v=b95fbae-mwewwzt6';
+import { WeaponRig, setUltraTexSize } from '../scene/viewmodel.js?v=b95fbae-mwewwzt6';
+import { playInspect } from '../audio/inspect-sfx.js?v=b95fbae-mwewwzt6';
+import { loadGameData } from '../core/guns.js?v=b95fbae-mwewwzt6';
+import { CATALOGUE, RARITIES, RARITY, skinFits } from '../core/skins.js?v=b95fbae-mwewwzt6';
 
 const $ = (id) => document.getElementById(id);
 const store = { get(k) { try { return localStorage.getItem('skinLab.' + k); } catch { return null; } }, set(k, v) { try { localStorage.setItem('skinLab.' + k, v); } catch { /* blocked */ } } };

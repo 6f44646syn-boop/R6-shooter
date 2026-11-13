@@ -14,6 +14,9 @@ import { Profile, TRADE_UP } from '../js/core/profile.js';
 import { challengesFor, record, progressOf, isPaid, matchStats } from '../js/core/challenges.js';
 import { PAD_ASSIST, nearestAim, assistLook } from '../js/core/pad-assist.js';
 import { MatchStats } from '../js/core/mvp.js';
+import { addXp, checkIn, seasonState, rewardOf, TIERS, XP_PER_TIER } from '../js/core/season.js';
+import { submit, myCode, addFriend, ranking, bests } from '../js/core/bests.js';
+import { accounts, switchTo, createAccount, deleteAccount } from '../js/core/accounts.js';
 
 const results = [];
 function test(name, fn) {
@@ -410,6 +413,50 @@ test('MVP stats: longest kill, fastest double, damage; the standout first', () =
   const c = m.card();
   eq(c[0].key, 'double'); near(m.double, 0.5, 1e-12); eq(m.longest, 42); eq(m.damage, 200);
   eq(new MatchStats().card(), null);
+});
+
+test('season pass: tiers pay once (points, charm at 5, skin at 30); login streak grows and resets', () => {
+  try { localStorage.removeItem('recoilRange.season.v1'); } catch { /* blocked */ }
+  const mem = { getItem: () => null, setItem() {} }, p = new Profile(mem), now = Date.UTC(2026, 10, 13, 12);
+  const got = addXp(5 * XP_PER_TIER + 10, p, now);
+  eq(got.length, 5); eq(got[4].reward.charm !== undefined, true, 'tier 5 is a charm'); eq(p.hasCharm(got[4].reward.charm), true);
+  eq(addXp(10, p, now).length, 0, 'not paid twice');
+  addXp(TIERS * XP_PER_TIER, p, now);
+  eq(seasonState(now).tier, TIERS); eq(p.has(rewardOf(TIERS, seasonState(now).id).skin), true, 'season skin');
+  const pts = p.points;
+  eq(checkIn(p, now).streak, 1); eq(checkIn(p, now), null, 'once a day');
+  eq(checkIn(p, now + 86400000).streak, 2); eq(checkIn(p, now + 4 * 86400000).streak, 1, 'missed days restart it');
+  eq(p.points, pts + 25 + 50 + 25);
+});
+test('leaderboards: bests only improve; a friend code round-trips and ranks', () => {
+  try { localStorage.removeItem('recoilRange.bests.v1'); } catch { /* blocked */ }
+  submit({ kills: 10, double: 0.8 }); submit({ kills: 7, double: 1.2 });
+  eq(bests().kills, 10); eq(bests().double, 0.8, 'lower is better for a double');
+  const code = myCode();
+  eq(addFriend(code), 'You');
+  let threw = false; try { addFriend(code.slice(0, -2) + 'zz'); } catch { threw = true; }
+  eq(threw, true, 'a damaged code is refused');
+  eq(ranking('kills').length, 2);
+});
+
+test('local accounts: switching swaps each player\'s saved data; PIN; delete', () => {
+  localStorage.removeItem('recoilAccounts.v1');
+  localStorage.setItem('recoilRange.test.points', '111');
+  localStorage.setItem('recoilRange.hdPack.v1', 'shared');
+  eq(accounts().current, 'Player 1');
+  createAccount('Sam', '1234');
+  let threw = false; try { switchTo('Sam', '9999'); } catch { threw = true; }
+  eq(threw, true, 'wrong PIN'); eq(localStorage.getItem('recoilRange.test.points'), '111', 'nothing changed');
+  eq(switchTo('Sam', '1234'), true);
+  eq(localStorage.getItem('recoilRange.test.points'), null, 'Sam starts fresh');
+  eq(localStorage.getItem('recoilRange.hdPack.v1'), 'shared', 'the graphics download is for everyone');
+  localStorage.setItem('recoilRange.test.points', '7');
+  eq(switchTo('Player 1'), true);
+  eq(localStorage.getItem('recoilRange.test.points'), '111', 'Player 1 back');
+  eq(switchTo('Sam', '1234'), true); eq(localStorage.getItem('recoilRange.test.points'), '7', 'Sam kept his');
+  switchTo('Player 1');
+  eq(deleteAccount('Sam', '1234'), true); eq(accounts().list.length, 1);
+  localStorage.removeItem('recoilRange.test.points'); localStorage.removeItem('recoilAccounts.v1');
 });
 
 window.__results = results;

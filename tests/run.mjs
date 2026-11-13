@@ -679,6 +679,16 @@ try {
       return { name: c?.def.name, on, swing, off: !rig.charm };
     });
     check('a worn charm hangs on the gun, swings when the gun jolts, and comes off', charm.on && charm.swing > 0.02 && charm.off, JSON.stringify(charm));
+    const insp = await page.evaluate(() => {
+      const R = window.__range;
+      document.getElementById('go-packs').click();
+      [...document.querySelectorAll('#packs-root button')].find((b) => b.textContent === 'Inspect on your gun').click();
+      const during = document.getElementById('menu').hidden && R.rigObj().inspectT >= 0;
+      for (let i = 0; i < 900 && R.rigObj().inspectT >= 0; i++) R.step(1 / 60);
+      R.step(1 / 60);
+      return { during, back: !document.getElementById('menu').hidden && !document.getElementById('page-packs').hidden };
+    });
+    check('Skins page: Inspect plays on your gun, then returns to the page', insp.during && insp.back, JSON.stringify(insp));
     check('no page errors', errors.length === 0, errors.join('\n'));
     await page.close();
   }
