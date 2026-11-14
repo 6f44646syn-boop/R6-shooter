@@ -1,0 +1,2 @@
+# Keep every file byte-for-byte as committed (no CRLF on Windows): hd/manifest.json and the pack checksums depend on it.
+* -text
