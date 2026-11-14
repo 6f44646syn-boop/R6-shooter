@@ -24,6 +24,7 @@ import { Footprints } from '../scene/footprints.js?v=ba75b4c-mwgabqbe';
 import { Minimap } from '../ui/minimap.js?v=ba75b4c-mwgabqbe';
 import { botRankedChange } from '../core/ranked.js?v=ba75b4c-mwgabqbe';
 import { warmScene } from '../render/warm.js?v=ba75b4c-mwgabqbe';
+import { ShadowGate } from '../render/shadow-gate.js?v=ba75b4c-mwgabqbe';
 import { MatchStats, mvpCard } from '../core/mvp.js?v=ba75b4c-mwgabqbe';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, p7: 0xff7048, bots: 0xff7048 };
@@ -302,7 +303,6 @@ export class Battle {
     this.viewOnly = false; this.watchers = []; this.watchCam = null; this.watchFocus = null;
     this.grenadeDeath = null; this.pendingGrenadeDeath = null; this.grenadeCam = null;
     this.paused = false;
-    this._frameN = 0;
     if (this.deps.voice) this.deps.voice.stop();
     if (this.deps.renderer) this.deps.renderer.shadowMap.autoUpdate = true;
     if (this.hud) this.hud.root.hidden = true;
@@ -1145,10 +1145,10 @@ export class Battle {
     if (!this.active || this.finale.render(this.deps.renderer)) return;
     const r = this.deps.renderer;
     r.info.reset();
-    // Shadows are redrawn every other frame (the map never moves; people move a little).
-    r.shadowMap.autoUpdate = false;
-    this._frameN = (this._frameN || 0) + 1;
-    if (this._frameN % (this.royale ? 3 : 2) === 0 || this._frameN < 3) r.shadowMap.needsUpdate = true;
+    // Shadows are redrawn at most every other frame, and only when a caster moved (shadow-gate.js).
+    Fighter.shadows = this.deps.settings.botShadows !== false;
+    if (this._shadowScene !== this.arena.scene) { this._shadowScene = this.arena.scene; this._shadows = new ShadowGate(); }
+    this._shadows.update(r, this.arena.scene, this.royale ? 3 : 2);
     r.autoClear = false;
     r.setRenderTarget(null);
     const vps = this.viewports();

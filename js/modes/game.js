@@ -35,6 +35,7 @@ import { LightPool } from '../render/light-pool.js?v=ba75b4c-mwgabqbe';
 import { Footprints } from '../scene/footprints.js?v=ba75b4c-mwgabqbe';
 import { Minimap } from '../ui/minimap.js?v=ba75b4c-mwgabqbe';
 import { warmScene } from '../render/warm.js?v=ba75b4c-mwgabqbe';
+import { ShadowGate } from '../render/shadow-gate.js?v=ba75b4c-mwgabqbe';
 import { MatchStats, mvpCard } from '../core/mvp.js?v=ba75b4c-mwgabqbe';
 
 const reducedMotion = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -1114,9 +1115,10 @@ export class ModeGame {
     if (!this.active || this.finale.render(this.deps.renderer)) return;
     const r = this.deps.renderer, h = this.h;
     r.info.reset();
-    r.shadowMap.autoUpdate = false;
     this._fr = (this._fr || 0) + 1;
-    if (this._fr % 2 === 0 || this._fr < 3) r.shadowMap.needsUpdate = true;
+    Fighter.shadows = this.deps.settings.botShadows !== false;   // shadows: at most every other frame, only when a caster moved (shadow-gate.js)
+    if (this._shadowScene !== this.scene) { this._shadowScene = this.scene; this._shadows = new ShadowGate(); }
+    this._shadows.update(r, this.scene);
     r.autoClear = false;
     r.setRenderTarget(null);
     const sz = r.getSize(this._sz || (this._sz = new THREE.Vector2()));

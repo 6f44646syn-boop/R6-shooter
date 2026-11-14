@@ -50,6 +50,7 @@ export const DEFAULTS = Object.freeze({
   fpsTarget: 60,         // dynamic resolution aims for this (capped at the screen's refresh rate)
   ao: true,              // screen-space ambient occlusion (High / Ultra)
   taa: false,            // temporal anti-aliasing (High / Ultra)
+  botShadows: true,      // players' and bots' shadows (off: a dark spot under the feet, faster on weak GPUs)
   sharpen: 0.25,         // sharpening after upscaling / TAA (0 = off)
   fixedSeed: '',         // empty = new random seed every magazine
   gunIndex: 0,
@@ -134,6 +135,7 @@ export function sanitize(input) {
   out.minimap = s.minimap === true;
   out.padAssist = ['off', 'light', 'standard'].includes(s.padAssist) ? s.padAssist : DEFAULTS.padAssist;
   out.taa = s.taa === true;
+  out.botShadows = s.botShadows !== false;
   out.sharpen = [0, 0.25, 0.4, 0.6].includes(s.sharpen) ? s.sharpen : DEFAULTS.sharpen;
   out.fixedSeed = (typeof s.fixedSeed === 'string' && /^\d{0,10}$/.test(s.fixedSeed.trim())) ? s.fixedSeed.trim() : '';
   const bi = (s.battle && typeof s.battle === 'object') ? s.battle : {};

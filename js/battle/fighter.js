@@ -82,7 +82,25 @@ function lensSprite() {
   return s;
 }
 
+// Under the feet when Fighter.shadows is off (the Graphics setting): a soft dark spot, so people
+// do not look like they float.
+let blobGeo = null, blobMat = null;
+function blobMesh() {
+  if (!blobGeo) {
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+    g.addColorStop(0, 'rgba(0,0,0,0.55)'); g.addColorStop(0.6, 'rgba(0,0,0,0.3)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+    blobGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+    blobMat = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  }
+  const m = new THREE.Mesh(blobGeo, blobMat);
+  m.position.y = 0.02; m.userData.ownMaterial = true; m.visible = false;
+  return m;
+}
+
 export class Fighter {
+  static shadows = true;   // set each frame by the match from settings.botShadows (fixed on in Ranked and online)
   // opts: { name, team, color (hex), human }
   constructor(opts) {
     Object.assign(this, { name: 'Fighter', team: 'bots', color: 0xffffff, human: false }, opts);
@@ -132,6 +150,8 @@ export class Fighter {
     });
     this._ph = 0; this._spd = 0;
     this.group.add(this.scaleG);
+    this.blob = blobMesh();
+    this.group.add(this.blob);
     this.gunG = new THREE.Group();          // the carried gun (set by setLook)
     this.gunG.position.set(GRIP_HAND[0], GRIP_HAND[1], GRIP_HAND[2]);
     this.scaleG.add(this.gunG);
@@ -166,6 +186,7 @@ export class Fighter {
 
   // The gun model others see: gun data, its loadout slot (finish) and skin id (or null).
   setLook(gun, slot, skin) {
+    this._sh = undefined;
     this.gun = gun; this.skin = skin ?? null;
     const key = gun.id + '|' + slot + '|' + this.skin + '|' + (gun.attach || '');
     if (key === this._lookKey) return;
@@ -217,6 +238,11 @@ export class Fighter {
   updateVisual(t) {
     this.group.visible = this.alive;
     this.group.position.set(this.x, this.y, this.z);
+    if (this._sh !== Fighter.shadows) {   // (setLook clears _sh: a new gun model casts by default)
+      this._sh = Fighter.shadows;
+      this.group.traverse((o) => { if (o.isMesh && o !== this.blob) { o.userData.cs ??= o.castShadow; o.castShadow = this._sh && o.userData.cs; } });
+      this.blob.visible = !this._sh;
+    }
     this.group.rotation.y = Math.PI - this.yaw * DEG;   // the body faces +z; yaw 0 faces -z
     this.scaleG.scale.y = this.scaleY;
     // Walking: speed from how far the body moved (works for everyone, bots and other PCs).
