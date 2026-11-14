@@ -689,6 +689,23 @@ try {
       return { during, back: !document.getElementById('menu').hidden && !document.getElementById('page-packs').hidden };
     });
     check('Skins page: Inspect plays on your gun, then returns to the page', insp.during && insp.back, JSON.stringify(insp));
+    const dv = await page.evaluate(async () => {
+      const q = (s) => document.querySelector(s), run = async (c) => { const i = q('.dev-in:not([type=password])'); i.value = c; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); await new Promise((r) => setTimeout(r, 20)); };
+      const prof = window.__range.profile();
+      q('.dev-open').click();
+      q('#dev input[type=password]').value = '000000'; q('.dev-gate').dispatchEvent(new Event('submit', { cancelable: true }));
+      const wrong = !q('.dev-gate').hidden;
+      q('#dev input[type=password]').value = '183535'; q('.dev-gate').dispatchEvent(new Event('submit', { cancelable: true }));
+      const open = q('.dev-gate').hidden && !q('#dev').hidden;
+      const before = prof.points;
+      await run('rec on'); await run('coins 40'); await run('skins all'); await run('js dev.settings.fov');
+      await new Promise((r) => setTimeout(r, 1100));
+      const rec = !q('#dev-rec').hidden;
+      await run('report');
+      const text = q('.dev-out').textContent;
+      return { wrong, open, coins: prof.points - before, all: prof.ownedCount, rec, hasCmd: text.includes('command') || text.includes('> coins 40'), hasSnap: text.includes('snap'), hasEnv: text.includes('RECOIL RANGE DEV REPORT') && text.includes('performance summary') && text.includes('hardware:') && text.includes('heapMB') };
+    });
+    check('dev mode: wrong password stays locked, 183535 opens it, commands run, the recorder reports', dv.wrong && dv.open && dv.coins === 40 && dv.all >= 211 && dv.rec && dv.hasSnap && dv.hasEnv, JSON.stringify(dv));
     check('no page errors', errors.length === 0, errors.join('\n'));
     await page.close();
   }

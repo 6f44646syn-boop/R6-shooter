@@ -1,14 +1,14 @@
 // Skins & packs: points, the pack opening (a slot-machine reel that slows down and lands on
 // your skin), your collection (click to put a skin on the selected gun), and the save code.
-import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById, skinFits, LEGEND_ID } from '../core/skins.js?v=b95fbae-mwewwzt6';
-import { Profile, PACK_COST, LEGEND_PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=b95fbae-mwewwzt6';
-import { legendPhotoURL, setLegendPhoto, clearLegendPhoto, onLegendChange } from '../core/legend.js?v=b95fbae-mwewwzt6';
-import { skinThumb } from '../render/gpu-tex.js?v=b95fbae-mwewwzt6';
-import { matches, totals } from '../core/history.js?v=b95fbae-mwewwzt6';
-import { CHARMS } from '../core/charms.js?v=b95fbae-mwewwzt6';
-import { BOARD, ranking, myCode, addFriend, removeFriend, myName, setName, friends } from '../core/bests.js?v=b95fbae-mwewwzt6';
-import { TRADE_UP, TRADE_NEXT } from '../core/profile.js?v=b95fbae-mwewwzt6';
-import { mulberry32 } from '../core/prng.js?v=b95fbae-mwewwzt6';
+import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById, skinFits, LEGEND_ID } from '../core/skins.js?v=d05ab44-mwg7imxt';
+import { Profile, PACK_COST, LEGEND_PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=d05ab44-mwg7imxt';
+import { legendPhotoURL, setLegendPhoto, clearLegendPhoto, onLegendChange } from '../core/legend.js?v=d05ab44-mwg7imxt';
+import { skinThumb } from '../render/gpu-tex.js?v=d05ab44-mwg7imxt';
+import { matches, totals } from '../core/history.js?v=d05ab44-mwg7imxt';
+import { CHARMS } from '../core/charms.js?v=d05ab44-mwg7imxt';
+import { BOARD, ranking, myCode, addFriend, removeFriend, myName, setName, friends } from '../core/bests.js?v=d05ab44-mwg7imxt';
+import { TRADE_UP, TRADE_NEXT } from '../core/profile.js?v=d05ab44-mwg7imxt';
+import { mulberry32 } from '../core/prng.js?v=d05ab44-mwg7imxt';
 
 // Weekly shop prices (a pack is 100 points for a random skin).
 const SHOP_PRICE = { common: 120, rare: 250, epic: 450, blackice: 900, legendary: 1500 };

@@ -1,70 +1,71 @@
-import { track as trackLoad } from './ui/busy.js?v=b95fbae-mwewwzt6';
-import { loadPackArt } from './render/pack-art.js?v=b95fbae-mwewwzt6';
-import { loadPackAnims } from './scene/weapon-anims.js?v=b95fbae-mwewwzt6';
-import { packMats } from './render/pack-materials.js?v=b95fbae-mwewwzt6';
-import { loadSkinSheets } from './render/skins2.js?v=b95fbae-mwewwzt6';
-import { connectAudioPack } from './audio/pack-bridge.js?v=b95fbae-mwewwzt6';
-import { initBombUtility, utilityFor } from './balance/bomb-utility.js?v=b95fbae-mwewwzt6';
-import { createAcoustics } from './audio/acoustics.js?v=b95fbae-mwewwzt6';
-import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=b95fbae-mwewwzt6';
-import { mountControls, mountFirstLaunch } from './ui/m7-menu.js?v=b95fbae-mwewwzt6';
+import { track as trackLoad } from './ui/busy.js?v=d05ab44-mwg7imxt';
+import { loadPackArt } from './render/pack-art.js?v=d05ab44-mwg7imxt';
+import { loadPackAnims } from './scene/weapon-anims.js?v=d05ab44-mwg7imxt';
+import { packMats } from './render/pack-materials.js?v=d05ab44-mwg7imxt';
+import { loadSkinSheets } from './render/skins2.js?v=d05ab44-mwg7imxt';
+import { connectAudioPack } from './audio/pack-bridge.js?v=d05ab44-mwg7imxt';
+import { initBombUtility, utilityFor } from './balance/bomb-utility.js?v=d05ab44-mwg7imxt';
+import { createAcoustics } from './audio/acoustics.js?v=d05ab44-mwg7imxt';
+import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=d05ab44-mwg7imxt';
+import { mountControls, mountFirstLaunch } from './ui/m7-menu.js?v=d05ab44-mwg7imxt';
 // Recoil Range entry point: wires input, camera, scene, HUD and the frame loop together.
-import * as THREE from '../vendor/three/three.module.min.js?v=b95fbae-mwewwzt6';
-import { Look, PITCH_LIMIT } from './core/look.js?v=b95fbae-mwewwzt6';
-import { Player } from './core/player.js?v=b95fbae-mwewwzt6';
-import { PointerLock } from './core/pointer-lock.js?v=b95fbae-mwewwzt6';
-import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=b95fbae-mwewwzt6';
-import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=b95fbae-mwewwzt6';
-import { Weapon } from './core/weapon.js?v=b95fbae-mwewwzt6';
-import { RecoilEngine } from './core/recoil.js?v=b95fbae-mwewwzt6';
-import { Spread } from './core/spread.js?v=b95fbae-mwewwzt6';
-import { loadGameData } from './core/guns.js?v=b95fbae-mwewwzt6';
-import { initLoadout, effectiveGun, sanitize, slotIn, baseOf, SLOTS as ATTACH_SLOTS, allowed as attachAllowed, measuredCode, describe as describeAttach, hint as attachHint } from './core/loadout.js?v=b95fbae-mwewwzt6';
-import { randomSeed } from './core/prng.js?v=b95fbae-mwewwzt6';
-import { Range, EYE_HEIGHT } from './scene/range.js?v=b95fbae-mwewwzt6';
-import { RING_STEP } from './scene/range-tex.js?v=b95fbae-mwewwzt6';
-import { Gamepad, padPanel } from './ui/gamepad.js?v=b95fbae-mwewwzt6';
-import { WeaponRig, setUltraTexSize, skinName, setSkinResolver, setHiResSkins, setCharmResolver } from './scene/viewmodel.js?v=b95fbae-mwewwzt6';
-import { LensPost } from './render/lens-post.js?v=b95fbae-mwewwzt6';
-import { warmScene } from './render/warm.js?v=b95fbae-mwewwzt6';
-import { addMatch } from './core/history.js?v=b95fbae-mwewwzt6';
-import { addXp, matchXp, XP, checkIn, seasonState, rewardOf, rewardText, TIERS, XP_PER_TIER } from './core/season.js?v=b95fbae-mwewwzt6';
-import { submit as submitBests } from './core/bests.js?v=b95fbae-mwewwzt6';
-import { mountAccounts } from './ui/accounts-ui.js?v=b95fbae-mwewwzt6';
-import { PAD_ASSIST, nearestAim, assistLook } from './core/pad-assist.js?v=b95fbae-mwewwzt6';
-import { record as recordChallenge, matchStats, challengesFor, progressOf, isPaid } from './core/challenges.js?v=b95fbae-mwewwzt6';
-import { reticleTextures } from './ui/reticle-tex.js?v=b95fbae-mwewwzt6';
-import { DOT_POINTS } from './scene/dots.js?v=b95fbae-mwewwzt6';
-import { Voices } from './audio/voice.js?v=b95fbae-mwewwzt6';
-import { ModeGame } from './modes/game.js?v=b95fbae-mwewwzt6';
-import { Sfx } from './audio/sfx.js?v=b95fbae-mwewwzt6';
-import { playInspect } from './audio/inspect-sfx.js?v=b95fbae-mwewwzt6';
-import { DebugHud } from './ui/debug-hud.js?v=b95fbae-mwewwzt6';
-import { drawCrosshair } from './ui/crosshair.js?v=b95fbae-mwewwzt6';
-import { Hud } from './ui/hud.js?v=b95fbae-mwewwzt6';
-import { MagPlot } from './ui/plot.js?v=b95fbae-mwewwzt6';
-import { SettingsUI } from './ui/settings-ui.js?v=b95fbae-mwewwzt6';
-import { sensKeys, zoomKey } from './core/optics.js?v=b95fbae-mwewwzt6';
+import * as THREE from '../vendor/three/three.module.min.js?v=d05ab44-mwg7imxt';
+import { Look, PITCH_LIMIT } from './core/look.js?v=d05ab44-mwg7imxt';
+import { Player } from './core/player.js?v=d05ab44-mwg7imxt';
+import { PointerLock } from './core/pointer-lock.js?v=d05ab44-mwg7imxt';
+import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=d05ab44-mwg7imxt';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=d05ab44-mwg7imxt';
+import { Weapon } from './core/weapon.js?v=d05ab44-mwg7imxt';
+import { RecoilEngine } from './core/recoil.js?v=d05ab44-mwg7imxt';
+import { Spread } from './core/spread.js?v=d05ab44-mwg7imxt';
+import { loadGameData } from './core/guns.js?v=d05ab44-mwg7imxt';
+import { initLoadout, effectiveGun, sanitize, slotIn, baseOf, SLOTS as ATTACH_SLOTS, allowed as attachAllowed, measuredCode, describe as describeAttach, hint as attachHint } from './core/loadout.js?v=d05ab44-mwg7imxt';
+import { randomSeed } from './core/prng.js?v=d05ab44-mwg7imxt';
+import { Range, EYE_HEIGHT } from './scene/range.js?v=d05ab44-mwg7imxt';
+import { RING_STEP } from './scene/range-tex.js?v=d05ab44-mwg7imxt';
+import { Gamepad, padPanel } from './ui/gamepad.js?v=d05ab44-mwg7imxt';
+import { WeaponRig, setUltraTexSize, skinName, setSkinResolver, setHiResSkins, setCharmResolver } from './scene/viewmodel.js?v=d05ab44-mwg7imxt';
+import { LensPost } from './render/lens-post.js?v=d05ab44-mwg7imxt';
+import { warmScene } from './render/warm.js?v=d05ab44-mwg7imxt';
+import { addMatch } from './core/history.js?v=d05ab44-mwg7imxt';
+import { addXp, matchXp, XP, checkIn, seasonState, rewardOf, rewardText, TIERS, XP_PER_TIER } from './core/season.js?v=d05ab44-mwg7imxt';
+import { submit as submitBests } from './core/bests.js?v=d05ab44-mwg7imxt';
+import { mountAccounts } from './ui/accounts-ui.js?v=d05ab44-mwg7imxt';
+import { PAD_ASSIST, nearestAim, assistLook } from './core/pad-assist.js?v=d05ab44-mwg7imxt';
+import { record as recordChallenge, matchStats, challengesFor, progressOf, isPaid } from './core/challenges.js?v=d05ab44-mwg7imxt';
+import { reticleTextures } from './ui/reticle-tex.js?v=d05ab44-mwg7imxt';
+import { DOT_POINTS } from './scene/dots.js?v=d05ab44-mwg7imxt';
+import { Voices } from './audio/voice.js?v=d05ab44-mwg7imxt';
+import { ModeGame } from './modes/game.js?v=d05ab44-mwg7imxt';
+import { Sfx } from './audio/sfx.js?v=d05ab44-mwg7imxt';
+import { playInspect } from './audio/inspect-sfx.js?v=d05ab44-mwg7imxt';
+import { DebugHud } from './ui/debug-hud.js?v=d05ab44-mwg7imxt';
+import { mountDev } from './ui/dev.js?v=d05ab44-mwg7imxt';
+import { drawCrosshair } from './ui/crosshair.js?v=d05ab44-mwg7imxt';
+import { Hud } from './ui/hud.js?v=d05ab44-mwg7imxt';
+import { MagPlot } from './ui/plot.js?v=d05ab44-mwg7imxt';
+import { SettingsUI } from './ui/settings-ui.js?v=d05ab44-mwg7imxt';
+import { sensKeys, zoomKey } from './core/optics.js?v=d05ab44-mwg7imxt';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
 function sensRows(catalogue, sens) {
   const keys = new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)]);
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
-import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=b95fbae-mwewwzt6';
-import { Battle } from './battle/battle.js?v=b95fbae-mwewwzt6';
-import { initCore, coreLoaded } from './wasm/core.js?v=b95fbae-mwewwzt6';
-import { createJoinRequest, acceptJoin } from './net/link.js?v=b95fbae-mwewwzt6';
-import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt } from './net/relay.js?v=b95fbae-mwewwzt6';
-import { Profile, WIN_POINTS } from './core/profile.js?v=b95fbae-mwewwzt6';
-import { skinFits, skinById } from './core/skins.js?v=b95fbae-mwewwzt6';
-import { PackUI } from './ui/packs.js?v=b95fbae-mwewwzt6';
-import { HDPack } from './render/hd-pack.js?v=b95fbae-mwewwzt6';
-import { effectiveGraphics, needsPack, maxMode } from './render/quality.js?v=b95fbae-mwewwzt6';
-import { GraphicsUI } from './ui/graphics-ui.js?v=b95fbae-mwewwzt6';
-import { PerfHud } from './ui/perf-hud.js?v=b95fbae-mwewwzt6';
-import { WorldPost } from './render/world-post.js?v=b95fbae-mwewwzt6';
-import { rankOf, rankedSummary, ratingOf, rankedChange, validRankedTicket, verifyRankedResult } from './core/ranked.js?v=b95fbae-mwewwzt6';
+import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=d05ab44-mwg7imxt';
+import { Battle } from './battle/battle.js?v=d05ab44-mwg7imxt';
+import { initCore, coreLoaded } from './wasm/core.js?v=d05ab44-mwg7imxt';
+import { createJoinRequest, acceptJoin } from './net/link.js?v=d05ab44-mwg7imxt';
+import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt } from './net/relay.js?v=d05ab44-mwg7imxt';
+import { Profile, WIN_POINTS } from './core/profile.js?v=d05ab44-mwg7imxt';
+import { skinFits, skinById } from './core/skins.js?v=d05ab44-mwg7imxt';
+import { PackUI } from './ui/packs.js?v=d05ab44-mwg7imxt';
+import { HDPack } from './render/hd-pack.js?v=d05ab44-mwg7imxt';
+import { effectiveGraphics, needsPack, maxMode } from './render/quality.js?v=d05ab44-mwg7imxt';
+import { GraphicsUI } from './ui/graphics-ui.js?v=d05ab44-mwg7imxt';
+import { PerfHud } from './ui/perf-hud.js?v=d05ab44-mwg7imxt';
+import { WorldPost } from './render/world-post.js?v=d05ab44-mwg7imxt';
+import { rankOf, rankedSummary, ratingOf, rankedChange, validRankedTicket, verifyRankedResult } from './core/ranked.js?v=d05ab44-mwg7imxt';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -314,6 +315,7 @@ async function boot(data) {
   }
 
   function selectGun(index) {
+    dev?.note('gun', String(index));
     if (index < 0 || index >= data.guns.length) return;
     const gun = effectiveGun(data.guns[index], savedAttach(data.guns[index]));   // this player's attachments
     if (state.gun && baseOf(state.gun) !== baseOf(gun)) sfx.weaponSwitch();
@@ -742,6 +744,7 @@ async function boot(data) {
   $('clear-btn').addEventListener('click', () => { clearRange(); flashNotice('Cleared all bullet holes and shot data.'); });
   let noticeTimer = 0;
   function flashNotice(text, ms = 2500) {
+    dev?.note('notice', text);
     const n = $('menu-note');
     n.textContent = text;
     n.hidden = false;
@@ -1010,6 +1013,18 @@ async function boot(data) {
   packsUi = packs;
   packs.mountShop($('shop-root'));
   mountAccounts($('acct-root'));
+  var dev;   // (var: flashNotice and logMatch can run before this line)
+  dev = mountDev($('acct-root'), {
+    profile, settings, canvas: renderer.domElement, weapon: () => weapon, cur: () => cur(), giveXp,
+    perf: () => { const I = renderer.info; return { gpuMs: perf.gpuMs, w: renderW, h: renderH, scale: settings.renderScale || dynScale, calls: I.render.calls, tris: I.render.triangles, geoms: I.memory.geometries, texs: I.memory.textures }; },
+    gl: () => renderer.getContext(), refreshHz: () => refreshHz,
+    audio: () => (sfx.ctx ? { state: sfx.ctx.state, base: sfx.ctx.baseLatency, out: sfx.ctx.outputLatency } : null),
+    env: () => ({ build: import.meta.url.split('?v=')[1] || '', graphics: settings.graphics, effective: gfx(), hd: HDPack.ready, page: location.search }),
+    state: () => {
+      const g = cur(), f = g && g.humans && g.humans[0] && g.humans[0].f;
+      return { where: g ? (g.constructor && g.constructor.name) : 'range', gun: state.gun && state.gun.id, ammo: weapon.ammo, ads: +state.adsP.toFixed(2), yaw: +look.yaw.toFixed(2), pitch: +look.pitch.toFixed(2), hp: f ? Math.round(f.health) : undefined, kills: f ? f.kills : undefined };
+    },
+  });
   { const ci = checkIn(profile); if (ci) setTimeout(() => flashNotice('Day ' + ci.streak + ' login streak: +' + ci.bonus + ' points' + (ci.streak < 6 ? ' (come back tomorrow for more)' : ''), 5000), 1200); }
 
   /* ---------- battle mode ---------- */
@@ -1061,6 +1076,7 @@ async function boot(data) {
   function logMatch(game, sum) {
     if (!sum || !game || game._loggedFor === game.opts) return;
     game._loggedFor = game.opts;
+    dev?.note('match-end', sum);
     addMatch(sum);
     payChallenges(recordChallenge(sum.mode, matchStats(sum)));
     giveXp(matchXp(sum));
@@ -1070,6 +1086,7 @@ async function boot(data) {
   }
   function startBattle() {
     if (needCore(startBattle)) return;
+    dev?.note('match-start', 'battle ' + JSON.stringify(settings.battle));
     loadingCover();
     controls.release();
     const royale = flow.mode === 'royale', endless = flow.mode === 'endless', gungame = flow.mode === 'gungame';
@@ -1467,6 +1484,7 @@ async function boot(data) {
 
   /* ---------- menu flow: mode -> settings -> weapon -> deploy ---------- */
   function showPage(name) {
+    dev?.note('page', name);
     if (flow.page !== name && ['mode', 'pause', 'setup'].includes(flow.page)) flow.prev = flow.page;
     flow.page = name;
     for (const p of document.querySelectorAll('#menu .page')) p.hidden = p.id !== 'page-' + name;
@@ -1709,6 +1727,7 @@ async function boot(data) {
     ensureModeGame();
     modeGame.hud.again.hidden = false;
     weapon.releaseTrigger(); setAds(false); player.releaseKeys();
+    dev?.note('match-start', m);
     try {
       await trackLoad(modeGame.start({ mode: m, map: P.map[m], difficulty: P.difficulty, teamSize: P.teamSize, abilities: !!P.abilities[m], minutes: P.minutes, prepTime: P.prepTime, headshot: P.headshot, op: P.op[m], side: P.side, botRanked: !!P.ranked && !extra.net, botRating: profile.rating, attach: attachMap(), seed: testMode ? P.seed : undefined, ...extra }), 'Loading the match');
     } catch (err) {
@@ -2110,7 +2129,7 @@ async function boot(data) {
     perf.endGpu();
     if (prevFrameMs) { watchQuality(nowMs, nowMs - prevFrameMs); watchResolution(nowMs - prevFrameMs); }
     cpuMs[cpuIdx++ % cpuMs.length] = performance.now() - c0;
-    if (prevFrameMs) { debug.recordFrame(nowMs - prevFrameMs); perf.record(nowMs - prevFrameMs, performance.now() - c0, updMs, nowMs); }
+    if (prevFrameMs) { dev?.frame(nowMs - prevFrameMs, performance.now() - c0, updMs); debug.recordFrame(nowMs - prevFrameMs); perf.record(nowMs - prevFrameMs, performance.now() - c0, updMs, nowMs); }
     prevFrameMs = nowMs;
     if (perf.visible) {
       perfInfo.w = renderW; perfInfo.h = renderH; perfInfo.scale = settings.renderScale || dynScale;

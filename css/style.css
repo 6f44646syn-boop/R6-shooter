@@ -686,3 +686,14 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 .acct-row.on b { color: #ffd27a; }
 .acct-row input { min-width: 0; flex: 1; padding: 4px 6px; }
 .acct-pin { max-width: 9em; }
+
+/* Dev mode (password console + recorder) */
+.dev-open { margin-left: 8px; padding: 6px 10px; border-radius: 4px; background: rgba(255,255,255,0.06); border: 1px solid transparent; color: #8a94a0; font-size: 12px; cursor: pointer; }
+#dev { position: fixed; right: 12px; bottom: 12px; z-index: 200; width: min(560px, calc(100vw - 24px)); max-height: 70vh; display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 6px; background: #0d1014; border: 1px solid var(--panel-edge); box-shadow: 0 8px 30px rgba(0,0,0,0.6); }
+#dev[hidden], #dev-rec[hidden] { display: none; }
+.dev-head { display: flex; gap: 6px; align-items: center; } .dev-head b { margin-right: auto; }
+.dev-body { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+.dev-out { margin: 0; min-height: 120px; max-height: 40vh; overflow: auto; padding: 6px; background: #05070a; color: #b8c4d0; font: 12px/1.4 ui-monospace, Consolas, monospace; white-space: pre-wrap; }
+.dev-in { padding: 6px 8px; border-radius: 4px; background: #05070a; border: 1px solid var(--panel-edge); color: #e6edf3; font: 13px ui-monospace, Consolas, monospace; }
+.dev-gate { display: flex; gap: 6px; } .dev-gate .dev-in { flex: 1; }
+#dev-rec { position: fixed; right: 12px; top: 12px; z-index: 200; padding: 4px 10px; border-radius: 4px; background: #5a1414; border: 1px solid #a33; color: #fff; font-size: 12px; cursor: pointer; }
