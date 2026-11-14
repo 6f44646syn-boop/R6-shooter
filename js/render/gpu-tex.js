@@ -90,7 +90,7 @@ function bake(renderer, frag, size, uniforms = {}, { mip = true } = {}) {
   if (!mat) {
     mat = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: frag, depthTest: false, depthWrite: false, toneMapped: false, uniforms: {} });
     bakeMats.set(frag, mat);
-    if (bakeMats.size > 24) { const [k, old] = bakeMats.entries().next().value; old.dispose(); bakeMats.delete(k); }
+    if (bakeMats.size > 64) { const [k, old] = bakeMats.entries().next().value; old.dispose(); bakeMats.delete(k); }
   }
   for (const k of Object.keys(mat.uniforms)) if (k !== 'texel' && !(k in uniforms)) mat.uniforms[k].value = null;
   mat.uniforms.texel = mat.uniforms.texel || { value: 0 };
@@ -444,6 +444,10 @@ void skinAt(vec2 uv, out vec3 col, out float m, out float g) {
 }
 `;
 
+// The pattern is compiled in as a constant, so the shader compiler drops the other patterns'
+// branches: Direct3D (Chrome on Windows) took 4-12 s to compile the every-pattern shader the
+// first time. Same maths, so the same pixels; one small shader per pattern instead.
+const skinGlsl = (def) => SKIN_GLSL.replace('uniform int pattern;', 'const int pattern = ' + (def.pattern | 0) + ';');
 function skinUniforms(def) {
   const v3 = (a) => new THREE.Vector3(a[0], a[1], a[2]);
   return {
@@ -459,7 +463,7 @@ export function bakeSkin(renderer, def, size = 4096) {
   // Enhanced Graphics pack v5: the redrawn skins (js/render/skins2.js) at High / Ultra sizes
   const relief = def.pattern === 10;
   const v2 = !relief && size >= 2048 && skinSheets.ready;
-  const head = NOISE + SKIN_GLSL + (v2 ? SKIN2_GLSL : '');
+  const head = NOISE + skinGlsl(def) + (v2 ? SKIN2_GLSL : '');
   const s2 = v2 ? skin2Uniforms(def) : {};
   const at = v2 ? 'float hh; skinAt2(vUv, col, m, g, hh);' : 'skinAt(vUv, col, m, g);';
   const enhanced = size >= 2048 && !!packArt.finish;
@@ -511,7 +515,7 @@ export function bakeNormalFromTexture(renderer, heightTex, size, strength = 2) {
 
 // A small picture of a skin for menus: a canvas (sRGB-ish: the stored sqrt colour).
 export function skinThumb(renderer, def, size = 96) {
-  const t = bake(renderer, NOISE + SKIN_GLSL + /* glsl */`
+  const t = bake(renderer, NOISE + skinGlsl(def) + /* glsl */`
     void main() { vec3 col; float m, g; skinAt(vUv * 0.5, col, m, g); gl_FragColor = vec4(sqrt(clamp(col, 0.0, 1.0)), 1.0); }`,
   size, skinUniforms(def), { mip: false });
   const rt = t.userData.rt;
