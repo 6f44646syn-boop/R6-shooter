@@ -31,14 +31,17 @@ try{
   await r.modeStart('bomb',{map:{bomb:'ranch'},teamSize:2,side:'defend',seed:42});const m=r.modeGame();m.paused=true;
   const geo=()=>{let v=0,sum=0; m.lookGroup.traverse(o=>{const a=o.geometry?.attributes.position;if(a){v+=a.count;for(let i=0;i<a.array.length;i++)sum+=a.array[i];}});return [v,sum];};
   const before=geo();let enhanced=0;m.lookGroup.traverse(o=>{if(o.material?.userData.packBase)enhanced++;});
+  for(let i=0;i<300&&!m.lookGroup.userData.packProps;i++)await new Promise(q=>setTimeout(q,50));   // props arrive after the start (compiled and uploaded first)
+  const props=m.lookGroup.userData.packProps||[], propsCulled=props.length>0&&props.every(im=>im.frustumCulled&&im.boundingSphere&&im.parent===m.lookGroup);
   const f=[...m.fig.values()][0], high=f.body.geometry.attributes.position.count;
   r.setSetting('graphics','standard');m.refreshGraphics();const low=f.body.geometry.attributes.position.count;
   let fallback=0;m.lookGroup.traverse(o=>{if(o.material?.userData.packBase)fallback++;});
-  return {before,after:geo(),enhanced,fallback,high,low,profileSame:profile===JSON.stringify(r.profile().data||r.profile())};
+  return {before,after:geo(),enhanced,fallback,high,low,props:props.length,propsCulled,profileSame:profile===JSON.stringify(r.profile().data||r.profile())};
  });
  check('map geometry is identical across presets',JSON.stringify(result.before)===JSON.stringify(result.after));
  check('map textures activate and restore',result.enhanced>0&&result.fallback===0);
  check('pack soldier is used on High (Claude\'s detailed soldier, under 30k triangles)',result.high>result.low&&result.high/3<=30000);
+ check('pack props are on the map and each can be culled off screen',result.propsCulled);
  check('pack never changes cosmetic ownership',result.profileSame);
  check('no browser exceptions',errors.length===0);
  console.log(JSON.stringify(result));console.log(count+' pack integration checks passed');

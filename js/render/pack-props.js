@@ -6,6 +6,10 @@
 import * as THREE from '../../vendor/three/three.module.min.js?v=ba75b4c-mwgabqbe';
 import { HDPack } from './hd-pack.js?v=ba75b4c-mwgabqbe';
 import { loadLightVolume, useLightVolume } from './pack-materials.js?v=ba75b4c-mwgabqbe';
+import { warmObjects } from './warm.js?v=ba75b4c-mwgabqbe';
+
+const CELL = 32;   // metres per culling area for the pack props
+const scene = (o) => { while (o.parent) o = o.parent; return o.isScene ? o : null; };
 
 // Material per role: [sRGB colour, roughness, metalness] (as tools/hd/props.mjs PROP_ROLES)
 const ROLES = {
@@ -118,18 +122,27 @@ export async function applyPackProps(group, quality, renderer, mapId, env) {
       }
     } else for (const box of u.propBoxes[name]) { const before = mats4.length; fit(def, box.b, mats4, m4); for (let i = before; i < mats4.length; i++) tints.push(box.tint); }
     if (!mats4.length) return;
-    for (const [role, geo] of def.parts) {
+    // One instanced mesh per CELL x CELL m area, so the areas off screen (and outside the shadow
+    // camera) are skipped; one mesh across the whole map was drawn from every angle.
+    // Measured on Bomb (Ranch) High: Intel UHD +25% fps; RTX 3050 the same at 144 Hz (about 60
+    // more draw calls, -7% only when uncapped). Splitting just the trees gave Intel only +4%.
+    const cells = new Map();
+    mats4.forEach((mm, i) => { const k = Math.floor(mm.elements[12] / CELL) + ',' + Math.floor(mm.elements[14] / CELL); if (!cells.has(k)) cells.set(k, []); cells.get(k).push(i); });
+    for (const idx of cells.values()) for (const [role, geo] of def.parts) {
       const mat = material(role, env);
       if (vol) useLightVolume(mat, vol);
-      const im = new THREE.InstancedMesh(geo, mat, mats4.length);
-      mats4.forEach((mm, i) => im.setMatrixAt(i, mm));
-      if (role === 'paint') { tints.forEach((t, i) => im.setColorAt(i, col.setHex(t))); }
+      const im = new THREE.InstancedMesh(geo, mat, idx.length);
+      idx.forEach((i, j) => im.setMatrixAt(j, mats4[i]));
+      if (role === 'paint') idx.forEach((i, j) => im.setColorAt(j, col.setHex(tints[i])));
       im.castShadow = true; im.receiveShadow = true;
       im.userData.ownMaterial = true;   // (pack materials leave it alone)
-      im.frustumCulled = false;
-      group.add(im); made.push(im);
+      im.computeBoundingSphere();
+      made.push(im);
     }
   });
+  await warmObjects(renderer, scene(group), made);   // compile and upload off the frame first (warm.js)
+  if (u.packProps || !group.parent || u.propsReq !== req) { for (const im of made) im.dispose(); return 0; }
+  for (const im of made) group.add(im);
   // hide the boxes the props replace
   const done = new Set(wanted);
   group.traverse((o) => { if (o.userData.propLook && done.has(o.userData.propLook) && o.visible) { o.visible = false; o.userData.propHidden = true; } });

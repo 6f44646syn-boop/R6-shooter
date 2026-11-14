@@ -10,3 +10,25 @@ export function warmScene(renderer, scene) {
   try { renderer.compile(scene, CAM); } catch { /* a context without compile: it compiles on first draw */ }
   for (const o of hidden) o.visible = false;
 }
+
+// For objects about to join a scene that is already on screen (the Enhanced pack's materials and
+// props arrive after a match starts): compile their shaders without blocking a frame (three's
+// compileAsync, which uses KHR_parallel_shader_compile) and upload their textures one per frame,
+// so swapping them in costs nothing. `objects` must not be in a scene yet; they are left in a
+// temporary group, which the caller's add() takes them out of.
+const nextFrame = () => new Promise((r) => requestAnimationFrame(r));
+export async function warmObjects(renderer, scene, objects) {
+  if (!renderer?.compileAsync || !scene || !objects.length) return;
+  const g = new THREE.Group();
+  for (const o of objects) g.add(o);
+  try { await renderer.compileAsync(g, CAM, scene); } catch { /* compiles on first draw instead */ }
+  const texs = new Set();
+  for (const o of objects) for (const m of [].concat(o.material || [])) for (const k in m) if (m[k]?.isTexture && m[k].image) texs.add(m[k]);
+  // Uploads take about 6 ms of each frame (a 4K texture takes a frame on its own); copies of an
+  // already uploaded image (same source) cost nothing.
+  let t0 = performance.now();
+  for (const t of texs) {
+    try { renderer.initTexture(t); } catch { /* uploads on first draw instead */ }
+    if (performance.now() - t0 > 6) { await nextFrame(); t0 = performance.now(); }
+  }
+}

@@ -7,6 +7,7 @@
 import * as THREE from '../../vendor/three/three.module.min.js?v=ba75b4c-mwgabqbe';
 import { HDPack } from './hd-pack.js?v=ba75b4c-mwgabqbe';
 import { maxMode } from './quality.js?v=ba75b4c-mwgabqbe';
+import { warmObjects } from './warm.js?v=ba75b4c-mwgabqbe';
 
 export const packMats = { revision: 0, lightActive: false };
 const sets = new Map();          // name|quality -> Promise<{ map, normal, orm }>
@@ -156,6 +157,7 @@ export async function applyPackMaterials(roots, quality, renderer, opt = {}) {
   const env = envMap(renderer);
   const aniso = Math.min(quality === 'max' ? 16 : quality === 'ultra' ? 8 : 4, renderer.capabilities.getMaxAnisotropy());
   let n = 0;
+  const swaps = [];
   for (const [name, objs] of wanted) {
     const s = loaded.get(name);
     if (!s) continue;
@@ -171,10 +173,24 @@ export async function applyPackMaterials(roots, quality, renderer, opt = {}) {
       });
       for (const t of [mat.map, mat.normalMap, mat.aoMap, mat.roughnessMap, mat.metalnessMap]) t.anisotropy = aniso;
       if (vol) useLightVolume(mat, vol);
-      o.material = mat;
-      o.userData.packLo = lo; o.userData.packQuality = quality; o.userData.packRev = packMats.revision;
-      n++;
+      swaps.push([o, lo, mat]);
     }
+  }
+  // Compile the shaders and upload the textures off the frame first, through stand-in meshes
+  // with the same geometry (warm.js), so the swap below does not stall the match.
+  let top = swaps[0]?.[0]; while (top?.parent) top = top.parent;
+  await warmObjects(renderer, top?.isScene ? top : null, swaps.filter(([o]) => !o.isSkinnedMesh).map(([o, , mat]) => {
+    const p = o.isInstancedMesh ? new THREE.InstancedMesh(o.geometry, mat, 1) : new THREE.Mesh(o.geometry, mat);
+    p.castShadow = o.castShadow; p.receiveShadow = o.receiveShadow;
+    if (o.instanceColor) p.setColorAt(0, new THREE.Color());   // same shader variant as the real mesh
+    return p;
+  }));
+  if (stale()) { for (const [, , mat] of swaps) mat.dispose(); return 0; }
+  for (const [o, lo, mat] of swaps) {
+    if (o.userData.packLo || !o.parent) { mat.dispose(); continue; }
+    o.material = mat;
+    o.userData.packLo = lo; o.userData.packQuality = quality; o.userData.packRev = packMats.revision;
+    n++;
   }
   packMats.lightActive = !!vol && n > 0;
   return n;
