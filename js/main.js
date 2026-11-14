@@ -232,6 +232,7 @@ async function boot(data) {
   recoil.aimSmooth = settings.aimSmooth;
   // Ranked and online matches read these settings from the game's fixed values, whatever you chose; sensitivity, FOV, crosshair and mouse vs trackpad stay yours.
   const FAIR = { aimRecoil: DEFAULTS.aimRecoil, hipRecoil: DEFAULTS.hipRecoil, hipSpread: DEFAULTS.hipSpread, aimSmooth: DEFAULTS.aimSmooth, reloadSpeed: DEFAULTS.reloadSpeed, aimAssist: 0, padAssist: 'off', minimap: false, fixedSeed: '' };
+  if (new URLSearchParams(location.search).has('test')) { FAIR.hipSpread = false; FAIR.hipRecoil = 1; }   // tests start with exact shots (see above)
   let fairOn = false;
   const fair = new Proxy(settings, { get: (t, k) => (fairOn && k in FAIR ? FAIR[k] : t[k]) });
   const params = new URLSearchParams(location.search);
