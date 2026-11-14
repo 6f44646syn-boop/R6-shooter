@@ -1,71 +1,72 @@
-import { track as trackLoad } from './ui/busy.js?v=d05ab44-mwg7imxt';
-import { loadPackArt } from './render/pack-art.js?v=d05ab44-mwg7imxt';
-import { loadPackAnims } from './scene/weapon-anims.js?v=d05ab44-mwg7imxt';
-import { packMats } from './render/pack-materials.js?v=d05ab44-mwg7imxt';
-import { loadSkinSheets } from './render/skins2.js?v=d05ab44-mwg7imxt';
-import { connectAudioPack } from './audio/pack-bridge.js?v=d05ab44-mwg7imxt';
-import { initBombUtility, utilityFor } from './balance/bomb-utility.js?v=d05ab44-mwg7imxt';
-import { createAcoustics } from './audio/acoustics.js?v=d05ab44-mwg7imxt';
-import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=d05ab44-mwg7imxt';
-import { mountControls, mountFirstLaunch } from './ui/m7-menu.js?v=d05ab44-mwg7imxt';
+import { track as trackLoad } from './ui/busy.js?v=ba75b4c-mwgabqbe';
+import { loadPackArt } from './render/pack-art.js?v=ba75b4c-mwgabqbe';
+import { loadPackAnims } from './scene/weapon-anims.js?v=ba75b4c-mwgabqbe';
+import { packMats } from './render/pack-materials.js?v=ba75b4c-mwgabqbe';
+import { loadSkinSheets } from './render/skins2.js?v=ba75b4c-mwgabqbe';
+import { connectAudioPack } from './audio/pack-bridge.js?v=ba75b4c-mwgabqbe';
+import { initBombUtility, utilityFor } from './balance/bomb-utility.js?v=ba75b4c-mwgabqbe';
+import { createAcoustics } from './audio/acoustics.js?v=ba75b4c-mwgabqbe';
+import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=ba75b4c-mwgabqbe';
+import { mountControls, mountFirstLaunch } from './ui/m7-menu.js?v=ba75b4c-mwgabqbe';
 // Recoil Range entry point: wires input, camera, scene, HUD and the frame loop together.
-import * as THREE from '../vendor/three/three.module.min.js?v=d05ab44-mwg7imxt';
-import { Look, PITCH_LIMIT } from './core/look.js?v=d05ab44-mwg7imxt';
-import { Player } from './core/player.js?v=d05ab44-mwg7imxt';
-import { PointerLock } from './core/pointer-lock.js?v=d05ab44-mwg7imxt';
-import { loadSettings, saveSettings, DISTANCES } from './core/settings.js?v=d05ab44-mwg7imxt';
-import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=d05ab44-mwg7imxt';
-import { Weapon } from './core/weapon.js?v=d05ab44-mwg7imxt';
-import { RecoilEngine } from './core/recoil.js?v=d05ab44-mwg7imxt';
-import { Spread } from './core/spread.js?v=d05ab44-mwg7imxt';
-import { loadGameData } from './core/guns.js?v=d05ab44-mwg7imxt';
-import { initLoadout, effectiveGun, sanitize, slotIn, baseOf, SLOTS as ATTACH_SLOTS, allowed as attachAllowed, measuredCode, describe as describeAttach, hint as attachHint } from './core/loadout.js?v=d05ab44-mwg7imxt';
-import { randomSeed } from './core/prng.js?v=d05ab44-mwg7imxt';
-import { Range, EYE_HEIGHT } from './scene/range.js?v=d05ab44-mwg7imxt';
-import { RING_STEP } from './scene/range-tex.js?v=d05ab44-mwg7imxt';
-import { Gamepad, padPanel } from './ui/gamepad.js?v=d05ab44-mwg7imxt';
-import { WeaponRig, setUltraTexSize, skinName, setSkinResolver, setHiResSkins, setCharmResolver } from './scene/viewmodel.js?v=d05ab44-mwg7imxt';
-import { LensPost } from './render/lens-post.js?v=d05ab44-mwg7imxt';
-import { warmScene } from './render/warm.js?v=d05ab44-mwg7imxt';
-import { addMatch } from './core/history.js?v=d05ab44-mwg7imxt';
-import { addXp, matchXp, XP, checkIn, seasonState, rewardOf, rewardText, TIERS, XP_PER_TIER } from './core/season.js?v=d05ab44-mwg7imxt';
-import { submit as submitBests } from './core/bests.js?v=d05ab44-mwg7imxt';
-import { mountAccounts } from './ui/accounts-ui.js?v=d05ab44-mwg7imxt';
-import { PAD_ASSIST, nearestAim, assistLook } from './core/pad-assist.js?v=d05ab44-mwg7imxt';
-import { record as recordChallenge, matchStats, challengesFor, progressOf, isPaid } from './core/challenges.js?v=d05ab44-mwg7imxt';
-import { reticleTextures } from './ui/reticle-tex.js?v=d05ab44-mwg7imxt';
-import { DOT_POINTS } from './scene/dots.js?v=d05ab44-mwg7imxt';
-import { Voices } from './audio/voice.js?v=d05ab44-mwg7imxt';
-import { ModeGame } from './modes/game.js?v=d05ab44-mwg7imxt';
-import { Sfx } from './audio/sfx.js?v=d05ab44-mwg7imxt';
-import { playInspect } from './audio/inspect-sfx.js?v=d05ab44-mwg7imxt';
-import { DebugHud } from './ui/debug-hud.js?v=d05ab44-mwg7imxt';
-import { mountDev } from './ui/dev.js?v=d05ab44-mwg7imxt';
-import { drawCrosshair } from './ui/crosshair.js?v=d05ab44-mwg7imxt';
-import { Hud } from './ui/hud.js?v=d05ab44-mwg7imxt';
-import { MagPlot } from './ui/plot.js?v=d05ab44-mwg7imxt';
-import { SettingsUI } from './ui/settings-ui.js?v=d05ab44-mwg7imxt';
-import { sensKeys, zoomKey } from './core/optics.js?v=d05ab44-mwg7imxt';
+import * as THREE from '../vendor/three/three.module.min.js?v=ba75b4c-mwgabqbe';
+import { Look, PITCH_LIMIT } from './core/look.js?v=ba75b4c-mwgabqbe';
+import { Player } from './core/player.js?v=ba75b4c-mwgabqbe';
+import { PointerLock } from './core/pointer-lock.js?v=ba75b4c-mwgabqbe';
+import { loadSettings, saveSettings, DISTANCES, DEFAULTS } from './core/settings.js?v=ba75b4c-mwgabqbe';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=ba75b4c-mwgabqbe';
+import { Weapon } from './core/weapon.js?v=ba75b4c-mwgabqbe';
+import { RecoilEngine } from './core/recoil.js?v=ba75b4c-mwgabqbe';
+import { Spread } from './core/spread.js?v=ba75b4c-mwgabqbe';
+import { loadGameData } from './core/guns.js?v=ba75b4c-mwgabqbe';
+import { initLoadout, effectiveGun, sanitize, slotIn, baseOf, SLOTS as ATTACH_SLOTS, allowed as attachAllowed, measuredCode, describe as describeAttach, hint as attachHint } from './core/loadout.js?v=ba75b4c-mwgabqbe';
+import { randomSeed } from './core/prng.js?v=ba75b4c-mwgabqbe';
+import { Range, EYE_HEIGHT } from './scene/range.js?v=ba75b4c-mwgabqbe';
+import { RING_STEP } from './scene/range-tex.js?v=ba75b4c-mwgabqbe';
+import { Gamepad, padPanel } from './ui/gamepad.js?v=ba75b4c-mwgabqbe';
+import { WeaponRig, setUltraTexSize, skinName, setSkinResolver, setHiResSkins, setCharmResolver } from './scene/viewmodel.js?v=ba75b4c-mwgabqbe';
+import { LensPost } from './render/lens-post.js?v=ba75b4c-mwgabqbe';
+import { warmScene } from './render/warm.js?v=ba75b4c-mwgabqbe';
+import { addMatch } from './core/history.js?v=ba75b4c-mwgabqbe';
+import { addXp, matchXp, XP, checkIn, seasonState, rewardOf, rewardText, TIERS, XP_PER_TIER } from './core/season.js?v=ba75b4c-mwgabqbe';
+import { submit as submitBests } from './core/bests.js?v=ba75b4c-mwgabqbe';
+import { mountAccounts } from './ui/accounts-ui.js?v=ba75b4c-mwgabqbe';
+import { PAD_ASSIST, nearestAim, assistLook } from './core/pad-assist.js?v=ba75b4c-mwgabqbe';
+import { record as recordChallenge, matchStats, challengesFor, progressOf, isPaid } from './core/challenges.js?v=ba75b4c-mwgabqbe';
+import { reticleTextures } from './ui/reticle-tex.js?v=ba75b4c-mwgabqbe';
+import { DOT_POINTS } from './scene/dots.js?v=ba75b4c-mwgabqbe';
+import { Voices } from './audio/voice.js?v=ba75b4c-mwgabqbe';
+import { ModeGame } from './modes/game.js?v=ba75b4c-mwgabqbe';
+import { Sfx } from './audio/sfx.js?v=ba75b4c-mwgabqbe';
+import { playInspect } from './audio/inspect-sfx.js?v=ba75b4c-mwgabqbe';
+import { DebugHud } from './ui/debug-hud.js?v=ba75b4c-mwgabqbe';
+import { buildHitboxes, syncFighterBoxes, RayTrail } from './scene/range-debug.js?v=ba75b4c-mwgabqbe';
+import { mountDev } from './ui/dev.js?v=ba75b4c-mwgabqbe';
+import { drawCrosshair } from './ui/crosshair.js?v=ba75b4c-mwgabqbe';
+import { Hud } from './ui/hud.js?v=ba75b4c-mwgabqbe';
+import { MagPlot } from './ui/plot.js?v=ba75b4c-mwgabqbe';
+import { SettingsUI } from './ui/settings-ui.js?v=ba75b4c-mwgabqbe';
+import { sensKeys, zoomKey } from './core/optics.js?v=ba75b4c-mwgabqbe';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
 function sensRows(catalogue, sens) {
   const keys = new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)]);
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
-import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=d05ab44-mwg7imxt';
-import { Battle } from './battle/battle.js?v=d05ab44-mwg7imxt';
-import { initCore, coreLoaded } from './wasm/core.js?v=d05ab44-mwg7imxt';
-import { createJoinRequest, acceptJoin } from './net/link.js?v=d05ab44-mwg7imxt';
-import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt } from './net/relay.js?v=d05ab44-mwg7imxt';
-import { Profile, WIN_POINTS } from './core/profile.js?v=d05ab44-mwg7imxt';
-import { skinFits, skinById } from './core/skins.js?v=d05ab44-mwg7imxt';
-import { PackUI } from './ui/packs.js?v=d05ab44-mwg7imxt';
-import { HDPack } from './render/hd-pack.js?v=d05ab44-mwg7imxt';
-import { effectiveGraphics, needsPack, maxMode } from './render/quality.js?v=d05ab44-mwg7imxt';
-import { GraphicsUI } from './ui/graphics-ui.js?v=d05ab44-mwg7imxt';
-import { PerfHud } from './ui/perf-hud.js?v=d05ab44-mwg7imxt';
-import { WorldPost } from './render/world-post.js?v=d05ab44-mwg7imxt';
-import { rankOf, rankedSummary, ratingOf, rankedChange, validRankedTicket, verifyRankedResult } from './core/ranked.js?v=d05ab44-mwg7imxt';
+import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=ba75b4c-mwgabqbe';
+import { Battle } from './battle/battle.js?v=ba75b4c-mwgabqbe';
+import { initCore, coreLoaded } from './wasm/core.js?v=ba75b4c-mwgabqbe';
+import { createJoinRequest, acceptJoin } from './net/link.js?v=ba75b4c-mwgabqbe';
+import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt } from './net/relay.js?v=ba75b4c-mwgabqbe';
+import { Profile, WIN_POINTS } from './core/profile.js?v=ba75b4c-mwgabqbe';
+import { skinFits, skinById } from './core/skins.js?v=ba75b4c-mwgabqbe';
+import { PackUI } from './ui/packs.js?v=ba75b4c-mwgabqbe';
+import { HDPack } from './render/hd-pack.js?v=ba75b4c-mwgabqbe';
+import { effectiveGraphics, needsPack, maxMode } from './render/quality.js?v=ba75b4c-mwgabqbe';
+import { GraphicsUI } from './ui/graphics-ui.js?v=ba75b4c-mwgabqbe';
+import { PerfHud } from './ui/perf-hud.js?v=ba75b4c-mwgabqbe';
+import { WorldPost } from './render/world-post.js?v=ba75b4c-mwgabqbe';
+import { rankOf, rankedSummary, ratingOf, rankedChange, validRankedTicket, verifyRankedResult } from './core/ranked.js?v=ba75b4c-mwgabqbe';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -102,7 +103,7 @@ async function boot(data) {
   const padFocusables = () => [...padLayer().querySelectorAll('button, select, input, summary, [tabindex="0"]')].filter((e) => !e.disabled && e.offsetParent !== null && e.tabIndex >= 0 && !(e.tagName !== 'SUMMARY' && e.closest('details:not([open])')));   // (not what a closed panel hides)
   // The enemy nearest your controller aim in a battle or match (for aim assist), or null.
   function padAim() {
-    const g = cur(), A = PAD_ASSIST[settings.padAssist];
+    const g = cur(), A = PAD_ASSIST[fair.padAssist];
     if (!A || !g?.active || g.paused || g.over || g.viewOnly) return null;
     const battleGame = g === battle, h = battleGame ? g.humans[0] : g.h, me = battleGame ? h?.f : g.me;
     if (!h || !me?.alive) return null;
@@ -115,7 +116,7 @@ async function boot(data) {
   const padHooks = {
     get playing() { return (lock.locked || testMode) && $('menu').hidden && $('armory').hidden && !document.querySelector('dialog[open]'); },
     onAction: (id, down) => controls.onAction(id, down),
-    look: (degX, degY) => { [degX, degY] = assistLook(PAD_ASSIST[settings.padAssist], degX, degY, padAim()); const dpc = baseDpc(); lookBy(degX / dpc, degY / dpc); },
+    look: (degX, degY) => { [degX, degY] = assistLook(PAD_ASSIST[fair.padAssist], degX, degY, padAim()); const dpc = baseDpc(); lookBy(degX / dpc, degY / dpc); },
     start() { if (padHooks.playing) { if (lock.locked) lock.exit(); else lock.onChange(false); } else if (flow.inGame && !$('menu').hidden) startLock(); },
     menuMove(dir, sideways) {
       const a = document.activeElement;
@@ -150,7 +151,10 @@ async function boot(data) {
   const player = new Player();
   scene.add(camera);             // so the viewmodel (a camera child) renders
 
+  let timeScale = 1, virt = 0, lastReal = 0;   // game clock (see clockNow)
   const range = new Range(scene);
+  const dbg = { hitboxes: buildHitboxes(), rays: new RayTrail() };   // dev-mode overlays, hidden until switched on
+  range.dummy.add(dbg.hitboxes); scene.add(dbg.rays.obj);
   range.setDistance(settings.distance);
   range.holes.setSize(settings.holeSizeCm / 100);
   renderer.info.autoReset = false; // several passes per frame; reset once per frame
@@ -226,6 +230,10 @@ async function boot(data) {
   const spread = new Spread();
   const spreadOff = [0, 0];
   recoil.aimSmooth = settings.aimSmooth;
+  // Ranked and online matches read these settings from the game's fixed values, whatever you chose; sensitivity, FOV, crosshair and mouse vs trackpad stay yours.
+  const FAIR = { aimRecoil: DEFAULTS.aimRecoil, hipRecoil: DEFAULTS.hipRecoil, hipSpread: DEFAULTS.hipSpread, aimSmooth: DEFAULTS.aimSmooth, reloadSpeed: DEFAULTS.reloadSpeed, aimAssist: 0, padAssist: 'off', minimap: false, fixedSeed: '' };
+  let fairOn = false;
+  const fair = new Proxy(settings, { get: (t, k) => (fairOn && k in FAIR ? FAIR[k] : t[k]) });
   const params = new URLSearchParams(location.search);
   const testMode = params.has('test');
   const catalogue = data.catalogue;
@@ -733,7 +741,21 @@ async function boot(data) {
 
   // C or the Clear button: every bullet hole and all shot data (counters, score, headshots,
   // the magazine plot and the recorded shot positions). The spray restarts at bullet 1.
+  // Dev overlay: where this shot started, which way it went and where it landed (all in world metres).
+  const _tv = new THREE.Vector3();
+  function traceShot(yaw, pitch, kind) {
+    const y = yaw * DEG, p = pitch * DEG, cp = Math.cos(p);
+    const o = [player.ex, player.ey, player.ez], d = [Math.sin(y) * cp, Math.sin(p), -Math.cos(y) * cp];
+    const e = kind ? [hit.p[0], hit.p[1], hit.p[2] - range.distance] : [o[0] + d[0] * 30, o[1] + d[1] * 30, o[2] + d[2] * 30];
+    const u = rig.current && rig.current.userData, m = o.slice();
+    if (u && u.flash) {   // the muzzle as it appears on screen: same pixel, 0.6 m along that ray from the camera
+      u.flash.getWorldPosition(_tv); rig.camera.updateMatrixWorld(); _tv.project(rig.camera); _tv.z = 0.5; _tv.unproject(camera);
+      _tv.sub(camera.position).normalize().multiplyScalar(0.6).add(camera.position); m[0] = _tv.x; m[1] = _tv.y; m[2] = _tv.z;
+    }
+    dbg.rays.add(m, o, e);
+  }
   function clearRange() {
+    dbg.rays.clear();
     range.holes.clear();
     state.shots = state.hits = state.headshots = state.score = 0;
     mag.n = mag.shots = mag.hits = 0;
@@ -770,6 +792,7 @@ async function boot(data) {
     state.shots++;
     mag.shots++;
     const kind = range.raycast(yaw, pitch, hit, player.ex, player.ey, player.ez);
+    if (dbg.rays.obj.visible) traceShot(yaw, pitch, kind);
     // Spent casing: ejected to the right, landing a little in front of you.
     range.addCasing(Math.max(-1.6, Math.min(1.6, player.x + 0.25 + Math.random() * 0.6)), Math.min(-0.1, player.z - 0.1 - Math.random() * 0.45));
     let onTarget = false, dotHit = -1;
@@ -1015,7 +1038,16 @@ async function boot(data) {
   mountAccounts($('acct-root'));
   var dev;   // (var: flashNotice and logMatch can run before this line)
   dev = mountDev($('acct-root'), {
-    profile, settings, canvas: renderer.domElement, weapon: () => weapon, cur: () => cur(), giveXp,
+    profile, settings, save: () => saveSettings(settings), locked: () => fairOn && !!cur()?.active && !cur().over, canvas: renderer.domElement, weapons: () => { const g = cur(), h = g === battle ? g?.humans?.[0] : g?.h; return [weapon, h?.weapon].filter(Boolean); }, cur: () => cur(), giveXp,
+    tools: {
+      get: () => ({ hitboxes: dbg.hitboxes.visible, rays: dbg.rays.obj.visible, scale: timeScale }),
+      set(k, v) {
+        if (k === 'hitboxes') dbg.hitboxes.visible = !!v;
+        else if (k === 'rays') dbg.rays.obj.visible = !!v;
+        else if (k === 'scale') { if (cur()?.active) throw new Error('slow-mo and pause only work on the range'); timeScale = v; }
+      },
+      step: () => { if (timeScale === 0) virt += 1 / 60; },   // one frame forward while paused
+    },
     perf: () => { const I = renderer.info; return { gpuMs: perf.gpuMs, w: renderW, h: renderH, scale: settings.renderScale || dynScale, calls: I.render.calls, tris: I.render.triangles, geoms: I.memory.geometries, texs: I.memory.textures }; },
     gl: () => renderer.getContext(), refreshHz: () => refreshHz,
     audio: () => (sfx.ctx ? { state: sfx.ctx.state, base: sfx.ctx.baseLatency, out: sfx.ctx.outputLatency } : null),
@@ -1046,7 +1078,7 @@ async function boot(data) {
   }
   function battleDeps() {
     return {
-      renderer, settings, controls, guns: data.guns, sfx, worldPost, onRanked: (c) => applyRankedChange(c), rating: () => profile.rating,
+      renderer, settings: fair, godMode: () => !!dev?.god(), controls, guns: data.guns, sfx, worldPost, onRanked: (c) => applyRankedChange(c), rating: () => profile.rating,
       opticFor: (g) => catalogue.byId.get(savedOptic(g)),
       opticById: (id, g) => catalogue.byId.get(g.optics.includes(id) ? id : g.defaultOptic), adsVFov, baseDpc, now: clockNow,
       slotOf: (g) => slotIn(data.guns, g), onEnd: (sum) => { lock.exit(); logMatch(battle, sum); }, hudRoot: $('app'),
@@ -1112,6 +1144,7 @@ async function boot(data) {
       battle.hud.leave.addEventListener('click', leaveBattleResults);
     }
     weapon.releaseTrigger(); setAds(false); player.releaseKeys();
+    fairOn = (!!B.ranked && !royale && B.opponent === 'bots' && B.bots > 0 && !(B.mates > 0)) || B.opponent === 'net';
     try {
       battle.start({ royale, endless, gungame, ranked: !!B.ranked && !royale && B.opponent === 'bots' && B.bots > 0 && !(B.mates > 0), opponent: B.opponent, bots: B.bots, mates: royale || B.opponent !== 'bots' ? 0 : B.mates, level: B.level, killsToWin: B.kills, map: B.map, night: B.night, weather: B.weather, fog: B.fog, p1Gun: state.gun, p2Gun: data.guns[Math.min(B.p2Gun, data.guns.length - 1)],
         hostName: 'Host', spectators: B.opponent === 'net' ? net.peers.filter(e => e.spectator).map(e => e.link) : [],
@@ -1453,6 +1486,7 @@ async function boot(data) {
     if (battle && battle.active) leaveBattle();
     ensureModeGame();
     weapon.releaseTrigger(); setAds(false); player.releaseKeys();
+    fairOn = true;
     try { await trackLoad(modeGame.startClient(m, net.link), 'Joining the match'); }
     catch (err) { console.error(err); flashNotice('Could not join the match (' + (err && err.message || err) + '). Press Ctrl+F5 to load the latest version.', 9000); return; }
     $('hud').hidden = true;
@@ -1472,6 +1506,7 @@ async function boot(data) {
       battle.hud.leave.addEventListener('click', leaveBattleResults);
     }
     weapon.releaseTrigger(); setAds(false); player.releaseKeys();
+    fairOn = true;
     battle.startClient(m, net.link);
     $('hud').hidden = true;
     flow.inGame = true;
@@ -1706,7 +1741,7 @@ async function boot(data) {
           if (hostedReceipts.size > 20) hostedReceipts.delete(hostedReceipts.keys().next().value);
           net.hub?.rankedReceipt(packet);
         },
-        renderer, settings, controls, guns: data.guns, sfx, adsVFov, baseDpc, now: clockNow, slotOf: (g) => slotIn(data.guns, g), hudRoot: $('app'), worldPost,
+        renderer, settings: fair, godMode: () => !!dev?.god(), controls, guns: data.guns, sfx, adsVFov, baseDpc, now: clockNow, slotOf: (g) => slotIn(data.guns, g), hudRoot: $('app'), worldPost,
         onEnd: (sum) => { lock.exit(); logMatch(modeGame, sum); }, onPoints: (kind, head) => (kind === 'kill' ? profile.addKill(head) : profile.addPoints(WIN_POINTS)),
         skinOf: (g) => equippedSkin(slotIn(data.guns, g)),
         opticById: (id, g) => catalogue.byId.get(g.optics.includes(id) ? id : g.defaultOptic),
@@ -1728,6 +1763,7 @@ async function boot(data) {
     modeGame.hud.again.hidden = false;
     weapon.releaseTrigger(); setAds(false); player.releaseKeys();
     dev?.note('match-start', m);
+    fairOn = !!(extra.net || extra.ranked || P.ranked);
     try {
       await trackLoad(modeGame.start({ mode: m, map: P.map[m], difficulty: P.difficulty, teamSize: P.teamSize, abilities: !!P.abilities[m], minutes: P.minutes, prepTime: P.prepTime, headshot: P.headshot, op: P.op[m], side: P.side, botRanked: !!P.ranked && !extra.net, botRating: profile.rating, attach: attachMap(), seed: testMode ? P.seed : undefined, ...extra }), 'Loading the match');
     } catch (err) {
@@ -1922,7 +1958,13 @@ async function boot(data) {
   // In ?test mode the clock is driven by the test script (window.__range.step), so firing and
   // recoil can be checked deterministically without real time or pointer lock.
   let manualClock = false, manualT = 0;
-  function clockNow() { return manualClock ? manualT : performance.now() / 1000; }
+  // Game time. It equals real time unless dev mode slows or pauses the range (timeScale), which only ever applies on the range.
+  function clockNow() {
+    const real = manualClock ? manualT : performance.now() / 1000;
+    if (!lastReal) { virt = real; lastReal = real; }
+    virt += (real - lastReal) * timeScale; lastReal = real;
+    return virt;
+  }
 
   const info = {
     look, dpc: 0, ads: false, raw: false, fovH: 0, fovV: 0, recoilYaw: 0, recoilPitch: 0,
@@ -2120,6 +2162,13 @@ async function boot(data) {
 
   function frame(nowMs) {
     requestAnimationFrame(frame);
+    if (timeScale !== 1 && cur()?.active) timeScale = 1;   // slow-mo and pause are range-only
+    const g = cur();
+    if (g && (dbg.hitboxes.visible || dbg.fb)) {   // hit-shape outlines on bots and other players (off in ranked and online matches)
+      const list = g === battle ? g.fighters : g.fig ? [...g.fig.values()] : [];
+      dbg.fb = dbg.hitboxes.visible && !fairOn;
+      syncFighterBoxes(list, dbg.fb, g === battle ? g.humans[0]?.f : g.fig?.get(g.me?.id));
+    }
     pad.poll(Math.min(0.05, (nowMs - (padT || nowMs)) / 1000), padHooks); padT = nowMs;
     const c0 = performance.now();
     if (!manualClock) update(clockNow());
@@ -2225,7 +2274,7 @@ async function boot(data) {
       noPost(on) { testNoPost = on; resize(); },
       showAO(on) { worldPost.showAO = on; },
       setAnimations(on) { settings.animations = on; },
-      profile: () => profile, packs: () => packs,
+      profile: () => profile, packs: () => packs, settings,
       rigObj: () => rig,
       skinShot: (id, o) => skinShot(id, o),
       shotDebug: () => ({ renderW, renderH, cw: canvas.width, ch: canvas.height, cam: previewCam.position.toArray(), fov: previewCam.fov, aspect: previewCam.aspect, root: previewRig.root.position.toArray(), box: (() => { const b = new THREE.Box3().setFromObject(previewRig.current); return [b.min.toArray(), b.max.toArray()]; })() }),

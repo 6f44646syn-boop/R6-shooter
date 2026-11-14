@@ -706,6 +706,58 @@ try {
       return { wrong, open, coins: prof.points - before, all: prof.ownedCount, rec, hasCmd: text.includes('command') || text.includes('> coins 40'), hasSnap: text.includes('snap'), hasEnv: text.includes('RECOIL RANGE DEV REPORT') && text.includes('performance summary') && text.includes('hardware:') && text.includes('heapMB') };
     });
     check('dev mode: wrong password stays locked, 183535 opens it, commands run, the recorder reports', dv.wrong && dv.open && dv.coins === 40 && dv.all >= 211 && dv.rec && dv.hasSnap && dv.hasEnv, JSON.stringify(dv));
+    const fairT = await page.evaluate(async () => {
+      const R = window.__range, S = R.settings, prof = R.profile(), q = (x) => document.querySelector(x);
+      const run = async (c) => { const i = q('.dev-in:not([type=password])'); i.value = c; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); await new Promise((r) => setTimeout(r, 20)); };
+      Object.assign(S, { aimRecoil: 0.25, hipRecoil: 1, reloadSpeed: 5, minimap: true, padAssist: 'standard' });
+      const grab = () => { const h = R.battle().humans[0]; return { aim: h.recoil.aimScale, reload: h.weapon.reloadSpeed, minimap: h.deps.settings.minimap, pad: h.deps.settings.padAssist, sens: h.deps.settings.sensH === S.sensH }; };
+      R.battleStart({ opponent: 'bots', bots: 1, level: 'easy', kills: 99, map: 'yard', ranked: true });
+      const ranked = grab(), before = prof.points; await run('coins 40'); const blocked = prof.points === before;
+      R.battleLeave();
+      R.battleStart({ opponent: 'bots', bots: 1, level: 'easy', kills: 99, map: 'yard', ranked: false });
+      const free = grab(); await run('coins 40'); const allowed = prof.points === before + 40;
+      R.battleLeave(); Object.assign(S, { aimRecoil: 1, hipRecoil: 1.8, reloadSpeed: 2, minimap: false, padAssist: 'standard' });
+      return { ranked, free, blocked, allowed };
+    });
+    check('ranked: recoil, reload speed, minimap and aim assist use fixed values, dev cheats are blocked; unranked keeps your settings', fairT.ranked.aim === 1 && fairT.ranked.reload === 2 && fairT.ranked.minimap === false && fairT.ranked.pad === 'off' && fairT.ranked.sens && fairT.blocked && fairT.free.aim === 0.25 && fairT.free.reload === 5 && fairT.free.minimap === true && fairT.allowed, JSON.stringify(fairT));
+    const tools = await page.evaluate(async () => {
+      const R = window.__range, q = (s) => document.querySelector(s), world = R._range.wallGroup.parent;
+      const run = async (c) => { const i = q('.dev-in:not([type=password])'); i.value = c; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); await new Promise((r) => setTimeout(r, 20)); };
+      document.getElementById('menu').hidden = true; q('#dev').hidden = true;   // the earlier check left the panel open
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'F2', bubbles: true }));
+      const f2Open = !q('#dev').hidden;
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'F2', bubbles: true }));
+      const f2Closed = q('#dev').hidden;
+      const tips = [...document.querySelectorAll('.dev-tog')].every((b) => b.title.length > 20);
+      await run('hitbox on'); await run('rays on');
+      const hb = R._range.dummy.children.find((c) => c.type === 'Group');
+      R.manual(true); R.selectGun(0);
+      R.trigger(true); R.step(0.2); R.trigger(false);
+      const trail = world.children.find((c) => c.type === 'LineSegments' && c.geometry.drawRange.count > 0);
+      await run('pause on'); const paused = q('.dev-tog.on') !== null; await run('pause off');
+      R.battleStart({ opponent: 'bots', bots: 1, level: 'easy', kills: 99, map: 'yard' });
+      await run('slow 0.25'); const refused = q('.dev-out').textContent.includes('only work on the range');
+      R.battleLeave();
+      return { f2Open, f2Closed, tips, hitOn: !!hb && hb.visible && hb.children.length === 13, shots: !!trail && trail.geometry.drawRange.count >= 10, paused, refused };
+    });
+    check('dev tools: F2 toggles the panel, tooltips on every tool, hitbox outlines, bullet lines after a shot, slow-mo refused in a match', tools.f2Open && tools.f2Closed && tools.tips && tools.hitOn && tools.shots && tools.paused && tools.refused, JSON.stringify(tools));
+    const cheat = await page.evaluate(async () => {
+      const R = window.__range, q = (s) => document.querySelector(s), wait = (ms) => new Promise((r) => setTimeout(r, ms));
+      const run = async (c) => { const i = q('.dev-in:not([type=password])'); i.value = c; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); await wait(20); };
+      const go = async (ranked) => { R.battleStart({ opponent: 'bots', bots: 1, level: 'easy', kills: 99, map: 'yard', ranked }); await wait(150); const b = R.battle(), h = b.humans[0]; return { b, h, bot: b.fighters.find((f) => f !== h.f) }; };
+      await run('god on'); await run('ammo on'); await run('hitbox on');
+      let { b, h, bot } = await go(false);
+      h.weapon.ammo = 1; await wait(150);
+      const ammoOk = h.weapon.ammo === h.weapon.capacity;
+      b._damage(h.f, 60, bot, 'body', 1e9); const godOk = h.f.health === 100;
+      const box = bot.dbgBox, boxOn = !!box && box.visible && box.children.length === 13;
+      R.battleLeave();
+      await run('god off'); ({ b, h, bot } = await go(false)); b._damage(h.f, 60, bot, 'body', 1e9); const godOff = h.f.health < 100; R.battleLeave();
+      await run('god on'); ({ b, h, bot } = await go(true)); b._damage(h.f, 60, bot, 'body', 1e9); const rankedHurt = h.f.health < 100; await wait(150); const rankedBox = !!bot.dbgBox && bot.dbgBox.visible; R.battleLeave();
+      await run('god off'); await run('ammo off'); await run('hitbox off');
+      return { ammoOk, godOk, boxOn, godOff, rankedHurt, rankedBox };
+    });
+    check('dev: infinite ammo, god and fighter hitboxes work in battles, and are off in ranked', cheat.ammoOk && cheat.godOk && cheat.boxOn && cheat.godOff && cheat.rankedHurt && !cheat.rankedBox, JSON.stringify(cheat));
     check('no page errors', errors.length === 0, errors.join('\n'));
     await page.close();
   }

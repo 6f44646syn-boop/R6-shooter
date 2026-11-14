@@ -1,30 +1,30 @@
-import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=d05ab44-mwg7imxt';
-import { MatchFinale } from '../replay/finale.js?v=d05ab44-mwg7imxt';
-import { GrenadeReplay } from '../replay/grenade.js?v=d05ab44-mwg7imxt';
-import { replayCamera } from '../replay/view.js?v=d05ab44-mwg7imxt';
+import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=ba75b4c-mwgabqbe';
+import { MatchFinale } from '../replay/finale.js?v=ba75b4c-mwgabqbe';
+import { GrenadeReplay } from '../replay/grenade.js?v=ba75b4c-mwgabqbe';
+import { replayCamera } from '../replay/view.js?v=ba75b4c-mwgabqbe';
 // Battle mode: you against bots (Easy / Medium / Hard), or two local players in split
 // screen (optionally with bots as a third side). First side to the kill target wins.
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=d05ab44-mwg7imxt';
-import { Arena } from './arena.js?v=d05ab44-mwg7imxt';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=d05ab44-mwg7imxt';
-import { Banter } from './banter.js?v=d05ab44-mwg7imxt';
-import { Bot, LEVELS } from './bot.js?v=d05ab44-mwg7imxt';
-import { Human } from './human.js?v=d05ab44-mwg7imxt';
-import { BattleNades } from './nades.js?v=d05ab44-mwg7imxt';
-import { drawCrosshair } from '../ui/crosshair.js?v=d05ab44-mwg7imxt';
-import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=d05ab44-mwg7imxt';
-import { effectiveGraphics } from '../render/quality.js?v=d05ab44-mwg7imxt';
-import { effectiveGun, slotIn } from '../core/loadout.js?v=d05ab44-mwg7imxt';
-import { BattleRoyale } from './royale.js?v=d05ab44-mwg7imxt';
-import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=d05ab44-mwg7imxt';
-import { Footprints } from '../scene/footprints.js?v=d05ab44-mwg7imxt';
-import { Minimap } from '../ui/minimap.js?v=d05ab44-mwg7imxt';
-import { botRankedChange } from '../core/ranked.js?v=d05ab44-mwg7imxt';
-import { warmScene } from '../render/warm.js?v=d05ab44-mwg7imxt';
-import { MatchStats, mvpCard } from '../core/mvp.js?v=d05ab44-mwg7imxt';
+import * as THREE from '../../vendor/three/three.module.min.js?v=ba75b4c-mwgabqbe';
+import { Arena } from './arena.js?v=ba75b4c-mwgabqbe';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=ba75b4c-mwgabqbe';
+import { Banter } from './banter.js?v=ba75b4c-mwgabqbe';
+import { Bot, LEVELS } from './bot.js?v=ba75b4c-mwgabqbe';
+import { Human } from './human.js?v=ba75b4c-mwgabqbe';
+import { BattleNades } from './nades.js?v=ba75b4c-mwgabqbe';
+import { drawCrosshair } from '../ui/crosshair.js?v=ba75b4c-mwgabqbe';
+import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=ba75b4c-mwgabqbe';
+import { effectiveGraphics } from '../render/quality.js?v=ba75b4c-mwgabqbe';
+import { effectiveGun, slotIn } from '../core/loadout.js?v=ba75b4c-mwgabqbe';
+import { BattleRoyale } from './royale.js?v=ba75b4c-mwgabqbe';
+import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=ba75b4c-mwgabqbe';
+import { Footprints } from '../scene/footprints.js?v=ba75b4c-mwgabqbe';
+import { Minimap } from '../ui/minimap.js?v=ba75b4c-mwgabqbe';
+import { botRankedChange } from '../core/ranked.js?v=ba75b4c-mwgabqbe';
+import { warmScene } from '../render/warm.js?v=ba75b4c-mwgabqbe';
+import { MatchStats, mvpCard } from '../core/mvp.js?v=ba75b4c-mwgabqbe';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, p7: 0xff7048, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -494,6 +494,7 @@ export class Battle {
   _damage(g, dmg, by, zone, t, grenade = null) {
     if (this.royale && this.over) return;
     if (t < g.protectUntil) dmg = 0;
+    if (g === this.humans[0]?.f && this.deps.godMode?.()) dmg = 0;   // dev mode (never true in ranked or online matches)
     if (dmg <= 0) return;
     const applied = Math.min(dmg, Math.max(0, g.health));
     g.health -= dmg;

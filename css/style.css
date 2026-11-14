@@ -697,3 +697,5 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 .dev-in { padding: 6px 8px; border-radius: 4px; background: #05070a; border: 1px solid var(--panel-edge); color: #e6edf3; font: 13px ui-monospace, Consolas, monospace; }
 .dev-gate { display: flex; gap: 6px; } .dev-gate .dev-in { flex: 1; }
 #dev-rec { position: fixed; right: 12px; top: 12px; z-index: 200; padding: 4px 10px; border-radius: 4px; background: #5a1414; border: 1px solid #a33; color: #fff; font-size: 12px; cursor: pointer; }
+.dev-tools { display: flex; flex-wrap: wrap; gap: 6px; } .dev-tools[hidden] { display: none; }
+.dev-tog.on { background: #1d4f3a; border-color: #3dff9a; color: #fff; }

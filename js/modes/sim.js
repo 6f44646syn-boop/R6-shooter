@@ -1,4 +1,4 @@
-import { utilityFor, abilitiesFor } from '../balance/bomb-utility.js?v=d05ab44-mwg7imxt';
+import { utilityFor, abilitiesFor } from '../balance/bomb-utility.js?v=ba75b4c-mwgabqbe';
 // Match simulation for Team Deathmatch, Capture the Flag and Bomb (no three.js, no DOM:
 // the same code runs in the browser and in tools/check-modes.mjs).
 //
@@ -8,14 +8,14 @@ import { utilityFor, abilitiesFor } from '../balance/bomb-utility.js?v=d05ab44-m
 //
 // Body for hits (actor frame, standing; crouching squashes y to 0.7): head sphere at 1.62 m
 // (r 0.13), torso capsule 0.95-1.34 m (r 0.24), legs capsule 0.1-0.9 m (r 0.19).
-import { mulberry32 } from '../core/prng.js?v=d05ab44-mwg7imxt';
-import { effectiveGun } from '../core/loadout.js?v=d05ab44-mwg7imxt';
-import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=d05ab44-mwg7imxt';
-import { BODY_R } from './map.js?v=d05ab44-mwg7imxt';
-import { Brain } from './bots.js?v=d05ab44-mwg7imxt';
-import { makeRules } from './rules.js?v=d05ab44-mwg7imxt';
-import { Nades } from './nades.js?v=d05ab44-mwg7imxt';
-import { Abilities } from './abilities.js?v=d05ab44-mwg7imxt';
+import { mulberry32 } from '../core/prng.js?v=ba75b4c-mwgabqbe';
+import { effectiveGun } from '../core/loadout.js?v=ba75b4c-mwgabqbe';
+import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=ba75b4c-mwgabqbe';
+import { BODY_R } from './map.js?v=ba75b4c-mwgabqbe';
+import { Brain } from './bots.js?v=ba75b4c-mwgabqbe';
+import { makeRules } from './rules.js?v=ba75b4c-mwgabqbe';
+import { Nades } from './nades.js?v=ba75b4c-mwgabqbe';
+import { Abilities } from './abilities.js?v=ba75b4c-mwgabqbe';
 
 export const TICK = 1 / 60;
 export const EYE = 1.6, CROUCH_EYE = 1.1;
@@ -196,6 +196,7 @@ export class Match {
     if (!v.alive || this.over) return 0;
     if (by && by !== v && by.team === v.team) return 0;           // no friendly fire
     if (this.t < v.protectUntil) return 0;
+    if (v.god) return 0;                                          // dev mode
     if (zone === 'head' && kind === 'gun') dmg = this.o.headshot === 'x2' ? dmg * 2 : 999;
     else dmg *= kind === 'gun' ? ZONE_MULT[zone] || 1 : 1;
     const applied = Math.min(dmg, v.hp);

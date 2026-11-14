@@ -1,6 +1,6 @@
 // Dev mode: a password-gated console with a recorder. Ctrl+Shift+D or the small "Dev" button opens it.
 // shortcut: the password check runs in the browser, so it keeps curious players out, not attackers; there is nothing server-side to protect.
-import { SKIN_COUNT } from '../core/skins.js?v=d05ab44-mwg7imxt';
+import { SKIN_COUNT } from '../core/skins.js?v=ba75b4c-mwgabqbe';
 
 const PASSWORD = '183535';
 const KEEP = 20000;          // timeline entries kept while recording (oldest 4000 dropped when full)
@@ -8,15 +8,17 @@ const SLOW_FRAME_MS = 50;
 
 const el = (tag, props = {}, ...kids) => { const n = document.createElement(tag); Object.assign(n, props); n.append(...kids); return n; };
 
-// api: { profile, settings, canvas, weapon(), cur(), giveXp(n), env(), state() (plain objects for the report), perf() {gpuMs,w,h,scale,calls,tris,geoms,texs}, gl(), refreshHz(), audio() }
+// api: { profile, settings, tools {get(), set(name, v), step()}, save(), locked() (true in ranked and online matches), canvas, weapons(), cur(), giveXp(n), env(), state() (plain objects for the report), perf() {gpuMs,w,h,scale,calls,tris,geoms,texs}, gl(), refreshHz(), audio() }
 export function mountDev(root, api) {
+  let errCount = 0;
   let unlocked = false; try { unlocked = sessionStorage.getItem('recoilRange.dev') === '1'; } catch (e) { /* ignore */ }
-  let rec = false, t0 = 0, god = false, ammo = false, cheatTimer = 0, snapTimer = 0;
+  let rec = false, t0 = 0, god = false, ammo = false, snapTimer = 0;
   const log = [];
   let lastSettings = '';
 
   const add = (kind, msg) => {
     if (!rec) return;
+    if (/error|rejection/.test(kind)) { errCount++; badge.textContent = '● REC · ' + errCount + (errCount === 1 ? ' error' : ' errors'); }
     log.push([performance.now() - t0, kind, typeof msg === 'string' ? msg : JSON.stringify(msg)]);
     if (log.length > KEEP) log.splice(0, 4000);
   };
@@ -34,14 +36,32 @@ export function mountDev(root, api) {
   const copyBtn = el('button', { type: 'button', textContent: 'Copy report' });
   const clearBtn = el('button', { type: 'button', textContent: 'Clear' });
   const closeBtn = el('button', { type: 'button', textContent: '×', title: 'Close' });
-  panel.append(el('div', { className: 'dev-head' }, el('b', { textContent: 'DEV' }), recBtn, copyBtn, clearBtn, closeBtn), gate, body);
+  // Range tools. Each button's tooltip says what it changes; they only act on the shooting range, never in a match.
+  const tog = (text, tip, onclick) => el('button', { type: 'button', className: 'dev-tog', textContent: text, title: tip, onclick });
+  const bHit = tog('Hitboxes', 'Outlines the dummy\'s exact hit shapes: red = head, yellow = body, blue = limbs. They are the shapes the game uses to decide a hit.', () => { api.tools.set('hitboxes', !api.tools.get().hitboxes); refreshTools(); });
+  const bRay = tog('Bullet lines', 'Draws each shot of the magazine: blue = the real bullet path from your eye, orange = from the gun\'s muzzle to where it landed. Press C to clear them.', () => { api.tools.set('rays', !api.tools.get().rays); refreshTools(); });
+  const bSlow = tog('Slow-mo', 'Cycles the range speed: normal, 25%, 10%. Slows targets, firing and recoil so you can watch the spray pattern. Range only.', () => { const s = api.tools.get().scale; try { api.tools.set('scale', s === 1 ? 0.25 : s === 0.25 ? 0.1 : 1); } catch (e) { print('error: ' + e.message); } refreshTools(); });
+  const bPause = tog('Pause', 'Freezes the range (targets, shots, recoil, animations) while you change settings. You can still look around. Range only.', () => { const s = api.tools.get().scale; try { api.tools.set('scale', s === 0 ? 1 : 0); } catch (e) { print('error: ' + e.message); } refreshTools(); });
+  const bStep = tog('Step', 'While paused, moves the range forward one frame (1/60 s) so you can check a shot-by-shot pattern.', () => api.tools.step());
+  const toolsRow = el('div', { className: 'dev-tools' }, bHit, bRay, bSlow, bPause, bStep);
+  function refreshTools() {
+    const t = api.tools.get();
+    bHit.classList.toggle('on', t.hitboxes); bRay.classList.toggle('on', t.rays);
+    bSlow.classList.toggle('on', t.scale > 0 && t.scale < 1); bSlow.textContent = 'Slow-mo' + (t.scale > 0 && t.scale < 1 ? ' ' + Math.round(t.scale * 100) + '%' : '');
+    bPause.classList.toggle('on', t.scale === 0);
+  }
+  recBtn.title = 'Records fps, frame times, GPU and memory use, errors and your inputs until you stop it. "Copy report" then gives you all of it.';
+  copyBtn.title = 'Copies the whole report (hardware, performance summary, timeline) to the clipboard.';
+  clearBtn.title = 'Empties this window and the recording.';
+  panel.append(el('div', { className: 'dev-head' }, el('b', { textContent: 'DEV' }), recBtn, copyBtn, clearBtn, closeBtn), toolsRow, gate, body);
   root.append(openBtn); document.body.append(panel, badge);
 
   const print = (s) => { out.textContent += s + '\n'; out.scrollTop = out.scrollHeight; };
-  const sync = () => { gate.hidden = unlocked; body.hidden = !unlocked; recBtn.hidden = copyBtn.hidden = clearBtn.hidden = !unlocked; recBtn.textContent = 'Record: ' + (rec ? 'ON' : 'off'); badge.hidden = !rec; };
+  // Hidden mode: the Dev button and tools stay hidden until unlocked; F2 or Ctrl+Shift+D opens the password box.
+  const sync = () => { gate.hidden = unlocked; body.hidden = !unlocked; recBtn.hidden = copyBtn.hidden = clearBtn.hidden = toolsRow.hidden = openBtn.hidden = !unlocked; recBtn.textContent = 'Record: ' + (rec ? 'ON' : 'off'); badge.hidden = !rec; };
   function open(v = panel.hidden) {
     panel.hidden = !v;
-    if (v) { try { document.exitPointerLock(); } catch (e) { /* ignore */ } sync(); (unlocked ? input : pw).focus(); }
+    if (v) { try { document.exitPointerLock(); } catch (e) { /* ignore */ } sync(); if (unlocked) refreshTools(); (unlocked ? input : pw).focus(); }
   }
   gate.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -52,7 +72,7 @@ export function mountDev(root, api) {
   badge.onclick = () => open(true);
   closeBtn.onclick = () => open(false);
   panel.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Escape') open(false); });
-  window.addEventListener('keydown', (e) => { if (e.ctrlKey && e.shiftKey && e.code === 'KeyD') { e.preventDefault(); open(); } }, true);
+  window.addEventListener('keydown', (e) => { if (e.code === 'F2' || (e.ctrlKey && e.shiftKey && e.code === 'KeyD')) { e.preventDefault(); open(); } }, true);
 
   /* ---------- recorder ---------- */
   // Everything here measures the real machine (GPU, heap, long tasks, power, input rate), which only the player's own browser can.
@@ -91,7 +111,7 @@ export function mountDev(root, api) {
     if (on === rec) return;
     rec = on; clearInterval(snapTimer);
     if (on) {
-      t0 = performance.now(); log.length = 0; sec = []; allMs = []; slow = []; byWhere = {}; secCpu = secCpuMax = secUpd = secSlow = mouseMoves = 0; longN = 0; longMs = 0; heap0 = heapLast = gcs = scaleLast = 0;
+      t0 = performance.now(); errCount = 0; badge.textContent = '● REC'; log.length = 0; sec = []; allMs = []; slow = []; byWhere = {}; secCpu = secCpuMax = secUpd = secSlow = mouseMoves = 0; longN = 0; longMs = 0; heap0 = heapLast = gcs = scaleLast = 0;
       lastSettings = JSON.stringify(api.settings); snapTimer = setInterval(snap, 1000); add('rec', 'started');
     }
     sync();
@@ -174,31 +194,48 @@ export function mountDev(root, api) {
   /* ---------- commands ---------- */
   const num = (s) => { const n = Math.floor(Number(s)); if (!Number.isFinite(n) || n < 0) throw new Error('need a whole number, 0 or more'); return n; };
   const toggle = (cur, s) => (s === 'on' ? true : s === 'off' ? false : !cur);
-  function cheats() {
-    clearInterval(cheatTimer);
-    if (!god && !ammo) return;
-    cheatTimer = setInterval(() => {
-      const w = api.weapon(); if (ammo && w && !w.reloading) w.ammo = w.capacity;
-      const g = api.cur(), h = g && g.humans && g.humans[0] && g.humans[0].f; if (god && h && h.alive) h.health = 100;
-    }, 100);
+  // Called every frame: infinite ammo refills the range gun and your gun in battles and matches. God mode is applied where damage is dealt (see godMode in main.js).
+  function cheatTick() {
+    if (api.locked()) { god = ammo = false; return; }
+    if (ammo) for (const w of api.weapons()) if (!w.reloading) w.ammo = w.capacity;
   }
   const COMMANDS = {
     help: ['list the commands', () => Object.entries(COMMANDS).map(([k, v]) => k.padEnd(14) + v[0]).join('\n')],
-    coins: ['coins N  add N points', (n) => { api.profile.addPoints(num(n)); return 'points: ' + api.profile.points; }],
-    charms: ['charms N  add N charm drops', (n) => { api.profile.charms += num(n); api.profile._changed(); return 'charms: ' + api.profile.charms; }],
-    xp: ['xp N  add N season XP', (n) => { api.giveXp(num(n)); return 'added ' + num(n) + ' XP'; }],
-    skins: ['skins all  own every skin', (a) => { if (a !== 'all') throw new Error('usage: skins all'); for (let i = 0; i < SKIN_COUNT; i++) api.profile._own(i); api.profile._changed(); return 'owned: ' + api.profile.ownedCount; }],
-    god: ['god [on|off]  no damage in matches', (s) => { god = toggle(god, s); cheats(); return 'god ' + (god ? 'on' : 'off'); }],
-    ammo: ['ammo [on|off]  infinite ammo', (s) => { ammo = toggle(ammo, s); cheats(); return 'infinite ammo ' + (ammo ? 'on' : 'off'); }],
+    coins: ['coins N  add N points', (n) => { api.profile.addPoints(num(n)); return 'points: ' + api.profile.points; }, true],
+    charms: ['charms N  add N charm drops', (n) => { api.profile.charms += num(n); api.profile._changed(); return 'charms: ' + api.profile.charms; }, true],
+    xp: ['xp N  add N season XP', (n) => { api.giveXp(num(n)); return 'added ' + num(n) + ' XP'; }, true],
+    skins: ['skins all  own every skin', (a) => { if (a !== 'all') throw new Error('usage: skins all'); for (let i = 0; i < SKIN_COUNT; i++) api.profile._own(i); api.profile._changed(); return 'owned: ' + api.profile.ownedCount; }, true],
+    god: ['god [on|off]  no damage to you in battles and matches', (s) => { god = toggle(god, s); return 'god ' + (god ? 'on' : 'off'); }, true],
+    ammo: ['ammo [on|off]  infinite ammo on the range, in battles and in matches', (s) => { ammo = toggle(ammo, s); return 'infinite ammo ' + (ammo ? 'on' : 'off'); }, true],
     rec: ['rec on|off|clear  recorder', (s) => { if (s === 'clear') { log.length = 0; return 'cleared'; } setRec(toggle(rec, s)); return 'record ' + (rec ? 'on' : 'off'); }],
     report: ['report  print the report here', () => report()],
     copy: ['copy  copy the report', async () => ((await copy(report())) ? 'copied' : 'copy blocked')],
     clear: ['clear  empty this window', () => { out.textContent = ''; return ''; }],
-    js: ['js CODE  run JavaScript (dev.profile, dev.settings, dev.weapon, dev.game)', (...a) => {
-      const dev = { profile: api.profile, settings: api.settings, weapon: api.weapon(), game: api.cur() };
+    set: ['set KEY VALUE  save a setting (JSON value), then reload the page', (k, ...v) => {
+      if (!(k in api.settings)) throw new Error('no setting called ' + k);
+      api.settings[k] = JSON.parse(v.join(' ')); api.save(); return k + ' = ' + JSON.stringify(api.settings[k]) + ' (saved, reload the page to apply)';
+    }, true],
+    hitbox: ['hitbox [on|off]  outline the dummy\'s hit shapes', (v) => { api.tools.set('hitboxes', toggle(api.tools.get().hitboxes, v)); refreshTools(); return 'hitboxes ' + (api.tools.get().hitboxes ? 'on' : 'off'); }],
+    rays: ['rays [on|off]  draw each shot\'s path (eye and muzzle)', (v) => { api.tools.set('rays', toggle(api.tools.get().rays, v)); refreshTools(); return 'bullet lines ' + (api.tools.get().rays ? 'on' : 'off'); }],
+    slow: ['slow [N|off]  range speed, e.g. slow 0.25 (0.05 to 1)', (v) => { const n = v === undefined ? 0.25 : v === 'off' ? 1 : Number(v); if (!(n >= 0.05 && n <= 1)) throw new Error('use a speed from 0.05 to 1, or off'); api.tools.set('scale', n); refreshTools(); return 'range speed ' + Math.round(n * 100) + '%'; }],
+    pause: ['pause [on|off]  freeze the range', (v) => { api.tools.set('scale', toggle(api.tools.get().scale === 0, v) ? 0 : 1); refreshTools(); return api.tools.get().scale === 0 ? 'paused' : 'running'; }],
+    step: ['step  one frame forward while paused', () => { api.tools.step(); return ''; }],
+    stats: ['stats  live numbers right now (fps, GPU, memory, draw calls, state)', () => JSON.stringify({ ...api.state(), ...api.perf(), heapMB: performance.memory ? mb(performance.memory.usedJSHeapSize) : undefined, hw: hardware() }, null, 1)],
+    bench: ['bench [seconds]  record while you play for N seconds (default 30, max 300), then print the summary', async (n = '30') => {
+      if (rec) throw new Error('already recording: stop it first (rec off) or use report');
+      const secs = Math.min(300, Math.max(5, num(n))); setRec(true); print('benchmarking for ' + secs + ' s: play normally, the result appears here');
+      await new Promise((r) => setTimeout(r, secs * 1000)); setRec(false); return summary().join('\n');
+    }],
+    autorec: ['autorec on|off  start recording on its own whenever dev mode is unlocked in a tab', (s) => { let on = toggle(sessionStorage.getItem('recoilRange.devAuto') === '1', s); sessionStorage.setItem('recoilRange.devAuto', on ? '1' : '0'); if (on) setRec(true); return 'autorec ' + (on ? 'on' : 'off'); }],
+    save: ['save  download the report as a text file', () => {
+      const a = el('a', { href: URL.createObjectURL(new Blob([report()], { type: 'text/plain' })), download: 'recoil-range-report-' + Date.now() + '.txt' });
+      document.body.append(a); a.click(); a.remove(); return 'saved (check your downloads)';
+    }],
+    js: ['js CODE  run JavaScript (dev.profile, dev.settings, dev.weapons, dev.game)', (...a) => {
+      const dev = { profile: api.profile, settings: api.settings, weapons: api.weapons(), game: api.cur() };
       const r = new Function('dev', 'return (' + a.join(' ') + ')')(dev);
       return typeof r === 'object' ? JSON.stringify(r) : String(r);
-    }],
+    }, true],
   };
   input.addEventListener('keydown', async (e) => {
     if (e.key !== 'Enter' || !input.value.trim()) return;
@@ -206,13 +243,17 @@ export function mountDev(root, api) {
     print('> ' + line); add('command', line);
     const [name, ...args] = line.split(/\s+/), c = COMMANDS[name.toLowerCase()];
     if (!c) { print('unknown command, type "help"'); return; }
+    if (c[2] && api.locked()) { print('blocked: ranked and online matches are fair-play locked, so cheat commands are off until the match ends'); return; }
     try { const r = await c[1](...args); if (r) print(r); } catch (err) { print('error: ' + err.message); }
   });
   sync();
+  try { if (unlocked && sessionStorage.getItem('recoilRange.devAuto') === '1') setRec(true); } catch (e) { /* ignore */ }
 
   return {
     note: (kind, msg) => add(kind, msg),
+    god: () => god && !api.locked(),
     frame(ms, cpu = 0, upd = 0) {
+      if (ammo) cheatTick();
       if (!rec) return;
       sec.push(ms); secCpu += cpu; secUpd += upd; if (cpu > secCpuMax) secCpuMax = cpu;
       if (allMs.length < 200000) allMs.push(ms);

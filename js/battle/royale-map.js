@@ -1,7 +1,7 @@
-import { wallPanels, duskSky } from '../scene/range-tex.js?v=d05ab44-mwg7imxt';
-import { BoxGeometry, CanvasTexture, ConeGeometry, IcosahedronGeometry, RepeatWrapping, SRGBColorSpace } from '../../vendor/three/three.module.min.js?v=d05ab44-mwg7imxt';
-import { addBlacktideDetails, blacktideTrails, villageHouse, villageHouses } from './royale-details.js?v=d05ab44-mwg7imxt';
-import { MAPS } from './maps.js?v=d05ab44-mwg7imxt';
+import { wallPanels, duskSky } from '../scene/range-tex.js?v=ba75b4c-mwgabqbe';
+import { BoxGeometry, CanvasTexture, ConeGeometry, IcosahedronGeometry, RepeatWrapping, SRGBColorSpace } from '../../vendor/three/three.module.min.js?v=ba75b4c-mwgabqbe';
+import { addBlacktideDetails, blacktideTrails, villageHouse, villageHouses } from './royale-details.js?v=ba75b4c-mwgabqbe';
+import { MAPS } from './maps.js?v=ba75b4c-mwgabqbe';
 
 export const ROYALE_MAP_ID = 'blacktide';
 export const ROYALE_BOTS = 20;
