@@ -8,6 +8,11 @@ export class ShadowGate {
   constructor() { this.sig = NaN; this.dirty = true; this.n = 99; }   // (draws on the first frame)
   update(renderer, scene, every = 2) {
     renderer.shadowMap.autoUpdate = false;
+    // Low / Standard: no light casts a shadow, so skip the walk (it costs ~5% at 800+ fps).
+    // Looked up again twice a second (night lamps, graphics changes).
+    this.f = (this.f || 0) + 1;
+    if (this.f % 30 === 1) { this.lit = false; scene.traverseVisible((o) => { if (o.isLight && o.castShadow) this.lit = true; }); }
+    if (!this.lit) { this.dirty = true; return; }
     let s = 0, k = 0;
     scene.traverseVisible((o) => {
       if (!o.castShadow) return;
