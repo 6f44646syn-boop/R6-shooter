@@ -60,8 +60,10 @@ export class PerfHud {
     const avg = sum / this.n, low = f[Math.min(f.length - 1, Math.floor(f.length * 0.99))];
     let w = 0; for (let k = 1; k < this.n; k++) if (this.frames[k] > this.frames[w]) w = k;
     const sp = this.spikes.at(-1);
+    // The browser never draws faster than the screen refreshes; "could run" is the speed the CPU and GPU time allow.
+    const busy = Math.max(cs / this.n, this.gpuMs >= 0 ? this.gpuMs : 0);
     this.text.textContent =
-      (1000 / avg).toFixed(0) + ' fps   ' + avg.toFixed(1) + ' ms   1% low ' + (1000 / low).toFixed(0) + ' fps\n' +
+      (1000 / avg).toFixed(0) + ' fps   ' + avg.toFixed(1) + ' ms   1% low ' + (1000 / low).toFixed(0) + ' fps' + (busy > 0 ? (this.gpuMs >= 0 ? '   could run ~' : '   CPU allows ~') + (1000 / busy).toFixed(0) : '') + '\n' +
       'CPU ' + (cs / this.n).toFixed(1) + ' ms   GPU ' + (this.gpuMs >= 0 ? this.gpuMs.toFixed(1) + ' ms' : 'n/a') + '\n' +
       info.w + '×' + info.h + (info.scale !== 1 ? ' (' + Math.round(info.scale * 100) + '%)' : '') + '   ' + info.calls + ' draws   ' + (info.tris / 1000).toFixed(0) + 'k tris\n' +
       'target ' + info.target + ' fps' + (info.hz ? '   screen ' + info.hz + ' Hz' : '') + '\n' +
