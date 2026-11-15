@@ -357,8 +357,8 @@ export class ModeGame {
     applyMapArt(this.lookGroup, artQuality, this.deps.renderer);
     // pack v5: physically based materials for the map, the panels (walls, doors) included
     const scene = this.scene;
-    if (!this.arena) applyPackProps(this.lookGroup, artQuality, this.deps.renderer, this.opts.map, (artQuality === 'high' || artQuality === 'ultra') ? envMap(this.deps.renderer) : null).catch((e) => console.warn('pack props', e));
-    applyPackMaterials([this.lookGroup, ...Object.values(this.panelMeshes || {})], artQuality, this.deps.renderer, { light: this.arena ? null : this.opts.map }).then(() => { if (this.scene === scene && this.deps.renderer.shadowMap) this.deps.renderer.shadowMap.needsUpdate = true; }).catch((e) => console.warn('pack materials', e));
+    const props = this.arena ? null : applyPackProps(this.lookGroup, artQuality, this.deps.renderer, this.opts.map, (artQuality === 'high' || artQuality === 'ultra') ? envMap(this.deps.renderer) : null).catch((e) => console.warn('pack props', e));
+    this.packReady = Promise.all([props, applyPackMaterials([this.lookGroup, ...Object.values(this.panelMeshes || {})], artQuality, this.deps.renderer, { light: this.arena ? null : this.opts.map }).then(() => { if (this.scene === scene && this.deps.renderer.shadowMap) this.deps.renderer.shadowMap.needsUpdate = true; }).catch((e) => console.warn('pack materials', e))]);
     if (this.fig) for (const f of this.fig.values()) f.setDetail(artQuality);
     if (this.arena) { this.arena.setGraphics(effectiveGraphics(this.deps.settings), this.deps.renderer); return; }
     const q = effectiveGraphics(this.deps.settings), high = q === 'high' || q === 'ultra', r = this.deps.renderer;

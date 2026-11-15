@@ -600,7 +600,7 @@ export class Arena {
     // match-mode copies of these maps share their geometry and coordinates)
     const scene = this.scene;
     const lightId = { yard: 'containers', winter: 'winter', casino: 'casino', school: 'school' }[this.mapId];
-    applyPackMaterials(scene, q, renderer, { light: lightId && lightId + (this.small ? 'Small' : '') }).then(() => { if (this.scene === scene) { this._wet = undefined; this._maxEnv(); } }).catch((e) => console.warn('pack materials', e));
+    this.packReady = applyPackMaterials(scene, q, renderer, { light: lightId && lightId + (this.small ? 'Small' : '') }).then(() => { if (this.scene === scene) { this._wet = undefined; this._maxEnv(); } }).catch((e) => console.warn('pack materials', e));
     this._applyLights();
     this._fogBanks();
     this.scene.environment = high && !this.atm.night ? this.env : null;

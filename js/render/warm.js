@@ -17,6 +17,8 @@ export function warmScene(renderer, scene) {
 // so swapping them in costs nothing. `objects` must not be in a scene yet; they are left in a
 // temporary group, which the caller's add() takes them out of.
 const nextFrame = () => new Promise((r) => requestAnimationFrame(r));
+// Texture upload time per frame; main.js raises it while a loading screen covers the match.
+export const warmBudget = { ms: 6 };
 export async function warmObjects(renderer, scene, objects) {
   if (!renderer?.compileAsync || !scene || !objects.length) return;
   const g = new THREE.Group();
@@ -29,6 +31,6 @@ export async function warmObjects(renderer, scene, objects) {
   let t0 = performance.now();
   for (const t of texs) {
     try { renderer.initTexture(t); } catch { /* uploads on first draw instead */ }
-    if (performance.now() - t0 > 6) { await nextFrame(); t0 = performance.now(); }
+    if (performance.now() - t0 > warmBudget.ms) { await nextFrame(); t0 = performance.now(); }
   }
 }

@@ -26,7 +26,7 @@ import { RING_STEP } from './scene/range-tex.js?v=335fb8a-mwhdc11m';
 import { Gamepad, padPanel } from './ui/gamepad.js?v=335fb8a-mwhdc11m';
 import { WeaponRig, setUltraTexSize, skinName, setSkinResolver, setHiResSkins, setCharmResolver } from './scene/viewmodel.js?v=335fb8a-mwhdc11m';
 import { LensPost } from './render/lens-post.js?v=335fb8a-mwhdc11m';
-import { warmScene } from './render/warm.js?v=335fb8a-mwhdc11m';
+import { warmScene, warmBudget } from './render/warm.js?v=335fb8a-mwhdc11m';
 import { addMatch } from './core/history.js?v=335fb8a-mwhdc11m';
 import { addXp, matchXp, XP, checkIn, seasonState, rewardOf, rewardText, TIERS, XP_PER_TIER } from './core/season.js?v=335fb8a-mwhdc11m';
 import { submit as submitBests } from './core/bests.js?v=335fb8a-mwhdc11m';
@@ -1102,8 +1102,22 @@ async function boot(data) {
   function loadingCover() {
     const c = $('boot-screen'); if (!c) return;
     c.style.display = 'grid'; c.style.pointerEvents = 'none';   // clicks still reach the game
-    const t0 = performance.now(), off = (n) => requestAnimationFrame(() => (n > 0 || performance.now() - t0 < 350 ? off(n - 1) : (c.style.display = 'none')));
+    const t0 = performance.now(), off = (n) => requestAnimationFrame(() => (n > 0 || performance.now() - t0 < 350 || coverHolds > 0 ? off(n - 1) : (c.style.display = 'none')));
     off(4);
+  }
+  // Enhanced pack: keep the loading screen up, the match paused, until its materials and props are
+  // on the GPU (game.packReady), so their texture uploads never freeze play. On an Intel UHD at Max
+  // they took 0.5-2 s each, ~30 s of freezes. Not in network matches (they run on for everyone);
+  // 60 s at most.
+  let coverHolds = 0;
+  function holdCover(game, p, net) {
+    if (!p || net || !game?.active || !HDPack.ready || !needsPack(gfx())) return;   // nothing to upload: no wait
+    coverHolds++; warmBudget.ms = 250; loadingCover();
+    const mine = !game.paused; if (mine) game.pause();
+    Promise.race([p.catch(() => {}), new Promise((r) => setTimeout(r, 60000))]).then(() => {
+      if (--coverHolds === 0) warmBudget.ms = 6;
+      if (mine && game.active && game.paused && $('menu').hidden) game.resume(clockNow());   // not if the player opened the pause menu meanwhile
+    });
   }
   // A finished match into your history, once per match (a Battle Royale ends for you, then for everyone).
   function logMatch(game, sum) {
@@ -1162,6 +1176,7 @@ async function boot(data) {
     $('pause-title').textContent = royale ? 'Battle Royale paused' : 'Battle paused';
     if (royale && testMode) $('menu').hidden = true;
     if (!testMode) startLock();
+    holdCover(battle, battle.arena?.packReady, B.opponent === 'net');
   }
   // The match modes (Team Deathmatch, Capture the Flag, Bomb) run in their own game.
   let modeGame = null;
@@ -1776,6 +1791,7 @@ async function boot(data) {
     flow.inGame = true;
     $('pause-title').textContent = 'Match paused';
     if (!testMode) startLock(); else $('menu').hidden = true;
+    holdCover(modeGame, modeGame.arena ? modeGame.arena.packReady : modeGame.packReady, !!(extra.net || modeGame.netRole));
     return true;
   }
 
@@ -2125,7 +2141,7 @@ async function boot(data) {
   let rangeShadowSig = '', rangeShadowAge = 0;
   function renderFrame() {
     if (!$('armory').hidden) { renderPreview(clockNow()); return; }
-    if (cur() && cur().active) { cur().render(); return; }
+    if (cur() && cur().active) { if (!coverHolds) cur().render(); return; }   // (held loading screen: the GPU is busy with the pack's uploads)
     renderer.info.reset();
     // The range's shadow casters stand still: redraw the shadow maps only when one moves or
     // changes (target, distance, graphics), and twice a second as a backstop. Same picture.
