@@ -127,7 +127,11 @@ try {
     const mapBattle = await page.locator('.minimap:visible').count();
     const battleRank = await page.evaluate(() => { const P = window.__range.profile(), r0 = P.rating; window.__range.battle().stop(); return { r0, r1: P.rating, n: P.rankedHistory.length }; });
     check('ranked Battle vs bots: leaving costs Elo too', battleRank.r1 < battleRank.r0 && battleRank.n === 2, JSON.stringify(battleRank));
-    check('mini map: shown in a match and in Battle when turned on', mapMatch === 1 && mapBattle === 1 && !errors.length, JSON.stringify({ mapMatch, mapBattle, errors }));
+    // The fair-play lock hides the mini map in ranked matches, whatever the setting; outside ranked it shows.
+    await page.evaluate(() => window.__range.battleStart({ opponent: 'bots', bots: 2, ranked: false })); await step(page, 1);
+    const mapFree = await page.locator('.minimap:visible').count();
+    await page.evaluate(() => window.__range.battle().stop());
+    check('mini map: hidden in ranked matches and ranked Battle (fair-play lock), shown in Battle when turned on', mapMatch === 0 && mapBattle === 0 && mapFree === 1 && !errors.length, JSON.stringify({ mapMatch, mapBattle, mapFree, errors }));
     await page.close();
   }
   // 6. Packs: the Packs menu opens a pack, and the pause menu links to it
@@ -167,7 +171,8 @@ try {
     await page.evaluate(() => [...document.querySelectorAll('#armory button.primary')].filter((b) => b.offsetParent).at(-1).focus()); await tap(0);
     await page.waitForFunction(() => window.__range.battle()?.active && document.getElementById('menu').hidden, null, { timeout: 40000 });
     const s0 = await page.evaluate(() => { const h = window.__range.battle().humans[0]; for (const b of window.__range.battle().bots) { b.f.x = 999; b.update = () => {}; } return { yaw: h.look.yaw, x: h.f.x, z: h.f.z, ammo: h.weapon.ammo }; });
-    await page.evaluate(() => { window.__pad.axes = [0, -1, 1, 0]; window.__press(7, true); });
+    // right stick at half: 60 deg/s (curved), about 90 deg in 1.5 s (full stick turns 360 deg and the yaw wraps back to the start)
+    await page.evaluate(() => { window.__pad.axes = [0, -1, 0.5, 0]; window.__press(7, true); });
     await page.waitForTimeout(1500);
     await page.evaluate(() => { window.__pad.axes = [0, 0, 0, 0]; window.__press(7, false); });
     await page.waitForTimeout(200);
