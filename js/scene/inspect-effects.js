@@ -3,12 +3,14 @@ import { mulberry32 } from '../core/prng.js?v=7be3bec-mwhjmvkw';
 import { mergeStatic } from './sight-model.js?v=7be3bec-mwhjmvkw';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
-// The Legendaries' inspects run twice as long as an ordinary one (8.4 s).
+// The Legendaries' inspects run twice as long as an ordinary one (8.4 s); Forgeheart, Abyssal Crown, Jade
+// Coil and Opal Overture run longer still, for their finales (9.0 to 10.2 s).
 const SAKURA_SECONDS = 8.4, SAKURA_PEAK = 0.54;
 const KILN_SECONDS = 8.4, KILN_PEAK = 0.57;
-const ABYSS_SECONDS = 8.4, ABYSS_PEAK = 0.57;
+const ABYSS_SECONDS = 8.4, ABYSS_PEAK = 0.57;      // (also the default clock of the shared deep-water particles)
+const CROWN_SECONDS = 9.0, CROWN_INK = 0.76;       // Abyssal Crown's own length, and when the kraken lets go
 const VESPER_SECONDS = 8.4, VESPER_PEAK = 0.57;
-const FORGE_SECONDS = 8.4, FORGE_PEAK = 0.57;
+const FORGE_SECONDS = 9.4, FORGE_PEAK = 0.57;
 const ORRERY_SECONDS = 8.4;
 const smooth = THREE.MathUtils.smoothstep;
 
@@ -40,13 +42,16 @@ const KILN_CLIP = { root: [
   [1, 0, 0, 0, 0, 0, 0],
 ] };
 
-// Abyssal Crown: roll the receiver towards you so the depth dial faces the camera.
+// Abyssal Crown: roll the receiver towards you so the depth dial faces the camera; the blast kicks the
+// muzzle up; the gun stays raised while the ink clears.
 const ABYSS_CLIP = { root: [
   [0, 0, 0, 0, 0, 0, 0],
-  [0.2, -0.07, 0.085, -0.1, 0.1, 0.9, 0.3],
+  [0.18, -0.07, 0.085, -0.1, 0.1, 0.9, 0.3],
   [0.42, -0.082, 0.098, -0.13, 0.12, 1.12, 0.42],
-  [0.62, -0.085, 0.1, -0.14, 0.1, 1.15, 0.36],
-  [0.8, -0.066, 0.078, -0.096, 0.1, 0.7, 0.12],
+  [0.66, -0.085, 0.1, -0.14, 0.1, 1.15, 0.36],
+  [0.72, -0.078, 0.1, -0.15, 0.2, 1.12, 0.36],
+  [0.8, -0.082, 0.098, -0.135, 0.12, 1.08, 0.3],
+  [0.91, -0.06, 0.075, -0.095, 0.1, 0.68, 0.12],
   [1, 0, 0, 0, 0, 0, 0],
 ] };
 
@@ -290,11 +295,27 @@ const particleVertex = /* glsl */`
             + vec3(sin(s + age * 19.0) * 0.003 * (0.3 + rise * 20.0), rise, cos(s * 1.7 + age * 15.0) * 0.002 * (0.3 + rise * 20.0));
           radius = vec2(0.75, 1.5) * mix(0.01, 0.022, seed.z) * smoothstep(0.0, 0.12, p) * (1.0 - 0.65 * p);
           spin = 0.0;
+          #ifdef BREATH
+            // a stream of fire breathed along the emitter's direction, widening and lifting as it goes
+            vec3 aim = normalize(outward + (seed.xyz - 0.5) * 0.3);
+            origin = (emitted * vec4(emitter, 1.0)).xyz + aim * mix(0.32, 0.5, seed.w) * age + vec3(sin(s + age * 17.0) * 0.004, 0.08 * age * age, 0.0);
+            radius = vec2(0.8, 1.2) * mix(0.006, 0.012, seed.z) * (0.5 + p * 2.6) * (1.0 - 0.5 * p);
+          #endif
         #endif
         #ifdef SMOKE
           origin = (emitted * vec4(emitter, 1.0)).xyz + vec3(sin(s + age * 3.0) * 0.006, 0.03 + age * 0.09, 0.0);
           radius = vec2(1.0) * mix(0.012, 0.02, seed.z) * (0.5 + p * 1.6);
           spin = s + age * 0.8;
+          #ifdef STEAM
+            // quench steam: a fast white plume hissing up off the seam
+            origin = (emitted * vec4(emitter, 1.0)).xyz + outward * 0.03 * (1.0 - exp(-4.0 * age)) + vec3(sin(s + age * 4.0) * 0.008, 0.01 + age * mix(0.16, 0.26, seed.w), 0.0);
+            radius = vec2(1.0) * mix(0.01, 0.02, seed.z) * (0.6 + p * 2.4);
+          #endif
+          #ifdef INK
+            // an ink cloud: billowing out fast, then hanging and spreading as it thins
+            origin = (emitted * vec4(emitter, 1.0)).xyz + normalize(outward + (seed.xyz - 0.5) * 1.2) * mix(0.04, 0.09, seed.w) * (1.0 - exp(-2.5 * age)) + vec3(0.0, age * 0.01, 0.0);
+            radius = vec2(1.0) * mix(0.026, 0.045, seed.z) * (0.5 + p * 1.6);
+          #endif
         #endif
         #ifdef EMBER
           // the heat shimmer: tiny embers wavering up off the seam
@@ -384,11 +405,22 @@ const particleFragment = /* glsl */`
       c = mix(vec3(0.75, 0.08, 0.0), vec3(1.0, 0.45, 0.04), smoothstep(0.1, 0.5, temp));
       c = mix(c, vec3(1.0, 0.86, 0.5), smoothstep(0.6, 0.95, temp));
       a = vAlpha * shape * pow(1.0 - vAge, 1.3) * 0.9;
+      #ifdef BREATH
+        c = mix(tint * 0.55, vec3(1.0, 0.95, 0.75), smoothstep(0.3, 0.9, temp));
+      #endif
     #elif defined(SMOKE)
       float r = dot(p, p);
       if (r >= 1.0) discard;
       c = vec3(0.09, 0.08, 0.08);
       a = vAlpha * 0.28 * exp(-2.5 * r) * (1.0 - vAge) * smoothstep(0.0, 0.2, vAge);
+      #ifdef STEAM
+        c = tint; a = vAlpha * 0.4 * exp(-2.2 * r) * (1.0 - vAge) * smoothstep(0.0, 0.12, vAge);
+      #endif
+      #ifdef INK
+        // a dark cloud with a faint glowing (tint) fringe, so it still reads against a dark room
+        c = mix(vec3(0.004, 0.006, 0.012), tint, smoothstep(0.3, 1.0, r) * 0.35);
+        a = vAlpha * 0.8 * exp(-2.0 * r) * (1.0 - smoothstep(0.7, 1.0, r)) * (1.0 - smoothstep(0.5, 1.0, vAge)) * smoothstep(0.0, 0.1, vAge);
+      #endif
     #elif defined(RAIN)
       a = vAlpha * 0.55 * (1.0 - smoothstep(0.0, 1.0, abs(p.x))) * (1.0 - smoothstep(0.4, 1.0, abs(p.y)));
       c = vec3(0.78, 0.86, 1.0);
@@ -423,14 +455,17 @@ const particleFragment = /* glsl */`
   }
 `;
 
-const particleBudget = { mist: [22, 38, 54, 70], chip: [20, 34, 48, 62], petal: [28, 46, 64, 84], drop: [14, 22, 30, 40], drip: [80, 140, 200, 260], rain: [80, 140, 200, 260], seaspray: [60, 100, 150, 200], seamist: [14, 24, 34, 44], splash: [120, 200, 300, 400], jet: [160, 280, 400, 520], wind: [15, 25, 35, 45], gather: [40, 70, 100, 130], burst: [40, 70, 100, 140], spark: [16, 26, 36, 48], molten: [24, 40, 56, 72], zap: [70, 112, 168, 224], prism: [60, 100, 150, 200], flame: [140, 240, 340, 460], smoke: [16, 26, 36, 48], ember: [20, 34, 48, 64], bubble: [120, 200, 300, 400], speck: [10, 16, 22, 30], glint: [60, 100, 150, 200] };
+const particleBudget = { mist: [22, 38, 54, 70], chip: [20, 34, 48, 62], petal: [28, 46, 64, 84], drop: [14, 22, 30, 40], drip: [80, 140, 200, 260], rain: [80, 140, 200, 260], seaspray: [60, 100, 150, 200], seamist: [14, 24, 34, 44], splash: [120, 200, 300, 400], jet: [160, 280, 400, 520], wind: [15, 25, 35, 45], gather: [40, 70, 100, 130], burst: [40, 70, 100, 140], spark: [16, 26, 36, 48], molten: [24, 40, 56, 72], zap: [70, 112, 168, 224], prism: [60, 100, 150, 200], flame: [140, 240, 340, 460], smoke: [16, 26, 36, 48], ember: [20, 34, 48, 64], bubble: [120, 200, 300, 400], speck: [10, 16, 22, 30], glint: [60, 100, 150, 200],
+  steam: [30, 50, 70, 90], shower: [40, 70, 100, 140], ink: [24, 40, 56, 72], breath: [120, 200, 300, 400], shimmer: [60, 100, 150, 200], roar: [80, 140, 200, 260] };
 const particleTier = { low: 0, standard: 1, high: 2, ultra: 3 };
 // Storm Kiln's lightning: when each strike lands (inspect fraction); each hits the gun at its own point
 const KILN_STRIKES = [0.26, 0.31, 0.35, 0.4, 0.43, 0.47, 0.5, 0.53, 0.57, 0.6, 0.63, 0.67, 0.71, 0.76];
 
-function particles(kind, tier, anchors, tint, trail, rng) {
-  const mist = kind === 'mist', petals = kind === 'petal', drops = ['drop', 'drip', 'splash', 'jet', 'wind', 'seaspray', 'seamist', 'rain'].includes(kind), deep = ['bubble', 'speck', 'glint', 'gather', 'burst', 'spark', 'ember', 'flame', 'smoke', 'prism', 'zap', 'molten'].includes(kind);
-  const seconds = petals ? SAKURA_SECONDS : drops ? KILN_SECONDS : deep ? ABYSS_SECONDS : FROST_SECONDS;
+// opt.seconds: the inspect's own length (the timings below scale with it); opt.window [from, to] and
+// opt.life [min, max]: emit once, at a random time in that stretch of the inspect (fractions), instead.
+function particles(kind, tier, anchors, tint, trail, rng, opt = {}) {
+  const mist = kind === 'mist', petals = kind === 'petal', drops = ['drop', 'drip', 'splash', 'jet', 'wind', 'seaspray', 'seamist', 'rain'].includes(kind), deep = ['bubble', 'speck', 'glint', 'gather', 'burst', 'spark', 'ember', 'flame', 'smoke', 'prism', 'zap', 'molten', 'steam', 'shower', 'ink', 'breath', 'shimmer', 'roar'].includes(kind);
+  const seconds = opt.seconds ?? (petals ? SAKURA_SECONDS : drops ? KILN_SECONDS : deep ? ABYSS_SECONDS : FROST_SECONDS);
   const peak = (petals ? SAKURA_PEAK : drops ? KILN_PEAK : deep ? ABYSS_PEAK : FROST_PEAK) * seconds;
   const k = seconds / 4.2;                              // timings below were set for a 4.2 s inspect
   const count = particleBudget[kind][tier], positions = [], directions = [], seeds = [], timing = [];
@@ -441,7 +476,10 @@ function particles(kind, tier, anchors, tint, trail, rng) {
     seeds.push(rng(), rng(), rng(), rng());
     const burst = mist ? i % 4 === 0 : i % 5 !== 1 && i % 5 !== 3;
     let start, life, period = 10;
-    if (mist && !burst) {
+    if (opt.window) {
+      start = seconds * (opt.window[0] + (opt.window[1] - opt.window[0]) * rng());
+      life = opt.life[0] + (opt.life[1] - opt.life[0]) * rng();
+    } else if (mist && !burst) {
       start = 0.24 + rng() * 0.88;
       period = 0.65 + rng() * 0.42;
       life = 0.61 + rng() * 0.29;
@@ -528,11 +566,12 @@ function particles(kind, tier, anchors, tint, trail, rng) {
   geo.setAttribute('timing', new THREE.InstancedBufferAttribute(new Float32Array(timing), 4));
   geo.instanceCount = count;
   const defines = kind === 'rain' ? { RAIN: 1 } : kind === 'seamist' ? { MIST: 1 } : kind === 'seaspray' ? { DROP: 1, SPRAY: 1 } : kind === 'jet' ? { DROP: 1, JET: 1 } : kind === 'wind' ? { WIND: 1 } : kind === 'gather' ? { SPECK: 1, GATHER: 1 } : kind === 'burst' ? { SPECK: 1, BURST: 1 } : kind === 'spark' || kind === 'zap' ? { SPECK: 1, SPARK: 1 } : kind === 'molten' ? { DROP: 1, DRIP: 1, MOLTEN: 1 } : kind === 'prism' ? { SPECK: 1, BURST: 1 } : kind === 'ember' ? { SPECK: 1, EMBER: 1 } : kind === 'flame' ? { FLAME: 1 } : kind === 'smoke' ? { SMOKE: 1 } :
+    kind === 'steam' ? { SMOKE: 1, STEAM: 1 } : kind === 'ink' ? { SMOKE: 1, INK: 1 } : kind === 'breath' ? { FLAME: 1, BREATH: 1 } : kind === 'shower' ? { SPECK: 1, SPARK: 1 } : kind === 'shimmer' ? { SPECK: 1, GLINT: 1 } : kind === 'roar' ? { SPECK: 1, BURST: 1 } :
     mist ? { MIST: 1 } : petals ? { PETAL: 1 } : kind === 'drip' ? { DROP: 1, DRIP: 1 } : kind === 'splash' ? { DROP: 1, SPLASH: 1 } : kind === 'glint' ? { SPECK: 1, GLINT: 1 } : drops ? { DROP: 1 } : kind === 'bubble' ? { BUBBLE: 1 } : kind === 'speck' ? { SPECK: 1 } : {};
   if (mist && tier === 0) defines.LOW_INSPECT = 1;
   const material = new THREE.ShaderMaterial({
     defines,
-    uniforms: { ...trail.uniforms, endTime: { value: seconds * 0.78 }, tint: { value: tint } },
+    uniforms: { ...trail.uniforms, endTime: { value: seconds * (opt.window ? 1 : 0.78) }, tint: { value: tint } },
     vertexShader: particleVertex, fragmentShader: particleFragment, transparent: true, depthWrite: false,
   });
   const mesh = new THREE.Mesh(geo, material);
@@ -907,7 +946,7 @@ function kraken(gun, pts, quality) {
     update(p, t) {
       const active = p >= 0 && p < 1;
       for (const k of tents) {
-        const rise = active ? smooth(p, 0.08 + k.delay, 0.26 + k.delay) * (1 - smooth(p, 0.84, 0.97)) : 0;
+        const rise = active ? smooth(p, 0.08 + k.delay, 0.26 + k.delay) * (1 - smooth(p, CROWN_INK + 0.01, CROWN_INK + 0.08)) : 0;
         const vis = rise > 0.01;
         k.body.visible = k.suckers.visible = k.spots.visible = vis;
         if (!vis) continue;
@@ -916,7 +955,7 @@ function kraken(gun, pts, quality) {
         for (let i = 0; i < N; i++) {
           const s = i / (N - 1), sp = k.spine[i];                         // s: 0 at the tip, 1 at the base
           // coiled: the first 60% wraps round the gun, the rest runs down to the base below
-          const wrap = active ? smooth(p, 0.2 + k.delay + (1 - s) * 0.12, 0.34 + k.delay + (1 - s) * 0.12) * (1 - smooth(p, 0.72 + s * 0.06, 0.84 + s * 0.06)) : 0;
+          const wrap = active ? smooth(p, 0.2 + k.delay + (1 - s) * 0.12, 0.34 + k.delay + (1 - s) * 0.12) * (1 - smooth(p, CROWN_INK, CROWN_INK + 0.03)) : 0;
           let coil;
           if (s < 0.6) {
             const th = k.th0 + k.side * (0.6 - s) / 0.6 * k.turns * Math.PI * 2;
@@ -960,13 +999,15 @@ function kraken(gun, pts, quality) {
   };
 }
 export function abyssInspect(gun, { reliefs, dials, muzzle, surface, under }, quality) {
-  const trail = emitterTrail(gun), tier = particleTier[quality] ?? 1;
+  const trail = emitterTrail(gun), tier = particleTier[quality] ?? 1, S = { seconds: CROWN_SECONDS };
   const anchors = reliefs.map(r => ({ point: r.base.clone().add(new THREE.Vector3(0, ...(r.ring ? [r.ring[1], r.ring[0]] : [0, 0]))), normal: r.normal.clone() }));
   const fallback = [{ point: new THREE.Vector3(), normal: new THREE.Vector3(1, 0, 0) }];
   const allOver = [...anchors, ...surface, ...under];
-  const bubbles = particles('bubble', tier, allOver.length ? allOver : fallback, new THREE.Color(0x9ff5e6), trail, mulberry32(203011));
-  const specks = particles('speck', tier, anchors.length ? anchors : fallback, new THREE.Color(0x8dffb0), trail, mulberry32(203029));
-  for (const m of [bubbles, specks]) { m.visible = false; gun.add(m); }
+  const bubbles = particles('bubble', tier, allOver.length ? allOver : fallback, new THREE.Color(0x9ff5e6), trail, mulberry32(203011), S);
+  const specks = particles('speck', tier, anchors.length ? anchors : fallback, new THREE.Color(0x8dffb0), trail, mulberry32(203029), S);
+  // the kraken lets go: it squirts a cloud of ink round the gun as it whips away, which thins and clears
+  const ink = particles('ink', tier, allOver.length ? allOver : fallback, new THREE.Color(0x2fb8b0), trail, mulberry32(203077), { ...S, window: [CROWN_INK, CROWN_INK + 0.03], life: [1.1, 1.8] });
+  for (const m of [bubbles, specks, ink]) { m.visible = false; gun.add(m); }
   const squid = kraken(gun, (surface.length ? [...surface, ...under] : allOver).map(a => a.point), quality);
   const glazes = [], blasts = [];
   gun.traverse(o => { const u = o.material?.userData?.tri; if (u?.artPhase && !glazes.includes(u.artPhase)) { glazes.push(u.artPhase); blasts.push(u.artBlast); } });
@@ -980,10 +1021,10 @@ export function abyssInspect(gun, { reliefs, dials, muzzle, surface, under }, qu
   const centres = shell.length ? [...new Map(shell.map(r => [Math.sign(r.normal.x), new THREE.Vector3(r.base.x * 1.6, r.ring[1], r.ring[0])])).values()] : [];
   const pull = [];
   centres.forEach((c, n) => { for (let i = 0; i < 24; i++) { const d = new THREE.Vector3(Math.sin(i * 2.4 + n), Math.cos(i * 1.7), Math.sin(i * 0.9 + n * 2)).normalize(); pull.push({ point: c.clone().addScaledVector(d, 0.09), normal: d.clone().negate() }); } });
-  const gather = particles('gather', tier, pull.length ? pull : fallback, new THREE.Color(0x9ffff0), trail, mulberry32(203041));
+  const gather = particles('gather', tier, pull.length ? pull : fallback, new THREE.Color(0x9ffff0), trail, mulberry32(203041), S);
   const cores = centres.map(c => { const f = flare(new THREE.Color(0x7dffe6)); f.position.copy(c); f.visible = false; gun.add(f); return f; });
   // the blast: sparks out of the muzzle and a shockwave ring
-  const sparks = particles('burst', tier, [{ point: new THREE.Vector3(0, my, mz), normal: new THREE.Vector3(0, 0, -1) }], new THREE.Color(0x8dfff0), trail, mulberry32(203057));
+  const sparks = particles('burst', tier, [{ point: new THREE.Vector3(0, my, mz), normal: new THREE.Vector3(0, 0, -1) }], new THREE.Color(0x8dfff0), trail, mulberry32(203057), S);
   const ring = new THREE.Mesh(new THREE.RingGeometry(0.7, 1, 40), new THREE.MeshBasicMaterial({ color: 0x8dfff0, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
   ring.position.set(0, my, mz - 0.02); ring.visible = false;
   for (const m of [gather, sparks]) { m.visible = false; gun.add(m); }
@@ -991,15 +1032,15 @@ export function abyssInspect(gun, { reliefs, dials, muzzle, surface, under }, qu
   const M = new THREE.Matrix4(), R = new THREE.Matrix4(), T = new THREE.Matrix4();
   let phase = -1;
   return {
-    clip: ABYSS_CLIP, seconds: ABYSS_SECONDS,
+    clip: ABYSS_CLIP, seconds: CROWN_SECONDS,
     update(p) {
       const active = p >= 0 && p < 1;
       if (!active && phase < 0) return;
       phase = active ? p : -1;
       for (const g of glazes) g.value = active ? p : -1;
-      bubbles.visible = active; specks.visible = active && p > 0.3;
-      trail.update(active ? p * ABYSS_SECONDS : -1);
-      squid.update(p, active ? p * ABYSS_SECONDS : 0);
+      bubbles.visible = active; specks.visible = active && p > 0.3; ink.visible = active && p > CROWN_INK - 0.01;
+      trail.update(active ? p * CROWN_SECONDS : -1);
+      squid.update(p, active ? p * CROWN_SECONDS : 0);
       const sink = active ? smooth(p, 0.2, 0.5) * (1 - smooth(p, 0.7, 0.92)) : 0;
       // the shell winds up faster and faster (six full turns, so it ends where it began) ...
       const spin = active ? Math.pow(smooth(p, 0.22, 0.62), 3) * Math.PI * 12 : 0;
@@ -1028,7 +1069,7 @@ export function abyssInspect(gun, { reliefs, dials, muzzle, surface, under }, qu
         r.group.position.copy(r.base).addScaledVector(r.normal, open * 0.0045);
       });
     },
-    dispose() { squid.dispose(); for (const m of [bubbles, specks, gather, sparks, ring]) { m.geometry.dispose(); m.material.dispose(); } for (const f of [glow, ...cores]) f.material.dispose(); },
+    dispose() { squid.dispose(); for (const m of [bubbles, specks, ink, gather, sparks, ring]) { m.geometry.dispose(); m.material.dispose(); } for (const f of [glow, ...cores]) f.material.dispose(); },
   };
 }
 
@@ -1191,28 +1232,37 @@ export function vesperInspect(gun, { reliefs, surface }, quality) {
 // Forgeheart: raise the black ceramic; a dull red glow creeps under the plates and the heat front
 // traces the orange seam from the handguard into the receiver (shader, artPhase). At the peak the
 // plates lift just enough to show the molten channel under smoked glass, with sparks off the split
-// and a shimmer of embers on the seam; then the plates settle and the orange cools to deep red.
+// and a shimmer of embers on the seam. The molten heart beats three times (each beat flares the seam
+// and the plates); then it is quenched: steam bursts off the seam, the glow snaps dark, a last shower
+// of sparks falls, and the plates settle. The gun stays raised until the steam has cleared.
+const FORGE_BEATS = [0.5, 0.57, 0.64], FORGE_QUENCH = 0.78;
 const FORGE_CLIP = { root: [
   [0, 0, 0, 0, 0, 0, 0],
-  [0.2, -0.07, 0.09, -0.1, 0.14, 0.86, 0.1],
-  [0.42, -0.084, 0.1, -0.128, 0.16, 1.1, 0.04],
-  [0.62, -0.088, 0.102, -0.138, 0.13, 1.14, -0.04],
-  [0.8, -0.066, 0.08, -0.098, 0.12, 0.72, -0.1],
+  [0.17, -0.07, 0.09, -0.1, 0.14, 0.86, 0.1],
+  [0.4, -0.084, 0.1, -0.128, 0.16, 1.1, 0.04],
+  [0.62, -0.088, 0.104, -0.136, 0.13, 1.14, -0.04],
+  [0.8, -0.08, 0.095, -0.12, 0.15, 1.0, -0.08],
+  [0.9, -0.06, 0.075, -0.09, 0.12, 0.66, -0.08],
   [1, 0, 0, 0, 0, 0, 0],
 ] };
 export function forgeInspect(gun, { reliefs, channels, seam, shards }, quality) {
-  const trail = emitterTrail(gun), tier = particleTier[quality] ?? 1;
+  // always the full particle budget (as Ultra), whatever the graphics setting: it only draws while you inspect
+  const trail = emitterTrail(gun), tier = 3, S = { seconds: FORGE_SECONDS };
   const from = seam.length ? seam : [{ point: new THREE.Vector3(), normal: new THREE.Vector3(1, 0, 0) }];
-  const sparks = particles('spark', tier, from, new THREE.Color(0xffc060), trail, mulberry32(205011));
-  const embers = particles('ember', tier, from, new THREE.Color(0xff6a20), trail, mulberry32(205029));
-  const flames = particles('flame', tier, from, new THREE.Color(0xff8020), trail, mulberry32(205047));
+  const sparks = particles('spark', tier, from, new THREE.Color(0xffc060), trail, mulberry32(205011), S);
+  const embers = particles('ember', tier, from, new THREE.Color(0xff6a20), trail, mulberry32(205029), S);
+  const flames = particles('flame', tier, from, new THREE.Color(0xff8020), trail, mulberry32(205047), S);
   flames.material.blending = THREE.AdditiveBlending;
-  const smoke = particles('smoke', tier, from, new THREE.Color(0x222222), trail, mulberry32(205063));
+  const smoke = particles('smoke', tier, from, new THREE.Color(0x222222), trail, mulberry32(205063), S);
   const drip = from.map(a => ({ point: a.point.clone(), normal: new THREE.Vector3(0, -1, 0) }));
-  const molten = particles('molten', tier, drip, new THREE.Color(0xff5a08), trail, mulberry32(205121));
+  const molten = particles('molten', tier, drip, new THREE.Color(0xff5a08), trail, mulberry32(205121), S);
   molten.material.blending = THREE.AdditiveBlending; molten.visible = false; gun.add(molten);
-  sparks.visible = embers.visible = flames.visible = smoke.visible = false;
-  gun.add(smoke, sparks, embers, flames);
+  // the quench: a burst of steam off the seam and a last shower of sparks
+  const steam = particles('steam', tier, from, new THREE.Color(0xc8ccd0), trail, mulberry32(205141), { ...S, window: [FORGE_QUENCH, FORGE_QUENCH + 0.05], life: [0.9, 1.6] });
+  const shower = particles('shower', tier, from, new THREE.Color(0xffd080), trail, mulberry32(205163), { ...S, window: [FORGE_QUENCH, FORGE_QUENCH + 0.04], life: [0.4, 0.8] });
+  shower.material.blending = THREE.AdditiveBlending;
+  sparks.visible = embers.visible = flames.visible = smoke.visible = steam.visible = shower.visible = false;
+  gun.add(smoke, sparks, embers, flames, steam, shower);
   // The peak, as in the owner's concept: the painting fades to the peak painting (artMix) while the
   // traced shards rise out of the sides, from the split outwards, and a starburst flares at the split.
   const [Z0, Z1, Y0, Y1] = [-0.59933, 0.37984, -0.39229, 0.26025];   // the AK-12's art rectangle (1536 x 1024 px concept)
@@ -1263,20 +1313,23 @@ export function forgeInspect(gun, { reliefs, channels, seam, shards }, quality) 
       phase = active ? p : -1;
       for (const g of glazes) g.value = active ? p : -1;
       sparks.visible = embers.visible = flames.visible = smoke.visible = molten.visible = active && p > 0.15;
+      steam.visible = shower.visible = active && p > FORGE_QUENCH - 0.01;
       trail.update(active ? p * FORGE_SECONDS : -1);
-      // the plates lift in turn from the handguard back, a few millimetres out and up, then settle
+      // the heartbeat: lub-dub, three times through the peak
+      const beat = active ? FORGE_BEATS.reduce((sum, b) => sum + Math.exp(-(((p - b) / 0.006) ** 2)) + 0.6 * Math.exp(-(((p - b - 0.017) / 0.006) ** 2)), 0) : 0;
+      // the plates lift in turn from the handguard back, a few millimetres out and up (and kick out on each beat), then settle
       reliefs.forEach((r) => {
         const k = order.indexOf(Math.round(r.base.z * 1000)), start = FORGE_PEAK - 0.14 + k * 0.03;
-        const lift = active ? smooth(p, start, start + 0.08) * (1 - smooth(p, 0.7, 0.86)) : 0;
-        r.group.position.copy(r.base).addScaledVector(r.normal, lift * 0.0045);
+        const lift = active ? smooth(p, start, start + 0.08) * (1 - smooth(p, 0.8, 0.9)) : 0;
+        r.group.position.copy(r.base).addScaledVector(r.normal, lift * (0.0045 + 0.0018 * beat));
         r.group.position.y = r.base.y + lift * 0.0025;
       });
       // the floating obsidian: out from the split, hanging and bobbing, then back in
       const t = active ? p * FORGE_SECONDS : 0;
-      chunks.visible = active && p > 0.4 && p < 0.88;
+      chunks.visible = active && p > 0.4 && p < 0.9;
       if (chunks.visible) {
         chunk.forEach((c, i) => {
-          const out = smooth(p, 0.42 + c.delay, 0.52 + c.delay) * (1 - smooth(p, 0.74, 0.86));
+          const out = smooth(p, 0.42 + c.delay, 0.52 + c.delay) * (1 - smooth(p, 0.76, 0.88)) * (1 + 0.12 * beat);
           cp.copy(c.at).addScaledVector(c.dir, c.dist * out); cp.y += Math.sin(t * 1.6 + c.bob) * 0.006 * out;
           cq.setFromAxisAngle(c.axis, c.bob + t * c.spin);
           cs.copy(c.size).multiplyScalar(Math.max(out, 0.001));
@@ -1284,28 +1337,29 @@ export function forgeInspect(gun, { reliefs, channels, seam, shards }, quality) 
         });
         chunks.instanceMatrix.needsUpdate = true;
       }
-      for (const m of mixes) m.value = active ? smooth(p, 0.3, 0.46) * (1 - smooth(p, 0.76, 0.9)) : 0;
+      for (const m of mixes) m.value = active ? smooth(p, 0.3, 0.46) * (1 - smooth(p, 0.68, 0.77)) : 0;   // (back to the painting before the quench)
       // the shards rise out of the sides from the split outwards, hold through the peak, then sink back
       for (const sh of shards) {
-        const k = active ? smooth(p, sh.start, sh.start + 0.07) * (1 - smooth(p, 0.74, 0.86)) : 0;
+        const k = active ? smooth(p, sh.start, sh.start + 0.07) * (1 - smooth(p, 0.78, 0.88)) : 0;
         sh.group.visible = k > 0.01;
         sh.group.scale.x = Math.max(k, 0.01);
         sh.group.position.copy(sh.base); sh.group.position.x = sh.side * (half + (sh.base.x * sh.side - half) * k + 0.004 * k);
       }
-      const burst = active ? smooth(p, 0.4, 0.5) * (1 - smooth(p, 0.72, 0.84)) : 0, flick = 0.85 + 0.15 * Math.sin(p * 220);
+      const burst = active ? smooth(p, 0.4, 0.5) * (1 - smooth(p, FORGE_QUENCH, FORGE_QUENCH + 0.03)) * (1 + 0.7 * beat) : 0, flick = 0.85 + 0.15 * Math.sin(p * 220);
       for (const b of bursts) {
         b.g.visible = burst > 0.01;
         b.core.scale.setScalar(0.1 * burst * flick);
         b.rayA.scale.set(0.34 * burst * flick, 0.018 * burst, 1); b.rayB.scale.set(0.26 * burst * flick, 0.015 * burst, 1);
       }
       if (smoked) {
-        const glow = active ? smooth(p, FORGE_PEAK - 0.16, FORGE_PEAK - 0.04) * (1 - smooth(p, 0.72, 0.9)) : 0;
-        const cool = active ? smooth(p, FORGE_PEAK + 0.04, 0.85) : 0;          // yellow at the peak, deep red as it lowers
+        // yellow at the peak, cooling to deep red, then quenched: snapped dark
+        const glow = active ? smooth(p, FORGE_PEAK - 0.16, FORGE_PEAK - 0.04) * (1 - 0.6 * smooth(p, 0.66, 0.76)) * (1 - smooth(p, FORGE_QUENCH, FORGE_QUENCH + 0.025)) : 0;
+        const cool = active ? smooth(p, FORGE_PEAK + 0.06, 0.76) : 0;
         smoked.emissive.copy(hot.copy(yellow).lerp(deep, cool));
-        smoked.emissiveIntensity = glow * 4;
+        smoked.emissiveIntensity = glow * 4 * (1 + 1.5 * beat);
       }
     },
-    dispose() { for (const m of [sparks, embers, flames, smoke, molten]) { m.geometry.dispose(); m.material.dispose(); } for (const b of bursts) b.g.traverse(o => o.material?.dispose()); chunkGeo.dispose(); chunkMat.dispose(); },
+    dispose() { for (const m of [sparks, embers, flames, smoke, molten, steam, shower]) { m.geometry.dispose(); m.material.dispose(); } for (const b of bursts) b.g.traverse(o => o.material?.dispose()); chunkGeo.dispose(); chunkMat.dispose(); },
   };
 }
 
@@ -1618,13 +1672,25 @@ export function amberInspect(gun, art, quality) {
 }
 
 // Jade Coil: the dragon painted on the gun comes alive. It peels off the side head first (the painting
-// sweeps to the bare gun behind it), coils round the gun and swims round and round it, its body
-// rippling side to side, then lies back down into its painting tail first. Its body is a tube rebuilt
-// each frame along its spine (carved scales, a bronze crest), with a horned head.
+// sweeps to the bare gun behind it) and swims in the air beside the gun on your side, looping, its body
+// rippling side to side, chasing a flaming pearl. It lunges and snaps the pearl up (a gold flash),
+// rears up over the muzzle and breathes a stream of gold fire, then lies back down into its
+// painting tail first. Its body is a tube rebuilt each frame along its spine (carved scales, a bronze
+// crest), with a horned head.
 // The painted dragon's spine, in concept pixels (07-jade-coil.png, 1536 x 1024), head first (tools/jade-bare.py).
 const JADE_SPINE = [[230, 378], [280, 360], [320, 330], [370, 330], [420, 370], [470, 430], [530, 445], [590, 410], [640, 360], [700, 330], [760, 345],
   [830, 390], [900, 440], [960, 460], [1020, 430], [1080, 380], [1140, 350], [1220, 345], [1300, 335], [1370, 320], [1430, 302]];
-const JADE_SECONDS = 8.4;
+const JADE_SECONDS = 9.6, JADE_CATCH = 0.56, JADE_BREATH = 0.66;
+const JADE_W = 1.96, JADE_SPAN = 3.5;     // the air loop: radians a second, and the body's length along it (radians)
+const JADE_CLIP = { root: [
+  [0, 0, 0, 0, 0, 0, 0],
+  [0.17, -0.074, 0.08, -0.09, 0.13, 0.82, 0.12],
+  [0.4, -0.086, 0.094, -0.122, 0.17, 1.10, 0.02],
+  [0.64, -0.09, 0.1, -0.14, 0.12, 1.16, -0.07],
+  [0.82, -0.086, 0.096, -0.13, 0.14, 1.1, -0.1],
+  [0.93, -0.066, 0.075, -0.094, 0.12, 0.7, -0.12],
+  [1, 0, 0, 0, 0, 0, 0],
+] };
 let scaleTex = null;
 function jadeScales() {
   if (scaleTex) return scaleTex;
@@ -1641,12 +1707,13 @@ function jadeScales() {
   scaleTex.wrapS = scaleTex.wrapT = THREE.RepeatWrapping; scaleTex.repeat.set(24, 2);
   return scaleTex;
 }
-export function jadeInspect(gun, { surface }, quality) {
+export function jadeInspect(gun, { surface, muzzle }, quality) {
   const [Z0, Z1, Y0, Y1] = [-0.25133, 0.36905, -0.23606, 0.17739];     // the T-5's art rectangle
   const half = 0.023;
   const painted = new THREE.CatmullRomCurve3(JADE_SPINE.map(([x, y]) => new THREE.Vector3(0, Y1 - (Y1 - Y0) * y / 1024, Z0 + (Z1 - Z0) * x / 1536)));
   const top = surface.length ? Math.max(...surface.map(a => a.point.y)) : 0.06;
-  const yc = top - 0.04, RX = 0.058, RY = 0.07;
+  const yc = top - 0.04, yAir = top + 0.025, zAir = (Z0 + Z1) / 2 - 0.04;
+  const [my, mz] = muzzle || [top - 0.02, Z0 - 0.06];
   const N = 96, M = 12, rMax = 0.016;                                // as thick as the painted dragon
   const pos = new Float32Array(N * M * 3), uv = new Float32Array(N * M * 2), idx = [];
   for (let i = 0; i < N; i++) for (let j = 0; j < M; j++) {
@@ -1691,14 +1758,25 @@ export function jadeInspect(gun, { surface }, quality) {
   const pearlFlame = flare(new THREE.Color(0xff8a20)); pearlFlame.scale.set(0.035, 0.06, 1);
   pearl.add(pearlGlow, pearlFlame, pearlCore); pearl.visible = false; gun.add(pearl);
   // glowing gold: glints and rising motes off the dragon's painted path, both sides
-  const trail = emitterTrail(gun), tier = particleTier[quality] ?? 1;
+  const trail = emitterTrail(gun), tier = particleTier[quality] ?? 1, S = { seconds: JADE_SECONDS };
   const goldFrom = [];
   for (let i = 0; i <= 40; i++) for (const k of [-1, 1]) { const v = painted.getPointAt(i / 40); v.x = k * (half + 0.004); goldFrom.push({ point: v, normal: new THREE.Vector3(k, 0.3, 0).normalize() }); }
   const gold = [
-    ...[0xffc840, 0xffe080, 0xffb020, 0xfff0a0].map((c, i) => particles('glint', tier, goldFrom, new THREE.Color(c).multiplyScalar(4), trail, mulberry32(208041 + i * 8))),
-    ...[0xffd860, 0xffc030].map((c, i) => particles('ember', tier, goldFrom, new THREE.Color(c).multiplyScalar(4.5), trail, mulberry32(208091 + i * 8))),
+    ...[0xffc840, 0xffe080, 0xffb020, 0xfff0a0].map((c, i) => particles('glint', tier, goldFrom, new THREE.Color(c).multiplyScalar(4), trail, mulberry32(208041 + i * 8), S)),
+    ...[0xffd860, 0xffc030].map((c, i) => particles('ember', tier, goldFrom, new THREE.Color(c).multiplyScalar(4.5), trail, mulberry32(208091 + i * 8), S)),
   ];
   for (const m of gold) { m.material.blending = THREE.AdditiveBlending; m.visible = false; gun.add(m); }
+  // where it rears to breathe: the head held level over the muzzle, the neck arching up and back over the
+  // gun to its loop (f: 0 at the head), per side
+  const HB_X = 0.035, HB_Y = my + 0.045, HB_Z = mz + 0.07, LN = new THREE.Vector3();
+  const rearPose = (k, f, out) => out.set(k * (HB_X + 0.05 * f), HB_Y + 0.07 * Math.sin(f * Math.PI) ** 2 + 0.03 * f, HB_Z + 0.3 * f);
+  // the gold breath, one stream for each side (the one on your side is shown), forward and a little up
+  const breath = [-1, 1].map((k) => {
+    const m = particles('breath', tier, [{ point: new THREE.Vector3(k * HB_X, HB_Y, HB_Z - 0.045), normal: new THREE.Vector3(-k * 0.16, 0.15, -1).normalize() }], new THREE.Color(0xffb830), trail, mulberry32(208131 + k * 10), { ...S, window: [JADE_BREATH + 0.005, JADE_BREATH + 0.1], life: [0.35, 0.6] });
+    m.material.blending = THREE.AdditiveBlending; m.visible = false; gun.add(m); return m;
+  });
+  // the flash as its jaws close on the pearl
+  const catchFlash = flare(new THREE.Color(0xffd060)); catchFlash.visible = false; gun.add(catchFlash);
   // which side faces the camera: the dragon that comes alive is the one you can see
   let viewSide = 1, side = 1; const camAt = new THREE.Vector3();
   // (read off a tiny, invisible marker drawn every frame: the dragon itself is not drawn until it comes out)
@@ -1715,7 +1793,7 @@ export function jadeInspect(gun, { surface }, quality) {
   gun.traverse(o => { const u = o.material?.userData?.tri; if (u?.artPhase && !glazes.includes(u.artPhase)) { glazes.push(u.artPhase); mixes.push(u); } });
   let phase = -1;
   return {
-    clip: KILN_CLIP, seconds: JADE_SECONDS,
+    clip: JADE_CLIP, seconds: JADE_SECONDS,
     update(p) {
       const active = p >= 0 && p < 1;
       if (!active && phase < 0) return;
@@ -1724,16 +1802,20 @@ export function jadeInspect(gun, { surface }, quality) {
       // the painting sweeps to the bare gun as the dragon peels off head first, and back as it lies down
       // the painting sweeps away muzzle to stock (the shader's wipe front, in gun z); the dragon comes off
       // where it has gone, and lies back down just before it returns
-      const mixAt = (q) => active ? smooth(q, 0.0, 0.25) * (1 - smooth(q, 0.76, 0.95)) : 0;   // (from the start, while the gun is still coming up)
+      const mixAt = (q) => active ? smooth(q, 0.0, 0.25) * (1 - smooth(q, 0.84, 0.96)) : 0;   // (from the start, while the gun is still coming up)
       const frontAt = (q) => Z0 - 0.05 + (Z1 - Z0 + 0.1) * mixAt(q);
       const front = frontAt(p), soon = frontAt(Math.min(1, p + 0.06));
       for (const u of mixes) if (u.artMix) { u.artMix.value = mixAt(p); u.artMixSide.value = side; }
       const t = active ? p * JADE_SECONDS : 0;
       if (p < 0.1) side = viewSide;
       for (const m of gold) m.visible = active; trail.update(active ? t : -1);
+      breath.forEach((m, k) => { m.visible = active && (k ? 1 : -1) === side && p > JADE_BREATH - 0.01; });
       let any = false;
-      // the coil: a corkscrew round the gun, head towards the muzzle, swimming round and drifting along
-      const spin = t * 2.6, zc = (Z0 + Z1) / 2 - 0.08 + 0.07 * Math.sin(t * 0.7);
+      // in the air: a tall loop beside the gun on your side, the body following the head's path; it rears
+      // its head and neck up over the muzzle to breathe, and lunges at the pearl
+      const T = t * JADE_W;
+      const rear = active ? smooth(p, JADE_BREATH - 0.045, JADE_BREATH) * (1 - smooth(p, JADE_BREATH + 0.1, JADE_BREATH + 0.14)) : 0;
+      const lunge = active ? smooth(p, JADE_CATCH - 0.035, JADE_CATCH) * (1 - smooth(p, JADE_CATCH, JADE_CATCH + 0.04)) : 0;
       for (let i = 0; i < N; i++) {
         const f = i / (N - 1), s = spine[i];
         const taper = (0.75 + 0.25 * Math.sin(Math.min(1, f * 4) * Math.PI / 2)) * (1 - 0.85 * f * f);
@@ -1746,13 +1828,16 @@ export function jadeInspect(gun, { surface }, quality) {
         s.r = rMax * taper * shown;
         if (shown > 0.001) any = true;
         Pp.x = side * (half + s.r * 0.55);                              // standing out of the side
-        // where it is in the coil
-        const a = side * (Math.PI * 0.5 - spin + f * 1.3 * Math.PI * 2) + (side < 0 ? Math.PI : 0);
-        C.set(Math.cos(a) * RX, yc + Math.sin(a) * RY, zc - 0.1 + f * 0.3);
+        // where it is in the air
+        const tau = T - f * JADE_SPAN;
+        C.set(side * (0.08 + 0.02 * Math.sin(2 * tau)), yAir + 0.06 * Math.sin(tau) + 0.015 * Math.sin(3 * tau), zAir + 0.17 * Math.cos(tau));
+        const rk = rear * (1 - smooth(f, 0.45, 0.95));
+        if (rk > 0) C.lerp(rearPose(side, f, LN), rk);
         s.c.copy(Pp).lerp(C, s.w * s.w * (3 - 2 * s.w));
       }
+      if (lunge > 0) { LN.copy(spine[0].c).sub(spine[4].c).normalize(); for (let i = 0; i < 14; i++) spine[i].c.addScaledVector(LN, lunge * 0.03 * (1 - i / 14)); }
       body.visible = head.visible = spikes.visible = any;
-      if (!any) return;
+      if (!any) { catchFlash.visible = false; return; }
       for (let i = 0; i < N; i++) {
         const s = spine[i], prev = spine[Math.max(0, i - 1)].c, next = spine[Math.min(N - 1, i + 1)].c;
         s.t.copy(prev).sub(next).normalize();                        // towards the head
@@ -1773,11 +1858,17 @@ export function jadeInspect(gun, { surface }, quality) {
       const h = spine[0];
       mtx.makeBasis(R0.copy(h.b).negate(), h.n, h.t); head.quaternion.setFromRotationMatrix(mtx); head.position.copy(h.c).addScaledVector(h.t, 0.006);   // (x = n × t: a true rotation)
       head.scale.setScalar(h.r / (rMax * 0.75));
-      jaw.rotation.x = 0.1 + 0.3 * h.w * (0.5 + 0.5 * Math.sin(t * 6));
-      // the pearl hangs just ahead of the head, bobbing, pulsing and turning
-      pearl.visible = h.w > 0.2;
+      // the jaw: working as it swims, gaping as it lunges and snapping shut on the pearl, wide to breathe
+      const gapeL = active ? smooth(p, JADE_CATCH - 0.04, JADE_CATCH - 0.012) * (1 - smooth(p, JADE_CATCH - 0.006, JADE_CATCH)) : 0;
+      jaw.rotation.x = 0.1 + 0.3 * h.w * (0.5 + 0.5 * Math.sin(t * 6)) * (1 - gapeL) * (1 - rear) + 0.65 * gapeL + 0.55 * rear;
+      const flash = active ? Math.max(0, 1 - Math.abs(p - JADE_CATCH) / 0.02) : 0;
+      catchFlash.visible = flash > 0.01;
+      if (catchFlash.visible) { catchFlash.position.copy(h.c).addScaledVector(h.t, 0.03); catchFlash.scale.setScalar(0.02 + 0.12 * flash); catchFlash.material.opacity = flash; }
+      // the pearl hangs just ahead of the head, bobbing, pulsing and turning, until it is caught
+      const reach = active ? smooth(p, JADE_CATCH - 0.035, JADE_CATCH) : 0;
+      pearl.visible = h.w > 0.2 && p < JADE_CATCH;
       if (pearl.visible) {
-        pearl.position.copy(h.c).addScaledVector(h.t, 0.045 + 0.008 * Math.sin(t * 2.3)).addScaledVector(h.n, 0.012 + 0.006 * Math.sin(t * 3.1));
+        pearl.position.copy(h.c).addScaledVector(h.t, (0.045 + 0.008 * Math.sin(t * 2.3)) * (1 - reach) + 0.03 * reach).addScaledVector(h.n, (0.012 + 0.006 * Math.sin(t * 3.1)) * (1 - reach));
         pearl.scale.setScalar(Math.min(1, (h.w - 0.2) * 3));
         pearlCore.rotation.y = t * 2; pearlGlow.material.opacity = 0.7 + 0.3 * Math.sin(t * 8);
         pearlFlame.position.y = 0.012 + 0.003 * Math.sin(t * 13); pearlFlame.material.rotation = Math.sin(t * 5) * 0.3;
@@ -1791,7 +1882,7 @@ export function jadeInspect(gun, { surface }, quality) {
       }
       spikes.instanceMatrix.needsUpdate = true;
     },
-    dispose() { pearlCore.geometry.dispose(); pearlCore.material.dispose(); pearlGlow.material.dispose(); pearlFlame.material.dispose(); probe.geometry.dispose(); probe.material.dispose(); geo.dispose(); jade.dispose(); bronze.dispose(); eyeMat.dispose(); spikes.geometry.dispose(); head.traverse(o => o.geometry?.dispose()); for (const m of gold) { m.geometry.dispose(); m.material.dispose(); } },
+    dispose() { for (const m of breath) { m.geometry.dispose(); m.material.dispose(); } catchFlash.material.dispose(); pearlCore.geometry.dispose(); pearlCore.material.dispose(); pearlGlow.material.dispose(); pearlFlame.material.dispose(); probe.geometry.dispose(); probe.material.dispose(); geo.dispose(); jade.dispose(); bronze.dispose(); eyeMat.dispose(); spikes.geometry.dispose(); head.traverse(o => o.geometry?.dispose()); for (const m of gold) { m.geometry.dispose(); m.material.dispose(); } },
   };
 }
 
@@ -1938,9 +2029,24 @@ export function velvetInspect(gun, { surface }, quality) {
 }
 
 // Opal Overture: the opal is an eye. Black-chrome lids close over it, then open; inside, black opal
-// with its play of colour shifting as you move, and a slit pupil that follows you. It blinks once,
-// iridescent glints drift off the gun, and the lids close again at the end.
-const OPAL_SECONDS = 8.4;
+// with its play of colour shifting as you move, and a slit pupil that follows you. The front of the gun
+// opens as a jaw; a fly buzzes in and the gun lunges forward and bites it. It swallows (a bulge runs back
+// along the gun, the eye narrows, content, and a prismatic shimmer drifts off it), then roars, jaw wide,
+// prismatic light streaming out, snaps shut, and the lids close again at the end. The longest inspect.
+const OPAL_SECONDS = 10.2, OPAL_GULP = 0.64, OPAL_ROAR = 0.8;
+const OPAL_CLIP = { root: [
+  [0, 0, 0, 0, 0, 0, 0],
+  [0.16, -0.074, 0.08, -0.09, 0.13, 0.82, 0.12],
+  [0.38, -0.086, 0.094, -0.122, 0.17, 1.10, 0.02],
+  [0.54, -0.088, 0.1, -0.13, 0.14, 1.14, -0.04],
+  [0.575, -0.088, 0.104, -0.115, 0.12, 1.18, -0.04],     // drawing back ...
+  [0.6, -0.082, 0.1, -0.185, 0.2, 1.0, -0.06],           // ... and the lunge forward, on the bite
+  [0.66, -0.088, 0.1, -0.14, 0.14, 1.12, -0.06],
+  [0.8, -0.09, 0.1, -0.14, 0.13, 1.14, -0.07],
+  [0.84, -0.088, 0.106, -0.15, 0.08, 1.12, -0.07],       // rearing a little for the roar
+  [0.93, -0.068, 0.078, -0.098, 0.13, 0.74, -0.12],
+  [1, 0, 0, 0, 0, 0, 0],
+] };
 const EYE_VERTEX = `varying vec3 vP, vN, vV; void main(){ vP = position; vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position, 1.0); vV = -mv.xyz; gl_Position = projectionMatrix * mv; }`;
 const EYE_FRAGMENT = `uniform float uTime, uWake; uniform vec2 uLook; varying vec3 vP, vN, vV;
   float h(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -1996,14 +2102,14 @@ function splitAtY(geo, y0) {
 }
 export function opalInspect(gun, { surface }, quality) {
   const [Z0, Z1, Y0, Y1] = [-0.30471, 0.35412, -0.27329, 0.16576];   // the MP7's art rectangle
-  const half = 0.022, tier = particleTier[quality] ?? 1;
+  const half = 0.022, tier = particleTier[quality] ?? 1, S = { seconds: OPAL_SECONDS };
   // The jaw: the gun splits along a line just above the barrel and opens about a hinge behind the grip,
   // the top half up, the bottom half down. Every material on the gun gets a vertex twist for it (copies,
   // swapped in for the inspect); faces stretched across the split are the dark throat. The same twist
   // folds the support hand and forearm away for this inspect (hand materials, ahead of the grip or out
   // on the left; the firing hand on the grip stays).
   const JAW_Y = 0.016, JAW_HINGE = -0.082;    // split along the barrel line; hinged at the front of the trigger guard, so only the front of the gun opens (the trigger, grip and hand stay whole)
-  const jawU = { uJawAngle: { value: 0 }, uJawY: { value: JAW_Y }, uJawHinge: { value: JAW_HINGE }, uHideSup: { value: 0 } };
+  const jawU = { uJawAngle: { value: 0 }, uJawY: { value: JAW_Y }, uJawHinge: { value: JAW_HINGE }, uHideSup: { value: 0 }, uGulpZ: { value: 0 }, uGulpK: { value: 0 } };
   const wrapped = new Map(), swapped = [];
   const wrap = (mat) => {
     if (!wrapped.has(mat)) {
@@ -2013,7 +2119,8 @@ export function opalInspect(gun, { surface }, quality) {
       m.onBeforeCompile = (sh, r) => {
         prev.call(mat, sh, r);
         Object.assign(sh.uniforms, jawU);
-        sh.vertexShader = 'uniform float uJawAngle, uJawY, uJawHinge, uHideSup;\nattribute float jawSide;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+        sh.vertexShader = 'uniform float uJawAngle, uJawY, uJawHinge, uHideSup, uGulpZ, uGulpK;\nattribute float jawSide;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+          ${hand ? '' : 'float gk = uGulpK * exp(-pow((position.z - uGulpZ) / 0.03, 2.0)); transformed.x *= 1.0 + gk; transformed.y = uJawY + (transformed.y - uJawY) * (1.0 + 1.4 * gk);'}
           {
             float ja = uJawAngle * min(jawSide, 0.0) * smoothstep(uJawHinge, uJawHinge - 0.02, position.z);
             vec2 jd = vec2(transformed.y - uJawY, transformed.z - uJawHinge);
@@ -2071,7 +2178,7 @@ export function opalInspect(gun, { surface }, quality) {
   const trail = emitterTrail(gun);
   const mouthFrom = [];
   for (let j = 0; j < 12; j++) for (const side of [-1, 1]) mouthFrom.push({ point: new THREE.Vector3(side * 0.01, JAW_Y + 0.002, tz0 + (tz1 - tz0) * j / 11), normal: new THREE.Vector3(side * 0.6, 0.5, -0.8).normalize() });
-  const prisms = [0xff7ab0, 0x7affe0, 0xb08aff, 0xffe08a].map((c, k) => { const m = particles('prism', tier, mouthFrom, new THREE.Color(c).multiplyScalar(3), trail, mulberry32(210101 + k * 9)); m.material.blending = THREE.AdditiveBlending; m.visible = false; gun.add(m); return m; });
+  const prisms = [0xff7ab0, 0x7affe0, 0xb08aff, 0xffe08a].map((c, k) => { const m = particles('prism', tier, mouthFrom, new THREE.Color(c).multiplyScalar(3), trail, mulberry32(210101 + k * 9), S); m.material.blending = THREE.AdditiveBlending; m.visible = false; gun.add(m); return m; });
   // the fly: a proper housefly (red eyes, striped abdomen, veined wings, legs) that buzzes in loops in
   // front of the jaw on your side, then darts in and is snapped up by the bite
   const flyBody = new THREE.MeshStandardMaterial({ color: 0x24201a, roughness: 0.5, metalness: 0.25 });
@@ -2113,9 +2220,22 @@ export function opalInspect(gun, { surface }, quality) {
     return out.lerp(mouth, dart * dart);
   };
   const rainbow = [0xff6a8a, 0x6affd8, 0xa070ff, 0xffd06a].map((c, i) => {
-    const m = particles('glint', tier, surface.length ? surface : [{ point: at.clone(), normal: new THREE.Vector3(1, 0, 0) }], new THREE.Color(c).multiplyScalar(2.5), trail, mulberry32(210011 + i * 7));
+    const m = particles('glint', tier, surface.length ? surface : [{ point: at.clone(), normal: new THREE.Vector3(1, 0, 0) }], new THREE.Color(c).multiplyScalar(2.5), trail, mulberry32(210011 + i * 7), S);
     m.material.blending = THREE.AdditiveBlending; m.visible = false; gun.add(m); return m;
   });
+  // after the gulp, a prismatic shimmer drifting off the whole gun
+  const shimmer = [0xff6a8a, 0x6affd8, 0xa070ff, 0xffd06a].map((c, i) => {
+    const m = particles('shimmer', tier, surface.length ? surface : [{ point: at.clone(), normal: new THREE.Vector3(1, 0, 0) }], new THREE.Color(c).multiplyScalar(3), trail, mulberry32(210151 + i * 7), { ...S, window: [OPAL_GULP + 0.06, OPAL_GULP + 0.14], life: [0.5, 1.0] });
+    m.material.blending = THREE.AdditiveBlending; m.visible = false; gun.add(m); return m;
+  });
+  // the roar: prismatic light streaming forward out of the wide jaw, and a glow in the throat
+  const roarFrom = [];
+  for (let j = 0; j < 6; j++) for (const side of [-1, 1]) roarFrom.push({ point: new THREE.Vector3(side * 0.006, JAW_Y, tz0 + 0.01 + 0.08 * j / 5), normal: new THREE.Vector3(side * 0.25, 0.25, -1).normalize() });
+  const roars = [0xff7ab0, 0x7affe0, 0xb08aff, 0xffe08a].map((c, k) => {
+    const m = particles('roar', tier, roarFrom, new THREE.Color(c).multiplyScalar(3), trail, mulberry32(210171 + k * 9), { ...S, window: [OPAL_ROAR + 0.01, OPAL_ROAR + 0.075], life: [0.5, 0.9] });
+    m.material.blending = THREE.AdditiveBlending; m.visible = false; gun.add(m); return m;
+  });
+  const roarGlow = flare(new THREE.Color(0xc8a8ff)); roarGlow.position.set(0, JAW_Y, tz0 + 0.05); roarGlow.visible = false; gun.add(roarGlow);
   const camAt = new THREE.Vector3(), probe = new THREE.Mesh(new THREE.PlaneGeometry(0.0001, 0.0001), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
   probe.frustumCulled = false; gun.add(probe);
   probe.onBeforeRender = (renderer, scene, camera) => { camAt.setFromMatrixPosition(camera.matrixWorld); gun.worldToLocal(camAt); };
@@ -2123,16 +2243,18 @@ export function opalInspect(gun, { surface }, quality) {
   gun.traverse(o => { const u = o.material?.userData?.tri; if (u?.artPhase && !glazes.includes(u.artPhase)) glazes.push(u.artPhase); });
   let phase = -1;
   return {
-    clip: KILN_CLIP, seconds: OPAL_SECONDS,
+    clip: OPAL_CLIP, seconds: OPAL_SECONDS,
     update(p) {
       const active = p >= 0 && p < 1;
       if (!active && phase < 0) return;
       phase = active ? p : -1;
       for (const g of glazes) g.value = active ? p : -1;
       const t = active ? p * OPAL_SECONDS : 0;
-      // closed as the gun comes up, opening slowly, one blink, closing at the end
+      // closed as the gun comes up, opening slowly, one blink after the bite, narrowed (content) while it
+      // swallows, closing at the end
       const blink = active ? Math.max(0, 1 - Math.abs(p - 0.62) / 0.025) : 0;
-      const open = active ? smooth(p, 0.16, 0.32) * (1 - smooth(p, 0.86, 0.95)) * (1 - blink) : 0;
+      const content = active ? smooth(p, OPAL_GULP + 0.02, OPAL_GULP + 0.06) * (1 - smooth(p, OPAL_ROAR - 0.03, OPAL_ROAR)) : 0;
+      const open = active ? smooth(p, 0.16, 0.32) * (1 - smooth(p, 0.91, 0.97)) * (1 - blink) * (1 - 0.45 * content) : 0;
       eyeU.uTime.value = t; eyeU.uWake.value = smooth(open, 0.3, 1);
       for (const e of eyes) {
         e.g.visible = active;
@@ -2146,10 +2268,16 @@ export function opalInspect(gun, { surface }, quality) {
       // no support hand in this inspect
       jawU.uHideSup.value = active ? 1 : 0;
       if (packSup) { packSup.visible = !active; packSup.userData.arm.visible = !active; if (packSup.userData.arm.userData.upper) packSup.userData.arm.userData.upper.visible = !active; }
-      // the jaw opens after the eye, chomps twice, opens wide, and shuts with the eye at the end
-      const bite = active ? Math.sin(smooth(p, 0.56, 0.64) * Math.PI) : 0;      // one deliberate bite
-      const gape = active ? smooth(p, 0.32, 0.5) * (1 - smooth(p, 0.8, 0.9)) * (1 - 0.9 * bite) : 0;
-      const A = 0.25 * gape;                                                // (a modest gape: the jaw stays a jaw)
+      // the jaw: opens after the eye, snaps shut on the fly, stays shut while it swallows, then opens wide
+      // for the roar and snaps shut before the lids close
+      const gape = active ? smooth(p, 0.32, 0.5) * (1 - smooth(p, 0.575, 0.6)) : 0;
+      const roar = active ? smooth(p, OPAL_ROAR, OPAL_ROAR + 0.04) * (1 - smooth(p, OPAL_ROAR + 0.075, OPAL_ROAR + 0.09)) : 0;
+      const A = 0.25 * gape + 0.46 * roar * (1 + 0.05 * Math.sin(t * 40));   // (a modest gape, wider to roar)
+      // the gulp: a bulge running back from the mouth to the hinge
+      const g = active ? (p - OPAL_GULP) / 0.08 : -1;
+      jawU.uGulpK.value = g > 0 && g < 1 ? 0.22 * Math.sin(g * Math.PI) : 0;
+      jawU.uGulpZ.value = tz0 + (-0.05 - tz0) * THREE.MathUtils.clamp(g, 0, 1);
+      roarGlow.visible = roar > 0.01; roarGlow.scale.setScalar(0.05 + 0.1 * roar); roarGlow.material.opacity = roar * 0.8;
       jawU.uJawAngle.value = A;
       throat.visible = A > 0.01;
       if (throat.visible) {
@@ -2167,7 +2295,9 @@ export function opalInspect(gun, { surface }, quality) {
         t.scale.set(r, h, r);
       }
       for (const m of rainbow) m.visible = active && p > 0.25;
-      for (const m of prisms) m.visible = active;
+      for (const m of prisms) m.visible = active && (p < OPAL_GULP + 0.02 || p > OPAL_ROAR - 0.01);
+      for (const m of shimmer) m.visible = active && p > OPAL_GULP;
+      for (const m of roars) m.visible = active && p > OPAL_ROAR - 0.01;
       // the fly: on your side, from out wide and above, in a buzzing curve to the jaw's front; gone at the bite
       fly.visible = active && p > FLY0 && p < SNAP;
       if (fly.visible) {
@@ -2184,7 +2314,7 @@ export function opalInspect(gun, { surface }, quality) {
     dispose() {
       for (const [o, m, g] of swapped) { o.geometry.dispose(); o.material = m; o.geometry = g; } for (const m of wrapped.values()) m.dispose(); toothMat.dispose(); toothGeo.dispose(); gumGeo.dispose(); gumMat.dispose();
       eyeGeo.dispose(); upperGeo.dispose(); lowerGeo.dispose(); eyeMat.dispose(); lidMat.dispose(); probe.geometry.dispose(); probe.material.dispose();
-      for (const m of [...rainbow, ...prisms]) { m.geometry.dispose(); m.material.dispose(); }
+      for (const m of [...rainbow, ...prisms, ...shimmer, ...roars]) { m.geometry.dispose(); m.material.dispose(); } roarGlow.material.dispose();
       for (const g of flyGeos) g.dispose(); flyBody.dispose(); flyWing.dispose(); flyEye.dispose(); flyProbe.geometry.dispose(); flyProbe.material.dispose();
     },
   };

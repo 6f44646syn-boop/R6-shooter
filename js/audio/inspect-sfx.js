@@ -39,6 +39,7 @@ export function playInspect(sfx, look, seconds) {
       for (let i = 0; i < 40; i++) { const t = at(0.08 + r() * 0.8), f = 300 + r() * 600; tone(t, 0.08, f, f * 2.4, 'sine', 0.05, 0.003); }
       tone(at(0.4), S * 0.28, 120, 900, 'sawtooth', 0.04, S * 0.25);
       noise(at(0.69), 1.8, 200, 0.6, 0.45, 'lowpass', 0.01, 50); tone(at(0.69), 1.2, 90, 40, 'sine', 0.35, 0.005);
+      whoosh(at(0.76), 0.5, 0.12); tone(at(0.76), 0.4, 150, 45, 'sine', 0.2, 0.005); noise(at(0.765), 0.9, 300, 0.7, 0.1, 'lowpass', 0.05, 90);   // the kraken lets go: ink
     },
     glass() {       // Vesper Glass: shatter, chimes caught in time, the rewind
       noise(at(0.36), 0.5, 6000, 0.5, 0.25, 'highpass', 0.002); for (let i = 0; i < 10; i++) bell(at(0.36) + r() * 0.4, 1800 + r() * 2400, 0.04);
@@ -53,6 +54,9 @@ export function playInspect(sfx, look, seconds) {
       noise(at(0.15), S * 0.7, 180, 0.6, 0.14, 'lowpass', 1.2);
       for (let i = 0; i < 70; i++) noise(at(0.2 + r() * 0.65), 0.03, 2500 + r() * 3000, 2, 0.12, 'bandpass', 0.002);
       for (let i = 0; i < 6; i++) { tone(at(0.4 + i * 0.012), 0.4, 1900 + r() * 900, 1500, 'triangle', 0.06, 0.002); noise(at(0.4 + i * 0.012), 0.15, 900, 1, 0.15, 'bandpass', 0.002); }
+      for (const b of [0.5, 0.57, 0.64]) { tone(at(b), 0.22, 75, 38, 'sine', 0.38, 0.004); tone(at(b + 0.017), 0.18, 70, 36, 'sine', 0.24, 0.004); }   // the heartbeat
+      noise(at(0.78), 1.6, 5200, 0.5, 0.22, 'highpass', 0.01); noise(at(0.78), 0.12, 1800, 1, 0.25, 'bandpass', 0.002);   // the quench: a hiss of steam
+      for (let i = 0; i < 24; i++) noise(at(0.78 + r() * 0.06), 0.03, 3000 + r() * 3000, 2, 0.1, 'bandpass', 0.002);
     },
     orrery() {      // Midnight Orrery: the portal hums open, a starry shimmer
       tone(at(0.1), S * 0.8, 110, 110, 'sine', 0.08, 1.2); tone(at(0.1), S * 0.8, 165, 165, 'sine', 0.05, 1.5); tone(at(0.1), S * 0.8, 220.5, 220.5, 'sine', 0.04, 1.8);
@@ -71,6 +75,11 @@ export function playInspect(sfx, look, seconds) {
       tone(at(0.12), 1.4, 70, 55, 'sawtooth', 0.06, 0.3); noise(at(0.12), 1.6, 300, 1, 0.06, 'bandpass', 0.4);
       noise(at(0.2), S * 0.6, 3500, 0.8, 0.03, 'bandpass', 1);
       for (let i = 0; i < 16; i++) bell(at(0.15 + r() * 0.7), 2000 + r() * 2000, 0.025);
+      noise(at(0.56), 0.06, 2200, 1, 0.3, 'bandpass', 0.002); tone(at(0.56), 0.1, 180, 80, 'square', 0.1, 0.002);   // the jaws close on the pearl
+      for (let i = 0; i < 5; i++) bell(at(0.565 + i * 0.008), 1400 + i * 350, 0.05);
+      tone(at(0.63), 1.0, 60, 48, 'sawtooth', 0.08, 0.2);                                                            // it rears ...
+      noise(at(0.665), (0.1 * S) + 0.4, 700, 0.6, 0.2, 'bandpass', 0.08, 1600);                                     // ... and breathes fire
+      noise(at(0.665), (0.1 * S) + 0.4, 160, 0.8, 0.14, 'lowpass', 0.1);
     },
     velvet() {      // Velvet Ante: cards whirring, the charge, the chip, the cards falling
       for (let i = 0; i < 30; i++) noise(at(0.08 + r() * 0.4), 0.04, 3000, 2, 0.08, 'bandpass', 0.002);
@@ -83,6 +92,10 @@ export function playInspect(sfx, look, seconds) {
       tone(at(0.42), (0.6 - 0.42) * S, 230, 230, 'sawtooth', 0.025, 0.1);
       noise(at(0.6), 0.08, 1800, 1, 0.3, 'bandpass', 0.002); tone(at(0.6), 0.12, 160, 70, 'square', 0.12, 0.002);
       for (let i = 0; i < 20; i++) bell(at(0.45 + r() * 0.4), 1800 + r() * 3000, 0.02);
+      tone(at(0.645), 0.3, 190, 60, 'sine', 0.22, 0.01);                                                             // the gulp
+      for (let i = 0; i < 10; i++) bell(at(0.7 + r() * 0.08), 1600 + r() * 2400, 0.03);                              // the shimmer
+      tone(at(0.8), 0.8, 95, 62, 'sawtooth', 0.1, 0.12); noise(at(0.8), 0.8, 450, 0.7, 0.16, 'lowpass', 0.1, 220);   // the roar
+      noise(at(0.887), 0.06, 1800, 1, 0.3, 'bandpass', 0.002); tone(at(0.887), 0.1, 160, 70, 'square', 0.12, 0.002); // snapping shut
     },
     ice() {         // Black Ice: frost creaking and crackling
       for (let i = 0; i < 40; i++) noise(at(0.2 + r() * 0.6), 0.04, 5000 + r() * 4000, 3, 0.07, 'bandpass', 0.002);
