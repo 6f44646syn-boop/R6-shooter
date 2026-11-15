@@ -2,7 +2,7 @@
 // Storage can be missing or throw (private window, blocked site data), so every access is
 // wrapped and the app always works with the defaults.
 
-import { sensToCm360, cm360ToSens } from './sensitivity.js?v=ba75b4c-mwgabqbe';
+import { sensToCm360, cm360ToSens } from './sensitivity.js?v=335fb8a-mwhdc11m';
 
 const KEY = 'recoilRange.settings.v1';
 
@@ -38,7 +38,7 @@ export const DEFAULTS = Object.freeze({
   minimap: false,        // a small radar in the top-left corner during battles and matches
   hiResSkins: false,     // weapon skins baked at 4096 even on Low / Standard (your own gun)
   weaponShading: 'fast', // gun and sight look: 'fast' (matcap, cheap) or 'detailed' (PBR metal)
-  lensQuality: 'auto',   // ADS lens pass: 'auto' or 3 (all) / 2 (no blur) / 1 (no blur, fringing) / 0 (no glare either)
+  lensQuality: '0',      // off by default (aiming +50% fps on a laptop RTX); ADS lens pass: 'auto' or 3 (all) / 2 (no blur) / 1 (no blur, fringing) / 0 (no glare either)
   showViewmodel: true,
   targetMode: 'dummy',   // 'dummy', 'paper' or 'dots' (M cycles dummy -> paper -> still dots -> moving dots)
   dotCount: 5,
@@ -48,7 +48,7 @@ export const DEFAULTS = Object.freeze({
   debugHud: false,
   fpsCounter: false,     // small FPS / frame-time / CPU / GPU readout
   fpsTarget: 60,         // dynamic resolution aims for this (capped at the screen's refresh rate)
-  ao: true,              // screen-space ambient occlusion (High / Ultra)
+  ao: false,             // screen-space ambient occlusion (High / Ultra); off by default (+20-30% fps)
   taa: false,            // temporal anti-aliasing (High / Ultra)
   botShadows: true,      // players' and bots' shadows (off: a dark spot under the feet, faster on weak GPUs)
   sharpen: 0.25,         // sharpening after upscaling / TAA (0 = off)

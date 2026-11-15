@@ -1233,7 +1233,7 @@ try {
     check('auto reload: an empty magazine reloads by itself', hp.reloading && hp.refilled > 0, JSON.stringify(hp));
 
     // Skins, packs, points and save codes.
-    const pk = await page.evaluate(() => {
+    const pk = await page.evaluate(async () => {
       const R = window.__range, P = R.profile(), U = R.packs();
       const out = {};
       out.catalogue = document.querySelectorAll('#packs-root').length === 1;
@@ -1270,7 +1270,10 @@ try {
       // an old version-1 save code (200 skins) still loads
       const v1 = 'RRS1-AR4AAAAAAAAACAAAAQAQiAJAAAAAgAIAAAAAAEAA____I________wEAAAAKACa0';
       try { P.loadCode(v1); out.v1 = P.points === 30 && P.ownedCount === 10; } catch (e) { out.v1 = 'ERR ' + e.message; }
-      // a battle kill earns points (and a win)
+      // a battle kill earns points (and a win). Today's challenges are marked done first (without
+      // paying), or a daily one this match completes (e.g. "finish 2 matches") adds its own points.
+      const C = await import('/js/core/challenges.js' + new URL(document.querySelector('script[src*="main.js"]').src).search);
+      for (const mode of new Set(C.challengesFor().map((c) => c.mode))) C.record(mode, { kills: 1e6, wins: 1e6, matches: 1e6, heads: 1e6, hits: 1e6, best: 1e6, top5: 1e6 });
       const before = P.points;
       R.battleStart({ opponent: 'bots', bots: 1, level: 'easy', kills: 1 });
       const Bt = R.battle(); Bt.bots[0].update = () => {}; Bt.bots[0].f.protectUntil = 0;
