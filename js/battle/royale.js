@@ -1,6 +1,6 @@
 import * as THREE from '../../vendor/three/three.module.min.js?v=7be3bec-mwhjmvkw';
 import { ROYALE_BOTS } from './royale-map.js?v=7be3bec-mwhjmvkw';
-import { PLATFORM_HALF, PLATFORM_MASK, RAMP_RISE, platformHeight, platformMeshes, platformSolids } from './royale-platform.js?v=7be3bec-mwhjmvkw';
+import { PLATFORM_HALF, PLATFORM_MASK, RAMP_RISE, platformHeight, platformMeshes, platformSolids, rampSurface } from './royale-platform.js?v=7be3bec-mwhjmvkw';
 
 const TOKEN_CHANCE = 0.001;
 const CHEST_MATERIALS = 18;
@@ -12,6 +12,8 @@ const GRID = 3;
 const FULL_WALL = (1 << GRID ** 2) - 1;
 const PIECES = ['wall', 'ramp', 'cone'];
 const MAX_RAMPS = 10;
+const UNDER_PITCH = 45;                 // looking down this far (degrees) puts a ramp under your feet
+const HOLD_GAP = .12, TURBO_GAP = .05;   // seconds between pieces while fire is held (turbo building: faster)
 // The drop: everyone starts this high over their spawn and parachutes down (steer with W A S D),
 // protected while gliding and for a few seconds after landing (shooting ends it, as at any spawn).
 const DROP_H = 55, GLIDE = 5.5, LAND_PROTECT = 5;
@@ -48,6 +50,8 @@ export class BattleRoyale {
     this.impactWalls = [];
     this.token = false;
     this.noticeUntil = 0;
+    this.holding = false; this.holdAt = -Infinity; this.holdKey = '';   // fire held in build mode
+    this.bpK = 0;                         // 0..1: the blueprint raised in your hands
     const center = arena.world.nearestNode(0, 0, 0);
     this.x = arena.nodeX[center];
     this.y = arena.nodeY[center];
@@ -109,6 +113,7 @@ export class BattleRoyale {
     axe.visible = false;
     battle.humans[0].rig.scene.add(axe);
     this.resources.push(wood, steel, handle, head);
+    this.makeBlueprint(battle.humans[0].rig.scene);
     this.hotbar = document.createElement('div');
     this.hotbar.className = 'royale-hotbar';
     this.hotbar.setAttribute('aria-label', 'Battle Royale inventory');
@@ -214,6 +219,7 @@ export class BattleRoyale {
   }
 
   equip(slot) {
+    if (this.preview) { this.preview = false; this.holding = false; }     // picking a tool puts the blueprint away
     if (slot === this.slot || (slot && !this.slots[slot - 1])) return;
     const human = this.battle.humans[0];
     if (this.slot) this.slots[this.slot - 1].ammo = human.weapon.ammo;
@@ -350,12 +356,13 @@ export class BattleRoyale {
     this.pickaxe.rotation.set(.25 - swing * 1.2, -.35, -.33 + swing * .92);
   }
 
-  build(f, yaw, selected = this.piece) {
+  // pitch: how far you look up (+) or down (-); planned: a plan you already made; quiet: no notice when it does not fit.
+  build(f, yaw, selected = this.piece, pitch = 0, planned = null, quiet = false) {
     const player = f === this.battle.humans[0].f;
     if (!(player ? this.materials : f.buildMaterials) || !f.alive || f.drop) return;
-    const p = this.plan(f, yaw, selected);
-    if (p.limit) { if (player) this.notify('10-ramp height limit'); return; }
-    if (p.blocked) { if (player) this.notify('Build needs clear space'); return; }
+    const p = planned || this.plan(f, yaw, selected, pitch);
+    if (p.limit) { if (player && !quiet) this.notify('10-ramp height limit'); return; }
+    if (p.blocked) { if (player && !quiet) this.notify('Build needs clear space'); return; }
     const { kind, isWall, previous, dir, box, x, y, z, w, d } = p, { arena } = this;
     const mesh = new THREE.Group();
     const bounds = new THREE.Box3(new THREE.Vector3(box.minX, box.minY, box.minZ),
@@ -368,27 +375,49 @@ export class BattleRoyale {
       platformMeshes(piece,this.wallMat);
     }
     this.walls.push(piece);
-    if (player) this.materials--;
+    if (player) { this.materials--; this.holdAt = this.battle.t; this.holdKey = p.key; }
     else f.buildMaterials--;
     this.syncWalls();
+    if (p.under) this.lift(f, piece);
     return piece;
   }
+  // A ramp built under your feet carries you up onto it, to its surface where you stand.
+  lift(f, piece) {
+    let top = f.y;
+    for (const s of platformSolids(piece)) if (f.x >= s.minX && f.x <= s.maxX && f.z >= s.minZ && f.z <= s.maxZ) top = Math.max(top, s.maxY);
+    if (top > f.y) { f.y = top + .01; f.vy = 0; }
+  }
+  // The build you stand on (a ramp or cone): inside its grid cell, feet within its height. The highest wins.
+  standingOn(f) {
+    let best = null;
+    for (const p of this.walls) {
+      if (p.kind === 'wall') continue;
+      const q = p.mesh.position;
+      if (Math.abs(f.x - q.x) > PLATFORM_HALF || Math.abs(f.z - q.z) > PLATFORM_HALF) continue;
+      if (f.y < q.y - .1 || f.y > q.y + platformHeight(p.kind) + .3) continue;
+      if (!best || q.y > best.mesh.position.y) best = p;
+    }
+    return best;
+  }
   // Where a piece would go (no side effects): the build and its ghost use the same answer.
-  plan(f, yaw, selected = this.piece) {
+  plan(f, yaw, selected = this.piece, pitch = 0) {
     const player = f === this.battle.humans[0].f;
     const { arena } = this;
     const kind = player ? selected : 'wall', isWall = kind === 'wall';
     const angle = yaw * Math.PI / 180, dx = Math.sin(angle), dz = -Math.cos(angle), alongX = Math.abs(dx) > Math.abs(dz);
     const dir = -Math.round(yaw / 90);
-    const forwardX = -Math.round(Math.sin(dir * Math.PI/2)), forwardZ = -Math.round(Math.cos(dir * Math.PI/2));
-    const previous = kind === 'ramp' && this.walls.find(ramp => {
-      if (ramp.kind !== 'ramp' || (ramp.dir-dir)%4 !== 0) return false;
-      const p = ramp.mesh.position, px = f.x - p.x, pz = f.z - p.z;
-      const forward = px*forwardX + pz*forwardZ;
-      return forward >= .15 && forward <= PLATFORM_HALF+.08
-        && Math.abs(px*forwardZ-pz*forwardX) < PLATFORM_HALF+.2
-        && Math.abs(f.y - (p.y+RAMP_RISE)) <= .55;
-    });
+    const up = d => [-Math.round(Math.sin(d * Math.PI/2)), -Math.round(Math.cos(d * Math.PI/2))];   // a ramp's way up
+    const [forwardX, forwardZ] = up(dir);
+    // The build you stand on sets the grid cell and the heights: pieces then go where they join it, wherever
+    // on it you stand (your feet climb it; the cell does not move).
+    const support = player ? this.standingOn(f) : null;
+    // A ramp with the view tipped down goes in your own cell, under your feet, and lifts you onto it: place one
+    // on another, turning a quarter each time, and you crank a tower.
+    const under = player && kind === 'ramp' && pitch <= -UNDER_PITCH;
+    const cx = cellMid(f.x), cz = cellMid(f.z);
+    const previous = kind !== 'ramp' || !support || support.kind !== 'ramp' ? null
+      : under ? (Math.abs(support.mesh.position.x - cx) < .01 && Math.abs(support.mesh.position.z - cz) < .01 ? support : null)
+      : (support.dir - dir) % 4 === 0 ? support : null;
     if (previous && previous.level >= MAX_RAMPS) return { limit: true };
     // On the grid: a wall on the nearest cell edge in front of you, a floor / ramp / cone in the next cell.
     // (the first edge / cell clear of your body, 0.46 m around you)
@@ -396,29 +425,49 @@ export class BattleRoyale {
     const ahead = (v, s) => edge(v, s) + Math.sign(s) * CELL / 2;
     const gx = (isWall ? edge : ahead)(f.x, dx), gz = (isWall ? edge : ahead)(f.z, dz);
     const x0 = alongX ? gx : cellMid(f.x), z0 = alongX ? cellMid(f.z) : gz;
-    const x = previous ? previous.mesh.position.x + forwardX * CELL : x0;
-    const z = previous ? previous.mesh.position.z + forwardZ * CELL : z0;
+    const x = under ? cx : previous ? previous.mesh.position.x + forwardX * CELL : x0;
+    const z = under ? cz : previous ? previous.mesh.position.z + forwardZ * CELL : z0;
     const w = isWall ? (alongX ? .32 : CELL) : CELL;
     const d = isWall ? (w > 1 ? .32 : CELL) : w;
-    const y = previous ? previous.mesh.position.y + RAMP_RISE : arena.groundAt(x, z, f.y);
+    let y = under ? (previous ? previous.mesh.position.y + RAMP_RISE : arena.groundAt(x, z, f.y))
+      : previous ? previous.mesh.position.y + RAMP_RISE : arena.groundAt(x, z, f.y);
+    // A wall on an edge of the build you stand on sits on that build: on the ramp's top edge at its top, on its
+    // other edges at its base.
+    let attached = false;
+    if (isWall && support) {
+      const q = support.mesh.position, ex = Math.abs(x - q.x), ez = Math.abs(z - q.z);
+      if ((Math.abs(ex - PLATFORM_HALF) < .01 && ez < .01) || (Math.abs(ez - PLATFORM_HALF) < .01 && ex < .01)) {
+        const [ux, uz] = up(support.dir), onTop = support.kind === 'ramp' && Math.abs(x - q.x - ux * PLATFORM_HALF) < .01 && Math.abs(z - q.z - uz * PLATFORM_HALF) < .01;
+        attached = true;
+        y = q.y + (onTop ? RAMP_RISE : 0);
+      }
+    }
     const box = { minX:x-w/2, maxX:x+w/2, minY:y, maxY:y+(isWall ? WALL_HEIGHT : platformHeight(kind)), minZ:z-d/2, maxZ:z+d/2 };
     // A wall straddles a grid edge: test only its centre line (ends trimmed), so it can stand on the
     // edge of a floor or ramp and meet another wall at a corner, but not on top of another wall.
     // A floor, ramp or cone tests its cell inset by 0.2 m, so it fits right against walls on the cell's
     // edges and next to other pieces.
     const core = !isWall ? { ...box, minX: box.minX + .2, maxX: box.maxX - .2, minZ: box.minZ + .2, maxZ: box.maxZ - .2 } : alongX ? { ...box, minX: x, maxX: x, minZ: box.minZ + .2, maxZ: box.maxZ - .2 } : { ...box, minZ: z, maxZ: z, minX: box.minX + .2, maxX: box.maxX - .2 };
-    const blocked = (!previous && Math.abs(y - f.y) > .45) || box.maxY >= (arena.map.ceiling ? arena.wallH : Infinity)
+    // Under your feet: the ramp may start up to 2.2 m below you (a jump) or just above them (stacked on the ramp you
+    // stand on, in its own cell, so only scenery stops it) and needs room above to lift you.
+    const lifted = under ? rampSurface(y, (f.x - x) * forwardX + (f.z - z) * forwardZ) : 0;
+    const floating = under ? y > f.y + 2 || f.y - y > 2.2 || arena.raycast([f.x, Math.max(f.y, lifted) + .05, f.z], [0, 1, 0], 1.85) < 1.8
+      : !previous && !attached && Math.abs(y - f.y) > .45;
+    const blocked = floating || box.maxY >= (arena.map.ceiling ? arena.wallH : Infinity)
       || box.minX <= -arena.hx || box.maxX >= arena.hx || box.minZ <= -arena.hz || box.maxZ >= arena.hz
-      || arena.boxes.some(other => overlaps(core, other))
-      || !arena.sightLine([f.x, f.y + 1.2, f.z], [x, y + .7, z])
-      || this.occupied(box, previous ? f : null);
-    return { kind, isWall, previous, dir, box, x, y, z, w, d, blocked };
+      || arena.boxes.some((other, i) => (!under || i < arena.baseBoxCount) && overlaps(core, other))
+      || (!under && !attached && !arena.sightLine([f.x, f.y + 1.2, f.z], [x, y + .7, z]))
+      || this.occupied(box, previous || under ? f : null);
+    const key = kind + x.toFixed(2) + y.toFixed(2) + z.toFixed(2) + (isWall ? w > 1 : dir);
+    return { kind, isWall, previous, under, attached, dir, box, x, y, z, w, d, blocked, key };
   }
   // The ghost: in build mode (B toggles it), a see-through copy of the piece where it will go
   // (blue: it fits, red: no room). Fire builds it there.
   updateGhost(h) {
     const want = this.preview && h.f.alive && !h.f.drop && !this.editing && !this.battle.paused;
-    let p = want ? this.plan(h.f, h.look.yaw, this.piece) : null;
+    let p = want ? this.plan(h.f, h.look.yaw, this.piece, h.look.pitch) : null;
+    if (!want) this.holding = false;
+    else this.holdBuild(h, p);
     if (p && p.limit) p = null;
     if (!this.ghost) {
       this.ghostOk = new THREE.MeshBasicMaterial({ color: 0x64c7ff, transparent: true, opacity: .32, depthWrite: false });
@@ -441,6 +490,22 @@ export class BattleRoyale {
     }
     for (const c of g.children) { c.material = mat; c.castShadow = c.receiveShadow = false; }
     g.position.set(p.x, p.y + (p.isWall ? WALL_HEIGHT / 2 : 0), p.z);
+  }
+
+  // Fire in build mode: build now, and keep building for as long as it is held.
+  holdFire(h, down) {
+    this.holding = down; this.dry = false;
+    if (down) this.build(h.f, h.look.yaw, this.piece, h.look.pitch);
+  }
+  // Held fire puts a piece at every new spot your aim reaches. Turbo building (a setting): twice as fast, and
+  // the same spot again the moment its piece is shot down.
+  holdBuild(h, p) {
+    if (!this.holding || !p || p.limit) return;
+    if (!this.materials) { if (!this.dry) { this.dry = true; this.notify('Out of materials'); } return; }
+    if (p.blocked) return;
+    const turbo = this.battle.deps.settings.turboBuild !== false;
+    if (this.battle.t - this.holdAt < (turbo ? TURBO_GAP : HOLD_GAP) || (!turbo && p.key === this.holdKey)) return;
+    this.build(h.f, h.look.yaw, this.piece, h.look.pitch, p, true);
   }
 
   /* ---------- the drop ---------- */
@@ -492,7 +557,70 @@ export class BattleRoyale {
   cyclePiece() {
     this.piece = PIECES[(PIECES.indexOf(this.piece) + 1) % PIECES.length];
     this.noticeUntil = 0;
+    this.drawBlueprint();
     this.updateHud();
+  }
+
+  // The blueprint you hold in build mode: a sheet of blue drawing paper with a grid and a sketch of the piece you
+  // have selected, gripped at its lower corners (drawn here, no image files).
+  makeBlueprint(scene) {
+    const cv = document.createElement('canvas'); cv.width = 512; cv.height = 360;
+    this.bpCanvas = cv;
+    this.bpTex = new THREE.CanvasTexture(cv); this.bpTex.colorSpace = THREE.SRGBColorSpace; this.bpTex.anisotropy = 4;
+    const g = this.blueprint = new THREE.Group();
+    const paper = new THREE.Mesh(new THREE.PlaneGeometry(.6, .42), new THREE.MeshBasicMaterial({ map: this.bpTex, side: THREE.DoubleSide, toneMapped: false }));
+    const glove = new THREE.MeshStandardMaterial({ color: 0x2b2f2a, roughness: .85 }), sleeve = new THREE.MeshStandardMaterial({ color: 0x3a4538, roughness: .9 });
+    const fist = new THREE.SphereGeometry(1, 14, 10), arm = new THREE.CylinderGeometry(.034, .042, .6, 10);
+    g.add(paper);
+    for (const side of [-1, 1]) {
+      const hand = new THREE.Mesh(fist, glove); hand.scale.set(.05, .036, .055); hand.position.set(side * .285, -.2, .03);
+      const forearm = new THREE.Mesh(arm, sleeve); forearm.position.set(side * .31, -.2 - .3, .1); forearm.rotation.set(-.35, 0, side * -.12);
+      g.add(hand, forearm);
+    }
+    g.visible = false;
+    scene.add(g);
+    this.resources.push(this.bpTex, paper.geometry, paper.material, glove, sleeve, fist, arm);
+    this.drawBlueprint();
+  }
+  drawBlueprint() {
+    const g = this.bpCanvas.getContext('2d'), W = 512, H = 360, piece = this.piece;
+    g.fillStyle = '#15406b'; g.fillRect(0, 0, W, H);
+    const light = g.createRadialGradient(W / 2, H / 2, 30, W / 2, H / 2, 330);
+    light.addColorStop(0, 'rgba(90,170,235,.38)'); light.addColorStop(1, 'rgba(0,10,30,.45)');
+    g.fillStyle = light; g.fillRect(0, 0, W, H);
+    for (let x = 0; x <= W; x += 32) { g.strokeStyle = x % 128 ? 'rgba(190,225,255,.22)' : 'rgba(190,225,255,.5)'; g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
+    for (let y = 0; y <= H; y += 32) { g.strokeStyle = y % 128 ? 'rgba(190,225,255,.22)' : 'rgba(190,225,255,.5)'; g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+    g.strokeStyle = 'rgba(235,246,255,.9)'; g.lineWidth = 3; g.strokeRect(14, 14, W - 28, H - 28);
+    g.lineWidth = 2.5; g.fillStyle = 'rgba(235,246,255,.92)'; g.font = 'bold 26px monospace';
+    const line = (...pts) => { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); };
+    const cx = W / 2, cy = 196;
+    if (piece === 'wall') {                                    // a 3 x 3 panel wall in elevation
+      g.strokeRect(cx - 90, cy - 90, 180, 180);
+      for (const k of [60, 120]) { line([cx - 90 + k, cy - 90], [cx - 90 + k, cy + 90]); line([cx - 90, cy - 90 + k], [cx + 90, cy - 90 + k]); }
+    } else if (piece === 'ramp') {                             // a ramp in side view, with its rise marked
+      line([cx - 140, cy + 80], [cx + 140, cy + 80], [cx + 140, cy - 80], [cx - 140, cy + 80]);
+      for (let k = 1; k < 7; k++) line([cx - 140 + k * 40, cy + 80], [cx - 140 + k * 40, cy + 80 - k * 160 / 7 * 1]);
+      line([cx + 170, cy + 80], [cx + 170, cy - 80]); line([cx + 160, cy - 80], [cx + 180, cy - 80]); line([cx + 160, cy + 80], [cx + 180, cy + 80]);
+    } else {                                                   // a cone (pyramid) from above, its edges to the apex
+      g.strokeRect(cx - 100, cy - 90, 200, 180);
+      line([cx - 100, cy - 90], [cx + 100, cy + 90]); line([cx + 100, cy - 90], [cx - 100, cy + 90]);
+      g.strokeRect(cx - 40, cy - 36, 80, 72);
+    }
+    g.fillText('BLUEPRINT  /  ' + piece.toUpperCase(), 36, 56);
+    g.font = '16px monospace'; g.fillText('GRID 3.2 M', 36, H - 34);
+    this.bpTex.needsUpdate = true;
+  }
+  // Raises the blueprint into your hands (and lowers it again); true while it shows, and the gun stays down.
+  poseBlueprint(want, t) {
+    const dt = Math.min(.05, Math.max(0, t - (this.bpT ?? t))); this.bpT = t;
+    this.bpK += ((want ? 1 : 0) - this.bpK) * (1 - Math.exp(-14 * dt));
+    if (!want && this.bpK < .02) this.bpK = 0;
+    const k = this.bpK, g = this.blueprint;
+    g.visible = k > .02;
+    if (!g.visible) return false;
+    g.position.set(.02 + Math.sin(t * 1.3) * .004, -.3 - (1 - k) * .5, -.74);
+    g.rotation.set(-.5 - (1 - k) * .5, Math.sin(t * .9) * .015, Math.sin(t * 1.1) * .01);
+    return true;
   }
 
   makeWall(wall, x, y, z, w, d) {
@@ -562,6 +690,7 @@ export class BattleRoyale {
   edit(human) {
     if (this.editing) { this.cancelEdit(); return; }
     this.editing = this.walls.find(wall => wall.owner === human.f && this.aimAt(wall, human));
+    this.holding = false;
     if (!this.editing) { this.notify('Aim at a build to edit'); return; }
     this.editMask = this.editing.mask;
     this.editDir = this.editing.dir;
@@ -620,6 +749,18 @@ export class BattleRoyale {
     this.editMask = this.editing.kind === 'wall' ? FULL_WALL : PLATFORM_MASK;
     this.editDir = this.editing.startDir;
     this.applyEdit();
+  }
+
+  // The reset key without the editor: the build you aim at goes back to how it was built.
+  quickReset(human) {
+    if (this.editing) { this.resetEdit(); return; }
+    const piece = this.walls.find(w => w.owner === human.f && this.aimAt(w, human));
+    if (!piece) { this.notify('Aim at one of your builds to reset it'); return; }
+    if (piece.mask === (piece.kind === 'wall' ? FULL_WALL : PLATFORM_MASK) && piece.dir === piece.startDir) { this.notify('Nothing to reset'); return; }
+    this.editing = piece;
+    this.resetEdit();
+    if (this.editing === piece) this.cancelEdit();         // a fighter was in the way: it stays as it is
+    else this.notify('Edit reset');
   }
 
   rotateEdit() { if (this.editing.kind === 'ramp') { this.editDir = (this.editDir + 1) % 4; this.applyEdit(); } }
@@ -687,8 +828,9 @@ export class BattleRoyale {
         + (this.editing.kind === 'ramp' ? ' · ' + bind('reload') + ' Rotate' : '')
         + '\n' + EDIT_PRESETS[this.editing.kind].map(([name],i) => (i+1) + ' ' + name).join(' · ')
       : chest ? bind('interact') + ' Open ' + (chest.pirate ? 'Pirate Chest' : 'chest')
-      : (b.humans[0].gun ? bind('knife') : bind('fire')) + ' Pickaxe · ' + bind('underbarrel') + (this.preview ? ' Back to shooting · ' + bind('fire') + ' Build ' : ' Build mode ') + this.piece
-        + ' · ' + bind('zero') + ' Change piece · ' + bind('ability') + ' Edit' + hint;
+      : (b.humans[0].gun ? bind('knife') : bind('fire')) + ' Pickaxe · ' + bind('underbarrel') + (this.preview ? ' Back to shooting · ' + bind('fire') + ' Build (hold to keep building) ' : ' Build mode ') + this.piece
+        + ' · ' + bind('zero') + ' Change piece · ' + bind('ability') + ' Edit · ' + bind('recall') + ' Reset edit'
+        + (this.preview && this.piece === 'ramp' ? ' · Look down: ramp under you' : '') + hint;
     const score = alive + ' left · ' + zone;
     const mats = this.materials + ' mats';
     if (this.matCount.textContent !== mats) this.matCount.textContent = mats;
@@ -700,6 +842,7 @@ export class BattleRoyale {
   dispose() {
     this.ring.removeFromParent();
     this.pickaxe.removeFromParent();
+    this.blueprint.removeFromParent();
     this.hotbar.remove();
     if (this.ghost) { for (const c of this.ghost.children) c.geometry.dispose(); this.ghost.removeFromParent(); }
     for (const f of this.battle.fighters) if (f.drop) { f.drop.chute.removeFromParent(); f.drop = null; }

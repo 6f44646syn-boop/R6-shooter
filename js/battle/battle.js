@@ -1044,9 +1044,9 @@ export class Battle {
       if (down && b === 2) this.royale.cancelEdit();
       return;
     }
-    if (this.royale?.preview && (b === 0 || b === 2)) {      // build mode: fire builds, as often as you click
+    if (this.royale?.preview && (b === 0 || b === 2)) {      // build mode: fire builds, and keeps building while it is held
       h.in.fire = h.in.ads = false;
-      if (down && b === 0 && !this.paused && !this.over && h.f.alive) this.royale.build(h.f, h.look.yaw);
+      if (b === 0) this.royale.holdFire(h, down && !this.paused && !this.over && h.f.alive);
       return;
     }
     if (this.royale && !h.gun && b === 0) {
@@ -1083,6 +1083,10 @@ export class Battle {
       if (down && code === 'KeyR') this.royale.rotateEdit();
       if (['KeyV','KeyB','KeyG','CapsLock','KeyK','KeyZ','KeyR'].includes(code)) return true;
     }
+    if (this.royale && code === 'KeyV' && p1.f.alive) {    // reset the edit of the build you aim at (the editor's own V is above)
+      if (down && !this.paused && !this.over && !p1.f.drop) this.royale.quickReset(p1);
+      return true;
+    }
     if (this.royale && code === 'KeyZ') {
       if (down && !this.paused && !this.over && p1.f.alive) this.royale.cyclePiece();
       return true;
@@ -1092,7 +1096,7 @@ export class Battle {
       return true;
     }
     if (this.royale && code === 'KeyB') {                  // build mode on / off: fire builds where the ghost shows
-      if (down && !this.paused && !this.over) { this.royale.preview = !this.royale.preview; p1.in.fire = p1.in.ads = false; }
+      if (down && !this.paused && !this.over) { this.royale.preview = !this.royale.preview; this.royale.holding = false; p1.in.fire = p1.in.ads = false; }
       return true;
     }
     if (this.royale && (code === 'Interact' || code === 'KeyF') && down
@@ -1191,12 +1195,13 @@ export class Battle {
       if (grenadeCam || royaleFocus && !royaleFocus.gun || this.viewOnly && !this.watchFocus) return;
       r.clearDepth();
       const pickaxe = this.royale && this.hud.end.dataset.finale !== 'flex' && (this.kc?.pov ? this.kc.pickaxe : h.f.alive && this.royale.showPickaxe(this.t));   // (the win flex always shows your gun)
-      if (this.royale) this.royale.posePickaxe(pickaxe, this.t);
-      const rig = !pickaxe && (this.watchFocus || royaleFocus || (this.kc && this.kc.pov && i === 0 && this.puppet)) ? this.puppet.rig : h.rig;
-      if (pickaxe) rig.root.visible = false;
+      const blueprint = !!this.royale && !this.kc?.pov && this.royale.poseBlueprint(h.f.alive && this.royale.preview && !h.f.drop && this.hud.end.dataset.finale !== 'flex', this.t);   // build mode: the blueprint in your hands
+      if (this.royale) this.royale.posePickaxe(pickaxe && !blueprint, this.t);
+      const rig = !pickaxe && !blueprint && (this.watchFocus || royaleFocus || (this.kc && this.kc.pov && i === 0 && this.puppet)) ? this.puppet.rig : h.rig;
+      if (pickaxe || blueprint) rig.root.visible = false;
       rig.setAspect(aspect, v.h);
       r.render(rig.scene, rig.camera);
-      if (pickaxe) rig.root.visible = h.f.alive && !!h.gun;
+      if (pickaxe || blueprint) rig.root.visible = h.f.alive && !!h.gun;
     });
     r.setScissorTest(false);
     const sz = r.getSize(new THREE.Vector2());

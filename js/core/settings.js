@@ -32,6 +32,8 @@ export const DEFAULTS = Object.freeze({
   reloadSpeed: 2,        // x faster than each gun's measured reloadSeconds (1 = as measured)
   renderScale: 0,        // 0 = auto (screen's pixel ratio, up to 2x); else 0.5 to 2 (above 1 = supersampling)
   royaleRenderDistance: 200,
+  oneXRecoil: 0.8,       // recoil multiplier with a 1x sight (red dots, holos, iron): 20% less; always 1 in ranked and online
+  turboBuild: true,      // Battle Royale: holding fire builds as fast as the game allows and rebuilds a destroyed piece in place
   antialias: true,       // MSAA; takes effect after a reload
   graphics: 'standard',  // 'low' (flat colours, slowest PCs), 'standard' (fast, school PCs), 'high' (shadows, PBR textures, filmic tone mapping) or 'ultra' (graphics card: 4K textures, weapon skins)
   animations: true,      // weapon animations: draw, reload, sprint pose, bolt, muzzle flash, brass
@@ -136,6 +138,8 @@ export function sanitize(input) {
   out.padAssist = ['off', 'light', 'standard'].includes(s.padAssist) ? s.padAssist : DEFAULTS.padAssist;
   out.taa = s.taa === true;
   out.botShadows = s.botShadows !== false;
+  out.turboBuild = s.turboBuild !== false;
+  out.oneXRecoil = typeof s.oneXRecoil === 'number' && s.oneXRecoil >= 0.5 && s.oneXRecoil <= 1 ? s.oneXRecoil : DEFAULTS.oneXRecoil;
   out.sharpen = [0, 0.25, 0.4, 0.6].includes(s.sharpen) ? s.sharpen : DEFAULTS.sharpen;
   out.fixedSeed = (typeof s.fixedSeed === 'string' && /^\d{0,10}$/.test(s.fixedSeed.trim())) ? s.fixedSeed.trim() : '';
   const bi = (s.battle && typeof s.battle === 'object') ? s.battle : {};

@@ -308,6 +308,92 @@ try {
   assert.deepEqual(climb, {ramps:10,climbed:true,blockedAtTen:true,mats:1});
   console.log('PASS connected ramps can be walked up ten levels and refuse an eleventh');
 
+  // build mode on the ramps: snapping, the crank tower, hold-to-build, turbo building, edit resets, the blueprint
+  const buildTools = await page.evaluate(() => {
+    const b = __range.battle(), r = b.royale, a = b.arena, h = b.humans[0], R = __range;
+    const clear = () => { for (const w of r.walls.slice()) { r.disposePiece(w); r.walls.splice(r.walls.indexOf(w), 1); } r.syncWalls(); };
+    // a flat spot with room for a ramp, and a row of free cells along x (yaw 180: walls ahead on +z)
+    const spot = (yaw, kind, along = 0) => {
+      for (let i = 0; i < a.nodeCount; i += 7) {
+        if (a.nodeY[i] > .01 || Math.abs(a.nodeX[i]) > 45 || Math.abs(a.nodeZ[i]) > 35) continue;       // (clear of the island's edge)
+        let ok = true;
+        for (let k = 0; k <= along && ok; k++) { Object.assign(h.f, { x: a.nodeX[i] + 3.2 * k, y: 0, z: a.nodeZ[i], vx: 0, vy: 0, vz: 0 }); h.look.yaw = yaw; ok = !r.plan(h.f, yaw, kind).blocked && !r.plan(h.f, yaw, 'ramp').blocked; }
+        if (ok) { Object.assign(h.f, { x: a.nodeX[i], y: 0, z: a.nodeZ[i], vx: 0, vy: 0, vz: 0 }); return true; }
+      }
+      return false;
+    };
+    const out = {};
+    clear(); r.materials = 60; h.look.pitch = 0; r.preview = false;
+    // 1. a wall beside the ramp you stand on sits on the ramp's own edges, wherever on it you are
+    out.found = spot(0, 'wall'); R.step(.05);
+    const ramp = r.build(h.f, 0, 'ramp'), q = ramp.mesh.position;
+    out.walls = [-1.4, -.6, 0, .6].map(along => {
+      Object.assign(h.f, { x: q.x, z: q.z - along, y: a.groundAt(q.x, q.z - along, 3) }); h.look.yaw = 0;
+      const top = r.plan(h.f, 0, 'wall'), side = r.plan(h.f, 90, 'wall');
+      return !top.blocked && top.attached && Math.abs(top.z - (q.z - 1.6)) < 1e-6 && Math.abs(top.y - (q.y + 1.7)) < 1e-6
+        && !side.blocked && side.attached && Math.abs(side.x - (q.x + 1.6)) < 1e-6 && Math.abs(side.y - q.y) < 1e-6;
+    });
+    // ... and the next ramp goes on from the middle of this one, not only from its top
+    Object.assign(h.f, { x: q.x, z: q.z + 1.2, y: a.groundAt(q.x, q.z + 1.2, 3) }); h.look.yaw = 0;
+    const next = r.plan(h.f, 0, 'ramp'); out.nextRamp = !next.blocked && next.previous === ramp && Math.abs(next.y - (q.y + 1.7)) < 1e-6;
+    clear();
+    // 2. the crank: ramps under your feet, a quarter turn each, lift you onto them (ten, then the limit)
+    out.found2 = spot(0, 'ramp'); r.materials = 60; R.step(.05); h.look.pitch = -70;
+    const tower = [];
+    for (let k = 0; k < 11; k++) {
+      const before = h.f.y, piece = r.build(h.f, k * 90, 'ramp', -70);
+      tower.push(piece ? [piece.level, +(h.f.y - before).toFixed(2)] : ['none', r.notice]);
+      R.step(.05);
+    }
+    out.tower = { levels: tower.slice(0, 10).map(t => t[0]).join(), lifted: tower.slice(0, 10).every(t => t[1] > .3), eleventh: tower[10].join(), y: +h.f.y.toFixed(1), mats: r.materials };
+    R.step(.5); out.stays = h.f.y > 15;
+    clear(); h.look.pitch = 0;
+    // 3. hold fire: walls go on every new edge as you move; turbo rebuilds a shot-down wall, plain does not
+    out.found3 = spot(180, 'wall', 5); h.look.yaw = 180; R.step(.05);
+    b.key('KeyB', true); b.key('KeyB', false);
+    r.piece = 'wall'; r.materials = 60; const x0 = h.f.x, z0 = h.f.z;
+    b.mouseButton(0, true);
+    for (let i = 0; i < 40; i++) { Object.assign(h.f, { x: x0 + i * .25, z: z0 }); R.step(.05); }
+    b.mouseButton(0, false);
+    out.drag = { cells: new Set(r.walls.map(w => w.mesh.position.x.toFixed(1))).size, spent: 60 - r.materials, setting: b.deps.settings.turboBuild };
+    const rebuilt = turbo => {
+      clear(); b.deps.settings.turboBuild = turbo; r.materials = 20; Object.assign(h.f, { x: x0, z: z0 }); R.step(.05);
+      b.mouseButton(0, true); R.step(.2);
+      for (const w of r.walls.slice()) r.damageWall(w, 1000);
+      const gone = r.walls.length === 0; R.step(.3); b.mouseButton(0, false);
+      return gone && r.walls.length;
+    };
+    out.turbo = rebuilt(true); out.plain = rebuilt(false); b.deps.settings.turboBuild = true;
+    clear(); r.materials = 0; b.mouseButton(0, true); R.step(.2); b.mouseButton(0, false); out.dry = r.notice;
+    // 4. the reset key: the wall or ramp you aim at goes back to how it was built (no editor needed)
+    r.materials = 20; spot(0, 'wall'); R.step(.05);
+    const wall = r.build(h.f, 0, 'wall');
+    Object.assign(h.f, { z: wall.mesh.position.z + 2.4, x: wall.mesh.position.x }); h.look.yaw = 0; R.step(.1);
+    r.editing = wall; r.editMask = 511 ^ 18; r.applyEdit();
+    const cut = wall.mask; b.key('KeyV', true); b.key('KeyV', false);
+    const reset = wall.mask === 511 && !r.editing && r.notice === 'Edit reset';
+    b.key('KeyV', true); b.key('KeyV', false); const again = r.notice;
+    out.reset = { cut: cut !== 511, reset, again };
+    clear();
+    // 5. build mode: the blueprint comes up in your hands (the pickaxe and the gun are down), and goes away again
+    r.preview = false; b.key('KeyB', true); b.key('KeyB', false);
+    let gunWhileDrawn = true; r.blueprint.children[0].onBeforeRender = () => { gunWhileDrawn = h.rig.root.visible; };   // the gun's state as the blueprint is drawn
+    for (let i = 0; i < 30; i++) { R.step(.016); R.renderFrame(); }
+    const held = { shown: r.blueprint.visible, pickaxe: r.pickaxe.visible, gun: gunWhileDrawn };
+    b.key('KeyB', true); b.key('KeyB', false);
+    for (let i = 0; i < 60; i++) { R.step(.016); R.renderFrame(); }
+    out.blueprint = { held, away: !r.blueprint.visible };
+    return out;
+  });
+  assert.deepEqual(buildTools, {
+    found: true, walls: [true, true, true, true], nextRamp: true, found2: true,
+    tower: { levels: '1,2,3,4,5,6,7,8,9,10', lifted: true, eleventh: 'none,10-ramp height limit', y: buildTools.tower.y, mats: 50 }, stays: true,
+    found3: true, drag: { cells: buildTools.drag.cells, spent: buildTools.drag.cells, setting: true }, turbo: 1, plain: 0, dry: 'Out of materials',
+    reset: { cut: true, reset: true, again: 'Nothing to reset' }, blueprint: { held: { shown: true, pickaxe: false, gun: false }, away: true },
+  });
+  assert.ok(buildTools.drag.cells >= 3 && buildTools.tower.y > 15);
+  console.log('PASS walls snap to the ramp you stand on, ramps under your feet crank a tower, held fire drags and turbo rebuilds, V resets edits, the blueprint is in your hands');
+
   const result = await page.evaluate(() => {
     const b = __range.battle(), r = b.royale, h = b.humans[0].f;
     const [first, second, survivor] = b.bots.map(bot => bot.f);

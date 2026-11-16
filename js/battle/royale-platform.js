@@ -6,6 +6,8 @@ const THICKNESS = .14;
 export const RAMP_RISE = 1.7;
 const RISE = { ramp:RAMP_RISE, cone:1.25 };
 export const platformHeight = kind => THICKNESS + RISE[kind];
+// A ramp's surface over its base height y, `along` metres from its centre towards its high end.
+export const rampSurface = (y, along) => y + THICKNESS + RAMP_RISE * (.5 + along / (2 * PLATFORM_HALF));
 
 function height(kind, x, z, raised) {
   if (!raised) return THICKNESS;

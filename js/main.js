@@ -225,13 +225,13 @@ async function boot(data) {
   recoil.aimScale = settings.aimRecoil;
   // Tests check the measured spray and exact hit spots: they start with hip spread off and
   // hip recoil at 1x (setHip turns them back on for the hip-fire tests).
-  if (new URLSearchParams(location.search).has('test')) { settings.hipSpread = false; settings.hipRecoil = 1; settings.autoReload = false; }
+  if (new URLSearchParams(location.search).has('test')) { settings.hipSpread = false; settings.hipRecoil = 1; settings.autoReload = false; settings.oneXRecoil = 1; }
   recoil.hipScale = settings.hipRecoil;
   const spread = new Spread();
   const spreadOff = [0, 0];
   recoil.aimSmooth = settings.aimSmooth;
   // Ranked and online matches read these settings from the game's fixed values, whatever you chose; sensitivity, FOV, crosshair and mouse vs trackpad stay yours.
-  const FAIR = { aimRecoil: DEFAULTS.aimRecoil, hipRecoil: DEFAULTS.hipRecoil, hipSpread: DEFAULTS.hipSpread, aimSmooth: DEFAULTS.aimSmooth, reloadSpeed: DEFAULTS.reloadSpeed, aimAssist: 0, padAssist: 'off', minimap: false, fixedSeed: '', botShadows: true };
+  const FAIR = { aimRecoil: DEFAULTS.aimRecoil, hipRecoil: DEFAULTS.hipRecoil, hipSpread: DEFAULTS.hipSpread, aimSmooth: DEFAULTS.aimSmooth, reloadSpeed: DEFAULTS.reloadSpeed, aimAssist: 0, oneXRecoil: 1, padAssist: 'off', minimap: false, fixedSeed: '', botShadows: true };
   if (new URLSearchParams(location.search).has('test')) { FAIR.hipSpread = false; FAIR.hipRecoil = 1; }   // tests start with exact shots (see above)
   let fairOn = false;
   const fair = new Proxy(settings, { get: (t, k) => (fairOn && k in FAIR ? FAIR[k] : t[k]) });
@@ -398,7 +398,7 @@ async function boot(data) {
     if (!gun.optics.includes(id)) return;
     state.optic = catalogue.byId.get(id);
     if (save) { try { localStorage.setItem('scope:' + gun.id, id); } catch (e) { /* ignore */ } }
-    recoil.setScale(gun.opticRecoilScale[id] || 1); // sprayPath is only scaled when the data says so
+    recoil.setScale((gun.opticRecoilScale[id] || 1) * (state.optic.zoom <= 1 ? settings.oneXRecoil : 1)); // sprayPath is only scaled when the data says so
     rig.setGun(gun, state.gunIndex, state.optic);
     hud.setGun(gun, state.gunIndex, state.optic.label, skinName(state.gunIndex));
     renderSightRow();

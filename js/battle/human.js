@@ -66,7 +66,7 @@ export class Human {
     this.weapon.reloadSpeed = this.deps.settings.reloadSpeed;
     this.recoil.setGun(gun);
     if (!gun) { this.rig.root.visible = false; return; }
-    this.recoil.setScale(gun.opticRecoilScale[this.optic.id] || 1);
+    this.recoil.setScale((gun.opticRecoilScale[this.optic.id] || 1) * (this.optic.zoom <= 1 ? this.deps.settings.oneXRecoil : 1));
     this.recoil.aimScale = this.deps.settings.aimRecoil;
     this.recoil.hipScale = this.deps.settings.hipRecoil;
     this.recoil.aimSmooth = this.deps.settings.aimSmooth;
