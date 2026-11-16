@@ -37,10 +37,13 @@ export const CODES = [
   "BracketRight",
   "Minus",
   "Equal",
-  ...Array.from({ length: 10 }, (_, i) => "Digit" + i),
+  ...Array.from({ length: 8 }, (_, i) => "Digit" + i),
+  "WheelUp", // codes 44 and 45: the scroll wheel (the digit keys 8 and 9 were never bindable: the range keeps them)
+  "WheelDown",
 ];
 const STORE = "recoilRange.controls.v1";
 export function inputCode(e) {
+  if (e.type === "wheel") return e.deltaY < 0 ? 44 : e.deltaY > 0 ? 45 : 0;
   if (e.type.includes("mouse"))
     return e.button >= 0 && e.button <= 4 ? 128 + e.button : 0;
   return Math.max(0, CODES.indexOf(e.code));
@@ -54,7 +57,7 @@ export function inputLabel(c) {
         "Mouse back",
         "Mouse forward",
       ][c - 128]
-    : (CODES[c] || "Unbound").replace("Key", "").replace("Digit", "");
+    : (CODES[c] || "Unbound").replace("Key", "").replace("Digit", "").replace("Wheel", "Wheel ").toLowerCase().replace(/^./, (x) => x.toUpperCase());
 }
 export async function createControls() {
   const response = await fetch(
@@ -216,6 +219,13 @@ export function attachRawInput(
   listen(target, "keyup", (e) => handle(e, false));
   listen(target, "mousedown", (e) => handle(e, true));
   listen(target, "mouseup", (e) => handle(e, false));
+  // A wheel tick is a short press (long enough for Fire to register), then a release.
+  listen(target, "wheel", (e) => {
+    if (!inputCode(e)) return;
+    handle(e, true);
+    const up = { type: "wheel", deltaY: e.deltaY, target: e.target, preventDefault() {} };
+    setTimeout(() => handle(up, false), 60);
+  }, { passive: false });
   listen(window, "blur", () => api.release());
   listen(document, "visibilitychange", () => {
     if (document.hidden) api.release();

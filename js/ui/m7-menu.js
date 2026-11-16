@@ -166,11 +166,25 @@ export function mountControls(root, api, padPanel = null) {
         capture = { a, slot };
         render();
         status.textContent =
-          "Press a key or mouse button. Escape cancels; Delete clears this slot.";
+          "Press a key or mouse button, or scroll the wheel. Escape cancels; Delete clears this slot.";
       });
       buttons.push({ b, a, slot, title });
       row.append(b);
     }
+    const clear = node("button", "×");
+    clear.type = "button";
+    clear.className = "m7-clear";
+    clear.dataset.action = id;
+    clear.title = clear.ariaLabel = "Clear every bind for " + title;
+    clear.addEventListener("click", () => {
+      api.bind(a, 0, 0);
+      api.bind(a, 1, 0);
+      capture = null;
+      status.textContent = title + ": all binds cleared.";
+      save();
+      render();
+    });
+    row.append(clear);
     panels[
       a >= 16 ? 2 : [2, 3, 4, 5, 6, 7, 8, 9, 13].includes(a) ? 0 : 1
     ].panel.append(row);
@@ -236,6 +250,7 @@ export function mountControls(root, api, padPanel = null) {
   };
   document.addEventListener("keydown", captureInput, true);
   document.addEventListener("mousedown", captureInput, true);
+  document.addEventListener("wheel", captureInput, { capture: true, passive: false });
   const devicePanel = node("section");
   devicePanel.id = "m7-device";
   devicePanel.append(profiles, intro, options);
@@ -243,7 +258,7 @@ export function mountControls(root, api, padPanel = null) {
   table.prepend(
     node(
       "p",
-      "Select a binding to change it. Escape cancels; Delete clears it. Primary and alternate inputs both work.",
+      "Select a binding to change it (a key, a mouse button or the scroll wheel). Escape cancels; Delete clears it; × clears both inputs of a control. Primary and alternate inputs both work.",
     ),
   );
   root.append(status, devicePanel, table);

@@ -94,6 +94,20 @@ try {
       .locator('[data-action=ability][data-slot="0"]')
       .textContent()) === "O",
   );
+  await page.click('[data-action=ability][data-slot="1"]');
+  await page.mouse.wheel(0, -120);
+  check(
+    "the scroll wheel can be bound",
+    (await page.locator('[data-action=ability][data-slot="1"]').textContent()) === "Wheel up" &&
+      (await evalR(() => __range.controls.e.mc_binding(10, 1) === 44)),
+  );
+  await page.click('[data-action=ability].m7-clear');
+  check(
+    "the x clears every bind of a control",
+    await evalR(() => __range.controls.e.mc_binding(10, 0) === 0 && __range.controls.e.mc_binding(10, 1) === 0),
+  );
+  await page.click('[data-action=ability][data-slot="0"]');
+  await page.keyboard.press("KeyO");
   await page.reload();
   await page.waitForFunction(() => window.__range?.ready);
   check(

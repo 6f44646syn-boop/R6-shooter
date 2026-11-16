@@ -397,8 +397,9 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 #settings-root .settings { display: block; }
 #settings-root > .row { margin-top: 16px; }
 .m7-bindings { display: grid; gap: 6px; margin-top: 12px; }
-.m7-binding { display: grid; grid-template-columns: minmax(120px,1fr) minmax(90px,150px) minmax(90px,150px); align-items: center; gap: 10px; border-bottom: 1px solid #ffffff0d; padding: 6px 0; }
+.m7-binding { display: grid; grid-template-columns: minmax(120px,1fr) minmax(90px,150px) minmax(90px,150px) 38px; align-items: center; gap: 10px; border-bottom: 1px solid #ffffff0d; padding: 6px 0; }
 .m7-binding button { min-height: 38px; font-family: var(--mono); }
+.m7-binding .m7-clear { min-height: 38px; padding: 0; font-size: 18px; line-height: 1; }
 .m7-welcome { color: var(--fg); background: #121c27; border: 1px solid #617183; border-top: 3px solid var(--accent); border-radius: 12px; padding: 28px; max-width: min(540px,calc(100vw - 24px)); box-shadow: 0 20px 80px #000b; }
 .m7-welcome::backdrop { background: #02080fe8; }
 .m7-welcome button { display: block; width: 100%; min-height: 52px; margin-top: 12px; }
@@ -409,7 +410,7 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
   .menu-head .steps { display: none; }
   .modes { grid-template-columns: 1fr; }
   .mode-card { min-height: 88px; }
-  .m7-binding { grid-template-columns: minmax(80px,1fr) 90px 90px; gap: 5px; font-size: 12px; }
+  .m7-binding { grid-template-columns: minmax(80px,1fr) 90px 90px 32px; gap: 5px; font-size: 12px; }
   .m7-binding button { padding: 6px 3px; }
   .keys dl { grid-template-columns: 1fr; }
   .keys dd { margin: 0 0 8px; }
