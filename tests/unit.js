@@ -39,7 +39,7 @@ test('Sakura Gilt is the rarest pack reward and survives save-code export', () =
   near(RARITIES.reduce((sum, r) => sum + r.odds, 0), 1, 1e-12);
   eq([ice.odds, legendary.odds].join(), '0.05,0.01', 'Black Ice 5%, Legendary 1%');
   eq(Math.round(RARITIES.reduce((t, r) => t + r.odds, 0) * 1e6), 1e6, 'odds sum to 1');
-  eq(CATALOGUE.filter(skin => skin.rarity === 'blackice').length, 9);
+  eq(CATALOGUE.filter(skin => skin.rarity === 'blackice').map(skin => skin.guns[0]).sort().join(), '0,1,2,3,4,5,6,7,8,9', 'one Black Ice per gun');
   eq(profile.has(SAKURA_ID), false, 'locked at start');
   eq(profile.has(LEGEND_ID), true, 'custom photo still available');
   eq(skinFits(SAKURA_ID, 2), true, 'R4-C');
@@ -54,7 +54,7 @@ test('Sakura Gilt is the rarest pack reward and survives save-code export', () =
   eq(profile.equip(2, SAKURA_ID), true);
   restored.loadCode(profile.saveCode());
   eq(restored.equippedFor(2), SAKURA_ID);
-  eq(restored.ownedCount, 11);
+  eq(restored.ownedCount, 12);      // the 10 Black Ices (SMG-11 Rose, id 211, included) and one Legendary
   // the Legendary pack: 1000 points, one per player, a Legendary you do not own yet, kept in the save code
   const rich = new Profile(storage); rich.addPoints(2500);
   const got = rich.openLegendPack(() => 0);

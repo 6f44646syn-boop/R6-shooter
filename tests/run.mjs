@@ -6,6 +6,8 @@
 // `npm i -D playwright` in a scratch folder or use your own Chrome via PLAYWRIGHT_CHROMIUM.
 import { createRequire } from 'node:module';
 import { startServer } from '../tools/serve.mjs';
+import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 
 const require = createRequire(import.meta.url);
 let chromium;
@@ -53,7 +55,6 @@ try {
   console.log('\nMeasured sprays (data/guns.json) vs bullet-hole pixels at the aimed FOV');
   {
     const { refit } = await import('../tools/fit-lib.mjs');
-    const { readFileSync } = await import('node:fs');
     const guns = JSON.parse(readFileSync(new URL('../data/guns.json', import.meta.url), 'utf8')).guns;
     for (const [i, g] of guns.entries()) {
       if (!g.measurement) continue;
@@ -1016,8 +1017,8 @@ try {
     check('high graphics: tone mapping on, shadows cast (' + gq.hi.calls + ' calls vs ' + gq.std + ')', gq.hi.tone !== 0 && gq.hi.shadows > 0, JSON.stringify(gq));
     check('back to standard graphics restores the original look', gq.toneBack === 0 && gq.back === gq.std, JSON.stringify(gq));
 
-    // Ultra: GPU-baked skins and detail (small sizes here: software rendering), the slot's
-    // skin named in the HUD, and back to standard without errors.
+    // Ultra: GPU-baked detail (small sizes here: software rendering); a slot with no skin equipped wears the
+    // gun's own gunmetal, walnut and steel (no skin named in the HUD), and back to standard without errors.
     const uq = await page.evaluate(() => {
       const R = window.__range;
       R.setGraphics('ultra'); R.selectGun(5); R.step(1); R.renderFrame();
@@ -1027,8 +1028,30 @@ try {
       R.setGraphics('standard'); R.selectGun(0); R.step(1); R.renderFrame();
       return { info, info2, tone: R.toneMapping() };
     });
-    check('ultra graphics: each slot has its own skin (' + uq.info.split(' · ').pop() + ', ' + uq.info2.split(' · ').pop() + ')',
-      /Teal Hexcore/.test(uq.info) && /Carbon Weave/.test(uq.info2) && uq.tone === 0, JSON.stringify(uq));
+    check('ultra graphics: a slot with no skin shows the plain gun (no skin named)',
+      !/Teal Hexcore|Carbon Weave/.test(uq.info + uq.info2) && /Magnified B/.test(uq.info) && uq.tone === 0, JSON.stringify(uq));
+
+    // Weapon Skins pack (a one-picture copy of it here): an F2 wearing Olive Pixel is painted with its picture;
+    // Minimal mode wears no skin; Low graphics has no inspect.
+    const picBytes = readFileSync(new URL('../skinpack/1/0.webp', import.meta.url));
+    await page.route('**/skinpack/manifest.json', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ version: 1, total: picBytes.length,
+      files: [{ path: '1/0.webp', size: picBytes.length, sha256: createHash('sha256').update(picBytes).digest('hex') }] }) }));
+    const sp = await page.evaluate(async () => {
+      const R = window.__range, rig = R.rigObj(), out = { install: await R.skinInstall() };
+      const art = () => { let a = null; rig.current.traverse((o) => { const t = o.material?.userData?.tri?.artMap?.value; if (t && !a) a = t; }); return a; };
+      rig.forceSkin = 0; R.selectGun(1); R.step(0.2);
+      for (let i = 0; i < 40 && !art()?.image; i++) await new Promise((r) => setTimeout(r, 100));
+      out.width = art()?.image?.width;
+      R.setSetting('minimal', true); R.setGraphics('standard'); R.selectGun(1); R.step(0.2); out.minimal = !!art();
+      R.setSetting('minimal', false); R.setGraphics('low'); R.step(0.2);
+      R.controls.onAction('inspect', true); R.step(0.2); out.lowInspect = rig.inspectT >= 0;
+      R.setGraphics('standard'); R.step(0.2); R.controls.onAction('inspect', true); R.step(0.2); out.inspect = rig.inspectT >= 0; R.step(12);
+      rig.forceSkin = undefined; await R.skinRemove(); R.selectGun(0); R.step(0.2);
+      return out;
+    });
+    await page.unroute('**/skinpack/manifest.json');
+    check('Weapon Skins pack paints its picture; Minimal mode wears no skin; no inspect on Low',
+      sp.install.ok && sp.width === 1200 && !sp.minimal && !sp.lowInspect && sp.inspect, JSON.stringify(sp));
 
     // Weapon animations: a shot shows the muzzle flash, kicks the bolt and ejects brass; a
     // reload drops the magazine out of sight and puts it back; switching guns draws the new one.

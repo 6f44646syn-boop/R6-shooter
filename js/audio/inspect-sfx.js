@@ -50,36 +50,48 @@ export function playInspect(sfx, look, seconds) {
       noise(at(0.15), S * 0.6, 1200, 0.5, 0.04, 'bandpass', 1.5);
       const pent = [523, 587, 659, 784, 880, 1047]; for (let i = 0; i < 12; i++) bell(at(0.25 + i * 0.045), pent[Math.floor(r() * pent.length)], 0.05);
     },
-    forge() {       // Forgeheart: a furnace roar, crackling fire, the shards breaking out
-      noise(at(0.15), S * 0.7, 180, 0.6, 0.14, 'lowpass', 1.2);
+    forge() {       // Forgeheart: the furnace, the core cracking, three hammer blows on the anvil, the pour, the quench
+      noise(at(0.12), S * 0.75, 180, 0.6, 0.14, 'lowpass', 1.2);
       for (let i = 0; i < 70; i++) noise(at(0.2 + r() * 0.65), 0.03, 2500 + r() * 3000, 2, 0.12, 'bandpass', 0.002);
-      for (let i = 0; i < 6; i++) { tone(at(0.4 + i * 0.012), 0.4, 1900 + r() * 900, 1500, 'triangle', 0.06, 0.002); noise(at(0.4 + i * 0.012), 0.15, 900, 1, 0.15, 'bandpass', 0.002); }
-      for (const b of [0.5, 0.57, 0.64]) { tone(at(b), 0.22, 75, 38, 'sine', 0.38, 0.004); tone(at(b + 0.017), 0.18, 70, 36, 'sine', 0.24, 0.004); }   // the heartbeat
-      noise(at(0.78), 1.6, 5200, 0.5, 0.22, 'highpass', 0.01); noise(at(0.78), 0.12, 1800, 1, 0.25, 'bandpass', 0.002);   // the quench: a hiss of steam
-      for (let i = 0; i < 24; i++) noise(at(0.78 + r() * 0.06), 0.03, 3000 + r() * 3000, 2, 0.1, 'bandpass', 0.002);
+      tone(at(0.32), 0.9, 70, 35, 'sine', 0.3, 0.004); noise(at(0.32), 0.5, 700, 0.8, 0.25, 'bandpass', 0.002, 200);            // the first blow splits it open
+      for (let i = 0; i < 14; i++) noise(at(0.325 + r() * 0.2), 0.05, 1200 + r() * 1500, 2, 0.12, 'bandpass', 0.002);         // ... and it keeps cracking
+      [0.32, 0.4, 0.48].forEach((h, i) => {                                                                                       // the hammer on the anvil
+        noise(at(h) - 0.06, 0.08, 500, 0.7, 0.05, 'bandpass', 0.05, 1600);                                                         // its swing
+        noise(at(h), 0.05, 3500, 0.8, 0.4, 'bandpass', 0.001); tone(at(h), 0.25, 160, 60, 'sine', 0.35, 0.002);
+        bell(at(h), 1180 + i * 40, 0.12); bell(at(h), 1720 + i * 60, 0.06);
+        for (let k = 0; k < 10; k++) noise(at(h) + r() * 0.4, 0.02, 3500 + r() * 3000, 2, 0.08, 'bandpass', 0.002);              // sparks
+      });
+      noise(at(0.635), 0.12 * S + 0.6, 4800, 0.6, 0.12, 'highpass', 0.15);                                                     // the steam hissing up
+      noise(at(0.84), 1.6, 5200, 0.5, 0.22, 'highpass', 0.01); noise(at(0.84), 0.12, 1800, 1, 0.25, 'bandpass', 0.002);       // the quench: a hiss of steam
+      for (let i = 0; i < 24; i++) noise(at(0.84 + r() * 0.06), 0.03, 3000 + r() * 3000, 2, 0.1, 'bandpass', 0.002);
     },
     orrery() {      // Midnight Orrery: the portal hums open, a starry shimmer
       tone(at(0.1), S * 0.8, 110, 110, 'sine', 0.08, 1.2); tone(at(0.1), S * 0.8, 165, 165, 'sine', 0.05, 1.5); tone(at(0.1), S * 0.8, 220.5, 220.5, 'sine', 0.04, 1.8);
       for (let i = 0; i < 24; i++) bell(at(0.2 + r() * 0.65), 1500 + r() * 2500, 0.025);
     },
-    amber() {       // Amber Reliquary: a buzzing fly, the bonk, the resin gloop
+    amber() {       // Amber Reliquary: a buzzing swarm, each fly plopping into the resin, the gloop
       const o = ctx.createOscillator(), lfo = ctx.createOscillator(), lg = ctx.createGain(), g = ctx.createGain(), f = ctx.createBiquadFilter();
       o.type = 'sawtooth'; o.frequency.value = 190; lfo.frequency.value = 9; lg.gain.value = 22; lfo.connect(lg).connect(o.frequency);
       f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 1.4;
       g.gain.setValueAtTime(0.0001, at(0.1)); g.gain.linearRampToValueAtTime(0.06, at(0.14)); g.gain.setValueAtTime(0.06, at(0.68)); g.gain.linearRampToValueAtTime(0.0001, at(0.69));
       o.connect(f).connect(g).connect(out); o.start(at(0.1)); lfo.start(at(0.1)); o.stop(at(0.7)); lfo.stop(at(0.7));
-      tone(at(0.69), 0.18, 300, 90, 'sine', 0.3, 0.002); noise(at(0.69), 0.1, 1500, 1, 0.15, 'bandpass', 0.002);
+      // the swarm: a second, higher buzz; then each fly plops into the resin, the big one last
+      tone(at(0.12), (0.68 - 0.12) * S, 330, 300, 'sawtooth', 0.012, 0.6); tone(at(0.14), (0.66 - 0.14) * S, 410, 380, 'sawtooth', 0.01, 0.6);
+      for (const h of [0.585, 0.605, 0.625, 0.645, 0.66, 0.675]) { tone(at(h), 0.14, 420, 140, 'sine', 0.16, 0.002); noise(at(h), 0.06, 1800, 1, 0.08, 'bandpass', 0.002); }
+      tone(at(0.69), 0.22, 300, 80, 'sine', 0.3, 0.002); noise(at(0.69), 0.1, 1500, 1, 0.15, 'bandpass', 0.002);
       for (let i = 0; i < 5; i++) tone(at(0.3 + r() * 0.5), 0.25, 180, 70, 'sine', 0.06, 0.01);
     },
     jade() {        // Jade Coil: the dragon's low growl, scales rustling, a sparkle of gold
       tone(at(0.12), 1.4, 70, 55, 'sawtooth', 0.06, 0.3); noise(at(0.12), 1.6, 300, 1, 0.06, 'bandpass', 0.4);
       noise(at(0.2), S * 0.6, 3500, 0.8, 0.03, 'bandpass', 1);
       for (let i = 0; i < 16; i++) bell(at(0.15 + r() * 0.7), 2000 + r() * 2000, 0.025);
-      noise(at(0.56), 0.06, 2200, 1, 0.3, 'bandpass', 0.002); tone(at(0.56), 0.1, 180, 80, 'square', 0.1, 0.002);   // the jaws close on the pearl
-      for (let i = 0; i < 5; i++) bell(at(0.565 + i * 0.008), 1400 + i * 350, 0.05);
-      tone(at(0.63), 1.0, 60, 48, 'sawtooth', 0.08, 0.2);                                                            // it rears ...
-      noise(at(0.665), (0.1 * S) + 0.4, 700, 0.6, 0.2, 'bandpass', 0.08, 1600);                                     // ... and breathes fire
-      noise(at(0.665), (0.1 * S) + 0.4, 160, 0.8, 0.14, 'lowpass', 0.1);
+      noise(at(0.5), 0.06, 2200, 1, 0.3, 'bandpass', 0.002); tone(at(0.5), 0.1, 180, 80, 'square', 0.1, 0.002);     // the jaws close on the pearl
+      for (let i = 0; i < 5; i++) bell(at(0.505 + i * 0.008), 1400 + i * 350, 0.05);
+      noise(at(0.54), 0.16 * S, 900, 0.7, 0.05, 'bandpass', 0.12 * S, 300);                                          // it swims to the muzzle ...
+      for (let i = 0; i < 16; i++) noise(at(0.66 + i * 0.006), 0.04, 4200 + r() * 1500, 3, 0.05, 'bandpass', 0.002); // ... and the scales click into place, muzzle to stock
+      tone(at(0.83), 1.0, 60, 48, 'sawtooth', 0.08, 0.2);                                                            // a growl ...
+      noise(at(0.865), (0.1 * S) + 0.4, 700, 0.6, 0.2, 'bandpass', 0.08, 1600);                                     // ... and it breathes fire
+      noise(at(0.865), (0.1 * S) + 0.4, 160, 0.8, 0.14, 'lowpass', 0.1);
     },
     velvet() {      // Velvet Ante: cards whirring, the charge, the chip, the cards falling
       for (let i = 0; i < 30; i++) noise(at(0.08 + r() * 0.4), 0.04, 3000, 2, 0.08, 'bandpass', 0.002);
@@ -95,6 +107,8 @@ export function playInspect(sfx, look, seconds) {
       tone(at(0.645), 0.3, 190, 60, 'sine', 0.22, 0.01);                                                             // the gulp
       for (let i = 0; i < 10; i++) bell(at(0.7 + r() * 0.08), 1600 + r() * 2400, 0.03);                              // the shimmer
       tone(at(0.8), 0.8, 95, 62, 'sawtooth', 0.1, 0.12); noise(at(0.8), 0.8, 450, 0.7, 0.16, 'lowpass', 0.1, 220);   // the roar
+      tone(at(0.665), 0.075 * S, 500, 2600, 'sine', 0.05, 0.05); tone(at(0.665), 0.075 * S, 750, 3900, 'sine', 0.03, 0.05);   // the colour wave sweeping back
+      for (let i = 0; i < 12; i++) bell(at(0.665 + i * 0.0065), 900 * Math.pow(2, i / 6), 0.03);
       noise(at(0.887), 0.06, 1800, 1, 0.3, 'bandpass', 0.002); tone(at(0.887), 0.1, 160, 70, 'square', 0.12, 0.002); // snapping shut
     },
     ice() {         // Black Ice: frost creaking and crackling

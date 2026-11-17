@@ -1,14 +1,14 @@
 // Skins & packs: points, the pack opening (a slot-machine reel that slows down and lands on
 // your skin), your collection (click to put a skin on the selected gun), and the save code.
-import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById, skinFits, LEGEND_ID } from '../core/skins.js?v=d69caf8-mwjxfd1o';
-import { Profile, PACK_COST, LEGEND_PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=d69caf8-mwjxfd1o';
-import { legendPhotoURL, setLegendPhoto, clearLegendPhoto, onLegendChange } from '../core/legend.js?v=d69caf8-mwjxfd1o';
-import { skinThumb } from '../render/gpu-tex.js?v=d69caf8-mwjxfd1o';
-import { matches, totals } from '../core/history.js?v=d69caf8-mwjxfd1o';
-import { CHARMS } from '../core/charms.js?v=d69caf8-mwjxfd1o';
-import { BOARD, ranking, myCode, addFriend, removeFriend, myName, setName, friends } from '../core/bests.js?v=d69caf8-mwjxfd1o';
-import { TRADE_UP, TRADE_NEXT } from '../core/profile.js?v=d69caf8-mwjxfd1o';
-import { mulberry32 } from '../core/prng.js?v=d69caf8-mwjxfd1o';
+import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById, skinFits, LEGEND_ID } from '../core/skins.js?v=b14a97f-mwkjfhd1';
+import { Profile, PACK_COST, LEGEND_PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=b14a97f-mwkjfhd1';
+import { legendPhotoURL, setLegendPhoto, clearLegendPhoto, onLegendChange } from '../core/legend.js?v=b14a97f-mwkjfhd1';
+import { skinThumb } from '../render/gpu-tex.js?v=b14a97f-mwkjfhd1';
+import { matches, totals } from '../core/history.js?v=b14a97f-mwkjfhd1';
+import { CHARMS } from '../core/charms.js?v=b14a97f-mwkjfhd1';
+import { BOARD, ranking, myCode, addFriend, removeFriend, myName, setName, friends } from '../core/bests.js?v=b14a97f-mwkjfhd1';
+import { TRADE_UP, TRADE_NEXT } from '../core/profile.js?v=b14a97f-mwkjfhd1';
+import { mulberry32 } from '../core/prng.js?v=b14a97f-mwkjfhd1';
 
 // Weekly shop prices (a pack is 100 points for a random skin).
 const SHOP_PRICE = { common: 120, rare: 250, epic: 450, blackice: 900, legendary: 1500 };
@@ -41,7 +41,7 @@ export class PackUI {
 
   thumb(id, size = 96) {
     if (id === LEGEND_ID) return legendPhotoURL() || '';
-    if (skinById(id).art) return skinById(id).art;          // painted skins: their artwork
+    if (skinById(id).art) return skinById(id).thumb || skinById(id).art;   // painted skins: their artwork (a small copy for picture skins)
     const key = id + '@' + size;
     if (!this.thumbs.has(key)) {
       let url = '';

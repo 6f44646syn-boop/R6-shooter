@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=d69caf8-mwjxfd1o';
-import { mulberry32 } from '../core/prng.js?v=d69caf8-mwjxfd1o';
-import { mergeStatic } from './sight-model.js?v=d69caf8-mwjxfd1o';
+import * as THREE from '../../vendor/three/three.module.min.js?v=b14a97f-mwkjfhd1';
+import { mulberry32 } from '../core/prng.js?v=b14a97f-mwkjfhd1';
+import { mergeStatic } from './sight-model.js?v=b14a97f-mwkjfhd1';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s); Forgeheart, Abyssal Crown, Jade
@@ -10,7 +10,7 @@ const KILN_SECONDS = 8.4, KILN_PEAK = 0.57;
 const ABYSS_SECONDS = 8.4, ABYSS_PEAK = 0.57;      // (also the default clock of the shared deep-water particles)
 const CROWN_SECONDS = 9.0, CROWN_INK = 0.76;       // Abyssal Crown's own length, and when the kraken lets go
 const VESPER_SECONDS = 8.4, VESPER_PEAK = 0.57;
-const FORGE_SECONDS = 9.4, FORGE_PEAK = 0.57;
+const FORGE_SECONDS = 11.2;
 const ORRERY_SECONDS = 8.4;
 const smooth = THREE.MathUtils.smoothstep;
 
@@ -406,7 +406,7 @@ const particleFragment = /* glsl */`
       c = mix(c, vec3(1.0, 0.86, 0.5), smoothstep(0.6, 0.95, temp));
       a = vAlpha * shape * pow(1.0 - vAge, 1.3) * 0.9;
       #ifdef BREATH
-        c = mix(tint * 0.55, vec3(1.0, 0.95, 0.75), smoothstep(0.3, 0.9, temp));
+        c = mix(tint * 0.55, mix(tint, vec3(1.0), 0.6), smoothstep(0.3, 0.9, temp));   // its own colour, white-hot at the core
       #endif
     #elif defined(SMOKE)
       float r = dot(p, p);
@@ -456,7 +456,7 @@ const particleFragment = /* glsl */`
 `;
 
 const particleBudget = { mist: [22, 38, 54, 70], chip: [20, 34, 48, 62], petal: [28, 46, 64, 84], drop: [14, 22, 30, 40], drip: [80, 140, 200, 260], rain: [80, 140, 200, 260], seaspray: [60, 100, 150, 200], seamist: [14, 24, 34, 44], splash: [120, 200, 300, 400], jet: [160, 280, 400, 520], wind: [15, 25, 35, 45], gather: [40, 70, 100, 130], burst: [40, 70, 100, 140], spark: [16, 26, 36, 48], molten: [24, 40, 56, 72], zap: [70, 112, 168, 224], prism: [60, 100, 150, 200], flame: [140, 240, 340, 460], smoke: [16, 26, 36, 48], ember: [20, 34, 48, 64], bubble: [120, 200, 300, 400], speck: [10, 16, 22, 30], glint: [60, 100, 150, 200],
-  steam: [30, 50, 70, 90], shower: [40, 70, 100, 140], ink: [24, 40, 56, 72], breath: [120, 200, 300, 400], shimmer: [60, 100, 150, 200], roar: [80, 140, 200, 260] };
+  steam: [40, 70, 110, 160], shower: [40, 70, 100, 140], ink: [24, 40, 56, 72], breath: [120, 200, 300, 400], shimmer: [60, 100, 150, 200], roar: [80, 140, 200, 260] };
 const particleTier = { low: 0, standard: 1, high: 2, ultra: 3 };
 // Storm Kiln's lightning: when each strike lands (inspect fraction); each hits the gun at its own point
 const KILN_STRIKES = [0.26, 0.31, 0.35, 0.4, 0.43, 0.47, 0.5, 0.53, 0.57, 0.6, 0.63, 0.67, 0.71, 0.76];
@@ -1229,20 +1229,26 @@ export function vesperInspect(gun, { reliefs, surface }, quality) {
   };
 }
 
-// Forgeheart: raise the black ceramic; a dull red glow creeps under the plates and the heat front
-// traces the orange seam from the handguard into the receiver (shader, artPhase). At the peak the
-// plates lift just enough to show the molten channel under smoked glass, with sparks off the split
-// and a shimmer of embers on the seam. The molten heart beats three times (each beat flares the seam
-// and the plates); then it is quenched: steam bursts off the seam, the glow snaps dark, a last shower
-// of sparks falls, and the plates settle. The gun stays raised until the steam has cleared.
-const FORGE_BEATS = [0.5, 0.57, 0.64], FORGE_QUENCH = 0.78;
+// Forgeheart: the gun is taken back to the forge. A heat front runs along the orange seam (shader,
+// artPhase). A glowing hammer swings in from your side and strikes three times: the first blow splits the
+// gun open along its length from where it lands (a jagged crack, branching; real cuts with bevelled,
+// charred walls and lava at the bottom, in the shader), the plates jump, shards rise out of the sides and
+// obsidian chips fly off; each blow throws a shower of sparks, flashes the metal hot and drives the cracks
+// further. Then it steams, a thick plume hissing off the hot metal, the chips and shards drawn back in; the
+// quench: more steam, a last shower of sparks, the glow snapped dark. The plates are forged gunmetal (hammer dimples,
+// fire scale and temper colours, in the shader), not the painting's flat shading.
+// (the shader in gpu-tex.js keeps its own copy of these times)
+const FORGE_HEAT = 0.2, FORGE_HITS = [0.32, 0.4, 0.48], FORGE_STEAM = 0.635, FORGE_QUENCH = 0.84;
+const FORGE_BASE = [-0.086, 0.102, -0.132, 0.145, 1.12, 0];                // the pose while it is worked on
 const FORGE_CLIP = { root: [
   [0, 0, 0, 0, 0, 0, 0],
-  [0.17, -0.07, 0.09, -0.1, 0.14, 0.86, 0.1],
-  [0.4, -0.084, 0.1, -0.128, 0.16, 1.1, 0.04],
-  [0.62, -0.088, 0.104, -0.136, 0.13, 1.14, -0.04],
-  [0.8, -0.08, 0.095, -0.12, 0.15, 1.0, -0.08],
-  [0.9, -0.06, 0.075, -0.09, 0.12, 0.66, -0.08],
+  [0.15, -0.07, 0.09, -0.1, 0.14, 0.86, 0.1],
+  [0.36, ...FORGE_BASE],
+  // each blow knocks the gun down and away a little, and it rocks back
+  ...FORGE_HITS.flatMap(h => [[h - 0.004, ...FORGE_BASE], [h + 0.005, FORGE_BASE[0] - 0.004, FORGE_BASE[1] - 0.009, FORGE_BASE[2], FORGE_BASE[3] + 0.02, FORGE_BASE[4] + 0.04, FORGE_BASE[5] - 0.045], [h + 0.035, ...FORGE_BASE]]),
+  [0.7, -0.084, 0.1, -0.128, 0.16, 1.06, -0.04],
+  [0.86, -0.08, 0.095, -0.12, 0.15, 1.0, -0.08],
+  [0.93, -0.06, 0.075, -0.09, 0.12, 0.66, -0.08],
   [1, 0, 0, 0, 0, 0, 0],
 ] };
 export function forgeInspect(gun, { reliefs, channels, seam, shards }, quality) {
@@ -1251,26 +1257,28 @@ export function forgeInspect(gun, { reliefs, channels, seam, shards }, quality) 
   const from = seam.length ? seam : [{ point: new THREE.Vector3(), normal: new THREE.Vector3(1, 0, 0) }];
   const sparks = particles('spark', tier, from, new THREE.Color(0xffc060), trail, mulberry32(205011), S);
   const embers = particles('ember', tier, from, new THREE.Color(0xff6a20), trail, mulberry32(205029), S);
-  const flames = particles('flame', tier, from, new THREE.Color(0xff8020), trail, mulberry32(205047), S);
-  flames.material.blending = THREE.AdditiveBlending;
   const smoke = particles('smoke', tier, from, new THREE.Color(0x222222), trail, mulberry32(205063), S);
   const drip = from.map(a => ({ point: a.point.clone(), normal: new THREE.Vector3(0, -1, 0) }));
   const molten = particles('molten', tier, drip, new THREE.Color(0xff5a08), trail, mulberry32(205121), S);
-  molten.material.blending = THREE.AdditiveBlending; molten.visible = false; gun.add(molten);
+  molten.material.blending = THREE.AdditiveBlending;
   // the quench: a burst of steam off the seam and a last shower of sparks
-  const steam = particles('steam', tier, from, new THREE.Color(0xc8ccd0), trail, mulberry32(205141), { ...S, window: [FORGE_QUENCH, FORGE_QUENCH + 0.05], life: [0.9, 1.6] });
+  const steam = particles('steam', tier, from, new THREE.Color(0xc8ccd0), trail, mulberry32(205141), { ...S, window: [FORGE_QUENCH, FORGE_QUENCH + 0.08], life: [1.3, 2.4] });
   const shower = particles('shower', tier, from, new THREE.Color(0xffd080), trail, mulberry32(205163), { ...S, window: [FORGE_QUENCH, FORGE_QUENCH + 0.04], life: [0.4, 0.8] });
   shower.material.blending = THREE.AdditiveBlending;
-  sparks.visible = embers.visible = flames.visible = smoke.visible = steam.visible = shower.visible = false;
-  gun.add(smoke, sparks, embers, flames, steam, shower);
-  // The peak, as in the owner's concept: the painting fades to the peak painting (artMix) while the
-  // traced shards rise out of the sides, from the split outwards, and a starburst flares at the split.
+  const fx = [sparks, embers, smoke, molten, steam, shower];
+  for (const m of fx) { m.visible = false; gun.add(m); }
   const [Z0, Z1, Y0, Y1] = [-0.59933, 0.37984, -0.39229, 0.26025];   // the AK-12's art rectangle (1536 x 1024 px concept)
   const split = new THREE.Vector2(Z0 + (Z1 - Z0) * 705 / 1536, Y1 - (Y1 - Y0) * 398 / 1024), half = 0.025;
+  // the hammer's blows land on the split, on your side: a shower of sparks off each
+  const blows = FORGE_HITS.map((h, i) => {
+    const at = [-1, 1].map(k => ({ point: new THREE.Vector3(k * (half + 0.003), split.y, split.x), normal: new THREE.Vector3(k, 0.35, 0).normalize() }));
+    const m = particles('shower', tier, at, new THREE.Color(0xffc870), trail, mulberry32(205201 + i * 13), { ...S, window: [h, h + 0.006], life: [0.3, 0.75] });
+    m.material.blending = THREE.AdditiveBlending; m.visible = false; gun.add(m); fx.push(m); return m;
+  });
   const mixes = [];
   gun.traverse(o => { const u = o.material?.userData?.tri; if (u?.artMix && !mixes.includes(u.artMix)) mixes.push(u.artMix); });
-  // floating obsidian: a few glossy black chunks break off around the split at the peak, hang in the
-  // air turning and bobbing (a lighter Vesper Glass), then are drawn back into the gun as it cools
+  // obsidian chips: glossy black chunks break off round the split as it cracks, hang turning in the air,
+  // and are drawn back in by the hammer
   const frng = mulberry32(205103), nChunks = [10, 16, 22, 28][tier];
   // an irregular faceted rock: an icosahedron with its corners pushed in and out (flat shaded, so every
   // facet catches the light at its own angle)
@@ -1290,7 +1298,7 @@ export function forgeInspect(gun, { reliefs, channels, seam, shards }, quality) 
     const at = new THREE.Vector3(side * half, split.y + (frng() - 0.5) * 0.04, split.x + (frng() - 0.5) * 0.36);
     const dir = new THREE.Vector3(side * (0.6 + frng() * 0.6), frng() * 0.9 - 0.2, (frng() - 0.5) * 0.8).normalize();
     return { at, dir, dist: 0.05 + frng() * 0.12, size: new THREE.Vector3(0.005 + frng() * 0.005, 0.007 + frng() * 0.009, 0.004 + frng() * 0.004),
-      axis: new THREE.Vector3(frng() - 0.5, frng() - 0.5, frng() - 0.5).normalize(), spin: 0.6 + frng() * 1.4, bob: frng() * 6.28, delay: frng() * 0.05 };
+      axis: new THREE.Vector3(frng() - 0.5, frng() - 0.5, frng() - 0.5).normalize(), spin: 0.6 + frng() * 1.4, bob: frng() * 6.28, delay: frng() * 0.05, back: frng() * 2 | 0 };
   });
   const cm = new THREE.Matrix4(), cq = new THREE.Quaternion(), cp = new THREE.Vector3(), cs = new THREE.Vector3();
   const bursts = [-1, 1].map(side => {
@@ -1300,10 +1308,40 @@ export function forgeInspect(gun, { reliefs, channels, seam, shards }, quality) 
     g.add(core, rayA, rayB); g.visible = false; gun.add(g);
     return { g, core, rayA, rayB };
   });
+  // the hammer: a forge hammer with a glowing hot head on an ash handle; it swings about the end of the
+  // handle (above the gun on your side), its striking face meeting the side of the gun at the split
+  const LH = 0.15;
+  const hammer = new THREE.Group(), steelMat = new THREE.MeshStandardMaterial({ color: 0x2a2624, metalness: 0.9, roughness: 0.35, emissive: 0xff4a08, emissiveIntensity: 0.1 });
+  const woodMat = new THREE.MeshStandardMaterial({ color: 0x6b4426, roughness: 0.7 });
+  const headGeo = new THREE.BoxGeometry(0.05, 0.03, 0.032), faceGeo = new THREE.CylinderGeometry(0.0155, 0.0155, 0.058, 16), handleGeo = new THREE.CylinderGeometry(0.005, 0.006, LH, 10);
+  const hHead = new THREE.Mesh(headGeo, steelMat); hHead.position.y = -LH;
+  const hFace = new THREE.Mesh(faceGeo, steelMat); hFace.rotation.z = Math.PI / 2; hFace.position.set(0, -LH, 0); hammer.add(hFace);   // (round striking faces at both ends)
+  const hHandle = new THREE.Mesh(handleGeo, woodMat); hHandle.position.y = -LH / 2 + 0.008;
+  hammer.add(hHead, hHandle); hammer.visible = false; gun.add(hammer);
+  const hammerGlow = flare(new THREE.Color(0xffa040)); hammerGlow.visible = false; gun.add(hammerGlow);
+  // the steam: a plume hissing up off the hot gun after the blows (where the metal was once poured), and
+  // more at the quench
+  const steamUp = particles('steam', tier, from, new THREE.Color(0xd4d8dc), trail, mulberry32(205251), { ...S, window: [FORGE_STEAM, FORGE_STEAM + 0.12], life: [1.3, 2.4] });
+  steamUp.visible = false; gun.add(steamUp); fx.push(steamUp);
+  // which side faces the camera: the hammer strikes that one
+  let viewSide = 1, side = 1; const camAt = new THREE.Vector3();
+  const probe = new THREE.Mesh(new THREE.PlaneGeometry(0.0001, 0.0001), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+  probe.frustumCulled = false; gun.add(probe);
+  probe.onBeforeRender = (renderer, scene, camera) => { camAt.setFromMatrixPosition(camera.matrixWorld); gun.worldToLocal(camAt); viewSide = Math.sign(camAt.x) || 1; };
   const order = [...new Set(reliefs.map(r => Math.round(r.base.z * 1000)))].sort((a, b) => a - b);
   const glazes = [];
   gun.traverse(o => { const u = o.material?.userData?.tri; if (u?.artPhase && !glazes.includes(u.artPhase)) glazes.push(u.artPhase); });
   const smoked = channels[0]?.material, hot = new THREE.Color(), deep = new THREE.Color(0xa01204), yellow = new THREE.Color(0xffc040);
+  const W = 1.25;                                                    // the hammer's swing (radians up from the blow)
+  // the hammer's angle at inspect time p: in from out of shot raised, then for each blow a rebound and
+  // wind-up and a fast fall onto the gun; after the last it lifts away
+  const swing = (p) => {
+    const [h0, h1, h2] = FORGE_HITS;
+    if (p >= h2) return W * smooth(p, h2, h2 + 0.05);
+    const i = p < h0 ? 0 : p < h1 ? 1 : 2, prev = i ? FORGE_HITS[i - 1] : h0 - 0.07, c = Math.max(0, (p - prev) / (FORGE_HITS[i] - prev));
+    const up = i ? W * smooth(c, 0, 0.68) : W;
+    return c < 0.72 ? up : W * (1 - ((c - 0.72) / 0.28) ** 2);
+  };
   let phase = -1;
   return {
     clip: FORGE_CLIP, seconds: FORGE_SECONDS,
@@ -1312,24 +1350,31 @@ export function forgeInspect(gun, { reliefs, channels, seam, shards }, quality) 
       if (!active && phase < 0) return;
       phase = active ? p : -1;
       for (const g of glazes) g.value = active ? p : -1;
-      sparks.visible = embers.visible = flames.visible = smoke.visible = molten.visible = active && p > 0.15;
+      if (active && p < 0.3) side = viewSide;
+      sparks.visible = embers.visible = smoke.visible = molten.visible = active && p > 0.15;
       steam.visible = shower.visible = active && p > FORGE_QUENCH - 0.01;
+      for (const m of blows) m.visible = active && p > FORGE_HITS[0] - 0.01;
+      steamUp.visible = active && p > FORGE_STEAM - 0.01;
       trail.update(active ? p * FORGE_SECONDS : -1);
-      // the heartbeat: lub-dub, three times through the peak
-      const beat = active ? FORGE_BEATS.reduce((sum, b) => sum + Math.exp(-(((p - b) / 0.006) ** 2)) + 0.6 * Math.exp(-(((p - b - 0.017) / 0.006) ** 2)), 0) : 0;
-      // the plates lift in turn from the handguard back, a few millimetres out and up (and kick out on each beat), then settle
+      // the blows: an impulse at each, and how many have landed
+      const blow = active ? FORGE_HITS.reduce((sum, h, i) => sum + (0.7 + 0.15 * i) * Math.exp(-(((p - h) / 0.007) ** 2)) * (p > h - 0.002 ? 1 : 0.3), 0) : 0;
+      const landed = active ? FORGE_HITS.reduce((n, h) => n + smooth(p, h, h + 0.012), 0) : 0;
+      const sealed = active ? smooth(p, FORGE_STEAM + 0.02, 0.8) : 0;
+      const open = (landed / 3) * (1 - sealed);                          // the cracks: opened by the blows, sealed by the pour
+      // the plates jump up on each blow, from the blow outwards, and settle as the pour seals them
       reliefs.forEach((r) => {
-        const k = order.indexOf(Math.round(r.base.z * 1000)), start = FORGE_PEAK - 0.14 + k * 0.03;
-        const lift = active ? smooth(p, start, start + 0.08) * (1 - smooth(p, 0.8, 0.9)) : 0;
-        r.group.position.copy(r.base).addScaledVector(r.normal, lift * (0.0045 + 0.0018 * beat));
+        const k = order.indexOf(Math.round(r.base.z * 1000)), start = FORGE_HITS[0] + k * 0.006;
+        const lift = active ? smooth(p, start, start + 0.02) * (0.5 + 0.5 * landed / 3) * (1 - sealed) : 0;
+        r.group.position.copy(r.base).addScaledVector(r.normal, lift * (0.0045 + 0.002 * blow));
         r.group.position.y = r.base.y + lift * 0.0025;
       });
-      // the floating obsidian: out from the split, hanging and bobbing, then back in
+      // the obsidian chips: out as it cracks, hanging and bobbing, back in on the blows
       const t = active ? p * FORGE_SECONDS : 0;
-      chunks.visible = active && p > 0.4 && p < 0.9;
+      chunks.visible = active && p > FORGE_HITS[0] && p < FORGE_STEAM + 0.08;
       if (chunks.visible) {
         chunk.forEach((c, i) => {
-          const out = smooth(p, 0.42 + c.delay, 0.52 + c.delay) * (1 - smooth(p, 0.76, 0.88)) * (1 + 0.12 * beat);
+          const hit = FORGE_HITS[c.back], home = FORGE_STEAM + 0.01 + c.delay;   // knocked out by the first or second blow; drawn back in by the pour
+          const out = smooth(p, hit, hit + 0.025 + c.delay * 0.3) * (1 - smooth(p, home, home + 0.03)) * (1 + 0.15 * blow);
           cp.copy(c.at).addScaledVector(c.dir, c.dist * out); cp.y += Math.sin(t * 1.6 + c.bob) * 0.006 * out;
           cq.setFromAxisAngle(c.axis, c.bob + t * c.spin);
           cs.copy(c.size).multiplyScalar(Math.max(out, 0.001));
@@ -1337,29 +1382,45 @@ export function forgeInspect(gun, { reliefs, channels, seam, shards }, quality) 
         });
         chunks.instanceMatrix.needsUpdate = true;
       }
-      for (const m of mixes) m.value = active ? smooth(p, 0.3, 0.46) * (1 - smooth(p, 0.68, 0.77)) : 0;   // (back to the painting before the quench)
-      // the shards rise out of the sides from the split outwards, hold through the peak, then sink back
+      for (const m of mixes) m.value = 0;                               // (no peak painting: the cracks are cut by the shader, on the steel)
+      // the shards rise out of the sides as it cracks, and are beaten back in, a third a blow
       for (const sh of shards) {
-        const k = active ? smooth(p, sh.start, sh.start + 0.07) * (1 - smooth(p, 0.78, 0.88)) : 0;
+        const k = active ? smooth(p, FORGE_HITS[0] + (sh.start - 0.38) * 0.15, FORGE_HITS[0] + 0.03 + (sh.start - 0.38) * 0.15) * (1 - sealed) : 0;   // (out from the blow outwards)
         sh.group.visible = k > 0.01;
         sh.group.scale.x = Math.max(k, 0.01);
         sh.group.position.copy(sh.base); sh.group.position.x = sh.side * (half + (sh.base.x * sh.side - half) * k + 0.004 * k);
       }
-      const burst = active ? smooth(p, 0.4, 0.5) * (1 - smooth(p, FORGE_QUENCH, FORGE_QUENCH + 0.03)) * (1 + 0.7 * beat) : 0, flick = 0.85 + 0.15 * Math.sin(p * 220);
+      // a starburst at the split: glowing while it is open, flaring on each blow
+      const burst = active ? (0.15 * open + 0.7 * blow) : 0, flick = 0.85 + 0.15 * Math.sin(p * 220);
       for (const b of bursts) {
         b.g.visible = burst > 0.01;
         b.core.scale.setScalar(0.1 * burst * flick);
         b.rayA.scale.set(0.34 * burst * flick, 0.018 * burst, 1); b.rayB.scale.set(0.26 * burst * flick, 0.015 * burst, 1);
       }
+      // the hammer
+      const [h0, , h2] = FORGE_HITS, inK = active ? smooth(p, h0 - 0.11, h0 - 0.07) * (1 - smooth(p, h2 + 0.03, h2 + 0.07)) : 0;
+      hammer.visible = inK > 0.01;
+      if (hammer.visible) {
+        hammer.position.set(side * (half + 0.004 + 0.029 + 0.25 * (1 - inK)), split.y + LH + 0.12 * (1 - inK), split.x);
+        hammer.rotation.set(0, side < 0 ? Math.PI : 0, swing(p));       // (turned round on the other side, so it swings outward from the gun)
+        steelMat.emissiveIntensity = 0.12 + 0.9 * blow;
+      }
+      hammerGlow.visible = hammer.visible;
+      if (hammerGlow.visible) { hHead.getWorldPosition(cp); gun.worldToLocal(cp); hammerGlow.position.copy(cp); hammerGlow.scale.setScalar(0.03 + 0.07 * blow); hammerGlow.material.opacity = 0.15 + 0.85 * Math.min(1, blow); }
       if (smoked) {
-        // yellow at the peak, cooling to deep red, then quenched: snapped dark
-        const glow = active ? smooth(p, FORGE_PEAK - 0.16, FORGE_PEAK - 0.04) * (1 - 0.6 * smooth(p, 0.66, 0.76)) * (1 - smooth(p, FORGE_QUENCH, FORGE_QUENCH + 0.025)) : 0;
-        const cool = active ? smooth(p, FORGE_PEAK + 0.06, 0.76) : 0;
+        // the seam: yellow while it is worked, flashing on the blows, cooling to deep red, then quenched dark
+        const glow = active ? smooth(p, FORGE_HEAT, FORGE_HEAT + 0.12) * (1 - 0.5 * smooth(p, 0.66, 0.78)) * (1 - smooth(p, FORGE_QUENCH, FORGE_QUENCH + 0.025)) : 0;
+        const cool = active ? smooth(p, FORGE_HITS[2] + 0.04, 0.8) : 0;
         smoked.emissive.copy(hot.copy(yellow).lerp(deep, cool));
-        smoked.emissiveIntensity = glow * 4 * (1 + 1.5 * beat);
+        smoked.emissiveIntensity = glow * 4 * (1 + 1.5 * blow);
       }
     },
-    dispose() { for (const m of [sparks, embers, flames, smoke, molten, steam, shower]) { m.geometry.dispose(); m.material.dispose(); } for (const b of bursts) b.g.traverse(o => o.material?.dispose()); chunkGeo.dispose(); chunkMat.dispose(); },
+    dispose() {
+      for (const m of fx) { m.geometry.dispose(); m.material.dispose(); }
+      for (const b of bursts) b.g.traverse(o => o.material?.dispose());
+      chunkGeo.dispose(); chunkMat.dispose(); steelMat.dispose(); woodMat.dispose(); headGeo.dispose(); faceGeo.dispose(); handleGeo.dispose(); hammerGlow.material.dispose();
+      probe.geometry.dispose(); probe.material.dispose();
+    },
   };
 }
 
@@ -1505,8 +1566,8 @@ export function orreryInspect(gun, { surface, under }, quality) {
 }
 
 // Amber Reliquary: the resin sloshes in its window (shader); silver fern fronds grow and unfurl from the
-// painted fern on the handguard; and a prehistoric fly buzzes round the gun, then crashes into it and
-// tumbles away. The fern paths are in concept pixels (06-amber-reliquary.png, 1536 x 1024).
+// painted fern on the handguard; and a swarm of prehistoric flies circles the gun, then dives one after
+// another into the amber window and sinks in, trapped. The fern paths are in concept pixels (06-amber-reliquary.png, 1536 x 1024).
 const AMBER_SECONDS = 8.4;
 export function amberInspect(gun, art, quality) {
   const [Z0, Z1, Y0, Y1] = [-0.32516, 0.28071, -0.26153, 0.14224];      // the MP5K's art rectangle
@@ -1548,29 +1609,47 @@ export function amberInspect(gun, art, quality) {
     }
     fronds.push({ stem, leaves, count: stem.geometry.index.count, start: 0.1 + rng() * 0.16 });
   }
-  // the fly: a big prehistoric one, amber-brown, with long veined wings
-  const fly = new THREE.Group(), body = new THREE.MeshStandardMaterial({ color: 0x3a2412, roughness: 0.45, metalness: 0.2 });
-  const thorax = new THREE.Mesh(new THREE.SphereGeometry(0.0055, 14, 10), body);
-  const abdomen = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), body); abdomen.scale.set(0.0045, 0.004, 0.011); abdomen.position.z = -0.012;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.0038, 12, 8), body); head.position.z = 0.0075;
+  // the swarm: prehistoric flies, amber-brown with long veined wings, one giant and six smaller; they
+  // circle the gun, then dive one after another into the amber window and sink in, trapped
+  const body = new THREE.MeshStandardMaterial({ color: 0x3a2412, roughness: 0.45, metalness: 0.2 });
   const eyeMat = new THREE.MeshStandardMaterial({ color: 0x8a1c0c, roughness: 0.2, metalness: 0.3 });
-  for (const k of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.0022, 10, 8), eyeMat); e.position.set(k * 0.0025, 0.001, 0.009); fly.add(e); }
-  const wingShape = new THREE.Shape(); wingShape.moveTo(0, 0); wingShape.bezierCurveTo(0.006, 0.004, 0.022, 0.006, 0.026, 0.001); wingShape.bezierCurveTo(0.02, -0.004, 0.006, -0.003, 0, 0);
+  const trapped = new THREE.MeshStandardMaterial({ color: 0x2a1404, roughness: 0.3, emissive: 0x3a1a00, emissiveIntensity: 0.4, transparent: true, opacity: 0.8 });   // a fly sealed in the resin
   const wingMat = new THREE.MeshPhysicalMaterial({ color: 0xe8dcc0, transparent: true, opacity: 0.4, roughness: 0.1, iridescence: 0.8, side: THREE.DoubleSide, depthWrite: false });
-  const wings = [-1, 1].map(k => {
-    const pivot = new THREE.Group(); pivot.position.set(k * 0.004, 0.003, 0);
-    const w = new THREE.Mesh(new THREE.ShapeGeometry(wingShape), wingMat); w.rotation.set(Math.PI / 2, 0, k < 0 ? Math.PI : 0); w.rotation.y = k * -0.5;
-    pivot.add(w); fly.add(pivot); return { pivot, k };
+  const thoraxGeo = new THREE.SphereGeometry(0.0055, 14, 10), unitGeo = new THREE.SphereGeometry(1, 14, 10), headGeo = new THREE.SphereGeometry(0.0038, 12, 8), eyeGeo = new THREE.SphereGeometry(0.0022, 10, 8);
+  const wingShape = new THREE.Shape(); wingShape.moveTo(0, 0); wingShape.bezierCurveTo(0.006, 0.004, 0.022, 0.006, 0.026, 0.001); wingShape.bezierCurveTo(0.02, -0.004, 0.006, -0.003, 0, 0);
+  const wingGeo = new THREE.ShapeGeometry(wingShape);
+  const makeFly = () => {
+    const g = new THREE.Group(), parts = [];
+    const thorax = new THREE.Mesh(thoraxGeo, body), abdomen = new THREE.Mesh(unitGeo, body), head = new THREE.Mesh(headGeo, body);
+    abdomen.scale.set(0.0045, 0.004, 0.011); abdomen.position.z = -0.012; head.position.z = 0.0075;
+    parts.push(thorax, abdomen, head);
+    for (const k of [-1, 1]) { const e = new THREE.Mesh(eyeGeo, eyeMat); e.position.set(k * 0.0025, 0.001, 0.009); g.add(e); parts.push(e); }
+    const wings = [-1, 1].map(k => {
+      const pivot = new THREE.Group(); pivot.position.set(k * 0.004, 0.003, 0);
+      const w = new THREE.Mesh(wingGeo, wingMat); w.rotation.set(Math.PI / 2, 0, k < 0 ? Math.PI : 0); w.rotation.y = k * -0.5;
+      pivot.add(w); g.add(pivot); return { pivot, k };
+    });
+    g.add(thorax, abdomen, head); g.visible = false; gun.add(g);
+    for (const m of parts) m.userData.mat = m.material;
+    return { g, wings, parts, thorax };
+  };
+  // where each lands in the amber window (concept pixels), when it hits, and how it circles
+  const SWARM = [[700, 300, 0.585], [880, 345, 0.605], [1010, 310, 0.625], [790, 375, 0.645], [1090, 350, 0.66], [960, 285, 0.675], [600, 330, 0.69]];
+  const flies = SWARM.map(([x, y, impact], i) => {
+    const big = i === SWARM.length - 1;
+    return { ...makeFly(), target: P([x, y]), impact, dive: impact - (big ? 0.14 : 0.1), size: big ? 2.2 : 1.05 + 0.12 * (i % 4), big,
+      ph: i * 0.9, rx: 0.08 + 0.012 * (i % 4), rz: 0.17 + 0.02 * (i % 3), w: 2.0 + 0.25 * (i % 3), dy: -0.02 + 0.012 * (i % 4), dir: i % 2 ? 1 : -1 };
   });
-  fly.add(thorax, abdomen, head); fly.visible = false; gun.add(fly);
-  // which side of the gun faces the camera (it crashes into that one)
+  // which side of the gun faces the camera (they dive into that one)
   let viewSide = 1; const camAt = new THREE.Vector3();
-  thorax.onBeforeRender = (renderer, scene, camera) => { camAt.setFromMatrixPosition(camera.matrixWorld); gun.worldToLocal(camAt); viewSide = Math.sign(camAt.x) || 1; };
-  fly.scale.setScalar(2.2);                                          // a giant, as prehistoric flies were
-  const impactFlash = flare(new THREE.Color(0xffd890)); impactFlash.visible = false; gun.add(impactFlash);
-  // the hit: a shockwave ring spreading over the surface, and a puff of amber dust off it (one per side)
-  const ringMat = new THREE.MeshBasicMaterial({ color: 0xffd08a, transparent: true, opacity: 0, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false });
-  const ring = new THREE.Mesh(new THREE.RingGeometry(0.7, 1, 40), ringMat); ring.visible = false; gun.add(ring);
+  flies[0].thorax.onBeforeRender = (renderer, scene, camera) => { camAt.setFromMatrixPosition(camera.matrixWorld); gun.worldToLocal(camAt); viewSide = Math.sign(camAt.x) || 1; };
+  // each hit: a flash, and a ripple spreading over the resin
+  const ringGeo = new THREE.RingGeometry(0.7, 1, 40);
+  for (const f of flies) {
+    f.flash = flare(new THREE.Color(0xffd890)); f.flash.visible = false; gun.add(f.flash);
+    f.ringMat = new THREE.MeshBasicMaterial({ color: 0xffd08a, transparent: true, opacity: 0, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false });
+    f.ring = new THREE.Mesh(ringGeo, f.ringMat); f.ring.visible = false; gun.add(f.ring);
+  }
   const trail = emitterTrail(gun), tier = particleTier[quality] ?? 1;
   // golden resin oozing from the bottom of the amber window and dripping; glowing pollen off the ferns
   const ooze = [], pollenFrom = [];
@@ -1582,20 +1661,19 @@ export function amberInspect(gun, art, quality) {
   for (const m of [resin, pollen]) { m.visible = false; gun.add(m); }
   const pts = [...(art.surface || [])].map(a => a.point);
   const yMid = pts.length ? pts.reduce((a, v) => a + v.y, 0) / pts.length : 0, zMid = (Z0 + Z1) / 2;
-  const target = P([600, 330]);                                       // it hits the amber window
-  const flyAt = (t) => new THREE.Vector3(Math.cos(t * 2.3) * 0.11 + 0.006 * Math.sin(t * 19), yMid + 0.06 + 0.035 * Math.sin(t * 3.1) + 0.005 * Math.sin(t * 27), zMid + Math.sin(t * 2.3) * 0.22 + 0.008 * Math.sin(t * 23));
+  const flyAt = (f, t, out) => out.set(Math.cos(t * f.w * f.dir + f.ph) * f.rx + 0.006 * Math.sin(t * 19 + f.ph), yMid + 0.06 + f.dy + 0.035 * Math.sin(t * 3.1 + f.ph) + 0.005 * Math.sin(t * 27), zMid + Math.sin(t * f.w * f.dir + f.ph) * f.rz + 0.008 * Math.sin(t * 23 + f.ph));
   const glazes = [];
   gun.traverse(o => { const u = o.material?.userData?.tri; if (u?.artPhase && !glazes.includes(u.artPhase)) glazes.push(u.artPhase); });
   const puffs = [-1, 1].map(k => {
-    const at = target.clone(); at.x = k * (half + 0.004);
+    const at = flies[SWARM.length - 1].target.clone(); at.x = k * (half + 0.004);
     const m = particles('burst', tier, [{ point: at, normal: new THREE.Vector3(k, 0.2, 0).normalize() }], new THREE.Color(0xe8b060), trail, mulberry32(207031 + k));
     m.visible = false; gun.add(m); return m;
   });
-  const fwd = new THREE.Vector3(0, 0, 1), dir = new THREE.Vector3(), hit = new THREE.Vector3();
+  const fwd = new THREE.Vector3(0, 0, 1), dir = new THREE.Vector3(), hit = new THREE.Vector3(), out = new THREE.Vector3(), nx = new THREE.Vector3(), mtx = new THREE.Matrix4();
   const b0 = new THREE.Vector3(), b1 = new THREE.Vector3(), b2 = new THREE.Vector3(), b3 = new THREE.Vector3(), q = new THREE.Vector3();
   // a cubic Bezier: from where it was buzzing, out away from the gun, round in a turn, and straight in
-  const bez = (u, out) => { const v = 1 - u; return out.copy(b0).multiplyScalar(v * v * v).addScaledVector(b1, 3 * v * v * u).addScaledVector(b2, 3 * v * u * u).addScaledVector(b3, u * u * u); };
-  const DIVE = 0.55, IMPACT = 0.69;                                   // (the dust puff is timed to the impact)
+  const bez = (u, o) => { const v = 1 - u; return o.copy(b0).multiplyScalar(v * v * v).addScaledVector(b1, 3 * v * v * u).addScaledVector(b2, 3 * v * u * u).addScaledVector(b3, u * u * u); };
+  const SINK = 0.4;                                                    // seconds to sink into the resin
   let phase = -1, side = 1;
   return {
     clip: KILN_CLIP, seconds: AMBER_SECONDS,
@@ -1615,80 +1693,91 @@ export function amberInspect(gun, art, quality) {
           l.leaf.visible = k > 0.01; l.leaf.scale.copy(l.leaf.userData.base).multiplyScalar(Math.max(k, 0.0001));
         }
       }
-      // the fly
-      fly.visible = active && p > 0.1 && p < 0.92;
-      impactFlash.visible = false;
-      if (fly.visible) {
+      if (active && p < 0.5) side = viewSide;
+      // the swarm (each joins a little after the last, buzzing in from out of shot)
+      flies.forEach((f, i) => {
+        const g = f.g, join = 0.1 + i * 0.025;
+        g.visible = active && p > join && p < 0.93;
+        f.flash.visible = f.ring.visible = false;
+        if (!g.visible) return;
         let flap = 1;
-        if (p < DIVE) {
-          fly.position.copy(flyAt(t)); dir.copy(flyAt(t + 0.03)).sub(fly.position).normalize();
-          fly.quaternion.setFromUnitVectors(fwd, dir);
-          side = viewSide;
-        } else if (p < IMPACT) {
+        const sealed = p >= f.impact;
+        const inResin = sealed && (p - f.impact) * AMBER_SECONDS > SINK * 0.6;
+        for (const m of f.parts) m.material = inResin ? trapped : m.userData.mat;
+        hit.copy(f.target); hit.x = side * (half + 0.006);
+        if (p < f.dive) {
+          flyAt(f, t, g.position); flyAt(f, t + 0.03, dir).sub(g.position).normalize();
+          const come = smooth(p, join, join + 0.04); g.position.x += Math.sign(g.position.x || 1) * 0.3 * (1 - come); g.position.y += 0.1 * (1 - come);
+          g.quaternion.setFromUnitVectors(fwd, dir);
+          g.scale.setScalar(f.size);
+        } else if (!sealed) {
           // it flies off away from the gun, banks round, and comes back fast into the amber window
-          hit.copy(target); hit.x = side * (half + 0.006);
-          b0.copy(flyAt(DIVE * AMBER_SECONDS));
-          b1.copy(b0).add(new THREE.Vector3(side * 0.2, 0.06, (b0.z > hit.z ? 1 : -1) * 0.08));
-          b2.copy(hit).add(new THREE.Vector3(side * 0.28, 0.05, (b0.z > hit.z ? 1 : -1) * 0.12));
+          flyAt(f, f.dive * AMBER_SECONDS, b0);
+          const zs = b0.z > hit.z ? 1 : -1;
+          b1.copy(b0).add(out.set(side * 0.2, 0.06, zs * 0.08));
+          b2.copy(hit).add(out.set(side * 0.28, 0.05, zs * 0.12));
           b3.copy(hit);
-          const u = Math.pow((p - DIVE) / (IMPACT - DIVE), 1.5);          // slow out, fast in
-          bez(u, fly.position); bez(Math.min(1, u + 0.02), q);
-          dir.copy(q).sub(fly.position).normalize();
-          fly.quaternion.setFromUnitVectors(fwd, dir);
-          fly.rotateZ(Math.sin(u * Math.PI) * side * 0.9);                  // banking through the turn
-          fly.scale.setScalar(2.2);
+          const u = Math.pow((p - f.dive) / (f.impact - f.dive), 1.5);    // slow out, fast in
+          bez(u, g.position); bez(Math.min(1, u + 0.02), q);
+          dir.copy(q).sub(g.position).normalize();
+          g.quaternion.setFromUnitVectors(fwd, dir);
+          g.rotateZ(Math.sin(u * Math.PI) * side * 0.9);                   // banking through the turn
+          g.scale.setScalar(f.size);
         } else {
-          // the hit: it squashes flat against the window, then bounces back stunned, tumbling down
-          const s = (p - IMPACT) * AMBER_SECONDS;
-          hit.copy(target); hit.x = side * (half + 0.006);
-          const squash = s < 0.08 ? 1 - Math.sin(s / 0.08 * Math.PI) * 0.45 : 1;
-          const b = Math.max(0, s - 0.08);
-          fly.position.copy(hit).add(new THREE.Vector3(side * (0.003 + 0.09 * b), 0.03 * b - 0.8 * b * b, 0.015 * b));
-          fly.rotation.set(b * 7, b * 4, b * 13);
-          fly.scale.set(2.2, 2.2, 2.2 * squash);
+          // the hit: it splats into the resin, wings spread, and sinks in, sealed, lying flat under the surface
+          const s = (p - f.impact) * AMBER_SECONDS, sink = smooth(s, 0.05, SINK);
+          g.position.copy(hit); g.position.x = side * (half + 0.006 - 0.0052 * sink);
+          dir.set(0, Math.sin(f.ph), Math.cos(f.ph));                        // head pointing its own way along the window
+          nx.set(side, 0, 0); mtx.makeBasis(out.crossVectors(nx, dir).normalize(), nx, dir);
+          g.quaternion.setFromRotationMatrix(mtx);
+          const squash = s < 0.08 ? 1 - Math.sin(s / 0.08 * Math.PI) * 0.4 : 1;
+          g.scale.set(f.size, f.size * squash * (1 - 0.55 * sink), f.size);
           flap = 0;
-          impactFlash.visible = s < 0.2; impactFlash.position.copy(hit); impactFlash.scale.setScalar(0.07 * (1 - s / 0.2));
+          f.flash.visible = s < 0.22; f.flash.position.copy(hit); f.flash.scale.setScalar((f.big ? 0.07 : 0.045) * (1 - s / 0.22));
+          f.ring.visible = s < 0.4;
+          if (f.ring.visible) {
+            f.ring.position.copy(f.target); f.ring.position.x = side * (half + 0.0025); f.ring.rotation.set(0, side * Math.PI / 2, 0);
+            f.ring.scale.setScalar(0.006 + (f.big ? 0.05 : 0.03) * Math.sqrt(s / 0.4)); f.ringMat.opacity = 0.8 * (1 - s / 0.4);
+          }
         }
-        for (const w of wings) w.pivot.rotation.z = w.k * (flap ? 0.2 + 0.9 * Math.sin(t * 140) : 1.2);
-      }
-      // the shockwave and the dust, on the side it hit
-      const hs = active ? (p - IMPACT) * AMBER_SECONDS : -1;
-      ring.visible = hs >= 0 && hs < 0.35;
-      if (ring.visible) {
-        ring.position.copy(target); ring.position.x = side * (half + 0.0025); ring.rotation.set(0, side * Math.PI / 2, 0);
-        ring.scale.setScalar(0.006 + 0.05 * Math.sqrt(hs / 0.35)); ringMat.opacity = 0.8 * (1 - hs / 0.35);
-      }
+        for (const w of f.wings) w.pivot.rotation.z = w.k * (flap ? 0.2 + 0.9 * Math.sin(t * (130 + i * 7) + i) : 1.35);
+      });
       puffs[0].visible = active && side < 0; puffs[1].visible = active && side > 0;
       resin.visible = pollen.visible = active;
       trail.update(active ? t : -1);
     },
     dispose() {
-      silver.dispose(); leafGeo.dispose(); body.dispose(); eyeMat.dispose(); wingMat.dispose(); impactFlash.material.dispose(); ring.geometry.dispose(); ringMat.dispose();
+      silver.dispose(); leafGeo.dispose(); body.dispose(); eyeMat.dispose(); trapped.dispose(); wingMat.dispose(); ringGeo.dispose();
+      thoraxGeo.dispose(); unitGeo.dispose(); headGeo.dispose(); eyeGeo.dispose(); wingGeo.dispose();
+      for (const f of flies) { f.flash.material.dispose(); f.ringMat.dispose(); }
       for (const m of [...puffs, resin, pollen]) { m.geometry.dispose(); m.material.dispose(); }
       for (const f of fronds) f.stem.geometry.dispose();
-      fly.traverse(o => o.geometry?.dispose());
     },
   };
 }
 
 // Jade Coil: the dragon painted on the gun comes alive. It peels off the side head first (the painting
 // sweeps to the bare gun behind it) and swims in the air beside the gun on your side, looping, its body
-// rippling side to side, chasing a flaming pearl. It lunges and snaps the pearl up (a gold flash),
-// rears up over the muzzle and breathes a stream of gold fire, then lies back down into its
-// painting tail first. Its body is a tube rebuilt each frame along its spine (carved scales, a bronze
-// crest), with a horned head.
+// rippling side to side, chasing a flaming pearl. It lunges and snaps the pearl up (a gold flash), then
+// turns wide and swims to the end of the gun (the body following the head along one path) and settles
+// there: down onto the top of the handguard, forward, coiled round the barrel's front, its head resting
+// out past the muzzle. It stays there while the gun is put away and settles, then lies back into its painting. As it settles, carved jade scales spread over
+// the gun from the muzzle back (shader); and as the gun is put away it breathes jade fire out ahead. Its body is a tube rebuilt each frame along its spine (carved scales, a
+// bronze crest), with a horned head.
 // The painted dragon's spine, in concept pixels (07-jade-coil.png, 1536 x 1024), head first (tools/jade-bare.py).
 const JADE_SPINE = [[230, 378], [280, 360], [320, 330], [370, 330], [420, 370], [470, 430], [530, 445], [590, 410], [640, 360], [700, 330], [760, 345],
   [830, 390], [900, 440], [960, 460], [1020, 430], [1080, 380], [1140, 350], [1220, 345], [1300, 335], [1370, 320], [1430, 302]];
-const JADE_SECONDS = 9.6, JADE_CATCH = 0.56, JADE_BREATH = 0.66;
+// (the shader in gpu-tex.js keeps its own copy of the settle time)
+const JADE_SECONDS = 10.4, JADE_CATCH = 0.5, JADE_PERCH = 0.54, JADE_LANDED = 0.7, JADE_BREATH = 0.86;
 const JADE_W = 1.96, JADE_SPAN = 3.5;     // the air loop: radians a second, and the body's length along it (radians)
 const JADE_CLIP = { root: [
   [0, 0, 0, 0, 0, 0, 0],
   [0.17, -0.074, 0.08, -0.09, 0.13, 0.82, 0.12],
   [0.4, -0.086, 0.094, -0.122, 0.17, 1.10, 0.02],
   [0.64, -0.09, 0.1, -0.14, 0.12, 1.16, -0.07],
-  [0.82, -0.086, 0.096, -0.13, 0.14, 1.1, -0.1],
-  [0.93, -0.066, 0.075, -0.094, 0.12, 0.7, -0.12],
+  [0.84, -0.086, 0.096, -0.13, 0.14, 1.1, -0.1],
+  [0.9, -0.066, 0.075, -0.094, 0.12, 0.7, -0.12],
+  [0.965, 0, 0, 0, 0, 0, 0],                               // settled before the end, the dragon still on the muzzle
   [1, 0, 0, 0, 0, 0, 0],
 ] };
 let scaleTex = null;
@@ -1766,15 +1855,30 @@ export function jadeInspect(gun, { surface, muzzle }, quality) {
     ...[0xffd860, 0xffc030].map((c, i) => particles('ember', tier, goldFrom, new THREE.Color(c).multiplyScalar(4.5), trail, mulberry32(208091 + i * 8), S)),
   ];
   for (const m of gold) { m.material.blending = THREE.AdditiveBlending; m.visible = false; gun.add(m); }
-  // where it rears to breathe: the head held level over the muzzle, the neck arching up and back over the
-  // gun to its loop (f: 0 at the head), per side
-  const HB_X = 0.035, HB_Y = my + 0.045, HB_Z = mz + 0.07, LN = new THREE.Vector3();
-  const rearPose = (k, f, out) => out.set(k * (HB_X + 0.05 * f), HB_Y + 0.07 * Math.sin(f * Math.PI) ** 2 + 0.03 * f, HB_Z + 0.3 * f);
-  // the gold breath, one stream for each side (the one on your side is shown), forward and a little up
-  const breath = [-1, 1].map((k) => {
-    const m = particles('breath', tier, [{ point: new THREE.Vector3(k * HB_X, HB_Y, HB_Z - 0.045), normal: new THREE.Vector3(-k * 0.16, 0.15, -1).normalize() }], new THREE.Color(0xffb830), trail, mulberry32(208131 + k * 10), { ...S, window: [JADE_BREATH + 0.005, JADE_BREATH + 0.1], life: [0.35, 0.6] });
-    m.material.blending = THREE.AdditiveBlending; m.visible = false; gun.add(m); return m;
-  });
+  // where it settles: the head resting out past the muzzle, the body coiled round the barrel's thin front
+  // behind it, the tail along the top of the gun. It gets there by swimming one path, the body following the
+  // head along it: out of its loop, wide round to the back of the handguard, forward along the top, round
+  // and round the barrel, head out ahead.
+  const LN = new THREE.Vector3(), CR = 0.036, HEAD_Y = my + CR + 0.004, HEAD_Z = mz - 0.03, COIL_Z = HEAD_Z + 0.1;
+  // the top of the gun behind the coils, where the tail lies (the highest surface point there)
+  const tops = surface.filter(a => a.point.z > HEAD_Z + 0.15 && a.point.z < HEAD_Z + 0.5).map(a => a.point.y).sort((a, b) => a - b);
+  const tailY = Math.max(my + CR, tops.length ? tops[Math.floor(tops.length * 0.8)] : my + CR) + 0.006;   // (not the sight posts: the top of the handguard)
+  const loopAt = (k, tau, out) => out.set(k * (0.08 + 0.02 * Math.sin(2 * tau)), yAir + 0.06 * Math.sin(tau) + 0.015 * Math.sin(3 * tau), zAir + 0.17 * Math.cos(tau));
+  // the body's length along its loop (metres), so it is the same length on the path
+  let loopLen = 0; { const a = new THREE.Vector3(), b = new THREE.Vector3(); for (let i = 0; i < 64; i++) { loopAt(1, i / 64 * 2 * Math.PI, a); loopAt(1, (i + 1) / 64 * 2 * Math.PI, b); loopLen += a.distanceTo(b); } }
+  const bodyLen = loopLen * JADE_SPAN / (2 * Math.PI);
+  let path = null, pathLen = 0, Tx = 0;
+  const makePath = (k, T) => {
+    const V = (x, y, z) => new THREE.Vector3(x, y, z), turns = 1.5, helixLen = turns * Math.hypot(2 * Math.PI * CR, 0.06 / turns), run = Math.max(0.03, bodyLen - helixLen - 0.06);
+    const rear = COIL_Z + run, pts = [loopAt(k, T, V()), loopAt(k, T + 0.3, V()), V(k * 0.26, tailY + 0.07, rear + 0.3), V(k * 0.16, tailY + 0.045, rear + 0.14), V(k * 0.05, tailY + 0.02, rear + 0.035)];   // (wide out to your side and round behind, then in from the back)
+    for (let i = 0; i <= 3; i++) pts.push(V(0.004 * Math.sin(i * 2), tailY + 0.012, rear - (rear - COIL_Z - 0.01) * i / 3));   // along the top (its own thickness above it)
+    for (let i = 1; i <= 18; i++) { const u = i / 18, a = u * turns * 2 * Math.PI; pts.push(V(k * CR * Math.sin(a), my + CR * Math.cos(a), COIL_Z - 0.06 * u)); }
+    pts.push(V(0, HEAD_Y + 0.004, COIL_Z - 0.08), V(0, HEAD_Y, HEAD_Z));
+    path = new THREE.CatmullRomCurve3(pts, false, 'centripetal'); path.arcLengthDivisions = 400; pathLen = path.getLength(); Tx = T;
+  };
+  // the jade fire it breathes out ahead of the muzzle as the gun is put away
+  const breath = particles('breath', tier, [{ point: new THREE.Vector3(0, HEAD_Y, HEAD_Z - 0.045), normal: new THREE.Vector3(0, 0.12, -1).normalize() }], new THREE.Color(0x3dff8a), trail, mulberry32(208131), { ...S, window: [JADE_BREATH + 0.005, JADE_BREATH + 0.11], life: [0.35, 0.6] });
+  breath.material.blending = THREE.AdditiveBlending; breath.visible = false; gun.add(breath);
   // the flash as its jaws close on the pearl
   const catchFlash = flare(new THREE.Color(0xffd060)); catchFlash.visible = false; gun.add(catchFlash);
   // which side faces the camera: the dragon that comes alive is the one you can see
@@ -1787,7 +1891,7 @@ export function jadeInspect(gun, { surface, muzzle }, quality) {
   const nSpikes = 28, spikes = new THREE.InstancedMesh(new THREE.ConeGeometry(0.0016, 0.006, 6), bronze, nSpikes);
   spikes.frustumCulled = false; spikes.visible = false; gun.add(spikes);
   const C = new THREE.Vector3(), Pp = new THREE.Vector3(), R0 = new THREE.Vector3();
-  const spine = Array.from({ length: N }, () => ({ c: new THREE.Vector3(), n: new THREE.Vector3(), b: new THREE.Vector3(), t: new THREE.Vector3(), r: 0, w: 0 }));
+  const spine = Array.from({ length: N }, () => ({ c: new THREE.Vector3(), n: new THREE.Vector3(), b: new THREE.Vector3(), t: new THREE.Vector3(), r: 0, w: 0, pw: 0 }));
   const mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
   const glazes = [], mixes = [];
   gun.traverse(o => { const u = o.material?.userData?.tri; if (u?.artPhase && !glazes.includes(u.artPhase)) { glazes.push(u.artPhase); mixes.push(u); } });
@@ -1802,20 +1906,26 @@ export function jadeInspect(gun, { surface, muzzle }, quality) {
       // the painting sweeps to the bare gun as the dragon peels off head first, and back as it lies down
       // the painting sweeps away muzzle to stock (the shader's wipe front, in gun z); the dragon comes off
       // where it has gone, and lies back down just before it returns
-      const mixAt = (q) => active ? smooth(q, 0.0, 0.25) * (1 - smooth(q, 0.84, 0.96)) : 0;   // (from the start, while the gun is still coming up)
+      const mixAt = (q) => active ? smooth(q, 0.0, 0.25) * (1 - smooth(q, 0.988, 0.999)) : 0;   // (from the start, while the gun is still coming up)
       const frontAt = (q) => Z0 - 0.05 + (Z1 - Z0 + 0.1) * mixAt(q);
-      const front = frontAt(p), soon = frontAt(Math.min(1, p + 0.06));
+      const front = frontAt(p), soon = frontAt(Math.min(1, p + 0.006));   // (it lies back into the painting only at the very end)
       for (const u of mixes) if (u.artMix) { u.artMix.value = mixAt(p); u.artMixSide.value = side; }
       const t = active ? p * JADE_SECONDS : 0;
       if (p < 0.1) side = viewSide;
       for (const m of gold) m.visible = active; trail.update(active ? t : -1);
-      breath.forEach((m, k) => { m.visible = active && (k ? 1 : -1) === side && p > JADE_BREATH - 0.01; });
+      breath.visible = active && p > JADE_BREATH - 0.01;
       let any = false;
-      // in the air: a tall loop beside the gun on your side, the body following the head's path; it rears
-      // its head and neck up over the muzzle to breathe, and lunges at the pearl
-      const T = t * JADE_W;
-      const rear = active ? smooth(p, JADE_BREATH - 0.045, JADE_BREATH) * (1 - smooth(p, JADE_BREATH + 0.1, JADE_BREATH + 0.14)) : 0;
+      // in the air: a tall loop beside the gun on your side, the body following the head's path; it lunges at
+      // the pearl, then swims to the muzzle head first and settles there, and opens its jaws wide to breathe
+      // it drifts gently beside the gun, then makes one full turn of its loop towards the end (catching the
+      // pearl as it comes round), then swings out wide and in to the muzzle
+      const T = 1.2 + 0.35 * t + 2 * Math.PI * smooth(p, JADE_CATCH - 0.16, JADE_CATCH);
+      const rear = active ? smooth(p, JADE_BREATH - 0.02, JADE_BREATH) * (1 - smooth(p, JADE_BREATH + 0.1, JADE_BREATH + 0.12)) : 0;
       const lunge = active ? smooth(p, JADE_CATCH - 0.035, JADE_CATCH) * (1 - smooth(p, JADE_CATCH, JADE_CATCH + 0.04)) : 0;
+      // the swim to the muzzle: the head's distance along its path (easing in and out)
+      const travel = active && p >= JADE_PERCH;
+      if (!travel) path = null; else if (!path) makePath(side, T);
+      const sHead = travel ? pathLen * smooth(p, JADE_PERCH, JADE_LANDED) : 0;
       for (let i = 0; i < N; i++) {
         const f = i / (N - 1), s = spine[i];
         const taper = (0.75 + 0.25 * Math.sin(Math.min(1, f * 4) * Math.PI / 2)) * (1 - 0.85 * f * f);
@@ -1825,14 +1935,15 @@ export function jadeInspect(gun, { surface, muzzle }, quality) {
         // it lies still in its place until it is all out, then lifts off head first (and lies back down
         // just before the paint returns)
         s.w = Math.min(active ? smooth(p, 0.15 + f * 0.1, 0.27 + f * 0.1) : 0, smooth((soon - Pp.z) / 0.09, 0, 1));
-        s.r = rMax * taper * shown;
+        s.r = rMax * taper * shown * (1 - 0.3 * (s.pw || 0));      // (a little slimmer once it has settled, so it clears the gun)
         if (shown > 0.001) any = true;
         Pp.x = side * (half + s.r * 0.55);                              // standing out of the side
         // where it is in the air
-        const tau = T - f * JADE_SPAN;
-        C.set(side * (0.08 + 0.02 * Math.sin(2 * tau)), yAir + 0.06 * Math.sin(tau) + 0.015 * Math.sin(3 * tau), zAir + 0.17 * Math.cos(tau));
-        const rk = rear * (1 - smooth(f, 0.45, 0.95));
-        if (rk > 0) C.lerp(rearPose(side, f, LN), rk);
+        // in its loop, or (once it sets off for the muzzle) where the head was along its path
+        const sAt = travel ? sHead - f * bodyLen : -1;
+        if (sAt > 0) path.getPointAt(Math.min(1, sAt / pathLen), C);
+        else loopAt(side, travel ? Tx + sAt * 2 * Math.PI / loopLen : T - f * JADE_SPAN, C);
+        s.pw = travel ? smooth(sAt, 0, 0.05) : 0;
         s.c.copy(Pp).lerp(C, s.w * s.w * (3 - 2 * s.w));
       }
       if (lunge > 0) { LN.copy(spine[0].c).sub(spine[4].c).normalize(); for (let i = 0; i < 14; i++) spine[i].c.addScaledVector(LN, lunge * 0.03 * (1 - i / 14)); }
@@ -1845,7 +1956,7 @@ export function jadeInspect(gun, { surface, muzzle }, quality) {
         s.b.crossVectors(s.t, R0).normalize(); s.n.crossVectors(s.b, s.t).normalize();
       }
       // the slither: a wave running down the body, side to side, while it is off the gun
-      for (let i = 0; i < N; i++) { const s = spine[i], f = i / (N - 1); s.c.addScaledVector(s.b, 0.01 * s.w * Math.sin(f * 16 - t * 8) * Math.min(1, f * 6)); }
+      for (let i = 0; i < N; i++) { const s = spine[i], f = i / (N - 1); s.c.addScaledVector(s.b, 0.01 * s.w * (1 - 0.85 * s.pw) * Math.sin(f * 16 - t * 8) * Math.min(1, f * 6)); }   // (barely, once it has settled)
       for (let i = 0; i < N; i++) {
         const s = spine[i];
         for (let j = 0; j < M; j++) {
@@ -1882,7 +1993,7 @@ export function jadeInspect(gun, { surface, muzzle }, quality) {
       }
       spikes.instanceMatrix.needsUpdate = true;
     },
-    dispose() { for (const m of breath) { m.geometry.dispose(); m.material.dispose(); } catchFlash.material.dispose(); pearlCore.geometry.dispose(); pearlCore.material.dispose(); pearlGlow.material.dispose(); pearlFlame.material.dispose(); probe.geometry.dispose(); probe.material.dispose(); geo.dispose(); jade.dispose(); bronze.dispose(); eyeMat.dispose(); spikes.geometry.dispose(); head.traverse(o => o.geometry?.dispose()); for (const m of gold) { m.geometry.dispose(); m.material.dispose(); } },
+    dispose() { breath.geometry.dispose(); breath.material.dispose(); catchFlash.material.dispose(); pearlCore.geometry.dispose(); pearlCore.material.dispose(); pearlGlow.material.dispose(); pearlFlame.material.dispose(); probe.geometry.dispose(); probe.material.dispose(); geo.dispose(); jade.dispose(); bronze.dispose(); eyeMat.dispose(); spikes.geometry.dispose(); head.traverse(o => o.geometry?.dispose()); for (const m of gold) { m.geometry.dispose(); m.material.dispose(); } },
   };
 }
 
@@ -2032,7 +2143,8 @@ export function velvetInspect(gun, { surface }, quality) {
 // with its play of colour shifting as you move, and a slit pupil that follows you. The front of the gun
 // opens as a jaw; a fly buzzes in and the gun lunges forward and bites it. It swallows (a bulge runs back
 // along the gun, the eye narrows, content, and a prismatic shimmer drifts off it), then roars, jaw wide,
-// prismatic light streaming out, snaps shut, and the lids close again at the end. The longest inspect.
+// prismatic light streaming out, while a wave of colour runs back along the gun from the jaw to the stock
+// (shader), the opal flashing through every colour; it snaps shut, and the lids close again at the end.
 const OPAL_SECONDS = 10.2, OPAL_GULP = 0.64, OPAL_ROAR = 0.8;
 const OPAL_CLIP = { root: [
   [0, 0, 0, 0, 0, 0, 0],

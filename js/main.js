@@ -1,72 +1,72 @@
-import { track as trackLoad } from './ui/busy.js?v=d69caf8-mwjxfd1o';
-import { loadPackArt } from './render/pack-art.js?v=d69caf8-mwjxfd1o';
-import { loadPackAnims } from './scene/weapon-anims.js?v=d69caf8-mwjxfd1o';
-import { packMats } from './render/pack-materials.js?v=d69caf8-mwjxfd1o';
-import { loadSkinSheets } from './render/skins2.js?v=d69caf8-mwjxfd1o';
-import { connectAudioPack } from './audio/pack-bridge.js?v=d69caf8-mwjxfd1o';
-import { initBombUtility, utilityFor } from './balance/bomb-utility.js?v=d69caf8-mwjxfd1o';
-import { createAcoustics } from './audio/acoustics.js?v=d69caf8-mwjxfd1o';
-import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=d69caf8-mwjxfd1o';
-import { mountControls, mountFirstLaunch } from './ui/m7-menu.js?v=d69caf8-mwjxfd1o';
+import { track as trackLoad } from './ui/busy.js?v=b14a97f-mwkjfhd1';
+import { loadPackArt } from './render/pack-art.js?v=b14a97f-mwkjfhd1';
+import { loadPackAnims } from './scene/weapon-anims.js?v=b14a97f-mwkjfhd1';
+import { packMats } from './render/pack-materials.js?v=b14a97f-mwkjfhd1';
+import { loadSkinSheets } from './render/skins2.js?v=b14a97f-mwkjfhd1';
+import { connectAudioPack } from './audio/pack-bridge.js?v=b14a97f-mwkjfhd1';
+import { initBombUtility, utilityFor } from './balance/bomb-utility.js?v=b14a97f-mwkjfhd1';
+import { createAcoustics } from './audio/acoustics.js?v=b14a97f-mwkjfhd1';
+import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=b14a97f-mwkjfhd1';
+import { mountControls, mountFirstLaunch } from './ui/m7-menu.js?v=b14a97f-mwkjfhd1';
 // Recoil Range entry point: wires input, camera, scene, HUD and the frame loop together.
-import * as THREE from '../vendor/three/three.module.min.js?v=d69caf8-mwjxfd1o';
-import { Look, PITCH_LIMIT } from './core/look.js?v=d69caf8-mwjxfd1o';
-import { Player } from './core/player.js?v=d69caf8-mwjxfd1o';
-import { PointerLock } from './core/pointer-lock.js?v=d69caf8-mwjxfd1o';
-import { loadSettings, saveSettings, DISTANCES, DEFAULTS } from './core/settings.js?v=d69caf8-mwjxfd1o';
-import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=d69caf8-mwjxfd1o';
-import { Weapon } from './core/weapon.js?v=d69caf8-mwjxfd1o';
-import { RecoilEngine } from './core/recoil.js?v=d69caf8-mwjxfd1o';
-import { Spread } from './core/spread.js?v=d69caf8-mwjxfd1o';
-import { loadGameData } from './core/guns.js?v=d69caf8-mwjxfd1o';
-import { initLoadout, effectiveGun, sanitize, slotIn, baseOf, SLOTS as ATTACH_SLOTS, allowed as attachAllowed, measuredCode, describe as describeAttach, hint as attachHint } from './core/loadout.js?v=d69caf8-mwjxfd1o';
-import { randomSeed } from './core/prng.js?v=d69caf8-mwjxfd1o';
-import { Range, EYE_HEIGHT } from './scene/range.js?v=d69caf8-mwjxfd1o';
-import { RING_STEP } from './scene/range-tex.js?v=d69caf8-mwjxfd1o';
-import { Gamepad, padPanel } from './ui/gamepad.js?v=d69caf8-mwjxfd1o';
-import { WeaponRig, setUltraTexSize, skinName, setSkinResolver, setHiResSkins, setCharmResolver } from './scene/viewmodel.js?v=d69caf8-mwjxfd1o';
-import { LensPost } from './render/lens-post.js?v=d69caf8-mwjxfd1o';
-import { warmScene, warmBudget } from './render/warm.js?v=d69caf8-mwjxfd1o';
-import { addMatch } from './core/history.js?v=d69caf8-mwjxfd1o';
-import { addXp, matchXp, XP, checkIn, seasonState, rewardOf, rewardText, TIERS, XP_PER_TIER } from './core/season.js?v=d69caf8-mwjxfd1o';
-import { submit as submitBests } from './core/bests.js?v=d69caf8-mwjxfd1o';
-import { mountAccounts } from './ui/accounts-ui.js?v=d69caf8-mwjxfd1o';
-import { PAD_ASSIST, nearestAim, assistLook } from './core/pad-assist.js?v=d69caf8-mwjxfd1o';
-import { record as recordChallenge, matchStats, challengesFor, progressOf, isPaid } from './core/challenges.js?v=d69caf8-mwjxfd1o';
-import { reticleTextures } from './ui/reticle-tex.js?v=d69caf8-mwjxfd1o';
-import { DOT_POINTS } from './scene/dots.js?v=d69caf8-mwjxfd1o';
-import { Voices } from './audio/voice.js?v=d69caf8-mwjxfd1o';
-import { ModeGame } from './modes/game.js?v=d69caf8-mwjxfd1o';
-import { Sfx } from './audio/sfx.js?v=d69caf8-mwjxfd1o';
-import { playInspect } from './audio/inspect-sfx.js?v=d69caf8-mwjxfd1o';
-import { DebugHud } from './ui/debug-hud.js?v=d69caf8-mwjxfd1o';
-import { buildHitboxes, syncFighterBoxes, RayTrail } from './scene/range-debug.js?v=d69caf8-mwjxfd1o';
-import { mountDev } from './ui/dev.js?v=d69caf8-mwjxfd1o';
-import { drawCrosshair } from './ui/crosshair.js?v=d69caf8-mwjxfd1o';
-import { Hud } from './ui/hud.js?v=d69caf8-mwjxfd1o';
-import { MagPlot } from './ui/plot.js?v=d69caf8-mwjxfd1o';
-import { SettingsUI } from './ui/settings-ui.js?v=d69caf8-mwjxfd1o';
-import { sensKeys, zoomKey } from './core/optics.js?v=d69caf8-mwjxfd1o';
+import * as THREE from '../vendor/three/three.module.min.js?v=b14a97f-mwkjfhd1';
+import { Look, PITCH_LIMIT } from './core/look.js?v=b14a97f-mwkjfhd1';
+import { Player } from './core/player.js?v=b14a97f-mwkjfhd1';
+import { PointerLock } from './core/pointer-lock.js?v=b14a97f-mwkjfhd1';
+import { loadSettings, saveSettings, DISTANCES, DEFAULTS } from './core/settings.js?v=b14a97f-mwkjfhd1';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=b14a97f-mwkjfhd1';
+import { Weapon } from './core/weapon.js?v=b14a97f-mwkjfhd1';
+import { RecoilEngine } from './core/recoil.js?v=b14a97f-mwkjfhd1';
+import { Spread } from './core/spread.js?v=b14a97f-mwkjfhd1';
+import { loadGameData } from './core/guns.js?v=b14a97f-mwkjfhd1';
+import { initLoadout, effectiveGun, sanitize, slotIn, baseOf, SLOTS as ATTACH_SLOTS, allowed as attachAllowed, measuredCode, describe as describeAttach, hint as attachHint } from './core/loadout.js?v=b14a97f-mwkjfhd1';
+import { randomSeed } from './core/prng.js?v=b14a97f-mwkjfhd1';
+import { Range, EYE_HEIGHT } from './scene/range.js?v=b14a97f-mwkjfhd1';
+import { RING_STEP } from './scene/range-tex.js?v=b14a97f-mwkjfhd1';
+import { Gamepad, padPanel } from './ui/gamepad.js?v=b14a97f-mwkjfhd1';
+import { WeaponRig, setUltraTexSize, skinName, setSkinResolver, setHiResSkins, setSkinsOff, setCharmResolver } from './scene/viewmodel.js?v=b14a97f-mwkjfhd1';
+import { LensPost } from './render/lens-post.js?v=b14a97f-mwkjfhd1';
+import { warmScene, warmBudget } from './render/warm.js?v=b14a97f-mwkjfhd1';
+import { addMatch } from './core/history.js?v=b14a97f-mwkjfhd1';
+import { addXp, matchXp, XP, checkIn, seasonState, rewardOf, rewardText, TIERS, XP_PER_TIER } from './core/season.js?v=b14a97f-mwkjfhd1';
+import { submit as submitBests } from './core/bests.js?v=b14a97f-mwkjfhd1';
+import { mountAccounts } from './ui/accounts-ui.js?v=b14a97f-mwkjfhd1';
+import { PAD_ASSIST, nearestAim, assistLook } from './core/pad-assist.js?v=b14a97f-mwkjfhd1';
+import { record as recordChallenge, matchStats, challengesFor, progressOf, isPaid } from './core/challenges.js?v=b14a97f-mwkjfhd1';
+import { reticleTextures } from './ui/reticle-tex.js?v=b14a97f-mwkjfhd1';
+import { DOT_POINTS } from './scene/dots.js?v=b14a97f-mwkjfhd1';
+import { Voices } from './audio/voice.js?v=b14a97f-mwkjfhd1';
+import { ModeGame } from './modes/game.js?v=b14a97f-mwkjfhd1';
+import { Sfx } from './audio/sfx.js?v=b14a97f-mwkjfhd1';
+import { playInspect } from './audio/inspect-sfx.js?v=b14a97f-mwkjfhd1';
+import { DebugHud } from './ui/debug-hud.js?v=b14a97f-mwkjfhd1';
+import { buildHitboxes, syncFighterBoxes, RayTrail } from './scene/range-debug.js?v=b14a97f-mwkjfhd1';
+import { mountDev } from './ui/dev.js?v=b14a97f-mwkjfhd1';
+import { drawCrosshair } from './ui/crosshair.js?v=b14a97f-mwkjfhd1';
+import { Hud } from './ui/hud.js?v=b14a97f-mwkjfhd1';
+import { MagPlot } from './ui/plot.js?v=b14a97f-mwkjfhd1';
+import { SettingsUI } from './ui/settings-ui.js?v=b14a97f-mwkjfhd1';
+import { sensKeys, zoomKey } from './core/optics.js?v=b14a97f-mwkjfhd1';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
 function sensRows(catalogue, sens) {
   const keys = new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)]);
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
-import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=d69caf8-mwjxfd1o';
-import { Battle } from './battle/battle.js?v=d69caf8-mwjxfd1o';
-import { initCore, coreLoaded } from './wasm/core.js?v=d69caf8-mwjxfd1o';
-import { createJoinRequest, acceptJoin } from './net/link.js?v=d69caf8-mwjxfd1o';
-import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt } from './net/relay.js?v=d69caf8-mwjxfd1o';
-import { Profile, WIN_POINTS } from './core/profile.js?v=d69caf8-mwjxfd1o';
-import { skinFits, skinById } from './core/skins.js?v=d69caf8-mwjxfd1o';
-import { PackUI } from './ui/packs.js?v=d69caf8-mwjxfd1o';
-import { HDPack } from './render/hd-pack.js?v=d69caf8-mwjxfd1o';
-import { effectiveGraphics, needsPack, maxMode } from './render/quality.js?v=d69caf8-mwjxfd1o';
-import { GraphicsUI } from './ui/graphics-ui.js?v=d69caf8-mwjxfd1o';
-import { PerfHud } from './ui/perf-hud.js?v=d69caf8-mwjxfd1o';
-import { WorldPost } from './render/world-post.js?v=d69caf8-mwjxfd1o';
-import { rankOf, rankedSummary, ratingOf, rankedChange, validRankedTicket, verifyRankedResult } from './core/ranked.js?v=d69caf8-mwjxfd1o';
+import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=b14a97f-mwkjfhd1';
+import { Battle } from './battle/battle.js?v=b14a97f-mwkjfhd1';
+import { initCore, coreLoaded } from './wasm/core.js?v=b14a97f-mwkjfhd1';
+import { createJoinRequest, acceptJoin } from './net/link.js?v=b14a97f-mwkjfhd1';
+import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt } from './net/relay.js?v=b14a97f-mwkjfhd1';
+import { Profile, WIN_POINTS } from './core/profile.js?v=b14a97f-mwkjfhd1';
+import { skinFits, skinById } from './core/skins.js?v=b14a97f-mwkjfhd1';
+import { PackUI } from './ui/packs.js?v=b14a97f-mwkjfhd1';
+import { HDPack, SkinPack } from './render/hd-pack.js?v=b14a97f-mwkjfhd1';
+import { effectiveGraphics, needsPack, maxMode } from './render/quality.js?v=b14a97f-mwkjfhd1';
+import { GraphicsUI } from './ui/graphics-ui.js?v=b14a97f-mwkjfhd1';
+import { PerfHud } from './ui/perf-hud.js?v=b14a97f-mwkjfhd1';
+import { WorldPost } from './render/world-post.js?v=b14a97f-mwkjfhd1';
+import { rankOf, rankedSummary, ratingOf, rankedChange, validRankedTicket, verifyRankedResult } from './core/ranked.js?v=b14a97f-mwkjfhd1';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -183,6 +183,7 @@ async function boot(data) {
     if (range.env) rig.setHighEnv(range.env);
     rig.setShading(gunShading(), gfx());
     setHiResSkins(settings.hiResSkins);     // the callers rebuild the gun
+    setSkinsOff(settings.minimal);          // Minimal mode: no weapon skins
   }
   applyGraphics();
   const post = new LensPost(renderer, { samples: settings.antialias && renderer.capabilities.isWebGL2 ? 4 : 0 });
@@ -2245,6 +2246,10 @@ async function boot(data) {
     onPackReady: async () => { if (needsPack(settings.graphics)) await loadHD(); else graphicsChanged(); },
   });
   HDPack.init().then(() => { if (HDPack.ready && needsPack(settings.graphics)) loadHD(); else if (needsPack(settings.graphics)) graphicsChanged(); });
+  // The Weapon Skins pack: guns rebuilt when it is installed or removed.
+  let skinPackOn = false;
+  SkinPack.onChange(() => { if (SkinPack.ready !== skinPackOn) { skinPackOn = SkinPack.ready; graphicsChanged(); if (cur() && cur().active) cur().refreshGraphics(); } });
+  SkinPack.init();
 
   warmScene(renderer, scene);   // the range's materials, hidden ones too, compiled under the boot screen
   requestAnimationFrame(() => requestAnimationFrame(() => { $('boot-screen').style.display = 'none'; }));   // everything is built and painted: the black loading screen gives way to the menu
@@ -2281,6 +2286,8 @@ async function boot(data) {
       // The Enhanced Graphics pack (High / Ultra): install from the test server, load, rebuild.
       hdInstall: async () => { const ok = await HDPack.install(); if (ok) await loadHD(); return { ok, state: HDPack.state, error: HDPack.error, guns: hdLoaded }; },
       hdRemove: () => HDPack.remove(),
+      skinInstall: async () => ({ ok: await SkinPack.install(), state: SkinPack.state, error: SkinPack.error }),
+      skinRemove: () => SkinPack.remove(),
       audioPackState: () => ({ unlocked: !!sfx.ctx, clips: sfx.samplePack?.clipCount || 0 }),
       audioPackSync: () => { sfx.unlock(); return audioPack.sync(); },
       hdState: () => ({ state: HDPack.state, installed: HDPack.installed && HDPack.installed.version, ready: HDPack.ready, loaded: hdLoaded, effective: gfx() }),

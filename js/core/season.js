@@ -1,8 +1,8 @@
 // The free season pass (6 weeks, 30 tiers) and the daily login streak. XP comes from matches,
 // range hits and challenges; each tier pays out once: points, a charm at 5 / 15 / 25, the
 // season's skin at 30. Kept in this browser.
-import { CATALOGUE, LEGEND_ID } from './skins.js?v=d69caf8-mwjxfd1o';
-import { CHARMS } from './charms.js?v=d69caf8-mwjxfd1o';
+import { CATALOGUE, LEGEND_ID } from './skins.js?v=b14a97f-mwkjfhd1';
+import { CHARMS } from './charms.js?v=b14a97f-mwkjfhd1';
 
 export const TIERS = 30, XP_PER_TIER = 1000, SEASON_DAYS = 42;
 const KEY = 'recoilRange.season.v1', DAY = 86400000;

@@ -1,5 +1,6 @@
-import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=d69caf8-mwjxfd1o';
-import { packArt } from './pack-art.js?v=d69caf8-mwjxfd1o';
+import { skinSheets, skin2Uniforms, SKIN2_GLSL } from './skins2.js?v=b14a97f-mwkjfhd1';
+import { packArt } from './pack-art.js?v=b14a97f-mwkjfhd1';
+import { SkinPack } from './hd-pack.js?v=b14a97f-mwkjfhd1';
 // GPU-baked textures for ultra graphics. Everything is procedural and drawn by a fragment
 // shader into a render target once (milliseconds on a graphics card), so 4096 x 4096 maps
 // cost nothing at start-up and nothing is downloaded.
@@ -10,7 +11,7 @@ import { packArt } from './pack-art.js?v=d69caf8-mwjxfd1o';
 //   bakeSkin(renderer, index, size): one of SKINS, { albedo, rm } (rm: G roughness, B metalness).
 //   triplanar(material, opts): shader patch that maps a skin and/or detail by the surface's
 //        own 3D position (no UV stretching on long thin parts), with edge wear from UVs.
-import * as THREE from '../../vendor/three/three.module.min.js?v=d69caf8-mwjxfd1o';
+import * as THREE from '../../vendor/three/three.module.min.js?v=b14a97f-mwkjfhd1';
 
 const VERT = /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
@@ -543,15 +544,26 @@ export function skinThumb(renderer, def, size = 96) {
 //   depth: skin relief depth in metres (parallax: the design looks layered, not printed).
 // Skin artwork (same site), loaded once per file; shown when it arrives.
 const artTextures = new Map();
+// url: a picture on the site, or 'pack:<path>' for a Weapon Skins pack picture (read from the pack, shown
+// once it is unpacked; the last few are kept on the graphics card, older ones are uploaded again if used).
 function artTexture(url) {
   if (!artTextures.has(url)) {
-    const t = new THREE.TextureLoader().load(url);
+    let t;
+    if (url.startsWith('pack:')) {
+      t = new THREE.Texture(); t.flipY = false;
+      SkinPack.file(url.slice(5)).then((b) => b && createImageBitmap(new Blob([b]), { imageOrientation: 'flipY' }))
+        .then((img) => { if (img) { t.image = img; t.needsUpdate = true; } }).catch((e) => console.error('skin pack ' + url, e));
+      const packed = [...artTextures.keys()].filter((k) => k.startsWith('pack:'));
+      if (packed.length >= 12) { artTextures.get(packed[0]).dispose(); artTextures.delete(packed[0]); }
+    } else t = new THREE.TextureLoader().load(url);
     t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.generateMipmaps = true;
     artTextures.set(url, t);
   }
   return artTextures.get(url);
 }
-export function triplanar(material, { skin = null, detail = null, scale = 3, detailScale = 2, detailStrength = 1, gain = 1, hd = false, hdEdge = 0, hdEdgeCol = [0.32, 0.33, 0.35], hdEdgeMetal = 1, depth = 0 } = {}) {
+//   base: the gun's own material under everything (1 gunmetal, 2 walnut, 3 stippled polymer, 4 machined steel):
+//       the whole look of a part with no skin; under a skin, its grain shows through the paint and it is bare at worn edges.
+export function triplanar(material, { skin = null, detail = null, scale = 3, detailScale = 2, detailStrength = 1, gain = 1, hd = false, hdEdge = 0, hdEdgeCol = [0.32, 0.33, 0.35], hdEdgeMetal = 1, depth = 0, base = 0 } = {}) {
   const uniforms = {
     triScale: { value: scale }, detScale: { value: detailScale }, detStrength: { value: detailStrength },
     skinAlbedo: { value: skin?.albedo ?? null }, skinRM: { value: skin?.rm ?? null }, skinNormal: { value: skin?.normal ?? null },
@@ -560,7 +572,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
     // Look per rarity: a colour fade along the gun, and the inspect-only animations
     // (triAnim 0..1 is driven by the weapon rig while you inspect; triTime is seconds).
     fadeA: { value: new THREE.Vector3() }, fadeB: { value: new THREE.Vector3() }, fadeAmt: { value: 0 },
-    triTime: { value: 0 }, triAnim: { value: 0 }, sweepCol: { value: new THREE.Vector3(1, 1, 1) },
+    triTime: { value: 0 }, triAnim: { value: 0 }, sweepCol: { value: new THREE.Vector3(1, 1, 1) }, triBase: { value: base },
     reliefK: { value: (skin?.def?.pattern === 10 ? 1.65 : 0.9) * (hd ? 1.5 : 1) },
     triAO: { value: hd ? 1 : 0 }, hdEdge: { value: hdEdge }, hdEdgeCol: { value: new THREE.Vector3(...hdEdgeCol) }, hdEdgeMetal: { value: hdEdgeMetal },
     reliefDepth: { value: depth },
@@ -572,8 +584,10 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
     // from it. Looks: 'porcelain' (glaze, crazing, silver seams) or 'bronze' (metal, glowing teal inlays).
     Object.assign(uniforms, {
       artMap: { value: artTexture(def.art) }, artMap2: { value: artTexture(def.artPeak || def.art) }, artMix: { value: 0 }, artMixSide: { value: 0 }, artRect: { value: new THREE.Vector4(...def.artRect) },
-      artDark: { value: new THREE.Vector3(...def.c[2]) }, artPhase: { value: -1 }, artBlast: { value: -9 }, artMode: { value: { bronze: 1, glass: 2, resin: 2, jade: 2, opal: 2, lacquer: 3, gilt: 3, velvet: 7, orrery: 5, forge: 4, amber: 6 }[def.artLook] || 0 },
+      artDark: { value: new THREE.Vector3(...def.c[2]) }, artPhase: { value: -1 }, artBlast: { value: -9 }, artMode: { value: { bronze: 1, glass: 2, resin: 2, jade: 2, opal: 2, lacquer: 3, gilt: 3, velvet: 7, orrery: 5, forge: 4, amber: 6, default: 3 }[def.artLook] || 0 },
+      artFx: { value: { forge: 1, jade: 2, opal: 3, default: 4 }[def.artLook] || 0 },   // per-skin extras (the forged steel, the jade fire scales, the opal colour wave)
     });
+    if (def.rarity === 'blackice') uniforms.skinGlow.value.set(...def.glow);   // (marks a Black Ice pack picture: kIce in the shader)
   } else if (sakura) {
     const [gold, pink, pearl, black] = def.c.map(c => new THREE.Vector3(...c));
     Object.assign(uniforms, {
@@ -591,7 +605,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
   material.userData.tri = uniforms;
   const defs = (sakura ? '#define TRI_SAKURA\n' : painted ? '#define TRI_ART\n' : skin ? '#define TRI_SKIN\n' : '') +
     (skin && skin.normal ? '#define TRI_SKIN_NORMAL\n' : '') + (detail ? '#define TRI_DETAIL\n' : '') +
-    (hd ? '#define TRI_HD\n' : '') + (hd && depth > 0 && skin && skin.normal ? '#define TRI_PARALLAX\n' : '');
+    (hd ? '#define TRI_HD\n' : '') + (hd && depth > 0 && skin && skin.normal ? '#define TRI_PARALLAX\n' : '') + (base ? '#define TRI_BASE\n' : '');
   material.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, uniforms);
     sh.vertexShader = defs + 'varying vec3 vTriPos; varying vec3 vTriN; varying vec3 vTriAX; varying vec3 vTriAY; varying vec3 vTriAZ;\n' +
@@ -615,25 +629,42 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       uniform sampler2D skinAlbedo, skinRM, skinNormal, detailMap;
       uniform float triAO, hdEdge, hdEdgeMetal, reliefDepth;
       uniform vec3 hdEdgeCol;
+      #ifdef TRI_BASE
+        uniform float triBase;
+        float bNoise(vec2 p) {
+          vec2 i = floor(p), a = fract(p); a = a * a * (3.0 - 2.0 * a);
+          vec4 h = fract(sin(vec4(dot(i, vec2(127.1, 311.7)), dot(i + vec2(1, 0), vec2(127.1, 311.7)), dot(i + vec2(0, 1), vec2(127.1, 311.7)), dot(i + 1.0, vec2(127.1, 311.7)))) * 43758.5453);
+          return mix(mix(h.x, h.y, a.x), mix(h.z, h.w, a.x), a.y);
+        }
+      #endif
       #ifdef TRI_ART
         uniform sampler2D artMap, artMap2;      // artMap2: a second painting the inspect can fade into (artMix)
         uniform float artMix, artMixSide;      // artMixSide: 0 both sides, or only the side of x this sign
         uniform vec4 artRect;
         uniform vec3 artDark;
         uniform float artMode, artBlast;
-        uniform float artPhase;
-        // Fine crazing in the glaze: the edges of small irregular cells.
-        float artCraze(vec2 p) {
-          vec2 i = floor(p), f = fract(p);
+        uniform float artPhase, artFx;
+        // Irregular cells: (distance to the nearest centre, to the second nearest, the way to the nearest)
+        vec4 artCell(vec2 p) {
+          vec2 i = floor(p), f = fract(p), to = vec2(0.0);
           float d1 = 8.0, d2 = 8.0;
           for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
             vec2 g = vec2(float(x), float(y));
             vec2 o = fract(sin(vec2(dot(i + g, vec2(127.1, 311.7)), dot(i + g, vec2(269.5, 183.3)))) * 43758.5453);
             float d = length(g + o - f);
-            if (d < d1) { d2 = d1; d1 = d; } else if (d < d2) d2 = d;
+            if (d < d1) { d2 = d1; d1 = d; to = g + o - f; } else if (d < d2) d2 = d;
           }
-          return 1.0 - smoothstep(0.0, 0.07, d2 - d1);
+          return vec4(d1, d2, to);
         }
+        // Fine crazing in the glaze: the edges of small irregular cells.
+        float artCraze(vec2 p) { vec4 c = artCell(p); return 1.0 - smoothstep(0.0, 0.07, c.y - c.x); }
+        float artNoise(vec2 p) {
+          vec2 i = floor(p), a = fract(p); a = a * a * (3.0 - 2.0 * a);
+          float h00 = fract(sin(dot(i, vec2(127.1, 311.7))) * 43758.5453), h10 = fract(sin(dot(i + vec2(1, 0), vec2(127.1, 311.7))) * 43758.5453);
+          float h01 = fract(sin(dot(i + vec2(0, 1), vec2(127.1, 311.7))) * 43758.5453), h11 = fract(sin(dot(i + 1.0, vec2(127.1, 311.7))) * 43758.5453);
+          return mix(mix(h00, h10, a.x), mix(h01, h11, a.x), a.y);
+        }
+        vec3 artHue(float t) { return 0.5 + 0.5 * cos(6.2832 * (t + vec3(0.0, 0.33, 0.67))); }
       #endif
       #ifdef TRI_SAKURA
         uniform vec3 sakuraGold, sakuraPink, sakuraPearl, sakuraBlack;
@@ -718,6 +749,81 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         float kBrush = 0.85 + 0.3 * fract(sin(floor(vTriPos.y * 2600.0) * 91.7) * 4375.5);
         vec3 kGlaze = kArt * (1.0 - kCraze * 0.16);
         diffuseColor.rgb = mix(kGlaze, artDark * kBrush, kBelow) * triGain * (1.0 + 1.3 * step(0.5, artMode) * step(artMode, 1.5));   // the bronze is a dark painting: lifted so it reads
+        // Forgeheart: the black plates are real forged steel, not the painting's shading: hammer dimples, a
+        // mottled fire scale, temper colours (straw, purple, blue) where the molten seam has heated them
+        float fxForge = step(0.5, artFx) * step(artFx, 1.5);
+        float fxDef = step(3.5, artFx) * step(artFx, 4.5);   // a default skin (painted from a picture of the gun)
+        float kHotArt = sstep(0.4, 0.75, kArt.r) * sstep(0.25, 0.5, kArt.r - kArt.b);
+        float kPlate = fxForge * (1.0 - kHotArt) * (1.0 - kGold);
+        vec4 kHam = artCell(vec2(vTriPos.z + vTriPos.x * 0.7, vTriPos.y) * 70.0);
+        float kScale = artNoise(vTriPos.zy * 140.0 + vTriPos.x * 60.0) * 0.6 + artNoise(vTriPos.zy * 420.0) * 0.4;
+        // folded (Damascus) steel: wavy bands of light and dark layers running along the gun, and small forge pits
+        float kDam = 0.0, kPit = 0.0;
+        if (kPlate > 0.0) {
+          kDam = 0.5 + 0.5 * sin((vTriPos.y + vTriPos.x * 0.5 + 0.016 * artNoise(vTriPos.zy * 22.0) + 0.005 * sin(vTriPos.z * 85.0)) * 620.0);
+          kPit = sstep(0.14, 0.06, artCell(vTriPos.zy * 380.0).x) * sstep(0.55, 0.75, artNoise(vTriPos.zy * 55.0 + 3.0));
+        }
+        if (kPlate > 0.0) {
+          vec3 kNA = texture2D(artMap, kuv, 5.0).rgb;
+          float kHeatTint = sstep(0.03, 0.22, kNA.r - kNA.b);
+          // gunmetal: a dark grey steel that shows its reflections (the painting's plate shading kept as a hint)
+          vec3 kSteel = vec3(0.3, 0.29, 0.28) * (0.42 + 0.9 * clamp(kLum * 1.6, 0.0, 1.0)) * (0.85 + 0.3 * kScale) * (0.85 + 0.25 * sstep(0.08, 0.45, kHam.x));
+          vec3 kTemper = mix(vec3(0.1, 0.16, 0.38), mix(vec3(0.3, 0.11, 0.27), vec3(0.55, 0.38, 0.13), sstep(0.45, 0.8, kHeatTint)), sstep(0.2, 0.5, kHeatTint));
+          kSteel = mix(kSteel, kTemper * 0.55, sstep(0.1, 0.35, kHeatTint) * 0.8);
+          kSteel *= (0.72 + 0.42 * kDam) * (1.0 - 0.65 * kPit);
+          diffuseColor.rgb = mix(diffuseColor.rgb, kSteel * triGain, kPlate);
+        }
+        // Jade Coil: as the dragon settles on the muzzle, carved jade scales spread over the gun from the muzzle
+        // back (JADE_PERCH in js/scene/inspect-effects.js): rows of rounded scales, each overlapping the root
+        // of the one behind it, domed, darker in the crease where the next one starts, translucent at the tip.
+        float jLit = 0.0, jRR = 0.0; vec2 jD = vec2(0.0);
+        if (artFx > 1.5 && artFx < 2.5 && artPhase >= 0.0) {
+          float ph = artPhase;
+          float wipe = mix(-0.32, 0.42, sstep(0.66, 0.76, ph));
+          jLit = sstep(0.02, -0.02, vTriPos.z - wipe) * step(0.655, ph) * (1.0 - sstep(0.988, 0.999, ph));
+          vec2 q = vec2(vTriPos.y + vTriPos.x * 0.6, vTriPos.z) * 95.0;          // x: across the rows, y: along the gun
+          float best = 1e5;
+          for (int dj = -1; dj <= 0; dj++) {
+            float j = floor(q.y) + float(dj), off = 0.5 * mod(j, 2.0);
+            for (int di = -1; di <= 1; di++) {
+              vec2 d = q - vec2(floor(q.x - off) + float(di) + off + 0.5, j);
+              float rr = length(d * vec2(1.0, 0.6)) / 0.64;
+              if (d.y >= 0.0 && rr < 1.0 && j < best) { best = j; jD = d; jRR = rr; }    // the scale nearest the muzzle lies on top
+            }
+          }
+          float jVar = fract(sin(dot(floor(q - jD), vec2(12.9898, 78.233))) * 43758.5453);
+          vec3 jCol = mix(vec3(0.005, 0.045, 0.022), vec3(0.06, 0.25, 0.12), sstep(0.0, 0.85, jRR) * 0.75 + jVar * 0.25);
+          jCol = mix(jCol, vec3(0.55, 0.42, 0.18), sstep(0.88, 0.95, jRR) * (1.0 - sstep(0.97, 1.0, jRR)) * 0.6);   // a fine bronze rim
+          jCol *= 1.0 - 0.7 * sstep(0.85, 1.0, jRR);                                                                  // the crease
+          diffuseColor.rgb = mix(diffuseColor.rgb, jCol * triGain, jLit);
+        }
+        // Forgeheart's cracks (times: FORGE_* in js/scene/inspect-effects.js): the hammer's first blow splits the
+        // gun open along its length from where it lands, each blow drives the cracks further; they stay open
+        // (embers after the quench) until the inspect ends. Each is a real cut: walls bevelled down into it, charred, lava glowing at the bottom.
+        float kCrack = 0.0, kWall = 0.0, kCrackR = 9.0; vec2 kCrackG = vec2(0.0);
+        if (fxForge > 0.5 && artPhase >= 0.0) {
+          float ph = artPhase;
+          float h1 = sstep(0.32, 0.33, ph), h2 = sstep(0.4, 0.41, ph), h3 = sstep(0.48, 0.49, ph), seal = sstep(0.985, 1.0, ph);   // (open to the very end)
+          float reach = 0.17 * h1 + 0.13 * h2 + 0.13 * h3;
+          vec2 hp = vec2(-0.15, 0.0066);
+          // the big crack: a jagged line along the gun through the blow, widest there, tapering to its ends
+          float lineY = hp.y + 0.01 * sin(vTriPos.z * 31.0) + 0.02 * (artNoise(vec2(vTriPos.z * 22.0, 1.0)) - 0.5) + 0.007 * (artNoise(vec2(vTriPos.z * 95.0, 5.0)) - 0.5);
+          float wm = 0.0065 * (0.7 + 0.2 * (h2 + h3)) * (1.0 - seal) * h1 * max(0.0, 1.0 - abs(vTriPos.z - hp.x) / (reach + 0.04));
+          float rm = abs(vTriPos.y - lineY) / max(wm, 1e-5);
+          // its branches: cell edges near the blow, a branching few
+          vec2 cp = vec2(vTriPos.z + vTriPos.x * 0.5, vTriPos.y) * 24.0;
+          vec4 cr = artCell(cp);
+          float wb = 0.1 * (1.0 - seal) * sstep(reach, reach - 0.06, length(vTriPos.zy - hp)) * sstep(0.42, 0.58, artNoise(vec2(vTriPos.z + vTriPos.x, vTriPos.y) * 14.0));
+          float rb = (cr.y - cr.x) / max(wb, 1e-5);
+          if (rm < rb) { kCrackR = rm; kCrackG = vec2(0.0, sign(vTriPos.y - lineY)); }
+          else if (rb < 3.0) {
+            vec4 cx = artCell(cp + vec2(0.03, 0.0)), cy = artCell(cp + vec2(0.0, 0.03));
+            kCrackR = rb; kCrackG = normalize(vec2((cx.y - cx.x) - (cr.y - cr.x), (cy.y - cy.x) - (cr.y - cr.x)) + 1e-6);
+          }
+          kCrack = 1.0 - sstep(0.55, 1.0, kCrackR);                     // the cut itself
+          kWall = sstep(2.6, 1.0, kCrackR) * (1.0 - kCrack);             // its bevelled, charred walls
+          diffuseColor.rgb *= mix(1.0, 0.25, kWall * kPlate) * mix(1.0, 0.05, kCrack);
+        }
       #elif defined( TRI_SKIN )
         vec3 triP = vTriPos * triScale;     // fixed to the gun (it used to flow while inspecting)
         float relief = 0.5;
@@ -765,6 +871,46 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         float sweep = exp(-pow(vTriPos.z - sweepX + vTriPos.y * 0.6, 2.0) * 90.0) * triAnim;
         diffuseColor.rgb += sweepCol * sweep * (1.0 - triWear) * 0.9;
       #endif
+      #ifdef TRI_BASE
+        // The gun's own material, drawn in gun space: bLum is its light/dark texture (0..1), bNrm its relief.
+        vec3 bCol; float bRough, bMetal, bLum; vec2 bNrm;
+        {
+          vec3 q = vTriPos;
+          if (triBase < 1.5) {                       // gunmetal: blued steel, mottled, with fine machining lines along the gun
+            float mot = bNoise(q.zy * 38.0 + q.x * 20.0), mach = bNoise(vec2(q.z * 30.0, (q.y + q.x) * 1400.0));
+            bLum = 0.55 * mot + 0.45 * mach;
+            bCol = vec3(0.14, 0.146, 0.156) * (0.8 + 0.4 * bLum);
+            bRough = 0.48 - 0.16 * mach + 0.1 * mot; bMetal = 0.85;
+            bNrm = vec2(0.0, (mach - 0.5) * 0.12);
+          } else if (triBase < 2.5) {                // walnut: growth rings and fibres along the length, oiled
+            float w = q.y + q.x * 0.7 + 0.02 * bNoise(q.zy * vec2(5.0, 9.0)) + 0.006 * bNoise(vec2(q.z * 28.0, q.y * 40.0));
+            float ring = fract(w * 48.0); ring = smoothstep(0.0, 0.25, ring) * smoothstep(1.0, 0.55, ring);
+            float fib = bNoise(vec2(q.z * 45.0, w * 1500.0));
+            bLum = 0.55 * ring + 0.3 * fib + 0.15 * bNoise(q.zy * 4.0);
+            bCol = mix(vec3(0.2, 0.085, 0.03), vec3(0.62, 0.32, 0.12), bLum);
+            bRough = 0.5 - 0.14 * ring; bMetal = 0.0;
+            bNrm = vec2(0.0, (fib - 0.5) * 0.14);
+          } else if (triBase < 3.5) {                // polymer: a fine stippled grip texture
+            float st = bNoise(q.zy * 1600.0 + q.x * 900.0), st2 = bNoise(q.zy * 420.0 + 9.0);
+            bLum = 0.6 * st + 0.4 * st2;
+            bCol = vec3(0.06, 0.063, 0.069) * (0.92 + 0.16 * bLum);
+            bRough = 0.6 - 0.06 * st; bMetal = 0.02;
+            bNrm = vec2(st - 0.5, st2 - 0.5) * 0.05;
+          } else {                                   // machined steel: brushed along the barrel
+            float br = bNoise(vec2(q.z * 15.0, (q.y + q.x) * 2600.0));
+            bLum = br;
+            bCol = vec3(0.4, 0.41, 0.43) * (0.85 + 0.25 * br);
+            bRough = 0.26 + 0.14 * br; bMetal = 1.0;
+            bNrm = vec2(0.0, (br - 0.5) * 0.08);
+          }
+        }
+        #ifdef TRI_SKIN
+          diffuseColor.rgb *= 0.86 + 0.28 * bLum;                          // the metal's grain shows through the paint
+          diffuseColor.rgb = mix(diffuseColor.rgb, bCol * triGain, triWear); // and it is bare where the paint has worn off
+        #else
+          diffuseColor.rgb = bCol * triGain;
+        #endif
+      #endif
       #ifdef TRI_DETAIL
         vec4 dt = triTex(detailMap, vTriPos * detScale, tw);
         diffuseColor.rgb *= mix(1.0, dt.b * 2.0, detStrength);
@@ -788,9 +934,17 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       #elif defined( TRI_ART )
         roughnessFactor = mix(mix(mix(mix(0.12, 0.2, kSilver), 0.34, kBelow), mix(0.42, 0.07, kTeal), kBronze), mix(0.45, 0.05, kGlass), kStained);
         roughnessFactor = mix(roughnessFactor, mix(0.14, 0.18, kGold), kLacq);
+        roughnessFactor = mix(roughnessFactor, 0.2 + 0.22 * kScale + 0.14 * (1.0 - kDam) + 0.3 * kPit - 0.08 * sstep(0.35, 0.5, kHam.x), kPlate);   // forged steel: rims of the dimples catch the light
       #elif defined( TRI_SKIN )
         vec4 skrm = triTex(skinRM, triP, tw);
         roughnessFactor = mix(skrm.g, 0.3, triWear);
+      #endif
+      #ifdef TRI_BASE
+        #ifdef TRI_SKIN
+          roughnessFactor = mix(roughnessFactor, bRough, triWear);
+        #else
+          roughnessFactor = bRough;
+        #endif
       #endif
       #ifdef TRI_DETAIL
         roughnessFactor = clamp(roughnessFactor * mix(1.0, dt.a * 2.0, detStrength), 0.04, 1.0);
@@ -805,8 +959,28 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       #elif defined( TRI_ART )
         metalnessFactor = mix(mix(mix(kSilver, 0.75, kBelow), 0.35 * (1.0 - kTeal), kBronze), 0.55 * (1.0 - kGlass), kStained);
         metalnessFactor = mix(metalnessFactor, mix(0.2, 0.92, kGold), kLacq);
+        metalnessFactor = mix(metalnessFactor, 0.86, kPlate);
+        metalnessFactor = mix(metalnessFactor, 0.0, jLit);
+        metalnessFactor = mix(metalnessFactor, 0.35 + 0.3 * sstep(0.08, 0.3, kLum), fxDef);
+        roughnessFactor = mix(roughnessFactor, 0.7, max(kWall, kCrack));
+        roughnessFactor = mix(roughnessFactor, 0.16 + 0.3 * sstep(0.85, 1.0, jRR), jLit);   // polished jade
+        // a default skin: the picture's gun, worn and a little rough; its scuffed (lighter) edges catch more light
+        roughnessFactor = mix(roughnessFactor, 0.62 - 0.3 * sstep(0.08, 0.3, kLum), fxDef);
+        // Black Ice: its picture as painted. Most of the colour is the picture's own light (emissive, below), so
+        // the range's lighting does not tint it; the rest is a glossy, non-metal surface that takes reflections.
+        float kIce = fxDef * step(0.001, skinGlow.r + skinGlow.g + skinGlow.b);
+        metalnessFactor = mix(metalnessFactor, 0.0, kIce);
+        roughnessFactor = mix(roughnessFactor, 0.22, kIce);
+        diffuseColor.rgb *= 1.0 - 0.7 * kIce;
       #elif defined( TRI_SKIN )
         metalnessFactor = mix(skrm.b, 1.0, triWear);
+      #endif
+      #ifdef TRI_BASE
+        #ifdef TRI_SKIN
+          metalnessFactor = mix(metalnessFactor, bMetal, triWear);
+        #else
+          metalnessFactor = bMetal;
+        #endif
       #endif
       #ifdef TRI_HD
         metalnessFactor = mix(metalnessFactor, hdEdgeMetal, hdWear);
@@ -836,7 +1010,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         // glass: the panes glow with their own colour; in the inspect a concentrated stained-glass
         // reflection slides along the receiver and breaks up as the angle changes
         float kSlide = artPhase < 0.0 ? 0.0 : exp(-pow(vTriPos.z - mix(-0.32, 0.26, sstep(0.25, 0.75, artPhase)) + vTriPos.y * 0.5, 2.0) * 140.0);
-        totalEmissiveRadiance += (kArt * kGlass * (0.85 + kSlide * 3.4) + kArt * kSlide * (1.0 - kGlass) * 0.25 * kStained) * (1.0 - 0.6 * step(5.5, artMode));   // (amber: a softer glow)
+        totalEmissiveRadiance += (kArt * kGlass * (0.85 + kSlide * 3.4) + kArt * kSlide * (1.0 - kGlass) * 0.25 * kStained) * (1.0 - 0.6 * step(5.5, artMode)) * (1.0 - jLit);   // (amber: a softer glow; none through the jade scales)
         // Forgeheart: the molten seam always smoulders; in the inspect a heat front runs along it from
         // the handguard into the receiver, burns yellow at the peak and cools to deep red, and a dull
         // red glow creeps through the dark cracks between the plates.
@@ -868,6 +1042,39 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         float kHot = artPhase < 0.0 ? 0.0 : sstep(0.42, 0.57, artPhase) * (1.0 - sstep(0.6, 0.86, artPhase));
         vec3 kFire = mix(vec3(0.75, 0.07, 0.01), vec3(1.0, 0.72, 0.22), kHot);
         totalEmissiveRadiance += kMolten * (vec3(1.0, 0.35, 0.05) * 0.5 + kFire * kHeat * (1.2 + 3.5 * kHot));
+        // Forgeheart's inspect (times: FORGE_* in js/scene/inspect-effects.js): the core cracks open from the
+        // split, lava running in the cracks; three hammer blows, each flashing the metal hot; then steam and the quench.
+        if (fxForge > 0.5 && artPhase >= 0.0) {
+          float ph = artPhase;
+          float kDist = length(vTriPos.zy - vec2(-0.15, 0.0066));
+          float hits = sstep(0.32, 0.332, ph) + sstep(0.4, 0.412, ph) + sstep(0.48, 0.492, ph);
+          float flow = 0.7 + 0.3 * sin(vTriPos.z * 110.0 - triTime * 5.0 + vTriPos.y * 60.0);
+          vec3 lava = mix(vec3(1.0, 0.2, 0.02), vec3(1.0, 0.8, 0.42), sstep(0.5, 0.0, kCrackR));      // white-hot down the middle
+          totalEmissiveRadiance += (kCrack * 2.6 * lava + kWall * vec3(0.6, 0.12, 0.01) * 0.7 * sstep(2.6, 1.0, kCrackR)) * flow * (1.0 - 0.7 * sstep(0.84, 0.87, ph));   // (embers after the quench)   // (and its light on the walls)
+          float blow = 0.0;
+          for (int i = 0; i < 3; i++) blow += exp(-pow((ph - 0.32 - 0.08 * float(i)) / 0.012, 2.0)) * (0.6 + 0.4 * float(i));
+          float forging = sstep(0.28, 0.34, ph) * (1.0 - sstep(0.6, 0.66, ph)) * (0.2 + 0.25 * hits);
+          totalEmissiveRadiance += vec3(1.0, 0.32, 0.05) * kPlate * (blow * 1.2 * exp(-kDist * kDist * 90.0) + forging * 0.12 * exp(-kDist * kDist * 40.0));
+        }
+        // Jade Coil: the scales' glow (they are drawn above)
+        if (artFx > 1.5 && artFx < 2.5 && artPhase >= 0.0) {
+          float ph = artPhase;
+          float wipe = mix(-0.32, 0.42, sstep(0.66, 0.76, ph));                         // (as it lands: JADE_LANDED)
+          totalEmissiveRadiance += vec3(0.08, 0.4, 0.2) * 0.35 * (1.0 - jRR) * jLit * (0.8 + 0.2 * sin(triTime * 3.0 - vTriPos.z * 20.0));   // light through the jade
+          totalEmissiveRadiance += vec3(0.3, 1.0, 0.55) * 0.6 * exp(-pow((vTriPos.z - wipe) * 45.0, 2.0)) * step(0.66, ph) * (1.0 - sstep(0.75, 0.77, ph));   // the spreading edge
+        }
+        // Opal Overture: as it swallows, a wave of colour runs from the jaw to the stock, the opal flashing
+        // through every colour, and leaves it shimmering for a moment
+        if (artFx > 2.5 && artPhase >= 0.0) {
+          float ph = artPhase;
+          float wz = mix(-0.34, 0.42, sstep(0.665, 0.74, ph));                          // (OPAL_GULP: right after it swallows)
+          float on = step(0.665, ph) * (1.0 - sstep(0.9, 0.95, ph));
+          float band = exp(-pow((vTriPos.z - wz + vTriPos.y * 0.35) * 11.0, 2.0));
+          float after = sstep(0.0, 0.12, wz - vTriPos.z) * 0.14;
+          vec3 col = artHue(vTriPos.z * 5.0 + vTriPos.y * 3.0 - triTime * 1.3 + kLum * 1.5);
+          totalEmissiveRadiance += col * (band * 2.4 + after * (0.6 + 0.4 * sin(triTime * 9.0 + vTriPos.z * 60.0))) * on;
+        }
+        totalEmissiveRadiance += kArt * 0.7 * kIce;     // Black Ice: the picture's own colours (see kIce)
         vec3 kNearArt = texture2D(artMap, kuv, 4.0).rgb;                  // blurred: is the seam close by?
         float kNear = kForge * sstep(0.04, 0.16, kNearArt.r - kNearArt.b);
         totalEmissiveRadiance += vec3(0.45, 0.03, 0.0) * kNear * (1.0 - sstep(0.03, 0.1, kLum)) * kHeat * (0.15 + 0.35 * kHot);
@@ -885,6 +1092,13 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         float lx = dot(texture2D(artMap, kuv + vec2(e.x, 0.0)).rgb, vec3(0.3, 0.59, 0.11)) - kLum;
         float ly = dot(texture2D(artMap, kuv + vec2(0.0, e.y)).rgb, vec3(0.3, 0.59, 0.11)) - kLum;
         normal = normalize(normal - (vTriAZ * lx + vTriAY * ly) * 2.2 * kSide);
+        // Forgeheart: the hammer dimples (each a shallow cup: the normal tips towards its centre) and a fine grain
+        normal = normalize(normal + (vTriAZ * kHam.z + vTriAY * kHam.w) * 0.34 * kPlate * kSide + vTriAY * cos((vTriPos.y + vTriPos.x * 0.5) * 620.0) * 0.06 * kPlate * kSide + (vTriAZ * (kScale - 0.5) + vTriAY * (artNoise(vTriPos.zy * 380.0 + 7.0) - 0.5)) * 0.12 * kPlate);
+        // each jade scale is a dome, curving down to its edge (towards the scale behind it)
+        normal = normalize(normal + (vTriAY * jD.x + vTriAZ * jD.y * 0.6) * 0.9 * sstep(0.35, 1.0, jRR) * jLit);
+        // the cracks' walls slope down into them (the normal leans towards the cut), with a raised lip at the rim
+        float kLip = sstep(3.4, 2.6, kCrackR) * sstep(2.0, 2.6, kCrackR);
+        normal = normalize(normal - (vTriAZ * kCrackG.x + vTriAY * kCrackG.y) * (1.6 * kWall - 0.5 * kLip) * kSide);
       }
       {
         // Storm Kiln: water ripples run over the glaze, rings spreading from three points and a swell
@@ -915,6 +1129,13 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         vec3 sn = (sx.x * vTriAZ + sx.y * vTriAY) * tw.x + (sy.x * vTriAX + sy.y * vTriAZ) * tw.y + (sz.x * vTriAX + sz.y * vTriAY) * tw.z;
         normal = normalize(normal + sn * (1.0 - triWear) * reliefK);
       }
+      #endif
+      #ifdef TRI_BASE
+        #ifdef TRI_SKIN
+          normal = normalize(normal + (vTriAZ * bNrm.x + vTriAY * bNrm.y) * 0.5);   // (under the paint)
+        #else
+          normal = normalize(normal + vTriAZ * bNrm.x + vTriAY * bNrm.y);
+        #endif
       #endif
       #ifdef TRI_DETAIL
       {

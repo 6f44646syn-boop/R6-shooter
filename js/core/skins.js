@@ -9,7 +9,7 @@
 //   p        [scale (whole number), warp, threshold shift, spare]
 //   rm       [roughness, metalness] of the base, then of the accent
 //   clearcoat, wear (bare metal at the edges), glow ([r, g, b] light from the accent lines)
-import { mulberry32 } from './prng.js?v=d69caf8-mwjxfd1o';
+import { mulberry32 } from './prng.js?v=b14a97f-mwkjfhd1';
 
 export const RARITIES = [
   { key: 'common', name: 'Common', color: '#b4bcc6', odds: 0.65, refund: 20 },
@@ -24,7 +24,10 @@ export const LEGEND_ID = 2000, LEGEND_GOLD_ID = 2001;
 const L3 = (r, g, b) => [r, g, b];
 export const LEGEND = { id: LEGEND_ID, name: 'Legend', rarity: 'legendary', photo: true, pattern: 11, c: [L3(0.5, 0.32, 0.05), L3(1, 0.7, 0.2), L3(1, 0.85, 0.4), L3(0, 0, 0)], p: [1, 1, 0, 0], rm: [0.3, 0.25, 0.3, 0.25], clearcoat: 1, wear: 0.12, glow: [0, 0, 0] };
 export const LEGEND_GOLD = { ...LEGEND, id: LEGEND_GOLD_ID, name: 'Legend', photo: false, rm: [0.25, 1, 0.2, 1], wear: 0.2 };
-export const SAKURA_ID = 201;
+const LEG_BASE = 201;            // the Legendaries follow the 201 generated skins
+// which catalogue a save's skin ids belong to (saved in the code: a save from another one keeps its points, its skins are reset)
+export const CATALOGUE_GEN = 1;
+export const SAKURA_ID = LEG_BASE;
 const SAKURA = {
   id: SAKURA_ID, name: 'Sakura Gilt', rarity: 'legendary', guns: [2], pattern: 18, art: 'data/skins/sakura-gilt.webp',
   artRect: [-0.52308, 0.28734, -0.35822, 0.24959], artLook: 'lacquer',      // painted from the R4-C concept (00-sakura-gilt-r4c.jpg)
@@ -33,7 +36,7 @@ const SAKURA = {
 };
 // Storm Kiln (F2 only): glazed porcelain painted with cobalt clouds and waves, silver repair
 // seams, a silver moon; the painting is the concept art (data/skins), laid out in F2 gun space.
-export const KILN_ID = 202;
+export const KILN_ID = LEG_BASE + 1;
 const KILN = {
   id: KILN_ID, name: 'Storm Kiln', rarity: 'legendary', guns: [1], pattern: 18, art: 'data/skins/storm-kiln.webp',
   artRect: [-0.55244, 0.24416, -0.27069, 0.26019],   // gun z from, to; y from, to: the concept's edges on the traced F2
@@ -41,7 +44,7 @@ const KILN = {
   rm: [0.14, 0, 0.2, 1], clearcoat: 1, wear: 0, glow: [0, 0, 0], artLook: 'porcelain',
 };
 // Abyssal Crown (G8A1 only): oxidised bronze relic, nautilus whorls, glowing teal inlays, a glass depth dial.
-export const ABYSS_ID = 203;
+export const ABYSS_ID = LEG_BASE + 2;
 const ABYSS = {
   id: ABYSS_ID, name: 'Abyssal Crown', rarity: 'legendary', guns: [5], pattern: 18, art: 'data/skins/abyssal-crown.webp',
   artRect: [-0.65072, 0.40208, -0.38946, 0.31216], artLook: 'bronze',
@@ -49,7 +52,7 @@ const ABYSS = {
   rm: [0.32, 0.9, 0.08, 0], clearcoat: 0.4, wear: 0, glow: [0, 0, 0],
 };
 // Vesper Glass (C8-SFW only): blackened pewter tracery and garnet, violet and amber glass, a rose window.
-export const VESPER_ID = 204;
+export const VESPER_ID = LEG_BASE + 3;
 const VESPER = {
   id: VESPER_ID, name: 'Vesper Glass', rarity: 'legendary', guns: [7], pattern: 18, art: 'data/skins/vesper-glass.webp',
   artRect: [-0.55978, 0.31133, -0.35542, 0.22511], artLook: 'glass',
@@ -67,7 +70,7 @@ const LATE = [
   ['Velvet Ante', 3, 'velvet-ante', [-0.21361, 0.41797, -0.2903, 0.1306], 'velvet', [[0.35, 0.03, 0.05], [0.85, 0.65, 0.25], [0.04, 0.01, 0.015], [0.9, 0.86, 0.76]]],
   ['Opal Overture', 8, 'opal-overture', [-0.30471, 0.35412, -0.27329, 0.16576], 'opal', [[0.85, 0.75, 0.7], [0.3, 0.75, 0.75], [0.02, 0.02, 0.025], [0.55, 0.35, 0.75]]],
 ].map(([name, gun, file, artRect, artLook, c], i) => ({
-  id: 205 + i, name, rarity: 'legendary', guns: [gun], pattern: 18, art: 'data/skins/' + file + '.webp', artRect, artLook, c,
+  id: LEG_BASE + 4 + i, name, rarity: 'legendary', guns: [gun], pattern: 18, art: 'data/skins/' + file + '.webp', artRect, artLook, c,
   ...(file === 'forgeheart' ? { artPeak: 'data/skins/forgeheart-peak.webp' } : {}),      // the inspect's peak (04-forgeheart-peak.webp)
   ...(file === 'jade-coil' ? { artPeak: 'data/skins/jade-coil-bare.webp' } : {}),        // the gun with its dragon gone (it comes alive)
   rm: [0.2, 0.6, 0.1, 0.3], clearcoat: 0.8, wear: 0, glow: [0, 0, 0],
@@ -103,17 +106,20 @@ const EPIC_HUES = [[0.77, 0.53], [0.99, 0.07], [0.48, 0.36], [0.71, 0.84], [0.03
   [0.57, 0.7], [0.77, 0.11], [0.31, 0.18], [0.07, 0.5], [0.86, 0.5], [0.58, 0.14], [0.65, 0.78], [0.75, 0.48]];
 
 // Name, body hue, frost hue, depth lightness, crystal tint, crack scale, frost coverage, crystal shape.
+// (one per gun, BLACK_ICE_GUN; each is painted from its own picture in the Weapon Skins pack, PACK_ART)
 const ICE = [
-  ['Glacier',       0.58, 0.52, 0.23, 0.76, 1, 0.76, 1.12],
-  ['Deep Blue',     0.65, 0.58, 0.16, 0.63, 2, 0.42, 0.80],
-  ['Red Shift',     0.99, 0.035, 0.25, 0.68, 1, 0.46, 1.27],
-  ['Crimson Frost', 0.95, 0.99, 0.17, 0.71, 2, 0.86, 0.86],
-  ['Rose',          0.92, 0.965, 0.25, 0.81, 1, 0.63, 1.00],
-  ['Pink Frost',    0.86, 0.91, 0.22, 0.82, 2, 0.91, 0.74],
-  ['Violet',        0.75, 0.81, 0.22, 0.68, 1, 0.57, 1.20],
-  ['Purple Haze',   0.78, 0.65, 0.19, 0.76, 2, 0.81, 0.94],
-  ['Venom Green',   0.43, 0.33, 0.23, 0.61, 1, 0.72, 1.35],
+  ['Violet',        0.76, 0.79, 0.23, 0.76, 1, 0.76, 1.12],   // AK-12
+  ['Amethyst',      0.72, 0.80, 0.16, 0.63, 2, 0.42, 0.80],   // F2
+  ['Amber',         0.09, 0.11, 0.25, 0.68, 1, 0.46, 1.27],   // EVO
+  ['Emerald',       0.36, 0.38, 0.17, 0.71, 2, 0.86, 0.86],   // C8-SFW
+  ['Crimson',       0.98, 0.99, 0.25, 0.81, 1, 0.63, 1.00],   // R4-C
+  ['Obsidian',      0.68, 0.66, 0.10, 0.82, 2, 0.91, 0.74],   // MP7
+  ['Deep Blue',     0.60, 0.58, 0.22, 0.68, 1, 0.57, 1.20],   // G8A1
+  ['Teal',          0.49, 0.50, 0.19, 0.76, 2, 0.81, 0.94],   // MP5K
+  ['Cobalt',        0.62, 0.60, 0.23, 0.61, 1, 0.72, 1.35],   // T-5
+  ['Rose',          0.92, 0.93, 0.22, 0.80, 2, 0.70, 1.00],   // SMG-11 (id 211, after the Legendaries)
 ];
+export const BLACK_ICE_IDS = [192, 193, 194, 195, 196, 197, 198, 199, 200, 211];
 
 function make(id) {
   const rng = mulberry32((id + 1) * 7919 + 13);
@@ -163,8 +169,8 @@ function make(id) {
   if (id === KILN_ID) return KILN;
   if (id === ABYSS_ID) return ABYSS;
   if (id === VESPER_ID) return VESPER;
-  if (id >= 205) return LATE[id - 205];
-  const [word, hue, frost, depth, tint, scale, coverage, shape] = ICE[id - 192];
+  if (id >= LEG_BASE + 4 && id < LEG_BASE + 10) return LATE[id - LEG_BASE - 4];
+  const [word, hue, frost, depth, tint, scale, coverage, shape] = ICE[BLACK_ICE_IDS.indexOf(id)];
   return { id, rarity: 'blackice', name: 'Black Ice ' + word, pattern: 10,
     ice: hsl(frost, 0.58, tint), crystalShape: shape, scale: 1.85,
     c: [hsl(hue, 0.70, depth * 0.38), hsl(frost, 0.49, 0.76), hsl(frost, 0.36, 0.96), hsl(hue, 0.74, depth)],
@@ -172,7 +178,28 @@ function make(id) {
     glow: hsl(frost, 0.64, 0.66).map((v) => v * 0.48) };
 }
 
-export const SKIN_COUNT = 211;      // 100 Common, 60 Rare, 32 Epic, 9 Black Ice, 10 Legendary (Sakura Gilt, Storm Kiln, Abyssal Crown, Vesper Glass and the six above)
+// Each picture is fitted part by part: the box a part fills in the picture (pixels: x from, to; y from, to,
+// measured on the picture) onto that part's box on the traced gun (gun space: z from, to; y from, to). The
+// body is the gun without its barrel (sights, rail and barrel are not painted). Parts not listed stay plain.
+export const DEFAULT_ART = [
+  // slot, picture, its size, { part: [picture box, gun box] }
+  [0, 'evo', [1774, 887], { body: [[215, 1718, 240, 655], [-0.248, 0.332, -0.095, 0.086]], grip: [[1000, 1210, 445, 750], [0.042, 0.141, -0.163, -0.035]], magazine: [[630, 835, 500, 785], [-0.126, -0.035, -0.186, -0.035]] }],
+  [1, 'f2', [1774, 887], { body: [[410, 1722, 205, 615], [-0.425, 0.221, -0.101, 0.115]], grip: [[945, 1125, 495, 745], [-0.181, -0.081, -0.153, -0.022]], magazine: [[1195, 1375, 500, 830], [-0.031, 0.034, -0.17, -0.058]] }],
+  [2, 'r4c', [1774, 887], { body: [[235, 1727, 228, 592], [-0.424, 0.28, -0.116, 0.068]], grip: [[1100, 1310, 440, 705], [-0.003, 0.096, -0.19, -0.055]], magazine: [[710, 945, 455, 810], [-0.193, -0.075, -0.247, -0.05]] }],
+  [3, 'smg11', [1774, 887], { body: [[595, 1260, 130, 335], [-0.128, 0.182, -0.063, 0.085]], grip: [[878, 1078, 330, 620], [0.001, 0.088, -0.139, -0.031]], magazine: [[900, 1045, 620, 845], [0.007, 0.085, -0.241, -0.14]], stock: [[1258, 1620, 195, 625], [0.183, 0.403, -0.12, 0.028]] }],
+  [4, 'ak12', [2172, 724], { body: [[682, 2137, 139, 543], [-0.41, 0.364, -0.148, 0.076]], grip: [[1466, 1645, 320, 586], [0.033, 0.135, -0.19, -0.06]], magazine: [[1030, 1298, 310, 684], [-0.187, -0.034, -0.222, -0.042]] }],
+  [5, 'g8a1', [2172, 724], { body: [[326, 2118, 195, 538], [-0.5, 0.392, -0.132, 0.056]], grip: [[1412, 1553, 402, 673], [0.034, 0.148, -0.165, -0.044]], magazine: [[1005, 1233, 386, 662], [-0.166, -0.054, -0.165, -0.032]] }],
+  [6, 'mp5k', [1672, 941], { body: [[250, 1410, 215, 520], [-0.245, 0.257, -0.087, 0.066]], grip: [[1100, 1395, 500, 835], [0.038, 0.137, -0.177, -0.036]], magazine: [[595, 815, 480, 865], [-0.154, -0.049, -0.208, -0.036]], foregrip: [[400, 515, 395, 620], [-0.211, -0.166, -0.122, -0.032]] }],
+  [7, 'c8', [1200, 434], { body: [[237, 1145, 65, 275], [-0.413, 0.3, -0.193, 0.058]], grip: [[760, 885, 195, 360], [-0.002, 0.101, -0.205, -0.065]], magazine: [[495, 645, 205, 395], [-0.209, -0.106, -0.233, -0.081]] }],
+  [8, 'mp7', [1200, 407], { body: [[338, 975, 85, 258], [-0.226, 0.34, -0.097, 0.092]], foregrip: [[372, 408, 178, 293], [-0.197, -0.153, -0.134, -0.028]], grip: [[582, 665, 180, 300], [-0.022, 0.076, -0.15, -0.023]], magazine: [[565, 645, 300, 390], [-0.022, 0.052, -0.23, -0.15]] }],
+  [9, 't5', [2172, 724], { body: [[469, 1955, 141, 478], [-0.176, 0.359, -0.076, 0.091]], grip: [[1043, 1243, 391, 652], [0.028, 0.113, -0.125, -0.014]], magazine: [[1320, 1466, 407, 695], [0.051, 0.132, -0.186, -0.126]] }],
+];
+// a picture box onto a gun box -> the art rectangle (the picture's edges in gun space) for that part
+const fitRect = ([W, H], [x0, x1, py0, py1], [z0, z1, y0, y1]) => {
+  const sz = (z1 - z0) / (x1 - x0), sy = (y1 - y0) / (py1 - py0), Z0 = z0 - x0 * sz, Y1 = y1 + py0 * sy;
+  return [Z0, Z0 + W * sz, Y1 - H * sy, Y1];
+};
+export const SKIN_COUNT = 212;      // 100 Common, 60 Rare, 32 Epic, 9 Black Ice, 10 Legendary (Sakura Gilt, Storm Kiln, Abyssal Crown, Vesper Glass and the six above), then the 10th Black Ice
 export const CATALOGUE = Array.from({ length: SKIN_COUNT }, (_, i) => make(i));
 // Unique names (the same word + pattern can come up twice).
 {
@@ -187,16 +214,71 @@ export const CATALOGUE = Array.from({ length: SKIN_COUNT }, (_, i) => make(i));
 // Gun-exclusive skins (by loadout slot 0-9): every Black Ice belongs to one gun, every other
 // Epic to one gun, and every fifth Rare to a family (SMGs, or rifles and carbines).
 export const FAMILIES_BY_SLOT = { smg: [0, 3, 6, 8, 9], rifle: [1, 2, 4, 7] };
-const BLACK_ICE_GUN = [4, 1, 0, 7, 2, 8, 5, 6, 9];     // Black Ice i -> one gun
+const BLACK_ICE_GUN = [4, 1, 0, 7, 2, 8, 5, 6, 9, 3];     // Black Ice i (BLACK_ICE_IDS) -> one gun
 for (const s of CATALOGUE) {
-  if (s.rarity === 'blackice') s.guns = [BLACK_ICE_GUN[s.id - 192]];
+  if (s.rarity === 'blackice') s.guns = [BLACK_ICE_GUN[BLACK_ICE_IDS.indexOf(s.id)]];
   else if (s.rarity === 'epic' && (s.id - 160) % 2 === 0) s.guns = [((s.id - 160) / 2 + 3) % 10];
   else if (s.rarity === 'rare' && (s.id - 100) % 5 === 0) s.guns = ((s.id - 100) / 5) % 2 ? FAMILIES_BY_SLOT.rifle : FAMILIES_BY_SLOT.smg;
 }
 // Can skin id go on the gun in slot? (Factory skins and most others fit any gun.)
 export function skinFits(id, slot) { const s = skinById(id); return !!s && (!s.guns || s.guns.includes(slot)); }   // Legendary fits every gun
 
-// Factory finishes (Ultra, nothing equipped): the original ten slot skins.
+// Default skins: what a gun wears when nothing is equipped, painted from a side-on picture of the gun (by
+// slot). The picture is laid on the traced gun like a Legendary's (artRect: gun z from, to; y from, to: the
+// picture's edges), with the real light on it ('default' look: gpu-tex.js). Slots without one show the
+// gun's own gunmetal, walnut and steel.
+export const DEFAULT_SKINS = Object.fromEntries(DEFAULT_ART.map(([slot, file, size, boxes]) => {
+  const parts = Object.fromEntries(Object.entries(boxes).map(([name, [px, gun]]) => [name, fitRect(size, px, gun)]));
+  return [slot, {
+    id: 1100 + slot, name: 'Default', rarity: 'common', guns: [slot], pattern: 18, art: 'data/skins/defaults/' + file + '.webp',
+    artRect: parts.body, parts, artLook: 'default', wear: 0, p: [1, 1, 0, 0], glow: [0, 0, 0],
+    c: [[0.03, 0.03, 0.032], [0.06, 0.06, 0.065], [0.02, 0.02, 0.022], [0.1, 0.1, 0.11]],
+  }];
+}));
+const DEFAULT_BY_ID = Object.fromEntries(Object.values(DEFAULT_SKINS).map((s) => [s.id, s]));
+
+// The Weapon Skins pack (tools/build-skin-pack.mjs, skinpack/<slot>/<id>.webp): each skin painted on each gun,
+// on the same renders as the default pictures, scaled to 1200 px wide with a name bar under them (PACK_SIZE).
+// A gun with a default picture keeps its part fit, scaled; the others (C8-SFW, MP7) are fitted whole: the
+// picture box of the whole gun onto its gun box (every part's outline lines up with the picture as one).
+export const PACK_SIZE = { 0: [1200, 655], 1: [1200, 655], 2: [1200, 655], 3: [1200, 655], 4: [1200, 455], 5: [1200, 455], 6: [1200, 730], 7: [1200, 594], 8: [1200, 567], 9: [1200, 455] };
+const PACK_WHOLE = { 7: [[70, 1148, 108, 495], [-0.547, 0.3, -0.233, 0.091]], 8: [[258, 978, 118, 497], [-0.293, 0.34, -0.23, 0.123]] };
+// Pictures painted on their own (not on the pack renders): '<slot>/<id>': [size, { part: [its box in the
+// picture (pixels), the part's box on the traced gun (js/scene/*-model.js outlines)] }], each part copying its
+// own piece of the picture. The pack build keeps these files. Parts the picture has no match for stay plain.
+export const PACK_ART = {
+  '4/192': [[1600, 520], { body: [[655, 1512, 88, 378], [-0.41, 0.364, -0.148, 0.076]], grip: [[1150, 1250, 225, 455], [0.033, 0.135, -0.19, -0.06]], magazine: [[945, 1075, 225, 505], [-0.187, -0.034, -0.222, -0.042]] }],   // AK-12 Violet
+  '1/193': [[1600, 520], { body: [[655, 1368, 88, 328], [-0.425, 0.221, -0.101, 0.115]], grip: [[930, 1025, 295, 455], [-0.181, -0.081, -0.153, -0.022]], magazine: [[1080, 1180, 300, 490], [-0.031, 0.034, -0.17, -0.058]] }],   // F2 Amethyst
+  '0/194': [[1600, 520], { body: [[700, 1495, 95, 385], [-0.248, 0.332, -0.095, 0.086]], grip: [[1100, 1215, 300, 480], [0.042, 0.141, -0.163, -0.035]], magazine: [[918, 1025, 290, 505], [-0.126, -0.035, -0.186, -0.035]] }],   // EVO Amber
+  '7/195': [[1600, 520], { body: [[655, 1462, 110, 378], [-0.413, 0.3, -0.193, 0.058]], grip: [[1105, 1200, 290, 478], [-0.002, 0.101, -0.205, -0.065]], magazine: [[915, 1025, 300, 505], [-0.209, -0.106, -0.233, -0.081]] }],   // C8-SFW Emerald
+  '2/196': [[1600, 520], { body: [[605, 1478, 55, 345], [-0.424, 0.28, -0.116, 0.068]], grip: [[1100, 1225, 265, 435], [-0.003, 0.096, -0.19, -0.055]], magazine: [[905, 1030, 245, 505], [-0.193, -0.075, -0.247, -0.05]] }],   // R4-C Crimson
+  '8/197': [[1600, 520], { body: [[752, 1440, 88, 350], [-0.226, 0.34, -0.097, 0.092]], foregrip: [[800, 840, 230, 415], [-0.197, -0.153, -0.134, -0.028]], grip: [[1000, 1065, 240, 400], [-0.022, 0.076, -0.15, -0.023]], magazine: [[1000, 1055, 400, 505], [-0.022, 0.052, -0.23, -0.15]] }],   // MP7 Obsidian
+  '5/198': [[1600, 520], { body: [[662, 1522, 108, 372], [-0.5, 0.392, -0.132, 0.056]], grip: [[1155, 1255, 290, 480], [0.034, 0.148, -0.165, -0.044]], magazine: [[968, 1088, 265, 500], [-0.166, -0.054, -0.165, -0.032]] }],   // G8A1 Deep Blue (its drum onto the box magazine)
+  '6/199': [[1600, 520], { body: [[722, 1150, 88, 248], [-0.245, 0.257, -0.087, 0.066]], foregrip: [[740, 790, 205, 370], [-0.211, -0.166, -0.122, -0.032]], grip: [[1035, 1130, 270, 470], [0.038, 0.137, -0.177, -0.036]], magazine: [[822, 905, 250, 500], [-0.154, -0.049, -0.208, -0.036]] }],   // MP5K Teal
+  '9/200': [[1600, 520], { body: [[660, 1418, 92, 380], [-0.176, 0.359, -0.076, 0.091]], grip: [[990, 1105, 300, 490], [0.028, 0.113, -0.125, -0.014]], magazine: [[830, 905, 315, 500], [0.051, 0.132, -0.186, -0.126]] }],   // T-5 Cobalt
+  '3/211': [[1600, 520], { body: [[848, 1200, 85, 212], [-0.128, 0.182, -0.063, 0.085]], grip: [[1040, 1125, 185, 390], [0.001, 0.088, -0.139, -0.031]], magazine: [[1040, 1095, 390, 515], [0.007, 0.085, -0.241, -0.14]] }],   // SMG-11 Rose
+};
+const packSkins = new Map();
+// The skin def painted with its pack picture for the gun in slot (art: the picture's 'pack:' address).
+export function packSkin(def, slot) {
+  const key = def.id + '@' + slot;
+  if (!packSkins.has(key)) {
+    const size = PACK_SIZE[slot], fit = !PACK_WHOLE[slot] && DEFAULT_ART.find(([s]) => s === slot), own = PACK_ART[slot + '/' + def.id];   // (the C8-SFW and MP7 pack renders are not their default pictures)
+    let parts = null, artRect;
+    if (own) {
+      parts = Object.fromEntries(Object.entries(own[1]).map(([name, [px, gun]]) => [name, fitRect(own[0], px, gun)]));
+      artRect = parts.body;
+    } else if (fit) {
+      const k = size[0] / fit[2][0];
+      parts = Object.fromEntries(Object.entries(fit[3]).map(([name, [px, gun]]) => [name, fitRect(size, px.map((v) => v * k), gun)]));
+      artRect = parts.body;
+    } else artRect = fitRect(size, ...PACK_WHOLE[slot]);
+    packSkins.set(key, { ...def, id: key, art: 'pack:' + slot + '/' + def.id + '.webp', artRect, parts, artLook: 'default', pattern: 18, wear: 0 });
+  }
+  return packSkins.get(key);
+}
+
+// Factory finishes (no longer worn by default): the original ten slot skins.
 const L = (r, g, b) => [r, g, b];
 export const FACTORY = [
   { name: 'Contour Crimson', pattern: 0, c: [L(0.035, 0.031, 0.037), L(0.37, 0.026, 0.041), L(0.63, 0.11, 0.086), L(0, 0, 0)], rm: [0.43, 0.58, 0.32, 0.66], clearcoat: 0.47, wear: 0.6 },
@@ -214,6 +296,7 @@ export const FACTORY = [
 export function skinById(id) {
   if (id === LEGEND_ID) return LEGEND;
   if (id === LEGEND_GOLD_ID) return LEGEND_GOLD;
+  if (DEFAULT_BY_ID[id]) return DEFAULT_BY_ID[id];
   if (id >= 1000) return FACTORY[(id - 1000) % FACTORY.length];
   return CATALOGUE[id] || null;
 }

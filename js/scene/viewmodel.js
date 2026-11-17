@@ -1,32 +1,32 @@
-import { Charm } from './charm.js?v=d69caf8-mwjxfd1o';
-import { charmById } from '../core/charms.js?v=d69caf8-mwjxfd1o';
-import { skinSheets } from '../render/skins2.js?v=d69caf8-mwjxfd1o';
-import { packArt } from '../render/pack-art.js?v=d69caf8-mwjxfd1o';
+import { Charm } from './charm.js?v=b14a97f-mwkjfhd1';
+import { charmById } from '../core/charms.js?v=b14a97f-mwkjfhd1';
+import { skinSheets } from '../render/skins2.js?v=b14a97f-mwkjfhd1';
+import { packArt } from '../render/pack-art.js?v=b14a97f-mwkjfhd1';
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=d69caf8-mwjxfd1o';
-import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=d69caf8-mwjxfd1o';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=d69caf8-mwjxfd1o';
-import { matcap } from './matcap.js?v=d69caf8-mwjxfd1o';
-import { mulberry32 } from '../core/prng.js?v=d69caf8-mwjxfd1o';
-import { gunMaps } from './range-tex.js?v=d69caf8-mwjxfd1o';
-import { skinById, FACTORY, SAKURA_ID } from '../core/skins.js?v=d69caf8-mwjxfd1o';
-import { legendCanvas, onLegendChange } from '../core/legend.js?v=d69caf8-mwjxfd1o';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=d69caf8-mwjxfd1o';
-import { HDPack } from '../render/hd-pack.js?v=d69caf8-mwjxfd1o';
-import { epicRelief } from './skin-relief.js?v=d69caf8-mwjxfd1o';
-import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect, forgeInspect, orreryInspect, amberInspect, jadeInspect, velvetInspect, opalInspect } from './inspect-effects.js?v=d69caf8-mwjxfd1o';
-import { F2 } from './f2-model.js?v=d69caf8-mwjxfd1o';
-import { G8 } from './g8-model.js?v=d69caf8-mwjxfd1o';
-import { C8 } from './c8-model.js?v=d69caf8-mwjxfd1o';
-import { R4 } from './r4-model.js?v=d69caf8-mwjxfd1o';
-import { AK } from './ak-model.js?v=d69caf8-mwjxfd1o';
-import { EVO } from './evo-model.js?v=d69caf8-mwjxfd1o';
-import { MP5K } from './compact-model.js?v=d69caf8-mwjxfd1o';
-import { T5 } from './smg-model.js?v=d69caf8-mwjxfd1o';
-import { SMG11 } from './machinepistol-model.js?v=d69caf8-mwjxfd1o';
-import { MP7 } from './pdw-model.js?v=d69caf8-mwjxfd1o';
+import * as THREE from '../../vendor/three/three.module.min.js?v=b14a97f-mwkjfhd1';
+import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=b14a97f-mwkjfhd1';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=b14a97f-mwkjfhd1';
+import { matcap } from './matcap.js?v=b14a97f-mwkjfhd1';
+import { mulberry32 } from '../core/prng.js?v=b14a97f-mwkjfhd1';
+import { gunMaps } from './range-tex.js?v=b14a97f-mwkjfhd1';
+import { skinById, SAKURA_ID, DEFAULT_SKINS, packSkin } from '../core/skins.js?v=b14a97f-mwkjfhd1';
+import { legendCanvas, onLegendChange } from '../core/legend.js?v=b14a97f-mwkjfhd1';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=b14a97f-mwkjfhd1';
+import { HDPack, SkinPack } from '../render/hd-pack.js?v=b14a97f-mwkjfhd1';
+import { epicRelief } from './skin-relief.js?v=b14a97f-mwkjfhd1';
+import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect, forgeInspect, orreryInspect, amberInspect, jadeInspect, velvetInspect, opalInspect } from './inspect-effects.js?v=b14a97f-mwkjfhd1';
+import { F2 } from './f2-model.js?v=b14a97f-mwkjfhd1';
+import { G8 } from './g8-model.js?v=b14a97f-mwkjfhd1';
+import { C8 } from './c8-model.js?v=b14a97f-mwkjfhd1';
+import { R4 } from './r4-model.js?v=b14a97f-mwkjfhd1';
+import { AK } from './ak-model.js?v=b14a97f-mwkjfhd1';
+import { EVO } from './evo-model.js?v=b14a97f-mwkjfhd1';
+import { MP5K } from './compact-model.js?v=b14a97f-mwkjfhd1';
+import { T5 } from './smg-model.js?v=b14a97f-mwkjfhd1';
+import { SMG11 } from './machinepistol-model.js?v=b14a97f-mwkjfhd1';
+import { MP7 } from './pdw-model.js?v=b14a97f-mwkjfhd1';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -45,7 +45,7 @@ function sakuraEnv() {
   }
   return env;
 }
-let SKIN_SLOT = 0;              // slot being built (its equipped skin, or its factory skin in ultra)
+let SKIN_SLOT = 0;              // slot being built (its equipped skin)
 let ULTRA_TEX = 4096;           // largest skin size (tests use less: software rendering)
 let INSPECT_QUALITY = 'standard';   // shared graphics preset, independent of the optional gun shading
 export function setUltraTexSize(n) { ULTRA_TEX = n; }
@@ -57,11 +57,19 @@ export function setSkinResolver(fn) { RESOLVE = fn; }
 // Which charm hangs on your guns: () -> charm id or null (main.js, from your profile).
 let CHARM_OF = () => null;
 export function setCharmResolver(fn) { CHARM_OF = fn; }
-// The skin a slot shows right now: equipped, else (ultra only) its factory skin, else none.
+// Minimal mode: no skins at all (every gun its own gunmetal, walnut and steel).
+let NO_SKINS = false;
+export function setSkinsOff(on) { NO_SKINS = !!on; }
+// A catalogue skin on the gun in slot: its Weapon Skins pack picture when the pack has one.
+function onGun(def, slot) {
+  return def && !def.art && !def.photo && SkinPack.has(slot + '/' + def.id + '.webp') ? packSkin(def, slot) : def;
+}
+// The skin a slot shows right now: the equipped one, else its default skin, else none (the gun's own
+// gunmetal, walnut and steel).
 export function skinFor(slot) {
+  if (NO_SKINS) return null;
   const id = RESOLVE(slot);
-  if (id !== null && id !== undefined && skinById(id)) return skinById(id);
-  return sightShading() === 'ultra' ? FACTORY[slot % FACTORY.length] : null;
+  return id !== null && id !== undefined && onGun(skinById(id), slot) || DEFAULT_SKINS[slot] || null;
 }
 export function skinName(slot) { const d = skinFor(slot); return d ? d.name : ''; }
 // Skin bake size per shading: 4096 ultra, 2048 high, 1024 otherwise.
@@ -74,7 +82,7 @@ function skinSize() {
 let WORLD = false;              // building a third-person gun
 let SKIN_FORCE;                 // undefined: the slot's skin; null: none; id: that skin
 function currentSkin() {
-  if (SKIN_FORCE !== undefined) return SKIN_FORCE === null ? null : skinById(SKIN_FORCE) || null;
+  if (SKIN_FORCE !== undefined) return SKIN_FORCE === null || NO_SKINS ? null : onGun(skinById(SKIN_FORCE), SKIN_SLOT) || null;
   return skinFor(SKIN_SLOT);
 }
 const skins = new Map();        // skin id + size -> baked skin; the last few are kept
@@ -127,11 +135,11 @@ function skinMaterial(def) {
   let m;
   if (sh === 'fast') {
     m = new THREE.MeshMatcapMaterial({ color: 0xffffff, matcap: matcap('metal') });
-    triplanar(m, { skin: sk, scale: sk.scale || 2.8, gain: 1.7 });
+    triplanar(m, { skin: sk, scale: sk.scale || 2.8, gain: 1.7, base: sakura || kiln ? 0 : 1 });
   } else if (sh === 'detailed') {
     m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 1,
       envMap: sakura ? sakuraEnv() : hd ? highEnv() || ENV : ENV, envMapIntensity: 0.9 });
-    triplanar(m, { skin: sk, scale: sk.scale || 2.8, hd });
+    triplanar(m, { skin: sk, scale: sk.scale || 2.8, hd, base: sakura || kiln ? 0 : 1 });
   } else {
     // Shine by rarity: every skin gets some lacquer; Epic and Black Ice also a colour-shifting
     // (iridescent) sheen.
@@ -141,22 +149,27 @@ function skinMaterial(def) {
       color: 0xffffff, roughness: 1, metalness: 1, normalMap: hd || sakura || kiln ? null : gunMaps('metal').normal, normalScale: new THREE.Vector2(0.6, 0.6),
       clearcoat: coat, clearcoatRoughness: sakura || kiln ? 0.035 : r === 'epic' || r === 'blackice' ? 0.05 : 0.15,
       envMap: sakura ? sakuraEnv() : highEnv(), envMapIntensity: r === 'common' ? 1.1 : sakura ? 1.22 : 1.4,
-      iridescence: r === 'blackice' ? 0.64 : sakura || kiln ? 0 : r === 'legendary' ? 0.32 : r === 'epic' ? 0.45 : 0,
+      iridescence: r === 'blackice' && !kiln ? 0.64 : sakura || kiln ? 0 : r === 'legendary' ? 0.32 : r === 'epic' ? 0.45 : 0,
       iridescenceIOR: 1.6, iridescenceThicknessRange: [200, 600],
     });
     // Pack models: relief depth (parallax) on graphics cards with WebGL 2.
     const depth = !sakura && !kiln && hd && RENDERER && RENDERER.capabilities.isWebGL2 ? (r === 'blackice' ? 0.0028 : r === 'common' ? 0.0008 : 0.0014) : 0;
     const detailStrength = r === 'legendary' || r === 'blackice' ? 0.16 : hd ? 0.35 : 0.5;
     const detail = !sakura && !kiln && (hd || sh === 'ultra') ? ultraDetail('paint') : null;
-    triplanar(m, { skin: sk, scale: sk.scale || 2.8, hd, depth, detail, detailScale: 9, detailStrength });
+    triplanar(m, { skin: sk, scale: sk.scale || 2.8, hd, depth, detail, detailScale: 9, detailStrength, base: sakura || kiln ? 0 : 1 });
   }
   m.userData.skinKey = def.id + ':' + (packArt.finish ? packArt.revision : 0) + 's' + skinSheets.rev + '@' + skinSize();
   return m;
 }
-// kind: 'auto' (black = polymer, else metal) or 'metal' (barrels, tubes).
-function mat(color, kind = 'auto') {
+// The gun's own material for a part with no skin (see triplanar's base): furniture walnut, black parts
+// stippled polymer, barrels and steel machined steel, the body gunmetal.
+const baseFor = (color, kind) => kind === 'wood' ? 2 : kind === 'cloth' || kind === 'rubber' || kind === 'dark' || color === RUBBER ? 0
+  : kind === 'metal' || color === STEEL ? 4 : color === BLACK || kind === 'polymer' ? 3 : 1;
+// kind: 'auto' (black = polymer, else metal), 'metal' (barrels, tubes) or 'wood' (pack furniture).
+// skinAs: paint this part with that skin (a default skin's part, fitted to its own box of the picture).
+function mat(color, kind = 'auto', skinAs = null) {
   const sh = shading();
-  const skin = kind === 'auto' && color !== BLACK && color !== STEEL ? currentSkin() : null;
+  const skin = skinAs || (kind === 'auto' && color !== BLACK && color !== STEEL ? currentSkin() : null);
   const key = sh + color + kind + (skin ? '|skin' + skin.id + ':' + (packArt.finish ? packArt.revision : 0) + 's' + skinSheets.rev + '@' + skinSize() : '') + (HD ? '|hd' : '');
   if (!mats.has(key)) {
     if (skin) { mats.set(key, skinMaterial(skin)); return mats.get(key); }
@@ -166,7 +179,7 @@ function mat(color, kind = 'auto') {
       const m = kind === 'cloth' ? highMaterial(color, 'polymer', { roughness: 0.95, envMapIntensity: 0.35, envMap: highEnv() })
         : color === BLACK && kind === 'auto' ? highMaterial(0x232528, 'polymer', { envMap: highEnv() })
           : highMaterial(color, 'metal', { envMap: highEnv() });
-      if (kind !== 'cloth') triplanar(m, { detail: ultraDetail(color === BLACK && kind === 'auto' ? 'paint' : 'brushed'), detailScale: 10, detailStrength: 0.5 });
+      if (kind !== 'cloth') triplanar(m, { detail: ultraDetail(color === BLACK && kind === 'auto' ? 'paint' : 'brushed'), detailScale: 10, detailStrength: 0.5, base: baseFor(color, kind) });
       mats.set(key, m);
       return m;
     }
@@ -177,17 +190,20 @@ function mat(color, kind = 'auto') {
           : new THREE.MeshStandardMaterial({ color, metalness: 0, roughness: 0.9 }));
       return mats.get(key);
     }
-    mats.set(key, sh === 'high'
+    const m = sh === 'high'
       // Black parts are polymer (grip, magazine); steel and finish colours are coated metal.
       ? (color === BLACK && kind === 'auto' ? highMaterial(0x232528, 'polymer') : highMaterial(color, 'metal'))
       : sh === 'fast'
       // Matcap tints multiply a mid-grey sphere, so brighten the finish colour to match.
       ? new THREE.MeshMatcapMaterial({ color: new THREE.Color(color).multiplyScalar(1.7), matcap: matcap('metal') })
-      : new THREE.MeshStandardMaterial({ color, metalness: 0.55, roughness: 0.55, envMap: ENV, envMapIntensity: 0.8 }));
+      : new THREE.MeshStandardMaterial({ color, metalness: 0.55, roughness: 0.55, envMap: ENV, envMapIntensity: 0.8 });
+    const base = baseFor(color, kind);
+    if (base) triplanar(m, { base, gain: sh === 'fast' ? 1.7 : 1 });
+    mats.set(key, m);
   }
   return mats.get(key);
 }
-const BLACK = 0x1c1e21, STEEL = 0x55595f, RUBBER = 0x141516;
+const BLACK = 0x1c1e21, STEEL = 0x55595f, RUBBER = 0x141516, WOOD = 0x6a3a18;
 
 /* ---------- Enhanced Graphics pack models ---------- */
 let HD = false;                 // building from a pack model (materials without UV maps)
@@ -201,15 +217,16 @@ function hdMaterial(color, kind, sh) {
     metal: { color: kind === 'metal' && color !== STEEL ? color : 0x4a4e54, roughness: 0.34, metalness: 1, detail: 'brushed', edge: 1, edgeCol: [0.55, 0.56, 0.58], edgeMetal: 1, coat: 0 },
     rubber: { color: RUBBER, roughness: 0.93, metalness: 0, detail: 'paint', edge: 0, coat: 0 },
     dark: { color: 0x060607, roughness: 0.75, metalness: 0.4, detail: null, edge: 0, coat: 0 },
-  }[kind === 'metal' ? 'metal' : kind === 'rubber' ? 'rubber' : kind === 'dark' ? 'dark' : color === BLACK ? 'polymer' : 'finish'];
+    wood: { color: WOOD, roughness: 0.5, metalness: 0, detail: null, edge: 0.6, edgeCol: [0.32, 0.18, 0.08], edgeMetal: 0, coat: 0.2 },
+  }[kind === 'metal' ? 'metal' : kind === 'rubber' ? 'rubber' : kind === 'dark' ? 'dark' : kind === 'wood' ? 'wood' : color === BLACK ? 'polymer' : 'finish'];
   const o = { color: P.color, roughness: P.roughness, metalness: P.metalness, envMap: highEnv() || ENV, envMapIntensity: world ? 0.9 : 1.15 };
   const m = ultra && P.coat ? new THREE.MeshPhysicalMaterial({ ...o, clearcoat: P.coat, clearcoatRoughness: 0.35 }) : new THREE.MeshStandardMaterial(o);
   triplanar(m, { hd: true, detail: P.detail && !world ? ultraDetail(P.detail) : null, detailScale: P.detail === 'brushed' ? 14 : 10, detailStrength: ultra ? 0.5 : 0.35,
-    hdEdge: P.edge, hdEdgeCol: P.edgeCol || [0, 0, 0], hdEdgeMetal: P.edgeMetal ?? 1 });
+    hdEdge: P.edge, hdEdgeCol: P.edgeCol || [0, 0, 0], hdEdgeMetal: P.edgeMetal ?? 1, base: baseFor(color, kind) });
   return m;
 }
 const HD_KIND = { finish: (c) => [c, 'auto'], polymer: () => [BLACK, 'auto'], steel: () => [STEEL, 'metal'], rubber: () => [RUBBER, 'rubber'], dark: () => [0x060607, 'dark'],
-  shell: (c) => (currentSkin() ? [c, 'auto'] : [BLACK, 'auto']) };     // furniture: the skin when one is on, else black polymer
+  shell: (c) => (currentSkin() ? [c, 'auto'] : [WOOD, 'wood']) };     // furniture: the skin when one is on, else walnut
 // The pack's model for a gun type (when High or Ultra graphics and the pack is installed).
 function hdModel(type) {
   if (TRACED[type]) return null;                // traced guns (f2-model.js, g8-model.js) at every level
@@ -1198,7 +1215,7 @@ Object.assign(BUILDERS, {
 });
 // The F2 (bullpup), traced from the Storm Kiln concept at real size (f2-model.js): each part is its
 // outline extruded across the gun with rounded edges. The grip and handguard sit where the hands go.
-function traced(g, o, color, kind = 'auto') {
+function traced(g, o, color, kind = 'auto', skinAs = null) {
   const v = (p) => new THREE.Vector2(p[0], p[1]);
   const shape = new THREE.Shape(o.outer.map(v));
   for (const h of o.holes || []) shape.holes.push(new THREE.Path(h.map(v)));
@@ -1208,20 +1225,31 @@ function traced(g, o, color, kind = 'auto') {
   geo.translate(d / 2 - bevel, 0, 0);
   const uv = geo.attributes.uv.array;             // outline units are metres: a texture tile every 5 cm
   for (let i = 0; i < uv.length; i++) uv[i] *= 20;
-  const m = new THREE.Mesh(geo, mat(color, kind));
+  const m = new THREE.Mesh(geo, mat(color, kind, skinAs));
   g.add(m);
   return m;
+}
+// A default skin's part: the skin with that part's own art rectangle (made once per skin and part).
+const partSkins = new Map();
+function partSkin(skin, name) {
+  const key = skin.id + '.' + name;
+  if (!partSkins.has(key)) partSkins.set(key, { ...skin, id: key, artRect: skin.parts[name] });
+  return partSkins.get(key);
 }
 // Guns rebuilt from their Legendary's concept: the outlines in js/scene/*-model.js. Parts marked
 // paint wear a painted skin (the concept shows them finished), else they stay black or steel.
 const SIGHT_Z = { bullpup: -0.08, carbine: 0.01 };     // gun z under the sight (default 0.05 / 0.62)
 const TRACED = { bullpup: F2, lmg: G8, sfw: C8, carbine: R4, ak: AK, evo: EVO, compact: MP5K, smg: T5, machinepistol: SMG11, pdw: MP7 };
+// With no skin on, the furniture is walnut (the gun's own look; see triplanar's base).
+const WOOD_PARTS = new Set(['grip', 'foregrip', 'stock', 'magazine']);
 function tracedGun(model) {
   return (g, c, mg) => {
-    const painted = !!currentSkin()?.art;
+    const skin = currentSkin(), painted = !!skin?.art;
+    const plain = (p, color, kind) => !skin && WOOD_PARTS.has(p.name) ? [WOOD, 'wood'] : [color, kind];
+    const fitted = (name) => skin?.parts?.[name] ? [c, 'auto', partSkin(skin, name)] : null;   // a default skin's own fit for this part
     traced(g, model.body, c);
-    for (const p of model.parts) traced(g, p, p.paint && painted ? c : p.color === 'steel' ? STEEL : BLACK, p.color === 'steel' ? 'metal' : 'auto');
-    traced(mg, model.mag, model.mag.paint && painted ? c : BLACK);
+    for (const p of model.parts) traced(g, p, ...(fitted(p.name) || (p.paint && painted && !skin.parts ? [c, 'auto'] : plain(p, p.color === 'steel' ? STEEL : BLACK, p.color === 'steel' ? 'metal' : 'auto'))));
+    traced(mg, model.mag, ...(fitted('magazine') || (model.mag.paint && painted && !skin.parts ? [c, 'auto'] : plain(model.mag, BLACK, 'auto'))));
   };
 }
 for (const [type, model] of Object.entries(TRACED)) BUILDERS[type] = tracedGun(model);
@@ -1347,8 +1375,8 @@ export function buildWorldGun(gun, slot, skinId) {
       if (hdm) buildHD(g, mg, null, hdm, 1, FINISHES[slot % FINISHES.length]);     // the pack's lighter model
       else BUILDERS[type](g, FINISHES[slot % FINISHES.length], mg);
       if (skinId === SAKURA_ID) sakuraInlays(g);
-      if (skin?.art && TRACED[type]) artInlays(g, skin, TRACED[type]);
-      if (skin?.rarity === 'epic') epicInlays(g, skin);
+      if (skin?.art && skin.artLook !== 'default' && TRACED[type]) artInlays(g, skin, TRACED[type]);   // (a default skin is the picture alone)
+      if (skin?.rarity === 'epic' && !skin.art) epicInlays(g, skin);   // (a pack picture is the finish itself)
       if (at) { SKIN_FORCE = null; attachParts(g, mg, type, at, ...muzzle); }
     } finally { SKIN_FORCE = undefined; WORLD = false; }
     g.add(mg);
@@ -1620,7 +1648,7 @@ export class WeaponRig {
   setGun(gun, slot, optic) {
     const type = MODEL_FOR[gun.id] || (MODEL_TYPES.includes(gun.model) ? gun.model : 'rifle');
     // forceSkin (replays: someone else's gun): undefined = your skin for the slot, else that id / null.
-    const sk = this.forceSkin !== undefined ? (this.forceSkin === null ? null : skinById(this.forceSkin)) : skinFor(slot);
+    const sk = this.forceSkin !== undefined ? (this.forceSkin === null || NO_SKINS ? null : onGun(skinById(this.forceSkin), slot)) : skinFor(slot);
     const hdm = hdModel(type);
     const key = gun.id + '|' + optic.id + '|' + (sk ? sk.id : '-') + (this.noHands ? '|nh' : '') + (hdm ? '|hd' + (packAnims.set ? 'a' + packAnims.revision : '') : TRACED[type] && packAnims.set ? '|ta' + packAnims.revision : '') + (gun.attach ? '|a' + gun.attach : '');   // a skin or attachment change builds a new model
     let m = this.models.get(key);
@@ -1641,8 +1669,8 @@ export class WeaponRig {
       if (hdm) buildHD(gunG, magG, null, hdm, 0, finish);      // the pack's detailed model (rails, ports, pins built in)
       else BUILDERS[type](gunG, finish, magG);
       const blossoms = sk?.id === SAKURA_ID ? sakuraInlays(gunG, true) : null;
-      const art = sk?.art && TRACED[type] ? artInlays(gunG, sk, TRACED[type], true) : null;
-      if (sk?.rarity === 'epic') epicInlays(gunG, sk);
+      const art = sk?.art && sk.artLook !== 'default' && TRACED[type] ? artInlays(gunG, sk, TRACED[type], true) : null;
+      if (sk?.rarity === 'epic' && !sk.art) epicInlays(gunG, sk);
       if (!hdm) {
         for (const [y, from, to] of RAILS[type]) topRail(gunG, y, from, to);
         if (sightShading() === 'ultra' && !TRACED[type]) ultraDetails(gunG, type, finish, magG);   // (traced guns have their own)
@@ -1764,7 +1792,7 @@ export class WeaponRig {
 
   // I: inspect the weapon (ignored while aiming or reloading).
   inspect() {
-    if (!this.animations || this.reloadP >= 0) return;
+    if (!this.animations || this.reloadP >= 0 || INSPECT_QUALITY === 'low') return;   // (no inspect on Low graphics)
     this.cancelInspect();
     this.inspectT = 0;
     const u = this.current?.userData;

@@ -1,11 +1,12 @@
 // Skin Lab (skin-lab.html): every skin on every gun it fits, drawn by the game's own weapon rig.
 // Pick a gun and a skin, switch graphics, play the inspect; first person (with hands) or a studio
 // view you can turn by dragging. Nothing here changes a profile: the skin is forced on the rig.
-import * as THREE from '../../vendor/three/three.module.min.js?v=d69caf8-mwjxfd1o';
-import { WeaponRig, setUltraTexSize } from '../scene/viewmodel.js?v=d69caf8-mwjxfd1o';
-import { playInspect } from '../audio/inspect-sfx.js?v=d69caf8-mwjxfd1o';
-import { loadGameData } from '../core/guns.js?v=d69caf8-mwjxfd1o';
-import { CATALOGUE, RARITIES, RARITY, skinFits } from '../core/skins.js?v=d69caf8-mwjxfd1o';
+import * as THREE from '../../vendor/three/three.module.min.js?v=b14a97f-mwkjfhd1';
+import { WeaponRig, setUltraTexSize } from '../scene/viewmodel.js?v=b14a97f-mwkjfhd1';
+import { playInspect } from '../audio/inspect-sfx.js?v=b14a97f-mwkjfhd1';
+import { loadGameData } from '../core/guns.js?v=b14a97f-mwkjfhd1';
+import { SkinPack } from '../render/hd-pack.js?v=b14a97f-mwkjfhd1';
+import { CATALOGUE, RARITIES, RARITY, skinFits, skinById, DEFAULT_SKINS } from '../core/skins.js?v=b14a97f-mwkjfhd1';
 
 const $ = (id) => document.getElementById(id);
 const store = { get(k) { try { return localStorage.getItem('skinLab.' + k); } catch { return null; } }, set(k, v) { try { localStorage.setItem('skinLab.' + k, v); } catch { /* blocked */ } } };
@@ -16,6 +17,16 @@ renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 setUltraTexSize(2048);                         // quick enough on a laptop; Ultra in the game bakes 4096
+
+// Weapon Skins pack pictures: the published lab carries them as chunks (labpack/), else the browser's installed pack
+try {
+  const r = await fetch('labpack/index.json');
+  if (!r.ok) throw 0;
+  const idx = await r.json(), chunks = new Map();
+  const chunk = (n) => { if (!chunks.has(n)) chunks.set(n, fetch('labpack/' + n + '.webp').then((c) => c.blob())); return chunks.get(n); };
+  SkinPack.has = (p) => p in idx;
+  SkinPack.file = async (p) => { const e = idx[p]; return e ? (await chunk(e[0])).slice(e[1], e[1] + e[2]) : null; };
+} catch { await SkinPack.init(); }
 
 const data = await loadGameData();
 const guns = data.guns, optic = (g) => data.catalogue.byId.get(g.defaultOptic);
@@ -43,7 +54,7 @@ const cam = new THREE.PerspectiveCamera(28, 16 / 9, 0.05, 20);
 
 const S = { gun: Number(store.get('gun') ?? 1) || 0, skin: Number(store.get('skin') ?? 202), view: store.get('view') || 'studio', gfx: store.get('gfx') || 'high', rarity: 'all', yaw: -Math.PI / 2 + 0.4, pitch: 0.12 };
 if (!guns[S.gun]) S.gun = 0;
-if (!CATALOGUE[S.skin]) S.skin = 0;
+if (!skinById(S.skin)) S.skin = 0;
 
 function frame() {
   // centre the gun and back the camera off to fit it (as the armory preview does)
@@ -61,7 +72,7 @@ function apply() {
   for (const r of [rig, studio]) { r.setShading(mode, gfx); r.forceSkin = S.skin; r.rebuild(); r.setGun(g, S.gun, optic(g)); }
   renderer.shadowMap.enabled = false;
   frame();
-  const sk = CATALOGUE[S.skin];
+  const sk = skinById(S.skin);
   $('lab-now').textContent = sk.name;
   $('lab-now-meta').textContent = RARITY[sk.rarity].name + ' · on the ' + g.name + (sk.guns ? ' · only for the ' + sk.guns.map((i) => guns[i]?.name).join(', ') : '');
   $('lab-now').style.setProperty('--rar', RARITY[sk.rarity].color);
@@ -89,7 +100,7 @@ function syncChips() {
 
 // the skin list: Legendaries first, then by rarity
 const ORDER = { legendary: 0, blackice: 1, epic: 2, rare: 3, common: 4 };
-const all = CATALOGUE.slice().sort((a, b) => ORDER[a.rarity] - ORDER[b.rarity] || a.id - b.id);
+const all = [...Object.values(DEFAULT_SKINS), ...CATALOGUE.slice().sort((a, b) => ORDER[a.rarity] - ORDER[b.rarity] || a.id - b.id)];   // (the default skins first)
 function swatch(sk) {
   const c = (v) => 'rgb(' + v.map((x) => Math.round(255 * Math.pow(Math.min(1, x), 1 / 2.2))).join(',') + ')';
   return 'linear-gradient(135deg,' + c(sk.c[0]) + ' 0 30%,' + c(sk.c[1]) + ' 30% 55%,' + c(sk.c[2]) + ' 55% 78%,' + c(sk.c[3]) + ' 78%)';
@@ -103,7 +114,7 @@ function renderList() {
     b.type = 'button'; b.className = 'skin'; b.setAttribute('aria-pressed', String(sk.id === S.skin));
     b.style.setProperty('--rar', RARITY[sk.rarity].color);
     const sw = document.createElement('span'); sw.className = 'sw';
-    if (sk.art) sw.style.backgroundImage = 'url(' + sk.art + ')', sw.classList.add('art');
+    if (sk.art) sw.style.backgroundImage = 'url(' + (sk.thumb || sk.art) + ')', sw.classList.add('art');
     else sw.style.background = swatch(sk);
     const name = document.createElement('span'); name.className = 'nm'; name.textContent = sk.name;
     const meta = document.createElement('span'); meta.className = 'mt';

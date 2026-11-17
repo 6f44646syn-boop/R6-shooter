@@ -72,7 +72,7 @@ try {
     const flex = await page.evaluate(() => { const R = window.__range, B = R.battle(), h = B.humans[0];
       B._end(h.f.team); R.step(0.1, 6); const during = { phase: B.hud.end.dataset.finale, inspecting: h.rig.inspectT >= 0 };
       R.step(9, 270); return { during, after: B.hud.end.dataset.finale }; });
-    check('Battle: when you win, your view plays the weapon inspect, then the results', flex.during.phase === 'flex' && flex.during.inspecting && flex.after === 'results', JSON.stringify(flex));
+    check('Battle: when you win, the win pause, then the results (no weapon inspect on Low graphics)', flex.during.phase === 'flex' && !flex.during.inspecting && flex.after === 'results', JSON.stringify(flex));
     check('no page errors (Battle)', !errors.length, errors.join('\n'));
     await page.close();
   }

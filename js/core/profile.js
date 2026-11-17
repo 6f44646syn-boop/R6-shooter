@@ -5,9 +5,9 @@
 // Points: KILL_POINTS per battle kill (+ HEADSHOT_BONUS for a headshot kill), WIN_POINTS for
 // winning a battle. A pack costs PACK_COST and gives one random skin; a duplicate refunds
 // points instead (by rarity).
-import { RARITIES, CATALOGUE, SKIN_COUNT, LEGEND_ID, skinFits } from './skins.js?v=d69caf8-mwjxfd1o';
-import { HISTORY_LIMIT, START_RATING, ratingOf } from './ranked.js?v=d69caf8-mwjxfd1o';
-import { CHARMS } from './charms.js?v=d69caf8-mwjxfd1o';
+import { RARITIES, CATALOGUE, SKIN_COUNT, LEGEND_ID, CATALOGUE_GEN, skinFits } from './skins.js?v=b14a97f-mwkjfhd1';
+import { HISTORY_LIMIT, START_RATING, ratingOf } from './ranked.js?v=b14a97f-mwkjfhd1';
+import { CHARMS } from './charms.js?v=b14a97f-mwkjfhd1';
 
 export const KILL_POINTS = 20, HEADSHOT_BONUS = 10, WIN_POINTS = 50, PACK_COST = 100;
 // The Legendary pack: one per player, a Legendary guaranteed (one you do not own yet, if any).
@@ -19,6 +19,7 @@ const NONE = 255;
 const OUTCOMES = ['loss', 'draw', 'win'];
 const RANK_RECORD = 18;
 const LEGEND_BYTE = 254;
+const NONE16 = 0xffff, LEGEND16 = 0xfffe;   // format 6
 // Trade-up: TRADE_UP duplicates of one rarity become one skin of the next rarity.
 export const TRADE_UP = 5;
 export const TRADE_NEXT = { common: 'rare', rare: 'epic', epic: 'legendary', blackice: 'legendary' };
@@ -174,13 +175,15 @@ export class Profile {
 
   /* ---------- storage and save codes ---------- */
   _bytes() {
-    const b = new Uint8Array(1 + 4 + this.owned.length + SLOTS + 4 + 2 + 3 + RANK_RECORD * this.rankedHistory.length + EXTRA);
+    const b = new Uint8Array(1 + 1 + 4 + 2 + this.owned.length + SLOTS * 2 + 4 + 2 + 3 + RANK_RECORD * this.rankedHistory.length + EXTRA);
     const dv = new DataView(b.buffer);
     let o = 0;
-    b[o++] = 5;                                   // format version (3: local ranked rating and history; 4: room for more than 208 skins; 5: duplicates and charms)
+    b[o++] = 6;                                   // format version (3: local ranked rating and history; 4: room for more than 208 skins; 5: duplicates and charms; 6: any number of skins, and which catalogue)
+    b[o++] = CATALOGUE_GEN;
     dv.setUint32(o, this.points, true); o += 4;
+    dv.setUint16(o, this.owned.length, true); o += 2;
     b.set(this.owned, o); o += this.owned.length;
-    for (let i = 0; i < SLOTS; i++) b[o++] = this.equipped[i] === null ? NONE : this.equipped[i] === LEGEND_ID ? LEGEND_BYTE : this.equipped[i];
+    for (let i = 0; i < SLOTS; i++) { dv.setUint16(o, this.equipped[i] === null ? NONE16 : this.equipped[i] === LEGEND_ID ? LEGEND16 : this.equipped[i], true); o += 2; }
     dv.setUint32(o, Math.min(this.kills, 0xffffffff), true); o += 4;
     dv.setUint16(o, Math.min(this.packs, 0x7fff) | (this.legendPack ? 0x8000 : 0), true); o += 2;   // (top bit: the Legendary pack is bought; no format change)
     dv.setUint16(o, this.rating, true); o += 2;
@@ -213,15 +216,22 @@ export class Profile {
     const body = all.subarray(0, all.length - 2);
     const c = all[all.length - 2] | (all[all.length - 1] << 8);
     if (crc16(body) !== c) throw new Error('The save code does not check out (a character is wrong or missing).');
-    if (![1, 2, 3, 4, 5].includes(body[0])) throw new Error('This save code is from a newer version. Refresh the page (Ctrl+F5).');
+    if (![1, 2, 3, 4, 5, 6].includes(body[0])) throw new Error('This save code is from a newer version. Refresh the page (Ctrl+F5).');
     this._fromBytes(body);
     this._changed();
     return true;
   }
   _fromBytes(b) {
     const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
-    const len = b[0] === 1 ? 25 : b[0] < 4 ? 26 : Math.ceil(SKIN_COUNT / 8);   // owned flags: 200, then 208 skins
-    const base = 1 + 4 + len + SLOTS + 4 + 2;
+    const wide = b[0] >= 6;                       // format 6: the catalogue, a stated owned length, 16-bit equipped ids
+    let at = 1;
+    const gen = wide ? b[at++] : 1, pointsAt = at; at += 4;
+    const len = wide ? dv.getUint16(at, true) : b[0] === 1 ? 25 : b[0] < 4 ? 26 : 27;   // owned flags: 200, then 208, then 211 skins
+    if (wide) at += 2;
+    const ownedAt = at; at += len;
+    const eqAt = at; at += SLOTS * (wide ? 2 : 1);
+    const killsAt = at, base = at + 4 + 2;
+    const same = gen === CATALOGUE_GEN;           // another catalogue's skin ids mean other skins: those are reset
     const count = b[0] >= 3 ? b[base + 2] : 0;
     const expected = (b[0] >= 3 ? base + 3 + RANK_RECORD * count : base) + (b[0] >= 5 ? EXTRA : 0);
     if (b.length !== expected || count > HISTORY_LIMIT) throw new Error('The save code has an invalid length.');
@@ -237,17 +247,19 @@ export class Profile {
         history.push({ id, delta, outcome });
       }
     }
-    let o = 1;
-    this.points = dv.getUint32(o, true); o += 4;
+    this.points = dv.getUint32(pointsAt, true);
     this.owned = new Uint8Array(Math.ceil(SKIN_COUNT / 8));
-    this.owned.set(b.slice(o, o + len)); o += len;
-    for (let i = 0; i < SLOTS; i++) { const v = b[o++]; this.equipped[i] = v === LEGEND_BYTE ? LEGEND_ID : v === NONE || v >= SKIN_COUNT ? null : v; }
-    this.kills = dv.getUint32(o, true); o += 4;
-    const pk = dv.getUint16(o, true); this.packs = pk & 0x7fff; this.legendPack = (pk & 0x8000) !== 0;
+    if (same) this.owned.set(b.slice(ownedAt, ownedAt + Math.min(len, this.owned.length)));
+    for (let i = 0; i < SLOTS; i++) {
+      const v = wide ? dv.getUint16(eqAt + i * 2, true) : b[eqAt + i];
+      this.equipped[i] = v === (wide ? LEGEND16 : LEGEND_BYTE) ? LEGEND_ID : !same || v === (wide ? NONE16 : NONE) || v >= SKIN_COUNT ? null : v;
+    }
+    this.kills = dv.getUint32(killsAt, true);
+    const pk = dv.getUint16(killsAt + 4, true); this.packs = pk & 0x7fff; this.legendPack = (pk & 0x8000) !== 0;
     this.rating = rating; this.rankedHistory = history;
     this.dups = { common: 0, rare: 0, epic: 0, blackice: 0, legendary: 0 }; this.charms = 0; this.charm = null;
     if (b[0] >= 5) {
-      for (const k of DUP_KEYS) this.dups[k] = b[offset++];
+      for (const k of DUP_KEYS) { const d = b[offset++]; if (same) this.dups[k] = d; }
       this.charms = dv.getUint16(offset, true) & ((1 << CHARMS.length) - 1); offset += 2;
       const c = b[offset]; this.charm = c !== NONE && this.charms & (1 << c) ? c : null;
     }
