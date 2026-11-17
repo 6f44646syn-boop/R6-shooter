@@ -7,8 +7,8 @@
 //   all             paint layers that catch light at their edges, dirt and fine scratches
 //                   (more on Common, less on Epic), metallic flake on Epic, and a stencilled
 //                   decal on many Rare and Epic skins; every skin places the sheets its own way
-import * as THREE from '../../vendor/three/three.module.min.js?v=7be3bec-mwhjmvkw';
-import { HDPack } from './hd-pack.js?v=7be3bec-mwhjmvkw';
+import * as THREE from '../../vendor/three/three.module.min.js?v=d69caf8-mwjxfd1o';
+import { HDPack } from './hd-pack.js?v=d69caf8-mwjxfd1o';
 
 export const skinSheets = { ready: false, rev: 0, tex: null };
 const NAMES = ['camo', 'digital', 'tiger', 'grime', 'flake', 'decals'];
