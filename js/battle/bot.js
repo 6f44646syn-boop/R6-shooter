@@ -305,9 +305,6 @@ export class Bot {
     const adsWant = tgt && t - this.seenAt > L.reaction * 0.5 && this.mode !== 'retreat' ? 1 : 0;
     this.adsE += Math.max(-dt / 0.2, Math.min(dt / 0.2, adsWant - this.adsE));
     f.ads = this.adsE;
-    // Lean while aiming in, like players peeking (one side, or none, per fight); shown in replays.
-    const leanWant = this.adsE > 0.5 ? [-1, 0, 1][Math.floor(Math.max(0, this.seenAt) * 10) % 3] * 0.9 : 0;
-    f.lean = (f.lean || 0) + (leanWant - (f.lean || 0)) * (1 - Math.exp(-8 * dt));
     // The view climbs with the recoil you have not pulled down, and settles after a burst.
     if (!this.weapon.triggerHeld) { const k = Math.exp(-6 * dt); f.viewDY = (f.viewDY || 0) * k; f.viewDP = (f.viewDP || 0) * k; }
 

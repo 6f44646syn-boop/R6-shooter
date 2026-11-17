@@ -55,7 +55,7 @@ try {
     for (let k = 0; k < 120 && died; k++) { const r = await page.evaluate(() => { const R = window.__range, g = R.modeGame(); R.step(1 / 30, 60); return { on: [...g.hud.kcKeys.querySelectorAll('span.on')].map((e) => e.textContent), cam: g.camOverride === g.kcCam, hid: g.hud.view.classList.contains('mg-killcam'), ammo: g.hud.kcKeys.lastChild.textContent }; }); if (r.cam) { r.on.forEach((x) => seen.add(x)); hudHidden ||= r.hid; ammo ||= r.ammo; } }
     check('Bomb kill cam: plays the killer\'s view after a bot kills you', died, 'not killed in time');
     const leaned = await page.evaluate(() => { const g = window.__range.modeGame(); return (g.kc?.rec.frames || g.rec.frames).some((fr) => { for (let i = 0; i * fr.stride < fr.s.length; i++) if (Math.abs(fr.s[i * fr.stride + 8]) > 0.3) return true; return false; }); });
-    check('bots lean while aiming, so kill cams show it', leaned, 'no lean in the recorded frames');
+    check('bots never lean, so kill cams stay upright', !leaned, 'a bot leaned in the recorded frames');
     check('Bomb kill cam: shows the killer\'s inputs (fire and ADS, or knife / grenade, lit) and ammo, hides your own HUD', (seen.has('Fire') ? seen.has('ADS') : seen.has('Knife') || seen.has('G')) && hudHidden && / \/ /.test(ammo), JSON.stringify({ seen: [...seen], hudHidden, ammo }));
     await page.close();
   }

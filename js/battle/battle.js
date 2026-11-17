@@ -1151,6 +1151,7 @@ export class Battle {
     r.info.reset();
     // Shadows are redrawn at most every other frame, and only when a caster moved (shadow-gate.js).
     Fighter.shadows = this.deps.settings.botShadows !== false;
+    Fighter.minimal = this.deps.settings.minimal === true;
     if (this._shadowScene !== this.arena.scene) { this._shadowScene = this.arena.scene; this._shadows = new ShadowGate(); }
     this._shadows.update(r, this.arena.scene, this.royale ? 3 : 2);
     r.autoClear = false;
@@ -1463,6 +1464,7 @@ export class Battle {
     while (rec.frames.length && rec.frames[0].t < t - 6) rec.frames.shift();
   }
   _startKillCam(t, finalKiller = null, recorded = null) {
+    if (this.deps.settings.minimal) { this.kc = null; return; }
     const h = this.humans[0];
     const k = finalKiller || this.fighters.find((g) => g.id === h.killerId && g !== h.f);
     const rec = recorded || this.rec;
@@ -1527,7 +1529,7 @@ export class Battle {
     this._meAlive = f.alive;
     if (f.alive || (this.kc && t > this.kc.until)) this.kc = null;
     // outlines: everyone else, by day only
-    for (const g of this.fighters) { const v = g !== f && g.alive && !this.night; g.outline.visible = v; for (const l of g.legs) l.o.visible = v; }
+    for (const g of this.fighters) { const v = g !== f && g.alive && !this.night && !Fighter.minimal; g.outline.visible = v; for (const l of g.legs) l.o.visible = v; }
     if (!f.alive) this.grenadeView.release();
     if (this.kc) this._playKillCam(t);
   }

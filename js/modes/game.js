@@ -1116,6 +1116,7 @@ export class ModeGame {
     const r = this.deps.renderer, h = this.h;
     r.info.reset();
     this._fr = (this._fr || 0) + 1;
+    Fighter.minimal = this.deps.settings.minimal === true;
     Fighter.shadows = this.deps.settings.botShadows !== false;   // shadows: at most every other frame, only when a caster moved (shadow-gate.js)
     if (this._shadowScene !== this.scene) { this._shadowScene = this.scene; this._shadows = new ShadowGate(); }
     this._shadows.update(r, this.scene);

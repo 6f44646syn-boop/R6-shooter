@@ -1474,6 +1474,13 @@ try {
       res.kc.skipped = !B.kc && !h.f.alive;
       run(3.5);
       res.kc.respawned = h.f.alive && B.hud.views[0].rep.hidden;
+      // Minimal mode: bots are still blocks (no soldier, no leg swing), no outline, no kill cam
+      B.deps.settings.minimal = true; B.render(); run(0.3);
+      const mf = B.bots[0].f; mf.alive = true; mf.x += 1; run(0.1);
+      res.minimal = { blocks: mf.blocks.visible && !mf.body.visible && mf.legs[0].piv.rotation.x === 0 && !mf.outline.visible, lean: mf.lean || 0 };
+      h.f.protectUntil = 0; mf.protectUntil = 0; B._damage(h.f, 999, mf, 'body', B.t); run(0.2);
+      res.minimal.noKillCam = !B.kc && !h.f.alive;
+      B.deps.settings.minimal = false; B.render(); run(0.1); res.minimal.back = !mf.blocks.visible && mf.body.visible;
       res.day = { lights: B.torches.filter((l) => l.visible).length, hemi: B.arena.hemi.intensity, rain: !!(B.arena.rain && B.arena.rain.visible) };
       res.look = { gun: B.bots[0].f._gunModel ? B.bots[0].f._gunModel.children.length : 0, skin: B.bots[0].f.skin };
       // hearing and the radio: two bots behind the middle container, you fire on the far side
@@ -1515,6 +1522,7 @@ try {
     check('soldiers collide: six bots on one spot spread out (closest ' + mv.spread.toFixed(2) + ' m)', mv.spread > 0.6, String(mv.spread));
     check('radio lines are spoken (Bot voices on)', mv.voice.length === 1 && /Contact/.test(mv.voice[0]), JSON.stringify(mv.voice));
     check('red outline on other players by day, not at night', mv.dayOutline && !mv.nightOutline, JSON.stringify(mv));
+    check('Minimal mode: bots are T-pose blocks, never lean, and there is no kill cam', mv.minimal.blocks && mv.minimal.lean === 0 && mv.minimal.noKillCam && mv.minimal.back, JSON.stringify(mv.minimal));
     check('kill cam on your killer with a hit report (head / body / limbs, damage both ways); Space skips', mv.kc.on && mv.kc.panel && /Head 1 · Body 0 · Arms \/ legs 1/.test(mv.kc.text) && /You hit .* 1 times · 30 damage/.test(mv.kc.text) && mv.kc.skipped && mv.kc.respawned, JSON.stringify(mv.kc));
     check('no page errors', errors.length === 0, errors.join('\n'));
     await page.close();

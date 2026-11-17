@@ -100,6 +100,7 @@ function blobMesh() {
 }
 
 export class Fighter {
+  static minimal = false;  // Minimal mode (settings.minimal): T-pose blocks, nothing animated
   static shadows = true;   // set each frame by the match from settings.botShadows (fixed on in Ranked and online)
   // opts: { name, team, color (hex), human }
   constructor(opts) {
@@ -149,6 +150,12 @@ export class Fighter {
       return { piv, o };
     });
     this._ph = 0; this._spd = 0;
+    // Minimal mode: a stiff block figure, arms straight out, in place of the soldier.
+    const bm = new THREE.MeshLambertMaterial({ color: this.color }), box = (w, h, d, x, y) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), bm); m.position.set(x, y, 0); m.castShadow = true; m.userData.ownMaterial = true; return m; };
+    this.blocks = new THREE.Group();
+    this.blocks.add(box(.5, .7, .3, 0, 1.1), box(.28, .28, .28, 0, 1.6), box(.2, .8, .2, -.13, .4), box(.2, .8, .2, .13, .4), box(.6, .16, .16, -.55, 1.35), box(.6, .16, .16, .55, 1.35));
+    this.blocks.visible = false;
+    this.scaleG.add(this.blocks);
     this.group.add(this.scaleG);
     this.blob = blobMesh();
     this.group.add(this.blob);
@@ -253,12 +260,13 @@ export class Fighter {
     if (sp > 12) sp = 0;                              // a respawn, not a step
     this._spd += (sp - this._spd) * Math.min(1, dtv * 10);
     this._ph += this._spd * dtv * 4.5;
-    const amp = Math.min(0.6, this._spd * 0.14) * (1 - 0.4 * this.crouch), sw = Math.sin(this._ph) * amp;
+    const min = Fighter.minimal, amp = min ? 0 : Math.min(0.6, this._spd * 0.14) * (1 - 0.4 * this.crouch), sw = Math.sin(this._ph) * amp;
+    if (this._min !== min) { this._min = min; this.body.visible = !min; for (const l of this.legs) l.piv.visible = !min; this.blocks.visible = min; }
     this.legs[0].piv.rotation.x = sw; this.legs[1].piv.rotation.x = -sw;
-    this.scaleG.position.y = Math.abs(Math.sin(this._ph)) * 0.03 * Math.min(1, this._spd / 3);
+    this.scaleG.position.y = min ? 0 : Math.abs(Math.sin(this._ph)) * 0.03 * Math.min(1, this._spd / 3);
     for (const l of this.legs) l.o.visible = this.outline.visible;
     // The gun tips with the aim a little.
-    this.gunG.rotation.x = -Math.max(-30, Math.min(30, this.pitch)) * DEG * 0.5;
+    this.gunG.rotation.x = min ? 0 : -Math.max(-30, Math.min(30, this.pitch)) * DEG * 0.5;
     // spawn protection bubble: blinks in its last half second
     const pr = this.protectUntil - t;
     this.shield.visible = this.alive && pr > 0 && (pr > 0.5 || Math.floor(t * 12) % 2 === 0);

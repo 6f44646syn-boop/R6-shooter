@@ -52,6 +52,7 @@ export const DEFAULTS = Object.freeze({
   fpsTarget: 60,         // dynamic resolution aims for this (capped at the screen's refresh rate)
   ao: false,             // screen-space ambient occlusion (High / Ultra); off by default (+20-30% fps)
   taa: false,            // temporal anti-aliasing (High / Ultra)
+  minimal: false,        // Minimal mode: bots are plain T-pose blocks with no animation, and there is no kill cam (off in ranked and online)
   botShadows: true,      // players' and bots' shadows (off: a dark spot under the feet, faster on weak GPUs)
   sharpen: 0.25,         // sharpening after upscaling / TAA (0 = off)
   fixedSeed: '',         // empty = new random seed every magazine
@@ -138,6 +139,7 @@ export function sanitize(input) {
   out.padAssist = ['off', 'light', 'standard'].includes(s.padAssist) ? s.padAssist : DEFAULTS.padAssist;
   out.taa = s.taa === true;
   out.botShadows = s.botShadows !== false;
+  out.minimal = s.minimal === true;
   out.turboBuild = s.turboBuild !== false;
   out.oneXRecoil = typeof s.oneXRecoil === 'number' && s.oneXRecoil >= 0.5 && s.oneXRecoil <= 1 ? s.oneXRecoil : DEFAULTS.oneXRecoil;
   out.sharpen = [0, 0.25, 0.4, 0.6].includes(s.sharpen) ? s.sharpen : DEFAULTS.sharpen;

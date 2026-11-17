@@ -99,6 +99,7 @@ export class GraphicsUI {
       chk('gx-ao', 'Ambient occlusion (High / Ultra)', () => this.s.ao, (v) => { this.s.ao = v; }, 'post'),
       chk('gx-taa', 'Temporal anti-aliasing (High / Ultra)', () => this.s.taa, (v) => { this.s.taa = v; }, 'post'),
       chk('gx-botshadows', 'Player and bot shadows (off is faster on weak GPUs; always on in Ranked and online)', () => this.s.botShadows, (v) => { this.s.botShadows = v; }, 'shading'),
+      chk('gx-minimal', 'Minimal mode: bots are still T-pose blocks and there is no kill cam (not in Ranked or online)', () => this.s.minimal, (v) => { this.s.minimal = v; }, 'shading'),
       chk('gx-skins', 'High-res weapon skins (any graphics level)', () => this.s.hiResSkins, (v) => { this.s.hiResSkins = v; }, 'shading'),
       chk('gx-counter', 'FPS counter', () => this.s.fpsCounter, (v) => { this.s.fpsCounter = v; }, 'perf'));
     this.modal = el('div', { class: 'pk-modal gx-modal', id: 'gfx', hidden: true, role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'gx-title' },
