@@ -1,4 +1,4 @@
-import { ACTIONS, inputCode, inputLabel } from "./m7-raw-input.js?v=a2bb8f7-mwmpy8sm";
+import { ACTIONS, inputCode, inputLabel } from "./m7-raw-input.js?v=bf6c300-mwmqrmfu";
 const node = (tag, text) => {
   const n = document.createElement(tag);
   if (text) n.textContent = text;
@@ -145,14 +145,15 @@ export function mountControls(root, api, padPanel = null) {
   );
   const table = node("div");
   table.className = "m7-bindings";
-  const panels = ["Movement", "Combat", "Utilities"].map((label, i) => {
+  const panels = ["Movement", "Combat", "Utilities", "Battle Royale"].map((label, i) => {
     const panel = node("div");
     panel.id = "m7-bindings-" + i;
     table.append(panel);
     return { label, panel };
   });
   const buttons = [];
-  ACTIONS.forEach(([id, title], a) => {
+  // one rebindable row for action a in a panel
+  const bindRow = (id, title, a, panel) => {   // (id: the buttons' data-action)
     const row = node("div");
     row.className = "m7-binding";
     const label = node("span", title);
@@ -185,10 +186,19 @@ export function mountControls(root, api, padPanel = null) {
       render();
     });
     row.append(clear);
-    panels[
-      a >= 16 ? 2 : [2, 3, 4, 5, 6, 7, 8, 9, 13].includes(a) ? 0 : 1
-    ].panel.append(row);
-  });
+    panel.append(row);
+  };
+  ACTIONS.forEach(([id, title], a) =>
+    bindRow(id, title, a, panels[a >= 16 ? 2 : [2, 3, 4, 5, 6, 7, 8, 9, 13].includes(a) ? 0 : 1].panel));
+  // Battle Royale's controls share their keys with actions of the other modes (one bind, two names)
+  for (const [id, title] of [
+    ["underbarrel", "Build mode on / off"], ["zero", "Next build piece"], ["ability", "Edit a build"],
+    ["recall", "Reset edit"], ["reload", "Rotate edit"], ["interact", "Open chest"], ["knife", "Pickaxe"],
+  ]) {
+    const a = ACTIONS.findIndex(([x]) => x === id);
+    bindRow("royale:" + id, title + " (same key as " + ACTIONS[a][1] + ")", a, panels[3].panel);
+  }
+  panels[3].panel.append(node("p", "Keys 1 to 5 pick a hotbar slot."));
   function render() {
     buttons.forEach(({ b, a, slot, title }) => {
       b.textContent =

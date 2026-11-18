@@ -1,14 +1,13 @@
 // Skins & packs: points, the pack opening (a slot-machine reel that slows down and lands on
 // your skin), your collection (click to put a skin on the selected gun), and the save code.
-import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById, skinFits, LEGEND_ID } from '../core/skins.js?v=a2bb8f7-mwmpy8sm';
-import { Profile, PACK_COST, LEGEND_PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=a2bb8f7-mwmpy8sm';
-import { legendPhotoURL, setLegendPhoto, clearLegendPhoto, onLegendChange } from '../core/legend.js?v=a2bb8f7-mwmpy8sm';
-import { skinThumb } from '../render/gpu-tex.js?v=a2bb8f7-mwmpy8sm';
-import { matches, totals } from '../core/history.js?v=a2bb8f7-mwmpy8sm';
-import { CHARMS } from '../core/charms.js?v=a2bb8f7-mwmpy8sm';
-import { BOARD, ranking, myCode, addFriend, removeFriend, myName, setName, friends } from '../core/bests.js?v=a2bb8f7-mwmpy8sm';
-import { TRADE_UP, TRADE_NEXT } from '../core/profile.js?v=a2bb8f7-mwmpy8sm';
-import { mulberry32 } from '../core/prng.js?v=a2bb8f7-mwmpy8sm';
+import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById, skinFits, LEGEND_ID } from '../core/skins.js?v=bf6c300-mwmqrmfu';
+import { Profile, PACK_COST, LEGEND_PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=bf6c300-mwmqrmfu';
+import { legendPhotoURL, setLegendPhoto, clearLegendPhoto, onLegendChange } from '../core/legend.js?v=bf6c300-mwmqrmfu';
+import { skinThumb } from '../render/gpu-tex.js?v=bf6c300-mwmqrmfu';
+import { CHARMS } from '../core/charms.js?v=bf6c300-mwmqrmfu';
+import { BOARD, ranking, myCode, addFriend, removeFriend, myName, setName, friends } from '../core/bests.js?v=bf6c300-mwmqrmfu';
+import { TRADE_UP, TRADE_NEXT } from '../core/profile.js?v=bf6c300-mwmqrmfu';
+import { mulberry32 } from '../core/prng.js?v=bf6c300-mwmqrmfu';
 
 // Weekly shop prices (a pack is 100 points for a random skin).
 const SHOP_PRICE = { common: 120, rare: 250, epic: 450, blackice: 900, legendary: 1500 };
@@ -110,7 +109,6 @@ export class PackUI {
     this.codeOut = el('textarea', { readonly: '', spellcheck: 'false', rows: '2', id: 'pk-code-out' });
     this.codeIn = el('input', { type: 'text', spellcheck: 'false', id: 'pk-code-in', placeholder: 'RRS1-...' });
     this.codeMsg = el('p', { class: 'small', role: 'status' });
-    this.statsEl = el('div', { class: 'pk-stats' });
     this.boardEl = el('div', { class: 'pk-stats' });
     r.append(
       el('h2', { text: 'Skins & packs' }),
@@ -122,15 +120,15 @@ export class PackUI {
       el('div', { class: 'pk-top' }, el('h3', { class: 'pk-h3' }, el('span', { text: 'Collection ' }), this.countEl, el('span', { text: ' / ' + SKIN_COUNT })), this.allBtn),
       el('div', { class: 'row' }, this.slotNote, el('button', { type: 'button', class: 'primary', text: 'Inspect on your gun', title: 'See the skin and charm on the gun in your hands (Esc or click to stop)', onclick: () => this.inspect?.() })),
       this.grid,
-      this.statsEl,
       this.boardEl,
-      el('div', { class: 'pk-save' },
+    );
+    // The save code: its own page (mountSave)
+    this.saveEl = el('div', { class: 'pk-save' },
         el('label', { class: 'field', for: 'pk-code-out' }, el('span', { text: 'Save code: copy it to keep your progress on another PC or browser' }), this.codeOut),
         el('div', { class: 'row' }, el('button', { type: 'button', text: 'Copy save code', onclick: () => this.copyCode() })),
         el('label', { class: 'field', for: 'pk-code-in' }, el('span', { text: 'Load a save code (replaces the progress in this browser)' }), this.codeIn),
         el('div', { class: 'row' }, el('button', { type: 'button', text: 'Load', onclick: () => this.loadCode() })),
-        this.codeMsg),
-    );
+        this.codeMsg);
 
     // The pack opening overlay.
     this.strip = el('div', { class: 'pk-strip' });
@@ -146,6 +144,7 @@ export class PackUI {
   }
 
   // The Packs menu (its own page): points, one big open button, how to earn points and the odds.
+  mountSave(root) { root.append(this.saveEl); }
   mountShop(root) {
     this.shopPoints = el('b', { text: '0' });
     this.shopBtn = el('button', { type: 'button', class: 'primary pk-shop-open', id: 'shop-open', text: 'Open a pack · ' + PACK_COST + ' points', onclick: () => this.open() });
@@ -174,7 +173,6 @@ export class PackUI {
     this.openBtn.disabled = !p.canOpen || !this.modal.hidden;
     this.countEl.textContent = String(p.ownedCount);
     this.codeOut.value = p.saveCode();
-    this._stats();
     this._board();
     this._shopExtras();
     const slot = this.gunIndex(), gun = this.guns[slot];
@@ -216,22 +214,6 @@ export class PackUI {
         el('span', { class: 'pk-rar', text: RARITY[s.rarity].name })));
     }
     container.replaceChildren(...cards);
-  }
-  // Your stats: totals over the last 50 matches and the last 10 of them.
-  _stats() {
-    const t = totals(), MODE = { battle: 'Battle', gungame: 'Gun Game', endless: 'Endless', royale: 'Battle Royale', tdm: 'Team Deathmatch', ctf: 'Capture the Flag', bomb: 'Bomb' };
-    const kids = [el('h3', { class: 'pk-h3', text: 'Your stats' })];
-    if (!t.matches) kids.push(el('p', { class: 'small', text: 'Finish a match and it shows up here.' }));
-    else {
-      kids.push(el('p', { class: 'small', text: t.matches + ' matches · ' + t.wins + ' wins (' + Math.round(t.wins / t.matches * 100) + '%) · ' + t.kills + ' kills · K/D ' + t.kd.toFixed(2) + (t.best ? ' · most kills with ' + t.best : '') }));
-      kids.push(el('div', { class: 'pk-hist', role: 'list' }, ...matches().slice(0, 10).map((m) => el('div', { class: 'pk-hrow r-' + m.result, role: 'listitem' },
-        el('span', { text: m.result === 'win' ? 'Win' : m.result === 'draw' ? 'Draw' : m.place ? '#' + m.place : 'Loss' }),
-        el('span', { text: MODE[m.mode] || m.mode }),
-        el('span', { text: m.kills + ' / ' + m.deaths }),
-        el('span', { text: m.gun }),
-        el('span', { class: 'pk-when', text: new Date(m.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) })))));
-    }
-    this.statsEl.replaceChildren(...kids);
   }
   // Leaderboards: your bests against friends' (from the score codes they send you).
   _board() {

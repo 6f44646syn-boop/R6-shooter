@@ -15,7 +15,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recoil Range</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="css/style.css?v=a2bb8f7-mwmpy8sm">
+<link rel="stylesheet" href="css/style.css?v=bf6c300-mwmqrmfu">
 </head>
 <body>
 <div id="boot-screen" role="status" style="position:fixed;inset:0;z-index:2147483000;background:#000;color:#c9d1db;display:grid;place-items:center;font:600 16px/1 system-ui,sans-serif;letter-spacing:0.3em;cursor:none">LOADING…</div>
@@ -69,10 +69,7 @@
       </div>
       <nav class="t-nav" aria-label="Start menu">
         <button type="button" class="primary t-play" data-go="go-play">Play</button>
-        <button type="button" data-go="go-packs">Skins</button>
-        <button type="button" data-go="go-shop">Packs</button>
-        <button type="button" data-go="go-settings">Game settings</button>
-        <button type="button" data-go="go-controls">Controls</button>
+        <button type="button" data-go="go-save">Save code</button>
       </nav>
       <p class="t-hint">Press Enter to play</p>
     </main>
@@ -107,7 +104,7 @@
         <button type="button" id="menu-x" class="menu-x" aria-label="Close" title="Close">&times;</button>
         <nav class="steps" aria-label="Steps"><button type="button" data-step="1">1 Controls</button><button type="button" data-step="2">2 Graphics</button><button type="button" data-step="3">3 Settings</button><button type="button" data-step="4">4 Packs</button><button type="button" data-step="5">5 Mode</button><button type="button" data-step="6">6 Weapon</button></nav>
       </header>
-      <nav class="row" aria-label="Main menu"><button type="button" id="go-home">Home</button><button type="button" id="go-play">Pick game</button><button type="button" id="go-controls">Controls &amp; keybinds</button><button type="button" id="go-graphics">Graphics</button><button type="button" id="go-settings">Game settings</button><button type="button" id="go-shop">Packs <span id="mini-points"></span></button><button type="button" id="go-packs">Skins</button></nav>
+      <nav class="row" aria-label="Main menu"><button type="button" id="go-save" hidden>Save code</button><button type="button" id="go-home">Home</button><button type="button" id="go-play">Pick game</button><button type="button" id="go-controls">Controls &amp; keybinds</button><button type="button" id="go-graphics">Graphics</button><button type="button" id="go-settings">Game settings</button><button type="button" id="go-shop">Packs <span id="mini-points"></span></button><button type="button" id="go-packs">Skins</button></nav>
       <p id="lock-hint" class="hint" hidden></p>
       <p id="menu-note" class="hint" hidden role="status"></p>
       <div id="slow-offer" class="hint row" hidden role="status"><span id="slow-text"></span><button type="button" id="slow-lower" class="primary"></button><button type="button" id="slow-keep">Keep these graphics</button></div>
@@ -332,6 +329,12 @@
         </div>
       </section>
 
+      <section class="page" id="page-save" hidden>
+        <h2>Save code</h2>
+        <div id="save-root"></div>
+        <div class="row nav"><button type="button" class="back-btn">Back</button></div>
+      </section>
+
       <section class="page" id="page-packs" hidden>
         <section class="set-group packs" id="packs-root"></section>
         <div class="row nav"><button type="button" class="back-btn" data-back="prev">Back</button></div>
@@ -417,6 +420,6 @@
     </div>
   </div>
 </div>
-<script type="module" src="js/main.js?v=a2bb8f7-mwmpy8sm"></script>
+<script type="module" src="js/main.js?v=bf6c300-mwmqrmfu"></script>
 </body>
 </html>

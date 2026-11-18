@@ -1,74 +1,74 @@
-import { track as trackLoad } from './ui/busy.js?v=a2bb8f7-mwmpy8sm';
-import { loadPackArt } from './render/pack-art.js?v=a2bb8f7-mwmpy8sm';
-import { loadPackAnims } from './scene/weapon-anims.js?v=a2bb8f7-mwmpy8sm';
-import { packMats } from './render/pack-materials.js?v=a2bb8f7-mwmpy8sm';
-import { loadSkinSheets } from './render/skins2.js?v=a2bb8f7-mwmpy8sm';
-import { connectAudioPack } from './audio/pack-bridge.js?v=a2bb8f7-mwmpy8sm';
-import { initBombUtility, utilityFor } from './balance/bomb-utility.js?v=a2bb8f7-mwmpy8sm';
-import { createAcoustics } from './audio/acoustics.js?v=a2bb8f7-mwmpy8sm';
-import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=a2bb8f7-mwmpy8sm';
-import { mountControls, mountFirstLaunch } from './ui/m7-menu.js?v=a2bb8f7-mwmpy8sm';
+import { track as trackLoad } from './ui/busy.js?v=bf6c300-mwmqrmfu';
+import { loadPackArt } from './render/pack-art.js?v=bf6c300-mwmqrmfu';
+import { loadPackAnims } from './scene/weapon-anims.js?v=bf6c300-mwmqrmfu';
+import { packMats } from './render/pack-materials.js?v=bf6c300-mwmqrmfu';
+import { loadSkinSheets } from './render/skins2.js?v=bf6c300-mwmqrmfu';
+import { connectAudioPack } from './audio/pack-bridge.js?v=bf6c300-mwmqrmfu';
+import { initBombUtility, utilityFor } from './balance/bomb-utility.js?v=bf6c300-mwmqrmfu';
+import { createAcoustics } from './audio/acoustics.js?v=bf6c300-mwmqrmfu';
+import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=bf6c300-mwmqrmfu';
+import { mountControls, mountFirstLaunch } from './ui/m7-menu.js?v=bf6c300-mwmqrmfu';
 // Recoil Range entry point: wires input, camera, scene, HUD and the frame loop together.
-import * as THREE from '../vendor/three/three.module.min.js?v=a2bb8f7-mwmpy8sm';
-import { Look, PITCH_LIMIT } from './core/look.js?v=a2bb8f7-mwmpy8sm';
-import { Player } from './core/player.js?v=a2bb8f7-mwmpy8sm';
-import { PointerLock } from './core/pointer-lock.js?v=a2bb8f7-mwmpy8sm';
-import { loadSettings, saveSettings, DISTANCES, DEFAULTS } from './core/settings.js?v=a2bb8f7-mwmpy8sm';
-import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=a2bb8f7-mwmpy8sm';
-import { Weapon } from './core/weapon.js?v=a2bb8f7-mwmpy8sm';
-import { RecoilEngine } from './core/recoil.js?v=a2bb8f7-mwmpy8sm';
-import { Spread } from './core/spread.js?v=a2bb8f7-mwmpy8sm';
-import { loadGameData } from './core/guns.js?v=a2bb8f7-mwmpy8sm';
-import { initLoadout, effectiveGun, sanitize, slotIn, baseOf, SLOTS as ATTACH_SLOTS, allowed as attachAllowed, measuredCode, describe as describeAttach, hint as attachHint } from './core/loadout.js?v=a2bb8f7-mwmpy8sm';
-import { randomSeed } from './core/prng.js?v=a2bb8f7-mwmpy8sm';
-import { Range, EYE_HEIGHT } from './scene/range.js?v=a2bb8f7-mwmpy8sm';
-import { RING_STEP } from './scene/range-tex.js?v=a2bb8f7-mwmpy8sm';
-import { Gamepad, padPanel } from './ui/gamepad.js?v=a2bb8f7-mwmpy8sm';
-import { WeaponRig, setUltraTexSize, skinName, setSkinResolver, setHiResSkins, setSkinsOff, setCharmResolver } from './scene/viewmodel.js?v=a2bb8f7-mwmpy8sm';
-import { LensPost } from './render/lens-post.js?v=a2bb8f7-mwmpy8sm';
-import { warmScene, warmBudget } from './render/warm.js?v=a2bb8f7-mwmpy8sm';
-import { addMatch, matches as pastMatches, totals as matchTotals } from './core/history.js?v=a2bb8f7-mwmpy8sm';
-import { addXp, matchXp, XP, checkIn, seasonState, rewardOf, rewardText, TIERS, XP_PER_TIER } from './core/season.js?v=a2bb8f7-mwmpy8sm';
-import { submit as submitBests, bests as myBests, BOARD } from './core/bests.js?v=a2bb8f7-mwmpy8sm';
-import { mountAccounts } from './ui/accounts-ui.js?v=a2bb8f7-mwmpy8sm';
-import { PAD_ASSIST, nearestAim, assistLook } from './core/pad-assist.js?v=a2bb8f7-mwmpy8sm';
-import { record as recordChallenge, matchStats, challengesFor, progressOf, isPaid } from './core/challenges.js?v=a2bb8f7-mwmpy8sm';
-import { reticleTextures } from './ui/reticle-tex.js?v=a2bb8f7-mwmpy8sm';
-import { DOT_POINTS } from './scene/dots.js?v=a2bb8f7-mwmpy8sm';
-import { Voices } from './audio/voice.js?v=a2bb8f7-mwmpy8sm';
-import { ModeGame } from './modes/game.js?v=a2bb8f7-mwmpy8sm';
-import { Sfx } from './audio/sfx.js?v=a2bb8f7-mwmpy8sm';
-import { DebugHud } from './ui/debug-hud.js?v=a2bb8f7-mwmpy8sm';
-import { buildHitboxes, syncFighterBoxes, RayTrail } from './scene/range-debug.js?v=a2bb8f7-mwmpy8sm';
-import { mountDev } from './ui/dev.js?v=a2bb8f7-mwmpy8sm';
-import { drawCrosshair } from './ui/crosshair.js?v=a2bb8f7-mwmpy8sm';
-import { Hud } from './ui/hud.js?v=a2bb8f7-mwmpy8sm';
-import { MagPlot } from './ui/plot.js?v=a2bb8f7-mwmpy8sm';
-import { SettingsUI } from './ui/settings-ui.js?v=a2bb8f7-mwmpy8sm';
-import { sensKeys, zoomKey } from './core/optics.js?v=a2bb8f7-mwmpy8sm';
+import * as THREE from '../vendor/three/three.module.min.js?v=bf6c300-mwmqrmfu';
+import { Look, PITCH_LIMIT } from './core/look.js?v=bf6c300-mwmqrmfu';
+import { Player } from './core/player.js?v=bf6c300-mwmqrmfu';
+import { PointerLock } from './core/pointer-lock.js?v=bf6c300-mwmqrmfu';
+import { loadSettings, saveSettings, DISTANCES, DEFAULTS } from './core/settings.js?v=bf6c300-mwmqrmfu';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=bf6c300-mwmqrmfu';
+import { Weapon } from './core/weapon.js?v=bf6c300-mwmqrmfu';
+import { RecoilEngine } from './core/recoil.js?v=bf6c300-mwmqrmfu';
+import { Spread } from './core/spread.js?v=bf6c300-mwmqrmfu';
+import { loadGameData } from './core/guns.js?v=bf6c300-mwmqrmfu';
+import { initLoadout, effectiveGun, sanitize, slotIn, baseOf, SLOTS as ATTACH_SLOTS, allowed as attachAllowed, measuredCode, describe as describeAttach, hint as attachHint } from './core/loadout.js?v=bf6c300-mwmqrmfu';
+import { randomSeed } from './core/prng.js?v=bf6c300-mwmqrmfu';
+import { Range, EYE_HEIGHT } from './scene/range.js?v=bf6c300-mwmqrmfu';
+import { RING_STEP } from './scene/range-tex.js?v=bf6c300-mwmqrmfu';
+import { Gamepad, padPanel } from './ui/gamepad.js?v=bf6c300-mwmqrmfu';
+import { WeaponRig, setUltraTexSize, skinName, setSkinResolver, setHiResSkins, setSkinsOff, setCharmResolver } from './scene/viewmodel.js?v=bf6c300-mwmqrmfu';
+import { LensPost } from './render/lens-post.js?v=bf6c300-mwmqrmfu';
+import { warmScene, warmBudget } from './render/warm.js?v=bf6c300-mwmqrmfu';
+import { addMatch, matches as pastMatches, totals as matchTotals } from './core/history.js?v=bf6c300-mwmqrmfu';
+import { addXp, matchXp, XP, checkIn, seasonState, rewardOf, rewardText, TIERS, XP_PER_TIER } from './core/season.js?v=bf6c300-mwmqrmfu';
+import { submit as submitBests, bests as myBests, BOARD } from './core/bests.js?v=bf6c300-mwmqrmfu';
+import { mountAccounts } from './ui/accounts-ui.js?v=bf6c300-mwmqrmfu';
+import { PAD_ASSIST, nearestAim, assistLook } from './core/pad-assist.js?v=bf6c300-mwmqrmfu';
+import { record as recordChallenge, matchStats, challengesFor, progressOf, isPaid } from './core/challenges.js?v=bf6c300-mwmqrmfu';
+import { reticleTextures } from './ui/reticle-tex.js?v=bf6c300-mwmqrmfu';
+import { DOT_POINTS } from './scene/dots.js?v=bf6c300-mwmqrmfu';
+import { Voices } from './audio/voice.js?v=bf6c300-mwmqrmfu';
+import { ModeGame } from './modes/game.js?v=bf6c300-mwmqrmfu';
+import { Sfx } from './audio/sfx.js?v=bf6c300-mwmqrmfu';
+import { DebugHud } from './ui/debug-hud.js?v=bf6c300-mwmqrmfu';
+import { buildHitboxes, syncFighterBoxes, RayTrail } from './scene/range-debug.js?v=bf6c300-mwmqrmfu';
+import { mountDev } from './ui/dev.js?v=bf6c300-mwmqrmfu';
+import { drawCrosshair } from './ui/crosshair.js?v=bf6c300-mwmqrmfu';
+import { Hud } from './ui/hud.js?v=bf6c300-mwmqrmfu';
+import { MagPlot } from './ui/plot.js?v=bf6c300-mwmqrmfu';
+import { SettingsUI } from './ui/settings-ui.js?v=bf6c300-mwmqrmfu';
+import { sensKeys, zoomKey } from './core/optics.js?v=bf6c300-mwmqrmfu';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
 function sensRows(catalogue, sens) {
   const keys = new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)]);
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
-import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=a2bb8f7-mwmpy8sm';
-import { Battle } from './battle/battle.js?v=a2bb8f7-mwmpy8sm';
-import { initCore, coreLoaded } from './wasm/core.js?v=a2bb8f7-mwmpy8sm';
-import { createJoinRequest, acceptJoin } from './net/link.js?v=a2bb8f7-mwmpy8sm';
-import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt } from './net/relay.js?v=a2bb8f7-mwmpy8sm';
-import { Profile, WIN_POINTS } from './core/profile.js?v=a2bb8f7-mwmpy8sm';
-import { skinFits, skinById, CATALOGUE } from './core/skins.js?v=a2bb8f7-mwmpy8sm';
-import { currentAccount } from './core/accounts.js?v=a2bb8f7-mwmpy8sm';
-import { CHARMS } from './core/charms.js?v=a2bb8f7-mwmpy8sm';
-import { gunDamage } from './battle/fighter.js?v=a2bb8f7-mwmpy8sm';
-import { PackUI } from './ui/packs.js?v=a2bb8f7-mwmpy8sm';
-import { HDPack, SkinPack } from './render/hd-pack.js?v=a2bb8f7-mwmpy8sm';
-import { effectiveGraphics, needsPack, maxMode } from './render/quality.js?v=a2bb8f7-mwmpy8sm';
-import { GraphicsUI } from './ui/graphics-ui.js?v=a2bb8f7-mwmpy8sm';
-import { PerfHud } from './ui/perf-hud.js?v=a2bb8f7-mwmpy8sm';
-import { WorldPost } from './render/world-post.js?v=a2bb8f7-mwmpy8sm';
-import { rankOf, rankedSummary, ratingOf, rankedChange, validRankedTicket, verifyRankedResult } from './core/ranked.js?v=a2bb8f7-mwmpy8sm';
+import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=bf6c300-mwmqrmfu';
+import { Battle } from './battle/battle.js?v=bf6c300-mwmqrmfu';
+import { initCore, coreLoaded } from './wasm/core.js?v=bf6c300-mwmqrmfu';
+import { createJoinRequest, acceptJoin } from './net/link.js?v=bf6c300-mwmqrmfu';
+import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt } from './net/relay.js?v=bf6c300-mwmqrmfu';
+import { Profile, WIN_POINTS } from './core/profile.js?v=bf6c300-mwmqrmfu';
+import { skinFits, skinById, CATALOGUE } from './core/skins.js?v=bf6c300-mwmqrmfu';
+import { currentAccount } from './core/accounts.js?v=bf6c300-mwmqrmfu';
+import { CHARMS } from './core/charms.js?v=bf6c300-mwmqrmfu';
+import { gunDamage } from './battle/fighter.js?v=bf6c300-mwmqrmfu';
+import { PackUI } from './ui/packs.js?v=bf6c300-mwmqrmfu';
+import { HDPack, SkinPack } from './render/hd-pack.js?v=bf6c300-mwmqrmfu';
+import { effectiveGraphics, needsPack, maxMode } from './render/quality.js?v=bf6c300-mwmqrmfu';
+import { GraphicsUI } from './ui/graphics-ui.js?v=bf6c300-mwmqrmfu';
+import { PerfHud } from './ui/perf-hud.js?v=bf6c300-mwmqrmfu';
+import { WorldPost } from './render/world-post.js?v=bf6c300-mwmqrmfu';
+import { rankOf, rankedSummary, ratingOf, rankedChange, validRankedTicket, verifyRankedResult } from './core/ranked.js?v=bf6c300-mwmqrmfu';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -1075,6 +1075,7 @@ async function boot(data) {
 
   packsUi = packs;
   packs.mountShop($('shop-root'));
+  packs.mountSave($('save-root'));
   mountAccounts($('acct-root'));
   var dev;   // (var: flashNotice and logMatch can run before this line)
   dev = mountDev($('acct-root'), {
@@ -1599,7 +1600,7 @@ async function boot(data) {
     for (const sp of $('menu').querySelectorAll('.steps button')) { sp.classList.toggle('on', Number(sp.dataset.step) === step); sp.classList.toggle('done', Number(sp.dataset.step) < step); }
     const names = { range: 'Shooting range', bots: 'Battle vs bots', gungame: 'Gun Game', endless: 'Endless', royale: 'Battle Royale', net: 'Network battle', tdm: 'Team Deathmatch', ctf: 'Capture the Flag', bomb: 'Bomb' };
     $('menu-crumbs').textContent = name === 'mode' ? 'Choose a mode' : name === 'pause' ? names[flow.mode] + ' (paused)' :
-      name === 'setup' ? (flow.settingsOnly ? 'Game settings' : names[flow.mode] + ': match options') : name === 'ops' ? names[flow.mode] + ': operator' : name === 'packs' ? 'Skins' : name === 'shop' ? 'Packs' : name === 'quick' ? 'Quick setup' : name === 'season' ? 'Season pass' : name === 'stats' ? 'Player stats' : 'Controls';
+      name === 'setup' ? (flow.settingsOnly ? 'Game settings' : names[flow.mode] + ': match options') : name === 'ops' ? names[flow.mode] + ': operator' : name === 'packs' ? 'Skins' : name === 'shop' ? 'Packs' : name === 'quick' ? 'Quick setup' : name === 'season' ? 'Season pass' : name === 'stats' ? 'Player stats' : name === 'save' ? 'Save code' : 'Controls';
     document.querySelectorAll('[aria-label="Main menu"] button').forEach(b=>b.setAttribute('aria-current', b.id === ({mode:'go-play',pause:'go-play',setup:flow.settingsOnly ? 'go-settings' : 'go-play',controls:'go-controls',packs:'go-packs',shop:'go-shop'}[name]) ? 'page' : 'false'));
     $('mini-points').textContent = '(' + profile.points + ' points)';
     $('pause-points').textContent = '(' + profile.points + ' points)';
@@ -1833,6 +1834,7 @@ async function boot(data) {
   const overHome = () => { $('menu').classList.add('over-home'); $('menu').hidden = false; };
   new MutationObserver(() => { if ($('menu').hidden && $('menu').classList.contains('over-home')) { $('menu').classList.remove('over-home'); $('home').hidden = true; } }).observe($('menu'), { attributes: true, attributeFilter: ['hidden'] });
   for (const b of $('home').querySelectorAll('[data-go]')) b.addEventListener('click', () => { overHome(); $(b.dataset.go).click(); });
+  $('go-save').addEventListener('click', () => { showHome(); overHome(); showPage('save'); });   // the save code: a pop-up over Home
   for (const b of $('home').querySelectorAll('[data-gfx]')) b.addEventListener('click', () => graphicsUI.open('', b.dataset.gfx));
   for (const id of ['h-prev', 'h-next']) $(id).addEventListener('click', () => {
     home = home.online ? { mode: 'bots', ranked: false, online: false } : { mode: 'net', ranked: false, online: true };
