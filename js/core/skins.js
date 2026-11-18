@@ -9,7 +9,7 @@
 //   p        [scale (whole number), warp, threshold shift, spare]
 //   rm       [roughness, metalness] of the base, then of the accent
 //   clearcoat, wear (bare metal at the edges), glow ([r, g, b] light from the accent lines)
-import { mulberry32 } from './prng.js?v=b14a97f-mwkjfhd1';
+import { mulberry32 } from './prng.js?v=f5bf47e-mwlf09wh';
 
 export const RARITIES = [
   { key: 'common', name: 'Common', color: '#b4bcc6', odds: 0.65, refund: 20 },
@@ -105,23 +105,10 @@ const EPIC_PATTERNS = [0, 5, 6, 13, 14, 15, 9, 16];      // 15 blossom and 16 ti
 const EPIC_HUES = [[0.77, 0.53], [0.99, 0.07], [0.48, 0.36], [0.71, 0.84], [0.03, 0.13], [0.63, 0.5], [0.84, 0.13], [0.62, 0.1],
   [0.57, 0.7], [0.77, 0.11], [0.31, 0.18], [0.07, 0.5], [0.86, 0.5], [0.58, 0.14], [0.65, 0.78], [0.75, 0.48]];
 
-// Name, body hue, frost hue, depth lightness, crystal tint, crack scale, frost coverage, crystal shape.
-// (one per gun, BLACK_ICE_GUN; each is painted from its own picture in the Weapon Skins pack, PACK_ART)
-const ICE = [
-  ['Violet',        0.76, 0.79, 0.23, 0.76, 1, 0.76, 1.12],   // AK-12
-  ['Amethyst',      0.72, 0.80, 0.16, 0.63, 2, 0.42, 0.80],   // F2
-  ['Amber',         0.09, 0.11, 0.25, 0.68, 1, 0.46, 1.27],   // EVO
-  ['Emerald',       0.36, 0.38, 0.17, 0.71, 2, 0.86, 0.86],   // C8-SFW
-  ['Crimson',       0.98, 0.99, 0.25, 0.81, 1, 0.63, 1.00],   // R4-C
-  ['Obsidian',      0.68, 0.66, 0.10, 0.82, 2, 0.91, 0.74],   // MP7
-  ['Deep Blue',     0.60, 0.58, 0.22, 0.68, 1, 0.57, 1.20],   // G8A1
-  ['Teal',          0.49, 0.50, 0.19, 0.76, 2, 0.81, 0.94],   // MP5K
-  ['Cobalt',        0.62, 0.60, 0.23, 0.61, 1, 0.72, 1.35],   // T-5
-  ['Rose',          0.92, 0.93, 0.22, 0.80, 2, 0.70, 1.00],   // SMG-11 (id 211, after the Legendaries)
-];
-// Keep these IDs in their original order for save codes and the painted skins pack.
-const ORIGINAL_ICE_IDS = [192, 193, 194, 195, 196, 197, 198, 199, 200, 211];
-const NEW_ICE_START = 212;
+// Black Ice: one per gun. They keep the IDs of the first Black Ices (save codes and owned skins carry over);
+// BLACK_ICE_GUN[i] is the gun (loadout slot) of BLACK_ICE_IDS[i].
+export const BLACK_ICE_IDS = [192, 193, 194, 195, 196, 197, 198, 199, 200, 211];
+const BLACK_ICE_GUN = [4, 1, 0, 7, 2, 8, 5, 6, 9, 3];
 
 // Weapon slot order. Palettes are HSL hue angles for the body, rime and highlights.
 // The structure vector is [horizontal stretch, vertical stretch, shear, facet strength].
@@ -139,7 +126,6 @@ const NEW_ICE = [
   ['Jet Frost',      [222, 194, 212], 0.12, 2, 0.69, 0.80, [1, 1, 1, 0.92], 0.13],  // MP7
   ['Sun Dog',        [ 25,  43,  55], 0.21, 1, 0.57, 1.17, [1, 1, 1, 0.69], 0.15],  // T-5
 ];
-export const BLACK_ICE_IDS = [...ORIGINAL_ICE_IDS, ...NEW_ICE.map((_, slot) => NEW_ICE_START + slot)];
 
 function make(id) {
   const rng = mulberry32((id + 1) * 7919 + 13);
@@ -184,28 +170,22 @@ function make(id) {
       p: [1 + Math.floor(rng() * 2), 0.65 + rng() * 0.55, (rng() - 0.5) * 0.12, 0], rm, clearcoat: 0.9, wear: 0.19,
       glow: glows ? c[1].map((v) => v * 0.42) : [0, 0, 0] };
   }
-  if (id >= NEW_ICE_START) {
-    const slot = id - NEW_ICE_START;
+  if (BLACK_ICE_IDS.includes(id)) {
+    const slot = BLACK_ICE_GUN[BLACK_ICE_IDS.indexOf(id)];
     const [name, hues, depth, scale, rime, crystalShape, iceStructure, roughness] = NEW_ICE[slot];
     const [body, frost, highlight] = hues.map((hue) => hue / 360);
     return { id, rarity: 'blackice', name: 'Black Ice ' + name, guns: [slot], pattern: 10,
       ice: hsl(frost, 0.58, 0.81), crystalShape, iceStructure, scale: 1.85,
       c: [hsl(body, 0.44, depth * 0.36), hsl(frost, 0.64, 0.73), hsl(highlight, 0.48, 0.94), hsl(body, 0.69, depth)],
-      p: [scale, rime, crystalShape, id - 191], rm: [roughness, 0.13, 0.24 + rime * 0.2, 0.04],
+      p: [scale, rime, crystalShape, 21 + slot], rm: [roughness, 0.13, 0.24 + rime * 0.2, 0.04],
       clearcoat: 1, wear: 0.025, glow: hsl(frost, 0.55, 0.67).map((v) => v * 0.40) };
   }
-  // Black Ice: a deep glossy colour, fractured ice, and 3D frost along the top and muzzle.
   if (id === SAKURA_ID) return SAKURA;
   if (id === KILN_ID) return KILN;
   if (id === ABYSS_ID) return ABYSS;
   if (id === VESPER_ID) return VESPER;
   if (id >= LEG_BASE + 4 && id < LEG_BASE + 10) return LATE[id - LEG_BASE - 4];
-  const [word, hue, frost, depth, tint, scale, coverage, shape] = ICE[ORIGINAL_ICE_IDS.indexOf(id)];
-  return { id, rarity: 'blackice', name: 'Black Ice ' + word, pattern: 10,
-    ice: hsl(frost, 0.58, tint), crystalShape: shape, scale: 1.85,
-    c: [hsl(hue, 0.70, depth * 0.38), hsl(frost, 0.49, 0.76), hsl(frost, 0.36, 0.96), hsl(hue, 0.74, depth)],
-    p: [scale, coverage, shape, id - 191], rm: [0.16, 0.17, 0.36, 0.04], clearcoat: 1, wear: 0.05,
-    glow: hsl(frost, 0.64, 0.66).map((v) => v * 0.48) };
+  throw new Error('no skin ' + id);
 }
 
 // Each picture is fitted part by part: the box a part fills in the picture (pixels: x from, to; y from, to,
@@ -229,7 +209,7 @@ const fitRect = ([W, H], [x0, x1, py0, py1], [z0, z1, y0, y1]) => {
   const sz = (z1 - z0) / (x1 - x0), sy = (y1 - y0) / (py1 - py0), Z0 = z0 - x0 * sz, Y1 = y1 + py0 * sy;
   return [Z0, Z0 + W * sz, Y1 - H * sy, Y1];
 };
-export const SKIN_COUNT = NEW_ICE_START + NEW_ICE.length;
+export const SKIN_COUNT = 212;      // 100 Common, 60 Rare, 32 Epic, 9 Black Ice, 10 Legendary, then the 10th Black Ice (id 211)
 export const CATALOGUE = Array.from({ length: SKIN_COUNT }, (_, i) => make(i));
 // Unique names (the same word + pattern can come up twice).
 {
@@ -244,10 +224,8 @@ export const CATALOGUE = Array.from({ length: SKIN_COUNT }, (_, i) => make(i));
 // Gun-exclusive skins (by loadout slot 0-9): every Black Ice belongs to one gun, every other
 // Epic to one gun, and every fifth Rare to a family (SMGs, or rifles and carbines).
 export const FAMILIES_BY_SLOT = { smg: [0, 3, 6, 8, 9], rifle: [1, 2, 4, 7] };
-const BLACK_ICE_GUN = [4, 1, 0, 7, 2, 8, 5, 6, 9, 3];     // original Black Ice i -> one gun
 for (const s of CATALOGUE) {
-  if (s.rarity === 'blackice' && !s.guns) s.guns = [BLACK_ICE_GUN[ORIGINAL_ICE_IDS.indexOf(s.id)]];
-  else if (s.rarity === 'epic' && (s.id - 160) % 2 === 0) s.guns = [((s.id - 160) / 2 + 3) % 10];
+  if (s.rarity === 'epic' && (s.id - 160) % 2 === 0) s.guns = [((s.id - 160) / 2 + 3) % 10];
   else if (s.rarity === 'rare' && (s.id - 100) % 5 === 0) s.guns = ((s.id - 100) / 5) % 2 ? FAMILIES_BY_SLOT.rifle : FAMILIES_BY_SLOT.smg;
 }
 // Can skin id go on the gun in slot? (Factory skins and most others fit any gun.)
@@ -273,38 +251,20 @@ const DEFAULT_BY_ID = Object.fromEntries(Object.values(DEFAULT_SKINS).map((s) =>
 // picture box of the whole gun onto its gun box (every part's outline lines up with the picture as one).
 export const PACK_SIZE = { 0: [1200, 655], 1: [1200, 655], 2: [1200, 655], 3: [1200, 655], 4: [1200, 455], 5: [1200, 455], 6: [1200, 730], 7: [1200, 594], 8: [1200, 567], 9: [1200, 455] };
 const PACK_WHOLE = { 7: [[70, 1148, 108, 495], [-0.547, 0.3, -0.233, 0.091]], 8: [[258, 978, 118, 497], [-0.293, 0.34, -0.23, 0.123]] };
-// Pictures painted on their own (not on the pack renders): '<slot>/<id>': [size, { part: [its box in the
-// picture (pixels), the part's box on the traced gun (js/scene/*-model.js outlines)] }], each part copying its
-// own piece of the picture. The pack build keeps these files. Parts the picture has no match for stay plain.
-export const PACK_ART = {
-  '4/192': [[1600, 520], { body: [[655, 1512, 88, 378], [-0.41, 0.364, -0.148, 0.076]], grip: [[1150, 1250, 225, 455], [0.033, 0.135, -0.19, -0.06]], magazine: [[945, 1075, 225, 505], [-0.187, -0.034, -0.222, -0.042]] }],   // AK-12 Violet
-  '1/193': [[1600, 520], { body: [[655, 1368, 88, 328], [-0.425, 0.221, -0.101, 0.115]], grip: [[930, 1025, 295, 455], [-0.181, -0.081, -0.153, -0.022]], magazine: [[1080, 1180, 300, 490], [-0.031, 0.034, -0.17, -0.058]] }],   // F2 Amethyst
-  '0/194': [[1600, 520], { body: [[700, 1495, 95, 385], [-0.248, 0.332, -0.095, 0.086]], grip: [[1100, 1215, 300, 480], [0.042, 0.141, -0.163, -0.035]], magazine: [[918, 1025, 290, 505], [-0.126, -0.035, -0.186, -0.035]] }],   // EVO Amber
-  '7/195': [[1600, 520], { body: [[655, 1462, 110, 378], [-0.413, 0.3, -0.193, 0.058]], grip: [[1105, 1200, 290, 478], [-0.002, 0.101, -0.205, -0.065]], magazine: [[915, 1025, 300, 505], [-0.209, -0.106, -0.233, -0.081]] }],   // C8-SFW Emerald
-  '2/196': [[1600, 520], { body: [[605, 1478, 55, 345], [-0.424, 0.28, -0.116, 0.068]], grip: [[1100, 1225, 265, 435], [-0.003, 0.096, -0.19, -0.055]], magazine: [[905, 1030, 245, 505], [-0.193, -0.075, -0.247, -0.05]] }],   // R4-C Crimson
-  '8/197': [[1600, 520], { body: [[752, 1440, 88, 350], [-0.226, 0.34, -0.097, 0.092]], foregrip: [[800, 840, 230, 415], [-0.197, -0.153, -0.134, -0.028]], grip: [[1000, 1065, 240, 400], [-0.022, 0.076, -0.15, -0.023]], magazine: [[1000, 1055, 400, 505], [-0.022, 0.052, -0.23, -0.15]] }],   // MP7 Obsidian
-  '5/198': [[1600, 520], { body: [[662, 1522, 108, 372], [-0.5, 0.392, -0.132, 0.056]], grip: [[1155, 1255, 290, 480], [0.034, 0.148, -0.165, -0.044]], magazine: [[968, 1088, 265, 500], [-0.166, -0.054, -0.165, -0.032]] }],   // G8A1 Deep Blue (its drum onto the box magazine)
-  '6/199': [[1600, 520], { body: [[722, 1150, 88, 248], [-0.245, 0.257, -0.087, 0.066]], foregrip: [[740, 790, 205, 370], [-0.211, -0.166, -0.122, -0.032]], grip: [[1035, 1130, 270, 470], [0.038, 0.137, -0.177, -0.036]], magazine: [[822, 905, 250, 500], [-0.154, -0.049, -0.208, -0.036]] }],   // MP5K Teal
-  '9/200': [[1600, 520], { body: [[660, 1418, 92, 380], [-0.176, 0.359, -0.076, 0.091]], grip: [[990, 1105, 300, 490], [0.028, 0.113, -0.125, -0.014]], magazine: [[830, 905, 315, 500], [0.051, 0.132, -0.186, -0.126]] }],   // T-5 Cobalt
-  '3/211': [[1600, 520], { body: [[848, 1200, 85, 212], [-0.128, 0.182, -0.063, 0.085]], grip: [[1040, 1125, 185, 390], [0.001, 0.088, -0.139, -0.031]], magazine: [[1040, 1095, 390, 515], [0.007, 0.085, -0.241, -0.14]] }],   // SMG-11 Rose
-};
 const packSkins = new Map();
 // The skin def painted with its pack picture for the gun in slot (art: the picture's 'pack:' address).
 export function packSkin(def, slot) {
   const key = def.id + '@' + slot;
   if (!packSkins.has(key)) {
-    const size = PACK_SIZE[slot], fit = !PACK_WHOLE[slot] && DEFAULT_ART.find(([s]) => s === slot), own = PACK_ART[slot + '/' + def.id];   // (the C8-SFW and MP7 pack renders are not their default pictures)
+    const size = PACK_SIZE[slot], fit = !PACK_WHOLE[slot] && DEFAULT_ART.find(([s]) => s === slot);   // (the C8-SFW and MP7 pack renders are not their default pictures)
     let parts = null, artRect;
-    if (own) {
-      parts = Object.fromEntries(Object.entries(own[1]).map(([name, [px, gun]]) => [name, fitRect(own[0], px, gun)]));
-      artRect = parts.body;
-    } else if (fit) {
+    if (fit) {
       const k = size[0] / fit[2][0];
       parts = Object.fromEntries(Object.entries(fit[3]).map(([name, [px, gun]]) => [name, fitRect(size, px.map((v) => v * k), gun)]));
       artRect = parts.body;
     } else artRect = fitRect(size, ...PACK_WHOLE[slot]);
     packSkins.set(key, { ...def, id: key, art: 'pack:' + slot + '/' + def.id + '.webp', artRect, parts, artLook: 'default', pattern: 18, wear: 0,
-      artGlow: { common: 0.45, rare: 0.45, epic: 1.7, blackice: 1.5 }[def.rarity] || 0 });   // subtle on Commons and Rares, strong on Epics and Black Ices
+      artGlow: { common: 0.45, rare: 0.45, epic: 1.7 }[def.rarity] || 0 });   // subtle on Commons and Rares, strong on Epics and Black Ices
   }
   return packSkins.get(key);
 }

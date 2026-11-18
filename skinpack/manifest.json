@@ -1,6 +1,6 @@
 {
  "name": "Recoil Range Weapon Skins",
- "version": 2,
+ "version": 3,
  "files": [
   {
    "path": "0/0.webp",
@@ -858,11 +858,6 @@
    "sha256": "d27087bb4b5618899007344bbf66f3a13f2429578e78784f0eb4f4b6b4379be2"
   },
   {
-   "path": "0/194.webp",
-   "size": 85218,
-   "sha256": "ee0ae5cc5b495d819f0e92fc5457d66860eb875f1aff4cca6ba78f22d82f4eff"
-  },
-  {
    "path": "1/0.webp",
    "size": 48860,
    "sha256": "c89f37ac883cdbf52bb9afc47e9b0c1d94c5242881a0eacbffbdc06279500d6f"
@@ -1718,11 +1713,6 @@
    "sha256": "6ef61d5aa415c2d92a4ecdb68d135e948efc5613b8634a74a1adda11dc7ee679"
   },
   {
-   "path": "1/193.webp",
-   "size": 76564,
-   "sha256": "ceb9d95e6f6caf5e3a9103e22a9135d72006b784c08b3914be1e0f940ee226ad"
-  },
-  {
    "path": "2/0.webp",
    "size": 62758,
    "sha256": "0cc9ba0e01814afc0fe373f123b83831496b89cd4d577a144592a8d3f8c9a056"
@@ -2576,11 +2566,6 @@
    "path": "2/191.webp",
    "size": 84832,
    "sha256": "658c18cf42c349dbf551bf14dbfc53220a1210d219133cd380c016a149bca6d1"
-  },
-  {
-   "path": "2/196.webp",
-   "size": 83910,
-   "sha256": "7cca009b039c85f6b36520345511de113dda6e113f6e9dcf0c8d7090d2e34588"
   },
   {
    "path": "3/0.webp",
@@ -3443,11 +3428,6 @@
    "sha256": "fa04094f09df61b33a1ae4bd9020847c65220cf95d783e155925c2bb43adf998"
   },
   {
-   "path": "3/211.webp",
-   "size": 55800,
-   "sha256": "5c3e6aa7c234e23bc6bcd6dc55f006561787f71461bc759ab93c826f48f21a36"
-  },
-  {
    "path": "4/0.webp",
    "size": 34158,
    "sha256": "d3629b4f8830ecd748ae5c4d7a909a72b48d89550bee9ebe1eb344ff215926df"
@@ -4308,11 +4288,6 @@
    "sha256": "1cc3c24c5b6b4c8ffdb491a204d033ded034250ae688b19704844c34210fe538"
   },
   {
-   "path": "4/192.webp",
-   "size": 80136,
-   "sha256": "f329a728e7953f4902684633150b86721a9b7b6ddd4c04a83d9b7c468ad54548"
-  },
-  {
    "path": "5/0.webp",
    "size": 40162,
    "sha256": "20695511960e82fa41d2ca0d4fd91e4e66aecefd08339dc0559aac47c4f3533d"
@@ -5141,11 +5116,6 @@
    "path": "5/191.webp",
    "size": 60254,
    "sha256": "06a8f086ecd28e31432e99c29b829d13a8c18d15756922b3ae2974cf4c094f3a"
-  },
-  {
-   "path": "5/198.webp",
-   "size": 84712,
-   "sha256": "bb2e13b262a76c023fb66aee4274a8e991bf0f94bbc3eae87e5a6e66546d4b17"
   },
   {
    "path": "6/0.webp",
@@ -6008,11 +5978,6 @@
    "sha256": "52b5f65b8b3e2d1c9acd8d883d8fd2433a90bf8b87fa1cb3200a3cb83e889d16"
   },
   {
-   "path": "6/199.webp",
-   "size": 76022,
-   "sha256": "ecf1958d1d85f95e0ce552a51f9f69f220a0816e761cb1562f86420c7f1438b8"
-  },
-  {
    "path": "7/0.webp",
    "size": 42526,
    "sha256": "96a1ef4a83e035ca40d3d910c52efed9401a2d5de1883e57e3e6ac6f3418c670"
@@ -6858,11 +6823,6 @@
    "sha256": "460b54fe9deb3bea289b5e2af42886d0d891eccea93aad5a52c34e5395f7702a"
   },
   {
-   "path": "7/195.webp",
-   "size": 80170,
-   "sha256": "03d78c9ff0a87e56c5648bc7b7861145927d3daa6d4ebc090c63009800e3df5a"
-  },
-  {
    "path": "8/0.webp",
    "size": 29014,
    "sha256": "9f7e990bed4d249b9e6c6a69c22a42052de1ac773f877b0a2f36d1d70d6eadb4"
@@ -7706,11 +7666,6 @@
    "path": "8/191.webp",
    "size": 31738,
    "sha256": "bc926551adc900c5a6c46e881d617b9ba0baa99bbddda2a516ead34ecb58f765"
-  },
-  {
-   "path": "8/197.webp",
-   "size": 66170,
-   "sha256": "227203a0dc27f2377eb52ff52b854c83858a51106ee2668a3963dcc974f25cc7"
   },
   {
    "path": "9/0.webp",
@@ -8566,12 +8521,7 @@
    "path": "9/191.webp",
    "size": 50286,
    "sha256": "8639c4ec20038ea8372ca90134c0d1804b762f77c9550121a984f7a900aaffa9"
-  },
-  {
-   "path": "9/200.webp",
-   "size": 82388,
-   "sha256": "dfd7b129fc0675995713d9d3be10a1084d9548c9ca1e5909a9ebd3da3319598e"
   }
  ],
- "total": 92271412
+ "total": 91500322
 }

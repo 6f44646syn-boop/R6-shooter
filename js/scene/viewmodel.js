@@ -1,32 +1,32 @@
-import { Charm } from './charm.js?v=b14a97f-mwkjfhd1';
-import { charmById } from '../core/charms.js?v=b14a97f-mwkjfhd1';
-import { skinSheets } from '../render/skins2.js?v=b14a97f-mwkjfhd1';
-import { packArt } from '../render/pack-art.js?v=b14a97f-mwkjfhd1';
+import { Charm } from './charm.js?v=f5bf47e-mwlf09wh';
+import { charmById } from '../core/charms.js?v=f5bf47e-mwlf09wh';
+import { skinSheets } from '../render/skins2.js?v=f5bf47e-mwlf09wh';
+import { packArt } from '../render/pack-art.js?v=f5bf47e-mwlf09wh';
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=b14a97f-mwkjfhd1';
-import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=b14a97f-mwkjfhd1';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=b14a97f-mwkjfhd1';
-import { matcap } from './matcap.js?v=b14a97f-mwkjfhd1';
-import { mulberry32 } from '../core/prng.js?v=b14a97f-mwkjfhd1';
-import { gunMaps } from './range-tex.js?v=b14a97f-mwkjfhd1';
-import { skinById, SAKURA_ID, DEFAULT_SKINS, packSkin } from '../core/skins.js?v=b14a97f-mwkjfhd1';
-import { legendCanvas, onLegendChange } from '../core/legend.js?v=b14a97f-mwkjfhd1';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=b14a97f-mwkjfhd1';
-import { HDPack, SkinPack } from '../render/hd-pack.js?v=b14a97f-mwkjfhd1';
-import { epicRelief } from './skin-relief.js?v=b14a97f-mwkjfhd1';
-import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect, forgeInspect, orreryInspect, amberInspect, jadeInspect, velvetInspect, opalInspect, epicInspect } from './inspect-effects.js?v=b14a97f-mwkjfhd1';
-import { F2 } from './f2-model.js?v=b14a97f-mwkjfhd1';
-import { G8 } from './g8-model.js?v=b14a97f-mwkjfhd1';
-import { C8 } from './c8-model.js?v=b14a97f-mwkjfhd1';
-import { R4 } from './r4-model.js?v=b14a97f-mwkjfhd1';
-import { AK } from './ak-model.js?v=b14a97f-mwkjfhd1';
-import { EVO } from './evo-model.js?v=b14a97f-mwkjfhd1';
-import { MP5K } from './compact-model.js?v=b14a97f-mwkjfhd1';
-import { T5 } from './smg-model.js?v=b14a97f-mwkjfhd1';
-import { SMG11 } from './machinepistol-model.js?v=b14a97f-mwkjfhd1';
-import { MP7 } from './pdw-model.js?v=b14a97f-mwkjfhd1';
+import * as THREE from '../../vendor/three/three.module.min.js?v=f5bf47e-mwlf09wh';
+import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=f5bf47e-mwlf09wh';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=f5bf47e-mwlf09wh';
+import { matcap } from './matcap.js?v=f5bf47e-mwlf09wh';
+import { mulberry32 } from '../core/prng.js?v=f5bf47e-mwlf09wh';
+import { gunMaps } from './range-tex.js?v=f5bf47e-mwlf09wh';
+import { skinById, SAKURA_ID, DEFAULT_SKINS, packSkin } from '../core/skins.js?v=f5bf47e-mwlf09wh';
+import { legendCanvas, onLegendChange } from '../core/legend.js?v=f5bf47e-mwlf09wh';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=f5bf47e-mwlf09wh';
+import { HDPack, SkinPack } from '../render/hd-pack.js?v=f5bf47e-mwlf09wh';
+import { epicRelief } from './skin-relief.js?v=f5bf47e-mwlf09wh';
+import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect, forgeInspect, orreryInspect, amberInspect, jadeInspect, velvetInspect, opalInspect, epicInspect } from './inspect-effects.js?v=f5bf47e-mwlf09wh';
+import { F2 } from './f2-model.js?v=f5bf47e-mwlf09wh';
+import { G8 } from './g8-model.js?v=f5bf47e-mwlf09wh';
+import { C8 } from './c8-model.js?v=f5bf47e-mwlf09wh';
+import { R4 } from './r4-model.js?v=f5bf47e-mwlf09wh';
+import { AK } from './ak-model.js?v=f5bf47e-mwlf09wh';
+import { EVO } from './evo-model.js?v=f5bf47e-mwlf09wh';
+import { MP5K } from './compact-model.js?v=f5bf47e-mwlf09wh';
+import { T5 } from './smg-model.js?v=f5bf47e-mwlf09wh';
+import { SMG11 } from './machinepistol-model.js?v=f5bf47e-mwlf09wh';
+import { MP7 } from './pdw-model.js?v=f5bf47e-mwlf09wh';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -62,7 +62,7 @@ let NO_SKINS = false;
 export function setSkinsOff(on) { NO_SKINS = !!on; }
 // A catalogue skin on the gun in slot: its Weapon Skins pack picture when the pack has one.
 function onGun(def, slot) {
-  return def && !def.art && !def.photo && SkinPack.has(slot + '/' + def.id + '.webp') ? packSkin(def, slot) : def;
+  return def && !def.art && !def.photo && def.rarity !== 'blackice' && SkinPack.has(slot + '/' + def.id + '.webp') ? packSkin(def, slot) : def;
 }
 // The skin a slot shows right now: the equipped one, else its default skin, else none (the gun's own
 // gunmetal, walnut and steel).
@@ -1829,7 +1829,7 @@ export class WeaponRig {
       if (ice) m.userData.inspectFx = frostInspect(gunG, frost, crystals, sk, INSPECT_QUALITY);
       else if (blossoms?.length) m.userData.inspectFx = sakuraInspect(gunG, blossoms, INSPECT_QUALITY, art?.roots || []);
       else if (art) m.userData.inspectFx = sk.artLook === 'bronze' ? abyssInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'glass' ? vesperInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'porcelain' ? kilnInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'forge' ? forgeInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'orrery' ? orreryInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'amber' ? amberInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'jade' ? jadeInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'velvet' ? velvetInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'opal' ? opalInspect(gunG, art, INSPECT_QUALITY) : null;
-      if (!m.userData.inspectFx && sk?.rarity === 'epic') m.userData.inspectFx = epicInspect(gunG, sk, INSPECT_QUALITY);   // a bullet flies round the gun
+      if (!m.userData.inspectFx && sk?.rarity === 'epic') m.userData.inspectFx = epicInspect(gunG, sk, INSPECT_QUALITY);   // glowing motes float off the gun
       m.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
       this.models.set(key, m);
       this.root.add(m);

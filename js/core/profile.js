@@ -5,9 +5,9 @@
 // Points: KILL_POINTS per battle kill (+ HEADSHOT_BONUS for a headshot kill), WIN_POINTS for
 // winning a battle. A pack costs PACK_COST and gives one random skin; a duplicate refunds
 // points instead (by rarity).
-import { RARITIES, CATALOGUE, SKIN_COUNT, LEGEND_ID, CATALOGUE_GEN, skinFits } from './skins.js?v=b14a97f-mwkjfhd1';
-import { HISTORY_LIMIT, START_RATING, ratingOf } from './ranked.js?v=b14a97f-mwkjfhd1';
-import { CHARMS } from './charms.js?v=b14a97f-mwkjfhd1';
+import { RARITIES, CATALOGUE, SKIN_COUNT, LEGEND_ID, CATALOGUE_GEN, skinFits } from './skins.js?v=f5bf47e-mwlf09wh';
+import { HISTORY_LIMIT, START_RATING, ratingOf } from './ranked.js?v=f5bf47e-mwlf09wh';
+import { CHARMS } from './charms.js?v=f5bf47e-mwlf09wh';
 
 export const KILL_POINTS = 20, HEADSHOT_BONUS = 10, WIN_POINTS = 50, PACK_COST = 100;
 // The Legendary pack: one per player, a Legendary guaranteed (one you do not own yet, if any).

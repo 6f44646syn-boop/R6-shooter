@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=b14a97f-mwkjfhd1';
-import { mulberry32 } from '../core/prng.js?v=b14a97f-mwkjfhd1';
-import { mergeStatic } from './sight-model.js?v=b14a97f-mwkjfhd1';
+import * as THREE from '../../vendor/three/three.module.min.js?v=f5bf47e-mwlf09wh';
+import { mulberry32 } from '../core/prng.js?v=f5bf47e-mwlf09wh';
+import { mergeStatic } from './sight-model.js?v=f5bf47e-mwlf09wh';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s); Forgeheart, Abyssal Crown, Jade
@@ -2432,8 +2432,8 @@ export function opalInspect(gun, { surface }, quality) {
   };
 }
 
-// Epics: a bullet flies loops around the gun, muzzle to stock and back, leaving a trail of sparks in the
-// skin's accent colour. Same length as the plain inspect (the usual hand pose).
+// Epics: glowing motes float up off the gun in the skin's accent colour (rising, swaying, fading, then
+// rising again from another spot). Same length as the plain inspect (the usual hand pose).
 const EPIC_SECONDS = 3.2;
 let sparkTex = null;
 function sparkTexture() {
@@ -2446,88 +2446,43 @@ function sparkTexture() {
 }
 export function epicInspect(gun, skin, quality) {
   gun.updateMatrixWorld(true);
-  const box = new THREE.Box3().setFromObject(gun).applyMatrix4(gun.matrixWorld.clone().invert());
-  const ctr = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
-  const rx = Math.max(size.x, size.y) * 0.75, ry = size.y * 0.7, half = size.z * 0.42;
-  const col = new THREE.Color(...(skin.c?.[1] || [1, 0.8, 0.3]));
-  // floating motes: points on the gun's own surface (its meshes' vertices, in the gun's space) that motes rise from
-  const toGun = gun.matrixWorld.clone().invert(), pool = [], prng = mulberry32(7310), mv = new THREE.Matrix4();
+  const toGun = gun.matrixWorld.clone().invert();
+  const size = new THREE.Box3().setFromObject(gun).applyMatrix4(toGun).getSize(new THREE.Vector3());
+  const col = new THREE.Color(...(skin.c?.[1] || [1, 0.8, 0.3])), white = new THREE.Color(1, 1, 1), c = new THREE.Color();
+  // where motes start: points on the gun's own surface (its meshes' vertices, in the gun's space)
+  const pool = [], rng = mulberry32(7310), mv = new THREE.Matrix4();
   gun.traverse((o) => {
     const pa = o.isMesh && o.geometry?.attributes.position;
     if (!pa) return;
     mv.multiplyMatrices(toGun, o.matrixWorld);
-    for (let k = 0; k < 24; k++) pool.push(new THREE.Vector3().fromBufferAttribute(pa, Math.floor(prng() * pa.count)).applyMatrix4(mv));
+    for (let k = 0; k < 32; k++) pool.push(new THREE.Vector3().fromBufferAttribute(pa, Math.floor(rng() * pa.count)).applyMatrix4(mv));
   });
-  if (!pool.length) pool.push(ctr.clone());
-  const nm = [16, 32, 56, 80][particleTier[quality] ?? 1];
-  const mGeo = new THREE.BufferGeometry();
-  mGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(nm * 3), 3));
-  mGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(nm * 3), 3));
-  const motes = new THREE.Points(mGeo, new THREE.PointsMaterial({ size: size.z * 0.03, map: sparkTexture(), vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
-  motes.visible = false; motes.frustumCulled = false; motes.name = 'Inspect motes'; gun.add(motes);
-  const mote = Array.from({ length: nm }, () => ({ off: prng(), period: 1.1 + prng() * 0.9, sway: prng() * 6.28, pick: Math.floor(prng() * 9973) }));
-  // the bullet: brass case, copper tip, pointing along its flight
-  const bullet = new THREE.Group(), L = size.z * 0.06, r = L * 0.16;
-  const brass = new THREE.MeshStandardMaterial({ color: 0xd8a84a, metalness: 1, roughness: 0.25, emissive: col, emissiveIntensity: 0.15 });
-  const copper = new THREE.MeshStandardMaterial({ color: 0xc8703a, metalness: 1, roughness: 0.3 });
-  const caseM = new THREE.Mesh(new THREE.CylinderGeometry(r, r, L * 0.6, 16), brass); caseM.rotation.x = Math.PI / 2; caseM.position.z = -L * 0.2;
-  const tip = new THREE.Mesh(new THREE.ConeGeometry(r, L * 0.4, 16), copper); tip.rotation.x = Math.PI / 2; tip.position.z = L * 0.3;
-  bullet.add(caseM, tip); bullet.visible = false; bullet.name = 'Inspect bullet'; gun.add(bullet);
-  // the sparks: a ring buffer, each born where the bullet is, drifting and fading out
-  const n = [40, 80, 140, 200][particleTier[quality] ?? 1], rng = mulberry32(5150);
+  if (!pool.length) pool.push(new THREE.Vector3());
+  const n = [60, 120, 200, 300][particleTier[quality] ?? 1];
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
   geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
-  const sparks = new THREE.Points(geo, new THREE.PointsMaterial({ size: L * 0.35, map: sparkTexture(), vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
-  sparks.visible = false; sparks.frustumCulled = false; sparks.name = 'Inspect sparks'; gun.add(sparks);
-  const born = new Float32Array(n).fill(-9), vel = Array.from({ length: n }, () => new THREE.Vector3((rng() - 0.5), (rng() - 0.5), (rng() - 0.5)).multiplyScalar(L * 0.8));
-  const start = Array.from({ length: n }, () => new THREE.Vector3());
-  const at = (t, out) => {   // two loops around the gun while sweeping muzzle -> stock -> muzzle
-    const a = t * Math.PI * 4;
-    return out.set(ctr.x + Math.cos(a) * rx, ctr.y + Math.sin(a) * ry, ctr.z - Math.cos(t * Math.PI * 2) * half);
-  };
-  const next = new THREE.Vector3(), white = new THREE.Color(1, 1, 1), c = new THREE.Color();
-  let head = 0, lastT = -1, phase = -1;
-  const LIFE = 0.45;   // seconds a spark lives
+  const motes = new THREE.Points(geo, new THREE.PointsMaterial({ size: size.z * 0.028, map: sparkTexture(), vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  motes.visible = false; motes.frustumCulled = false; motes.name = 'Inspect motes'; gun.add(motes);
+  const mote = Array.from({ length: n }, () => ({ off: rng(), period: 0.9 + rng() * 1.1, sway: rng() * 6.28, rise: 0.35 + rng() * 0.5, pick: Math.floor(rng() * 9973) }));
+  let phase = -1;
   return {
     seconds: EPIC_SECONDS,
     update(p) {
       const active = p >= 0 && p < 1;
       if (!active && phase < 0) return;
       phase = active ? p : -1;
-      if (!active) { bullet.visible = sparks.visible = motes.visible = false; born.fill(-9); lastT = -1; return; }
-      const sec = p * EPIC_SECONDS, fly = smooth(p, 0.08, 0.92), show = smooth(p, 0.06, 0.14) * (1 - smooth(p, 0.88, 0.96));
-      bullet.visible = show > 0.01; sparks.visible = true;
-      at(fly, bullet.position); at(Math.min(1, fly + 0.002), next);
-      if (next.distanceToSquared(bullet.position) > 1e-12) bullet.lookAt(next.applyMatrix4(gun.matrixWorld));
-      bullet.scale.setScalar(Math.max(0.001, show));
-      // new sparks behind the bullet (more of them the further it flew this frame)
-      const make = lastT < 0 ? 0 : Math.min(n >> 2, Math.ceil((sec - lastT) * n / LIFE));
-      for (let k = 0; k < make && show > 0.05; k++) { born[head] = sec; start[head].copy(bullet.position); head = (head + 1) % n; }
-      lastT = sec;
-      const pos = geo.attributes.position, cl = geo.attributes.color;
-      for (let i = 0; i < n; i++) {
-        const age = (sec - born[i]) / LIFE;
-        if (age < 0 || age > 1) { cl.setXYZ(i, 0, 0, 0); continue; }
-        pos.setXYZ(i, start[i].x + vel[i].x * age, start[i].y + vel[i].y * age - L * 0.3 * age * age, start[i].z + vel[i].z * age);
-        c.copy(white).lerp(col, Math.min(1, age * 2.5)).multiplyScalar((1 - age) * 1.6);   // white-hot, cooling to the skin's colour
-        cl.setXYZ(i, c.r, c.g, c.b);
-      }
-      pos.needsUpdate = true; cl.needsUpdate = true;
-      // the motes: each rises off a point on the gun, swaying, glows and fades, then starts again from another point
-      const on = smooth(p, 0.02, 0.12) * (1 - smooth(p, 0.9, 0.99)), mp = mGeo.attributes.position, mc = mGeo.attributes.color;
+      if (!active) { motes.visible = false; return; }
+      const sec = p * EPIC_SECONDS, on = smooth(p, 0.02, 0.12) * (1 - smooth(p, 0.9, 0.99)), pos = geo.attributes.position, cl = geo.attributes.color;
       motes.visible = on > 0.01;
       mote.forEach((m, i) => {
         const cyc = sec / m.period + m.off, age = cyc - Math.floor(cyc), o = pool[(m.pick + Math.floor(cyc) * 131) % pool.length];
-        mp.setXYZ(i, o.x + Math.sin(m.sway + sec * 2.1) * size.z * 0.02 * age, o.y + age * size.y * 0.55, o.z + Math.cos(m.sway + sec * 1.7) * size.z * 0.02 * age);
-        c.copy(col).lerp(white, 0.25).multiplyScalar(Math.sin(Math.PI * age) * on * 2.0);
-        mc.setXYZ(i, c.r, c.g, c.b);
+        pos.setXYZ(i, o.x + Math.sin(m.sway + sec * 2.1) * size.z * 0.025 * age, o.y + age * size.y * m.rise, o.z + Math.cos(m.sway + sec * 1.7) * size.z * 0.025 * age);
+        c.copy(col).lerp(white, 0.3 * (1 - age)).multiplyScalar(Math.sin(Math.PI * age) * on * 2.0);   // brightest mid-rise
+        cl.setXYZ(i, c.r, c.g, c.b);
       });
-      mp.needsUpdate = true; mc.needsUpdate = true;
+      pos.needsUpdate = true; cl.needsUpdate = true;
     },
-    dispose() {
-      bullet.traverse(o => o.geometry?.dispose()); brass.dispose(); copper.dispose();
-      geo.dispose(); sparks.material.dispose(); mGeo.dispose(); motes.material.dispose();
-    },
+    dispose() { geo.dispose(); motes.material.dispose(); },
   };
 }

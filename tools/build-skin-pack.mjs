@@ -12,10 +12,10 @@ import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-export const PACK_VERSION = 2;
+export const PACK_VERSION = 3;
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'skinpack');
-const { skinById, skinFits, PACK_SIZE, PACK_ART } = await import(pathToFileURL(join(ROOT, 'js/core/skins.js')).href);
+const { skinById, skinFits, PACK_SIZE } = await import(pathToFileURL(join(ROOT, 'js/core/skins.js')).href);
 const src = process.argv[2];
 
 if (src !== '--manifest') {
@@ -36,7 +36,7 @@ if (src !== '--manifest') {
   for (const r of rows) {
     const slot = +r[col('weapon_slot')], id = +r[col('skin_id')], rel = r[r.length - 1], file = join(dirname(csv), rel), s = skinById(id);
     const bad = (why) => problems.push(`${rel}: ${why}`);
-    if (PACK_ART[slot + '/' + id]) continue;          // replaced by its own picture (kept below)
+    if (s?.rarity === 'blackice') continue;          // Black Ices are drawn by the game, not from a picture
     if (!existsSync(file)) { bad('missing'); continue; }
     if (!s || s.rarity === 'legendary' || s.art || id >= 1000) { bad(`skin ${id} is not a catalogue skin that takes a picture`); continue; }
     if (!skinFits(id, slot)) { bad(`${s.name} does not fit gun ${slot}`); continue; }
@@ -47,7 +47,6 @@ if (src !== '--manifest') {
   }
   console.log(`${rows.length} rows, ${take.length} pictures, ${problems.length} problems`);
   if (problems.length) { console.log(problems.slice(0, 40).join('\n')); process.exit(2); }
-  for (const k of Object.keys(PACK_ART)) take.push([...k.split('/'), readFileSync(join(OUT, k + '.webp'))]);   // the pictures painted on their own
   rmSync(OUT, { recursive: true, force: true });
   for (const [slot, id, b] of take) { mkdirSync(join(OUT, String(slot)), { recursive: true }); writeFileSync(join(OUT, `${slot}/${id}.webp`), b); }
   if (dir !== src) rmSync(dir, { recursive: true, force: true });
