@@ -761,3 +761,34 @@ label.as-cards { display: none !important; }
 .game-tabs button { flex: 1; padding: 14px 10px; font-size: 17px; font-weight: 700; letter-spacing: .04em; background: none; border: 0 !important; border-bottom: 3px solid transparent !important; border-radius: 0; color: var(--muted); cursor: pointer; }
 .game-tabs button[aria-selected=true] { color: var(--accent); border-bottom-color: var(--accent) !important; }
 .game-tabs .game-home { flex: 0 0 auto; font-size: 14px; font-weight: 600; color: var(--fg); padding-inline: 16px; }
+/* Home: rank badge by your name (opens Player stats); online, the game-code box on the left */
+.h-who { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+.h-who > div { display: grid; text-align: right; }
+.h-rank { padding: 0; background: none; border: 0; cursor: pointer; }
+.rank-badge { display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; font-style: normal; font-weight: 800; font-size: 18px; color: #10141a;
+  box-shadow: inset 0 -4px 0 #0003, 0 0 0 2px #0006; background: #b06a3b; }
+.h-rank:hover .rank-badge, .h-rank:focus-visible .rank-badge { box-shadow: inset 0 -4px 0 #0003, 0 0 0 3px var(--accent); }
+.rank-copper { background: linear-gradient(160deg, #d58a5a, #8a4a26); }
+.rank-bronze { background: linear-gradient(160deg, #e0a56a, #9a6332); }
+.rank-silver { background: linear-gradient(160deg, #eef1f4, #8c96a2); }
+.rank-gold { background: linear-gradient(160deg, #ffe08a, #c99419); }
+.rank-platinum { background: linear-gradient(160deg, #c8fff4, #4fb6a4); }
+.rank-diamond { background: linear-gradient(160deg, #d6ecff, #5c8cff); color: #0b1830; }
+.h-code { grid-column: 1; grid-row: 2 / 4; align-self: start; display: grid; gap: 8px; padding: 14px 16px; background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 10px; }
+.h-code[hidden] { display: none; }
+.h-code h3 { margin: 0; font-size: 16px; }
+.h-code .primary { padding: 12px; font-weight: 700; background: var(--accent); color: var(--accent-ink) !important; border: 0; border-radius: 8px; }
+.h-code #h-join { padding: 10px; background: rgba(255,255,255,.06); border: 1px solid var(--panel-edge); border-radius: 8px; }
+.h-code input { width: 100%; box-sizing: border-box; font-size: 20px; letter-spacing: .2em; text-transform: uppercase; }
+/* Player stats */
+.stats { display: grid; gap: 12px; }
+.stats-head { display: flex; align-items: center; gap: 14px; }
+.stats-head .rank-badge { width: 64px; height: 64px; font-size: 26px; }
+.stats-head > div { display: grid; }
+.stats-head b { font-size: 22px; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.stat { display: grid; padding: 10px 12px; border-radius: 8px; background: rgba(255,255,255,.04); border: 1px solid var(--panel-edge); }
+.stat b { font-size: 20px; }
+.stats h3 { margin: 6px 0 0; font-size: 15px; }
+.stats-list { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 13px; }
+.stats-list .win { color: #8fd49b; } .stats-list .loss { color: #f08a7a; }

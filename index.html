@@ -71,9 +71,16 @@
   <div id="home" hidden>
     <nav class="h-tabs" aria-label="Home">
       <button type="button" data-go="go-packs">Skins</button><button type="button" data-go="go-shop">Packs</button><button type="button" data-go="go-settings">Settings</button><button type="button" data-go="go-controls">Keybinds</button><button type="button" data-go="go-graphics">Download</button>
-      <div class="h-who"><b id="h-name">Player 1</b><span id="h-xp"></span></div>
+      <div class="h-who"><button type="button" id="h-rank" class="h-rank" title="Player stats" aria-label="Player stats"></button><div><b id="h-name">Player 1</b><span id="h-xp"></span></div></div>
     </nav>
     <div class="h-online" role="group" aria-label="Offline or online"><button type="button" id="h-prev" aria-label="Previous">&#8249;</button><b id="h-online">Offline</b><button type="button" id="h-next" aria-label="Next">&#8250;</button></div>
+    <section class="h-code" id="h-code" aria-label="Play with friends" hidden>
+      <h3>Play with friends</h3>
+      <button type="button" id="h-host" class="primary">Host a game</button>
+      <p class="small">You get a game code to tell your friends.</p>
+      <label class="field" for="h-code-in"><span>Join with a game code</span><input id="h-code-in" class="code-in" maxlength="8" autocomplete="off" spellcheck="false" placeholder="K7QD"></label>
+      <button type="button" id="h-join">Join</button>
+    </section>
     <button type="button" class="h-skin" id="h-skin" title="Inspect"><span id="h-skin-name"></span></button>
     <section class="h-ch" aria-label="Challenges"><h3>Challenges</h3><div id="h-challenges" class="challenges"></div></section>
     <div class="h-play"><button type="button" id="h-play" class="primary">Play<span id="h-game"></span></button><button type="button" id="h-pick">Pick game</button></div>
@@ -117,6 +124,10 @@
         <h3 class="ch-head">Challenges <span class="small">new ones every day and every Monday</span></h3>
         <div id="challenges" class="challenges"></div>
 
+      </section>
+
+      <section class="page" id="page-stats" hidden>
+        <div id="stats-root" class="stats"></div>
       </section>
 
       <section class="page" id="page-season" hidden>

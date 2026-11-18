@@ -27,9 +27,9 @@ import { Gamepad, padPanel } from './ui/gamepad.js?v=81e5283-mwlpeohh';
 import { WeaponRig, setUltraTexSize, skinName, setSkinResolver, setHiResSkins, setSkinsOff, setCharmResolver } from './scene/viewmodel.js?v=81e5283-mwlpeohh';
 import { LensPost } from './render/lens-post.js?v=81e5283-mwlpeohh';
 import { warmScene, warmBudget } from './render/warm.js?v=81e5283-mwlpeohh';
-import { addMatch } from './core/history.js?v=81e5283-mwlpeohh';
+import { addMatch, matches as pastMatches, totals as matchTotals } from './core/history.js?v=81e5283-mwlpeohh';
 import { addXp, matchXp, XP, checkIn, seasonState, rewardOf, rewardText, TIERS, XP_PER_TIER } from './core/season.js?v=81e5283-mwlpeohh';
-import { submit as submitBests } from './core/bests.js?v=81e5283-mwlpeohh';
+import { submit as submitBests, bests as myBests, BOARD } from './core/bests.js?v=81e5283-mwlpeohh';
 import { mountAccounts } from './ui/accounts-ui.js?v=81e5283-mwlpeohh';
 import { PAD_ASSIST, nearestAim, assistLook } from './core/pad-assist.js?v=81e5283-mwlpeohh';
 import { record as recordChallenge, matchStats, challengesFor, progressOf, isPaid } from './core/challenges.js?v=81e5283-mwlpeohh';
@@ -1561,13 +1561,14 @@ async function boot(data) {
     for (const sp of $('menu').querySelectorAll('.steps button')) { sp.classList.toggle('on', Number(sp.dataset.step) === step); sp.classList.toggle('done', Number(sp.dataset.step) < step); }
     const names = { range: 'Shooting range', bots: 'Battle vs bots', gungame: 'Gun Game', endless: 'Endless', royale: 'Battle Royale', net: 'Network battle', tdm: 'Team Deathmatch', ctf: 'Capture the Flag', bomb: 'Bomb' };
     $('menu-crumbs').textContent = name === 'mode' ? 'Choose a mode' : name === 'pause' ? names[flow.mode] + ' (paused)' :
-      name === 'setup' ? (flow.settingsOnly ? 'Settings' : names[flow.mode] + ': match options') : name === 'ops' ? names[flow.mode] + ': operator' : name === 'packs' ? 'Skins' : name === 'shop' ? 'Packs' : name === 'quick' ? 'Quick setup' : name === 'season' ? 'Season pass' : 'Controls';
+      name === 'setup' ? (flow.settingsOnly ? 'Settings' : names[flow.mode] + ': match options') : name === 'ops' ? names[flow.mode] + ': operator' : name === 'packs' ? 'Skins' : name === 'shop' ? 'Packs' : name === 'quick' ? 'Quick setup' : name === 'season' ? 'Season pass' : name === 'stats' ? 'Player stats' : 'Controls';
     document.querySelectorAll('[aria-label="Main menu"] button').forEach(b=>b.setAttribute('aria-current', b.id === ({mode:'go-play',pause:'go-play',setup:flow.settingsOnly ? 'go-settings' : 'go-play',controls:'go-controls',packs:'go-packs',shop:'go-shop'}[name]) ? 'page' : 'false'));
     $('mini-points').textContent = '(' + profile.points + ' points)';
     $('pause-points').textContent = '(' + profile.points + ' points)';
     $('shop-next').textContent = flow.inGame ? 'Back to the game' : 'Next: choose a mode';
     if (name === 'mode') { renderChallenges(); renderPresets(); filterGames(); }
     if (name === 'season') renderSeason();
+    if (name === 'stats') renderStats();
     if (name === 'setup') $('preset-save-row').hidden = flow.settingsOnly || flow.mode === 'range' || flow.mode === 'net';
     if (name === 'setup') {
       $('range-setup').hidden = flow.mode !== 'range';
@@ -1664,8 +1665,49 @@ async function boot(data) {
     $('h-name').textContent = currentAccount();
     $('h-online').textContent = home.online ? 'Online' : 'Offline';
     $('h-game').textContent = home.online ? (home.ranked ? 'Ranked Bomb online' : 'Network battle') : (home.ranked ? 'Ranked ' : '') + (GAME_NAMES[home.mode] || '');
+    $('h-code').hidden = !home.online;
+    $('h-rank').replaceChildren(rankBadge());
     renderSeason(); renderChallenges(); homeShowcase();
   }
+  // A rank as a small badge: its colour and first letter (Copper ... Diamond), from your rating.
+  function rankBadge(rating = profile.rating) {
+    const rank = rankOf(rating), i = document.createElement('i');
+    i.className = 'rank-badge rank-' + rank.toLowerCase(); i.textContent = rank[0]; i.title = rank + ' · ' + rating;
+    return i;
+  }
+  // Player stats: rank and rating, totals, personal bests, ranked history and recent matches.
+  function renderStats() {
+    const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+    const T = matchTotals(), S = seasonState(), rank = rankOf(profile.rating);
+    const head = el('div', 'stats-head'); head.append(rankBadge(), Object.assign(el('div'), {}));
+    head.lastChild.append(el('b', '', currentAccount()), el('span', 'small', rank + ' · rating ' + profile.rating + ' · season tier ' + S.tier + ' / ' + TIERS));
+    const tile = (label, value) => { const d = el('div', 'stat'); d.append(el('b', '', String(value)), el('span', 'small', label)); return d; };
+    const grid = el('div', 'stats-grid');
+    grid.append(tile('matches (last 50)', T.matches), tile('wins', T.wins), tile('kills', T.kills), tile('deaths', T.deaths), tile('K/D', T.kd.toFixed(2)),
+      tile('best gun', T.best || '-'), tile('battle kills, all time', profile.kills), tile('packs opened', profile.packs), tile('skins owned', profile.ownedCount), tile('points', profile.points));
+    const B = myBests(), bestList = el('ul', 'stats-list');
+    for (const b of BOARD) bestList.append(el('li', '', b.label + ': ' + (B[b.key] !== undefined ? B[b.key] + b.unit : '-')));
+    const ranked = el('ul', 'stats-list');
+    for (const r of profile.rankedHistory) ranked.append(el('li', r.outcome, r.outcome[0].toUpperCase() + r.outcome.slice(1) + ' · ' + (r.delta >= 0 ? '+' : '') + r.delta));
+    if (!profile.rankedHistory.length) ranked.append(el('li', '', 'No ranked games yet: try a Ranked card under Pick game.'));
+    const recent = el('ul', 'stats-list');
+    for (const m of pastMatches().slice(0, 10)) recent.append(el('li', m.result, (GAME_NAMES[m.mode] || m.mode) + ' · ' + (m.result || '') + ' · ' + m.kills + ' kills, ' + m.deaths + ' deaths' + (m.gun ? ' · ' + m.gun : '') + ' · ' + new Date(m.at).toLocaleDateString()));
+    if (!pastMatches().length) recent.append(el('li', '', 'No matches yet.'));
+    $('stats-root').replaceChildren(head, grid, el('h3', '', 'Personal bests'), bestList, el('h3', '', 'Ranked history'), ranked, el('h3', '', 'Recent matches'), recent);
+  }
+  $('h-rank').addEventListener('click', () => { leaveHome(); showPage('stats'); });
+  // Online on Home: host (a game code for your friends) or join with one, over the relay
+  function homeNet(join) {
+    const code = $('h-code-in').value.trim().toUpperCase();
+    if (join && !code) { $('h-code-in').focus(); return; }
+    leaveHome(); openGame('net', false);
+    $('net-via-relay').click();
+    if (!join) { $('net-host').click(); return; }
+    $('net-join').click(); $('relay-in').value = code; $('relay-connect').click();
+  }
+  $('h-host').addEventListener('click', () => homeNet(false));
+  $('h-join').addEventListener('click', () => homeNet(true));
+  $('h-code-in').addEventListener('keydown', (e) => { if (e.key === 'Enter') homeNet(true); });
   const leaveHome = () => { $('home').hidden = true; $('menu').hidden = false; $('hud').hidden = !!(battle && battle.active); };
   for (const b of $('home').querySelectorAll('[data-go]')) b.addEventListener('click', () => { leaveHome(); $(b.dataset.go).click(); });
   for (const id of ['h-prev', 'h-next']) $(id).addEventListener('click', () => {
