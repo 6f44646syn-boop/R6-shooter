@@ -1,6 +1,6 @@
 // Compile every material in a scene, hidden ones too (muzzle flashes, shields, outlines), so they
 // do not stutter the first time they show. Call it under a loading screen: it blocks.
-import * as THREE from '../../vendor/three/three.module.min.js?v=c33fa3a-mwm26a5y';
+import * as THREE from '../../vendor/three/three.module.min.js?v=b8302f9-mwm2bulv';
 
 const CAM = new THREE.PerspectiveCamera();
 export function warmScene(renderer, scene) {

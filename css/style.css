@@ -986,3 +986,5 @@ html[data-gfx=low] .h-tabs { backdrop-filter: none; }
 #menu .steps { display: none !important; }
 /* no FPS counter over menus */
 body:has(#menu:not([hidden])) #perf, body:has(#home:not([hidden])) #perf, body:has(#title:not([hidden])) #perf, body:has(#armory:not([hidden])) #perf { display: none; }
+/* no menu row (Home, Pick game, Controls ... Skins) anywhere: each page has its own Back */
+#menu nav[aria-label="Main menu"] { display: none !important; }

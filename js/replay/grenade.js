@@ -1,5 +1,5 @@
 // Presentation-only history for the grenade camera. The simulation owns the projectile.
-import * as THREE from '../../vendor/three/three.module.min.js?v=c33fa3a-mwm26a5y';
+import * as THREE from '../../vendor/three/three.module.min.js?v=b8302f9-mwm2bulv';
 
 const SAMPLE_INTERVAL = 1 / 30;
 const FLIGHT_LIMIT = 1.6;
