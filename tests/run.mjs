@@ -1901,7 +1901,7 @@ try {
     const nerr = [];
     for (const [n, p] of [['host', A], ['player', B]]) p.on('pageerror', (e) => nerr.push(n + ': ' + String(e.stack || e)));
     for (const p of [A, B]) { await p.goto(BASE + 'index.html?test', { waitUntil: 'networkidle' }); await p.waitForFunction(() => window.__range); }
-    for (const p of [A, B]) { await p.locator('[data-first-profile=mouse]').click(); await p.evaluate(() => document.querySelector('.mode-card[data-mode=net]').click()); }
+    for (const p of [A, B]) { await p.locator('[data-first-profile=mouse]').click(); await p.evaluate(() => document.querySelector('.mode-set[data-mode=net]:not([data-ranked])').click()); }
     for (const p of [A, B]) await p.click('#net-via-lan');
     // the player asks to defend in Bomb (their own Bomb setting)
     await B.evaluate(() => window.__range.modePrefs({ side: 'defend' }));
@@ -2101,7 +2101,7 @@ try {
     const nerr = [];
     for (const [n, p] of [['host', A], ['player', B]]) p.on('pageerror', (e) => nerr.push(n + ': ' + String(e.stack || e)));
     for (const p of [A, B]) { await p.goto(BASE + 'index.html?test' + (via === 'relay' ? '&relay=' + encodeURIComponent(RELAY) : ''), { waitUntil: 'networkidle' }); await p.waitForFunction(() => window.__range); }
-    for (const p of [A, B]) { await p.locator('[data-first-profile=mouse]').click(); await p.evaluate(() => document.querySelector('.mode-card[data-mode=net]').click()); }
+    for (const p of [A, B]) { await p.locator('[data-first-profile=mouse]').click(); await p.evaluate(() => document.querySelector('.mode-set[data-mode=net]:not([data-ranked])').click()); }
     let connected = true, join = '';
     if (via === 'relay') {
       for (const p of [A, B]) await p.click('#net-via-relay');

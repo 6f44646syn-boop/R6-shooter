@@ -700,3 +700,48 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 #dev-rec { position: fixed; right: 12px; top: 12px; z-index: 200; padding: 4px 10px; border-radius: 4px; background: #5a1414; border: 1px solid #a33; color: #fff; font-size: 12px; cursor: pointer; }
 .dev-tools { display: flex; flex-wrap: wrap; gap: 6px; } .dev-tools[hidden] { display: none; }
 .dev-tog.on { background: #1d4f3a; border-color: #3dff9a; color: #fff; }
+
+/* Home (after the title): the picked game's Play, Pick game, challenges and the season pass round a skin turning in 3D */
+#home { position: absolute; inset: 0; z-index: 40; display: grid; gap: 14px; padding: clamp(12px, 2.5vw, 28px);
+  grid-template-columns: minmax(230px, 1fr) minmax(0, 2fr) minmax(250px, 1fr); grid-template-rows: auto auto 1fr auto;
+  pointer-events: none; background: radial-gradient(ellipse at center, transparent 45%, rgba(4, 7, 10, .7)); }
+#home[hidden] { display: none; }
+#home > * { pointer-events: auto; }
+#home button { font-family: inherit; color: var(--fg); cursor: pointer; }
+.h-tabs { grid-column: 1 / 3; grid-row: 1; display: flex; flex-wrap: wrap; gap: 6px; align-self: start; }
+.h-tabs button { padding: 8px 16px; background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 8px 8px 2px 2px; }
+.h-tabs button:hover, .h-tabs button:focus-visible { border-color: var(--accent); color: var(--accent); }
+.h-who { grid-column: 3; grid-row: 1; justify-self: end; display: grid; text-align: right; padding: 8px 14px; background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 8px; min-width: 150px; }
+.h-who span { color: var(--muted); font-size: 12px; }
+.h-online { grid-column: 2; grid-row: 2; justify-self: center; display: flex; align-items: center; gap: 14px; font-size: 18px; letter-spacing: .08em; text-transform: uppercase; }
+.h-online button { width: 38px; height: 38px; border-radius: 50%; background: var(--panel); border: 1px solid var(--panel-edge); font-size: 22px; line-height: 1; }
+.h-online button:hover { border-color: var(--accent); color: var(--accent); }
+.h-skin { grid-column: 2; grid-row: 3; align-self: stretch; justify-self: stretch; background: none; border: 0; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6px; }
+.h-skin span { padding: 4px 12px; border-radius: 999px; background: rgba(6, 9, 12, .7); color: var(--accent); font-weight: 600; }
+.h-ch { grid-column: 3; grid-row: 2 / 4; align-self: start; padding: 12px 14px; background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 10px; max-height: 100%; overflow-y: auto; }
+.h-ch h3 { margin: 0 0 8px; font-size: 15px; }
+.h-ch .ch-row { grid-template-columns: 1fr; gap: 4px; margin-bottom: 6px; }
+.h-play { grid-column: 1; grid-row: 4; display: grid; gap: 8px; align-self: end; }
+#h-play { display: grid; padding: 22px 26px; font-size: 34px; font-weight: 800; letter-spacing: .04em; text-align: left; background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 12px; box-shadow: 0 10px 40px #0007; }
+#h-play span { font-size: 14px; font-weight: 600; letter-spacing: 0; opacity: .8; }
+#h-pick { padding: 12px 18px; text-align: left; font-size: 17px; font-weight: 600; background: var(--panel); border: 2px solid var(--fg); border-radius: 10px; }
+#h-pick:hover, #h-play:hover { filter: brightness(1.08); }
+.h-pass { grid-column: 3; grid-row: 4; align-self: end; display: grid; gap: 6px; text-align: left; padding: 16px 18px; background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 12px; min-height: 120px; }
+.h-pass:hover { border-color: var(--accent); }
+.h-pass b { font-size: 18px; }
+@media (max-width: 760px) {
+  #home { grid-template-columns: 1fr; grid-template-rows: auto auto auto 1fr auto auto auto; overflow-y: auto; }
+  .h-tabs, .h-who, .h-online, .h-skin, .h-ch, .h-play, .h-pass { grid-column: 1; grid-row: auto; justify-self: stretch; }
+  .h-skin { min-height: 160px; }
+}
+/* Pick game: every game has a Settings tab; the Season pass has its own page */
+.mode-item { display: grid; grid-template-rows: 1fr auto; }
+.mode-item[hidden] { display: none; }
+.mode-item .mode-card { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.mode-set { border-top: 0 !important; border-top-left-radius: 0 !important; border-top-right-radius: 0 !important; font-size: 12px; padding: 5px 10px; }
+.mode-ranked b::before { content: '★ '; color: var(--accent); }
+.season-tiers { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.season-tiers li { display: grid; gap: 2px; padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,.04); border: 1px solid var(--panel-edge); font-size: 12px; }
+.season-tiers li b { font-size: 16px; }
+.season-tiers li.got { border-color: #4f8f5a; background: rgba(79,143,90,.15); }
+.season-tiers li.next { border-color: var(--accent); }

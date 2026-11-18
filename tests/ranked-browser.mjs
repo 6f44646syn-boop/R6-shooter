@@ -16,7 +16,7 @@ try {
     await page.goto('http://127.0.0.1:8165/index.html?test');
     await page.waitForFunction(() => window.__range?.ready);
     await page.locator('[data-first-profile=mouse]').click();
-    await page.evaluate(() => document.querySelector('.mode-card[data-mode=net]').click());
+    await page.evaluate(() => document.querySelector('.mode-set[data-mode=net]:not([data-ranked])').click());
     await page.click('#net-via-lan');
   }
   await host.click('#net-host');

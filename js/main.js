@@ -59,7 +59,8 @@ import { initCore, coreLoaded } from './wasm/core.js?v=81e5283-mwlpeohh';
 import { createJoinRequest, acceptJoin } from './net/link.js?v=81e5283-mwlpeohh';
 import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt } from './net/relay.js?v=81e5283-mwlpeohh';
 import { Profile, WIN_POINTS } from './core/profile.js?v=81e5283-mwlpeohh';
-import { skinFits, skinById } from './core/skins.js?v=81e5283-mwlpeohh';
+import { skinFits, skinById, CATALOGUE } from './core/skins.js?v=81e5283-mwlpeohh';
+import { currentAccount } from './core/accounts.js?v=81e5283-mwlpeohh';
 import { PackUI } from './ui/packs.js?v=81e5283-mwlpeohh';
 import { HDPack, SkinPack } from './render/hd-pack.js?v=81e5283-mwlpeohh';
 import { effectiveGraphics, needsPack, maxMode } from './render/quality.js?v=81e5283-mwlpeohh';
@@ -849,6 +850,16 @@ async function boot(data) {
   }
   function noteRecords(beaten) { if (beaten.length) flashNotice('New personal best: ' + beaten.join(', '), 4000); }
   function renderSeason() {
+    const S0 = seasonState(), fill0 = document.createElement('i'), bar0 = document.createElement('div');
+    fill0.style.width = (100 * S0.into / XP_PER_TIER).toFixed(1) + '%'; bar0.className = 'season-bar'; bar0.append(fill0);
+    $('h-pass').replaceChildren(Object.assign(document.createElement('b'), { textContent: 'Season pass · tier ' + S0.tier + ' / ' + TIERS }), bar0,
+      Object.assign(document.createElement('span'), { className: 'small', textContent: S0.tier < TIERS ? 'Next: ' + rewardText(rewardOf(S0.tier + 1, S0.id)) : 'Season complete' }));
+    $('h-xp').textContent = 'Tier ' + S0.tier + ' · ' + S0.xp + ' XP';
+    $('season-tiers').replaceChildren(...Array.from({ length: TIERS }, (_, i) => {
+      const li = document.createElement('li'); li.className = i < S0.tier ? 'got' : i === S0.tier ? 'next' : '';
+      li.append(Object.assign(document.createElement('b'), { textContent: String(i + 1) }), Object.assign(document.createElement('span'), { textContent: rewardText(rewardOf(i + 1, S0.id)) }));
+      return li;
+    }));
     const box = $('season'); if (!box) return;
     const S = seasonState(), next = S.tier < TIERS ? rewardOf(S.tier + 1, S.id) : null, days = Math.max(1, Math.ceil((S.ends - Date.now()) / 86400000));
     box.innerHTML = '';
@@ -878,6 +889,7 @@ async function boot(data) {
       r.append(n, cell(all[i]), cell(all[i + 1])); rows.push(r);
     }
     box.replaceChildren(...rows);
+    $('h-challenges').replaceChildren(...rows.map((r) => r.cloneNode(true)));
   }
   function finishMagazine() {
     flushRange();
@@ -1548,12 +1560,13 @@ async function boot(data) {
     for (const sp of $('menu').querySelectorAll('.steps button')) { sp.classList.toggle('on', Number(sp.dataset.step) === step); sp.classList.toggle('done', Number(sp.dataset.step) < step); }
     const names = { range: 'Shooting range', bots: 'Battle vs bots', gungame: 'Gun Game', endless: 'Endless', royale: 'Battle Royale', net: 'Network battle', tdm: 'Team Deathmatch', ctf: 'Capture the Flag', bomb: 'Bomb' };
     $('menu-crumbs').textContent = name === 'mode' ? 'Choose a mode' : name === 'pause' ? names[flow.mode] + ' (paused)' :
-      name === 'setup' ? (flow.settingsOnly ? 'Settings' : names[flow.mode] + ': match options') : name === 'ops' ? names[flow.mode] + ': operator' : name === 'packs' ? 'Skins' : name === 'shop' ? 'Packs' : name === 'quick' ? 'Quick setup' : 'Controls';
+      name === 'setup' ? (flow.settingsOnly ? 'Settings' : names[flow.mode] + ': match options') : name === 'ops' ? names[flow.mode] + ': operator' : name === 'packs' ? 'Skins' : name === 'shop' ? 'Packs' : name === 'quick' ? 'Quick setup' : name === 'season' ? 'Season pass' : 'Controls';
     document.querySelectorAll('[aria-label="Main menu"] button').forEach(b=>b.setAttribute('aria-current', b.id === ({mode:'go-play',pause:'go-play',setup:flow.settingsOnly ? 'go-settings' : 'go-play',controls:'go-controls',packs:'go-packs',shop:'go-shop'}[name]) ? 'page' : 'false'));
     $('mini-points').textContent = '(' + profile.points + ' points)';
     $('pause-points').textContent = '(' + profile.points + ' points)';
     $('shop-next').textContent = flow.inGame ? 'Back to the game' : 'Next: choose a mode';
-    if (name === 'mode') { renderChallenges(); renderPresets(); renderSeason(); }
+    if (name === 'mode') { renderChallenges(); renderPresets(); filterGames(); }
+    if (name === 'season') renderSeason();
     if (name === 'setup') $('preset-save-row').hidden = flow.settingsOnly || flow.mode === 'range' || flow.mode === 'net';
     if (name === 'setup') {
       $('range-setup').hidden = flow.mode !== 'range';
@@ -1565,7 +1578,7 @@ async function boot(data) {
       $('b-level').closest('label').hidden = flow.mode === 'endless';
       $('endless-rules').hidden = flow.mode !== 'endless';
       $('b-mates-field').hidden = flow.mode !== 'bots';
-      $('b-rank-field').hidden = flow.mode !== 'bots';
+      $('b-rank-field').hidden = true;                   // (Ranked is its own card under Pick game)
       $('royale-rules').hidden = flow.mode !== 'royale';
       $('modes-setup').hidden = !MATCH_MODES.includes(flow.mode);
       if (MATCH_MODES.includes(flow.mode)) modesUi();
@@ -1585,7 +1598,59 @@ async function boot(data) {
     saveSettings(settings);
     showPage('setup');
   }
-  for (const b of document.querySelectorAll('.mode-card')) b.addEventListener('click', () => chooseMode(b.dataset.mode));
+  // Home: the game Play starts (picked under Pick game), offline or online, kept between visits.
+  const HOME_KEY = 'recoilRange.home.v1', GAME_NAMES = { range: 'Shooting range', bots: 'Battle vs bots', gungame: 'Gun Game', endless: 'Endless', royale: 'Battle Royale', net: 'Network battle', tdm: 'Team Deathmatch', ctf: 'Capture the Flag', bomb: 'Bomb' };
+  let home = { mode: 'bots', ranked: false, online: false };
+  try { Object.assign(home, JSON.parse(localStorage.getItem(HOME_KEY)) || {}); } catch { /* blocked: defaults */ }
+  const saveHome = () => { try { localStorage.setItem(HOME_KEY, JSON.stringify(home)); } catch { /* kept for this visit */ } };
+  // The Ranked cards switch ranked on, the others off (Battle vs bots and the matches against bots).
+  function applyRanked(mode, on) {
+    const el = mode === 'bots' ? $('b-rank') : MATCH_MODES.includes(mode) ? $('md-rank') : null;
+    if (el && el.value !== (on ? 'on' : 'off')) { el.value = on ? 'on' : 'off'; el.dispatchEvent(new Event('change')); }
+  }
+  function filterGames() { for (const it of document.querySelectorAll('.mode-item')) it.hidden = (it.dataset.online === '1') !== home.online; }
+  function openGame(mode, ranked) {
+    applyRanked(mode, ranked);
+    chooseMode(mode);
+    if (mode === 'net' && ranked) $('net-rank-search')?.scrollIntoView({ block: 'center' });
+  }
+  for (const b of document.querySelectorAll('.mode-card')) b.addEventListener('click', () => {
+    home = { mode: b.dataset.mode, ranked: b.dataset.ranked === '1', online: b.closest('.mode-item')?.dataset.online === '1' };
+    saveHome(); showHome();
+  });
+  for (const b of document.querySelectorAll('.mode-set')) b.addEventListener('click', () => openGame(b.dataset.mode, b.dataset.ranked === '1'));
+  // A random Epic, Black Ice or Legendary on its gun, turning behind the home screen; click it to inspect.
+  function homeShowcase() {
+    const pool = CATALOGUE.filter((d) => ['epic', 'blackice', 'legendary'].includes(d.rarity) && !d.photo);
+    const def = pool[Math.floor(Math.random() * pool.length)];
+    const slot = def.guns ? def.guns[0] : Math.floor(Math.random() * data.guns.length), gun = data.guns[slot];
+    skinOverride = { slot, id: def.id };
+    try { previewRig.setGun(gun, slot, catalogue.byId.get(savedOptic(gun))); framePreview(); } finally { skinOverride = null; }
+    $('h-skin-name').textContent = def.name + ' · ' + gun.name;
+  }
+  function showHome() {
+    controls.release();
+    $('menu').hidden = true; $('title').hidden = true; $('home').hidden = false; $('hud').hidden = true;   // (the range's HUD would show through)
+    $('h-name').textContent = currentAccount();
+    $('h-online').textContent = home.online ? 'Online' : 'Offline';
+    $('h-game').textContent = home.online ? (home.ranked ? 'Ranked Bomb online' : 'Network battle') : (home.ranked ? 'Ranked ' : '') + (GAME_NAMES[home.mode] || '');
+    renderSeason(); renderChallenges(); homeShowcase();
+  }
+  const leaveHome = () => { $('home').hidden = true; $('menu').hidden = false; $('hud').hidden = !!(battle && battle.active); };
+  for (const b of $('home').querySelectorAll('[data-go]')) b.addEventListener('click', () => { leaveHome(); $(b.dataset.go).click(); });
+  for (const id of ['h-prev', 'h-next']) $(id).addEventListener('click', () => {
+    home = home.online ? { mode: 'bots', ranked: false, online: false } : { mode: 'net', ranked: false, online: true };
+    saveHome(); showHome();
+  });
+  $('h-pick').addEventListener('click', () => { leaveHome(); showPage('mode'); });
+  $('h-pass').addEventListener('click', () => { leaveHome(); showPage('season'); });
+  $('h-skin').addEventListener('click', () => { if (previewRig.inspectT < 0) previewRig.inspect(); });
+  $('h-play').addEventListener('click', () => {
+    leaveHome();
+    openGame(home.mode, home.ranked);
+    if (home.mode !== 'net') $('setup-next').click();         // straight on with the game's saved settings
+  });
+  $('go-home').addEventListener('click', showHome);
   $('go-packs').addEventListener('click', () => showPage('packs'));
   for (const id of ['go-shop', 'pause-shop']) $(id).addEventListener('click', () => showPage('shop'));
   $('shop-skins').addEventListener('click', () => showPage('packs'));
@@ -1923,6 +1988,8 @@ async function boot(data) {
     const a = renderW / renderH;
     if (previewCam.aspect !== a) { previewCam.aspect = a; previewCam.updateProjectionMatrix(); }
     previewPivot.rotation.set(0.12, -Math.PI / 2 + Math.sin(t * 0.45) * 0.55, 0);   // right side towards you, turning slowly
+    const dt = Math.min(0.1, Math.max(0, t - (renderPreview.last ?? t))); renderPreview.last = t;
+    if (previewRig.inspectT >= 0) { previewRig.inspectT += dt / (previewRig.current?.userData.inspectFx?.seconds ?? 3.2); if (previewRig.inspectT >= 1) previewRig.inspectT = -1; }   // (Home: click the skin)
     previewRig.animateSkins(t, 1);
     r.render(previewRig.scene, previewCam);
     r.autoClear = false;
@@ -1965,7 +2032,8 @@ async function boot(data) {
   }
   function hideTitle(go) {
     $('title').hidden = true; clearInterval(titleTimer);
-    if (go && flow.page !== 'quick') $(go).click();
+    if (go === 'go-play' && flow.page !== 'quick') showHome();
+    else if (go && flow.page !== 'quick') $(go).click();
   }
   for (const b of $('title').querySelectorAll('[data-go]')) b.addEventListener('click', () => hideTitle(b.dataset.go));
   addEventListener('keydown', (e) => { if (!$('title').hidden && e.key === 'Enter' && !(e.target.closest?.('#title button') && e.target.dataset.go !== 'go-play')) { e.preventDefault(); hideTitle('go-play'); } });
@@ -2141,7 +2209,7 @@ async function boot(data) {
   }
   let rangeShadowSig = '', rangeShadowAge = 0;
   function renderFrame() {
-    if (!$('armory').hidden) { renderPreview(clockNow()); return; }
+    if (!$('armory').hidden || !$('home').hidden) { renderPreview(clockNow()); return; }
     if (cur() && cur().active) { if (!coverHolds) cur().render(); return; }   // (held loading screen: the GPU is busy with the pack's uploads)
     renderer.info.reset();
     // The range's shadow casters stand still: redraw the shadow maps only when one moves or

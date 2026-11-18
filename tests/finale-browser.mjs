@@ -149,7 +149,7 @@ try {
   const preset = await page.evaluate(async () => {
     const R = __range, $ = (id) => document.getElementById(id);
     R.battleLeave();
-    document.querySelector('.mode-card[data-mode=bots]').click();
+    document.querySelector('.mode-set[data-mode=bots]:not([data-ranked])').click();
     $('b-bots').value = '3'; $('b-bots').dispatchEvent(new Event('change', { bubbles: true }));
     $('preset-name').value = 'Three bots'; $('preset-save').click();
     $('setup-back').click();

@@ -68,6 +68,17 @@
     </main>
     <p class="t-feature" aria-live="polite"><span>Featured Legendary</span> <b id="t-feature">Storm Kiln</b></p>
   </div>
+  <div id="home" hidden>
+    <nav class="h-tabs" aria-label="Home">
+      <button type="button" data-go="go-packs">Skins</button><button type="button" data-go="go-shop">Packs</button><button type="button" data-go="go-settings">Settings</button><button type="button" data-go="go-controls">Keybinds</button><button type="button" data-go="go-graphics">Download</button>
+    </nav>
+    <div class="h-who"><b id="h-name">Player 1</b><span id="h-xp"></span></div>
+    <div class="h-online" role="group" aria-label="Offline or online"><button type="button" id="h-prev" aria-label="Previous">&#8249;</button><b id="h-online">Offline</b><button type="button" id="h-next" aria-label="Next">&#8250;</button></div>
+    <button type="button" class="h-skin" id="h-skin" title="Inspect"><span id="h-skin-name"></span></button>
+    <section class="h-ch" aria-label="Challenges"><h3>Challenges</h3><div id="h-challenges" class="challenges"></div></section>
+    <div class="h-play"><button type="button" id="h-play" class="primary">Play<span id="h-game"></span></button><button type="button" id="h-pick">Pick game</button></div>
+    <button type="button" class="h-pass" id="h-pass" aria-label="Season pass"></button>
+  </div>
   <div id="menu">
     <div id="menu-panel">
       <header class="menu-head">
@@ -78,7 +89,7 @@
         <div id="acct-root"></div>
         <nav class="steps" aria-label="Steps"><button type="button" data-step="1">1 Controls</button><button type="button" data-step="2">2 Graphics</button><button type="button" data-step="3">3 Settings</button><button type="button" data-step="4">4 Packs</button><button type="button" data-step="5">5 Mode</button><button type="button" data-step="6">6 Weapon</button></nav>
       </header>
-      <nav class="row" aria-label="Main menu"><button type="button" id="go-play">Play</button><button type="button" id="go-controls">Controls &amp; keybinds</button><button type="button" id="go-graphics">Graphics</button><button type="button" id="go-settings">Settings</button><button type="button" id="go-shop">Packs <span id="mini-points"></span></button><button type="button" id="go-packs">Skins</button></nav>
+      <nav class="row" aria-label="Main menu"><button type="button" id="go-home">Home</button><button type="button" id="go-play">Pick game</button><button type="button" id="go-controls">Controls &amp; keybinds</button><button type="button" id="go-graphics">Graphics</button><button type="button" id="go-settings">Settings</button><button type="button" id="go-shop">Packs <span id="mini-points"></span></button><button type="button" id="go-packs">Skins</button></nav>
       <p id="lock-hint" class="hint" hidden></p>
       <p id="menu-note" class="hint" hidden role="status"></p>
       <div id="slow-offer" class="hint row" hidden role="status"><span id="slow-text"></span><button type="button" id="slow-lower" class="primary"></button><button type="button" id="slow-keep">Keep these graphics</button></div>
@@ -86,21 +97,30 @@
 
       <section class="page" id="page-mode">
         <div class="modes">
-          <button type="button" class="mode-card" data-mode="range"><b>Shooting range</b><span>Practise spray control on a dummy, a paper target or red dots. Measured sprays, every sight.</span></button>
-          <button type="button" class="mode-card" data-mode="bots"><b>Battle vs bots</b><span>An arena with cover against 1-6 bots: Easy, Medium or Hard. Kills earn points for packs.</span></button>
-          <button type="button" class="mode-card mode-new" data-mode="gungame"><b>Gun Game</b><span>Every kill swaps you to the next gun. Get a kill with every gun first to win. Against 1-6 bots.</span></button>
-          <button type="button" class="mode-card mode-new" data-mode="endless"><b>Endless</b><span>Waves of bots that never stop: every 4 kills one more bot joins and they get tougher. Three lives. Beat your best.</span></button>
-          <button type="button" class="mode-card" data-mode="royale"><b>Battle Royale</b><span>You and 20 rivals on Blacktide Island. Loot chests and outlast the shrinking zone.</span></button>
-          <button type="button" class="mode-card mode-new" data-mode="tdm"><b>Team Deathmatch</b><span>Your team against bots, 3v3 or 5v5. First team to 40 kills, or the most kills after the time.</span></button>
-          <button type="button" class="mode-card mode-new" data-mode="ctf"><b>Capture the Flag</b><span>Take the enemy flag to your own stand while yours is home. First to 3 captures.</span></button>
-          <button type="button" class="mode-card mode-new" data-mode="bomb"><b>Bomb</b><span>Attackers plant, defenders stop them. One life a round, abilities on, first to 4 rounds.</span></button>
-          <button type="button" class="mode-card" data-mode="net"><b>Network battle</b><span>Play friends on other PCs: over the internet with a short game code, or on the same network. Bots optional.</span></button>
+          <div class="mode-item" data-online="0"><button type="button" class="mode-card" data-mode="range"><b>Shooting range</b><span>Practise spray control on a dummy, a paper target or red dots. Measured sprays, every sight.</span></button><button type="button" class="mode-set" data-mode="range">Settings</button></div>
+          <div class="mode-item" data-online="0"><button type="button" class="mode-card" data-mode="bots"><b>Battle vs bots</b><span>An arena with cover against 1-6 bots: Easy, Medium or Hard. Kills earn points for packs.</span></button><button type="button" class="mode-set" data-mode="bots">Settings</button></div>
+          <div class="mode-item" data-online="0"><button type="button" class="mode-card mode-ranked" data-mode="bots" data-ranked="1"><b>Ranked battle vs bots</b><span>Win or lose rating against bots. Fixed recoil and aim assist.</span></button><button type="button" class="mode-set" data-mode="bots" data-ranked="1">Settings</button></div>
+          <div class="mode-item" data-online="0"><button type="button" class="mode-card mode-new" data-mode="gungame"><b>Gun Game</b><span>Every kill swaps you to the next gun. Get a kill with every gun first to win. Against 1-6 bots.</span></button><button type="button" class="mode-set" data-mode="gungame">Settings</button></div>
+          <div class="mode-item" data-online="0"><button type="button" class="mode-card mode-new" data-mode="endless"><b>Endless</b><span>Waves of bots that never stop: every 4 kills one more bot joins and they get tougher. Three lives. Beat your best.</span></button><button type="button" class="mode-set" data-mode="endless">Settings</button></div>
+          <div class="mode-item" data-online="0"><button type="button" class="mode-card" data-mode="royale"><b>Battle Royale</b><span>You and 20 rivals on Blacktide Island. Loot chests and outlast the shrinking zone.</span></button><button type="button" class="mode-set" data-mode="royale">Settings</button></div>
+          <div class="mode-item" data-online="0"><button type="button" class="mode-card mode-new" data-mode="tdm"><b>Team Deathmatch</b><span>Your team against bots, 3v3 or 5v5. First team to 40 kills, or the most kills after the time.</span></button><button type="button" class="mode-set" data-mode="tdm">Settings</button></div>
+          <div class="mode-item" data-online="0"><button type="button" class="mode-card mode-ranked" data-mode="tdm" data-ranked="1"><b>Ranked Team Deathmatch</b><span>Team Deathmatch against bots, for rating.</span></button><button type="button" class="mode-set" data-mode="tdm" data-ranked="1">Settings</button></div>
+          <div class="mode-item" data-online="0"><button type="button" class="mode-card mode-new" data-mode="ctf"><b>Capture the Flag</b><span>Take the enemy flag to your own stand while yours is home. First to 3 captures.</span></button><button type="button" class="mode-set" data-mode="ctf">Settings</button></div>
+          <div class="mode-item" data-online="0"><button type="button" class="mode-card mode-ranked" data-mode="ctf" data-ranked="1"><b>Ranked Capture the Flag</b><span>Capture the Flag against bots, for rating.</span></button><button type="button" class="mode-set" data-mode="ctf" data-ranked="1">Settings</button></div>
+          <div class="mode-item" data-online="0"><button type="button" class="mode-card mode-new" data-mode="bomb"><b>Bomb</b><span>Attackers plant, defenders stop them. One life a round, abilities on, first to 4 rounds.</span></button><button type="button" class="mode-set" data-mode="bomb">Settings</button></div>
+          <div class="mode-item" data-online="0"><button type="button" class="mode-card mode-ranked" data-mode="bomb" data-ranked="1"><b>Ranked Bomb</b><span>Bomb against bots, for rating.</span></button><button type="button" class="mode-set" data-mode="bomb" data-ranked="1">Settings</button></div>
+          <div class="mode-item" data-online="1"><button type="button" class="mode-card" data-mode="net"><b>Network battle</b><span>Play friends on other PCs: over the internet with a short game code, or on the same network. Bots optional.</span></button><button type="button" class="mode-set" data-mode="net">Settings</button></div>
+          <div class="mode-item" data-online="1"><button type="button" class="mode-card mode-ranked" data-mode="net" data-ranked="1"><b>Ranked Bomb online</b><span>Find a ranked Bomb game against real players, or host one.</span></button><button type="button" class="mode-set" data-mode="net" data-ranked="1">Settings</button></div>
         </div>
-        <div id="season" class="season"></div>
         <div id="presets" class="presets"></div>
         <h3 class="ch-head">Challenges <span class="small">new ones every day and every Monday</span></h3>
         <div id="challenges" class="challenges"></div>
 
+      </section>
+
+      <section class="page" id="page-season" hidden>
+        <div id="season" class="season"></div>
+        <ol id="season-tiers" class="season-tiers"></ol>
       </section>
 
       <section class="page" id="page-pause" hidden>
@@ -125,7 +145,7 @@
         <section class="set-group battle-setup" id="battle-setup">
           <p id="gungame-rules" class="small" hidden>Gun Game: everyone starts with the same gun and moves to the next one with each kill. The first to get a kill with the last gun wins. Your loadout is ignored.</p>
           <p id="endless-rules" class="small" hidden>Endless: starts with one Easy bot. Every 4 kills a new wave adds a bot (up to 6) and, every other wave, the bots get tougher, up to Terminator. Three lives; your kills are your score.</p>
-          <p id="royale-rules" class="small" hidden>Blacktide Island · 20 bots · One life. Start with a pickaxe. Find your guns and grenades in chests. The Pirate Token has a 1 in 1,000 chance to appear each match and unlocks all nine Black Ice skins.</p>
+          <p id="royale-rules" class="small" hidden>Blacktide Island · 20 bots · One life. Start with a pickaxe. Find your guns and grenades in chests. The Pirate Token has a 1 in 1,000 chance to appear each match and unlocks all ten Black Ice skins.</p>
           <div class="set-grid">
             <label id="b-map-field" class="field" for="b-map"><span>Map</span>
               <select id="b-map"><option value="yard">Container Yard</option><option value="winter">Winter Cabin</option><option value="casino">Jesse's Casino</option><option value="school">School Basement</option></select></label>
@@ -219,7 +239,7 @@
             <label class="field" for="md-map"><span>Map</span><select id="md-map"></select></label>
             <label class="field" for="md-diff"><span>Bot difficulty</span>
               <select id="md-diff"><option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option><option value="terminator">Terminator</option></select></label>
-            <label class="field" for="md-rank"><span>Ranked</span>
+            <label id="md-rank-field" class="field" for="md-rank" hidden><span>Ranked</span>
               <select id="md-rank"><option value="off">Off (casual)</option><option value="on">On (win or lose Elo against the bots)</option></select></label>
             <label class="field" for="md-size"><span>Teams</span>
               <select id="md-size"><option value="3">3v3</option><option value="5" selected>5v5</option></select></label>

@@ -24,7 +24,7 @@ try {
   // 1. Bomb prep: holding the trigger spends no rounds
   {
     const { page, errors } = await openPage();
-    await page.click('[data-mode=bomb]'); await page.selectOption('#md-size', '3');
+    await page.click('.mode-set[data-mode=bomb]:not([data-ranked])'); await page.selectOption('#md-size', '3');
     await page.locator('#menu button.primary:visible').last().click(); await page.waitForTimeout(300); await page.click('[data-side=defend]'); await page.click('#ops-go');
     await page.waitForFunction(() => window.__range.modeGame()?.active && document.getElementById('menu').hidden, null, { timeout: 40000 });
     await page.mouse.move(1, 1); await page.evaluate(() => window.__range.manual(true)); await step(page, 0.3);
@@ -39,7 +39,7 @@ try {
   //     inputs lit (fire, ADS...) and their ammo, and your own HP / ammo are hidden
   {
     const { page, errors } = await openPage();
-    await page.click('[data-mode=bomb]'); await page.selectOption('#md-size', '3'); await page.selectOption('#md-diff', 'hard');
+    await page.click('.mode-set[data-mode=bomb]:not([data-ranked])'); await page.selectOption('#md-size', '3'); await page.selectOption('#md-diff', 'hard');
     await page.locator('#menu button.primary:visible').last().click(); await page.waitForTimeout(300); await page.click('#ops-go');
     await page.waitForFunction(() => window.__range.modeGame()?.active && document.getElementById('menu').hidden, null, { timeout: 40000 });
     await page.mouse.move(1, 1);
@@ -62,7 +62,7 @@ try {
   // 2. Battle: a C tap shorter than a frame still vaults
   {
     const { page, errors } = await openPage();
-    await page.click('[data-mode=bots]'); await page.selectOption('#b-bots', '1'); await deploy(page);
+    await page.click('.mode-set[data-mode=bots]:not([data-ranked])'); await page.selectOption('#b-bots', '1'); await deploy(page);
     await page.mouse.move(1, 1); await page.evaluate(() => window.__range.manual(true)); await step(page, 0.3);
     const spot = await page.evaluate(() => { const B = window.__range.battle(), a = B.arena, h = B.humans[0], f = h.f; for (const x of B.bots) { x.f.x = 999; x.update = () => {}; }
       const b = a.boxes.find((b) => b.minY < 0.05 && b.maxY > 0.8 && b.maxY < 1.3 && (b.maxX - b.minX) > (b.maxZ - b.minZ)); f.x = (b.minX + b.maxX) / 2; f.z = b.minZ - 0.5; f.y = 0; h.look.setAngles(180, 0); return b.maxZ; });
@@ -79,7 +79,7 @@ try {
   // 3. Battle Royale: no errors after you are eliminated
   {
     const { page, errors } = await openPage();
-    await page.click('[data-mode=royale]'); await deploy(page); await page.mouse.move(1, 1);
+    await page.click('.mode-set[data-mode=royale]:not([data-ranked])'); await deploy(page); await page.mouse.move(1, 1);
     await page.evaluate(() => { const R = window.__range; R.manual(true); const b = R.battle(), r = b.royale, f = b.humans[0].f; f.x = r.x + r.radius + 15; f.z = r.z; f.protectUntil = 0; });
     for (let i = 0; i < 60 && await page.evaluate(() => window.__range.battle().humans[0].f.alive); i++) await step(page, 1);
     await step(page, 3);
@@ -113,7 +113,7 @@ try {
   {
     const { page, errors } = await openPage();
     await page.evaluate(() => document.getElementById('set-minimap').click());
-    await page.click('#go-play'); await page.click('[data-mode=tdm]'); await page.selectOption('#md-rank', 'on');
+    await page.click('#go-play'); await page.click('.mode-set[data-mode=tdm][data-ranked]');   // (the Ranked TDM card's Settings tab)
     const note = await page.locator('#md-note').textContent();
     await page.click('#setup-next'); await page.waitForTimeout(300); await page.click('#ops-go');
     await page.waitForFunction(() => window.__range.modeGame()?.active && document.getElementById('menu').hidden, null, { timeout: 40000 });
@@ -164,7 +164,7 @@ try {
     await page.evaluate(() => document.activeElement?.blur());
     await tap(0); const f1 = await page.evaluate(() => document.activeElement?.textContent);
     await tap(13); const f2 = await page.evaluate(() => document.activeElement?.textContent);
-    await page.evaluate(() => document.querySelector('[data-mode=bots]').focus()); await tap(0);
+    await page.evaluate(() => document.querySelector('.mode-set[data-mode=bots]:not([data-ranked])').focus()); await tap(0);
     const setup = await page.locator('#page-setup').isVisible();
     await page.selectOption('#b-bots', '1');
     await page.evaluate(() => document.getElementById('setup-next').focus()); await tap(0); await page.waitForTimeout(400);

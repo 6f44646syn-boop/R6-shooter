@@ -265,9 +265,9 @@ try {
   await page.screenshot({ path: "tests/output/m7/menu.png" });
   check(
     "every mode card is on the menu",
-    (await page.locator(".mode-card:visible").count()) === 7,
+    (await page.locator(".mode-card:visible").count()) === 12,      // (offline: 8 games and 4 ranked)
   );
-  await page.click("[data-mode=tdm]");
+  await page.click(".mode-set[data-mode=tdm]:not([data-ranked])");
   await page.click("#setup-next");
   await page.waitForSelector(".op-card");
   await page.fill("#ops-search", "Muse");
