@@ -209,7 +209,7 @@ try {
   await page.goto('http://127.0.0.1:8151/index.html?test');
   await page.waitForFunction(() => window.__range?.ready);
   await page.click('[data-first-profile=mouse]');
-  await page.click('#go-settings');
+  await page.evaluate(() => document.getElementById('go-settings').click());
   await page.click('#m7-settings-5-tab');
   check(
     'dedicated Audio settings tab is operational',

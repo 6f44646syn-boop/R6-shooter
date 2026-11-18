@@ -1556,7 +1556,8 @@ async function boot(data) {
     const step = flow.inGame && name !== 'controls' ? 0 : name === 'controls' ? 1 : name === 'setup' && flow.settingsOnly || name === 'quick' ? 3 : name === 'shop' ? 4 : name === 'mode' || name === 'setup' && !flow.setupFromPause ? 5 : name === 'ops' ? 6 : 0;
     $('pause-loadout').hidden = MATCH_MODES.includes(flow.mode) || flow.mode === 'royale';
     $('clear-btn').hidden = flow.mode !== 'range';          // a range tool (and C is vault everywhere else)
-    $('menu').querySelector('.steps').hidden = !step;
+    $('menu').querySelector('.steps').hidden = !step || name === 'mode';
+    $('menu').querySelector('[aria-label="Main menu"]').hidden = name === 'mode';   // (Pick game has its own tabs)
     for (const sp of $('menu').querySelectorAll('.steps button')) { sp.classList.toggle('on', Number(sp.dataset.step) === step); sp.classList.toggle('done', Number(sp.dataset.step) < step); }
     const names = { range: 'Shooting range', bots: 'Battle vs bots', gungame: 'Gun Game', endless: 'Endless', royale: 'Battle Royale', net: 'Network battle', tdm: 'Team Deathmatch', ctf: 'Capture the Flag', bomb: 'Bomb' };
     $('menu-crumbs').textContent = name === 'mode' ? 'Choose a mode' : name === 'pause' ? names[flow.mode] + ' (paused)' :
@@ -1630,7 +1631,14 @@ async function boot(data) {
     const el = mode === 'bots' ? $('b-rank') : MATCH_MODES.includes(mode) ? $('md-rank') : null;
     if (el && el.value !== (on ? 'on' : 'off')) { el.value = on ? 'on' : 'off'; el.dispatchEvent(new Event('change')); }
   }
-  function filterGames() { for (const it of document.querySelectorAll('.mode-item')) it.hidden = (it.dataset.online === '1') !== home.online; }
+  // Pick game: three tabs (Training, Ranked, Casual); online games only when Online is picked (the range is always there)
+  let gameCat = home.ranked ? 'ranked' : home.mode === 'range' ? 'training' : 'casual';
+  function filterGames() {
+    for (const it of document.querySelectorAll('.mode-item')) it.hidden = it.dataset.cat !== gameCat || (gameCat !== 'training' && (it.dataset.online === '1') !== home.online);
+    for (const t of document.querySelectorAll('.game-tabs [data-cat]')) t.setAttribute('aria-selected', String(t.dataset.cat === gameCat));
+  }
+  for (const t of document.querySelectorAll('.game-tabs [data-cat]')) t.addEventListener('click', () => { gameCat = t.dataset.cat; filterGames(); });
+  $('game-home').addEventListener('click', () => showHome());
   function openGame(mode, ranked) {
     applyRanked(mode, ranked);
     chooseMode(mode);

@@ -756,3 +756,8 @@ label.as-cards { display: none !important; }
 .pick-cards button img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 5px; background: #0b0e12; }
 .pick-cards button[aria-pressed=true] { border-color: var(--accent); background: rgba(242,179,61,.1); }
 .pick-cards button:hover { border-color: var(--accent); }
+/* Pick game: Training / Ranked / Casual (the menu's own tabs are hidden here) */
+.game-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--panel-edge); margin-bottom: 4px; }
+.game-tabs button { flex: 1; padding: 14px 10px; font-size: 17px; font-weight: 700; letter-spacing: .04em; background: none; border: 0 !important; border-bottom: 3px solid transparent !important; border-radius: 0; color: var(--muted); cursor: pointer; }
+.game-tabs button[aria-selected=true] { color: var(--accent); border-bottom-color: var(--accent) !important; }
+.game-tabs .game-home { flex: 0 0 auto; font-size: 14px; font-weight: 600; color: var(--fg); padding-inline: 16px; }

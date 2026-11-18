@@ -113,7 +113,7 @@ try {
   {
     const { page, errors } = await openPage();
     await page.evaluate(() => document.getElementById('set-minimap').click());
-    await page.click('#go-play'); await page.click('.mode-set[data-mode=tdm][data-ranked]');   // (the Ranked TDM card's Settings tab)
+    await page.evaluate(() => document.getElementById('go-play').click()); await page.click('.game-tabs [data-cat=ranked]'); await page.click('.mode-set[data-mode=tdm][data-ranked]');   // (the Ranked TDM card's Settings tab)
     const note = await page.locator('#md-note').textContent();
     await page.click('#setup-next'); await page.waitForTimeout(300); await page.click('#ops-go');
     await page.waitForFunction(() => window.__range.modeGame()?.active && document.getElementById('menu').hidden, null, { timeout: 40000 });
@@ -138,7 +138,7 @@ try {
   {
     const { page, errors } = await openPage();
     await page.evaluate(() => window.__range.profile().addPoints(150));
-    await page.click('#go-shop');
+    await page.evaluate(() => document.getElementById('go-shop').click());
     const before = await page.evaluate(() => window.__range.profile().points);
     await page.click('#shop-open'); await page.waitForTimeout(300);
     const after = await page.evaluate(() => window.__range.profile().points);

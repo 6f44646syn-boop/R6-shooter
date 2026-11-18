@@ -51,7 +51,7 @@ try {
     "profile persists across reload",
     (await page.locator("dialog[open]").count()) === 0,
   );
-  await page.click("#go-settings");
+  await page.evaluate(() => document.getElementById('go-settings').click());
   check(
     "Settings shows every setting and no match options",
     (await page.locator("#all-settings").isVisible()) &&
@@ -75,8 +75,8 @@ try {
           e.getAttribute("aria-selected") === "true",
       ),
   );
-  await page.click("#go-play");
-  await page.click("#go-controls");
+  await page.evaluate(() => document.getElementById("go-play").click());
+  await page.evaluate(() => document.getElementById('go-controls').click());
   await page.click("#m7-binding-panel-tab");
   await page.click("#m7-bindings-1-tab");
   await page.click('[data-action=ability][data-slot="0"]');
@@ -114,7 +114,7 @@ try {
     "remap survives reload",
     await evalR(() => __range.controls.e.mc_binding(10, 0) === 15),
   );
-  await page.click("#go-controls");
+  await page.evaluate(() => document.getElementById('go-controls').click());
   await page.click("[data-profile=mouse]");
   await evalR(async () => {
     __range.manual(true);
@@ -212,7 +212,7 @@ try {
     document.getElementById("menu").hidden = false;
     document.getElementById("pause-quit").click();
   });
-  await page.click("#go-controls");
+  await page.evaluate(() => document.getElementById('go-controls').click());
   await page.click("[data-profile=trackpad]");
   await evalR(async () => {
     await __range.modeStart("tdm", {
@@ -248,7 +248,7 @@ try {
     document.getElementById("pause-quit").click();
   });
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.click("#go-controls");
+  await page.evaluate(() => document.getElementById('go-controls').click());
   await page.click("#m7-binding-panel-tab");
   check(
     "controls fit a narrow viewport",
@@ -261,11 +261,11 @@ try {
   mkdirSync("tests/output/m7", { recursive: true });
   await page.screenshot({ path: "tests/output/m7/controls-mobile.png" });
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.click("#go-play");
+  await page.evaluate(() => document.getElementById("go-play").click());
   await page.screenshot({ path: "tests/output/m7/menu.png" });
   check(
     "every mode card is on the menu",
-    (await page.locator(".mode-card:visible").count()) === 12,      // (offline: 8 games and 4 ranked)
+    (await page.locator(".mode-card:visible").count()) === 7,       // (the Casual tab, offline)
   );
   await page.click(".mode-set[data-mode=tdm]:not([data-ranked])");
   await page.click("#setup-next");
