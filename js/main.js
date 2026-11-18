@@ -1584,7 +1584,7 @@ async function boot(data) {
     const matchOptions = name === 'setup' && !flow.settingsOnly;
     $('menu').querySelector('[aria-label="Main menu"]').hidden = name === 'mode' || matchOptions;
     $('menu').querySelector('.menu-head').hidden = matchOptions;
-    $('setup-back-top').hidden = !matchOptions; $('setup-back').hidden = matchOptions;   // (one Back, at the top)
+    $('setup-back-top').hidden = true; $('setup-back').hidden = false;   // (Back bottom left, Next bottom right)
     for (const sp of $('menu').querySelectorAll('.steps button')) { sp.classList.toggle('on', Number(sp.dataset.step) === step); sp.classList.toggle('done', Number(sp.dataset.step) < step); }
     const names = { range: 'Shooting range', bots: 'Battle vs bots', gungame: 'Gun Game', endless: 'Endless', royale: 'Battle Royale', net: 'Network battle', tdm: 'Team Deathmatch', ctf: 'Capture the Flag', bomb: 'Bomb' };
     $('menu-crumbs').textContent = name === 'mode' ? 'Choose a mode' : name === 'pause' ? names[flow.mode] + ' (paused)' :
@@ -1615,75 +1615,104 @@ async function boot(data) {
       $('setup-title').textContent = flow.settingsOnly ? 'Settings' : names[flow.mode];
       selectSetupTab(flow.settingsOnly ? 1 : 0);
       $('setup-next').textContent = flow.settingsOnly ? (flow.inGame ? 'Done' : 'Next: packs') : flow.setupFromPause ? 'Back to the game' : flow.mode === 'royale' ? 'Deploy to Blacktide Island' : MATCH_MODES.includes(flow.mode) ? 'Next: choose your operator' : 'Next: choose your weapon';
+      $('setup-next').dataset.end = $('setup-next').textContent;
       if (netInit) netUi();
       choiceUi();
     }
   }
-  // Match settings without drop-downs: every choice is a question with buttons, split over short pages
-  // (where you play, who you face, how you win). On High and Ultra the look of a match is picked from pictures
-  // taken in the game (data/menu/<setting>-<option>.webp). The drop-down stays (out of sight) and holds the value.
+  // A game's settings, page by page with Back and Next (no drop-downs, no tabs): first the maps side by side,
+  // each with its picture and a Weather button that opens the weather page for it; then who you face; then how
+  // you win. On High and Ultra the weather choices are pictures taken in the game (data/menu/<setting>-<option>.webp).
+  // The drop-downs stay (out of sight) and hold the values.
   var CHOICES = {             // (var: the network panel may draw before this line has run)
-    'b-map': ['Which map?', 'where', true], 'md-map': ['Which map?', 'where', true], 'b-time': ['Day or night?', 'where', true],
-    'b-weather': ['Do you want weather?', 'where', true], 'b-fog': ['Do you want fog?', 'where', true],
+    'b-time': ['Day or night?', 'weather', true], 'b-weather': ['Do you want weather?', 'weather', true], 'b-fog': ['Do you want fog?', 'weather', true],
     'b-bots': ['How many bots?', 'who'], 'b-mates': ['Bots on your side?', 'who'], 'b-level': ['How good are the bots?', 'who'],
     'md-diff': ['How good are the bots?', 'who'], 'md-size': ['How big are the teams?', 'who'], 'b-voices': ['Should bots talk on the radio?', 'who'],
     'b-kills': ['Kills to win?', 'rules'], 'md-len': ['How long is a match?', 'rules'], 'md-prep': ['Preparation time?', 'rules'],
     'md-ab': ['Operator abilities?', 'rules'], 'md-head': ['What does a headshot do?', 'rules'],
     'net-watch': ['Join as?', null], 'net-mode': ['Which game?', null], 'net-map': ['Which map?', null],
   };
-  var CHOICE_PAGES = [['where', 'Where you play'], ['who', 'Who you face'], ['rules', 'How you win']];
+  var CHOICE_PAGES = ['where', 'who', 'rules'];
   var choicePage = 'where';
+  const weatherHere = () => !!document.querySelector('#battle-setup:not([hidden]) #b-weather') || flow.mode === 'tdm' || flow.mode === 'ctf';
+  const visibleField = (id) => { const f = $(id)?.closest('label'); if (f && ['b-time', 'b-weather', 'b-fog'].includes(id)) return weatherHere() ? f : null; return f && !f.hidden && !f.closest('[hidden]') && $(id).options.length ? f : null; };
+  const mapSelect = () => ['b-map', 'md-map'].find((id) => visibleField(id));
+  function choiceBox(id, question, pics, picture) {
+    const sel = $(id), box = document.createElement('div'); box.id = id + '-choice'; box.className = 'choice' + (pics && picture ? ' pictures' : '');
+    const opts = document.createElement('div'); opts.className = 'choice-opts'; opts.setAttribute('role', 'radiogroup'); opts.setAttribute('aria-label', question);
+    for (const o of sel.options) {
+      const [main, sub] = o.textContent.split(/ \((.*)\)$/);
+      const btn = document.createElement('button'); btn.type = 'button'; btn.setAttribute('role', 'radio'); btn.setAttribute('aria-checked', String(sel.value === o.value));
+      if (pics && picture) { const img = document.createElement('img'); img.src = 'data/menu/' + id + '-' + o.value + '.webp'; img.alt = ''; img.loading = 'lazy'; btn.append(img); }
+      btn.append(Object.assign(document.createElement('b'), { textContent: main }));
+      if (sub) btn.append(Object.assign(document.createElement('small'), { textContent: sub }));
+      btn.addEventListener('click', () => { sel.value = o.value; sel.dispatchEvent(new Event('change')); choiceUi(); });
+      opts.append(btn);
+    }
+    box.append(Object.assign(document.createElement('h4'), { textContent: question }), opts);
+    return box;
+  }
+  // The pages this game has (a page with nothing to set is skipped).
+  function choicePages() {
+    return CHOICE_PAGES.filter((k) => k === 'where' ? !!mapSelect() : Object.entries(CHOICES).some(([id, [, page]]) => page === k && visibleField(id)));
+  }
   function choiceUi() {
     if (!CHOICES) return;
     const pics = ['high', 'ultra', 'max'].includes(settings.graphics);   // (the level picked, pack or not)
     let root = $('choice-root');
-    if (!root) {
-      root = document.createElement('div'); root.id = 'choice-root'; root.className = 'choice-root';
-      root.innerHTML = '<nav class="choice-steps" role="tablist" aria-label="Match settings"></nav><div class="choice-pages"></div>';
-      $('match-settings').prepend(root);
-    }
-    const byPage = new Map(CHOICE_PAGES.map(([k]) => [k, []]));
-    for (const [id, [question, page, picture]] of Object.entries(CHOICES)) {
-      const sel = $(id), field = sel?.closest('label');
-      if (!field) continue;
-      field.classList.add('as-cards');
-      $(id + '-choice')?.remove();
-      if (field.hidden || field.closest('[hidden]') || !sel.options.length) continue;
-      const box = document.createElement('div'); box.id = id + '-choice'; box.className = 'choice' + (pics && picture ? ' pictures' : '');
-      const opts = document.createElement('div'); opts.className = 'choice-opts'; opts.setAttribute('role', 'radiogroup'); opts.setAttribute('aria-label', question);
+    if (!root) { root = document.createElement('div'); root.id = 'choice-root'; root.className = 'choice-root'; $('match-settings').prepend(root); }
+    for (const id of [...Object.keys(CHOICES), 'b-map', 'md-map']) { const f = $(id)?.closest('label'); if (f) f.classList.add('as-cards'); $(id + '-choice')?.remove(); }
+    // online choices stay where they are, as buttons
+    for (const [id, [question, page]] of Object.entries(CHOICES)) if (!page && visibleField(id)) visibleField(id).after(choiceBox(id, question, pics, false));
+    const pages = choicePages();
+    root.hidden = !pages.length;
+    if (!pages.length) return;
+    if (choicePage !== 'weather' && !pages.includes(choicePage)) choicePage = pages[0];
+    const page = document.createElement('section'); page.className = 'choice-page choice-' + choicePage;
+    if (choicePage === 'where') {
+      const id = mapSelect(), sel = $(id), weather = visibleField('b-weather');
+      const cols = document.createElement('div'); cols.className = 'map-cols';
       for (const o of sel.options) {
-        const [main, sub] = o.textContent.split(/ \((.*)\)$/);
-        const btn = document.createElement('button'); btn.type = 'button'; btn.setAttribute('role', 'radio'); btn.setAttribute('aria-checked', String(sel.value === o.value));
-        if (pics && picture) { const img = document.createElement('img'); img.src = 'data/menu/' + id + '-' + o.value + '.webp'; img.alt = ''; img.loading = 'lazy'; btn.append(img); }
-        btn.append(Object.assign(document.createElement('b'), { textContent: main }));
-        if (sub) btn.append(Object.assign(document.createElement('small'), { textContent: sub }));
-        btn.addEventListener('click', () => { sel.value = o.value; sel.dispatchEvent(new Event('change')); choiceUi(); });
-        opts.append(btn);
+        const col = document.createElement('div'); col.className = 'map-col'; col.setAttribute('aria-current', String(sel.value === o.value));
+        const pick = () => { sel.value = o.value; sel.dispatchEvent(new Event('change')); };
+        const name = document.createElement('button'); name.type = 'button'; name.className = 'map-name'; name.textContent = o.textContent.split(' (')[0];
+        const pic = document.createElement('button'); pic.type = 'button'; pic.className = 'map-pic'; pic.setAttribute('aria-label', name.textContent);
+        const img = document.createElement('img'); img.src = 'data/menu/' + id + '-' + o.value + '.webp'; img.alt = ''; img.loading = 'lazy'; pic.append(img);
+        for (const x of [name, pic]) x.addEventListener('click', () => { pick(); choiceUi(); });
+        col.append(name, pic);
+        if (weather) {
+          const w = document.createElement('button'); w.type = 'button'; w.className = 'map-weather';
+          w.textContent = 'Weather' + (sel.value === o.value ? ': ' + $('b-weather').selectedOptions[0].textContent.split(' (')[0] : '');
+          w.addEventListener('click', () => { pick(); choicePage = 'weather'; choiceUi(); });
+          col.append(w);
+        }
+        cols.append(col);
       }
-      box.append(Object.assign(document.createElement('h4'), { textContent: question }), opts);
-      if (page) byPage.get(page).push(box); else field.after(box);    // (online choices stay where they are)
+      page.append(cols);
+    } else {
+      if (choicePage === 'weather') page.append(Object.assign(document.createElement('h3'), { textContent: 'Weather · ' + $(mapSelect()).selectedOptions[0].textContent.split(' (')[0] }));
+      for (const [id, [question, pg, picture]] of Object.entries(CHOICES)) if (pg === choicePage && visibleField(id)) page.append(choiceBox(id, question, pics, picture));
     }
-    const used = CHOICE_PAGES.filter(([k]) => byPage.get(k).length);
-    root.hidden = !used.length;
-    if (!used.length) return;
-    if (!used.some(([k]) => k === choicePage)) choicePage = used[0][0];
-    const at = used.findIndex(([k]) => k === choicePage);
-    root.firstChild.replaceChildren(...used.map(([k, name], i) => {
-      const t = document.createElement('button'); t.type = 'button'; t.setAttribute('role', 'tab'); t.setAttribute('aria-selected', String(k === choicePage));
-      t.append(Object.assign(document.createElement('span'), { textContent: String(i + 1) }), document.createTextNode(name));
-      t.addEventListener('click', () => { choicePage = k; choiceUi(); });
-      return t;
-    }));
-    const pageEl = document.createElement('section'); pageEl.className = 'choice-page'; pageEl.setAttribute('role', 'tabpanel');
-    pageEl.append(...byPage.get(choicePage));
-    if (at < used.length - 1) {
-      const next = document.createElement('button'); next.type = 'button'; next.className = 'choice-next'; next.textContent = 'Next: ' + used[at + 1][1];
-      next.addEventListener('click', () => { choicePage = used[at + 1][0]; choiceUi(); root.scrollIntoView({ block: 'start' }); });
-      pageEl.append(next);
-    }
-    root.lastChild.replaceChildren(pageEl);
+    root.replaceChildren(page);
+    const last = pages.indexOf(choicePage === 'weather' ? 'where' : choicePage) >= pages.length - 1;
+    if (!flow.settingsOnly && !flow.setupFromPause) $('setup-next').textContent = last ? $('setup-next').dataset.end || 'Next' : 'Next';
+  }
+  // Back and Next walk the pages first (the weather page goes back to the maps); at the ends they leave or start.
+  function choiceAdvance() {
+    if (flow.settingsOnly || flow.setupFromPause || $('choice-root')?.hidden !== false) return false;
+    const pages = choicePages(), i = pages.indexOf(choicePage === 'weather' ? 'where' : choicePage);
+    if (i < 0 || i >= pages.length - 1) return false;
+    choicePage = pages[i + 1]; choiceUi(); $('page-setup').scrollTop = 0; return true;
+  }
+  function choiceBack() {
+    if (flow.settingsOnly || flow.setupFromPause || $('choice-root')?.hidden !== false) return false;
+    if (choicePage === 'weather') { choicePage = 'where'; choiceUi(); return true; }
+    const pages = choicePages(), i = pages.indexOf(choicePage);
+    if (i <= 0) return false;
+    choicePage = pages[i - 1]; choiceUi(); return true;
   }
   function chooseMode(m) {
+    choicePage = 'where';
     if (battle && battle.active) leaveBattle();
     controls.release();
     flow.mode = m; flow.inGame = false; flow.setupFromPause = false; flow.settingsOnly = false;
@@ -1790,7 +1819,7 @@ async function boot(data) {
   $('h-play').addEventListener('click', () => {
     leaveHome();
     openGame(home.mode, home.ranked);
-    if (home.mode !== 'net') $('setup-next').click();         // straight on with the game's saved settings
+    if (home.mode !== 'net') { while (choiceAdvance()); $('setup-next').click(); }   // (Play skips the settings pages)         // straight on with the game's saved settings
   });
   $('go-home').addEventListener('click', showHome);
   $('setup-back-top').addEventListener('click', () => $('setup-back').click());
@@ -1806,8 +1835,9 @@ async function boot(data) {
   $('go-controls').addEventListener('click', () => showPage('controls'));
   $('pause-packs').addEventListener('click', () => showPage('packs'));
   for (const b of document.querySelectorAll('.back-btn')) b.addEventListener('click', () => showPage(b.dataset.back === 'prev' ? (flow.prev || 'mode') : b.dataset.back));
-  $('setup-back').addEventListener('click', () => showPage(flow.setupFromPause ? 'pause' : 'mode'));
+  $('setup-back').addEventListener('click', () => { if (choiceBack()) return; showPage(flow.setupFromPause ? 'pause' : 'mode'); });
   $('setup-next').addEventListener('click', () => {
+    if (choiceAdvance()) return;
     if (flow.settingsOnly) { flow.settingsOnly = false; showPage(flow.inGame ? 'pause' : 'shop'); return; }
     if (flow.setupFromPause) { flow.setupFromPause = false; showPage('pause'); }
     else if (flow.mode === 'royale') startBattle();

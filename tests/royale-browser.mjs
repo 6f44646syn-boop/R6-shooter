@@ -13,7 +13,7 @@ try {
   await page.goto('http://127.0.0.1:8167/index.html?test');
   await page.waitForFunction(() => window.__range?.ready);
   await page.locator('[data-first-profile=mouse]').click();
-  await page.click('[data-mode=royale]');
+  await page.click('.mode-set[data-mode=royale]');   // (the card's Settings tab opens its options)
   assert.equal(await page.locator('#setup-title').textContent(), 'Battle Royale');
   assert.ok(await page.locator('#b-kills').isHidden());
   assert.ok(await page.locator('#b-bots').isHidden());

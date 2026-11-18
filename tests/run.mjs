@@ -552,6 +552,7 @@ try {
     const kept = await page.evaluate(() => { window.__range.selectGun(1); return window.__range.gunNow().attach; });
     check('attachments are remembered per gun after reload', kept === '1111', 'got ' + kept);
     await page.evaluate(() => window.__range.openArmory());
+    await page.click('[data-arm-tab=attach]');                     // (Attachments is a tab of the weapon select)
     await page.locator('#attach-rows button', { hasText: /^Suppressor$/ }).click();
     const ui = await page.evaluate(() => ({ g: window.__range.gunNow(), fx: document.getElementById('attach-fx').innerText, pressed: [...document.querySelectorAll('#attach-rows button[aria-pressed=true]')].map((b) => b.textContent) }));
     check('armory: picking the suppressor changes the gun and lists its effects', ui.g.suppressed && ui.g.flash === 0 && /Shot noise -60%/.test(ui.fx) && ui.pressed.join() === 'Suppressor,Vertical grip,Laser,Extended', JSON.stringify(ui));

@@ -268,7 +268,7 @@ try {
     (await page.locator(".mode-card:visible").count()) === 7,       // (the Casual tab, offline)
   );
   await page.click(".mode-set[data-mode=tdm]:not([data-ranked])");
-  await page.click("#setup-next");
+  for (let i = 0; i < 5 && await page.locator("#page-setup").isVisible(); i++) await page.click("#setup-next");   // (the settings are pages)
   await page.waitForSelector(".op-card");
   await page.fill("#ops-search", "Muse");
   check(
@@ -276,16 +276,16 @@ try {
     (await page.locator(".op-card:visible").count()) === 1,
   );
   await page.click("#ops-back");
-  await page.click("#setup-back");
-  await page.click("[data-mode=range]");
-  await page.click("#setup-next");
+  await page.evaluate(() => document.getElementById("setup-back").click());
+  await page.click(".mode-set[data-mode=range]");
+  for (let i = 0; i < 5 && await page.locator("#page-setup").isVisible(); i++) await page.click("#setup-next");   // (the settings are pages)
   await page.fill("#weapon-search", "Scorpion");
   check(
     "weapon search filters the existing loadout",
     (await page.locator("#loadout .slot:visible").count()) === 1,
   );
   await page.click("#arm-back");
-  await page.click("#setup-back");
+  await page.evaluate(() => document.getElementById("setup-back").click());
 
   check("no browser exceptions", errors.length === 0);
 } catch (error) {

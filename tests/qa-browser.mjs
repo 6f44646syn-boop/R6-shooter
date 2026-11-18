@@ -18,6 +18,8 @@ async function openPage(query = '', pickProfile = true) {
   return { page, errors };
 }
 const deploy = async (page) => { for (let i = 0; i < 6; i++) { if (await page.evaluate(() => document.getElementById('menu').hidden && document.getElementById('armory').hidden)) return; await page.locator('#menu button.primary:visible, #armory button.primary:visible').last().click(); await page.waitForTimeout(500); } };
+// a game's settings are pages: Next until they are done
+const through = async (page) => { for (let i = 0; i < 5 && await page.locator('#page-setup').isVisible(); i++) await page.click('#setup-next'); };
 const step = (page, s) => page.evaluate((s) => window.__range.step(s, 30), s);
 try {
   console.log('\nQA regressions (real input)');
@@ -25,7 +27,7 @@ try {
   {
     const { page, errors } = await openPage();
     await page.click('.mode-set[data-mode=bomb]:not([data-ranked])'); await page.selectOption('#md-size', '3');
-    await page.locator('#menu button.primary:visible').last().click(); await page.waitForTimeout(300); await page.click('[data-side=defend]'); await page.click('#ops-go');
+    await through(page); await page.waitForTimeout(300); await page.click('[data-side=defend]'); await page.click('#ops-go');
     await page.waitForFunction(() => window.__range.modeGame()?.active && document.getElementById('menu').hidden, null, { timeout: 40000 });
     await page.mouse.move(1, 1); await page.evaluate(() => window.__range.manual(true)); await step(page, 0.3);
     const a0 = await page.evaluate(() => window.__range.modeGame().h.weapon.ammo);
@@ -40,7 +42,7 @@ try {
   {
     const { page, errors } = await openPage();
     await page.click('.mode-set[data-mode=bomb]:not([data-ranked])'); await page.selectOption('#md-size', '3'); await page.selectOption('#md-diff', 'hard');
-    await page.locator('#menu button.primary:visible').last().click(); await page.waitForTimeout(300); await page.click('#ops-go');
+    await through(page); await page.waitForTimeout(300); await page.click('#ops-go');
     await page.waitForFunction(() => window.__range.modeGame()?.active && document.getElementById('menu').hidden, null, { timeout: 40000 });
     await page.mouse.move(1, 1);
     const died = await page.evaluate(() => { const R = window.__range, g = R.modeGame(), m = g.m; R.manual(true); for (let i = 0; i < 400 && m.rules.phase === 'prep'; i++) R.step(0.1, 30);
@@ -115,7 +117,7 @@ try {
     await page.evaluate(() => document.getElementById('set-minimap').click());
     await page.evaluate(() => document.getElementById('go-play').click()); await page.click('.game-tabs [data-cat=ranked]'); await page.click('.mode-set[data-mode=tdm][data-ranked]');   // (the Ranked TDM card's Settings tab)
     const note = await page.locator('#md-note').textContent();
-    await page.click('#setup-next'); await page.waitForTimeout(300); await page.click('#ops-go');
+    await through(page); await page.waitForTimeout(300); await page.click('#ops-go');
     await page.waitForFunction(() => window.__range.modeGame()?.active && document.getElementById('menu').hidden, null, { timeout: 40000 });
     await page.mouse.move(1, 1); await page.evaluate(() => window.__range.manual(true)); await step(page, 1);
     const mapMatch = await page.locator('.minimap:visible').count();
@@ -167,7 +169,7 @@ try {
     await page.evaluate(() => document.querySelector('.mode-set[data-mode=bots]:not([data-ranked])').focus()); await tap(0);
     const setup = await page.locator('#page-setup').isVisible();
     await page.selectOption('#b-bots', '1');
-    await page.evaluate(() => document.getElementById('setup-next').focus()); await tap(0); await page.waitForTimeout(400);
+    for (let i = 0; i < 5 && await page.locator('#page-setup').isVisible(); i++) { await page.evaluate(() => document.getElementById('setup-next').focus()); await tap(0); } await page.waitForTimeout(400);
     await page.evaluate(() => [...document.querySelectorAll('#armory button.primary')].filter((b) => b.offsetParent).at(-1).focus()); await tap(0);
     await page.waitForFunction(() => window.__range.battle()?.active && document.getElementById('menu').hidden, null, { timeout: 40000 });
     const s0 = await page.evaluate(() => { const h = window.__range.battle().humans[0]; for (const b of window.__range.battle().bots) { b.f.x = 999; b.update = () => {}; } return { yaw: h.look.yaw, x: h.f.x, z: h.f.z, ammo: h.weapon.ammo }; });

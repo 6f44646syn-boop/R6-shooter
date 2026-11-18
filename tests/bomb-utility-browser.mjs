@@ -32,14 +32,14 @@ try {
   await page.goto('http://127.0.0.1:8156/index.html?test');
   await page.waitForFunction(() => window.__range?.ready);
   await page.click('[data-first-profile=mouse]');
-  await page.click('[data-mode=bomb]');
+  await page.click('.mode-set[data-mode=bomb]:not([data-ranked])');
   check(
     'Bomb setup explains the two-minute attack phase',
     /120 s to plant/.test(await page.locator('#md-note').textContent()),
   );
   await page.selectOption('#md-prep', '45');
-  await page.click('#setup-back');
-  await page.click('[data-mode=bomb]');
+  await page.evaluate(() => document.getElementById('setup-back').click());
+  await page.click('.mode-set[data-mode=bomb]:not([data-ranked])');
   check(
     'existing preparation selection is preserved independently',
     (await page.locator('#md-prep').inputValue()) === '45',

@@ -314,7 +314,8 @@ export class ModeGame {
     const ar = this.arena = ModeGame.arenas[id] || (ModeGame.arenas[id] = new Arena(id));
     this.scene = ar.scene;
     this.prints = new Footprints(this.scene);
-    ar.setAtmosphere(false, 'auto', !!this.deps.settings.fog);
+    const B = this.deps.settings.battle || {};   // (the weather picked for Battle maps: time, weather, fog)
+    ar.setAtmosphere(!!B.night, B.weather || 'auto', !!(B.fog || this.deps.settings.fog));
     ar.setGraphics(effectiveGraphics(this.deps.settings), this.deps.renderer);
     this.panelMesh = null; this.panelMeshes = {};
     if (this.markerG) this.markerG.removeFromParent();
