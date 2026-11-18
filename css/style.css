@@ -988,3 +988,20 @@ html[data-gfx=low] .h-tabs { backdrop-filter: none; }
 body:has(#menu:not([hidden])) #perf, body:has(#home:not([hidden])) #perf, body:has(#title:not([hidden])) #perf, body:has(#armory:not([hidden])) #perf { display: none; }
 /* no menu row (Home, Pick game, Controls ... Skins) anywhere: each page has its own Back */
 #menu nav[aria-label="Main menu"] { display: none !important; }
+
+/* Close (x) at the top of every menu */
+.menu-x { width: 40px; height: 40px; padding: 0; font-size: 26px; line-height: 1; border-radius: 50%; }
+.menu-x[hidden] { display: none; }
+#h-settings { padding: 12px 18px; text-align: left; font-size: 17px; font-weight: 600; background: var(--panel); border: 2px solid var(--fg); border-radius: 14px; }
+#h-settings:hover { filter: brightness(1.08); }
+/* Sensitivity sliders: wide, with a thick track and a big handle */
+.field:has(> #set-sens-h), .field:has(> #set-sens-v) { grid-column: 1 / -1; font-size: 15px; }
+.field:has(> #set-sens-h) > span, .field:has(> #set-sens-v) > span { font-size: 15px; color: var(--fg); }
+#set-sens-h, #set-sens-v { -webkit-appearance: none; appearance: none; width: 100%; height: 12px; margin: 10px 0; border-radius: 6px; background: var(--panel-edge); }
+#set-sens-h::-webkit-slider-thumb, #set-sens-v::-webkit-slider-thumb { -webkit-appearance: none; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); border: 3px solid #fff; cursor: pointer; }
+#set-sens-h::-moz-range-thumb, #set-sens-v::-moz-range-thumb { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); border: 3px solid #fff; cursor: pointer; }
+/* Home's menus pop up over Home, which shows through a light backdrop */
+#menu.over-home { z-index: 50; background: rgba(0, 0, 0, .35); }
+#gfx { z-index: 60; background: rgba(0, 0, 0, .35); }
+#gfx.gx-dl .gx-levels, #gfx.gx-dl .gx-prompt, #gfx.gx-dl .gx-perf { display: none; }
+#gfx:not(.gx-dl) .gx-pack:not(.gx-need) { display: none; }

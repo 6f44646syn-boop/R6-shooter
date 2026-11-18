@@ -1,7 +1,7 @@
 // Footprints: every player leaves boot prints on the ground as they walk (left, right, along
 // their heading). One InstancedMesh (one draw), a ring buffer of 480 prints; each fades out over
 // LIFE seconds. Drawn with multiply blending, so a print darkens whatever floor it is on.
-import * as THREE from '../../vendor/three/three.module.min.js?v=b8302f9-mwm2bulv';
+import * as THREE from '../../vendor/three/three.module.min.js?v=a2bb8f7-mwmpy8sm';
 
 const N = 480, LIFE = 30;
 
@@ -36,7 +36,7 @@ export class Footprints {
     this.mesh.setColorAt(0, new THREE.Color(1, 1, 1));
     this.born = new Float32Array(N).fill(-1e9);
     this.dark = new Float32Array(N);
-    this.next = 0; this.side = new Map();
+    this.next = 0; this.side = new Map(); this.sideOf = new WeakMap();   // (Battle passes fighters: weak, so old matches' fighters can be freed)
     this._m = new THREE.Matrix4(); this._q = new THREE.Quaternion(); this._p = new THREE.Vector3(); this._s = new THREE.Vector3(1, 1, 1); this._c = new THREE.Color(); this._y = new THREE.Vector3(0, 1, 0);
     parent.add(this.mesh);
   }
@@ -44,7 +44,7 @@ export class Footprints {
   // 90 = facing +x), now t.
   // dark: how strongly the print shows (0..1; deeper in snow, mud or rain).
   add(id, x, y, z, yaw, t, dark = 0.45) {
-    const left = !this.side.get(id); this.side.set(id, left);
+    const sides = typeof id === 'object' ? this.sideOf : this.side, left = !sides.get(id); sides.set(id, left);
     const i = this.next; this.next = (i + 1) % N;
     const a = yaw * Math.PI / 180, off = left ? -0.1 : 0.1;          // right of the heading: (cos a, sin a)
     this._p.set(x + Math.cos(a) * off, y + 0.012, z + Math.sin(a) * off);
@@ -64,6 +64,6 @@ export class Footprints {
     }
     this.mesh.instanceColor.needsUpdate = true;
   }
-  clear() { this.mesh.count = 0; this.next = 0; this.born.fill(-1e9); this.side.clear(); }
+  clear() { this.mesh.count = 0; this.next = 0; this.born.fill(-1e9); this.side.clear(); this.sideOf = new WeakMap(); }
   dispose() { this.mesh.removeFromParent(); this.mesh.geometry.dispose(); this.mesh.material.map.dispose(); this.mesh.material.dispose(); }
 }

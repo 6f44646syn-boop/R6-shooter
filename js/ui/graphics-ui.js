@@ -2,8 +2,8 @@
 // Ultra (needs the Enhanced Graphics pack), download / update / remove the pack, pick a
 // performance profile, the frame-rate target and the FPS counter; download / remove the Weapon Skins pack.
 // ctx: { settings, commit(key) (sanitise, save, apply), packSize() }
-import { HDPack, SkinPack } from '../render/hd-pack.js?v=b8302f9-mwm2bulv';
-import { needsPack } from '../render/quality.js?v=b8302f9-mwm2bulv';
+import { HDPack, SkinPack } from '../render/hd-pack.js?v=a2bb8f7-mwmpy8sm';
+import { needsPack } from '../render/quality.js?v=a2bb8f7-mwmpy8sm';
 
 function el(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);
@@ -111,12 +111,15 @@ export class GraphicsUI {
       el('div', { class: 'pk-box gx-box' },
         el('div', { class: 'row gx-head' }, el('h1', { id: 'gx-title', text: 'Graphics' }), el('button', { type: 'button', class: 'gx-close', 'aria-label': 'Close', onclick: () => this.close() }, '×')),
         grid, this.prompt, this.pack, this.packs[1].section,
-        el('h3', { text: 'Performance' }), prof, this.fields, this.checks,
+        el('div', { class: 'gx-perf' }, el('h3', { text: 'Performance' }), prof, this.fields, this.checks),
         el('div', { class: 'row pk-skip' }, el('button', { type: 'button', class: 'primary', onclick: () => this.close() }, 'Done'))));
     this.modal.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); this.close(); } });
   }
 
-  open(prompt = '') {
+  // view: 'download' shows only the packs (the Download page); otherwise Graphics, with a pack only when a level needs it
+  open(prompt = '', view = 'graphics') {
+    this.modal.classList.toggle('gx-dl', view === 'download');
+    this.modal.querySelector('#gx-title').textContent = view === 'download' ? 'Download' : 'Graphics';
     this.modal.hidden = false;
     this.wanted = prompt || null;
     HDPack.check(); SkinPack.check();     // the packs' sizes and whether an update is out (same-site requests)
@@ -157,6 +160,7 @@ export class GraphicsUI {
     }
     const need = needsPack(g) && !ready;
     this.prompt.hidden = !need;
+    this.pack.classList.toggle("gx-need", !!need);   // (Graphics shows the pack only when the chosen level needs it)
     if (need) this.prompt.textContent = ({ ultra: 'Ultra', max: 'Max' }[g] || 'High') + ' needs the Enhanced Graphics pack' + (HDPack.size ? ' (' + MB(HDPack.size) + ')' : '') + '. Until you download it the game runs on Standard. You can stay on Standard; nothing is downloaded unless you press Download.';
     for (const { pack, label, status, bar, dl, rm } of this.packs) {
       const st = pack.state, p = pack.progress;

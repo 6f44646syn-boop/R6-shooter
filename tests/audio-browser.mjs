@@ -353,8 +353,8 @@ try {
     return { emitted, left: A.voices.size };
   });
   check(
-    'shared actor-pose path generates positional steps',
-    cadence.emitted === 2 && cadence.left === 0,
+    'footsteps stay silent (the game plays gunshots only, main.js)',
+    cadence.emitted === 0 && cadence.left === 0,
   );
   check('no browser exceptions', errors.length === 0);
   console.log(`${checks} audio browser checks passed`);

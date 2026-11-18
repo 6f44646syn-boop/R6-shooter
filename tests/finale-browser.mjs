@@ -175,6 +175,14 @@ try {
     return { N, sameStart, second, over: B.over, title: B.hud.endTitle.textContent };
   });
   check('Gun Game: same first gun, next gun per kill, the last gun\'s kill wins', gg.N >= 5 && gg.sameStart && gg.second && gg.over && /You win Gun Game/.test(gg.title), gg);
+  const pool = await page.evaluate(async () => {
+    const R = window.__range, v = document.querySelector('script[src*="main.js"]').src.split('?v=')[1];
+    const VM = await import('/js/scene/viewmodel.js?v=' + v);
+    for (let i = 0; i < 6; i++) { R.battleStart({ opponent: 'bots', bots: 6, level: 'easy', kills: 99, map: 'yard' }); R.battleLeave(); }
+    const P = [...(R.battle().puppets?.values() || [])];
+    return { puppets: P.length, mostModels: Math.max(0, ...P.map((p) => p.rig.models.size)), worldGuns: VM.worldGunCount() };
+  });
+  check('replay puppets keep one gun model each, the bot gun-model cache stays capped (no memory growth per match)', pool.puppets > 0 && pool.mostModels <= 1 && pool.worldGuns <= 40, pool);
   check('No page errors', errors.length === 0, errors);
 } finally {
   await browser?.close();

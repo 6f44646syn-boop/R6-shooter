@@ -870,7 +870,7 @@ try {
     check('match HUD: both teams\' operators, the clock and round, health, magazine and weapon', fx.ally === 5 && fx.enemy === 5 && /^\d+:\d\d$/.test(fx.clock) && /Round 1/.test(fx.sub) && /^\d+ \/ \d+$/.test(fx.mag) && fx.hp === '100' && fx.gun.length > 2, JSON.stringify(fx));
     const inst = await page.evaluate(() => window.__range.hdInstall());
     await page.evaluate(() => { window.__range.setGraphics('high'); window.__range.modeGame().refreshGraphics(); });   // (as the Graphics screen does)
-    await page.waitForTimeout(500);
+    await page.evaluate(() => window.__range.modeGame().packReady);   // materials swap in only once their shaders are warmed (no stall in play)
     let hi = await look();
     for (let i = 0; i < 40 && (hi.props === 0 || hi.std === 0); i++) { await page.waitForTimeout(250); hi = await look(); }
     const post = await page.evaluate(() => { const R = window.__range; R.step(0.05, 60); R.renderFrame(); const w = R.worldPost(); return { ao: !!(w.o && w.o.ao) }; });

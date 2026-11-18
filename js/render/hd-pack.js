@@ -8,7 +8,7 @@
 //
 // state: 'none' (not installed), 'downloading', 'installed', 'update' (installed, newer one
 // on the site), 'unsupported' (this browser cannot store or unpack it), 'error'.
-import { parseRRM } from './hd-mesh.js?v=b8302f9-mwm2bulv';
+import { parseRRM } from './hd-mesh.js?v=a2bb8f7-mwmpy8sm';
 
 const hasCaches = () => typeof caches !== 'undefined' && typeof caches.open === 'function';
 const canUnpack = () => typeof DecompressionStream === 'function' && typeof crypto !== 'undefined' && !!crypto.subtle;

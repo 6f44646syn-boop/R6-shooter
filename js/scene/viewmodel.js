@@ -1,33 +1,33 @@
-import { Charm } from './charm.js?v=b8302f9-mwm2bulv';
-import { minimalMode } from '../render/quality.js?v=b8302f9-mwm2bulv';
-import { charmById } from '../core/charms.js?v=b8302f9-mwm2bulv';
-import { skinSheets } from '../render/skins2.js?v=b8302f9-mwm2bulv';
-import { packArt } from '../render/pack-art.js?v=b8302f9-mwm2bulv';
+import { Charm } from './charm.js?v=a2bb8f7-mwmpy8sm';
+import { minimalMode } from '../render/quality.js?v=a2bb8f7-mwmpy8sm';
+import { charmById } from '../core/charms.js?v=a2bb8f7-mwmpy8sm';
+import { skinSheets } from '../render/skins2.js?v=a2bb8f7-mwmpy8sm';
+import { packArt } from '../render/pack-art.js?v=a2bb8f7-mwmpy8sm';
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=b8302f9-mwm2bulv';
-import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=b8302f9-mwm2bulv';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=b8302f9-mwm2bulv';
-import { matcap } from './matcap.js?v=b8302f9-mwm2bulv';
-import { mulberry32 } from '../core/prng.js?v=b8302f9-mwm2bulv';
-import { gunMaps } from './range-tex.js?v=b8302f9-mwm2bulv';
-import { skinById, SAKURA_ID, DEFAULT_SKINS, packSkin } from '../core/skins.js?v=b8302f9-mwm2bulv';
-import { legendCanvas, onLegendChange } from '../core/legend.js?v=b8302f9-mwm2bulv';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=b8302f9-mwm2bulv';
-import { HDPack, SkinPack } from '../render/hd-pack.js?v=b8302f9-mwm2bulv';
-import { epicRelief } from './skin-relief.js?v=b8302f9-mwm2bulv';
-import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect, forgeInspect, orreryInspect, amberInspect, jadeInspect, velvetInspect, opalInspect, epicInspect } from './inspect-effects.js?v=b8302f9-mwm2bulv';
-import { F2 } from './f2-model.js?v=b8302f9-mwm2bulv';
-import { G8 } from './g8-model.js?v=b8302f9-mwm2bulv';
-import { C8 } from './c8-model.js?v=b8302f9-mwm2bulv';
-import { R4 } from './r4-model.js?v=b8302f9-mwm2bulv';
-import { AK } from './ak-model.js?v=b8302f9-mwm2bulv';
-import { EVO } from './evo-model.js?v=b8302f9-mwm2bulv';
-import { MP5K } from './compact-model.js?v=b8302f9-mwm2bulv';
-import { T5 } from './smg-model.js?v=b8302f9-mwm2bulv';
-import { SMG11 } from './machinepistol-model.js?v=b8302f9-mwm2bulv';
-import { MP7 } from './pdw-model.js?v=b8302f9-mwm2bulv';
+import * as THREE from '../../vendor/three/three.module.min.js?v=a2bb8f7-mwmpy8sm';
+import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=a2bb8f7-mwmpy8sm';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=a2bb8f7-mwmpy8sm';
+import { matcap } from './matcap.js?v=a2bb8f7-mwmpy8sm';
+import { mulberry32 } from '../core/prng.js?v=a2bb8f7-mwmpy8sm';
+import { gunMaps } from './range-tex.js?v=a2bb8f7-mwmpy8sm';
+import { skinById, SAKURA_ID, DEFAULT_SKINS, packSkin } from '../core/skins.js?v=a2bb8f7-mwmpy8sm';
+import { legendCanvas, onLegendChange } from '../core/legend.js?v=a2bb8f7-mwmpy8sm';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=a2bb8f7-mwmpy8sm';
+import { HDPack, SkinPack } from '../render/hd-pack.js?v=a2bb8f7-mwmpy8sm';
+import { epicRelief } from './skin-relief.js?v=a2bb8f7-mwmpy8sm';
+import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect, forgeInspect, orreryInspect, amberInspect, jadeInspect, velvetInspect, opalInspect, epicInspect } from './inspect-effects.js?v=a2bb8f7-mwmpy8sm';
+import { F2 } from './f2-model.js?v=a2bb8f7-mwmpy8sm';
+import { G8 } from './g8-model.js?v=a2bb8f7-mwmpy8sm';
+import { C8 } from './c8-model.js?v=a2bb8f7-mwmpy8sm';
+import { R4 } from './r4-model.js?v=a2bb8f7-mwmpy8sm';
+import { AK } from './ak-model.js?v=a2bb8f7-mwmpy8sm';
+import { EVO } from './evo-model.js?v=a2bb8f7-mwmpy8sm';
+import { MP5K } from './compact-model.js?v=a2bb8f7-mwmpy8sm';
+import { T5 } from './smg-model.js?v=a2bb8f7-mwmpy8sm';
+import { SMG11 } from './machinepistol-model.js?v=a2bb8f7-mwmpy8sm';
+import { MP7 } from './pdw-model.js?v=a2bb8f7-mwmpy8sm';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
@@ -109,9 +109,11 @@ function bakedSkin(def) {
   const size = skinSize(), key = def.id + ':' + (packArt.finish ? packArt.revision : 0) + 's' + skinSheets.rev + '@' + size;
   if (!skins.has(key)) {
     skins.set(key, bakeSkin(RENDERER, def, size));
-    const big = [...skins.keys()].filter((k) => !k.endsWith('@512'));
-    const live = new Set(LIVE.values()), old = big.length > 4 && big.find((k) => k !== key && !live.has(k));
-    if (old) {                       // big maps: keep a few guns' worth (small third-person ones stay)
+    const big = [...skins.keys()].filter((k) => !k.endsWith('@512')), small = [...skins.keys()].filter((k) => k.endsWith('@512'));
+    const live = new Set(LIVE.values()), pick = (list, keep) => list.length > keep && list.find((k) => k !== key && !live.has(k));
+    // big maps: keep a few guns' worth; small (other players' guns): the newest 48. A bot still holding a freed one shows a black gun until its next match.
+    for (const old of [pick(big, 4), pick(small, 48)]) {
+      if (!old) continue;
       const sk = skins.get(old);
       disposeBaked(sk.albedo); disposeBaked(sk.rm); disposeBaked(sk.normal); skins.delete(old);
       for (const [k, m] of mats) if (m.userData.skinKey === old) { m.userData.evicted = true; m.dispose(); mats.delete(k); }
@@ -1454,7 +1456,9 @@ const easeInOut = (x) => x * x * (3 - 2 * x);
 // A gun as other players see it (third person, real size): the same model and skin, without
 // rails, hands or moving parts. Cached per gun, finish and skin; returns a new group sharing
 // geometry and materials. Gun coordinates: -z forward, origin at the receiver; grip at gripZ.
-const worldGuns = new Map();
+const worldGuns = new Map();   // most recently used last
+const WORLD_GUN_CAP = 40;      // each model is a few MB of geometry and bots wear random skins, so the oldest are dropped
+export const worldGunCount = () => worldGuns.size;   // (tests)
 export function buildWorldGun(gun, slot, skinId) {
   const type = MODEL_FOR[gun.id] || (MODEL_TYPES.includes(gun.model) ? gun.model : 'rifle');
   const hdm = hdModel(type);
@@ -1462,6 +1466,9 @@ export function buildWorldGun(gun, slot, skinId) {
   const at = gun.attach || null;
   const skin = skinById(skinId);
   const key = sightShading() + '|' + gun.id + '|' + slot + '|' + (skinId ?? '-') + (hdm ? '|hd' : '') + (at ? '|a' + at : '');
+  const had = worldGuns.get(key);
+  let freed = false; had?.g.traverse((o) => { if (o.material?.userData.evicted) freed = true; });
+  if (freed) { worldGuns.delete(key); had.g.traverse((o) => o.geometry?.dispose()); }   // its skin was freed: build it again
   if (!worldGuns.has(key)) {
     const g = new THREE.Group(), mg = new THREE.Group();
     SKIN_SLOT = slot; SKIN_FORCE = skinId ?? null; WORLD = true;
@@ -1478,7 +1485,11 @@ export function buildWorldGun(gun, slot, skinId) {
     const box = new THREE.Box3().setFromObject(g);
     if (skin?.rarity === 'blackice') iceCrystals(g, skin, type, muzzle, false);
     worldGuns.set(key, { g, gripZ: GRIP_Z[type] ?? 0.06, front: box.min.z, top: box.max.y });
-  }
+    if (worldGuns.size > WORLD_GUN_CAP) {   // free the least recently used model's geometry (a fighter still holding it re-uploads it on its next frame)
+      const [oldKey, old] = worldGuns.entries().next().value;
+      worldGuns.delete(oldKey); old.g.traverse((o) => o.geometry?.dispose());
+    }
+  } else { const w = worldGuns.get(key); worldGuns.delete(key); worldGuns.set(key, w); }   // mark as recently used
   const w = worldGuns.get(key), out = new THREE.Group();
   for (const m of w.g.children) { const c = new THREE.Mesh(m.geometry, m.material); c.castShadow = true; out.add(c); }
   out.userData = { gripZ: w.gripZ, front: w.front, top: w.top };
