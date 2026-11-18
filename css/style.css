@@ -708,10 +708,11 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 #home[hidden] { display: none; }
 #home > * { pointer-events: auto; }
 #home button { font-family: inherit; color: var(--fg); cursor: pointer; }
-.h-tabs { grid-column: 1 / 3; grid-row: 1; display: flex; flex-wrap: wrap; gap: 6px; align-self: start; }
-.h-tabs button { padding: 8px 16px; background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 8px 8px 2px 2px; }
+.h-tabs { grid-column: 1 / -1; grid-row: 1; display: flex; align-self: start; margin: calc(-1 * clamp(12px, 2.5vw, 28px)) calc(-1 * clamp(12px, 2.5vw, 28px)) 0; border-bottom: 1px solid var(--panel-edge); }
+.h-tabs button { flex: 1; padding: 22px 12px; font-size: 18px; font-weight: 600; letter-spacing: .03em; background: var(--panel); border: 0; border-right: 1px solid var(--panel-edge); border-radius: 0; }
 .h-tabs button:hover, .h-tabs button:focus-visible { border-color: var(--accent); color: var(--accent); }
-.h-who { grid-column: 3; grid-row: 1; justify-self: end; display: grid; text-align: right; padding: 8px 14px; background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 8px; min-width: 150px; }
+.h-who { flex: 1.4; display: grid; align-content: center; text-align: right; padding: 10px 22px; background: var(--panel); }
+.h-who b { font-size: 18px; }
 .h-who span { color: var(--muted); font-size: 12px; }
 .h-online { grid-column: 2; grid-row: 2; justify-self: center; display: flex; align-items: center; gap: 14px; font-size: 18px; letter-spacing: .08em; text-transform: uppercase; }
 .h-online button { width: 38px; height: 38px; border-radius: 50%; background: var(--panel); border: 1px solid var(--panel-edge); font-size: 22px; line-height: 1; }
@@ -731,7 +732,8 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 .h-pass b { font-size: 18px; }
 @media (max-width: 760px) {
   #home { grid-template-columns: 1fr; grid-template-rows: auto auto auto 1fr auto auto auto; overflow-y: auto; }
-  .h-tabs, .h-who, .h-online, .h-skin, .h-ch, .h-play, .h-pass { grid-column: 1; grid-row: auto; justify-self: stretch; }
+  .h-tabs, .h-online, .h-skin, .h-ch, .h-play, .h-pass { grid-column: 1; grid-row: auto; justify-self: stretch; }
+  .h-tabs { flex-wrap: wrap; } .h-tabs button { padding: 14px 8px; font-size: 15px; }
   .h-skin { min-height: 160px; }
 }
 /* Pick game: every game has a Settings tab; the Season pass has its own page */
@@ -745,3 +747,12 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 .season-tiers li b { font-size: 16px; }
 .season-tiers li.got { border-color: #4f8f5a; background: rgba(79,143,90,.15); }
 .season-tiers li.next { border-color: var(--accent); }
+/* High / Ultra: match look settings as picture cards (the drop-down hidden, still holding the value) */
+label.as-cards { display: none !important; }
+.pick-cards { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.pick-cards[hidden] { display: none; }
+.pick-cards h4 { grid-column: 1 / -1; margin: 6px 0 0; font-size: 14px; }
+.pick-cards button { display: grid; gap: 4px; padding: 4px 4px 6px; text-align: left; font-size: 12px; background: rgba(255,255,255,.04); border: 2px solid var(--panel-edge); border-radius: 8px; color: var(--fg); cursor: pointer; }
+.pick-cards button img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 5px; background: #0b0e12; }
+.pick-cards button[aria-pressed=true] { border-color: var(--accent); background: rgba(242,179,61,.1); }
+.pick-cards button:hover { border-color: var(--accent); }

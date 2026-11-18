@@ -1587,6 +1587,28 @@ async function boot(data) {
       selectSetupTab(flow.settingsOnly ? 1 : 0);
       $('setup-next').textContent = flow.settingsOnly ? (flow.inGame ? 'Done' : 'Next: packs') : flow.setupFromPause ? 'Back to the game' : flow.mode === 'royale' ? 'Deploy to Blacktide Island' : MATCH_MODES.includes(flow.mode) ? 'Next: choose your operator' : 'Next: choose your weapon';
       if (netInit) netUi();
+      pictureCards();
+    }
+  }
+  // High and Ultra: the look of a match (map, time, weather, fog) is picked from pictures taken in the game,
+  // under a question, instead of a drop-down (data/menu/<setting>-<option>.webp). The drop-down still holds the value.
+  const CARD_SETTINGS = { 'b-map': 'Which map?', 'b-time': 'Day or night?', 'b-weather': 'Do you want weather?', 'b-fog': 'Do you want fog?', 'md-map': 'Which map?' };
+  function pictureCards() {
+    const on = ['high', 'ultra', 'max'].includes(settings.graphics);   // (the level picked, pack or not)
+    for (const [id, question] of Object.entries(CARD_SETTINGS)) {
+      const sel = $(id), field = sel.closest('label');
+      let box = $(id + '-cards');
+      if (!box) { box = document.createElement('div'); box.id = id + '-cards'; box.className = 'pick-cards'; field.after(box); }
+      field.classList.toggle('as-cards', on);
+      box.hidden = !on || field.hidden;
+      if (box.hidden) continue;
+      box.replaceChildren(Object.assign(document.createElement('h4'), { textContent: question }), ...[...sel.options].map((o) => {
+        const b = document.createElement('button'); b.type = 'button'; b.setAttribute('aria-pressed', String(sel.value === o.value));
+        const img = document.createElement('img'); img.src = 'data/menu/' + id + '-' + o.value + '.webp'; img.alt = ''; img.loading = 'lazy';
+        b.append(img, Object.assign(document.createElement('span'), { textContent: o.textContent }));
+        b.addEventListener('click', () => { sel.value = o.value; sel.dispatchEvent(new Event('change')); pictureCards(); });
+        return b;
+      }));
     }
   }
   function chooseMode(m) {
