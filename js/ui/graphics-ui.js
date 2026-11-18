@@ -2,8 +2,8 @@
 // Ultra (needs the Enhanced Graphics pack), download / update / remove the pack, pick a
 // performance profile, the frame-rate target and the FPS counter; download / remove the Weapon Skins pack.
 // ctx: { settings, commit(key) (sanitise, save, apply), packSize() }
-import { HDPack, SkinPack } from '../render/hd-pack.js?v=3d9ae50-mwm0jy5q';
-import { needsPack } from '../render/quality.js?v=3d9ae50-mwm0jy5q';
+import { HDPack, SkinPack } from '../render/hd-pack.js?v=9d18364-mwm1d4hn';
+import { needsPack } from '../render/quality.js?v=9d18364-mwm1d4hn';
 
 function el(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);
@@ -17,6 +17,7 @@ function el(tag, attrs = {}, ...kids) {
 const MB = (b) => (b / 1048576).toFixed(1) + ' MB';
 
 export const LEVELS = [
+  { key: 'minimal', name: 'Minimal', tag: 'Browser', text: 'Low plus default skins, plain bots, no kill cam, no muzzle flash, brass or bullet holes, no rain or snow, still menus, 85% resolution. For the very slowest computers.' },
   { key: 'low', name: 'Low', tag: 'Browser', text: 'Flat colours and the simplest gun. For the slowest computers.' },
   { key: 'standard', name: 'Standard', tag: 'Browser', text: 'Fast, clear and light. Runs in any browser with nothing to download.' },
   { key: 'high', name: 'High', tag: 'Enhanced', text: 'Detailed gun models, realistic lighting, shadows, ambient occlusion, textured surfaces.' },
@@ -104,7 +105,6 @@ export class GraphicsUI {
       chk('gx-ao', 'Ambient occlusion (High / Ultra)', () => this.s.ao, (v) => { this.s.ao = v; }, 'post'),
       chk('gx-taa', 'Temporal anti-aliasing (High / Ultra)', () => this.s.taa, (v) => { this.s.taa = v; }, 'post'),
       chk('gx-botshadows', 'Player and bot shadows (off is faster on weak GPUs; always on in Ranked and online)', () => this.s.botShadows, (v) => { this.s.botShadows = v; }, 'shading'),
-      chk('gx-minimal', 'Minimal mode: every gun wears its default skin; bots are still T-pose blocks and there is no kill cam (not in Ranked or online)', () => this.s.minimal, (v) => { this.s.minimal = v; }, 'shading'),
       chk('gx-skins', 'High-res weapon skins (any graphics level)', () => this.s.hiResSkins, (v) => { this.s.hiResSkins = v; }, 'shading'),
       chk('gx-counter', 'FPS counter', () => this.s.fpsCounter, (v) => { this.s.fpsCounter = v; }, 'perf'));
     this.modal = el('div', { class: 'pk-modal gx-modal', id: 'gfx', hidden: true, role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'gx-title' },

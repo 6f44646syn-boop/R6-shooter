@@ -152,7 +152,7 @@ try {
     document.querySelector('.mode-set[data-mode=bots]:not([data-ranked])').click();
     $('b-bots').value = '3'; $('b-bots').dispatchEvent(new Event('change', { bubbles: true }));
     $('preset-name').value = 'Three bots'; $('preset-save').click();
-    $('setup-back').click();
+    $('setup-back').click(); $('h-pick').click();   // (Back goes to Home; the presets are under Pick game)
     const btn = [...document.querySelectorAll('#presets .preset button.primary')].find((b) => /Three bots/.test(b.textContent));
     R.battleStart({ bots: 1 }); R.battleLeave();      // something else in between
     btn.click();

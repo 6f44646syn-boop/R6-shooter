@@ -2,7 +2,7 @@
 // Storage can be missing or throw (private window, blocked site data), so every access is
 // wrapped and the app always works with the defaults.
 
-import { sensToCm360, cm360ToSens } from './sensitivity.js?v=3d9ae50-mwm0jy5q';
+import { sensToCm360, cm360ToSens } from './sensitivity.js?v=9d18364-mwm1d4hn';
 
 const KEY = 'recoilRange.settings.v1';
 
@@ -23,7 +23,7 @@ export const DEFAULTS = Object.freeze({
   crosshair: { style: 'cross', size: 10, gap: 4, thickness: 2, color: '#3dff9a', outline: true },
   volume: 0.35,
   spatialAudio: true,
-  footsteps: false,      // footstep sounds (off by default)
+  gunshots: true,        // gunshot sounds (the only game sounds; bot voices are separate)
   holeSizeCm: 3,
   aimRecoil: 1,          // Aimed recoil strength (1 = as measured)
   hipRecoil: 1.8,        // hip-fire recoil strength (x the measured spray)
@@ -119,12 +119,12 @@ export function sanitize(input) {
   out.targetMode = ['dots', 'dummy', 'paper'].includes(s.targetMode) ? s.targetMode : (s.movingTarget === true ? 'dots' : DEFAULTS.targetMode);
   out.dotMoving = typeof s.dotMoving === 'boolean' ? s.dotMoving : (s.movingTarget === true ? true : DEFAULTS.dotMoving);
   out.dotCount = Number.isInteger(s.dotCount) ? Math.min(12, Math.max(1, s.dotCount)) : DEFAULTS.dotCount;
-  out.graphics = ['low', 'high', 'ultra', 'max'].includes(s.graphics) ? s.graphics : 'standard';
+  out.graphics = ['minimal', 'low', 'high', 'ultra', 'max'].includes(s.graphics) ? s.graphics : s.minimal === true ? 'minimal' : 'standard';
   out.animations = typeof s.animations === 'boolean' ? s.animations : DEFAULTS.animations;
   out.weaponShading = s.weaponShading === 'detailed' ? 'detailed' : 'fast';
   out.lensQuality = ['auto', '3', '2', '1', '0'].includes(String(s.lensQuality)) ? String(s.lensQuality) : DEFAULTS.lensQuality;
   out.spatialAudio = typeof s.spatialAudio === 'boolean' ? s.spatialAudio : DEFAULTS.spatialAudio;
-  out.footsteps = s.footsteps === true;
+  out.gunshots = s.gunshots !== false;
   out.adsSens = s.adsSens === 'game' ? 'game' : 'focal';
   out.aimSmooth = typeof s.aimSmooth === 'boolean' ? s.aimSmooth : DEFAULTS.aimSmooth;
   out.hipSpread = typeof s.hipSpread === 'boolean' ? s.hipSpread : DEFAULTS.hipSpread;
@@ -141,7 +141,8 @@ export function sanitize(input) {
   out.padAssist = ['off', 'light', 'standard'].includes(s.padAssist) ? s.padAssist : DEFAULTS.padAssist;
   out.taa = s.taa === true;
   out.botShadows = s.botShadows !== false;
-  out.minimal = s.minimal === true;
+  let beforeMinimal = 'low';   // (switching Minimal off goes back to the level before it)
+  Object.defineProperty(out, 'minimal', { get() { return this.graphics === 'minimal'; }, set(v) { if (v) { if (this.graphics !== 'minimal') beforeMinimal = this.graphics; this.graphics = 'minimal'; } else if (this.graphics === 'minimal') this.graphics = beforeMinimal; }, enumerable: false, configurable: true });   // (the Minimal graphics level)
   out.turboBuild = s.turboBuild !== false;
   out.oneXRecoil = typeof s.oneXRecoil === 'number' && s.oneXRecoil >= 0.5 && s.oneXRecoil <= 1 ? s.oneXRecoil : DEFAULTS.oneXRecoil;
   out.sharpen = [0, 0.25, 0.4, 0.6].includes(s.sharpen) ? s.sharpen : DEFAULTS.sharpen;

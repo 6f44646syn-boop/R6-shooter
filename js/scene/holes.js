@@ -2,7 +2,8 @@
 // Holes live in the target group's frame (dummy + back wall), so moving the target moves
 // them too. Each hole faces along the surface normal it was made on. When the cap is
 // reached the oldest hole is recycled.
-import * as THREE from '../../vendor/three/three.module.min.js?v=3d9ae50-mwm0jy5q';
+import * as THREE from '../../vendor/three/three.module.min.js?v=9d18364-mwm1d4hn';
+import { minimalMode } from '../render/quality.js?v=9d18364-mwm1d4hn';
 
 export const MAX_HOLES = 300;
 
@@ -84,6 +85,7 @@ export class BulletHoles {
 
   // Position and unit normal in the target frame.
   add(x, y, z, nx = 0, ny = 0, nz = 1) {
+    if (this.cosmetic && minimalMode.on) return;
     const i = this.next, d = this.data, k = i * 6;
     d[k] = x; d[k + 1] = y; d[k + 2] = z; d[k + 3] = nx; d[k + 4] = ny; d[k + 5] = nz;
     this._write(i);

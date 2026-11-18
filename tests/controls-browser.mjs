@@ -276,7 +276,8 @@ try {
     (await page.locator(".op-card:visible").count()) === 1,
   );
   await page.click("#ops-back");
-  await page.evaluate(() => document.getElementById("setup-back").click());
+  check("Back from operator select goes to Home", await page.locator("#home").isVisible());
+  await page.click("#h-pick");
   await page.evaluate(() => document.querySelector(".game-tabs [data-cat=training]").click());
   await page.evaluate(() => document.querySelector(".mode-set[data-mode=range]").click());
   for (let i = 0; i < 5 && await page.locator("#page-setup").isVisible(); i++) await page.click("#setup-next");   // (the settings are pages)
@@ -286,6 +287,7 @@ try {
     (await page.locator("#loadout .slot:visible").count()) === 1,
   );
   await page.click("#arm-back");
+  check("Back from the weapon select goes to Home", await page.locator("#home").isVisible());
   await page.evaluate(() => document.getElementById("setup-back").click());
 
   check("no browser exceptions", errors.length === 0);

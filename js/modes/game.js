@@ -1,42 +1,42 @@
-import { applyMapArt } from '../render/pack-art.js?v=3d9ae50-mwm0jy5q';
-import { applyPackMaterials, packMats, envMap } from '../render/pack-materials.js?v=3d9ae50-mwm0jy5q';
-import { applyPackProps } from '../render/pack-props.js?v=3d9ae50-mwm0jy5q';
-import { sensoryFor } from '../balance/bomb-utility.js?v=3d9ae50-mwm0jy5q';
-import { createRankedSession, rankedChange, ratingOf, signRankedResult, botRankedChange } from '../core/ranked.js?v=3d9ae50-mwm0jy5q';
-import { SpectatorTools } from '../replay/spectator.js?v=3d9ae50-mwm0jy5q';
-import { MatchFinale } from '../replay/finale.js?v=3d9ae50-mwm0jy5q';
-import { GrenadeReplay } from '../replay/grenade.js?v=3d9ae50-mwm0jy5q';
-import { replayCamera } from '../replay/view.js?v=3d9ae50-mwm0jy5q';
+import { applyMapArt } from '../render/pack-art.js?v=9d18364-mwm1d4hn';
+import { applyPackMaterials, packMats, envMap } from '../render/pack-materials.js?v=9d18364-mwm1d4hn';
+import { applyPackProps } from '../render/pack-props.js?v=9d18364-mwm1d4hn';
+import { sensoryFor } from '../balance/bomb-utility.js?v=9d18364-mwm1d4hn';
+import { createRankedSession, rankedChange, ratingOf, signRankedResult, botRankedChange } from '../core/ranked.js?v=9d18364-mwm1d4hn';
+import { SpectatorTools } from '../replay/spectator.js?v=9d18364-mwm1d4hn';
+import { MatchFinale } from '../replay/finale.js?v=9d18364-mwm1d4hn';
+import { GrenadeReplay } from '../replay/grenade.js?v=9d18364-mwm1d4hn';
+import { replayCamera } from '../replay/view.js?v=9d18364-mwm1d4hn';
 // Team Deathmatch, Capture the Flag and Bomb in the browser: draws the match simulation
 // (sim.js) and runs your player with the range's own systems (look, sensitivity, recoil,
 // spread, sights, weapon model: battle/human.js), at a fixed 60 Hz simulation.
 //
 // Map: flat-shaded low poly from the map file; static walls merged into one mesh, breakable
 // panels in one instanced mesh, one directional light (a 1024 shadow map in High / Ultra).
-import * as THREE from '../../vendor/three/three.module.min.js?v=3d9ae50-mwm0jy5q';
-import { BulletHoles, crackTexture } from '../scene/holes.js?v=3d9ae50-mwm0jy5q';
-import { MatchMap } from './map.js?v=3d9ae50-mwm0jy5q';
-import { initCore } from '../wasm/core.js?v=3d9ae50-mwm0jy5q';
-import { Match, TICK } from './sim.js?v=3d9ae50-mwm0jy5q';
-import { yawTo, wrap180, DEG } from './geom.js?v=3d9ae50-mwm0jy5q';
-import { Fighter } from '../battle/fighter.js?v=3d9ae50-mwm0jy5q';
-import { slotIn, effectiveGun } from '../core/loadout.js?v=3d9ae50-mwm0jy5q';
-import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=3d9ae50-mwm0jy5q';
-import { buildMapLook, panelTextures } from './look.js?v=3d9ae50-mwm0jy5q';
-import { Arena } from '../battle/arena.js?v=3d9ae50-mwm0jy5q';
-import { Human } from '../battle/human.js?v=3d9ae50-mwm0jy5q';
-import { drawCrosshair } from '../ui/crosshair.js?v=3d9ae50-mwm0jy5q';
-import { effectiveGraphics, maxMode } from '../render/quality.js?v=3d9ae50-mwm0jy5q';
-import { MatchHost, MatchClient } from './net-match.js?v=3d9ae50-mwm0jy5q';
-import { Brain } from './bots.js?v=3d9ae50-mwm0jy5q';
-import { skyPalette } from '../render/sky.js?v=3d9ae50-mwm0jy5q';
-import { dressMap } from './dressing.js?v=3d9ae50-mwm0jy5q';
-import { LightPool } from '../render/light-pool.js?v=3d9ae50-mwm0jy5q';
-import { Footprints } from '../scene/footprints.js?v=3d9ae50-mwm0jy5q';
-import { Minimap } from '../ui/minimap.js?v=3d9ae50-mwm0jy5q';
-import { warmScene } from '../render/warm.js?v=3d9ae50-mwm0jy5q';
-import { ShadowGate } from '../render/shadow-gate.js?v=3d9ae50-mwm0jy5q';
-import { MatchStats, mvpCard } from '../core/mvp.js?v=3d9ae50-mwm0jy5q';
+import * as THREE from '../../vendor/three/three.module.min.js?v=9d18364-mwm1d4hn';
+import { BulletHoles, crackTexture } from '../scene/holes.js?v=9d18364-mwm1d4hn';
+import { MatchMap } from './map.js?v=9d18364-mwm1d4hn';
+import { initCore } from '../wasm/core.js?v=9d18364-mwm1d4hn';
+import { Match, TICK } from './sim.js?v=9d18364-mwm1d4hn';
+import { yawTo, wrap180, DEG } from './geom.js?v=9d18364-mwm1d4hn';
+import { Fighter } from '../battle/fighter.js?v=9d18364-mwm1d4hn';
+import { slotIn, effectiveGun } from '../core/loadout.js?v=9d18364-mwm1d4hn';
+import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=9d18364-mwm1d4hn';
+import { buildMapLook, panelTextures } from './look.js?v=9d18364-mwm1d4hn';
+import { Arena } from '../battle/arena.js?v=9d18364-mwm1d4hn';
+import { Human } from '../battle/human.js?v=9d18364-mwm1d4hn';
+import { drawCrosshair } from '../ui/crosshair.js?v=9d18364-mwm1d4hn';
+import { effectiveGraphics, maxMode } from '../render/quality.js?v=9d18364-mwm1d4hn';
+import { MatchHost, MatchClient } from './net-match.js?v=9d18364-mwm1d4hn';
+import { Brain } from './bots.js?v=9d18364-mwm1d4hn';
+import { skyPalette } from '../render/sky.js?v=9d18364-mwm1d4hn';
+import { dressMap } from './dressing.js?v=9d18364-mwm1d4hn';
+import { LightPool } from '../render/light-pool.js?v=9d18364-mwm1d4hn';
+import { Footprints } from '../scene/footprints.js?v=9d18364-mwm1d4hn';
+import { Minimap } from '../ui/minimap.js?v=9d18364-mwm1d4hn';
+import { warmScene } from '../render/warm.js?v=9d18364-mwm1d4hn';
+import { ShadowGate } from '../render/shadow-gate.js?v=9d18364-mwm1d4hn';
+import { MatchStats, mvpCard } from '../core/mvp.js?v=9d18364-mwm1d4hn';
 
 const reducedMotion = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 const TEAM_COLOR = { A: 0x5b8cff, B: 0xff7048 };
@@ -1261,7 +1261,7 @@ export class ModeGame {
     if (!w || w.axis === undefined || w.axis < 0) return;
     const n = [0, 0, 0]; n[w.axis] = d[w.axis] > 0 ? -1 : 1;
     const p = [from[0] + d[0] * w.t, from[1] + d[1] * w.t, from[2] + d[2] * w.t];
-    if (!this.holes) { this.holes = new BulletHoles(this.scene, crackTexture()); this.holes.setSize(0.07); }
+    if (!this.holes) { this.holes = new BulletHoles(this.scene, crackTexture()); this.holes.setSize(0.07); this.holes.cosmetic = true; }
     this.holes.add(p[0], p[1], p[2], n[0], n[1], n[2]);
     if (!this.debris) {
       const N = 240, geo = new THREE.BufferGeometry();

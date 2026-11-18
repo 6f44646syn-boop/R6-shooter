@@ -39,7 +39,7 @@ try {
   );
   await page.selectOption('#md-prep', '45');
   await page.evaluate(() => document.getElementById('setup-back').click());
-  await page.click('.mode-set[data-mode=bomb]:not([data-ranked])');
+  await page.evaluate(() => document.querySelector('.mode-set[data-mode=bomb]:not([data-ranked])').click());   // (Back goes to Home)
   check(
     'existing preparation selection is preserved independently',
     (await page.locator('#md-prep').inputValue()) === '45',

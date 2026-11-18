@@ -982,3 +982,7 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea
 #menu:has(#page-pause:not([hidden])) { background: rgba(0, 0, 0, .55); }
 /* Low graphics: no blur (it costs frames on slow PCs) */
 html[data-gfx=low] .h-tabs { backdrop-filter: none; }
+/* no step bar (1 Controls, 2 Graphics ...) on any page */
+#menu .steps { display: none !important; }
+/* no FPS counter over menus */
+body:has(#menu:not([hidden])) #perf, body:has(#home:not([hidden])) #perf, body:has(#title:not([hidden])) #perf, body:has(#armory:not([hidden])) #perf { display: none; }

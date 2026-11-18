@@ -1043,7 +1043,7 @@ try {
       rig.forceSkin = 0; R.selectGun(1); R.step(0.2);
       for (let i = 0; i < 40 && !art()?.image; i++) await new Promise((r) => setTimeout(r, 100));
       out.width = art()?.image?.width;
-      R.setSetting('minimal', true); R.setGraphics('standard'); R.selectGun(1); R.step(0.2);
+      R.setGraphics('minimal'); R.selectGun(1); R.step(0.2);
       for (let i = 0; i < 40 && !art()?.image; i++) await new Promise((r) => setTimeout(r, 100));
       out.minimal = art()?.image?.src || '';
       R.setSetting('minimal', false); R.setGraphics('low'); R.step(0.2);
