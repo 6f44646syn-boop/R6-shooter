@@ -95,20 +95,15 @@ try {
     check('after the match ends, a click on the game does not capture the mouse again (Play again stays clickable)', !relock, 'the click asked for pointer lock');
     await page.close();
   }
-  // 4. First launch goes through the steps in order: controls, graphics, settings, mode
+  // 4. First launch: mouse or trackpad, then one graphics question, then Home (nothing else to click)
   {
     const { page, errors } = await openPage('&wizard', false);
-    const on = () => page.evaluate(() => document.querySelector('.steps button.on')?.dataset.step || '');
     await page.click('[data-first-profile=trackpad]');
-    const gfx = await page.locator('#gfx').isVisible();
-    await page.locator('#gfx .pk-skip button.primary').click();
-    const settingsStep = await on(), onlySettings = await page.locator('#q-sens').isVisible() && await page.locator('#q-dpi').isVisible();
-    await page.fill('#q-dpi', '800'); const dpi = await page.evaluate(() => JSON.parse(localStorage.getItem('recoilRange.settings.v1')).dpi);
-    await page.click('#quick-next');
-    const shopStep = await on(), shop = await page.locator('#shop-open').isVisible();
-    await page.click('#shop-next');
-    const modeStep = await on(), modes = await page.locator('#page-mode').isVisible();
-    check('first launch: controls, graphics, quick setup (saved), packs, then the mode', gfx && settingsStep === '3' && onlySettings && dpi === 800 && shopStep === '4' && shop && modeStep === '5' && modes && !errors.length, JSON.stringify({ gfx, settingsStep, onlySettings, shopStep, shop, modeStep, modes, errors }));
+    const asked = await page.locator('[data-first-graphics]').count();
+    await page.click('[data-first-graphics=low]');
+    const out = await page.evaluate(() => ({ home: !document.getElementById('home').hidden, dialog: !!document.querySelector('.m7-welcome'),
+      gfx: JSON.parse(localStorage.getItem('recoilRange.settings.v1')).graphics }));
+    check('first launch: controls, one graphics question (saved), then Home', asked === 3 && out.home && !out.dialog && out.gfx === 'low' && !errors.length, JSON.stringify({ asked, ...out, errors }));
     await page.close();
   }
   // 5. Ranked against bots (quitting is a loss) and the optional mini map in a match and in Battle

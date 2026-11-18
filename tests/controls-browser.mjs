@@ -277,7 +277,8 @@ try {
   );
   await page.click("#ops-back");
   await page.evaluate(() => document.getElementById("setup-back").click());
-  await page.click(".mode-set[data-mode=range]");
+  await page.evaluate(() => document.querySelector(".game-tabs [data-cat=training]").click());
+  await page.evaluate(() => document.querySelector(".mode-set[data-mode=range]").click());
   for (let i = 0; i < 5 && await page.locator("#page-setup").isVisible(); i++) await page.click("#setup-next");   // (the settings are pages)
   await page.fill("#weapon-search", "Scorpion");
   check(

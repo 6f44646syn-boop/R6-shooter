@@ -8,16 +8,16 @@
 //                       B crouch, A vault, L3 sprint, LB/RB lean.
 //   keys  (player 2, no gamepad): I J K L move, arrow keys look, Enter fire,
 //                       Right Shift aim, Backspace reload, / crouch.
-import * as THREE from '../../vendor/three/three.module.min.js?v=81e5283-mwlpeohh';
-import { Look, PITCH_LIMIT } from '../core/look.js?v=81e5283-mwlpeohh';
-import { Weapon } from '../core/weapon.js?v=81e5283-mwlpeohh';
-import { RecoilEngine } from '../core/recoil.js?v=81e5283-mwlpeohh';
-import { Spread } from '../core/spread.js?v=81e5283-mwlpeohh';
-import { focalRatio } from '../core/sensitivity.js?v=81e5283-mwlpeohh';
-import { WeaponRig } from '../scene/viewmodel.js?v=81e5283-mwlpeohh';
-import { EYE_Z, VIEW_H } from '../scene/sight-model.js?v=81e5283-mwlpeohh';
-import { reticleTextures } from '../ui/reticle-tex.js?v=81e5283-mwlpeohh';
-import { RETICLE_COLORS } from '../ui/scope.js?v=81e5283-mwlpeohh';
+import * as THREE from '../../vendor/three/three.module.min.js?v=4501505-mwm04qmf';
+import { Look, PITCH_LIMIT } from '../core/look.js?v=4501505-mwm04qmf';
+import { Weapon } from '../core/weapon.js?v=4501505-mwm04qmf';
+import { RecoilEngine } from '../core/recoil.js?v=4501505-mwm04qmf';
+import { Spread } from '../core/spread.js?v=4501505-mwm04qmf';
+import { focalRatio } from '../core/sensitivity.js?v=4501505-mwm04qmf';
+import { WeaponRig } from '../scene/viewmodel.js?v=4501505-mwm04qmf';
+import { EYE_Z, VIEW_H } from '../scene/sight-model.js?v=4501505-mwm04qmf';
+import { reticleTextures } from '../ui/reticle-tex.js?v=4501505-mwm04qmf';
+import { RETICLE_COLORS } from '../ui/scope.js?v=4501505-mwm04qmf';
 
 const DEG = Math.PI / 180;
 const WALK = 3.4, SPRINT = 5.6, CROUCH_WALK = 1.6, ADS_WALK = 2.2;
@@ -241,7 +241,7 @@ export class Human {
     const vaultIn = this.in.vault || this._vaultTap; this._vaultTap = false;
     if (vaultIn && !this._vaultWas && f.alive && !this.vault && dt > 0) {
       const y = this.look.yaw * DEG, dx = Math.sin(y), dz = -Math.cos(y);
-      const to = arena.vaultTarget(f.x, f.y, f.z, dx, dz);
+      const to = arena.vaultTarget(f.x, f.y, f.z, dx, dz) || battle.royale?.climbTarget(f, dx, dz);
       if (to) {
         this.vault = { t: 0, dur: 0.32 + 0.12 * Math.max(0, to.top - f.y), from: { x: f.x, y: f.y, z: f.z }, to, peak: to.top + 0.22 };
         this.setAds(false); this.weapon.releaseTrigger(); this.rig.cancelInspect();

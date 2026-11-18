@@ -1,31 +1,31 @@
-import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=81e5283-mwlpeohh';
-import { MatchFinale } from '../replay/finale.js?v=81e5283-mwlpeohh';
-import { GrenadeReplay } from '../replay/grenade.js?v=81e5283-mwlpeohh';
-import { replayCamera } from '../replay/view.js?v=81e5283-mwlpeohh';
+import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=4501505-mwm04qmf';
+import { MatchFinale } from '../replay/finale.js?v=4501505-mwm04qmf';
+import { GrenadeReplay } from '../replay/grenade.js?v=4501505-mwm04qmf';
+import { replayCamera } from '../replay/view.js?v=4501505-mwm04qmf';
 // Battle mode: you against bots (Easy / Medium / Hard), or two local players in split
 // screen (optionally with bots as a third side). First side to the kill target wins.
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=81e5283-mwlpeohh';
-import { Arena } from './arena.js?v=81e5283-mwlpeohh';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=81e5283-mwlpeohh';
-import { Banter } from './banter.js?v=81e5283-mwlpeohh';
-import { Bot, LEVELS } from './bot.js?v=81e5283-mwlpeohh';
-import { Human } from './human.js?v=81e5283-mwlpeohh';
-import { BattleNades } from './nades.js?v=81e5283-mwlpeohh';
-import { drawCrosshair } from '../ui/crosshair.js?v=81e5283-mwlpeohh';
-import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=81e5283-mwlpeohh';
-import { effectiveGraphics } from '../render/quality.js?v=81e5283-mwlpeohh';
-import { effectiveGun, slotIn } from '../core/loadout.js?v=81e5283-mwlpeohh';
-import { BattleRoyale } from './royale.js?v=81e5283-mwlpeohh';
-import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=81e5283-mwlpeohh';
-import { Footprints } from '../scene/footprints.js?v=81e5283-mwlpeohh';
-import { Minimap } from '../ui/minimap.js?v=81e5283-mwlpeohh';
-import { botRankedChange } from '../core/ranked.js?v=81e5283-mwlpeohh';
-import { warmScene } from '../render/warm.js?v=81e5283-mwlpeohh';
-import { ShadowGate } from '../render/shadow-gate.js?v=81e5283-mwlpeohh';
-import { MatchStats, mvpCard } from '../core/mvp.js?v=81e5283-mwlpeohh';
+import * as THREE from '../../vendor/three/three.module.min.js?v=4501505-mwm04qmf';
+import { Arena } from './arena.js?v=4501505-mwm04qmf';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=4501505-mwm04qmf';
+import { Banter } from './banter.js?v=4501505-mwm04qmf';
+import { Bot, LEVELS } from './bot.js?v=4501505-mwm04qmf';
+import { Human } from './human.js?v=4501505-mwm04qmf';
+import { BattleNades } from './nades.js?v=4501505-mwm04qmf';
+import { drawCrosshair } from '../ui/crosshair.js?v=4501505-mwm04qmf';
+import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=4501505-mwm04qmf';
+import { effectiveGraphics } from '../render/quality.js?v=4501505-mwm04qmf';
+import { effectiveGun, slotIn } from '../core/loadout.js?v=4501505-mwm04qmf';
+import { BattleRoyale } from './royale.js?v=4501505-mwm04qmf';
+import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=4501505-mwm04qmf';
+import { Footprints } from '../scene/footprints.js?v=4501505-mwm04qmf';
+import { Minimap } from '../ui/minimap.js?v=4501505-mwm04qmf';
+import { botRankedChange } from '../core/ranked.js?v=4501505-mwm04qmf';
+import { warmScene } from '../render/warm.js?v=4501505-mwm04qmf';
+import { ShadowGate } from '../render/shadow-gate.js?v=4501505-mwm04qmf';
+import { MatchStats, mvpCard } from '../core/mvp.js?v=4501505-mwm04qmf';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, p7: 0xff7048, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -288,14 +288,14 @@ export class Battle {
     try { f.setLook(gun, Math.max(0, slotIn(this.deps.guns, gun)), skin); } catch (e) { console.warn('gun look', e); }
   }
 
-  stop() {
+  stop(switching = false) {   // switching: a new match from the same host follows (do not tell it we left)
     if (this.active && !this.over) this._ranked('loss');           // quitting a ranked battle is a loss
     this.royale?.dispose();
     this.royale = null;
     this.hud.leave.textContent = 'Back to the range';
     this.deps.sfx.stopAll?.();
     if (this.active && this.net && this.net.role === 'host') this._broadcast({ k: 'stopped' });
-    if (this.active && this.net?.role === 'client' && !this.viewOnly) this.net.link.send({ k: 'left' });
+    if (this.active && !switching && this.net?.role === 'client' && !this.viewOnly) this.net.link.send({ k: 'left' });
     this.active = false;
     this.rec = null; this.kc = null; this._meAlive = false;
     this.grenadeView.reset();
@@ -705,7 +705,7 @@ export class Battle {
   }
   // Positions, health and score of everyone, ~30 times a second (newest wins).
   _sendSnapshot(t) {
-    const f = this.fighters.map((g) => [g.id, r2(g.x), r2(g.z), r1(g.yaw + (g.viewDY || 0)), r1(g.pitch + (g.viewDP || 0)), r2(g.crouch), Math.ceil(Math.max(0, g.health)), g.alive ? 1 : 0, t < g.flashUntil ? 1 : 0, g.kills, g.deaths, r2(g.y), g.light ? 1 : 0, r2(g.ads || 0), g.nades ?? 2, r2(g.lean || 0), g.viewOptic || this.deps.opticFor(g.gun).id]);
+    const f = this.fighters.map((g) => [g.id, r2(g.x), r2(g.z), r1(g.yaw + (g.viewDY || 0)), r1(g.pitch + (g.viewDP || 0)), r2(g.crouch), Math.ceil(Math.max(0, g.health)), g.alive ? 1 : 0, t < g.flashUntil ? 1 : 0, g.kills, g.deaths, r2(g.y), g.light ? 1 : 0, r2(g.ads || 0), g.nades ?? 2, r2(g.lean || 0), g.viewOptic || this.deps.opticFor(g.gun)?.id || 0]);
     this._broadcast({ k: 'snap', f, s: this.teamScore, z: this.royale ? r2(this.royale.elapsed) : undefined }, true);
     if (this.watchers.length) {
       const visible = spectatorVisibility(this.fighters, this.humans[0].f.team, this.arena.world);
@@ -733,7 +733,7 @@ export class Battle {
       f.light = m.fl !== 0;
       f.ads = Math.min(1, Math.max(0, +m.a || 0));
       f.lean = Number.isFinite(+m.l) ? Math.min(1, Math.max(-1, +m.l)) : 0;
-      f.viewOptic = this.deps.opticById(m.o, f.gun).id;
+      f.viewOptic = this.deps.opticById(m.o, f.gun)?.id || 0;
       this.arena.resolve(f);                      // never inside cover
       if (back) { r.ignoreUntil = t + .3; link.send({ k: 'back', x: r2(f.x), y: r2(f.y), z: r2(f.z) }); }
     } else if (m.k === 'chest') {
@@ -821,7 +821,7 @@ export class Battle {
   startClient(m, link) {
     if (!this.nadesB) this.nadesB = new BattleNades(this);
     this.nadesB.reset();
-    this.stop();
+    this.stop(this.net?.role === 'client' && this.net.link === link);
     this.viewOnly = m.spectator === true;
     const d = this.deps;
     this.opts = { opponent: 'net', killsToWin: m.killsToWin };
@@ -914,7 +914,7 @@ export class Battle {
           continue;
         }
         f.health = health; f.alive = !!alive; f.light = !!light; f.ads = +ads || 0; f.lean = Number.isFinite(+lean) ? Math.min(1, Math.max(-1, +lean)) : 0;
-        f.viewOptic = this.deps.opticById(optic, f.gun).id;
+        f.viewOptic = this.deps.opticById(optic, f.gun)?.id || 0;
         if (flash) f.flashUntil = t + 0.05;
         const p = this.proxies.find((q) => q.f === f);
         if (p) { p.buf.push([t, x, z, yaw, pitch, crouch, y]); if (p.buf.length > 12) p.buf.shift(); }
@@ -1007,7 +1007,7 @@ export class Battle {
     if (!this.viewOnly && me && me.f.alive && t >= this._nextSnap) {
       this._nextSnap = t + 1 / SNAP_HZ;
       const f = me.f;
-      this.net.link.send({ k: 'st', x: r2(f.x), z: r2(f.z), y: r2(f.y), yaw: r1(f.yaw + f.viewDY), pitch: r1(f.pitch + f.viewDP), crouch: r2(f.crouch), fl: f.light ? 1 : 0, a: r2(f.ads), l: r2(this.humans[0].lean), o: this.humans[0].optic.id }, true);
+      this.net.link.send({ k: 'st', x: r2(f.x), z: r2(f.z), y: r2(f.y), yaw: r1(f.yaw + f.viewDY), pitch: r1(f.pitch + f.viewDP), crouch: r2(f.crouch), fl: f.light ? 1 : 0, a: r2(f.ads), l: r2(this.humans[0].lean), o: this.humans[0].optic?.id || 0 }, true);
     }
     for (const f of this.fighters) { f.updateVisual(t); if (f.lodFor && this.humans[0]) { const cp = this.humans[0].camera.position; f.lodFor(Math.hypot(f.x - cp.x, f.z - cp.z)); } }
     if (this.viewOnly) { this._updateWatch(t, dt); return; }

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recoil Range</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="css/style.css?v=81e5283-mwlpeohh">
+<link rel="stylesheet" href="css/style.css?v=4501505-mwm04qmf">
 </head>
 <body>
 <div id="boot-screen" role="status" style="position:fixed;inset:0;z-index:2147483000;background:#000;color:#c9d1db;display:grid;place-items:center;font:600 16px/1 system-ui,sans-serif;letter-spacing:0.3em;cursor:none">LOADING…</div>
@@ -117,8 +117,10 @@
           <div class="mode-item" data-online="0" data-cat="ranked"><button type="button" class="mode-card mode-ranked" data-mode="ctf" data-ranked="1"><b>Ranked Capture the Flag</b><span>Capture the Flag against bots, for rating.</span></button><button type="button" class="mode-set" data-mode="ctf" data-ranked="1">Settings</button></div>
           <div class="mode-item" data-online="0" data-cat="casual"><button type="button" class="mode-card mode-new" data-mode="bomb"><b>Bomb</b><span>Attackers plant, defenders stop them. One life a round, abilities on, first to 4 rounds.</span></button><button type="button" class="mode-set" data-mode="bomb">Settings</button></div>
           <div class="mode-item" data-online="0" data-cat="ranked"><button type="button" class="mode-card mode-ranked" data-mode="bomb" data-ranked="1"><b>Ranked Bomb</b><span>Bomb against bots, for rating.</span></button><button type="button" class="mode-set" data-mode="bomb" data-ranked="1">Settings</button></div>
-          <div class="mode-item" data-online="1" data-cat="casual"><button type="button" class="mode-card" data-mode="net"><b>Network battle</b><span>Play friends on other PCs: over the internet with a short game code, or on the same network. Bots optional.</span></button><button type="button" class="mode-set" data-mode="net">Settings</button></div>
-          <div class="mode-item" data-online="1" data-cat="ranked"><button type="button" class="mode-card mode-ranked" data-mode="net" data-ranked="1"><b>Ranked Bomb online</b><span>Find a ranked Bomb game against real players, or host one.</span></button><button type="button" class="mode-set" data-mode="net" data-ranked="1">Settings</button></div>
+          <div class="mode-item" data-online="1" data-cat="casual"><button type="button" class="mode-card" data-mode="net" data-net="battle"><b>Network battle</b><span>Play friends on other PCs: over the internet with a short game code, or on the same network. Bots optional.</span></button><button type="button" class="mode-set" data-mode="net" data-net="battle">Settings</button></div>
+          <div class="mode-item" data-online="1" data-cat="casual"><button type="button" class="mode-card mode-new" data-mode="net" data-net="bomb"><b>Bomb online</b><span>Attackers plant, defenders stop them, with friends on other PCs. Bots fill empty places.</span></button><button type="button" class="mode-set" data-mode="net" data-net="bomb">Settings</button></div>
+          <div class="mode-item" data-online="1" data-cat="casual"><button type="button" class="mode-card mode-new" data-mode="net" data-net="royale"><b>Battle Royale online</b><span>Drop onto Blacktide Island with friends; bots fill the rest of the 21 places.</span></button><button type="button" class="mode-set" data-mode="net" data-net="royale">Settings</button></div>
+          <div class="mode-item" data-online="1" data-cat="ranked"><button type="button" class="mode-card mode-ranked" data-mode="net" data-net="bomb" data-ranked="1"><b>Ranked Bomb online</b><span>Find a ranked Bomb game against real players, or host one.</span></button><button type="button" class="mode-set" data-mode="net" data-net="bomb" data-ranked="1">Settings</button></div>
         </div>
         <div id="presets" class="presets"></div>
         <h3 class="ch-head">Challenges <span class="small">new ones every day and every Monday</span></h3>
@@ -404,6 +406,6 @@
     </div>
   </div>
 </div>
-<script type="module" src="js/main.js?v=81e5283-mwlpeohh"></script>
+<script type="module" src="js/main.js?v=4501505-mwm04qmf"></script>
 </body>
 </html>

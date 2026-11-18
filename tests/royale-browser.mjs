@@ -437,6 +437,20 @@ try {
   });
   assert.deepEqual(sky, { found: true, bare: true, raised: true, cone: true, lone: true, support: true, collapsed: 0, ramp: true, foot: true, floating: true });
   console.log('PASS looking up raises a wall a level, cones build off the ground against a wall, builds fall when their support goes, and bots shot at from above target the support');
+  // C vaults up onto the tall end of a ramp (1.84 m: higher than a ledge vault)
+  const rampVault = await page.evaluate(() => {
+    const b = __range.battle(), r = b.royale, h = b.humans[0], a = b.arena;
+    r.materials = 2;
+    for (let i = 0; i < a.nodeCount; i += 7) { if (a.nodeY[i] > .01) continue; Object.assign(h.f, { x: a.nodeX[i], y: 0, z: a.nodeZ[i] }); const p = r.plan(h.f, 0, 'ramp'); if (p && !p.blocked) break; }
+    const ramp = r.build(h.f, 0, 'ramp'), c = ramp.mesh.position, high = ramp.dir === 0;   // (dir 0: the tall end faces -z)
+    Object.assign(h.f, { x: c.x, y: c.y, z: c.z - 2.0, vx: 0, vy: 0, vz: 0 }); h.camY = c.y; h.vault = null; h.look.yaw = 180;
+    b.key('KeyC', true); __range.step(.05); b.key('KeyC', false); __range.step(1);
+    const out = { high, up: h.f.y - c.y > 1.5 };
+    r.disposePiece(ramp); r.walls.splice(r.walls.indexOf(ramp), 1); r.syncWalls(); r.materials = 0;
+    return out;
+  });
+  assert.deepEqual(rampVault, { high: true, up: true });
+  console.log('PASS C vaults up onto the tall end of a ramp');
 
   const result = await page.evaluate(() => {
     const b = __range.battle(), r = b.royale, h = b.humans[0].f;

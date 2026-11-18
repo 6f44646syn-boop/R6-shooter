@@ -1,4 +1,4 @@
-import { ACTIONS, inputCode, inputLabel } from "./m7-raw-input.js?v=81e5283-mwlpeohh";
+import { ACTIONS, inputCode, inputLabel } from "./m7-raw-input.js?v=4501505-mwm04qmf";
 const node = (tag, text) => {
   const n = document.createElement(tag);
   if (text) n.textContent = text;
@@ -281,7 +281,8 @@ export function mountControls(root, api, padPanel = null) {
   render();
 }
 
-export function mountFirstLaunch(api, onDone = () => {}) {
+// First launch: mouse or trackpad, then (askGraphics) one simple graphics question; onDone(level or undefined).
+export function mountFirstLaunch(api, onDone = () => {}, askGraphics = false) {
   if (api.selected) return;
   const dialog = node("dialog");
   dialog.className = "m7-welcome";
@@ -304,11 +305,33 @@ export function mountFirstLaunch(api, onDone = () => {}) {
       api.setProfile(id);
       api.selected = true;
       api.save();
+      if (askGraphics) return graphics();
       dialog.close();
       dialog.remove();
       onDone();
     });
     dialog.append(b);
+  }
+  function graphics() {
+    title.textContent = "How should the game look?";
+    copy.textContent = "Pick what suits your PC. You can change it later in Settings.";
+    dialog.replaceChildren(title, copy);
+    for (const [level, label] of [
+      ["low", "Smooth: any laptop or school PC"],
+      ["standard", "Balanced: most PCs"],
+      ["high", "Best looking: a gaming PC"],
+    ]) {
+      const b = node("button", label);
+      b.type = "button";
+      b.dataset.firstGraphics = level;
+      b.addEventListener("click", () => {
+        dialog.close();
+        dialog.remove();
+        onDone(level);
+      });
+      dialog.append(b);
+    }
+    dialog.querySelector("button").focus();
   }
   dialog.addEventListener("cancel", (e) => e.preventDefault());
   document.body.append(dialog);

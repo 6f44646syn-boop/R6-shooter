@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=81e5283-mwlpeohh';
-import { ROYALE_BOTS } from './royale-map.js?v=81e5283-mwlpeohh';
-import { PLATFORM_HALF, PLATFORM_MASK, RAMP_RISE, platformHeight, platformMeshes, platformSolids, rampSurface } from './royale-platform.js?v=81e5283-mwlpeohh';
+import * as THREE from '../../vendor/three/three.module.min.js?v=4501505-mwm04qmf';
+import { ROYALE_BOTS } from './royale-map.js?v=4501505-mwm04qmf';
+import { PLATFORM_HALF, PLATFORM_MASK, RAMP_RISE, platformHeight, platformMeshes, platformSolids, rampSurface } from './royale-platform.js?v=4501505-mwm04qmf';
 
 const TOKEN_CHANCE = 0.001;
 const CHEST_MATERIALS = 18;
@@ -132,6 +132,20 @@ export class BattleRoyale {
   isPlayer(f) { return f === this.battle.humans[0]?.f || !!this.remoteOf(f); }
   materialsOf(f) { return f === this.battle.humans[0]?.f ? this.materials : (f.buildMaterials || 0); }
   sendMats(f) { const r = this.remoteOf(f); if (r) r.link.send({ k: 'mats', n: f.buildMaterials || 0 }); }
+
+  // Vault (C) up onto a ramp or cone in front: up to 2 m (a ramp's tall end, a raised piece),
+  // higher than the 1.5 m ledges the core vaults. Returns { x, y, z, top } or null.
+  climbTarget(f, dx, dz) {
+    const w = this.arena.world;
+    for (const t of [0.8, 1.1, 1.4]) {
+      const x = f.x + dx * t, z = f.z + dz * t;
+      if (!this.walls.some((p) => p.kind !== 'wall' && x > p.box.minX && x < p.box.maxX && z > p.box.minZ && z < p.box.maxZ)) continue;
+      const y = w.groundAt(x, z, f.y + 2.3), rise = y - f.y;
+      if (rise < 0.45 || rise > 2.0 || !w.free(x, z, w.r - 1e-6, y)) continue;
+      return { x, y, z, top: y };
+    }
+    return null;
+  }
 
   point(x, z) {
     const a = this.arena, i = a.world.nearestNode(x, z, 0);

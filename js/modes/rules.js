@@ -1,4 +1,4 @@
-import { utilityFor } from '../balance/bomb-utility.js?v=81e5283-mwlpeohh';
+import { utilityFor } from '../balance/bomb-utility.js?v=4501505-mwm04qmf';
 // Mode rules: Team Deathmatch, Capture the Flag, Bomb. Each sets up the match, spawns,
 // scores, ends it, and gives bots their objective (botGoal).
 export function makeRules(m) {
