@@ -892,10 +892,13 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
           vec4 photo = texture2D(undercoatMap, photoUV);
           float photoSide = sstep(0.30, 0.83, abs(normalize(vTriN).x)) * photo.a;
           float luminance = dot(photo.rgb, vec3(0.2126, 0.7152, 0.0722));
-          float detail = sstep(0.006, 0.12, luminance);
-          float frost = sstep(0.05, 0.33, max(base.r, max(base.g, base.b)));
-          vec3 layered = base * mix(0.28, 1.45, detail) + photo.rgb * mix(0.68, 0.23, frost);
-          base = mix(base, layered, photoSide * mix(0.92, 0.57, frost));
+          float frost = sstep(0.07, 0.30, max(base.r, max(base.g, base.b)));
+          // Preserve the source image's dark cutouts and bright edges even where the ice is thick.
+          float structure = sstep(0.004, 0.065, luminance);
+          vec3 metal = photo.rgb * 2.25;
+          vec3 glaze = base * mix(0.12, 1.05, structure);
+          vec3 layered = mix(metal + glaze * 0.48, metal * 0.62 + glaze, frost);
+          base = mix(base, layered, photoSide * 0.95);
         #endif
         diffuseColor.rgb = mix(base, vec3(0.36, 0.36, 0.38), triWear) * triGain;   // bare steel at the edges
         #ifdef TRI_HD
@@ -984,7 +987,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
             diffuseColor.rgb *= 0.82 + 1.25 * bCol.b;
           #endif
           #ifdef TRI_UNDERCOAT
-            bCol = mix(bCol, photo.rgb, photoSide * 0.72);
+            bCol = mix(bCol, photo.rgb * 1.7, photoSide * 0.87);
           #endif
           diffuseColor.rgb = mix(diffuseColor.rgb, bCol * triGain, triWear); // and it is bare where the paint has worn off
         #else
