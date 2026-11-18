@@ -283,6 +283,21 @@ void iceSkin(vec2 uv, float S, out vec3 col, out float m, out float g, out float
   g = max(max(crack * 0.18, spark * 0.75), max(flake * 0.32, fern * 0.21 + bubble * 0.13));
   height = clamp(0.58 + face * (0.09 + v1.z * 0.13) - crack * 0.48 + bev * 0.075
     + facet * 0.13 + rime * 0.11 + fern * 0.14 + flake * 0.08 - bubbleIn * 0.04 + fbm(uv, 64.0, 3) * 0.06, 0.0, 1.0);
+  if (iceStructure.w > 0.0) {
+    // Clear slate-blue plates with sharp white shoulders and hairline surface fractures.
+    float gap = v1.y - v1.x;
+    float lip = sstep(0.13, 0.013, gap);
+    float plate = sstep(0.30, 0.78, v1.z);
+    float pale = max(lip * (0.26 + 0.60 * plate), rime * prm.y * 0.47);
+    vec3 hair = voronoi(wq + 0.27, vec2(19.0 * S));
+    float scratches = sstep(0.025, 0.003, hair.y - hair.x) * sstep(-0.04, 0.28, deep);
+    vec3 glass = c3 * (0.75 + 1.6 * plate) + c1 * (0.08 + 0.30 * plate);
+    col = mix(col * 0.77, glass, 0.83);
+    col = mix(col, c2, max(pale, scratches * 0.48));
+    col += c2 * (max(bev, 0.0) * 0.55 + fern * 0.10 + spark * 0.2);
+    g = max(crack * 0.86, lip * (0.56 + 0.24 * plate));
+    height = mix(height, clamp(0.47 + plate * 0.22 + face * 0.10 - lip * 0.23 - crack * 0.09, 0.0, 1.0), 0.58);
+  }
 }
 void skinAt(vec2 uv, out vec3 col, out float m, out float g) {
   float S = max(1.0, floor(prm.x + 0.5)), W = prm.y, T = prm.z;
@@ -614,7 +629,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
   const defs = (sakura ? '#define TRI_SAKURA\n' : painted ? '#define TRI_ART\n' : skin ? '#define TRI_SKIN\n' : '') +
     (skin && skin.normal ? '#define TRI_SKIN_NORMAL\n' : '') + (detail ? '#define TRI_DETAIL\n' : '') +
     (hd ? '#define TRI_HD\n' : '') + (hd && depth > 0 && skin && skin.normal ? '#define TRI_PARALLAX\n' : '') + (base ? '#define TRI_BASE\n' : '') +
-    (hardwareBounds ? '#define TRI_HARDWARE\n' : '');
+    (hardwareBounds ? '#define TRI_HARDWARE\n' : '') + (def?.iceStructure ? '#define TRI_CRIMSON_ICE\n' : '');
   material.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, uniforms);
     sh.vertexShader = defs + 'varying vec3 vTriPos; varying vec3 vTriN; varying vec3 vTriAX; varying vec3 vTriAY; varying vec3 vTriAZ;\n' +
@@ -853,6 +868,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         }
         #endif
         vec4 sk = triTex(skinAlbedo, triP, tw);
+        vec4 skrm = triTex(skinRM, triP, tw);
         #if defined( USE_NORMALMAP ) || defined( USE_MAP )
           #ifdef USE_NORMALMAP
             vec2 wuv = fract(vNormalMapUv);
@@ -870,7 +886,38 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         vec3 base = sk.rgb * sk.rgb;
         // Colour fade from the stock to the muzzle (Rare and up).
         vec3 fc = mix(fadeB, fadeA, sstep(0.35, -0.55, vTriPos.z));
+        #ifdef TRI_CRIMSON_ICE
+          // Broken red bands meet the ice seams. Keep the colour visible on matcap graphics.
+          vec2 p = vTriPos.zy;
+          float ribbonY = -0.035 + 0.058 * sin(p.x * 19.0) + 0.021 * sin(p.x * 46.0 + 1.7);
+          float field = bNoise(p * vec2(13.0, 25.0));
+          float zone = exp(-abs(p.y - ribbonY) * 17.0) * 0.65 + field * 0.53;
+          #ifdef TRI_HARDWARE
+            vec2 fit = clamp((p - hardwareBounds.xy) * hardwareBounds.zw, 0.0, 1.0);
+            if (triBase < 5.5) {
+              triWear = max(triWear, 0.68 + 0.24 * sstep(0.30, 0.02, fit.x));
+              zone *= 0.48;
+            } else if (triBase > 8.5) {
+              float flank = abs(normalize(vTriN).x);
+              triWear = max(triWear, 0.22 + 0.74 * (1.0 - sstep(0.34, 0.84, flank)));
+              zone = field * 0.70 + sstep(0.68, 0.06, fit.y + 0.52 * fit.x) * 0.65;
+            } else if (triBase > 7.5) {
+              triWear = max(triWear, 0.23 + 0.67 * sstep(0.08, 0.32, min(min(fit.x, 1.0 - fit.x), min(fit.y, 1.0 - fit.y))));
+              zone = max(zone, field * 0.6 + sstep(0.35, 0.05, fit.y) * 0.57) * 0.93;
+            } else {
+              triWear = max(triWear, 0.18 + 0.20 * bNoise(p * vec2(140.0, 23.0)));
+              zone = max(zone, field * 0.58 + sstep(0.35, 0.07, fit.y + (fit.x - 0.5) * 0.53) * 0.52);
+            }
+          #endif
+          float crimson = sstep(0.52, 0.88, zone);
+          float fissure = skrm.r * crimson;
+          float frostEdge = pow(max(normalize(vTriN).y, 0.0), 2.0) * (0.10 + 0.38 * field);
+          base = mix(base, vec3(0.58, 0.79, 0.96), frostEdge);
+          base = mix(base, base * vec3(0.44, 0.08, 0.14) + vec3(0.15, 0.002, 0.006), crimson * 0.92);
+          base += vec3(0.91, 0.002, 0.012) * fissure;
+        #else
         base = mix(base, mix(base, fc * (0.6 + 0.8 * dot(base, vec3(0.33))) + fc * 0.25, 0.65), fadeAmt);
+        #endif
         diffuseColor.rgb = mix(base, vec3(0.36, 0.36, 0.38), triWear) * triGain;   // bare steel at the edges
         #ifdef TRI_HD
           diffuseColor.rgb *= 1.0 - triWear * (1.0 - triWear) * 1.6;     // dark rim where the paint is chipped
@@ -891,7 +938,11 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
           #ifdef TRI_HARDWARE
           vec2 part = clamp((q.zy - hardwareBounds.xy) * hardwareBounds.zw, 0.0, 1.0);
           float fleck = bNoise(q.zy * 740.0 + q.x * 200.0);
-          if (triBase < 5.5) {                       // muzzle: turned steel, polished collars and soot at the end
+          if (triBase > 8.5) {                       // optic housing: phosphate steel
+            bCol = vec3(0.08, 0.092, 0.112) * (0.7 + fleck * 0.6);
+            bRough = 0.5 + fleck * 0.13; bMetal = 0.7;
+            bNrm = vec2(0.0, (fleck - 0.5) * 0.07);
+          } else if (triBase < 5.5) {                // muzzle: turned steel, polished collars and soot at the end
             float turned = bNoise(vec2(q.z * 2100.0, (q.x + q.y) * 58.0));
             float collar = sstep(0.035, 0.0, abs(part.x - 0.17)) + sstep(0.045, 0.0, abs(part.x - 0.79));
             float soot = sstep(0.23, 0.02, part.x + (fleck - 0.5) * 0.07);
@@ -900,6 +951,12 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
             bRough = clamp(0.43 + 0.16 * fleck + 0.24 * soot - 0.26 * collar, 0.17, 0.85);
             bMetal = 0.88 - soot * 0.41;
             bNrm = vec2((turned - 0.5) * 0.16, (fleck - 0.5) * 0.09);
+          } else if (triBase > 7.5) {                 // grip: a molded, stippled panel beneath the icy edges
+            float stipple = bNoise(q.zy * 1540.0 + q.x * 620.0);
+            bCol = vec3(0.038, 0.046, 0.054) * (0.68 + 0.70 * stipple);
+            bRough = 0.78 + 0.16 * fleck;
+            bMetal = 0.02;
+            bNrm = vec2(stipple - 0.5, fleck - 0.5) * 0.22;
           } else {                                   // magazine: formed channels, a floorplate seam and scuffed edges
             bool steel = triBase > 6.5;
             float side = sstep(0.48, 0.9, abs(normalize(vTriN).x));
@@ -949,6 +1006,9 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         }
         #ifdef TRI_SKIN
           diffuseColor.rgb *= 0.86 + 0.28 * bLum;                          // the metal's grain shows through the paint
+          #ifdef TRI_HARDWARE
+            diffuseColor.rgb *= 0.83 + 0.56 * bCol.b;
+          #endif
           diffuseColor.rgb = mix(diffuseColor.rgb, bCol * triGain, triWear); // and it is bare where the paint has worn off
         #else
           diffuseColor.rgb = bCol * triGain;
@@ -979,7 +1039,6 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         roughnessFactor = mix(roughnessFactor, mix(0.14, 0.18, kGold), kLacq);
         roughnessFactor = mix(roughnessFactor, 0.2 + 0.22 * kScale + 0.14 * (1.0 - kDam) + 0.3 * kPit - 0.08 * sstep(0.35, 0.5, kHam.x), kPlate);   // forged steel: rims of the dimples catch the light
       #elif defined( TRI_SKIN )
-        vec4 skrm = triTex(skinRM, triP, tw);
         roughnessFactor = mix(skrm.g, 0.3, triWear);
       #endif
       #ifdef TRI_BASE
@@ -1124,7 +1183,11 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       #endif
       #ifdef TRI_SKIN
         // Glowing lines; they pulse while inspecting.
-        totalEmissiveRadiance += skinGlow * skrm.r * (1.0 - triWear) * (1.0 + triAnim * (0.9 + 0.9 * sin(triTime * 5.0)));
+        #ifdef TRI_CRIMSON_ICE
+          totalEmissiveRadiance += (skinGlow * fissure + vec3(0.12, 0.26, 0.45) * skrm.r * (1.0 - crimson)) * (1.0 - triWear) * (1.0 + 0.65 * triAnim);
+        #else
+          totalEmissiveRadiance += skinGlow * skrm.r * (1.0 - triWear) * (1.0 + triAnim * (0.9 + 0.9 * sin(triTime * 5.0)));
+        #endif
         totalEmissiveRadiance += sweepCol * sweep * (1.0 - triWear) * 0.6;
       #endif`);
     f = f.replace('#include <normal_fragment_maps>', /* glsl */`#include <normal_fragment_maps>
