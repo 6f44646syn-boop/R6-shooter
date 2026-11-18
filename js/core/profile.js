@@ -270,9 +270,17 @@ export class Profile {
   }
   load() {
     const st = this.storage || (typeof localStorage !== 'undefined' ? localStorage : null);
-    let code = null;
-    try { code = st ? st.getItem(KEY) : null; } catch (e) { code = null; }
+    // A save an older copy of the page could not read (from a newer version) was put aside: it wins once readable.
+    let code = null, unread = null;
+    try { unread = st ? st.getItem(KEY + '.unread') : null; code = unread || (st ? st.getItem(KEY) : null); } catch (e) { code = null; }
     if (!code) return;
-    try { const l = this.listeners; this.listeners = new Set(); this.loadCode(code); this.listeners = l; } catch (e) { this.reset(); }
+    const l = this.listeners; this.listeners = new Set();
+    try { this.loadCode(code); if (unread) st.removeItem(KEY + '.unread'); }
+    catch (e) {
+      try { if (!unread) st.setItem(KEY + '.unread', code); } catch { /* storage full */ }
+      this.reset();
+      if (unread) { try { this.loadCode(st.getItem(KEY) || ''); } catch { this.reset(); } }   // still unreadable: this version's own save
+    }
+    this.listeners = l;
   }
 }

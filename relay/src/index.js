@@ -44,12 +44,13 @@ export default {
         'Content-Type': 'application/json; charset=utf-8' } });
     }
     if (url.pathname === '/ranked' && req.method === 'GET') {
-      const shards = await Promise.all(Array.from({ length: RANK_SHARDS }, async (_, index) => {
+      // one shard failing hides only its own games
+      const shards = await Promise.allSettled(Array.from({ length: RANK_SHARDS }, async (_, index) => {
         const response = await rankedStub(env, index).fetch('https://relay.internal/directory');
         if (!response.ok) throw new Error('Ranked directory unavailable');
         return response.json();
       }));
-      const games = shards.flat().sort((a, b) => b.players - a.players || a.code.localeCompare(b.code));
+      const games = shards.flatMap(s => s.status === 'fulfilled' ? s.value : []).sort((a, b) => b.players - a.players || a.code.localeCompare(b.code));
       return Response.json(games, { headers: rankedHeaders });
     }
     if (url.pathname === '/' || url.pathname === '/health') return new Response('Recoil Range relay: OK', { headers: cors });

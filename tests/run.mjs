@@ -1962,6 +1962,7 @@ try {
         const foe = m.actors.find((a) => !a.human && a.team !== pl.team);
         for (const a of m.actors) if (!a.human) { a.x = 25; a.z = 15 - a.id; a.y = 0; }
         foe.x = -5; foe.z = 0; foe.y = 0; foe.protectUntil = 0; foe.alive = true; foe.hp = 100;
+        pl.x = -10; pl.z = 0; pl.y = 0; pl.forced = true;   // (the host places you, as a respawn does; positions are the host's to move far)
         G.h.respawn(25, -15, window.__range.now(), 0);
         return { foe: foe.id, pl: pid };
       }, ro[1].me);

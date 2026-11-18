@@ -124,6 +124,10 @@ export class MatchHost {
     if (msg.k === 'st') {
       if (!a.alive || t < (a.ignoreUntil || 0)) return;
       const p = { x: fin(msg.x, a.x), y: Math.max(0, Math.min(40, fin(msg.y, a.y))), z: fin(msg.z, a.z) };
+      // no faster than a player can run (12 m/s, with slack for bunched packets); further is sent back
+      const reach = 18 * Math.min(1, Math.max(.05, t - (a.stAt ?? t))) + .5, dx = p.x - a.x, dz = p.z - a.z, dist = Math.hypot(dx, dz);
+      a.stAt = t;
+      if (dist > reach) { p.x = a.x + dx / dist * reach; p.z = a.z + dz / dist * reach; a.forced = true; }
       m.map.resolve(p);
       a.x = p.x; a.y = p.y; a.z = p.z;
       a.yaw = fin(msg.yaw, a.yaw); a.pitch = Math.max(-89, Math.min(89, fin(msg.pitch, a.pitch)));
@@ -152,9 +156,12 @@ export class MatchHost {
     if (!r || r.actor || !msg.hit) return;
     // the shooter saw a hit the host's (slightly older) positions missed: check it
     const v = m.actors.find((x) => x.id === (msg.hit.id | 0)), p = Array.isArray(msg.hit.p) ? msg.hit.p.slice(0, 3).map((x) => fin(x)) : null;
-    const zone = ['head', 'torso', 'limbs'].includes(msg.hit.zone) ? msg.hit.zone : 'torso';
     if (!v || !p || !v.alive || v.team === a.team) return;
     if (Math.hypot(p[0] - v.x, p[2] - v.z) > 2 || Math.abs(p[1] - v.y - 1) > 1.6) return;
+    // the claimed hit must lie on the shot's own line, and its height (not the claim) says where it hit
+    const along = (p[0] - o[0]) * d[0] + (p[1] - o[1]) * d[1] + (p[2] - o[2]) * d[2];
+    if (along < 0 || Math.hypot(p[0] - o[0] - d[0] * along, p[1] - o[1] - d[1] * along, p[2] - o[2] - d[2] * along) > .5) return;
+    const rise = (p[1] - v.y) / (1 - 0.3 * (v.crouch || 0)), zone = rise > 1.48 ? 'head' : rise > .92 ? 'torso' : 'limbs';   // (sim.js rayActor's shapes)
     if (r.t < Math.hypot(p[0] - o[0], p[1] - o[1], p[2] - o[2]) - 0.6 && r.box) return;   // a wall in front of it
     if (!m.map.sight(o, p)) return;
     m.hit(v, a.gun.damage, a, zone, 'gun');

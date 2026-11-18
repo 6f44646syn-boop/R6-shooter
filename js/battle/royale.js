@@ -457,7 +457,7 @@ export class BattleRoyale {
       if (level !== null) { y = level; attached = true; }
     }
     const box = { minX:x-w/2, maxX:x+w/2, minY:y, maxY:y+(isWall ? WALL_HEIGHT : platformHeight(kind)), minZ:z-d/2, maxZ:z+d/2 };
-    if (raised && !attached) attached = this.walls.some(p => overlaps(grow(box), p.box));
+    if (raised) attached = this.walls.some(p => overlaps(grow(box), p.box));      // (even on a ramp's edge: raised, it may float)
     // A wall straddles a grid edge: test only its centre line (ends trimmed), so it can stand on the
     // edge of a floor or ramp and meet another wall at a corner, but not on top of another wall.
     // A floor, ramp or cone tests its cell inset by 0.2 m, so it fits right against walls on the cell's
@@ -665,8 +665,11 @@ export class BattleRoyale {
   }
   // Builds no longer joined to the ground (through the pieces they touch) fall once what held them up is gone.
   collapse() {
-    this.arena.setBuilds([]);           // the bare map: where the ground is
-    const held = new Set(this.walls.filter(p => p.box.minY <= this.arena.groundAt((p.box.minX + p.box.maxX) / 2, (p.box.minZ + p.box.maxZ) / 2, p.box.minY + .3) + .3));
+    // on the ground: worked out once per piece, against the bare map (pieces never move)
+    const fresh = this.walls.filter(p => p.grounded === undefined);
+    if (fresh.length) this.arena.setBuilds([]);
+    for (const p of fresh) p.grounded = p.box.minY <= this.arena.groundAt((p.box.minX + p.box.maxX) / 2, (p.box.minZ + p.box.maxZ) / 2, p.box.minY + .3) + .3;
+    const held = new Set(this.walls.filter(p => p.grounded));
     for (let more = true; more;) {
       more = false;
       for (const p of this.walls) if (!held.has(p) && [...held].some(q => overlaps(grow(p.box), q.box))) { held.add(p); more = true; }
@@ -683,7 +686,7 @@ export class BattleRoyale {
     if (!enemy?.alive || t - at > 3 || enemy.y < f.y + 2.5) return null;
     const eye = f.eye([0, 0, 0]);
     // what they stand on, then every piece below it that it is joined to (the base), lowest first
-    const under = this.walls.filter(w => w.box.minY < enemy.y && enemy.x > w.box.minX - .4 && enemy.x < w.box.maxX + .4 && enemy.z > w.box.minZ - .4 && enemy.z < w.box.maxZ + .4);
+    const under = this.walls.filter(w => w.box.minY < enemy.y && (w.kind !== 'wall' || w.box.maxY <= enemy.y + .3) && enemy.x > w.box.minX - .4 && enemy.x < w.box.maxX + .4 && enemy.z > w.box.minZ - .4 && enemy.z < w.box.maxZ + .4);
     for (let i = 0; i < under.length; i++)
       for (const w of this.walls) if (!under.includes(w) && w.box.minY < under[i].box.minY + .1 && overlaps(grow(w.box), under[i].box)) under.push(w);
     under.sort((a, b) => a.box.minY - b.box.minY);

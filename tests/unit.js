@@ -17,6 +17,7 @@ import { MatchStats } from '../js/core/mvp.js';
 import { addXp, checkIn, seasonState, rewardOf, TIERS, XP_PER_TIER } from '../js/core/season.js';
 import { submit, myCode, addFriend, ranking, bests } from '../js/core/bests.js';
 import { accounts, switchTo, createAccount, deleteAccount } from '../js/core/accounts.js';
+import { MatchHost } from '../js/modes/net-match.js';
 
 const results = [];
 function test(name, fn) {
@@ -29,6 +30,39 @@ function near(a, b, eps, what) {
 function eq(a, b, what) {
   if (a !== b) throw new Error((what || 'value') + ': expected ' + JSON.stringify(b) + ', got ' + JSON.stringify(a));
 }
+
+test('online host: no teleporting, and a claimed hit must be on the shot line (its height sets the zone)', () => {
+  const me = { id: 1, team: 'A', alive: true, x: 0, y: 0, z: 0, gun: { rpm: 600, damage: 30 } };
+  const foe = { id: 2, team: 'B', alive: true, x: 0, y: 0, z: -10, crouch: 0 };
+  const hits = [], link = {};
+  const m = { t: 0, over: false, actors: [me, foe], map: { resolve() {}, sight: () => true }, eye: () => [0, 1.6, 0],
+    humanShot: () => ({ t: 50, actor: null, box: null }), hit: (v, dmg, by, zone) => hits.push(zone) };
+  const host = new MatchHost({ m }, [{ link, actorId: 1 }]);
+  host.onMessage(link, { k: 'st', x: 0, y: 0, z: 0 });
+  m.t = 0.05; host.onMessage(link, { k: 'st', x: 30, y: 0, z: 0 });     // 30 m in a twentieth of a second
+  eq(me.x < 2, true, 'teleport refused, got x ' + me.x); eq(me.forced, true, 'and sent back');
+  m.t = 0.1; const from = me.x; host.onMessage(link, { k: 'st', x: from + 0.6, y: 0, z: 0 });
+  eq(me.x, from + 0.6, 'a normal step is kept');
+  Object.assign(me, { x: 0, z: 0 });
+  // fired straight up, "hit" the foe's head: refused
+  host.onMessage(link, { k: 'shot', o: [0, 1.6, 0], d: [0, 1, 0], hit: { id: 2, p: [0, 1.62, -10], zone: 'head' } });
+  eq(hits.length, 0, 'a hit off the shot line');
+  // fired at the foe's chest, claimed "head": counts, as a torso hit
+  host.onMessage(link, { k: 'shot', o: [0, 1.15, 0], d: [0, 0, -1], hit: { id: 2, p: [0, 1.15, -10], zone: 'head' } });
+  eq(hits.join(), 'torso', 'the zone comes from the height');
+});
+
+test('a save this version cannot read is kept, and comes back once readable', () => {
+  const box = new Map(), mem = { getItem: (k) => box.get(k) ?? null, setItem: (k, v) => box.set(k, v), removeItem: (k) => box.delete(k) };
+  const good = new Profile(mem); good.addPoints(500);
+  const saved = box.get('recoilRange.profile.v1');
+  box.set('recoilRange.profile.v1', 'RRS9-from-a-newer-version');
+  const old = new Profile(mem); old.addPoints(20);                   // the old page plays on
+  eq(old.points, 20); eq(box.get('recoilRange.profile.v1.unread'), 'RRS9-from-a-newer-version', 'the unreadable save is kept');
+  box.set('recoilRange.profile.v1.unread', saved);                   // (a version that can read it)
+  const back = new Profile(mem);
+  eq(back.points, 500, 'the kept save wins'); eq(box.has('recoilRange.profile.v1.unread'), false, 'and is cleared');
+});
 
 test('Sakura Gilt is the rarest pack reward and survives save-code export', () => {
   const storage = { getItem: () => null, setItem() {} };

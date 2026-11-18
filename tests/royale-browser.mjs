@@ -424,9 +424,18 @@ try {
     Object.assign(bot, save);
     r.damageWall(low, 999);                                                  // the base's foot goes: the rest falls
     out.collapsed = r.walls.length;
+    // on a ramp, a wall on its low edge sits at the ramp's foot; raised, it would float, so it is refused
+    Object.assign(h.f, { x: low.mesh.position.x, z: low.mesh.position.z + (low.box.maxX - low.box.minX > 1 ? 1.6 : 0), y: low.box.minY });
+    const ramp = r.build(h.f, 0, 'ramp');
+    out.ramp = !!ramp;
+    if (ramp) {
+      Object.assign(h.f, { x: ramp.mesh.position.x, z: ramp.mesh.position.z, y: ramp.mesh.position.y + .9 });
+      out.foot = !r.plan(h.f, 180, 'wall').blocked;
+      out.floating = r.plan(h.f, 180, 'wall', 40).blocked;
+    }
     return out;
   });
-  assert.deepEqual(sky, { found: true, bare: true, raised: true, cone: true, lone: true, support: true, collapsed: 0 });
+  assert.deepEqual(sky, { found: true, bare: true, raised: true, cone: true, lone: true, support: true, collapsed: 0, ramp: true, foot: true, floating: true });
   console.log('PASS looking up raises a wall a level, cones build off the ground against a wall, builds fall when their support goes, and bots shot at from above target the support');
 
   const result = await page.evaluate(() => {
