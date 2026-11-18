@@ -2,7 +2,7 @@
 // Storage can be missing or throw (private window, blocked site data), so every access is
 // wrapped and the app always works with the defaults.
 
-import { sensToCm360, cm360ToSens } from './sensitivity.js?v=4485eaa-mwlojqse';
+import { sensToCm360, cm360ToSens } from './sensitivity.js?v=81e5283-mwlpeohh';
 
 const KEY = 'recoilRange.settings.v1';
 
@@ -23,6 +23,7 @@ export const DEFAULTS = Object.freeze({
   crosshair: { style: 'cross', size: 10, gap: 4, thickness: 2, color: '#3dff9a', outline: true },
   volume: 0.35,
   spatialAudio: true,
+  footsteps: false,      // footstep sounds (off by default)
   holeSizeCm: 3,
   aimRecoil: 1,          // Aimed recoil strength (1 = as measured)
   hipRecoil: 1.8,        // hip-fire recoil strength (x the measured spray)
@@ -123,6 +124,7 @@ export function sanitize(input) {
   out.weaponShading = s.weaponShading === 'detailed' ? 'detailed' : 'fast';
   out.lensQuality = ['auto', '3', '2', '1', '0'].includes(String(s.lensQuality)) ? String(s.lensQuality) : DEFAULTS.lensQuality;
   out.spatialAudio = typeof s.spatialAudio === 'boolean' ? s.spatialAudio : DEFAULTS.spatialAudio;
+  out.footsteps = s.footsteps === true;
   out.adsSens = s.adsSens === 'game' ? 'game' : 'focal';
   out.aimSmooth = typeof s.aimSmooth === 'boolean' ? s.aimSmooth : DEFAULTS.aimSmooth;
   out.hipSpread = typeof s.hipSpread === 'boolean' ? s.hipSpread : DEFAULTS.hipSpread;

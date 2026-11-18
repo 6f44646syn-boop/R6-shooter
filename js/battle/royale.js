@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=4485eaa-mwlojqse';
-import { ROYALE_BOTS } from './royale-map.js?v=4485eaa-mwlojqse';
-import { PLATFORM_HALF, PLATFORM_MASK, RAMP_RISE, platformHeight, platformMeshes, platformSolids, rampSurface } from './royale-platform.js?v=4485eaa-mwlojqse';
+import * as THREE from '../../vendor/three/three.module.min.js?v=81e5283-mwlpeohh';
+import { ROYALE_BOTS } from './royale-map.js?v=81e5283-mwlpeohh';
+import { PLATFORM_HALF, PLATFORM_MASK, RAMP_RISE, platformHeight, platformMeshes, platformSolids, rampSurface } from './royale-platform.js?v=81e5283-mwlpeohh';
 
 const TOKEN_CHANCE = 0.001;
 const CHEST_MATERIALS = 18;
@@ -447,13 +447,13 @@ export class BattleRoyale {
     // Look up: the wall goes a level higher; it needs a build to rest on or lean against.
     const raised = isWall && player && pitch >= RAISE_PITCH;
     if (raised) y += WALL_HEIGHT;
-    // Sky base: a cone off the ground goes level with the top or foot of a wall or ramp it touches
-    // (the one nearest your feet).
+    // Sky base: a cone off the ground goes level with the top or foot of a wall or ramp it touches, or beside
+    // a cone it touches (the level nearest your feet).
     if (kind === 'cone' && !previous && !attached && Math.abs(y - f.y) > .45) {
       const cell = grow({ minX:x-w/2, maxX:x+w/2, minY:-Infinity, maxY:Infinity, minZ:z-d/2, maxZ:z+d/2 });
       let level = null;
-      for (const p of this.walls) if (p.kind !== 'cone' && overlaps(cell, p.box))
-        for (const v of [p.box.minY, p.box.maxY]) if (Math.abs(v - f.y) < 3.3 && (level === null || Math.abs(v - f.y) < Math.abs(level - f.y))) level = v;
+      for (const p of this.walls) if (overlaps(cell, p.box))
+        for (const v of p.kind === 'cone' ? [p.box.minY] : [p.box.minY, p.box.maxY]) if (Math.abs(v - f.y) < 3.3 && (level === null || Math.abs(v - f.y) < Math.abs(level - f.y))) level = v;
       if (level !== null) { y = level; attached = true; }
     }
     const box = { minX:x-w/2, maxX:x+w/2, minY:y, maxY:y+(isWall ? WALL_HEIGHT : platformHeight(kind)), minZ:z-d/2, maxZ:z+d/2 };

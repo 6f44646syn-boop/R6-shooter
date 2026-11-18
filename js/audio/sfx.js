@@ -1,7 +1,7 @@
-import { Hearing } from './hearing.js?v=4485eaa-mwlojqse';
-import { decodeAudioPack } from './audio-pack.js?v=4485eaa-mwlojqse';
+import { Hearing } from './hearing.js?v=81e5283-mwlpeohh';
+import { decodeAudioPack } from './audio-pack.js?v=81e5283-mwlpeohh';
 // WebAudio output only: sound propagation, surface profiles and step cadence are Rust-owned.
-import { cameraPose } from './acoustics.js?v=4485eaa-mwlojqse';
+import { cameraPose } from './acoustics.js?v=81e5283-mwlpeohh';
 const clamp = (v, lo, hi) =>
   Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo;
 export class Sfx {
@@ -100,6 +100,7 @@ export class Sfx {
     }
   }
   stepAt(source, camera, geometry, arena, noiseRange, teammate = false) {
+    if (!this.footsteps) return null;            // footstep sounds are a setting (off by default)
     const w = this.locate('step', source, camera, geometry, arena, {
       reach: this.acoustics.e.ma_reach(noiseRange),
       teammate,
