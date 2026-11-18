@@ -121,7 +121,7 @@ The **Battle Royale render distance** slider under **Settings → View** sets ho
 the arena is drawn, from 45 to 200 metres.
 
 One chest has a chance to hold the Pirate Token in 1 in 1,000 matches. Collecting it
-unlocks all nine Black Ice skins on the local profile and in its save code. A completed
+unlocks all twenty Black Ice skins on the local profile and in its save code. A completed
 match shows the final recorded kill, winner lineup, and placement leaderboard.
 
 Run `npm run test:royale` with Playwright installed to check deployment, chest-only
@@ -171,13 +171,13 @@ Settings, Skins & packs, Main menu. Every gun has its own model.
 
 Menu > Skins & packs. Battle kills earn points (20, +10 for a headshot kill; +50 for winning
 a battle; in split screen, player 1's kills count). A pack costs 100 points and spins a
-slot-machine reel that lands on one of 202 skins. Black Ice drops in 1% of packs, and
-Legendary Sakura Gilt has a 1-in-4,000 drop chance. Duplicates refund points based on rarity.
+slot-machine reel that lands on one of 222 skins. Black Ice drops in 5% of packs, with
+two finishes per gun. Legendaries drop in 1% of packs. Duplicates refund points based on rarity.
 Click a skin in your collection to equip it on the gun selected in Loadout. Some skins are
 exclusive: each Black Ice and half the Epics fit one gun only, and some Rares one gun
 family (SMGs, or rifles and carbines).
 
-Press **I** to inspect your equipped skin. All nine Black Ice variants
+Press **I** to inspect your equipped skin. All twenty Black Ice variants
 grow a layer of frost and release a pulse of cold vapour and ice flecks. Sakura Gilt's
 raised blossoms open in 3D and shed petals. Particle density scales with graphics quality.
 Firing, aiming, reloading or switching weapons cancels the inspect.

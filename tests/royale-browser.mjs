@@ -441,7 +441,7 @@ try {
     return [oldOwned, pirate.length, r.token, blackIce.length,
       blackIce.every(s => saved.has(s.id) && imported.has(s.id)), !b.royale && r.ring.parent === null];
   });
-  assert.deepEqual(unlock, [0, 1, true, 9, true, true]);
+  assert.deepEqual(unlock, [0, 1, true, 20, true, true]);
   const fullMatch = await page.evaluate(() => {
     const r = __range, b = r.battle();
     b.start(b.opts);
@@ -454,7 +454,7 @@ try {
   assert.equal(fullMatch.over, true);
   assert.equal(fullMatch.living, 1);
   assert.deepEqual(errors, []);
-  console.log('PASS the rare Pirate Token unlocks all nine Black Ice skins in storage and save codes');
+  console.log('PASS the rare Pirate Token unlocks all twenty Black Ice skins in storage and save codes');
   console.log('PASS bots find guns in chests and the full match ends with exactly one survivor');
 } finally {
   await browser?.close();
