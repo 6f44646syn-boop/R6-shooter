@@ -128,11 +128,11 @@ function ultraDetail(kind) {
 // Guns other people carry use cheaper shading in High / Ultra (no lacquer layers): they are
 // small on screen and there can be a dozen of them.
 function shading() { const s = sightShading(); return WORLD && (s === 'high' || s === 'ultra') ? 'detailed' : s; }
-function skinMaterial(def, hardware = null) {
+function skinMaterial(def, options = null) {
   const sh = shading(), hd = HD;
   const sakura = def.id === SAKURA_ID, kiln = !!def.art;      // kiln: a painted Legendary (concept art)
   const sk = sakura || kiln ? { def, clearcoat: def.clearcoat } : bakedSkin(def);     // painted in the shader, nothing to bake
-  const surface = { skin: sk, scale: sk.scale || 2.8, base: sakura || kiln ? 0 : 1, ...hardware };
+  const surface = { skin: sk, scale: sk.scale || 2.8, base: sakura || kiln ? 0 : 1, ...options };
   let m;
   if (sh === 'fast') {
     m = new THREE.MeshMatcapMaterial({ color: 0xffffff, matcap: matcap('metal') });
@@ -168,12 +168,13 @@ const baseFor = (color, kind) => kind === 'wood' ? 2 : kind === 'cloth' || kind 
   : kind === 'metal' || color === STEEL ? 4 : color === BLACK || kind === 'polymer' ? 3 : 1;
 // kind: 'auto' (black = polymer, else metal), 'metal' (barrels, tubes) or 'wood' (pack furniture).
 // skinAs: paint this part with that skin (a default skin's part, fitted to its own box of the picture).
-function mat(color, kind = 'auto', skinAs = null) {
+function mat(color, kind = 'auto', skinAs = null, undercoat = null) {
   const sh = shading();
   const skin = skinAs || (kind === 'auto' && color !== BLACK && color !== STEEL ? currentSkin() : null);
-  const key = sh + color + kind + (skin ? '|skin' + skin.id + ':' + (packArt.finish ? packArt.revision : 0) + 's' + skinSheets.rev + '@' + skinSize() : '') + (HD ? '|hd' : '');
+  const key = sh + color + kind + (skin ? '|skin' + skin.id + ':' + (packArt.finish ? packArt.revision : 0) + 's' + skinSheets.rev + '@' + skinSize() : '') + (HD ? '|hd' : '') +
+    (undercoat ? '|undercoat|' + undercoat.rect.join(',') : '');
   if (!mats.has(key)) {
-    if (skin) { mats.set(key, skinMaterial(skin)); return mats.get(key); }
+    if (skin) { mats.set(key, skinMaterial(skin, { undercoat })); return mats.get(key); }
     if (HD) { mats.set(key, hdMaterial(color, kind, sh)); return mats.get(key); }
     if (sh === 'ultra') {
       // Polymer, steel and fabric: the high materials plus micro-detail.
@@ -206,17 +207,18 @@ function mat(color, kind = 'auto', skinAs = null) {
 }
 const BLACK = 0x1c1e21, STEEL = 0x55595f, RUBBER = 0x141516, WOOD = 0x6a3a18;
 
-function finishHardware(parts, base, skin = null) {
+function finishHardware(parts, base, skin = null, undercoat = null) {
   if (!parts.length) return;
   const bounds = new THREE.Box3();
   for (const part of parts) bounds.expandByObject(part);
   const sh = shading();
   const fit = [bounds.min.z, bounds.min.y, 1 / (bounds.max.z - bounds.min.z), 1 / (bounds.max.y - bounds.min.y)];
-  const key = sh + '|hardware|' + base + '|' + fit.join(',') + (skin ? '|' + skin.id + ':' + packArt.revision + 's' + skinSheets.rev + '@' + skinSize() : '');
+  const key = sh + '|hardware|' + base + '|' + fit.join(',') + (skin ? '|' + skin.id + ':' + packArt.revision + 's' + skinSheets.rev + '@' + skinSize() : '') +
+    (undercoat ? '|undercoat|' + undercoat.rect.join(',') : '');
   if (!mats.has(key)) {
     const hardwareBounds = new THREE.Vector4(...fit);
     if (skin) {
-      mats.set(key, skinMaterial(skin, { base, hardwareBounds }));
+      mats.set(key, skinMaterial(skin, { base, hardwareBounds, undercoat }));
     } else {
       const material = sh === 'fast'
         ? new THREE.MeshMatcapMaterial({ matcap: matcap('metal') })
@@ -1238,7 +1240,7 @@ Object.assign(BUILDERS, {
 });
 // The F2 (bullpup), traced from the Storm Kiln concept at real size (f2-model.js): each part is its
 // outline extruded across the gun with rounded edges. The grip and handguard sit where the hands go.
-function traced(g, o, color, kind = 'auto', skinAs = null) {
+function traced(g, o, color, kind = 'auto', skinAs = null, undercoat = null) {
   const v = (p) => new THREE.Vector2(p[0], p[1]);
   const shape = new THREE.Shape(o.outer.map(v));
   for (const h of o.holes || []) shape.holes.push(new THREE.Path(h.map(v)));
@@ -1248,7 +1250,7 @@ function traced(g, o, color, kind = 'auto', skinAs = null) {
   geo.translate(d / 2 - bevel, 0, 0);
   const uv = geo.attributes.uv.array;             // outline units are metres: a texture tile every 5 cm
   for (let i = 0; i < uv.length; i++) uv[i] *= 20;
-  const m = new THREE.Mesh(geo, mat(color, kind, skinAs));
+  const m = new THREE.Mesh(geo, mat(color, kind, skinAs, undercoat));
   g.add(m);
   return m;
 }
@@ -1265,6 +1267,12 @@ const SIGHT_Z = { bullpup: -0.08, carbine: 0.01 };     // gun z under the sight 
 const TRACED = { bullpup: F2, lmg: G8, sfw: C8, carbine: R4, ak: AK, evo: EVO, compact: MP5K, smg: T5, machinepistol: SMG11, pdw: MP7 };
 // With no skin on, the furniture is walnut (the gun's own look; see triplanar's base).
 const WOOD_PARTS = new Set(['grip', 'foregrip', 'stock', 'magazine']);
+
+function defaultUndercoat(skin, part) {
+  const stock = skin?.iceStructure && DEFAULT_SKINS[skin.guns[0]];
+  const rect = stock?.parts?.[part];
+  return rect ? { art: stock.art, rect } : null;
+}
 
 // Replace only the forward end of a traced barrel. Keep the original silhouette behind the collar.
 function roundedMuzzle(g, outline, color) {
@@ -1302,15 +1310,19 @@ function tracedGun(model) {
     const skin = currentSkin(), painted = !!skin?.art;
     const plain = (p, color, kind) => !skin && WOOD_PARTS.has(p.name) ? [WOOD, 'wood'] : [color, kind];
     const fitted = (name) => skin?.parts?.[name] ? [c, 'auto', partSkin(skin, name)] : null;   // a default skin's own fit for this part
-    traced(g, model.body, c);
+    traced(g, model.body, c, 'auto', null, defaultUndercoat(skin, 'body'));
     for (const p of model.parts) {
       if (skin?.iceStructure && (p.name === 'brake' || (p.name === 'barrel' && model !== F2))) {
         roundedMuzzle(g, p, p.color === 'steel' ? STEEL : BLACK);
         continue;
       }
+      if (skin?.iceStructure && p.name === 'stock' && defaultUndercoat(skin, p.name)) {
+        traced(g, p, c, 'auto', skin, defaultUndercoat(skin, p.name));
+        continue;
+      }
       const part = traced(g, p, ...(fitted(p.name) || (p.paint && painted && !skin.parts ? [c, 'auto'] : plain(p, p.color === 'steel' ? STEEL : BLACK, p.color === 'steel' ? 'metal' : 'auto'))));
       if (skin?.iceStructure && p.name === 'barrel') finishHardware([part], 5);
-      if (skin?.iceStructure && (p.name === 'grip' || p.name === 'foregrip')) finishHardware([part], 8, skin);
+      if (skin?.iceStructure && (p.name === 'grip' || p.name === 'foregrip')) finishHardware([part], 8, skin, defaultUndercoat(skin, p.name));
     }
     traced(mg, model.mag, ...(fitted('magazine') || (model.mag.paint && painted && !skin.parts ? [c, 'auto'] : plain(model.mag, BLACK, 'auto'))));
   };
@@ -1358,6 +1370,7 @@ function attachParts(g, mg, type, code, my, mz, skin = null) {
   const [mu, gr, un, mgk] = [...(code || '0000')].map(Number);
   const sp = SPEC[type], hz = HAND_Z[type] ?? -0.2;
   const muzzleStart = g.children.length, magazineParts = hardware ? [...mg.children] : [];
+  let undercoat = defaultUndercoat(skin, 'magazine');
   let ext = 0;
   if (mu === 1) {            // flash hider: a slotted tube
     tube(g, BLACK, 0.0105, 0.05, 0, my, mz - 0.025, 12);
@@ -1416,9 +1429,13 @@ function attachParts(g, mg, type, code, my, mz, skin = null) {
         // (each part is stretched down from the well; the group itself stays free for the reload)
         const top = b.max.y, k = 1.32;
         for (const c of [...mg.children]) { c.position.y = top + (c.position.y - top) * k; c.scale.y *= k; }
+        if (undercoat) {
+          const [z0, z1, y0, y1] = undercoat.rect;
+          undercoat = { ...undercoat, rect: [z0, z1, top + (y0 - top) * k, top + (y1 - top) * k] };
+        }
         const low = top + (b.min.y - top) * k;
         const floorplate = box(mg, BLACK, (b.max.x - b.min.x) * 0.9 + 0.004, 0.01, (b.max.z - b.min.z) * 0.9 + 0.004, (b.max.x + b.min.x) / 2, low - 0.003, (b.max.z + b.min.z) / 2);
-        if (hardware) magazineParts.push(floorplate);
+        if (hardware) finishHardware([floorplate], STAMPED_MAGS.has(type) ? 7 : 6, skin);
       } else {               // quick-change: a pull loop under the base plate
         const cx = (b.max.x + b.min.x) / 2, cz = (b.max.z + b.min.z) / 2;
         const loop = new THREE.Mesh(new THREE.TorusGeometry(0.014, 0.003, 6, 14, Math.PI), mat(0x3d4a2a, 'cloth'));
@@ -1427,7 +1444,7 @@ function attachParts(g, mg, type, code, my, mz, skin = null) {
       }
     }
   }
-  if (hardware) finishHardware(magazineParts, STAMPED_MAGS.has(type) ? 7 : 6, skin);
+  if (hardware) finishHardware(magazineParts, STAMPED_MAGS.has(type) ? 7 : 6, skin, undercoat);
   return ext;
 }
 

@@ -570,7 +570,7 @@ function artTexture(url) {
 }
 //   base: the gun's own material under everything (1 gunmetal, 2 walnut, 3 stippled polymer, 4 machined steel):
 //       the whole look of a part with no skin; under a skin, its grain shows through the paint and it is bare at worn edges.
-export function triplanar(material, { skin = null, detail = null, scale = 3, detailScale = 2, detailStrength = 1, gain = 1, hd = false, hdEdge = 0, hdEdgeCol = [0.32, 0.33, 0.35], hdEdgeMetal = 1, depth = 0, base = 0, hardwareBounds = null } = {}) {
+export function triplanar(material, { skin = null, detail = null, scale = 3, detailScale = 2, detailStrength = 1, gain = 1, hd = false, hdEdge = 0, hdEdgeCol = [0.32, 0.33, 0.35], hdEdgeMetal = 1, depth = 0, base = 0, hardwareBounds = null, undercoat = null } = {}) {
   const uniforms = {
     triScale: { value: scale }, detScale: { value: detailScale }, detStrength: { value: detailStrength },
     skinAlbedo: { value: skin?.albedo ?? null }, skinRM: { value: skin?.rm ?? null }, skinNormal: { value: skin?.normal ?? null },
@@ -585,6 +585,10 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
     reliefDepth: { value: depth },
   };
   if (hardwareBounds) uniforms.hardwareBounds = { value: hardwareBounds };
+  if (undercoat) {
+    uniforms.undercoatMap = { value: artTexture(undercoat.art) };
+    uniforms.undercoatRect = { value: new THREE.Vector4(...undercoat.rect) };
+  }
   const def = skin && skin.def;
   const sakura = def?.pattern === 17, painted = !!def?.art;
   if (painted) {
@@ -614,7 +618,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
   const defs = (sakura ? '#define TRI_SAKURA\n' : painted ? '#define TRI_ART\n' : skin ? '#define TRI_SKIN\n' : '') +
     (skin && skin.normal ? '#define TRI_SKIN_NORMAL\n' : '') + (detail ? '#define TRI_DETAIL\n' : '') +
     (hd ? '#define TRI_HD\n' : '') + (hd && depth > 0 && skin && skin.normal ? '#define TRI_PARALLAX\n' : '') + (base ? '#define TRI_BASE\n' : '') +
-    (hardwareBounds ? '#define TRI_HARDWARE\n' : '');
+    (hardwareBounds ? '#define TRI_HARDWARE\n' : '') + (undercoat ? '#define TRI_UNDERCOAT\n' : '');
   material.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, uniforms);
     sh.vertexShader = defs + 'varying vec3 vTriPos; varying vec3 vTriN; varying vec3 vTriAX; varying vec3 vTriAY; varying vec3 vTriAZ;\n' +
@@ -634,6 +638,10 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       varying vec3 vTriPos; varying vec3 vTriN; varying vec3 vTriAX; varying vec3 vTriAY; varying vec3 vTriAZ;
       uniform float triScale, detScale, detStrength, skinWear, triGain;
       uniform vec3 skinGlow, fadeA, fadeB, sweepCol;
+      #ifdef TRI_UNDERCOAT
+        uniform sampler2D undercoatMap;
+        uniform vec4 undercoatRect;
+      #endif
       uniform float fadeAmt, triTime, triAnim, reliefK;
       uniform sampler2D skinAlbedo, skinRM, skinNormal, detailMap;
       uniform float triAO, hdEdge, hdEdgeMetal, reliefDepth;
@@ -878,6 +886,17 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         // Colour fade from the stock to the muzzle (Rare and up).
         vec3 fc = mix(fadeB, fadeA, sstep(0.35, -0.55, vTriPos.z));
         base = mix(base, mix(base, fc * (0.6 + 0.8 * dot(base, vec3(0.33))) + fc * 0.25, 0.65), fadeAmt);
+        #ifdef TRI_UNDERCOAT
+          // Default art is a side projection. Fade it on the face of the muzzle and across bevels.
+          vec2 photoUV = clamp((vTriPos.zy - undercoatRect.xz) / (undercoatRect.yw - undercoatRect.xz), 0.002, 0.998);
+          vec4 photo = texture2D(undercoatMap, photoUV);
+          float photoSide = sstep(0.30, 0.83, abs(normalize(vTriN).x)) * photo.a;
+          float luminance = dot(photo.rgb, vec3(0.2126, 0.7152, 0.0722));
+          float detail = sstep(0.006, 0.12, luminance);
+          float frost = sstep(0.05, 0.33, max(base.r, max(base.g, base.b)));
+          vec3 layered = base * mix(0.28, 1.45, detail) + photo.rgb * mix(0.68, 0.23, frost);
+          base = mix(base, layered, photoSide * mix(0.92, 0.57, frost));
+        #endif
         diffuseColor.rgb = mix(base, vec3(0.36, 0.36, 0.38), triWear) * triGain;   // bare steel at the edges
         #ifdef TRI_HD
           diffuseColor.rgb *= 1.0 - triWear * (1.0 - triWear) * 1.6;     // dark rim where the paint is chipped
@@ -963,6 +982,9 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
           diffuseColor.rgb *= 0.86 + 0.28 * bLum;                          // the metal's grain shows through the paint
           #ifdef TRI_HARDWARE
             diffuseColor.rgb *= 0.82 + 1.25 * bCol.b;
+          #endif
+          #ifdef TRI_UNDERCOAT
+            bCol = mix(bCol, photo.rgb, photoSide * 0.72);
           #endif
           diffuseColor.rgb = mix(diffuseColor.rgb, bCol * triGain, triWear); // and it is bare where the paint has worn off
         #else
