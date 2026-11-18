@@ -394,6 +394,41 @@ try {
   assert.ok(buildTools.drag.cells >= 3 && buildTools.tower.y > 15);
   console.log('PASS walls snap to the ramp you stand on, ramps under your feet crank a tower, held fire drags and turbo rebuilds, V resets edits, the blueprint is in your hands');
 
+  // sky bases: look up for a wall a level higher, cones off the ground against a wall, collapse, bots shoot the support
+  const sky = await page.evaluate(() => {
+    const b = __range.battle(), r = b.royale, a = b.arena, h = b.humans[0];
+    for (const w of r.walls.slice()) { r.disposePiece(w); r.walls.splice(r.walls.indexOf(w), 1); } r.syncWalls();
+    r.materials = 60;
+    let found = false;
+    for (let i = 0; i < a.nodeCount && !found; i += 7) {
+      if (a.nodeY[i] > .01 || Math.abs(a.nodeX[i]) > 40 || Math.abs(a.nodeZ[i]) > 30) continue;
+      Object.assign(h.f, { x: a.nodeX[i], y: 0, z: a.nodeZ[i], vx: 0, vy: 0, vz: 0 });
+      found = !r.plan(h.f, 0, 'wall').blocked && !r.plan(h.f, 0, 'cone').blocked;
+    }
+    const out = { found, bare: r.plan(h.f, 0, 'wall', 40).blocked };       // nothing below: no wall up there
+    const low = r.build(h.f, 0, 'wall'), up = r.plan(h.f, 0, 'wall', 40);
+    out.raised = !up.blocked && Math.abs(up.y - (low.box.minY + 2.7)) < 1e-6;
+    const high = r.build(h.f, 0, 'wall', 40);
+    h.f.y = low.box.maxY;                                                    // up on the base, level with the wall top
+    const cone = r.plan(h.f, 0, 'cone'), lone = r.plan(h.f, 180, 'cone');
+    out.cone = !cone.blocked && Math.abs(cone.y - low.box.maxY) < 1e-6;
+    out.lone = lone.blocked;                                                 // touches no wall or ramp: refused
+    const sky = r.build(h.f, 0, 'cone');
+    // a bot below being shot at from the cone: it targets the lowest wall holding it up
+    const bot = b.fighters.find(g => g !== h.f && g.alive);
+    const save = { x: bot.x, y: bot.y, z: bot.z };
+    Object.assign(h.f, { x: sky.mesh.position.x, y: sky.box.maxY, z: sky.mesh.position.z });
+    Object.assign(bot, { x: low.mesh.position.x + (low.box.maxX - low.box.minX > 1 ? 0 : -7), y: low.box.minY, z: low.mesh.position.z + (low.box.maxX - low.box.minX > 1 ? 7 : 0) });
+    const target = r.supportTarget(bot, h.f, b.t, b.t);
+    out.support = target?.support === true && [low, high].includes(target.wall);
+    Object.assign(bot, save);
+    r.damageWall(low, 999);                                                  // the base's foot goes: the rest falls
+    out.collapsed = r.walls.length;
+    return out;
+  });
+  assert.deepEqual(sky, { found: true, bare: true, raised: true, cone: true, lone: true, support: true, collapsed: 0 });
+  console.log('PASS looking up raises a wall a level, cones build off the ground against a wall, builds fall when their support goes, and bots shot at from above target the support');
+
   const result = await page.evaluate(() => {
     const b = __range.battle(), r = b.royale, h = b.humans[0].f;
     const [first, second, survivor] = b.bots.map(bot => bot.f);

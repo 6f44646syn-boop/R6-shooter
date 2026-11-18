@@ -134,7 +134,8 @@ export class Bot {
           const [x,y,z] = best.chest(this._pt);
           this.visibleContact = { actor:best, x,y,z,vx:best.vx || 0,vz:best.vz || 0,t };
         }
-        this.wallTarget = best ? null : royale.coverTarget(f,this.visibleContact,t);
+        // shot at from above: bring down the build they stand on; else shoot through cover at someone just seen
+        this.wallTarget = royale.supportTarget(f, this.attacker, this.attackedAt, t) || (best ? null : royale.coverTarget(f,this.visibleContact,t));
       }
       if (best !== this.target) {
         if (!best && this.target && this.target.alive) this.say(battle, t, 'Lost them.');
@@ -270,7 +271,7 @@ export class Bot {
 
     /* aim */
     let wantYaw = f.yaw, wantPitch = 0;
-    if (tgt) {
+    if (tgt && !cover?.support) {
       if (t >= this.nextErr) {
         this.nextErr = t + this._r(0.35, 0.8);
         // Aim settles the longer the bot tracks you: 1.5x error on first sight, 0.6x after ~2 s.

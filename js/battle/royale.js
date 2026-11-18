@@ -13,6 +13,8 @@ const FULL_WALL = (1 << GRID ** 2) - 1;
 const PIECES = ['wall', 'ramp', 'cone'];
 const MAX_RAMPS = 10;
 const UNDER_PITCH = 45;                 // looking down this far (degrees) puts a ramp under your feet
+const RAISE_PITCH = 35;                 // looking up this far puts a wall one level higher (on what is below it)
+const grow = (b, m = .06) => ({ minX:b.minX-m, maxX:b.maxX+m, minY:b.minY-m, maxY:b.maxY+m, minZ:b.minZ-m, maxZ:b.maxZ+m });
 const HOLD_GAP = .12, TURBO_GAP = .05;   // seconds between pieces while fire is held (turbo building: faster)
 // The drop: everyone starts this high over their spawn and parachutes down (steer with W A S D),
 // protected while gliding and for a few seconds after landing (shooting ends it, as at any spawn).
@@ -442,7 +444,20 @@ export class BattleRoyale {
         y = q.y + (onTop ? RAMP_RISE : 0);
       }
     }
+    // Look up: the wall goes a level higher; it needs a build to rest on or lean against.
+    const raised = isWall && player && pitch >= RAISE_PITCH;
+    if (raised) y += WALL_HEIGHT;
+    // Sky base: a cone off the ground goes level with the top or foot of a wall or ramp it touches
+    // (the one nearest your feet).
+    if (kind === 'cone' && !previous && !attached && Math.abs(y - f.y) > .45) {
+      const cell = grow({ minX:x-w/2, maxX:x+w/2, minY:-Infinity, maxY:Infinity, minZ:z-d/2, maxZ:z+d/2 });
+      let level = null;
+      for (const p of this.walls) if (p.kind !== 'cone' && overlaps(cell, p.box))
+        for (const v of [p.box.minY, p.box.maxY]) if (Math.abs(v - f.y) < 3.3 && (level === null || Math.abs(v - f.y) < Math.abs(level - f.y))) level = v;
+      if (level !== null) { y = level; attached = true; }
+    }
     const box = { minX:x-w/2, maxX:x+w/2, minY:y, maxY:y+(isWall ? WALL_HEIGHT : platformHeight(kind)), minZ:z-d/2, maxZ:z+d/2 };
+    if (raised && !attached) attached = this.walls.some(p => overlaps(grow(box), p.box));
     // A wall straddles a grid edge: test only its centre line (ends trimmed), so it can stand on the
     // edge of a floor or ramp and meet another wall at a corner, but not on top of another wall.
     // A floor, ramp or cone tests its cell inset by 0.2 m, so it fits right against walls on the cell's
@@ -646,7 +661,40 @@ export class BattleRoyale {
     if (this.editing === wall) this.cancelEdit();
     this.disposePiece(wall);
     this.walls.splice(this.walls.indexOf(wall), 1);
+    this.collapse();
+  }
+  // Builds no longer joined to the ground (through the pieces they touch) fall once what held them up is gone.
+  collapse() {
+    this.arena.setBuilds([]);           // the bare map: where the ground is
+    const held = new Set(this.walls.filter(p => p.box.minY <= this.arena.groundAt((p.box.minX + p.box.maxX) / 2, (p.box.minZ + p.box.maxZ) / 2, p.box.minY + .3) + .3));
+    for (let more = true; more;) {
+      more = false;
+      for (const p of this.walls) if (!held.has(p) && [...held].some(q => overlaps(grow(p.box), q.box))) { held.add(p); more = true; }
+    }
+    for (const p of this.walls.filter(p => !held.has(p))) {
+      if (this.editing === p) this.cancelEdit();
+      this.disposePiece(p);
+      this.walls.splice(this.walls.indexOf(p), 1);
+    }
     this.syncWalls();
+  }
+  // Shot at from above: the build holding the shooter up (the lowest one in sight under them), to bring it down.
+  supportTarget(f, enemy, at, t) {
+    if (!enemy?.alive || t - at > 3 || enemy.y < f.y + 2.5) return null;
+    const eye = f.eye([0, 0, 0]);
+    // what they stand on, then every piece below it that it is joined to (the base), lowest first
+    const under = this.walls.filter(w => w.box.minY < enemy.y && enemy.x > w.box.minX - .4 && enemy.x < w.box.maxX + .4 && enemy.z > w.box.minZ - .4 && enemy.z < w.box.maxZ + .4);
+    for (let i = 0; i < under.length; i++)
+      for (const w of this.walls) if (!under.includes(w) && w.box.minY < under[i].box.minY + .1 && overlaps(grow(w.box), under[i].box)) under.push(w);
+    under.sort((a, b) => a.box.minY - b.box.minY);
+    for (const w of under) {
+      const point = [(w.box.minX + w.box.maxX) / 2, Math.min(w.box.maxY - .2, w.box.minY + 1), (w.box.minZ + w.box.maxZ) / 2];
+      const delta = point.map((v, i) => v - eye[i]), distance = Math.hypot(...delta);
+      if (distance < 1 || distance > 45) continue;
+      this.arena.raycast(eye, delta.map(v => v / distance), distance + .5);
+      if (this.impactWalls[this.arena.world.hit - this.arena.baseBoxCount] === w) return { wall: w, point, support: true };
+    }
+    return null;
   }
 
   syncWalls() {
