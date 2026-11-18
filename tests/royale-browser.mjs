@@ -76,6 +76,24 @@ try {
   });
   assert.deepEqual(ghost, { held: { shown: true, built: 0, at: ghost.held.at }, toggled: { shown: true, built: 0 }, built: 1, same: true, hidden: true, spent: 1, onGrid: true });
   console.log('PASS B toggles build mode: the ghost shows where the piece goes on the grid, fire builds it, B again goes back to shooting');
+  const cones = await page.evaluate(() => {
+    const R = __range, b = R.battle(), r = b.royale, h = b.humans[0], a = b.arena;
+    r.materials = 20; h.look.yaw = 0; h.look.pitch = 0;
+    for (let i = 0; i < a.nodeCount; i += 11) { if (a.nodeY[i] > .01) continue; Object.assign(h.f, { x: a.nodeX[i], y: 0, z: a.nodeZ[i] }); const p = r.plan(h.f, 0, 'cone'); if (p && !p.blocked) break; }
+    const n = r.walls.length;
+    r.piece = 'cone'; b.key('KeyB', true); b.key('KeyB', false);
+    b.mouseButton(0, true);
+    for (let i = 0; i < 9; i++) { h.look.yaw += 90; R.step(1 / 60); }    // 0.15 s held, aiming at new cells
+    const early = r.walls.length - n;
+    for (let i = 0; i < 30; i++) { h.look.yaw += 90; R.step(1 / 60); }   // to 0.65 s: turbo carries on
+    const later = r.walls.length - n;
+    b.mouseButton(0, false); b.key('KeyB', true); b.key('KeyB', false);
+    for (const w of r.walls.splice(n)) r.disposePiece(w);
+    r.syncWalls(); r.piece = 'wall'; r.materials = 0;
+    return { early, later };
+  });
+  assert.ok(cones.early === 1 && cones.later > 1, JSON.stringify(cones));
+  console.log('PASS cones: one click places one cone (a short window before turbo repeats), holding keeps building');
   const corner = await page.evaluate(() => {
     const b = __range.battle(), r = b.royale, h = b.humans[0], a = b.arena;
     r.materials = 4; const n = r.walls.length;

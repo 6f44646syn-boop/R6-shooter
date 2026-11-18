@@ -54,7 +54,7 @@ try {
     const g = __range.modeGame();
     return {prep:g.m.o.prepTime,level:g.m.o.difficulty,abilities:g.m.o.abilitiesOn,humans:g.m.actors.filter(a=>a.human).length};
   });
-  check('ranked Bomb uses fixed settings and the watcher occupies no player slot', settings.prep === 30 && settings.level === 'normal' && settings.abilities && settings.humans === 2, settings);
+  check('ranked Bomb uses the host\'s Bomb settings and the watcher occupies no player slot', settings.prep === 60 && settings.level === 'easy' && !settings.abilities && settings.humans === 2, settings);
 
   await host.evaluate(() => {
     const g = __range.modeGame();

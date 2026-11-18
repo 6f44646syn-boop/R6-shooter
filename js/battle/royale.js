@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=088a449-mwmr3fa0';
-import { ROYALE_BOTS } from './royale-map.js?v=088a449-mwmr3fa0';
-import { PLATFORM_HALF, PLATFORM_MASK, RAMP_RISE, platformHeight, platformMeshes, platformSolids, rampSurface } from './royale-platform.js?v=088a449-mwmr3fa0';
+import * as THREE from '../../vendor/three/three.module.min.js?v=0636e0a-mwmru1gp';
+import { ROYALE_BOTS } from './royale-map.js?v=0636e0a-mwmru1gp';
+import { PLATFORM_HALF, PLATFORM_MASK, RAMP_RISE, platformHeight, platformMeshes, platformSolids, rampSurface } from './royale-platform.js?v=0636e0a-mwmru1gp';
 
 const TOKEN_CHANCE = 0.001;
 const CHEST_MATERIALS = 18;
@@ -16,6 +16,7 @@ const UNDER_PITCH = 45;                 // looking down this far (degrees) puts 
 const RAISE_PITCH = 35;                 // looking up this far puts a wall one level higher (on what is below it)
 const grow = (b, m = .06) => ({ minX:b.minX-m, maxX:b.maxX+m, minY:b.minY-m, maxY:b.maxY+m, minZ:b.minZ-m, maxZ:b.maxZ+m });
 const HOLD_GAP = .12, TURBO_GAP = .05;   // seconds between pieces while fire is held (turbo building: faster)
+const CONE_WINDOW = .3;                  // cones: held fire repeats only after this long, so a click places one cone
 // The drop: everyone starts this high over their spawn and parachutes down (steer with W A S D),
 // protected while gliding and for a few seconds after landing (shooting ends it, as at any spawn).
 const DROP_H = 55, GLIDE = 5.5, LAND_PROTECT = 5;
@@ -575,7 +576,7 @@ export class BattleRoyale {
 
   // Fire in build mode: build now, and keep building for as long as it is held.
   holdFire(h, down) {
-    this.holding = down; this.dry = false;
+    this.holding = down; this.dry = false; if (down) this.pressAt = this.battle.t;
     if (down) this.build(h.f, h.look.yaw, this.piece, h.look.pitch);
   }
   // Held fire puts a piece at every new spot your aim reaches. Turbo building (a setting): twice as fast, and
@@ -584,6 +585,7 @@ export class BattleRoyale {
     if (!this.holding || !p || p.limit) return;
     if (!this.materials) { if (!this.dry) { this.dry = true; this.notify('Out of materials'); } return; }
     if (p.blocked) return;
+    if (this.piece === 'cone' && this.battle.t - this.pressAt < CONE_WINDOW) return;
     const turbo = this.battle.deps.settings.turboBuild !== false;
     if (this.battle.t - this.holdAt < (turbo ? TURBO_GAP : HOLD_GAP) || (!turbo && p.key === this.holdKey)) return;
     this.build(h.f, h.look.yaw, this.piece, h.look.pitch, p, true);
