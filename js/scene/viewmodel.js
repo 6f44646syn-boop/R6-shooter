@@ -7,7 +7,7 @@ import { packArt } from '../render/pack-art.js?v=b14a97f-mwkjfhd1';
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
 import * as THREE from '../../vendor/three/three.module.min.js?v=b14a97f-mwkjfhd1';
 import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=b14a97f-mwkjfhd1';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, sightMaterials, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=b14a97f-mwkjfhd1';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=b14a97f-mwkjfhd1';
 import { matcap } from './matcap.js?v=b14a97f-mwkjfhd1';
 import { mulberry32 } from '../core/prng.js?v=b14a97f-mwkjfhd1';
 import { gunMaps } from './range-tex.js?v=b14a97f-mwkjfhd1';
@@ -128,19 +128,18 @@ function ultraDetail(kind) {
 // Guns other people carry use cheaper shading in High / Ultra (no lacquer layers): they are
 // small on screen and there can be a dozen of them.
 function shading() { const s = sightShading(); return WORLD && (s === 'high' || s === 'ultra') ? 'detailed' : s; }
-function skinMaterial(def, hardware = null) {
+function skinMaterial(def) {
   const sh = shading(), hd = HD;
   const sakura = def.id === SAKURA_ID, kiln = !!def.art;      // kiln: a painted Legendary (concept art)
   const sk = sakura || kiln ? { def, clearcoat: def.clearcoat } : bakedSkin(def);     // painted in the shader, nothing to bake
-  const surface = { skin: sk, scale: sk.scale || 2.8, base: sakura || kiln ? 0 : 1, ...hardware };
   let m;
   if (sh === 'fast') {
     m = new THREE.MeshMatcapMaterial({ color: 0xffffff, matcap: matcap('metal') });
-    triplanar(m, { ...surface, gain: 1.7 });
+    triplanar(m, { skin: sk, scale: sk.scale || 2.8, gain: 1.7, base: sakura || kiln ? 0 : 1 });
   } else if (sh === 'detailed') {
     m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 1,
       envMap: sakura ? sakuraEnv() : hd ? highEnv() || ENV : ENV, envMapIntensity: 0.9 });
-    triplanar(m, { ...surface, hd });
+    triplanar(m, { skin: sk, scale: sk.scale || 2.8, hd, base: sakura || kiln ? 0 : 1 });
   } else {
     // Shine by rarity: every skin gets some lacquer; Epic and Black Ice also a colour-shifting
     // (iridescent) sheen.
@@ -157,7 +156,7 @@ function skinMaterial(def, hardware = null) {
     const depth = !sakura && !kiln && hd && RENDERER && RENDERER.capabilities.isWebGL2 ? (r === 'blackice' ? 0.0028 : r === 'common' ? 0.0008 : 0.0014) : 0;
     const detailStrength = r === 'legendary' || r === 'blackice' ? 0.16 : hd ? 0.35 : 0.5;
     const detail = !sakura && !kiln && (hd || sh === 'ultra') ? ultraDetail('paint') : null;
-    triplanar(m, { ...surface, hd, depth, detail, detailScale: 9, detailStrength });
+    triplanar(m, { skin: sk, scale: sk.scale || 2.8, hd, depth, detail, detailScale: 9, detailStrength, base: sakura || kiln ? 0 : 1 });
   }
   m.userData.skinKey = def.id + ':' + (packArt.finish ? packArt.revision : 0) + 's' + skinSheets.rev + '@' + skinSize();
   return m;
@@ -206,15 +205,19 @@ function mat(color, kind = 'auto', skinAs = null) {
 }
 const BLACK = 0x1c1e21, STEEL = 0x55595f, RUBBER = 0x141516, WOOD = 0x6a3a18;
 
-function finishHardware(parts, base, skin) {
+function finishHardware(parts, base) {
   if (!parts.length) return;
   const bounds = new THREE.Box3();
   for (const part of parts) bounds.expandByObject(part);
   const sh = shading();
   const fit = [bounds.min.z, bounds.min.y, 1 / (bounds.max.z - bounds.min.z), 1 / (bounds.max.y - bounds.min.y)];
-  const key = sh + '|hardware|' + skin.id + ':' + packArt.revision + 's' + skinSheets.rev + '@' + skinSize() + '|' + base + '|' + fit.join(',');
+  const key = sh + '|hardware|' + base + '|' + fit.join(',');
   if (!mats.has(key)) {
-    mats.set(key, skinMaterial(skin, { base, hardwareBounds: new THREE.Vector4(...fit) }));
+    const material = sh === 'fast'
+      ? new THREE.MeshMatcapMaterial({ matcap: matcap('metal') })
+      : new THREE.MeshStandardMaterial({ envMap: sh === 'detailed' ? ENV : highEnv(), envMapIntensity: 1 });
+    triplanar(material, { base, hardwareBounds: new THREE.Vector4(...fit), gain: sh === 'fast' ? 1.7 : 1 });
+    mats.set(key, material);
   }
   for (const part of parts) part.material = mats.get(key);
 }
@@ -1264,10 +1267,7 @@ function tracedGun(model) {
     traced(g, model.body, c);
     for (const p of model.parts) {
       const part = traced(g, p, ...(fitted(p.name) || (p.paint && painted && !skin.parts ? [c, 'auto'] : plain(p, p.color === 'steel' ? STEEL : BLACK, p.color === 'steel' ? 'metal' : 'auto'))));
-      if (skin?.iceStructure) {
-        if (p.name === 'barrel' || p.name === 'brake') finishHardware([part], 5, skin);
-        else if (p.name === 'grip' || p.name === 'foregrip') finishHardware([part], 8, skin);
-      }
+      if (skin?.iceStructure && (p.name === 'barrel' || p.name === 'brake')) finishHardware([part], 5);
     }
     traced(mg, model.mag, ...(fitted('magazine') || (model.mag.paint && painted && !skin.parts ? [c, 'auto'] : plain(model.mag, BLACK, 'auto'))));
   };
@@ -1306,11 +1306,10 @@ for (const [type, f] of Object.entries(TRACED_FIT)) {
 /* ---------- Attachments (Milestone 8, js/core/loadout.js codes) ---------- */
 // Adds the attachments of a loadout code to a gun built along -z (muzzle at [my, mz]). The
 // magazine parts go in mg so they move with the reload. Returns how far the muzzle moved
-// forward (the flash goes to the new end). The new Black Ice finishes can cover muzzle hardware and magazines.
+// forward (the flash goes to the new end). Neutral colours: skins never paint attachments.
 const LASER_RED = 0xff3030;
 const STAMPED_MAGS = new Set(['ak', 'carbine', 'compact', 'lmg', 'machinepistol', 'sfw']);
-function attachParts(g, mg, type, code, my, mz, skin = null) {
-  const hardware = !!skin?.iceStructure;
+function attachParts(g, mg, type, code, my, mz, hardware = false) {
   if ((!code || code === '0000') && !hardware) return 0;
   const [mu, gr, un, mgk] = [...(code || '0000')].map(Number);
   const sp = SPEC[type], hz = HAND_Z[type] ?? -0.2;
@@ -1338,7 +1337,7 @@ function attachParts(g, mg, type, code, my, mz, skin = null) {
     tube(g, BLACK, 0.0095, 0.018, 0, my, mz - 0.075, 10);
     ext = 0.084;
   }
-  if (hardware && ext) finishHardware(g.children.slice(muzzleStart).filter(part => part.material !== mat(DARK)), 5, skin);
+  if (hardware && ext) finishHardware(g.children.slice(muzzleStart).filter(part => part.material !== mat(DARK)), 5);
   // Grips go just ahead of the support hand, under the handguard.
   const gy = -0.032, gz = Math.max(mz + 0.03, hz - 0.075);
   if (gr === 1) {            // vertical grip: a ribbed post with a cap
@@ -1377,7 +1376,7 @@ function attachParts(g, mg, type, code, my, mz, skin = null) {
       }
     }
   }
-  if (hardware) finishHardware(magazineParts, STAMPED_MAGS.has(type) ? 7 : 6, skin);
+  if (hardware) finishHardware(magazineParts, STAMPED_MAGS.has(type) ? 7 : 6);
   return ext;
 }
 
@@ -1403,7 +1402,7 @@ export function buildWorldGun(gun, slot, skinId) {
       if (skinId === SAKURA_ID) sakuraInlays(g);
       if (skin?.art && skin.artLook !== 'default' && TRACED[type]) artInlays(g, skin, TRACED[type]);   // (a default skin is the picture alone)
       if (skin?.rarity === 'epic' && !skin.art) epicInlays(g, skin);   // (a pack picture is the finish itself)
-      if (at || skin?.iceStructure) { SKIN_FORCE = null; attachParts(g, mg, type, at, ...muzzle, skin); }
+      if (at || skin?.iceStructure) { SKIN_FORCE = null; attachParts(g, mg, type, at, ...muzzle, !!skin?.iceStructure); }
     } finally { SKIN_FORCE = undefined; WORLD = false; }
     g.add(mg);
     mergeStatic(g);
@@ -1685,10 +1684,6 @@ export class WeaponRig {
     if (!m) {
       m = new THREE.Group();
       const sight = buildSight(optic, ENV);
-      if (sk?.iceStructure && optic.group !== 'iron') {
-        const metal = sightMaterials(ENV).metal;
-        finishHardware(sight.group.children.filter((part) => part.material === metal), 9, sk);
-      }
       sight.group.position.set(0, 0, -EYE_Z);
       m.add(sight.group);
       const gunG = new THREE.Group();
@@ -1709,7 +1704,7 @@ export class WeaponRig {
       const muzzle = hdm?.header.anchors?.muzzle || SPEC[type].muzzle;
       const [my, mz] = muzzle;
       const keepSkin = SKIN_FORCE; SKIN_FORCE = null;
-      const ext = attachParts(gunG, magG, type, gun.attach, my, mz, sk);
+      const ext = attachParts(gunG, magG, type, gun.attach, my, mz, !!sk?.iceStructure);
       SKIN_FORCE = keepSkin;
       const ice = sk?.rarity === 'blackice';
       const frost = ice ? prepareFrost(gunG, magG, sight.group) : null;
@@ -1753,9 +1748,7 @@ export class WeaponRig {
         m.userData.anchors = { id: key, rest: palm.toArray(), mag: c.toArray(), magBottom: [c.x, mb.isEmpty() ? -0.16 : mb.min.y, c.z], port: [sp.hw + 0.01, 0.012, sp.port + 0.03], pouch: [-0.12, -0.42, hz + 0.18] };
       }
       const skinMats = new Set();
-      for (const group of [gunG, sight.group]) {
-        group.traverse((o) => { if (o.isMesh && o.material.userData.tri && o.material.userData.skinKey) skinMats.add(o.material); });
-      }
+      gunG.traverse((o) => { if (o.isMesh && o.material.userData.tri && o.material.userData.skinKey) skinMats.add(o.material); });
       m.userData.skinMats = [...skinMats];
       m.userData.ice = ice;
       const s = 0.62;

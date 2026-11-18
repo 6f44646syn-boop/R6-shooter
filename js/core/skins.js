@@ -128,16 +128,16 @@ const NEW_ICE_START = 212;
 // Integer stretch and shear keep the baked fracture texture seamless.
 const NEW_ICE = [
   // Name, hues, depth, scale, rime, shard shape, structure, base roughness.
-  ['Crevasse',       [209, 195, 199], 0.24, 1, 0.57, 1.24, [1, 2, 1, 0.83], 0.12],  // EVO
-  ['Moon Rime',      [222, 211, 202], 0.16, 2, 0.93, 0.82, [2, 1, 0, 0.38], 0.24],  // F2
-  ['Polar Crown',    [212, 202, 203], 0.20, 1, 0.66, 1.31, [1, 1, -1, 0.9], 0.13],  // R4-C
-  ['Ghost Hail',     [234, 220, 214], 0.19, 2, 0.84, 0.70, [1, 1, 0, 0.55], 0.19],  // SMG-11
-  ['Aurora Fault',   [223, 192, 207], 0.27, 1, 0.73, 1.14, [1, 2, -1, 1.0], 0.10],  // AK-12
-  ['Blue Pressure',  [230, 215, 216], 0.24, 1, 0.43, 1.40, [1, 1, 0, 0.98], 0.08],  // G8A1
-  ['Brine Glass',    [195, 187, 191], 0.20, 1, 0.50, 0.92, [1, 3, 0, 0.77], 0.10],  // MP5K
-  ['Glacier Bloom',  [224, 208, 217], 0.22, 1, 0.81, 1.12, [2, 1, 1, 0.62], 0.17],  // C8-SFW
-  ['Jet Frost',      [218, 202, 212], 0.12, 2, 0.69, 0.80, [1, 1, 1, 0.92], 0.13],  // MP7
-  ['Sun Dog',        [201, 197, 191], 0.21, 1, 0.57, 1.17, [1, 1, 1, 0.69], 0.15],  // T-5
+  ['Crevasse',       [209, 185, 174], 0.24, 1, 0.57, 1.24, [1, 2, 1, 0.83], 0.12],  // EVO
+  ['Moon Rime',      [226, 216, 202], 0.16, 2, 0.93, 0.82, [2, 1, 0, 0.38], 0.24],  // F2
+  ['Polar Crown',    [162, 171,  56], 0.20, 1, 0.66, 1.31, [1, 1, -1, 0.9], 0.13],  // R4-C
+  ['Ghost Hail',     [261, 247, 217], 0.19, 2, 0.84, 0.70, [1, 1, 0, 0.55], 0.19],  // SMG-11
+  ['Aurora Fault',   [263, 163, 228], 0.27, 1, 0.73, 1.14, [1, 2, -1, 1.0], 0.10],  // AK-12
+  ['Blue Pressure',  [230, 226, 257], 0.24, 1, 0.43, 1.40, [1, 1, 0, 0.98], 0.08],  // G8A1
+  ['Brine Glass',    [178, 157, 187], 0.20, 1, 0.50, 0.92, [1, 3, 0, 0.77], 0.10],  // MP5K
+  ['Glacier Bloom',  [306, 337, 271], 0.22, 1, 0.81, 1.12, [2, 1, 1, 0.62], 0.17],  // C8-SFW
+  ['Jet Frost',      [222, 194, 212], 0.12, 2, 0.69, 0.80, [1, 1, 1, 0.92], 0.13],  // MP7
+  ['Sun Dog',        [ 25,  43,  55], 0.21, 1, 0.57, 1.17, [1, 1, 1, 0.69], 0.15],  // T-5
 ];
 export const BLACK_ICE_IDS = [...ORIGINAL_ICE_IDS, ...NEW_ICE.map((_, slot) => NEW_ICE_START + slot)];
 
@@ -189,10 +189,10 @@ function make(id) {
     const [name, hues, depth, scale, rime, crystalShape, iceStructure, roughness] = NEW_ICE[slot];
     const [body, frost, highlight] = hues.map((hue) => hue / 360);
     return { id, rarity: 'blackice', name: 'Black Ice ' + name, guns: [slot], pattern: 10,
-      ice: hsl(frost, 0.54, 0.88), crystalShape, iceStructure, scale: 1.55,
+      ice: hsl(frost, 0.58, 0.81), crystalShape, iceStructure, scale: 1.85,
       c: [hsl(body, 0.44, depth * 0.36), hsl(frost, 0.64, 0.73), hsl(highlight, 0.48, 0.94), hsl(body, 0.69, depth)],
       p: [scale, rime, crystalShape, id - 191], rm: [roughness, 0.13, 0.24 + rime * 0.2, 0.04],
-      clearcoat: 1, wear: 0.025, glow: [3.4, 0.004, 0.012] };
+      clearcoat: 1, wear: 0.025, glow: hsl(frost, 0.55, 0.67).map((v) => v * 0.40) };
   }
   // Black Ice: a deep glossy colour, fractured ice, and 3D frost along the top and muzzle.
   if (id === SAKURA_ID) return SAKURA;
