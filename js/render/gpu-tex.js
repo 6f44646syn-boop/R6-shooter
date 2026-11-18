@@ -184,7 +184,7 @@ export function bakeDetail(renderer, kind, size = 4096, strength = 3) {
 const SKIN_GLSL = /* glsl */`
 uniform int pattern;
 uniform vec3 c0, c1, c2, c3;
-uniform vec4 prm;
+uniform vec4 prm, iceStructure;
 uniform float skinSeed, skinTier;
 vec2 skinOffset() { return vec2(hash1(vec2(skinSeed, 7.0)), hash1(vec2(skinSeed, 19.0))); }
 // Black Ice cracks: two broken networks (big, fine) and radiating splinters. 0..1 = in a crack.
@@ -197,11 +197,12 @@ float iceCracks(vec2 uv, float S) {
   float big = sstep(0.013 + 0.011 * prm.z, 0.003, v1.y - v1.x) * brk1;
   float fine = sstep(0.009, 0.0015, v2.y - v2.x) * brk2 * sstep(0.35, 0.0, v1.y - v1.x + 0.1 * fbm(uv, 16.0, 3));
   vec2 p = wq * 9.0 * S, ci = floor(p), f = fract(p);
-  vec2 o = 0.5 + 0.4 * hash2(mod(ci, vec2(9.0 * S)));
+  vec2 tile = mod(ci, vec2(9.0 * S));
+  vec2 o = 0.5 + 0.4 * hash2(tile);
   vec2 d = f - o;
   float a = atan(d.y, d.x);
-  float rays = pow(abs(cos(a * 3.0 + hash1(ci) * 6.0)), 40.0);
-  float star = rays * sstep(0.5, 0.0, length(d)) * step(0.6, hash1(mod(ci, vec2(9.0 * S)) + 4.0));
+  float rays = pow(abs(cos(a * 3.0 + hash1(iceStructure.w > 0.0 ? tile : ci) * 6.0)), 40.0);
+  float star = rays * sstep(0.5, 0.0, length(d)) * step(0.6, hash1(tile + 4.0));
   return max(big, max(fine * 0.8, star * 0.9));
 }
 // Black Ice emblem: a six-armed snowflake, different per skin (seed). 0..1 = on a line.
@@ -237,11 +238,12 @@ void iceSkin(vec2 uv, float S, out vec3 col, out float m, out float g, out float
   col = mix(col, c3 * 2.15 + c1 * 0.055, sstep(-0.04, 0.43, deep) * 0.61);
   col = mix(col, c3 * 1.4, sstep(0.25, 0.45, fbm(uv + 9.0, 7.0, 5)) * 0.4);
   // cracks cut into the finish: a dark core, a lit upper edge and a shadowed lower edge
-  float crack = iceCracks(uv, S);
+  vec2 fractureUV = uv * iceStructure.xy + vec2(uv.y * iceStructure.z, 0.0);
+  float crack = iceCracks(fractureUV, S);
   float e = 0.0022;
-  float bev = iceCracks(uv + vec2(-e, e), S) - iceCracks(uv + vec2(e, -e), S);
+  float bev = iceCracks(fractureUV + vec2(-e, e), S) - iceCracks(fractureUV + vec2(e, -e), S);
   // frost ferns: fine parallel feathers growing from the big cracks, a direction per shard
-  vec2 wq = uv + vec2(fbm(uv, 8.0 * S, 4), fbm(uv + 5.0, 8.0 * S, 4)) * 0.025;
+  vec2 wq = fractureUV + vec2(fbm(fractureUV, 8.0 * S, 4), fbm(fractureUV + 5.0, 8.0 * S, 4)) * 0.025;
   vec3 v1 = voronoi(wq, vec2(5.0 * S));
   float near = sstep(0.08 + prm.y * 0.22, 0.0, v1.y - v1.x + 0.12 * fbm(uv + 1.3, 12.0 * S, 4));
   float k = floor(v1.z * 6.0);
@@ -263,6 +265,10 @@ void iceSkin(vec2 uv, float S, out vec3 col, out float m, out float g, out float
   float face = sstep(0.05, 0.75, v1.y - v1.x);
   float rime = near * sstep(-0.12, 0.28, fbm(uv + vec2(0.44, 3.8), 23.0, 4));
   col *= 0.8 + 0.55 * mix(v1.z, 1.0, face);
+  // Light caught on the sloping shoulders of each fractured plate.
+  float shoulder = sstep(0.03, 0.14, v1.y - v1.x) * sstep(0.52, 0.18, v1.y - v1.x);
+  float facet = shoulder * (0.22 + 0.78 * v1.z) * iceStructure.w;
+  col = mix(col, mix(c1, c2, v1.z) * 0.54, facet * 0.68);
   col = mix(col, c1 * 0.76 + c2 * 0.12, rime * prm.y * 0.26);
   col = mix(col, mix(c1, c2, 0.3), fern * 0.28);
   col = mix(col, c1, crack * 0.9);
@@ -276,7 +282,7 @@ void iceSkin(vec2 uv, float S, out vec3 col, out float m, out float g, out float
   m = clamp(max(crack, max(flake, rime * 0.7 + fern * 0.35)), 0.0, 1.0);
   g = max(max(crack * 0.18, spark * 0.75), max(flake * 0.32, fern * 0.21 + bubble * 0.13));
   height = clamp(0.58 + face * (0.09 + v1.z * 0.13) - crack * 0.48 + bev * 0.075
-    + rime * 0.11 + fern * 0.14 + flake * 0.08 - bubbleIn * 0.04 + fbm(uv, 64.0, 3) * 0.06, 0.0, 1.0);
+    + facet * 0.13 + rime * 0.11 + fern * 0.14 + flake * 0.08 - bubbleIn * 0.04 + fbm(uv, 64.0, 3) * 0.06, 0.0, 1.0);
 }
 void skinAt(vec2 uv, out vec3 col, out float m, out float g) {
   float S = max(1.0, floor(prm.x + 0.5)), W = prm.y, T = prm.z;
@@ -454,6 +460,7 @@ function skinUniforms(def) {
   return {
     pattern: { value: def.pattern }, c0: { value: v3(def.c[0]) }, c1: { value: v3(def.c[1]) }, c2: { value: v3(def.c[2]) }, c3: { value: v3(def.c[3]) },
     prm: { value: new THREE.Vector4(...(def.p || [1, 1, 0, 0])) },
+    iceStructure: { value: new THREE.Vector4(...(def.iceStructure || [1, 1, 0, 0])) },
     skinSeed: { value: def.id }, skinTier: { value: { common: 0, rare: 1, epic: 2 }[def.rarity] ?? -1 },
   };
 }

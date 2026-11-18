@@ -119,7 +119,27 @@ const ICE = [
   ['Cobalt',        0.62, 0.60, 0.23, 0.61, 1, 0.72, 1.35],   // T-5
   ['Rose',          0.92, 0.93, 0.22, 0.80, 2, 0.70, 1.00],   // SMG-11 (id 211, after the Legendaries)
 ];
-export const BLACK_ICE_IDS = [192, 193, 194, 195, 196, 197, 198, 199, 200, 211];
+// Keep these IDs in their original order for save codes and the painted skins pack.
+const ORIGINAL_ICE_IDS = [192, 193, 194, 195, 196, 197, 198, 199, 200, 211];
+const NEW_ICE_START = 212;
+
+// Weapon slot order. Palettes are HSL hue angles for the body, rime and highlights.
+// The structure vector is [horizontal stretch, vertical stretch, shear, facet strength].
+// Integer stretch and shear keep the baked fracture texture seamless.
+const NEW_ICE = [
+  // Name, hues, depth, scale, rime, shard shape, structure, base roughness.
+  ['Crevasse',       [209, 185, 174], 0.24, 1, 0.57, 1.24, [1, 2, 1, 0.83], 0.12],  // EVO
+  ['Moon Rime',      [226, 216, 202], 0.16, 2, 0.93, 0.82, [2, 1, 0, 0.38], 0.24],  // F2
+  ['Polar Crown',    [162, 171,  56], 0.20, 1, 0.66, 1.31, [1, 1, -1, 0.9], 0.13],  // R4-C
+  ['Ghost Hail',     [261, 247, 217], 0.19, 2, 0.84, 0.70, [1, 1, 0, 0.55], 0.19],  // SMG-11
+  ['Aurora Fault',   [263, 163, 228], 0.27, 1, 0.73, 1.14, [1, 2, -1, 1.0], 0.10],  // AK-12
+  ['Blue Pressure',  [230, 226, 257], 0.24, 1, 0.43, 1.40, [1, 1, 0, 0.98], 0.08],  // G8A1
+  ['Brine Glass',    [178, 157, 187], 0.20, 1, 0.50, 0.92, [1, 3, 0, 0.77], 0.10],  // MP5K
+  ['Glacier Bloom',  [306, 337, 271], 0.22, 1, 0.81, 1.12, [2, 1, 1, 0.62], 0.17],  // C8-SFW
+  ['Jet Frost',      [222, 194, 212], 0.12, 2, 0.69, 0.80, [1, 1, 1, 0.92], 0.13],  // MP7
+  ['Sun Dog',        [ 25,  43,  55], 0.21, 1, 0.57, 1.17, [1, 1, 1, 0.69], 0.15],  // T-5
+];
+export const BLACK_ICE_IDS = [...ORIGINAL_ICE_IDS, ...NEW_ICE.map((_, slot) => NEW_ICE_START + slot)];
 
 function make(id) {
   const rng = mulberry32((id + 1) * 7919 + 13);
@@ -164,13 +184,23 @@ function make(id) {
       p: [1 + Math.floor(rng() * 2), 0.65 + rng() * 0.55, (rng() - 0.5) * 0.12, 0], rm, clearcoat: 0.9, wear: 0.19,
       glow: glows ? c[1].map((v) => v * 0.42) : [0, 0, 0] };
   }
+  if (id >= NEW_ICE_START) {
+    const slot = id - NEW_ICE_START;
+    const [name, hues, depth, scale, rime, crystalShape, iceStructure, roughness] = NEW_ICE[slot];
+    const [body, frost, highlight] = hues.map((hue) => hue / 360);
+    return { id, rarity: 'blackice', name: 'Black Ice ' + name, guns: [slot], pattern: 10,
+      ice: hsl(frost, 0.58, 0.81), crystalShape, iceStructure, scale: 1.85,
+      c: [hsl(body, 0.44, depth * 0.36), hsl(frost, 0.64, 0.73), hsl(highlight, 0.48, 0.94), hsl(body, 0.69, depth)],
+      p: [scale, rime, crystalShape, id - 191], rm: [roughness, 0.13, 0.24 + rime * 0.2, 0.04],
+      clearcoat: 1, wear: 0.025, glow: hsl(frost, 0.55, 0.67).map((v) => v * 0.40) };
+  }
   // Black Ice: a deep glossy colour, fractured ice, and 3D frost along the top and muzzle.
   if (id === SAKURA_ID) return SAKURA;
   if (id === KILN_ID) return KILN;
   if (id === ABYSS_ID) return ABYSS;
   if (id === VESPER_ID) return VESPER;
   if (id >= LEG_BASE + 4 && id < LEG_BASE + 10) return LATE[id - LEG_BASE - 4];
-  const [word, hue, frost, depth, tint, scale, coverage, shape] = ICE[BLACK_ICE_IDS.indexOf(id)];
+  const [word, hue, frost, depth, tint, scale, coverage, shape] = ICE[ORIGINAL_ICE_IDS.indexOf(id)];
   return { id, rarity: 'blackice', name: 'Black Ice ' + word, pattern: 10,
     ice: hsl(frost, 0.58, tint), crystalShape: shape, scale: 1.85,
     c: [hsl(hue, 0.70, depth * 0.38), hsl(frost, 0.49, 0.76), hsl(frost, 0.36, 0.96), hsl(hue, 0.74, depth)],
@@ -199,7 +229,7 @@ const fitRect = ([W, H], [x0, x1, py0, py1], [z0, z1, y0, y1]) => {
   const sz = (z1 - z0) / (x1 - x0), sy = (y1 - y0) / (py1 - py0), Z0 = z0 - x0 * sz, Y1 = y1 + py0 * sy;
   return [Z0, Z0 + W * sz, Y1 - H * sy, Y1];
 };
-export const SKIN_COUNT = 212;      // 100 Common, 60 Rare, 32 Epic, 9 Black Ice, 10 Legendary (Sakura Gilt, Storm Kiln, Abyssal Crown, Vesper Glass and the six above), then the 10th Black Ice
+export const SKIN_COUNT = NEW_ICE_START + NEW_ICE.length;
 export const CATALOGUE = Array.from({ length: SKIN_COUNT }, (_, i) => make(i));
 // Unique names (the same word + pattern can come up twice).
 {
@@ -214,9 +244,9 @@ export const CATALOGUE = Array.from({ length: SKIN_COUNT }, (_, i) => make(i));
 // Gun-exclusive skins (by loadout slot 0-9): every Black Ice belongs to one gun, every other
 // Epic to one gun, and every fifth Rare to a family (SMGs, or rifles and carbines).
 export const FAMILIES_BY_SLOT = { smg: [0, 3, 6, 8, 9], rifle: [1, 2, 4, 7] };
-const BLACK_ICE_GUN = [4, 1, 0, 7, 2, 8, 5, 6, 9, 3];     // Black Ice i (BLACK_ICE_IDS) -> one gun
+const BLACK_ICE_GUN = [4, 1, 0, 7, 2, 8, 5, 6, 9, 3];     // original Black Ice i -> one gun
 for (const s of CATALOGUE) {
-  if (s.rarity === 'blackice') s.guns = [BLACK_ICE_GUN[BLACK_ICE_IDS.indexOf(s.id)]];
+  if (s.rarity === 'blackice' && !s.guns) s.guns = [BLACK_ICE_GUN[ORIGINAL_ICE_IDS.indexOf(s.id)]];
   else if (s.rarity === 'epic' && (s.id - 160) % 2 === 0) s.guns = [((s.id - 160) / 2 + 3) % 10];
   else if (s.rarity === 'rare' && (s.id - 100) % 5 === 0) s.guns = ((s.id - 100) / 5) % 2 ? FAMILIES_BY_SLOT.rifle : FAMILIES_BY_SLOT.smg;
 }
