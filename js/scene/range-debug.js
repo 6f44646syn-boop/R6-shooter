@@ -1,7 +1,7 @@
 // Dev-mode overlays for the shooting range: the dummy's exact hit shapes, and a trail of bullet paths.
-import * as THREE from '../../vendor/three/three.module.min.js?v=1664f0f-mwlm85sy';
-import { DUMMY_PARTS } from './dummy.js?v=1664f0f-mwlm85sy';
-import { SOLDIER_PARTS } from '../battle/soldier.js?v=1664f0f-mwlm85sy';
+import * as THREE from '../../vendor/three/three.module.min.js?v=4485eaa-mwlojqse';
+import { DUMMY_PARTS } from './dummy.js?v=4485eaa-mwlojqse';
+import { SOLDIER_PARTS } from '../battle/soldier.js?v=4485eaa-mwlojqse';
 
 const ZONE_COLOR = { head: 0xff4d4d, body: 0xffd34d, limb: 0x4dd2ff };
 const lineMat = (opacity) => new THREE.LineBasicMaterial({ vertexColors: opacity === undefined, color: 0xffffff, depthTest: false, transparent: true, opacity: opacity ?? 0.9 });
