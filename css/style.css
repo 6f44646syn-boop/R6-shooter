@@ -1005,3 +1005,5 @@ body:has(#menu:not([hidden])) #perf, body:has(#home:not([hidden])) #perf, body:h
 #gfx { z-index: 60; background: rgba(0, 0, 0, .35); }
 #gfx.gx-dl .gx-levels, #gfx.gx-dl .gx-prompt, #gfx.gx-dl .gx-perf { display: none; }
 #gfx:not(.gx-dl) .gx-pack:not(.gx-need) { display: none; }
+.h-who > .h-board { display: grid; text-align: right; background: none; border: 0; padding: 0; color: inherit; cursor: pointer; }
+.h-who > .h-board:hover #h-name { color: var(--accent); }

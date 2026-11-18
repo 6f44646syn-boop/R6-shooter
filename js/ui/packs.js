@@ -1,13 +1,13 @@
 // Skins & packs: points, the pack opening (a slot-machine reel that slows down and lands on
 // your skin), your collection (click to put a skin on the selected gun), and the save code.
-import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById, skinFits, LEGEND_ID } from '../core/skins.js?v=bf6c300-mwmqrmfu';
-import { Profile, PACK_COST, LEGEND_PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=bf6c300-mwmqrmfu';
-import { legendPhotoURL, setLegendPhoto, clearLegendPhoto, onLegendChange } from '../core/legend.js?v=bf6c300-mwmqrmfu';
-import { skinThumb } from '../render/gpu-tex.js?v=bf6c300-mwmqrmfu';
-import { CHARMS } from '../core/charms.js?v=bf6c300-mwmqrmfu';
-import { BOARD, ranking, myCode, addFriend, removeFriend, myName, setName, friends } from '../core/bests.js?v=bf6c300-mwmqrmfu';
-import { TRADE_UP, TRADE_NEXT } from '../core/profile.js?v=bf6c300-mwmqrmfu';
-import { mulberry32 } from '../core/prng.js?v=bf6c300-mwmqrmfu';
+import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById, skinFits, LEGEND_ID } from '../core/skins.js?v=088a449-mwmr3fa0';
+import { Profile, PACK_COST, LEGEND_PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=088a449-mwmr3fa0';
+import { legendPhotoURL, setLegendPhoto, clearLegendPhoto, onLegendChange } from '../core/legend.js?v=088a449-mwmr3fa0';
+import { skinThumb } from '../render/gpu-tex.js?v=088a449-mwmr3fa0';
+import { CHARMS } from '../core/charms.js?v=088a449-mwmr3fa0';
+import { BOARD, ranking, myCode, addFriend, removeFriend, myName, setName, friends } from '../core/bests.js?v=088a449-mwmr3fa0';
+import { TRADE_UP, TRADE_NEXT } from '../core/profile.js?v=088a449-mwmr3fa0';
+import { mulberry32 } from '../core/prng.js?v=088a449-mwmr3fa0';
 
 // Weekly shop prices (a pack is 100 points for a random skin).
 const SHOP_PRICE = { common: 120, rare: 250, epic: 450, blackice: 900, legendary: 1500 };
@@ -120,7 +120,6 @@ export class PackUI {
       el('div', { class: 'pk-top' }, el('h3', { class: 'pk-h3' }, el('span', { text: 'Collection ' }), this.countEl, el('span', { text: ' / ' + SKIN_COUNT })), this.allBtn),
       el('div', { class: 'row' }, this.slotNote, el('button', { type: 'button', class: 'primary', text: 'Inspect on your gun', title: 'See the skin and charm on the gun in your hands (Esc or click to stop)', onclick: () => this.inspect?.() })),
       this.grid,
-      this.boardEl,
     );
     // The save code: its own page (mountSave)
     this.saveEl = el('div', { class: 'pk-save' },
@@ -145,6 +144,7 @@ export class PackUI {
 
   // The Packs menu (its own page): points, one big open button, how to earn points and the odds.
   mountSave(root) { root.append(this.saveEl); }
+  mountBoard(root) { root.append(this.boardEl); }   // the leaderboards: their own page (click your name on Home)
   mountShop(root) {
     this.shopPoints = el('b', { text: '0' });
     this.shopBtn = el('button', { type: 'button', class: 'primary pk-shop-open', id: 'shop-open', text: 'Open a pack · ' + PACK_COST + ' points', onclick: () => this.open() });
@@ -230,11 +230,11 @@ export class PackUI {
         ...(rows.length ? rows.slice(0, 6).map((r, i) => el('div', { class: 'lb-row' + (r.me ? ' me' : '') }, el('span', { text: (i + 1) + '. ' + r.name }), el('span', { text: r.value + b.unit }))) : [el('span', { class: 'small', text: 'No score yet' })]));
     });
     const fr = friends();
-    this.boardEl.replaceChildren(el('h3', { class: 'pk-h3', text: 'Leaderboards' }),
+    this.boardEl.replaceChildren(
       el('div', { class: 'row' }, el('span', { class: 'small', text: 'Your name' }), name, copy), code,
       el('div', { class: 'row' }, paste, add), msg,
       el('div', { class: 'lb-grid' }, ...boards),
-      fr.length ? el('div', { class: 'pk-trades' }, ...fr.map((f) => el('button', { type: 'button', text: '× ' + f.name, title: 'Remove ' + f.name, onclick: () => { removeFriend(f.name); this._board(); } }))) : null);
+      fr.length ? el('div', { class: 'pk-trades' }, ...fr.map((f) => el('button', { type: 'button', text: '× ' + f.name, title: 'Remove ' + f.name, onclick: () => { removeFriend(f.name); this._board(); } }))) : '');   // ('' not null: null would show as text)
   }
   // Can skin id go on the gun in this slot? (Some skins are made for certain guns only.)
   fits(id, slot) { return skinFits(id, slot); }

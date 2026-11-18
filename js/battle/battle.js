@@ -1,31 +1,31 @@
-import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=bf6c300-mwmqrmfu';
-import { MatchFinale } from '../replay/finale.js?v=bf6c300-mwmqrmfu';
-import { GrenadeReplay } from '../replay/grenade.js?v=bf6c300-mwmqrmfu';
-import { replayCamera } from '../replay/view.js?v=bf6c300-mwmqrmfu';
+import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=088a449-mwmr3fa0';
+import { MatchFinale } from '../replay/finale.js?v=088a449-mwmr3fa0';
+import { GrenadeReplay } from '../replay/grenade.js?v=088a449-mwmr3fa0';
+import { replayCamera } from '../replay/view.js?v=088a449-mwmr3fa0';
 // Battle mode: you against bots (Easy / Medium / Hard), or two local players in split
 // screen (optionally with bots as a third side). First side to the kill target wins.
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=bf6c300-mwmqrmfu';
-import { Arena } from './arena.js?v=bf6c300-mwmqrmfu';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=bf6c300-mwmqrmfu';
-import { Banter } from './banter.js?v=bf6c300-mwmqrmfu';
-import { Bot, LEVELS } from './bot.js?v=bf6c300-mwmqrmfu';
-import { Human } from './human.js?v=bf6c300-mwmqrmfu';
-import { BattleNades } from './nades.js?v=bf6c300-mwmqrmfu';
-import { drawCrosshair } from '../ui/crosshair.js?v=bf6c300-mwmqrmfu';
-import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=bf6c300-mwmqrmfu';
-import { effectiveGraphics } from '../render/quality.js?v=bf6c300-mwmqrmfu';
-import { effectiveGun, slotIn } from '../core/loadout.js?v=bf6c300-mwmqrmfu';
-import { BattleRoyale } from './royale.js?v=bf6c300-mwmqrmfu';
-import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=bf6c300-mwmqrmfu';
-import { Footprints } from '../scene/footprints.js?v=bf6c300-mwmqrmfu';
-import { Minimap } from '../ui/minimap.js?v=bf6c300-mwmqrmfu';
-import { botRankedChange } from '../core/ranked.js?v=bf6c300-mwmqrmfu';
-import { warmScene } from '../render/warm.js?v=bf6c300-mwmqrmfu';
-import { ShadowGate } from '../render/shadow-gate.js?v=bf6c300-mwmqrmfu';
-import { MatchStats, mvpCard } from '../core/mvp.js?v=bf6c300-mwmqrmfu';
+import * as THREE from '../../vendor/three/three.module.min.js?v=088a449-mwmr3fa0';
+import { Arena } from './arena.js?v=088a449-mwmr3fa0';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=088a449-mwmr3fa0';
+import { Banter } from './banter.js?v=088a449-mwmr3fa0';
+import { Bot, LEVELS } from './bot.js?v=088a449-mwmr3fa0';
+import { Human } from './human.js?v=088a449-mwmr3fa0';
+import { BattleNades } from './nades.js?v=088a449-mwmr3fa0';
+import { drawCrosshair } from '../ui/crosshair.js?v=088a449-mwmr3fa0';
+import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=088a449-mwmr3fa0';
+import { effectiveGraphics } from '../render/quality.js?v=088a449-mwmr3fa0';
+import { effectiveGun, slotIn } from '../core/loadout.js?v=088a449-mwmr3fa0';
+import { BattleRoyale } from './royale.js?v=088a449-mwmr3fa0';
+import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=088a449-mwmr3fa0';
+import { Footprints } from '../scene/footprints.js?v=088a449-mwmr3fa0';
+import { Minimap } from '../ui/minimap.js?v=088a449-mwmr3fa0';
+import { botRankedChange } from '../core/ranked.js?v=088a449-mwmr3fa0';
+import { warmScene } from '../render/warm.js?v=088a449-mwmr3fa0';
+import { ShadowGate } from '../render/shadow-gate.js?v=088a449-mwmr3fa0';
+import { MatchStats, mvpCard } from '../core/mvp.js?v=088a449-mwmr3fa0';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, p7: 0xff7048, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -234,6 +234,8 @@ export class Battle {
     if (opts.royale) this.royale = new BattleRoyale(this);
     for (const f of this.fighters) this._spawn(f, t);
     if (!opts.royale) for (const f of this.fighters) if (f.gun && !this.humans.some((h) => h.f === f)) this._puppet(f);   // build kill-cam guns now, not mid-fight
+    // Gun Game and Battle Royale swap guns mid-match: build every gun once now (under the loading screen), so a swap only switches models
+    if (opts.gungame || opts.royale) for (const h of this.humans) { const keep = h.gun; for (const g of d.guns) h.setGun(g); h.setGun(keep); }
     this.active = true; this.paused = false; this.over = false;
     this.hud.root.hidden = false;
     this.hud.end.hidden = true;

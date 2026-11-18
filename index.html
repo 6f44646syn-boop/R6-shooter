@@ -15,7 +15,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recoil Range</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="css/style.css?v=bf6c300-mwmqrmfu">
+<link rel="stylesheet" href="css/style.css?v=088a449-mwmr3fa0">
 </head>
 <body>
 <div id="boot-screen" role="status" style="position:fixed;inset:0;z-index:2147483000;background:#000;color:#c9d1db;display:grid;place-items:center;font:600 16px/1 system-ui,sans-serif;letter-spacing:0.3em;cursor:none">LOADING…</div>
@@ -77,8 +77,8 @@
   </div>
   <div id="home" hidden>
     <nav class="h-tabs" aria-label="Home">
-      <button type="button" data-go="go-packs">Skins</button><button type="button" data-go="go-shop">Packs</button><button type="button" data-go="go-settings">Game settings</button><button type="button" data-go="go-controls">Keybinds</button><button type="button" data-gfx="graphics">Graphics</button><button type="button" data-gfx="download">Download</button>
-      <div class="h-who"><button type="button" id="h-rank" class="h-rank" title="Player stats" aria-label="Player stats"></button><div><b id="h-name">Player 1</b><span id="h-xp"></span></div></div>
+      <button type="button" data-go="go-packs">Skins</button><button type="button" data-go="go-shop">Packs</button><button type="button" data-go="go-settings">Settings</button><button type="button" data-go="go-controls">Keybinds</button><button type="button" data-gfx="graphics">Graphics</button><button type="button" data-gfx="download">Download</button>
+      <div class="h-who"><button type="button" id="h-rank" class="h-rank" title="Player stats" aria-label="Player stats"></button><button type="button" id="h-board" class="h-board" title="Leaderboards"><b id="h-name">Player 1</b><span id="h-xp"></span></button></div>
     </nav>
     <div class="h-online" role="group" aria-label="Offline or online"><button type="button" id="h-prev" aria-label="Previous">&#8249;</button><b id="h-online">Offline</b><button type="button" id="h-next" aria-label="Next">&#8250;</button></div>
     <section class="h-code" id="h-code" aria-label="Play with friends" hidden>
@@ -90,7 +90,7 @@
     </section>
     <button type="button" class="h-skin" id="h-skin" title="Inspect"><span id="h-skin-name"></span></button>
     <section class="h-ch" aria-label="Challenges"><h3>Challenges</h3><div id="h-challenges" class="challenges"></div></section>
-    <div class="h-play"><button type="button" id="h-play" class="primary">Play<span id="h-game"></span></button><button type="button" id="h-settings" data-go="go-settings">Game settings</button><button type="button" id="h-pick">Pick game</button></div>
+    <div class="h-play"><button type="button" id="h-play" class="primary">Play<span id="h-game"></span></button><button type="button" id="h-settings" title="Options for the game Play starts">Game settings</button><button type="button" id="h-pick">Pick game</button></div>
     <button type="button" class="h-pass" id="h-pass" aria-label="Season pass"></button>
   </div>
   <div id="menu">
@@ -104,7 +104,7 @@
         <button type="button" id="menu-x" class="menu-x" aria-label="Close" title="Close">&times;</button>
         <nav class="steps" aria-label="Steps"><button type="button" data-step="1">1 Controls</button><button type="button" data-step="2">2 Graphics</button><button type="button" data-step="3">3 Settings</button><button type="button" data-step="4">4 Packs</button><button type="button" data-step="5">5 Mode</button><button type="button" data-step="6">6 Weapon</button></nav>
       </header>
-      <nav class="row" aria-label="Main menu"><button type="button" id="go-save" hidden>Save code</button><button type="button" id="go-home">Home</button><button type="button" id="go-play">Pick game</button><button type="button" id="go-controls">Controls &amp; keybinds</button><button type="button" id="go-graphics">Graphics</button><button type="button" id="go-settings">Game settings</button><button type="button" id="go-shop">Packs <span id="mini-points"></span></button><button type="button" id="go-packs">Skins</button></nav>
+      <nav class="row" aria-label="Main menu"><button type="button" id="go-save" hidden>Save code</button><button type="button" id="go-home">Home</button><button type="button" id="go-play">Pick game</button><button type="button" id="go-controls">Controls &amp; keybinds</button><button type="button" id="go-graphics">Graphics</button><button type="button" id="go-settings">Settings</button><button type="button" id="go-shop">Packs <span id="mini-points"></span></button><button type="button" id="go-packs">Skins</button></nav>
       <p id="lock-hint" class="hint" hidden></p>
       <p id="menu-note" class="hint" hidden role="status"></p>
       <div id="slow-offer" class="hint row" hidden role="status"><span id="slow-text"></span><button type="button" id="slow-lower" class="primary"></button><button type="button" id="slow-keep">Keep these graphics</button></div>
@@ -329,6 +329,12 @@
         </div>
       </section>
 
+      <section class="page" id="page-board" hidden>
+        <h2>Leaderboards</h2>
+        <div id="board-root"></div>
+        <div class="row nav"><button type="button" class="back-btn">Back</button></div>
+      </section>
+
       <section class="page" id="page-save" hidden>
         <h2>Save code</h2>
         <div id="save-root"></div>
@@ -420,6 +426,6 @@
     </div>
   </div>
 </div>
-<script type="module" src="js/main.js?v=bf6c300-mwmqrmfu"></script>
+<script type="module" src="js/main.js?v=088a449-mwmr3fa0"></script>
 </body>
 </html>
