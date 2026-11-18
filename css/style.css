@@ -748,7 +748,7 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 .season-tiers li.got { border-color: #4f8f5a; background: rgba(79,143,90,.15); }
 .season-tiers li.next { border-color: var(--accent); }
 /* High / Ultra: match look settings as picture cards (the drop-down hidden, still holding the value) */
-label.as-cards { display: none !important; }
+label.as-cards { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }   /* the drop-down stays reachable to scripts and screen readers */
 .pick-cards { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
 .pick-cards[hidden] { display: none; }
 .pick-cards h4 { grid-column: 1 / -1; margin: 6px 0 0; font-size: 14px; }
@@ -792,3 +792,63 @@ label.as-cards { display: none !important; }
 .stats h3 { margin: 6px 0 0; font-size: 15px; }
 .stats-list { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 13px; }
 .stats-list .win { color: #8fd49b; } .stats-list .loss { color: #f08a7a; }
+
+/* Star Atlas colours: a deep navy chart ground, chalk-white type, red-flashlight amber for annotations,
+   and the thing you picked ringed in night-vision red. Same layout as before. */
+:root {
+  --bg: #07111f;
+  --panel: rgba(11, 24, 46, 0.95);
+  --panel-edge: #22395c;
+  --fg: #f3efe3;
+  --muted: #94a5bf;
+  --accent: #f0a83c;
+  --accent-ink: #1d1204;
+  --ring: #e2524a;
+  --chart: #0d1b33;
+}
+#menu { background: radial-gradient(ellipse at 75% 15%, rgba(40, 64, 104, .5), transparent 55%), linear-gradient(160deg, rgba(4, 11, 22, .97), rgba(9, 20, 39, .92)); }
+.mode-card { background: linear-gradient(135deg, #152847, #0b172d); border-color: #29426a; }
+.mode-card:hover { background: #193057; border-color: var(--accent); }
+#home { background: radial-gradient(ellipse at center, transparent 42%, rgba(3, 9, 19, .78)); }
+.h-tabs button, .h-who, .h-ch, .h-pass, .h-code, #h-pick { background: var(--panel); }
+.ch-cell { background: rgba(120, 150, 200, .07); }
+.season-bar { background: rgba(140, 170, 220, .14); }
+.game-tabs button[aria-selected=true] { color: var(--accent); }
+:focus-visible { outline-color: var(--ring); }
+
+/* Match settings: a question per choice, buttons instead of drop-downs, short pages */
+.choice-root { display: grid; gap: 14px; }
+.choice-root[hidden] { display: none; }
+.choice-steps { display: flex; gap: 0; border-bottom: 1px solid var(--panel-edge); }
+.choice-steps button { flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px 8px; background: none; border: 0 !important; border-bottom: 3px solid transparent !important; border-radius: 0; color: var(--muted); font-weight: 700; font-size: 15px; cursor: pointer; }
+.choice-steps button span { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; border: 1px solid currentColor; font-size: 12px; }
+.choice-steps button[aria-selected=true] { color: var(--fg); border-bottom-color: var(--accent) !important; }
+.choice-steps button[aria-selected=true] span { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.choice-page { display: grid; gap: 18px; }
+.choice { display: grid; gap: 8px; }
+.choice h4 { margin: 0; font-size: 15px; font-weight: 700; }
+.choice-opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.choice-opts button { display: grid; gap: 2px; min-width: 64px; padding: 9px 14px; text-align: left; background: rgba(120, 150, 200, .07); border: 1px solid var(--panel-edge); border-radius: 8px; color: var(--fg); cursor: pointer; }
+.choice-opts button b { font-size: 14px; }
+.choice-opts button small { color: var(--muted); font-size: 11px; max-width: 26ch; }
+.choice-opts button:hover { border-color: var(--accent); }
+.choice-opts button[aria-checked=true] { border-color: var(--ring); box-shadow: 0 0 0 1px var(--ring), 0 0 18px rgba(226, 82, 74, .25); background: rgba(226, 82, 74, .1); }
+.choice.pictures .choice-opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.choice.pictures button { padding: 4px 4px 8px; }
+.choice.pictures img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 5px; background: var(--chart); }
+.choice.pictures b, .choice.pictures small { padding-inline: 4px; }
+.choice-next { justify-self: end; padding: 10px 18px; background: none; border: 1px solid var(--accent); color: var(--accent); border-radius: 8px; font-weight: 700; cursor: pointer; }
+.set-grid:not(:has(> label:not(.as-cards):not([hidden]))) { display: none; }   /* a grid left empty once its choices moved to the pages */
+/* Season pass rewards as pictures: a coin for points, the charm in its colour, the season skin's art */
+.reward { display: grid; justify-items: center; gap: 4px; text-align: center; font-size: 11px; color: var(--muted); min-width: 0; }
+.reward i { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; font-style: normal; font-weight: 800; font-size: 13px; overflow: hidden; }
+.reward-points i { background: radial-gradient(circle at 35% 30%, #ffe2a0, var(--accent) 55%, #a8661a); color: var(--accent-ink); box-shadow: inset 0 -3px 0 #0004; }
+.reward-charm i { background: radial-gradient(circle at 35% 30%, #fff8, var(--charm) 45%, #0006 120%); box-shadow: 0 0 0 2px var(--charm), 0 0 14px var(--charm); }
+.reward-skin i { width: 72px; height: 44px; border-radius: 6px; box-shadow: 0 0 0 2px var(--accent), 0 0 18px rgba(240, 168, 60, .45); background: var(--chart); }
+.reward-skin i img { width: 100%; height: 100%; object-fit: cover; }
+.reward-skin span { color: var(--accent); font-weight: 700; }
+.reward-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.reward-strip .reward::before { content: 'Tier ' attr(data-tier); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.season-tiers li { justify-items: start; }
+.season-tiers li .reward { justify-items: start; text-align: left; grid-template-columns: auto 1fr; align-items: center; gap: 8px; font-size: 12px; color: var(--fg); }
+.season-tiers li.got .reward i { filter: saturate(.5) brightness(.8); }

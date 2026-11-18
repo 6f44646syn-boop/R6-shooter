@@ -61,6 +61,7 @@ import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rank
 import { Profile, WIN_POINTS } from './core/profile.js?v=81e5283-mwlpeohh';
 import { skinFits, skinById, CATALOGUE } from './core/skins.js?v=81e5283-mwlpeohh';
 import { currentAccount } from './core/accounts.js?v=81e5283-mwlpeohh';
+import { CHARMS } from './core/charms.js?v=81e5283-mwlpeohh';
 import { PackUI } from './ui/packs.js?v=81e5283-mwlpeohh';
 import { HDPack, SkinPack } from './render/hd-pack.js?v=81e5283-mwlpeohh';
 import { effectiveGraphics, needsPack, maxMode } from './render/quality.js?v=81e5283-mwlpeohh';
@@ -849,15 +850,35 @@ async function boot(data) {
     renderSeason();
   }
   function noteRecords(beaten) { if (beaten.length) flashNotice('New personal best: ' + beaten.join(', '), 4000); }
+  // A reward as a picture: a coin with its points, the charm in its own colour, the season skin's art.
+  function rewardIcon(r) {
+    const d = document.createElement('div'), pic = document.createElement('i'), name = document.createElement('span');
+    d.className = 'reward';
+    if (r.skin !== undefined) {
+      const def = skinById(r.skin); d.classList.add('reward-skin');
+      if (def?.art) { const img = document.createElement('img'); img.src = def.art; img.alt = ''; img.loading = 'lazy'; pic.append(img); }
+      name.textContent = def ? def.name : 'Season skin';
+    } else if (r.charm !== undefined) {
+      const c = CHARMS[r.charm]; d.classList.add('reward-charm');
+      pic.style.setProperty('--charm', '#' + c.color.toString(16).padStart(6, '0'));
+      name.textContent = c.name + ' charm';
+    } else {
+      d.classList.add('reward-points'); pic.textContent = String(r.points); name.textContent = r.points + ' points';
+    }
+    d.append(pic, name);
+    return d;
+  }
   function renderSeason() {
     const S0 = seasonState(), fill0 = document.createElement('i'), bar0 = document.createElement('div');
     fill0.style.width = (100 * S0.into / XP_PER_TIER).toFixed(1) + '%'; bar0.className = 'season-bar'; bar0.append(fill0);
+    const strip = document.createElement('div'); strip.className = 'reward-strip';     // the next rewards, as pictures
+    for (let n = S0.tier + 1; n <= Math.min(TIERS, S0.tier + 4); n++) { const r = rewardIcon(rewardOf(n, S0.id)); r.dataset.tier = String(n); strip.append(r); }
     $('h-pass').replaceChildren(Object.assign(document.createElement('b'), { textContent: 'Season pass · tier ' + S0.tier + ' / ' + TIERS }), bar0,
-      Object.assign(document.createElement('span'), { className: 'small', textContent: S0.tier < TIERS ? 'Next: ' + rewardText(rewardOf(S0.tier + 1, S0.id)) : 'Season complete' }));
+      S0.tier < TIERS ? strip : Object.assign(document.createElement('span'), { className: 'small', textContent: 'Season complete' }));
     $('h-xp').textContent = 'Tier ' + S0.tier + ' · ' + S0.xp + ' XP';
     $('season-tiers').replaceChildren(...Array.from({ length: TIERS }, (_, i) => {
       const li = document.createElement('li'); li.className = i < S0.tier ? 'got' : i === S0.tier ? 'next' : '';
-      li.append(Object.assign(document.createElement('b'), { textContent: String(i + 1) }), Object.assign(document.createElement('span'), { textContent: rewardText(rewardOf(i + 1, S0.id)) }));
+      li.append(Object.assign(document.createElement('b'), { textContent: String(i + 1) }), rewardIcon(rewardOf(i + 1, S0.id)));
       return li;
     }));
     const box = $('season'); if (!box) return;
@@ -1258,6 +1279,7 @@ async function boot(data) {
     const waiting = settings.battle.opponent === 'net' && net.role === 'client';
     $('battle-btn').disabled = waiting && !(battle && battle.active);
     if (waiting && !(battle && battle.active)) $('battle-btn').textContent = net.link ? 'Waiting for the host to start' : 'Only the host starts the battle';
+    choiceUi();
   }
   const rankPendingKey = 'recoilRange.rankedPending.v1';
   const rankPending = new Map();
@@ -1589,29 +1611,72 @@ async function boot(data) {
       selectSetupTab(flow.settingsOnly ? 1 : 0);
       $('setup-next').textContent = flow.settingsOnly ? (flow.inGame ? 'Done' : 'Next: packs') : flow.setupFromPause ? 'Back to the game' : flow.mode === 'royale' ? 'Deploy to Blacktide Island' : MATCH_MODES.includes(flow.mode) ? 'Next: choose your operator' : 'Next: choose your weapon';
       if (netInit) netUi();
-      pictureCards();
+      choiceUi();
     }
   }
-  // High and Ultra: the look of a match (map, time, weather, fog) is picked from pictures taken in the game,
-  // under a question, instead of a drop-down (data/menu/<setting>-<option>.webp). The drop-down still holds the value.
-  const CARD_SETTINGS = { 'b-map': 'Which map?', 'b-time': 'Day or night?', 'b-weather': 'Do you want weather?', 'b-fog': 'Do you want fog?', 'md-map': 'Which map?' };
-  function pictureCards() {
-    const on = ['high', 'ultra', 'max'].includes(settings.graphics);   // (the level picked, pack or not)
-    for (const [id, question] of Object.entries(CARD_SETTINGS)) {
-      const sel = $(id), field = sel.closest('label');
-      let box = $(id + '-cards');
-      if (!box) { box = document.createElement('div'); box.id = id + '-cards'; box.className = 'pick-cards'; field.after(box); }
-      field.classList.toggle('as-cards', on);
-      box.hidden = !on || field.hidden;
-      if (box.hidden) continue;
-      box.replaceChildren(Object.assign(document.createElement('h4'), { textContent: question }), ...[...sel.options].map((o) => {
-        const b = document.createElement('button'); b.type = 'button'; b.setAttribute('aria-pressed', String(sel.value === o.value));
-        const img = document.createElement('img'); img.src = 'data/menu/' + id + '-' + o.value + '.webp'; img.alt = ''; img.loading = 'lazy';
-        b.append(img, Object.assign(document.createElement('span'), { textContent: o.textContent }));
-        b.addEventListener('click', () => { sel.value = o.value; sel.dispatchEvent(new Event('change')); pictureCards(); });
-        return b;
-      }));
+  // Match settings without drop-downs: every choice is a question with buttons, split over short pages
+  // (where you play, who you face, how you win). On High and Ultra the look of a match is picked from pictures
+  // taken in the game (data/menu/<setting>-<option>.webp). The drop-down stays (out of sight) and holds the value.
+  var CHOICES = {             // (var: the network panel may draw before this line has run)
+    'b-map': ['Which map?', 'where', true], 'md-map': ['Which map?', 'where', true], 'b-time': ['Day or night?', 'where', true],
+    'b-weather': ['Do you want weather?', 'where', true], 'b-fog': ['Do you want fog?', 'where', true],
+    'b-bots': ['How many bots?', 'who'], 'b-mates': ['Bots on your side?', 'who'], 'b-level': ['How good are the bots?', 'who'],
+    'md-diff': ['How good are the bots?', 'who'], 'md-size': ['How big are the teams?', 'who'], 'b-voices': ['Should bots talk on the radio?', 'who'],
+    'b-kills': ['Kills to win?', 'rules'], 'md-len': ['How long is a match?', 'rules'], 'md-prep': ['Preparation time?', 'rules'],
+    'md-ab': ['Operator abilities?', 'rules'], 'md-head': ['What does a headshot do?', 'rules'],
+    'net-watch': ['Join as?', null], 'net-mode': ['Which game?', null], 'net-map': ['Which map?', null],
+  };
+  var CHOICE_PAGES = [['where', 'Where you play'], ['who', 'Who you face'], ['rules', 'How you win']];
+  var choicePage = 'where';
+  function choiceUi() {
+    if (!CHOICES) return;
+    const pics = ['high', 'ultra', 'max'].includes(settings.graphics);   // (the level picked, pack or not)
+    let root = $('choice-root');
+    if (!root) {
+      root = document.createElement('div'); root.id = 'choice-root'; root.className = 'choice-root';
+      root.innerHTML = '<nav class="choice-steps" role="tablist" aria-label="Match settings"></nav><div class="choice-pages"></div>';
+      $('match-settings').prepend(root);
     }
+    const byPage = new Map(CHOICE_PAGES.map(([k]) => [k, []]));
+    for (const [id, [question, page, picture]] of Object.entries(CHOICES)) {
+      const sel = $(id), field = sel?.closest('label');
+      if (!field) continue;
+      field.classList.add('as-cards');
+      $(id + '-choice')?.remove();
+      if (field.hidden || field.closest('[hidden]') || !sel.options.length) continue;
+      const box = document.createElement('div'); box.id = id + '-choice'; box.className = 'choice' + (pics && picture ? ' pictures' : '');
+      const opts = document.createElement('div'); opts.className = 'choice-opts'; opts.setAttribute('role', 'radiogroup'); opts.setAttribute('aria-label', question);
+      for (const o of sel.options) {
+        const [main, sub] = o.textContent.split(/ \((.*)\)$/);
+        const btn = document.createElement('button'); btn.type = 'button'; btn.setAttribute('role', 'radio'); btn.setAttribute('aria-checked', String(sel.value === o.value));
+        if (pics && picture) { const img = document.createElement('img'); img.src = 'data/menu/' + id + '-' + o.value + '.webp'; img.alt = ''; img.loading = 'lazy'; btn.append(img); }
+        btn.append(Object.assign(document.createElement('b'), { textContent: main }));
+        if (sub) btn.append(Object.assign(document.createElement('small'), { textContent: sub }));
+        btn.addEventListener('click', () => { sel.value = o.value; sel.dispatchEvent(new Event('change')); choiceUi(); });
+        opts.append(btn);
+      }
+      box.append(Object.assign(document.createElement('h4'), { textContent: question }), opts);
+      if (page) byPage.get(page).push(box); else field.after(box);    // (online choices stay where they are)
+    }
+    const used = CHOICE_PAGES.filter(([k]) => byPage.get(k).length);
+    root.hidden = !used.length;
+    if (!used.length) return;
+    if (!used.some(([k]) => k === choicePage)) choicePage = used[0][0];
+    const at = used.findIndex(([k]) => k === choicePage);
+    root.firstChild.replaceChildren(...used.map(([k, name], i) => {
+      const t = document.createElement('button'); t.type = 'button'; t.setAttribute('role', 'tab'); t.setAttribute('aria-selected', String(k === choicePage));
+      t.append(Object.assign(document.createElement('span'), { textContent: String(i + 1) }), document.createTextNode(name));
+      t.addEventListener('click', () => { choicePage = k; choiceUi(); });
+      return t;
+    }));
+    const pageEl = document.createElement('section'); pageEl.className = 'choice-page'; pageEl.setAttribute('role', 'tabpanel');
+    pageEl.append(...byPage.get(choicePage));
+    if (at < used.length - 1) {
+      const next = document.createElement('button'); next.type = 'button'; next.className = 'choice-next'; next.textContent = 'Next: ' + used[at + 1][1];
+      next.addEventListener('click', () => { choicePage = used[at + 1][0]; choiceUi(); root.scrollIntoView({ block: 'start' }); });
+      pageEl.append(next);
+    }
+    root.lastChild.replaceChildren(pageEl);
   }
   function chooseMode(m) {
     if (battle && battle.active) leaveBattle();
@@ -1806,6 +1871,7 @@ async function boot(data) {
     $('net-game-note').textContent = m === 'battle' ? 'Everyone for themselves on the Battle map above.' :
       m === 'bomb' && $('net-ranked').checked ? 'Local Elo. Up to 5v5, Normal bots, 30 s prep and standard abilities. The host confirms results.' :
       'Players join teams' + (m === 'bomb' ? ' (each on the side they chose in Bomb\'s setup, if there is room)' : '') + '; bots fill the empty places. Team size, bot level' + (m === 'bomb' ? ', preparation time' : ', time') + ' and abilities are the ones set for this mode in its own settings. Each player uses the operator they last picked for it.';
+    choiceUi();
   }
   $('net-mode').addEventListener('change', () => { netModeVal = $('net-mode').value; try { localStorage.setItem('recoil-range-net-mode', netModeVal); } catch (e) { /* storage blocked */ } netGameUi(); refreshRankedListing(); });
   $('net-map').addEventListener('change', () => { modePrefs.map[netMode()] = $('net-map').value; saveModePrefs(); refreshRankedListing(); });
@@ -1937,7 +2003,7 @@ async function boot(data) {
   const previewRig = new WeaponRig(renderer);
   previewRig.noHands = true;
   previewRig.applyLights();
-  previewRig.scene.background = new THREE.Color(0x232933);
+  previewRig.scene.background = new THREE.Color(0x0d1b33);   // (Star Atlas navy, behind Home and the weapon select)
   // Studio lights for the preview (on top of the rig's own; the cheap matcap shading ignores them).
   const pvKey = new THREE.DirectionalLight(0xffffff, 2.4); pvKey.position.set(0.6, 1.2, 1.6);
   const pvRim = new THREE.DirectionalLight(0x9fc4ff, 1.4); pvRim.position.set(-1.2, 0.6, -1);
