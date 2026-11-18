@@ -867,6 +867,13 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
           float ew = vDet.g * (0.45 + 0.55 * min(skinWear, 1.4)) + (sk.a - 0.5) * 0.6;
           triWear = sstep(0.48, 0.56, ew) * step(0.001, skinWear);
         #endif
+        #ifdef TRI_HARDWARE
+          // Keep the grip panel and some magazine ribbing visible under the ice.
+          vec2 fit = clamp((vTriPos.zy - hardwareBounds.xy) * hardwareBounds.zw, 0.0, 1.0);
+          float margin = min(min(fit.x, 1.0 - fit.x), min(fit.y, 1.0 - fit.y));
+          float surface = triBase > 7.5 ? 0.14 + 0.58 * sstep(0.13, 0.33, margin) : 0.24;
+          triWear = max(triWear, surface);
+        #endif
         vec3 base = sk.rgb * sk.rgb;
         // Colour fade from the stock to the muzzle (Rare and up).
         vec3 fc = mix(fadeB, fadeA, sstep(0.35, -0.55, vTriPos.z));
@@ -900,6 +907,11 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
             bRough = clamp(0.43 + 0.16 * fleck + 0.24 * soot - 0.26 * collar, 0.17, 0.85);
             bMetal = 0.88 - soot * 0.41;
             bNrm = vec2((turned - 0.5) * 0.16, (fleck - 0.5) * 0.09);
+          } else if (triBase > 7.5) {                 // grip: molded stipple under the frost
+            float stipple = bNoise(q.zy * 1540.0 + q.x * 620.0);
+            bCol = vec3(0.038, 0.046, 0.054) * (0.68 + 0.70 * stipple);
+            bRough = 0.78 + 0.16 * fleck; bMetal = 0.02;
+            bNrm = vec2(stipple - 0.5, fleck - 0.5) * 0.22;
           } else {                                   // magazine: formed channels, a floorplate seam and scuffed edges
             bool steel = triBase > 6.5;
             float side = sstep(0.48, 0.9, abs(normalize(vTriN).x));
@@ -949,6 +961,9 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         }
         #ifdef TRI_SKIN
           diffuseColor.rgb *= 0.86 + 0.28 * bLum;                          // the metal's grain shows through the paint
+          #ifdef TRI_HARDWARE
+            diffuseColor.rgb *= 0.82 + 1.25 * bCol.b;
+          #endif
           diffuseColor.rgb = mix(diffuseColor.rgb, bCol * triGain, triWear); // and it is bare where the paint has worn off
         #else
           diffuseColor.rgb = bCol * triGain;
@@ -1175,7 +1190,11 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       #endif
       #ifdef TRI_BASE
         #ifdef TRI_SKIN
-          normal = normalize(normal + (vTriAZ * bNrm.x + vTriAY * bNrm.y) * 0.5);   // (under the paint)
+          #ifdef TRI_HARDWARE
+          normal = normalize(normal + (vTriAZ * bNrm.x + vTriAY * bNrm.y) * (0.5 + 0.5 * triWear));   // (under the paint)
+          #else
+          normal = normalize(normal + (vTriAZ * bNrm.x + vTriAY * bNrm.y) * 0.5);
+          #endif
         #else
           normal = normalize(normal + vTriAZ * bNrm.x + vTriAY * bNrm.y);
         #endif
