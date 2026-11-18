@@ -96,4 +96,7 @@ m2.humanShot(me2, m2.eye(me2), [0, 0, 1]);
 const n = m2.noises.find((x) => x.kind === 'shot');
 check('match: a suppressed shot carries 40% as far', n && Math.abs(n.range - 35 * 0.4) < 1e-9);
 
+// a gun with no damage on record: its measured loadout changes nothing (no 'Damage -100%')
+const noDamage = guns.find((g) => g.damage == null);
+check('a gun with no damage on record shows no damage change', !noDamage || !describe(noDamage, measuredCode(noDamage)).some((d) => d.label === 'Damage'));
 console.log(checks + ' loadout checks passed');

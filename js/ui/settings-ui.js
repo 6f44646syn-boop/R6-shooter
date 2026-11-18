@@ -320,7 +320,7 @@ export class SettingsUI {
     if (!g) return;
     const W = c.width, H = c.height, a = (h / 2) * Math.PI / 180, r = H - 10, cx = W / 2, cy = H - 4;
     g.clearRect(0, 0, W, H);
-    g.fillStyle = 'rgba(242,179,61,0.22)'; g.strokeStyle = '#f2b33d'; g.lineWidth = 1.5;
+    g.fillStyle = 'rgba(226,82,74,0.22)'; g.strokeStyle = '#e2524a'; g.lineWidth = 1.5;
     g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, r, -Math.PI / 2 - a, -Math.PI / 2 + a); g.closePath(); g.fill(); g.stroke();
     g.fillStyle = '#d8dee6'; g.font = '12px system-ui, sans-serif'; g.textAlign = 'center';
     g.fillText(h.toFixed(0) + '\u00b0 wide', cx, 14);

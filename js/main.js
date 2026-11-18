@@ -62,6 +62,7 @@ import { Profile, WIN_POINTS } from './core/profile.js?v=81e5283-mwlpeohh';
 import { skinFits, skinById, CATALOGUE } from './core/skins.js?v=81e5283-mwlpeohh';
 import { currentAccount } from './core/accounts.js?v=81e5283-mwlpeohh';
 import { CHARMS } from './core/charms.js?v=81e5283-mwlpeohh';
+import { gunDamage } from './battle/fighter.js?v=81e5283-mwlpeohh';
 import { PackUI } from './ui/packs.js?v=81e5283-mwlpeohh';
 import { HDPack, SkinPack } from './render/hd-pack.js?v=81e5283-mwlpeohh';
 import { effectiveGraphics, needsPack, maxMode } from './render/quality.js?v=81e5283-mwlpeohh';
@@ -1579,7 +1580,11 @@ async function boot(data) {
     $('pause-loadout').hidden = MATCH_MODES.includes(flow.mode) || flow.mode === 'royale';
     $('clear-btn').hidden = flow.mode !== 'range';          // a range tool (and C is vault everywhere else)
     $('menu').querySelector('.steps').hidden = !step || name === 'mode';
-    $('menu').querySelector('[aria-label="Main menu"]').hidden = name === 'mode';   // (Pick game has its own tabs)
+    // Pick game has its own tabs; a game's own settings show nothing above them but a Back button
+    const matchOptions = name === 'setup' && !flow.settingsOnly;
+    $('menu').querySelector('[aria-label="Main menu"]').hidden = name === 'mode' || matchOptions;
+    $('menu').querySelector('.menu-head').hidden = matchOptions;
+    $('setup-back-top').hidden = !matchOptions; $('setup-back').hidden = matchOptions;   // (one Back, at the top)
     for (const sp of $('menu').querySelectorAll('.steps button')) { sp.classList.toggle('on', Number(sp.dataset.step) === step); sp.classList.toggle('done', Number(sp.dataset.step) < step); }
     const names = { range: 'Shooting range', bots: 'Battle vs bots', gungame: 'Gun Game', endless: 'Endless', royale: 'Battle Royale', net: 'Network battle', tdm: 'Team Deathmatch', ctf: 'Capture the Flag', bomb: 'Bomb' };
     $('menu-crumbs').textContent = name === 'mode' ? 'Choose a mode' : name === 'pause' ? names[flow.mode] + ' (paused)' :
@@ -1788,6 +1793,7 @@ async function boot(data) {
     if (home.mode !== 'net') $('setup-next').click();         // straight on with the game's saved settings
   });
   $('go-home').addEventListener('click', showHome);
+  $('setup-back-top').addEventListener('click', () => $('setup-back').click());
   $('go-packs').addEventListener('click', () => showPage('packs'));
   for (const id of ['go-shop', 'pause-shop']) $(id).addEventListener('click', () => showPage('shop'));
   $('shop-skins').addEventListener('click', () => showPage('packs'));
@@ -2019,11 +2025,28 @@ async function boot(data) {
     $('arm-info').textContent = g.rpm + ' rpm · ' + g.magSize + ' rounds · ' + state.optic.label + (skinName(state.gunIndex) ? ' · ' + skinName(state.gunIndex) : '');
     previewRig.setGun(g, state.gunIndex, state.optic);
     framePreview();
+    renderArmStats(g);
     packs.renderArmorySkins($('arm-skins'), state.gunIndex);
     renderAttach();
     $('arm-skins-note').textContent = 'Skins you own that fit the ' + g.name + '. Get more from packs (Skins & packs).';
     $('arm-deploy').textContent = flow.armoryFrom === 'pause' ? 'Back to the game' : flow.mode === 'range' ? 'Deploy to the range' : 'Deploy to battle';
   }
+  // Weapon select: fire rate, magazine and damage as bars against the strongest gun of each.
+  function renderArmStats(g) {
+    const rows = [['Fire rate', (x) => x.rpm, ' rpm'], ['Magazine', (x) => x.magSize, ' rounds'], ['Damage', (x) => gunDamage(x), ' a hit']];
+    $('arm-stats').replaceChildren(...rows.flatMap(([label, val, unit]) => {
+      const top = Math.max(...data.guns.map(val)), v = val(g);
+      const dd = document.createElement('dd'), bar = document.createElement('i'), num = document.createElement('span');
+      bar.style.setProperty('--k', String(Math.max(0.04, v / top))); num.textContent = Math.round(v) + unit;
+      dd.append(bar, num);
+      return [Object.assign(document.createElement('dt'), { textContent: label }), dd];
+    }));
+  }
+  // Weapon select tabs on the right: Sight, Attachments, Skins (one at a time).
+  for (const t of document.querySelectorAll('[data-arm-tab]')) t.addEventListener('click', () => {
+    for (const x of document.querySelectorAll('[data-arm-tab]')) x.setAttribute('aria-selected', String(x === t));
+    for (const panel of document.querySelectorAll('[data-arm-panel]')) panel.hidden = panel.dataset.armPanel !== t.dataset.armTab;
+  });
   // Centre the preview model on the turning pivot (measured unrotated) and frame it.
   function framePreview() {
     previewRig.root.position.set(0, 0, 0);

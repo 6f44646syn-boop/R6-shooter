@@ -149,6 +149,7 @@
       </section>
 
       <section class="page" id="page-setup" hidden>
+        <button type="button" id="setup-back-top" class="back-top" hidden>&#8249; Back</button>
         <h2 id="setup-title">Settings</h2>
         <div id="match-settings">
         <section class="set-group" id="range-setup">
@@ -356,10 +357,10 @@
   </div>
 
   <div id="armory" hidden>
-    <aside class="arm-col arm-left">
-      <h2>Sight</h2>
-      <div id="sight-row" class="sight-row"></div>
-      <p id="sight-note" class="small"></p>
+    <aside class="arm-col arm-left" aria-label="Weapons">
+      <h2>Weapons</h2>
+      <input type="search" id="weapon-search" class="m7-search" aria-label="Search weapons" placeholder="Search weapons">
+      <div id="loadout" class="loadout arm-slots" role="list"></div>
     </aside>
     <div class="arm-mid">
       <div class="arm-gun">
@@ -368,22 +369,28 @@
         <button type="button" id="arm-next" aria-label="Next gun">&#8250;</button>
       </div>
       <div class="arm-bottom">
-        <input type="search" id="weapon-search" class="m7-search" aria-label="Search weapons" placeholder="Search weapons">
-      <div id="loadout" class="loadout arm-slots" role="list"></div>
+        <dl id="arm-stats" class="arm-stats"></dl>
         <div class="row arm-actions">
           <button type="button" id="arm-back">Back</button>
           <button type="button" id="arm-deploy" class="primary">Deploy</button>
         </div>
       </div>
     </div>
-    <aside class="arm-col arm-right">
-      <h2>Attachments</h2>
-      <div id="attach-rows" class="attach-rows"></div>
-      <div id="attach-fx" class="attach-fx" aria-live="polite"></div>
-      <p id="attach-note" class="small"></p>
-      <h2>Skins</h2>
-      <div id="arm-skins" class="arm-skins"></div>
-      <p class="small" id="arm-skins-note"></p>
+    <aside class="arm-col arm-right" aria-label="Customise">
+      <nav class="arm-tabs" role="tablist" aria-label="Customise"><button type="button" role="tab" data-arm-tab="sight" aria-selected="true">Sight</button><button type="button" role="tab" data-arm-tab="attach" aria-selected="false">Attachments</button><button type="button" role="tab" data-arm-tab="skins" aria-selected="false">Skins</button></nav>
+      <section data-arm-panel="sight" role="tabpanel">
+        <div id="sight-row" class="sight-row"></div>
+        <p id="sight-note" class="small"></p>
+      </section>
+      <section data-arm-panel="attach" role="tabpanel" hidden>
+        <div id="attach-rows" class="attach-rows"></div>
+        <div id="attach-fx" class="attach-fx" aria-live="polite"></div>
+        <p id="attach-note" class="small"></p>
+      </section>
+      <section data-arm-panel="skins" role="tabpanel" hidden>
+        <div id="arm-skins" class="arm-skins"></div>
+        <p class="small" id="arm-skins-note"></p>
+      </section>
     </aside>
   </div>
 

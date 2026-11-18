@@ -136,7 +136,8 @@ export function describe(gun, code) {
   add('Aim time', g.adsSeconds, base.adsSeconds || 0.3);
   add('Reload', g.reloadSeconds, base.reloadSeconds);
   if (g.magSize !== base.magSize) out.push({ label: 'Rounds', value: base.magSize + ' → ' + g.magSize, better: g.magSize > base.magSize });
-  add('Damage', g.damage, base.damage ?? DEFAULT_DAMAGE[base.model] ?? 32, false);
+  const dmg = (d) => d ?? DEFAULT_DAMAGE[base.model] ?? 32;   // (a gun with no damage on record uses its type's default, as in play)
+  add('Damage', dmg(g.damage), dmg(base.damage), false);
   add('Hip spread', g.hipCone || 1, 1);
   add('Shot noise', g.noise || 1, 1);
   return out;
