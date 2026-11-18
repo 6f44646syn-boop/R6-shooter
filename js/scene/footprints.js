@@ -1,7 +1,7 @@
 // Footprints: every player leaves boot prints on the ground as they walk (left, right, along
 // their heading). One InstancedMesh (one draw), a ring buffer of 480 prints; each fades out over
 // LIFE seconds. Drawn with multiply blending, so a print darkens whatever floor it is on.
-import * as THREE from '../../vendor/three/three.module.min.js?v=9d18364-mwm1d4hn';
+import * as THREE from '../../vendor/three/three.module.min.js?v=c33fa3a-mwm26a5y';
 
 const N = 480, LIFE = 30;
 
