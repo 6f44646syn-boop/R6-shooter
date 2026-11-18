@@ -570,7 +570,7 @@ function artTexture(url) {
 }
 //   base: the gun's own material under everything (1 gunmetal, 2 walnut, 3 stippled polymer, 4 machined steel):
 //       the whole look of a part with no skin; under a skin, its grain shows through the paint and it is bare at worn edges.
-export function triplanar(material, { skin = null, detail = null, scale = 3, detailScale = 2, detailStrength = 1, gain = 1, hd = false, hdEdge = 0, hdEdgeCol = [0.32, 0.33, 0.35], hdEdgeMetal = 1, depth = 0, base = 0 } = {}) {
+export function triplanar(material, { skin = null, detail = null, scale = 3, detailScale = 2, detailStrength = 1, gain = 1, hd = false, hdEdge = 0, hdEdgeCol = [0.32, 0.33, 0.35], hdEdgeMetal = 1, depth = 0, base = 0, hardwareBounds = null } = {}) {
   const uniforms = {
     triScale: { value: scale }, detScale: { value: detailScale }, detStrength: { value: detailStrength },
     skinAlbedo: { value: skin?.albedo ?? null }, skinRM: { value: skin?.rm ?? null }, skinNormal: { value: skin?.normal ?? null },
@@ -584,6 +584,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
     triAO: { value: hd ? 1 : 0 }, hdEdge: { value: hdEdge }, hdEdgeCol: { value: new THREE.Vector3(...hdEdgeCol) }, hdEdgeMetal: { value: hdEdgeMetal },
     reliefDepth: { value: depth },
   };
+  if (hardwareBounds) uniforms.hardwareBounds = { value: hardwareBounds };
   const def = skin && skin.def;
   const sakura = def?.pattern === 17, painted = !!def?.art;
   if (painted) {
@@ -612,7 +613,8 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
   material.userData.tri = uniforms;
   const defs = (sakura ? '#define TRI_SAKURA\n' : painted ? '#define TRI_ART\n' : skin ? '#define TRI_SKIN\n' : '') +
     (skin && skin.normal ? '#define TRI_SKIN_NORMAL\n' : '') + (detail ? '#define TRI_DETAIL\n' : '') +
-    (hd ? '#define TRI_HD\n' : '') + (hd && depth > 0 && skin && skin.normal ? '#define TRI_PARALLAX\n' : '') + (base ? '#define TRI_BASE\n' : '');
+    (hd ? '#define TRI_HD\n' : '') + (hd && depth > 0 && skin && skin.normal ? '#define TRI_PARALLAX\n' : '') + (base ? '#define TRI_BASE\n' : '') +
+    (hardwareBounds ? '#define TRI_HARDWARE\n' : '');
   material.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, uniforms);
     sh.vertexShader = defs + 'varying vec3 vTriPos; varying vec3 vTriN; varying vec3 vTriAX; varying vec3 vTriAY; varying vec3 vTriAZ;\n' +
@@ -638,6 +640,9 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       uniform vec3 hdEdgeCol;
       #ifdef TRI_BASE
         uniform float triBase;
+        #ifdef TRI_HARDWARE
+          uniform vec4 hardwareBounds;
+        #endif
         float bNoise(vec2 p) {
           vec2 i = floor(p), a = fract(p); a = a * a * (3.0 - 2.0 * a);
           vec4 h = fract(sin(vec4(dot(i, vec2(127.1, 311.7)), dot(i + vec2(1, 0), vec2(127.1, 311.7)), dot(i + vec2(0, 1), vec2(127.1, 311.7)), dot(i + 1.0, vec2(127.1, 311.7)))) * 43758.5453);
@@ -883,6 +888,36 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         vec3 bCol; float bRough, bMetal, bLum; vec2 bNrm;
         {
           vec3 q = vTriPos;
+          #ifdef TRI_HARDWARE
+          vec2 part = clamp((q.zy - hardwareBounds.xy) * hardwareBounds.zw, 0.0, 1.0);
+          float fleck = bNoise(q.zy * 740.0 + q.x * 200.0);
+          if (triBase < 5.5) {                       // muzzle: turned steel, polished collars and soot at the end
+            float turned = bNoise(vec2(q.z * 2100.0, (q.x + q.y) * 58.0));
+            float collar = sstep(0.035, 0.0, abs(part.x - 0.17)) + sstep(0.045, 0.0, abs(part.x - 0.79));
+            float soot = sstep(0.23, 0.02, part.x + (fleck - 0.5) * 0.07);
+            float scuff = sstep(0.59, 0.82, bNoise(vec2(q.z * 80.0, (q.x + q.y) * 1500.0)));
+            bCol = vec3(0.20, 0.215, 0.23) * (0.65 + 0.39 * turned + 0.70 * collar + 0.32 * scuff) * (1.0 - 0.68 * soot);
+            bRough = clamp(0.43 + 0.16 * fleck + 0.24 * soot - 0.26 * collar, 0.17, 0.85);
+            bMetal = 0.88 - soot * 0.41;
+            bNrm = vec2((turned - 0.5) * 0.16, (fleck - 0.5) * 0.09);
+          } else {                                   // magazine: formed channels, a floorplate seam and scuffed edges
+            bool steel = triBase > 6.5;
+            float side = sstep(0.48, 0.9, abs(normalize(vTriN).x));
+            float center = part.x + (1.0 - part.y) * (steel ? -0.13 : 0.08);
+            float rib = 0.5 + 0.5 * cos(center * (steel ? 25.132741 : 18.849556));
+            float panel = sstep(0.12, 0.22, part.x) * sstep(0.9, 0.79, part.x) * sstep(0.13, 0.23, part.y) * sstep(0.98, 0.78, part.y) * side;
+            float seam = sstep(0.021, 0.003, abs(part.y - 0.095));
+            float rim = sstep(0.027, 0.0, abs(part.y - 0.074));
+            float rub = sstep(0.63, 0.86, bNoise(vec2(q.z * 570.0, q.y * 94.0)));
+            float edge = max(1.0 - side, rim);
+            bCol = (steel ? vec3(0.155, 0.163, 0.172) : vec3(0.100, 0.108, 0.119))
+              * (0.82 + fleck * 0.29 + panel * (0.42 * rib - 0.20) + edge * (0.20 + 0.65 * rub)) * (1.0 - seam * 0.63);
+            bRough = (steel ? 0.46 : 0.72) + fleck * 0.15 - edge * rub * 0.23;
+            bMetal = steel ? 0.78 : 0.03;
+            bNrm = vec2((rib - 0.5) * panel * 0.38, (fleck - 0.5) * 0.11);
+          }
+          bLum = fleck;
+          #else
           if (triBase < 1.5) {                       // gunmetal: blued steel, mottled, with fine machining lines along the gun
             float mot = bNoise(q.zy * 38.0 + q.x * 20.0), mach = bNoise(vec2(q.z * 30.0, (q.y + q.x) * 1400.0));
             bLum = 0.55 * mot + 0.45 * mach;
@@ -910,6 +945,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
             bRough = 0.26 + 0.14 * br; bMetal = 1.0;
             bNrm = vec2(0.0, (br - 0.5) * 0.08);
           }
+          #endif
         }
         #ifdef TRI_SKIN
           diffuseColor.rgb *= 0.86 + 0.28 * bLum;                          // the metal's grain shows through the paint
