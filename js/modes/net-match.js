@@ -125,9 +125,10 @@ export class MatchHost {
       if (!a.alive || t < (a.ignoreUntil || 0)) return;
       const p = { x: fin(msg.x, a.x), y: Math.max(0, Math.min(40, fin(msg.y, a.y))), z: fin(msg.z, a.z) };
       // no faster than a player can run (12 m/s, with slack for bunched packets); further is sent back
-      const reach = 18 * Math.min(1, Math.max(.05, t - (a.stAt ?? t))) + .5, dx = p.x - a.x, dz = p.z - a.z, dist = Math.hypot(dx, dz);
+      const dt = Math.min(1, Math.max(.05, t - (a.stAt ?? t))), reach = 18 * dt + .5, dx = p.x - a.x, dz = p.z - a.z, dist = Math.hypot(dx, dz);
       a.stAt = t;
       if (dist > reach) { p.x = a.x + dx / dist * reach; p.z = a.z + dz / dist * reach; a.forced = true; }
+      if (p.y > a.y + 7 * dt + .6) { p.y = a.y + 7 * dt + .6; a.forced = true; }   // no faster up than a jump or a stair climb (falling is free)
       m.map.resolve(p);
       a.x = p.x; a.y = p.y; a.z = p.z;
       a.yaw = fin(msg.yaw, a.yaw); a.pitch = Math.max(-89, Math.min(89, fin(msg.pitch, a.pitch)));

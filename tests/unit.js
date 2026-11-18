@@ -43,6 +43,8 @@ test('online host: no teleporting, and a claimed hit must be on the shot line (i
   eq(me.x < 2, true, 'teleport refused, got x ' + me.x); eq(me.forced, true, 'and sent back');
   m.t = 0.1; const from = me.x; host.onMessage(link, { k: 'st', x: from + 0.6, y: 0, z: 0 });
   eq(me.x, from + 0.6, 'a normal step is kept');
+  me.forced = false; m.t = 0.15; host.onMessage(link, { k: 'st', x: me.x, y: 30, z: 0 });   // straight up 30 m
+  eq(me.y < 1.5, true, 'no flying, got y ' + me.y); eq(me.forced, true, 'and sent back down');
   Object.assign(me, { x: 0, z: 0 });
   // fired straight up, "hit" the foe's head: refused
   host.onMessage(link, { k: 'shot', o: [0, 1.6, 0], d: [0, 1, 0], hit: { id: 2, p: [0, 1.62, -10], zone: 'head' } });

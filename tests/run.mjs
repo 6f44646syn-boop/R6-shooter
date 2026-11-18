@@ -1947,6 +1947,13 @@ try {
       await run(0.55);
       const nadeReplay = await B.evaluate(() => { const battle = window.__range.battle(); return !!battle.kc?.grenade && battle.grenadeCam === battle.grenadeView.camera; });
       check('Battle online: a grenade death replays the host-confirmed projectile', nadeReplay);
+      // a player who jumps 30 m on their own PC: the host does not take it and puts them back
+      await run(3.5);                                                       // (respawned after the grenade)
+      const before = await A.evaluate(() => { const f = window.__range.battle().remotes[0].f; return [f.x, f.z]; });
+      await B.evaluate(() => { window.__range.battle().humans[0].f.x += 30; });
+      await run(0.5);
+      const hostX = await A.evaluate(() => window.__range.battle().remotes[0].f.x), playerX = await B.evaluate(() => window.__range.battle().humans[0].f.x);
+      check('Battle online: a 30 m jump is refused by the host and the player is sent back', Math.abs(hostX - before[0]) < 5 && Math.abs(playerX - before[0]) < 5, JSON.stringify({ before, hostX, playerX }));
       await A.evaluate(() => window.__range.battleLeave());
       await B.waitForFunction(() => !window.__range.battle().active, null, { timeout: 5000 }).catch(() => {});
       await A.evaluate(() => { const R = window.__range; R.manual(true); R.setGraphics('standard'); R.modePrefs({ teamSize: 3, map: { tdm: 'yard', ctf: 'yard', bomb: 'ranch' }, abilities: { tdm: false, ctf: false, bomb: true }, difficulty: 'easy', side: 'attack' }); R.netGame('tdm'); R.battleStart({ opponent: 'net' }); });
@@ -2131,7 +2138,8 @@ try {
       await B.evaluate(() => window.__range.manual(true));
       const run = async (sec) => { for (let i = 0; i < sec * 20; i++) { await A.evaluate(() => window.__range.step(0.05, 60)); await B.evaluate(() => window.__range.step(0.05, 60)); await new Promise((r) => setTimeout(r, lag)); } };
       await run(1);
-      await A.evaluate(() => { const Bt = window.__range.battle(); for (const b of Bt.bots) { b.update = () => {}; b.f.x = -16; b.f.z = -12; } const h = Bt.humans[0]; h.f.x = 16; h.f.z = 12; h.f.protectUntil = 0; });
+      await A.evaluate(() => { const Bt = window.__range.battle(); for (const b of Bt.bots) { b.update = () => {}; b.f.x = -16; b.f.z = -12; } const h = Bt.humans[0]; h.f.x = 16; h.f.z = 12; h.f.protectUntil = 0;
+        const r = Bt.remotes[0]; r.f.x = 16; r.f.z = 2; r.ignoreUntil = Bt.t + .3; });   // (the host places the player, as a spawn does)
       await B.evaluate(() => { const h = window.__range.battle().humans[0]; h.f.x = 16; h.f.z = 2; h.f.protectUntil = 0; });
       await run(0.6);
       const seen = {
@@ -2153,7 +2161,8 @@ try {
       const feed1 = await B.evaluate(() => window.__range.battle().hud.feed.textContent);
       check('the player on the other PC kills the host; the kill feed shows on both', r1.hostDeaths === 1 && r1.playerKills === 1 && /Player 2 › Host/.test(feed1), JSON.stringify(r1) + feed1);
       await run(3.5);
-      await A.evaluate(() => { const Bt = window.__range.battle(); const h = Bt.humans[0]; h.f.x = 16; h.f.z = 12; h.f.protectUntil = 0; Bt.remotes[0].f.protectUntil = 0; });
+      await A.evaluate(() => { const Bt = window.__range.battle(); const h = Bt.humans[0]; h.f.x = 16; h.f.z = 12; h.f.protectUntil = 0; Bt.remotes[0].f.protectUntil = 0;
+        const r = Bt.remotes[0]; r.f.x = 16; r.f.z = 2; r.ignoreUntil = Bt.t + .3; });
       await B.evaluate(() => { const h = window.__range.battle().humans[0]; h.f.x = 16; h.f.z = 2; h.f.protectUntil = 0; });
       await run(0.3);
       await tap(A, 0);                          // the host shoots back

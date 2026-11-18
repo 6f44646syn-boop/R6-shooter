@@ -331,7 +331,7 @@ export class Battle {
     f.yaw = Math.atan2(-p.x, p.z) * 180 / Math.PI; f.pitch = 0;
     const c = this._ctl(f);
     if (c instanceof Human) { c.respawn(p.x, p.z, t, p.y); if (c === this.humans[0]) this._resetReport(); }
-    else if (c instanceof Remote) c.link.send({ k: 'spawn', x: r2(p.x), z: r2(p.z), y: r2(p.y), yaw: r1(f.yaw) });
+    else if (c instanceof Remote) { c.ignoreUntil = t + .3; c.link.send({ k: 'spawn', x: r2(p.x), z: r2(p.z), y: r2(p.y), yaw: r1(f.yaw) }); }
     else if (c) c.respawned();
   }
 
@@ -721,14 +721,21 @@ export class Battle {
     if (!r) return;
     const f = r.f, t = this.t;
     if (m.k === 'st') {
-      if (!f.alive) return;
-      f.x = +m.x || 0; f.z = +m.z || 0; f.yaw = +m.yaw || 0; f.pitch = +m.pitch || 0; f.crouch = Math.min(1, Math.max(0, +m.crouch || 0));
-      f.y = Math.min(this.arena.wallH, Math.max(0, +m.y || 0));
+      if (!f.alive || t < (r.ignoreUntil || 0)) return;
+      // no faster than a player can run, or up faster than a jump; further is sent back
+      const dt = Math.min(1, Math.max(.05, t - (r.stAt ?? t)));
+      let x = +m.x || 0, z = +m.z || 0, y = Math.min(this.arena.wallH, Math.max(0, +m.y || 0)), back = false;
+      const dx = x - f.x, dz = z - f.z, dist = Math.hypot(dx, dz), reach = 18 * dt + .5;
+      r.stAt = t;
+      if (dist > reach) { x = f.x + dx / dist * reach; z = f.z + dz / dist * reach; back = true; }
+      if (y > f.y + 7 * dt + .6) { y = f.y + 7 * dt + .6; back = true; }
+      f.x = x; f.z = z; f.y = y; f.yaw = +m.yaw || 0; f.pitch = +m.pitch || 0; f.crouch = Math.min(1, Math.max(0, +m.crouch || 0));
       f.light = m.fl !== 0;
       f.ads = Math.min(1, Math.max(0, +m.a || 0));
       f.lean = Number.isFinite(+m.l) ? Math.min(1, Math.max(-1, +m.l)) : 0;
       f.viewOptic = this.deps.opticById(m.o, f.gun).id;
       this.arena.resolve(f);                      // never inside cover
+      if (back) { r.ignoreUntil = t + .3; link.send({ k: 'back', x: r2(f.x), y: r2(f.y), z: r2(f.z) }); }
     } else if (m.k === 'shot') {
       if (!f.alive || this.over) return;
       // Rate check: no faster than the gun can fire (plus slack for network bunching).
@@ -748,9 +755,16 @@ export class Battle {
       if (m.hit) {
         const g = this.fighters.find((x) => x.id === m.hit.id);
         const p = m.hit.p;
-        if (g && g.alive && g.team !== f.team && Array.isArray(p) && Math.hypot(p[0] - g.x, p[2] - g.z) < 2.5 && Math.abs(p[1] - g.y - 1) < 2.5 &&
-          this.arena.sightLine([f.x, f.y + f.eyeH, f.z], [p[0], p[1], p[2]])) {
-          this._damage(g, gunDamage(r.gun) * (ZONE_DAMAGE[m.hit.zone] || 1), f, m.hit.zone, t);
+        const eye = [f.x, f.y + f.eyeH, f.z];
+        if (g && g.alive && g.team !== f.team && Array.isArray(p) && p.slice(0, 3).every(Number.isFinite) && Math.hypot(p[0] - g.x, p[2] - g.z) < 2.5 && Math.abs(p[1] - g.y - 1) < 2.5 &&
+          this.arena.sightLine(eye, [p[0], p[1], p[2]])) {
+          // it must be where the shooter was aiming (within about 12 degrees: lag, recoil), and the host's own
+          // body shapes (not the claim) say where it hit
+          const Y = f.yaw * DEG2RAD, P = f.pitch * DEG2RAD, aim = [Math.sin(Y) * Math.cos(P), Math.sin(P), -Math.cos(Y) * Math.cos(P)];
+          const v = [p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]], along = v[0] * aim[0] + v[1] * aim[1] + v[2] * aim[2];
+          const off = Math.hypot(v[0] - aim[0] * along, v[1] - aim[1] * along, v[2] - aim[2] * along), n = Math.hypot(...v);
+          const zone = along > 0 && off < .6 + .21 * along ? g.raycast(eye, v.map((c) => c / n))?.zone || 'body' : null;   // (moved since: a body hit)
+          if (zone) this._damage(g, gunDamage(r.gun) * (ZONE_DAMAGE[zone] || 1), f, zone, t);
         }
       }
     } else if (m.k === 'nade') {
@@ -880,6 +894,8 @@ export class Battle {
       let changed = false;
       for (const k of Object.keys(m.s)) if (this.teamScore[k] !== m.s[k]) { this.teamScore[k] = m.s[k]; changed = true; }
       if (changed) this._updateScore();
+    } else if (m.k === 'back' && me) {               // the host would not take that move: back where it has you
+      const f = me.f; f.x = +m.x || 0; f.y = +m.y || 0; f.z = +m.z || 0; f.vx = f.vy = f.vz = 0; me.camY = f.y; me.vault = null;
     } else if (m.k === 'spawn' && me) {
       this.pendingGrenadeDeath = null;
       this.grenadeDeath = null;
