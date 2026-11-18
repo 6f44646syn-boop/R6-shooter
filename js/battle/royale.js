@@ -50,6 +50,7 @@ export class BattleRoyale {
     this.eliminated = [];
     this.walls = [];
     this.impactWalls = [];
+    this.pieceSeq = 0;
     this.token = false;
     this.noticeUntil = 0;
     this.holding = false; this.holdAt = -Infinity; this.holdKey = '';   // fire held in build mode
@@ -123,6 +124,15 @@ export class BattleRoyale {
     this.renderInventory();
   }
 
+  // Online Battle Royale: the host runs the match; a player's PC asks it to open chests, build and swing,
+  // and mirrors the host's builds, chests and materials.
+  get client() { return this.battle.net?.role === 'client'; }
+  get host() { return this.battle.net?.role === 'host'; }
+  remoteOf(f) { return this.battle.remotes?.find((r) => r.f === f) || null; }
+  isPlayer(f) { return f === this.battle.humans[0]?.f || !!this.remoteOf(f); }
+  materialsOf(f) { return f === this.battle.humans[0]?.f ? this.materials : (f.buildMaterials || 0); }
+  sendMats(f) { const r = this.remoteOf(f); if (r) r.link.send({ k: 'mats', n: f.buildMaterials || 0 }); }
+
   point(x, z) {
     const a = this.arena, i = a.world.nearestNode(x, z, 0);
     return { x:a.nodeX[i], y:a.nodeY[i], z:a.nodeZ[i] };
@@ -150,6 +160,7 @@ export class BattleRoyale {
   open(f) {
     const chest = this.nearby(f);
     if (!chest) return false;
+    if (this.client) { this.battle.net.link.send({ k: 'chest', i: chest.i }); return true; }
     this.takeChest(chest, f);
     this.popChest(chest);
     this.materials += CHEST_MATERIALS;
@@ -250,12 +261,41 @@ export class BattleRoyale {
 
   takeChest(chest, f) {
     chest.opened = true;
+    if (this.host) this.battle._broadcast({ k: 'chest', i: chest.i });
     const hidden = this.hiddenChestMatrix ||= new THREE.Matrix4().makeTranslation(0,-1000,0);
     this.chestBodies.setMatrixAt(chest.i,hidden);
     this.chestStraps.setMatrixAt(chest.i*2,hidden);
     this.chestStraps.setMatrixAt(chest.i*2+1,hidden);
     this.chestBodies.instanceMatrix.needsUpdate = this.chestStraps.instanceMatrix.needsUpdate = true;
     f.nades = Math.min(2, f.nades + 1);
+  }
+
+  // Host: a player on another PC opens chest i (near enough, still closed).
+  hostChest(r, i) {
+    const chest = this.chests[i | 0], f = r.f;
+    if (!chest || chest.opened || !f.alive || Math.hypot(f.x - chest.position.x, f.z - chest.position.z) > 2.6 || Math.abs(f.y - (chest.position.y - .31)) > 1.2) return;
+    this.takeChest(chest, f);
+    this.popChest(chest);
+    f.buildMaterials = (f.buildMaterials || 0) + CHEST_MATERIALS;
+    (r.looted ||= new Set()).add(this.battle.deps.guns.indexOf(chest.gun));
+    r.link.send({ k: 'loot', gun: this.battle.deps.guns.indexOf(chest.gun), mats: f.buildMaterials, nades: f.nades, pirate: !!chest.pirate });
+  }
+  // A player's PC: the host opened a chest (anyone's): it opens here too.
+  mirrorChest(i) {
+    const chest = this.chests[i | 0];
+    if (!chest || chest.opened) return;
+    this.takeChest(chest, { nades: 0 });
+    this.popChest(chest);
+  }
+  // A player's PC: the host gave you a chest's loot.
+  takeLoot(m) {
+    const gun = this.battle.deps.guns[m.gun | 0];
+    if (gun) this.lootGun(gun);
+    this.materials = m.mats | 0;
+    const me = this.battle.humans[0]?.f; if (me) me.nades = m.nades | 0;
+    if (m.pirate) { this.token = true; this.battle.deps.onPirateToken(); }
+    this.notify((m.pirate ? 'Pirate Token found · All Black Ice skins unlocked' : gun ? gun.name : 'Chest') + ' · ' + this.materials + ' materials');
+    this.renderInventory();
   }
 
   botLoot(bot) {
@@ -329,6 +369,12 @@ export class BattleRoyale {
     this.swingAt = b.t;
     b.deps.sfx.knife(.8);
     const origin = human.camera.position.toArray(), direction = human.camera.getWorldDirection(this.aimRay.direction).toArray();
+    if (this.client) { this.battle.net.link.send({ k: 'swing', o: origin, d: direction }); return; }
+    this.strike(f, origin, direction);
+  }
+  // One pickaxe swing from origin along direction: a rival (40), a build (52), or a prop's material.
+  strike(f, origin, direction) {
+    const b = this.battle;
     const range = 2.6, distance = this.arena.raycast(origin, direction, range);
     const index = this.arena.world.hit;
     let target = null, closest = Math.min(distance, range);
@@ -343,8 +389,8 @@ export class BattleRoyale {
     const prop = this.arena.boxes[index];
     if (index >= 0 && index < this.arena.baseBoxCount && prop && (this.harvested.get(index) || 0) < 3) {
       this.harvested.set(index, (this.harvested.get(index) || 0) + 1);
-      this.materials++;
-      this.notify('+1 wall material');
+      if (f === b.humans[0]?.f) { this.materials++; this.notify('+1 wall material'); }
+      else { f.buildMaterials = (f.buildMaterials || 0) + 1; this.sendMats(f); }
     }
   }
 
@@ -360,9 +406,15 @@ export class BattleRoyale {
 
   // pitch: how far you look up (+) or down (-); planned: a plan you already made; quiet: no notice when it does not fit.
   build(f, yaw, selected = this.piece, pitch = 0, planned = null, quiet = false) {
-    const player = f === this.battle.humans[0].f;
-    if (!(player ? this.materials : f.buildMaterials) || !f.alive || f.drop) return;
+    const player = f === this.battle.humans[0].f, remote = !player && !!this.remoteOf(f);
+    if (!this.materialsOf(f) || !f.alive || f.drop) return;
     const p = planned || this.plan(f, yaw, selected, pitch);
+    if (player && this.client && !p.limit && !p.blocked) {     // online: the host builds it, and its list comes back
+      this.battle.net.link.send({ k: 'build', kind: p.kind, yaw, pitch });
+      this.holdAt = this.battle.t; this.holdKey = p.key;
+      if (p.under) this.lift(f, { kind: p.kind, mesh: { position: new THREE.Vector3(p.x, p.y, p.z) }, dir: p.dir, mask: PLATFORM_MASK });
+      return;
+    }
     if (p.limit) { if (player && !quiet) this.notify('10-ramp height limit'); return; }
     if (p.blocked) { if (player && !quiet) this.notify('Build needs clear space'); return; }
     const { kind, isWall, previous, dir, box, x, y, z, w, d } = p, { arena } = this;
@@ -370,7 +422,7 @@ export class BattleRoyale {
     const bounds = new THREE.Box3(new THREE.Vector3(box.minX, box.minY, box.minZ),
       new THREE.Vector3(box.maxX, box.maxY, box.maxZ));
     arena.scene.add(mesh);
-    const piece = { kind, box, bounds, mesh, owner:f, hp:WALL_HP, dir, startDir:dir, level:(previous?.level || 0)+1, mask:isWall ? FULL_WALL : PLATFORM_MASK };
+    const piece = { id: ++this.pieceSeq, kind, box, bounds, mesh, owner:f, hp:WALL_HP, dir, startDir:dir, level:(previous?.level || 0)+1, mask:isWall ? FULL_WALL : PLATFORM_MASK };
     if (isWall) this.makeWall(piece, x, y, z, w, d);
     else {
       mesh.position.set(x,y,z);
@@ -378,7 +430,7 @@ export class BattleRoyale {
     }
     this.walls.push(piece);
     if (player) { this.materials--; this.holdAt = this.battle.t; this.holdKey = p.key; }
-    else f.buildMaterials--;
+    else { f.buildMaterials--; if (remote) this.sendMats(f); }
     this.syncWalls();
     if (p.under) this.lift(f, piece);
     return piece;
@@ -403,7 +455,7 @@ export class BattleRoyale {
   }
   // Where a piece would go (no side effects): the build and its ghost use the same answer.
   plan(f, yaw, selected = this.piece, pitch = 0) {
-    const player = f === this.battle.humans[0].f;
+    const player = this.isPlayer(f);
     const { arena } = this;
     const kind = player ? selected : 'wall', isWall = kind === 'wall';
     const angle = yaw * Math.PI / 180, dx = Math.sin(angle), dz = -Math.cos(angle), alongX = Math.abs(dx) > Math.abs(dz);
@@ -709,6 +761,27 @@ export class BattleRoyale {
       for (const piece of pieces) { solids.push(piece); this.impactWalls.push(wall); }
     }
     this.arena.setBuilds(solids);
+    if (this.host) this.battle._broadcast({ k: 'walls', w: this.walls.map((w) => [w.id, w.kind, ...[w.mesh.position.x, w.mesh.position.y, w.mesh.position.z, w.box.minX, w.box.minY, w.box.minZ, w.box.maxX, w.box.maxZ].map((v) => Math.round(v * 1000) / 1000), w.dir, w.mask]) });
+  }
+  // A player's PC: the host's builds, mirrored (new pieces made, gone ones removed, an edited one rebuilt).
+  applyWalls(list) {
+    const want = new Map(list.map((e) => [e[0], e]));
+    for (const w of this.walls.slice()) {
+      const e = want.get(w.id);
+      if (e && e[11] === w.dir && e[12] === w.mask) { want.delete(w.id); continue; }
+      this.disposePiece(w); this.walls.splice(this.walls.indexOf(w), 1);
+    }
+    for (const [id, kind, x, y, z, minX, minY, minZ, maxX, maxZ, , dir, mask] of want.values()) {
+      const isWall = kind === 'wall', w = maxX - minX, d = maxZ - minZ;
+      const box = { minX, maxX, minY, maxY: minY + (isWall ? WALL_HEIGHT : platformHeight(kind)), minZ, maxZ };
+      const mesh = new THREE.Group();
+      this.arena.scene.add(mesh);
+      const piece = { id, kind, box, bounds: new THREE.Box3(new THREE.Vector3(box.minX, box.minY, box.minZ), new THREE.Vector3(box.maxX, box.maxY, box.maxZ)), mesh, owner: null, hp: WALL_HP, dir, startDir: dir, level: 1, mask };
+      if (isWall) { this.makeWall(piece, (minX + maxX) / 2, minY, (minZ + maxZ) / 2, w, d); piece.mesh.children.forEach((t, i) => { t.visible = !!(mask & (1 << i)); }); }   // (an edited wall: its kept panels)
+      else { mesh.position.set(x, y, z); platformMeshes(piece, this.wallMat); }
+      this.walls.push(piece);
+    }
+    this.syncWalls();
   }
 
   occupied(box, builder = null) {
@@ -739,6 +812,7 @@ export class BattleRoyale {
   }
 
   edit(human) {
+    if (this.client) { this.notify('Editing builds works in offline games'); return; }
     if (this.editing) { this.cancelEdit(); return; }
     this.editing = this.walls.find(wall => wall.owner === human.f && this.aimAt(wall, human));
     this.holding = false;

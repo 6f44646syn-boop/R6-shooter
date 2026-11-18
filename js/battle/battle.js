@@ -155,7 +155,7 @@ export class Battle {
   //         remotes: [{ link, name, gunIndex }] (network game: players on other PCs) }
   start(opts) {
     this.stop();
-    if (opts.royale) opts = { ...opts, map:ROYALE_MAP_ID, opponent:'bots', bots:ROYALE_BOTS, remotes:[], spectators:[] };
+    if (opts.royale) opts = { ...opts, map:ROYALE_MAP_ID, opponent:'bots', bots:ROYALE_BOTS - (opts.remotes?.length || 0), remotes:opts.remotes || [], spectators:[] };
     if (opts.endless) opts = { ...opts, opponent: 'bots', bots: 1, mates: 0, level: 'easy', killsToWin: Infinity, ranked: false, remotes: [], spectators: [] };
     if (opts.gungame) opts = { ...opts, opponent: 'bots', mates: 0, killsToWin: Infinity, ranked: false, remotes: [], spectators: [] };
     this.endless = opts.endless ? { wave: 1, kills: 0, lives: 3 } : null;
@@ -200,13 +200,13 @@ export class Battle {
       const team = 'p' + (i + 2);
       const f = new Fighter({ name: r.name, team, color: TEAM_COLOR[team], human: true });
       f.showBar = false;
-      const rm = new Remote(f, r.link, effectiveGun(d.guns[r.gunIndex] || d.guns[0], r.attach));   // attachments checked by Rust
-      this._look(f, rm.gun, skinNum(r.skin));
+      const rm = new Remote(f, r.link, opts.royale ? null : effectiveGun(d.guns[r.gunIndex] || d.guns[0], r.attach));   // attachments checked by Rust (Battle Royale: a pickaxe until a chest)
+      if (rm.gun) this._look(f, rm.gun, skinNum(r.skin));
       this.remotes.push(rm);
       this.fighters.push(f);
     });
-    const n = opts.royale ? ROYALE_BOTS : Math.max(0, Math.min(6, opts.bots | 0));
-    for (let i = 0; i < n; i++) this._newBot(i, opts.level, opts.royale);
+    const n = opts.royale ? ROYALE_BOTS - this.remotes.length : Math.max(0, Math.min(6, opts.bots | 0));
+    for (let i = 0; i < n; i++) this._newBot(i + (opts.royale ? this.remotes.length : 0), opts.level, opts.royale);   // (each its own side after the players')
     // bot teammates on your side
     const mates = opts.royale || opts.opponent !== 'bots' ? 0 : Math.max(0, Math.min(3, opts.mates | 0));
     for (let i = 0; i < mates; i++) {
@@ -225,7 +225,7 @@ export class Battle {
     this.t = t; this.prevT = t;
     // Network game: tell every remote player who is in the match before the spawns go out.
     for (const r of this.remotes) {
-      r.link.send({ k: 'start', you: r.f.id, killsToWin: opts.killsToWin, map: this.arena.mapId, small: this.arena.small, night: this.atmo.night, weather: this.atmo.weather, fog: this.atmo.fog, roster: this._roster() });
+      r.link.send({ k: 'start', royale: !!opts.royale, you: r.f.id, killsToWin: opts.killsToWin, map: this.arena.mapId, small: this.arena.small, night: this.atmo.night, weather: this.atmo.weather, fog: this.atmo.fog, roster: this._roster() });
     }
     for (const link of this.watchers) {
       link.send({ k: 'start', spectator: true, you: this.humans[0].f.id, killsToWin: opts.killsToWin,
@@ -706,7 +706,7 @@ export class Battle {
   // Positions, health and score of everyone, ~30 times a second (newest wins).
   _sendSnapshot(t) {
     const f = this.fighters.map((g) => [g.id, r2(g.x), r2(g.z), r1(g.yaw + (g.viewDY || 0)), r1(g.pitch + (g.viewDP || 0)), r2(g.crouch), Math.ceil(Math.max(0, g.health)), g.alive ? 1 : 0, t < g.flashUntil ? 1 : 0, g.kills, g.deaths, r2(g.y), g.light ? 1 : 0, r2(g.ads || 0), g.nades ?? 2, r2(g.lean || 0), g.viewOptic || this.deps.opticFor(g.gun).id]);
-    this._broadcast({ k: 'snap', f, s: this.teamScore }, true);
+    this._broadcast({ k: 'snap', f, s: this.teamScore, z: this.royale ? r2(this.royale.elapsed) : undefined }, true);
     if (this.watchers.length) {
       const visible = spectatorVisibility(this.fighters, this.humans[0].f.team, this.arena.world);
       const view = { k: 'watchSnap', f: f.filter(row => visible.has(row[0])), s: this.teamScore };
@@ -736,8 +736,18 @@ export class Battle {
       f.viewOptic = this.deps.opticById(m.o, f.gun).id;
       this.arena.resolve(f);                      // never inside cover
       if (back) { r.ignoreUntil = t + .3; link.send({ k: 'back', x: r2(f.x), y: r2(f.y), z: r2(f.z) }); }
+    } else if (m.k === 'chest') {
+      if (this.royale && f.alive && !this.over) this.royale.hostChest(r, m.i);
+    } else if (m.k === 'build') {
+      if (this.royale && f.alive && !this.over && ['wall', 'ramp', 'cone'].includes(m.kind)) this.royale.build(f, +m.yaw || 0, m.kind, Math.max(-89, Math.min(89, +m.pitch || 0)));
+    } else if (m.k === 'swing') {
+      if (!this.royale || !f.alive || this.over || t - (r.swingAt ?? -9) < .6 || !Array.isArray(m.o) || !Array.isArray(m.d)) return;
+      r.swingAt = t;
+      const o = m.o.slice(0, 3).map(Number), dv = m.d.slice(0, 3).map(Number), n = Math.hypot(...dv);
+      if (![...o, ...dv].every(Number.isFinite) || n < 1e-6 || Math.hypot(o[0] - f.x, o[1] - f.y - f.eyeH, o[2] - f.z) > 1.5) return;   // (from their own eye)
+      this.royale.strike(f, o, dv.map((v) => v / n));
     } else if (m.k === 'shot') {
-      if (!f.alive || this.over) return;
+      if (!f.alive || this.over || !r.gun) return;
       // Rate check: no faster than the gun can fire (plus slack for network bunching).
       r.shotTimes.push(t);
       while (r.shotTimes.length && r.shotTimes[0] < t - 1) r.shotTimes.shift();
@@ -749,6 +759,13 @@ export class Battle {
       this._noise(f, 'shot', 48 * (f.gun.noise ?? 1), t);
       this._broadcast({ k: 'tr', by: f.id, a: [r2(a.x), r2(a.y), r2(a.z)], b: m.b, team: f.team, tone: r.gun.tone, hole: m.hole || null }, true, r);
       if (m.hole) this.arena.holes.add(m.hole[0], m.hole[1], m.hole[2], m.hole[3], m.hole[4], m.hole[5]);
+      if (this.royale && Array.isArray(m.b) && m.b.slice(0, 3).every(Number.isFinite)) {
+        const eye = [f.x, f.y + f.eyeH, f.z], v = [m.b[0] - eye[0], m.b[1] - eye[1], m.b[2] - eye[2]], n = Math.hypot(...v);
+        if (n > 0.1) {
+          const dist = this.arena.raycast(eye, v.map((c) => c / n), n + 0.5), wall = this.royale.impactWalls[this.arena.world.hit - this.arena.baseBoxCount];
+          if (wall && (!m.hit || !Array.isArray(m.hit.p) || dist < Math.hypot(m.hit.p[0] - eye[0], m.hit.p[1] - eye[1], m.hit.p[2] - eye[2]))) this.royale.damageWall(wall, gunDamage(r.gun));
+        }
+      }
       this._shotSound(f, t);
       // The shooter's PC decided the hit (on what that player saw). Accept it if the target is
       // alive, an enemy, near that point, and no cover stands between.
@@ -772,6 +789,7 @@ export class Battle {
     } else if (m.k === 'gun') {
       // The host takes the player's attachments through the same Rust policy (an invalid code
       // gives the measured loadout), so its damage and rate checks use the effective gun.
+      if (this.royale && !r.looted?.has(m.i | 0)) return;          // (Battle Royale: only a gun from a chest)
       const g = this.deps.guns[m.i | 0] && effectiveGun(this.deps.guns[m.i | 0], m.at);
       if (g) { r.gun = g; f.gun = g; this._look(f, g, skinNum(m.s)); this._broadcast({ k: 'look', id: f.id, gun: m.i | 0, s: skinNum(m.s), at: g.attach || null }, false, r); }
     } else if (m.k === 'left') this.onLinkClosed(link);
@@ -840,6 +858,8 @@ export class Battle {
     }
     this.atmo = { night: !!m.night, weather: typeof m.weather === 'string' ? m.weather : 'auto', fog: !!m.fog };
     this._setNight(this.atmo.night, this.atmo.weather, this.atmo.fog);
+    this.royale?.dispose(); this.royale = null;
+    if (m.royale && !this.viewOnly && this.humans[0]) { this.humans[0].setGun(null); this.royale = new BattleRoyale(this); }
     this.arena.setGraphics(effectiveGraphics(d.settings), d.renderer);
     const t = d.now();
     this.t = t; this.prevT = t; this._nextSnap = 0;
@@ -868,6 +888,14 @@ export class Battle {
         if (me && !me.f.alive) this._startKillCam(t);
       }
       return;
+    }
+    // Battle Royale online: the host's builds, chests, your loot and materials
+    if (this.royale) {
+      if (m.k === 'walls' && Array.isArray(m.w)) { this.royale.applyWalls(m.w); return; }
+      if (m.k === 'chest') { this.royale.mirrorChest(m.i); return; }
+      if (m.k === 'loot') { this.royale.takeLoot(m); return; }
+      if (m.k === 'mats') { this.royale.materials = m.n | 0; this.royale.renderInventory(); return; }
+      if (m.k === 'snap' && Number.isFinite(m.z)) this.royale.elapsed = m.z;   // (the zone keeps the host's time)
     }
     if (m.k === 'snap' || m.k === 'watchSnap') {
       if (this.viewOnly) {
@@ -903,6 +931,7 @@ export class Battle {
       me.respawn(m.x, m.z, t, +m.y || 0);
       this._resetReport();
       me.look.setAngles(m.yaw, 0);
+      if (this.royale) { me.f.nades = 0; this.royale.startDrop(me.f, t); }   // (Battle Royale: you parachute in, as on the host)
     } else if (m.k === 'tr') {
       const by = this.fighters.find((g) => g.id === m.by);
       this._addTracer(new THREE.Vector3(m.a[0], m.a[1], m.a[2]), m.b, t, m.team, false, m.by);
@@ -956,6 +985,7 @@ export class Battle {
     this.prevT = t; this.t = t;
     const me = this.humans[0];
     if (me && !this.viewOnly) me.update(t, this.over ? 0 : dt, this);
+    if (this.royale) { this.royale.advance(this.over ? 0 : dt); this.royale.glide(this.over ? 0 : dt, t); this.royale.updateGhost(me); if (!this.over) this.royale.updateHud(); }
     if (!this.viewOnly) this._separate();
     this.nadesB.update(this.over ? 0 : dt, t);
     this.grenadeView.sample(this.nadesB.live, t);

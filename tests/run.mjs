@@ -1915,7 +1915,7 @@ try {
     try { await B.waitForFunction(() => /Connected/.test(document.getElementById('net-status').textContent), null, { timeout: 25000 }); } catch (e) { connected = false; }
     check('two sessions connect for a network match', connected, await B.textContent('#net-status'));
     const gameBox = await A.evaluate(() => !document.getElementById('net-game-box').hidden && [...document.querySelectorAll('#net-mode option')].map((o) => o.value).join());
-    check('the host can choose Battle, Team Deathmatch, Capture the Flag or Bomb', gameBox === 'battle,tdm,ctf,bomb', String(gameBox));
+    check('the host can choose Battle, Battle Royale, Team Deathmatch, Capture the Flag or Bomb', gameBox === 'battle,royale,tdm,ctf,bomb', String(gameBox));
     if (connected) {
       const run = async (sec) => { for (let i = 0; i < sec * 20; i++) { await A.evaluate(() => window.__range.step(0.05, 60)); await B.evaluate(() => window.__range.step(0.05, 60)); await new Promise((r) => setTimeout(r, 5)); } };
       // Battle online: grenades (bug B11). The player throws; the host's simulation throws it and
@@ -1955,6 +1955,35 @@ try {
       await run(0.5);
       const hostX = await A.evaluate(() => window.__range.battle().remotes[0].f.x), playerX = await B.evaluate(() => window.__range.battle().humans[0].f.x);
       check('Battle online: a 30 m jump is refused by the host and the player is sent back', Math.abs(hostX - before[0]) < 5 && Math.abs(playerX - before[0]) < 5, JSON.stringify({ before, hostX, playerX }));
+      // Battle Royale online: the player drops in with the bots; chests and builds go through the host
+      await A.evaluate(() => { const R = window.__range; R.battleLeave(); const sel = document.getElementById('net-mode'); sel.value = 'royale'; sel.dispatchEvent(new Event('change')); R.battleStart({ opponent: 'net' }); });
+      let royaleUp = true;
+      try { await B.waitForFunction(() => window.__range.battle()?.royale && window.__range.battle().active, null, { timeout: 20000 }); } catch (e) { royaleUp = false; }
+      await run(0.5);
+      const rs = await A.evaluate(() => { const b = window.__range.battle(); return { royale: !!b.royale, fighters: b.fighters.length, remotes: b.remotes.length, bots: b.bots.length }; });
+      check('Battle Royale online: the player joins the host\'s island, bots fill the rest of the 21 places', royaleUp && rs.royale && rs.remotes === 1 && rs.fighters === 21, JSON.stringify({ royaleUp, ...rs }));
+      if (royaleUp) {
+        // land the player next to a chest on both PCs (as the host's own drop would), then open it
+        const spot = await A.evaluate(() => {
+          const b = window.__range.battle(), r = b.royale, f = b.remotes[0].f, c = r.chests.find((c) => !c.opened && !c.pirate);
+          if (f.drop) r.land(f, b.t);
+          Object.assign(f, { x: c.position.x + 1, z: c.position.z, y: c.position.y - 0.31 }); b.remotes[0].ignoreUntil = b.t + 0.5;
+          return { x: f.x, y: f.y, z: f.z, i: c.i };
+        });
+        await B.evaluate((sp) => { const b = window.__range.battle(), f = b.humans[0].f; if (f.drop) b.royale.land(f, b.t); Object.assign(f, { x: sp.x, y: sp.y, z: sp.z, vx: 0, vy: 0, vz: 0 }); b.humans[0].camY = sp.y; }, spot);
+        await run(0.8);
+        await B.evaluate(() => { const b = window.__range.battle(); b.royale.open(b.humans[0].f); });
+        await run(0.6);
+        const loot = await B.evaluate((i) => { const b = window.__range.battle(), r = b.royale; return { gun: r.slots.filter(Boolean).length, mats: r.materials, opened: r.chests[i].opened }; }, spot.i);
+        const hostSaw = await A.evaluate((i) => { const b = window.__range.battle(); return { opened: b.royale.chests[i].opened, mats: b.remotes[0].f.buildMaterials, gun: !!b.remotes[0].gun }; }, spot.i);
+        check('Battle Royale online: the player opens a chest through the host and gets its gun and 18 materials', loot.gun === 1 && loot.mats === 18 && loot.opened && hostSaw.opened && hostSaw.mats === 18 && hostSaw.gun, JSON.stringify({ loot, hostSaw }));
+        // build a wall: the host builds it from the player's materials; both PCs then have it
+        await B.evaluate(() => { const b = window.__range.battle(), r = b.royale, f = b.humans[0].f; for (const yaw of [0, 90, 180, 270]) { if (!r.plan(f, yaw, 'wall').blocked) { r.build(f, yaw, 'wall'); break; } } });
+        await run(0.8);
+        const walls = await Promise.all([A, B].map((P) => P.evaluate(() => window.__range.battle().royale.walls.length)));
+        const mats2 = await B.evaluate(() => window.__range.battle().royale.materials);
+        check('Battle Royale online: a wall the player builds stands on both PCs and costs one material', walls[0] === 1 && walls[1] === 1 && mats2 === 17, JSON.stringify({ walls, mats2 }));
+      }
       await A.evaluate(() => window.__range.battleLeave());
       await B.waitForFunction(() => !window.__range.battle().active, null, { timeout: 5000 }).catch(() => {});
       await A.evaluate(() => { const R = window.__range; R.manual(true); R.setGraphics('standard'); R.modePrefs({ teamSize: 3, map: { tdm: 'yard', ctf: 'yard', bomb: 'ranch' }, abilities: { tdm: false, ctf: false, bomb: true }, difficulty: 'easy', side: 'attack' }); R.netGame('tdm'); R.battleStart({ opponent: 'net' }); });

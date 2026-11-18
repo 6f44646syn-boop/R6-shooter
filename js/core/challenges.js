@@ -14,6 +14,8 @@ const POOL = {
   ctf: [['kills', 10, 70, 'kills'], ['wins', 1, 5, 'wins'], ['matches', 1, 6, 'matches finished']],
   bomb: [['kills', 8, 60, 'kills'], ['wins', 1, 4, 'wins'], ['matches', 1, 5, 'matches finished']],
 };
+// a goal of 1 reads in the singular ('Get 1 win', not 'Get 1 wins')
+const ONE = { wins: 'win', 'matches finished': 'match finished', 'top-5 finishes': 'top-5 finish', eliminations: 'elimination', kills: 'kill' };
 const KEY = 'recoilRange.challenges.v1';
 const DAY = 86400000;
 export const dayOf = (now) => Math.floor(now / DAY);
@@ -28,7 +30,7 @@ export function challengesFor(now = Date.now()) {
       const [stat, dg, wg, text] = pool[Math.floor(rng() * pool.length)];
       const goal = period === 'daily' ? dg : wg;
       out.push({ id: period[0] + n + ':' + mode, mode, modeName: MODES[mode], period, stat, goal, points: pts,
-        text: (stat === 'best' ? 'Reach ' + goal + ' ' : stat === 'wins' || stat === 'top5' ? 'Get ' + goal + ' ' : goal + ' ') + text });
+        text: (stat === 'best' ? 'Reach ' + goal + ' ' : stat === 'wins' || stat === 'top5' ? 'Get ' + goal + ' ' : goal + ' ') + (goal === 1 ? ONE[text] || text : text) });
     }
   }
   return out;

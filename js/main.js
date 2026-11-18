@@ -393,6 +393,7 @@ async function boot(data) {
   // The chosen sight is saved per slot ("scope:<gun id>"). A saved id that the gun no longer
   // allows falls back to the gun's defaultOptic.
   function savedOptic(gun) {
+    if (!gun) return null;                  // (Battle Royale: a pickaxe, no sight)
     let id = null;
     try { id = localStorage.getItem('scope:' + gun.id); } catch (e) { id = null; }
     return gun.optics.includes(id) ? id : gun.defaultOptic;
@@ -1115,7 +1116,7 @@ async function boot(data) {
   function battleDeps() {
     return {
       renderer, settings: fair, godMode: () => !!dev?.god(), controls, guns: data.guns, sfx, worldPost, onRanked: (c) => applyRankedChange(c), rating: () => profile.rating,
-      opticFor: (g) => catalogue.byId.get(savedOptic(g)),
+      opticFor: (g) => (g ? catalogue.byId.get(savedOptic(g)) : null),
       opticById: (id, g) => catalogue.byId.get(g.optics.includes(id) ? id : g.defaultOptic), adsVFov, baseDpc, now: clockNow,
       slotOf: (g) => slotIn(data.guns, g), onEnd: (sum) => { lock.exit(); logMatch(battle, sum); }, hudRoot: $('app'),
       skinOf: (g) => equippedSkin(slotIn(data.guns, g)),
@@ -1171,13 +1172,14 @@ async function boot(data) {
     dev?.note('match-start', 'battle ' + JSON.stringify(settings.battle));
     loadingCover();
     controls.release();
-    const royale = flow.mode === 'royale', endless = flow.mode === 'endless', gungame = flow.mode === 'gungame';
-    const B = royale || endless || gungame ? { ...settings.battle, opponent: 'bots' } : settings.battle;
+    const netRoyale = settings.battle.opponent === 'net' && net.role === 'host' && flow.mode === 'net' && netMode() === 'royale';   // (Battle Royale online)
+    const royale = flow.mode === 'royale' || netRoyale, endless = flow.mode === 'endless', gungame = flow.mode === 'gungame';
+    const B = (royale && !netRoyale) || endless || gungame ? { ...settings.battle, opponent: 'bots' } : settings.battle;
     if (!royale && !endless && B.opponent === 'bots' && B.bots < 1) { flashNotice('Choose at least one bot.'); return; }
     if (B.opponent === 'net') {
       if (net.role === 'client') { flashNotice('Only the host can start a network battle.'); return; }
       if (net.peers.some(peer => !peer.ready)) { flashNotice('Wait for everyone to finish joining.'); return; }
-      if (net.role === 'host' && netMode() !== 'battle') {
+      if (net.role === 'host' && netMode() !== 'battle' && netMode() !== 'royale') {
         if (!net.peers.length) { flashNotice('Wait for at least one player to join first.'); return; }
         const mode = netMode(), ranked = mode === 'bomb' && $('net-ranked').checked;
         const peers = net.peers.map(e => ({ link: e.link, name: e.name, op: e.ops?.[mode], side: e.side,
@@ -1893,18 +1895,19 @@ async function boot(data) {
   // Network lobby (host): which game to play online, and its map. Team size, bot level,
   // abilities and time come from that mode's own settings.
   var netModeVal = (() => { try { return localStorage.getItem('recoil-range-net-mode') || 'battle'; } catch (e) { return 'battle'; } })();
-  function netMode() { return ['battle', 'tdm', 'ctf', 'bomb'].includes(netModeVal) ? netModeVal : 'battle'; }
+  function netMode() { return ['battle', 'royale', 'tdm', 'ctf', 'bomb'].includes(netModeVal) ? netModeVal : 'battle'; }
   function netGameUi() {
     const m = netMode(), P = modePrefs;
     $('net-mode').value = m;
     $('net-ranked-field').hidden = m !== 'bomb';
-    $('net-map-field').hidden = m === 'battle';
-    if (m !== 'battle') {
+    $('net-map-field').hidden = m === 'battle' || m === 'royale';
+    if (m !== 'battle' && m !== 'royale') {
       const maps = m === 'bomb' ? ['ranch', 'embassy', 'workshop'] : ['containers', 'winter', 'casino', 'school', 'yard'];
       $('net-map').replaceChildren(...maps.map((id) => { const o = document.createElement('option'); o.value = id; o.textContent = MAP_NAMES[id]; return o; }));
       $('net-map').value = maps.includes(P.map[m]) ? P.map[m] : maps[0];
     }
     $('net-game-note').textContent = m === 'battle' ? 'Everyone for themselves on the Battle map above.' :
+      m === 'royale' ? 'Blacktide Island: everyone drops in, bots fill the rest of the 21 places. Loot chests, build, outlast the zone. Editing builds works offline only.' :
       m === 'bomb' && $('net-ranked').checked ? 'Local Elo. Up to 5v5, Normal bots, 30 s prep and standard abilities. The host confirms results.' :
       'Players join teams' + (m === 'bomb' ? ' (each on the side they chose in Bomb\'s setup, if there is room)' : '') + '; bots fill the empty places. Team size, bot level' + (m === 'bomb' ? ', preparation time' : ', time') + ' and abilities are the ones set for this mode in its own settings. Each player uses the operator they last picked for it.';
     choiceUi();
