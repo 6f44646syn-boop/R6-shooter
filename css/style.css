@@ -978,3 +978,7 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea
 .h-tabs { background: rgba(11, 24, 46, .18); backdrop-filter: blur(3px); }
 .h-tabs button, .h-who { background: transparent; }
 .h-tabs button:hover { background: rgba(150, 175, 215, .12); }
+/* paused mid-match: the match stays visible behind the menu */
+#menu:has(#page-pause:not([hidden])) { background: rgba(0, 0, 0, .55); }
+/* Low graphics: no blur (it costs frames on slow PCs) */
+html[data-gfx=low] .h-tabs { backdrop-filter: none; }
