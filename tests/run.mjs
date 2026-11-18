@@ -1032,7 +1032,7 @@ try {
       !/Teal Hexcore|Carbon Weave/.test(uq.info + uq.info2) && /Magnified B/.test(uq.info) && uq.tone === 0, JSON.stringify(uq));
 
     // Weapon Skins pack (a one-picture copy of it here): an F2 wearing Olive Pixel is painted with its picture;
-    // Minimal mode wears no skin; Low graphics has no inspect.
+    // Minimal mode wears the default skin; Low graphics has no inspect.
     const picBytes = readFileSync(new URL('../skinpack/1/0.webp', import.meta.url));
     await page.route('**/skinpack/manifest.json', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ version: 1, total: picBytes.length,
       files: [{ path: '1/0.webp', size: picBytes.length, sha256: createHash('sha256').update(picBytes).digest('hex') }] }) }));
@@ -1042,7 +1042,9 @@ try {
       rig.forceSkin = 0; R.selectGun(1); R.step(0.2);
       for (let i = 0; i < 40 && !art()?.image; i++) await new Promise((r) => setTimeout(r, 100));
       out.width = art()?.image?.width;
-      R.setSetting('minimal', true); R.setGraphics('standard'); R.selectGun(1); R.step(0.2); out.minimal = !!art();
+      R.setSetting('minimal', true); R.setGraphics('standard'); R.selectGun(1); R.step(0.2);
+      for (let i = 0; i < 40 && !art()?.image; i++) await new Promise((r) => setTimeout(r, 100));
+      out.minimal = art()?.image?.src || '';
       R.setSetting('minimal', false); R.setGraphics('low'); R.step(0.2);
       R.controls.onAction('inspect', true); R.step(0.2); out.lowInspect = rig.inspectT >= 0;
       R.setGraphics('standard'); R.step(0.2); R.controls.onAction('inspect', true); R.step(0.2); out.inspect = rig.inspectT >= 0; R.step(12);
@@ -1050,8 +1052,8 @@ try {
       return out;
     });
     await page.unroute('**/skinpack/manifest.json');
-    check('Weapon Skins pack paints its picture; Minimal mode wears no skin; no inspect on Low',
-      sp.install.ok && sp.width === 1200 && !sp.minimal && !sp.lowInspect && sp.inspect, JSON.stringify(sp));
+    check('Weapon Skins pack paints its picture; Minimal mode wears the default skin; no inspect on Low',
+      sp.install.ok && sp.width === 1200 && /defaults\/f2/.test(sp.minimal) && !sp.lowInspect && sp.inspect, JSON.stringify(sp));
 
     // Weapon animations: a shot shows the muzzle flash, kicks the bolt and ejects brass; a
     // reload drops the magazine out of sight and puts it back; switching guns draws the new one.

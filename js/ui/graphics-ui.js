@@ -72,7 +72,7 @@ export class GraphicsUI {
     };
     this.packs = [
       packUI(HDPack, 'gx-', 'Enhanced Graphics pack', 'Detailed gun models, deeper weapon skins, map materials, soldier detail and 83 sound clips. Visual enhancements use High and Ultra; audio works at every quality. It downloads from this site only when you choose to, every file is checked, and it stays in this browser so it works offline. Updates arrive separately from the game. Remove it at any time to free the space.', 'Download Enhanced Graphics', () => this.download()),
-      packUI(SkinPack, 'gx-skins-', 'Weapon Skins pack', 'A painted picture of every skin on every gun, worn at every graphics level (not in Minimal mode). Without it skins wear their simple generated finish. Like the graphics pack it downloads only when you choose to, is checked, stays in this browser and can be removed at any time.', 'Download Weapon Skins', async () => { if (SkinPack.state !== 'downloading') await SkinPack.install(); this.refresh(); }),
+      packUI(SkinPack, 'gx-skins-', 'Weapon Skins pack', 'A painted picture of every skin on every gun, worn at every graphics level (Minimal mode shows default skins). Without it skins wear their simple generated finish. Like the graphics pack it downloads only when you choose to, is checked, stays in this browser and can be removed at any time.', 'Download Weapon Skins', async () => { if (SkinPack.state !== 'downloading') await SkinPack.install(); this.refresh(); }),
     ];
     this.pack = this.packs[0].section;
     this.profBtns = new Map();
@@ -104,7 +104,7 @@ export class GraphicsUI {
       chk('gx-ao', 'Ambient occlusion (High / Ultra)', () => this.s.ao, (v) => { this.s.ao = v; }, 'post'),
       chk('gx-taa', 'Temporal anti-aliasing (High / Ultra)', () => this.s.taa, (v) => { this.s.taa = v; }, 'post'),
       chk('gx-botshadows', 'Player and bot shadows (off is faster on weak GPUs; always on in Ranked and online)', () => this.s.botShadows, (v) => { this.s.botShadows = v; }, 'shading'),
-      chk('gx-minimal', 'Minimal mode: no weapon skins; bots are still T-pose blocks and there is no kill cam (not in Ranked or online)', () => this.s.minimal, (v) => { this.s.minimal = v; }, 'shading'),
+      chk('gx-minimal', 'Minimal mode: every gun wears its default skin; bots are still T-pose blocks and there is no kill cam (not in Ranked or online)', () => this.s.minimal, (v) => { this.s.minimal = v; }, 'shading'),
       chk('gx-skins', 'High-res weapon skins (any graphics level)', () => this.s.hiResSkins, (v) => { this.s.hiResSkins = v; }, 'shading'),
       chk('gx-counter', 'FPS counter', () => this.s.fpsCounter, (v) => { this.s.fpsCounter = v; }, 'perf'));
     this.modal = el('div', { class: 'pk-modal gx-modal', id: 'gfx', hidden: true, role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'gx-title' },

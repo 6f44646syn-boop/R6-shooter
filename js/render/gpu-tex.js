@@ -567,7 +567,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
   const uniforms = {
     triScale: { value: scale }, detScale: { value: detailScale }, detStrength: { value: detailStrength },
     skinAlbedo: { value: skin?.albedo ?? null }, skinRM: { value: skin?.rm ?? null }, skinNormal: { value: skin?.normal ?? null },
-    skinWear: { value: skin?.wear ?? 0 }, detailMap: { value: detail }, triGain: { value: gain },
+    skinWear: { value: skin?.wear ?? 0 }, detailMap: { value: detail }, triGain: { value: gain * (skin?.def && skin.def.rarity !== 'legendary' ? 1.3 : 1) },   // every skin but the Legendaries 30% brighter
     skinGlow: { value: new THREE.Vector3(...((skin && skin.glow) || [0, 0, 0])) },
     // Look per rarity: a colour fade along the gun, and the inspect-only animations
     // (triAnim 0..1 is driven by the weapon rig while you inspect; triTime is seconds).
@@ -586,6 +586,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       artMap: { value: artTexture(def.art) }, artMap2: { value: artTexture(def.artPeak || def.art) }, artMix: { value: 0 }, artMixSide: { value: 0 }, artRect: { value: new THREE.Vector4(...def.artRect) },
       artDark: { value: new THREE.Vector3(...def.c[2]) }, artPhase: { value: -1 }, artBlast: { value: -9 }, artMode: { value: { bronze: 1, glass: 2, resin: 2, jade: 2, opal: 2, lacquer: 3, gilt: 3, velvet: 7, orrery: 5, forge: 4, amber: 6, default: 3 }[def.artLook] || 0 },
       artFx: { value: { forge: 1, jade: 2, opal: 3, default: 4 }[def.artLook] || 0 },   // per-skin extras (the forged steel, the jade fire scales, the opal colour wave)
+      artGlow: { value: def.artGlow || 0 }, artEpic: { value: def.rarity === 'epic' && def.artLook === 'default' ? 1 : 0 },   // pack pictures: how strongly their bright colours glow (skins.js packSkin)
     });
     if (def.rarity === 'blackice') uniforms.skinGlow.value.set(...def.glow);   // (marks a Black Ice pack picture: kIce in the shader)
   } else if (sakura) {
@@ -643,7 +644,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         uniform vec4 artRect;
         uniform vec3 artDark;
         uniform float artMode, artBlast;
-        uniform float artPhase, artFx;
+        uniform float artPhase, artFx, artGlow, artEpic;
         // Irregular cells: (distance to the nearest centre, to the second nearest, the way to the nearest)
         vec4 artCell(vec2 p) {
           vec2 i = floor(p), f = fract(p), to = vec2(0.0);
@@ -753,6 +754,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         // mottled fire scale, temper colours (straw, purple, blue) where the molten seam has heated them
         float fxForge = step(0.5, artFx) * step(artFx, 1.5);
         float fxDef = step(3.5, artFx) * step(artFx, 4.5);   // a default skin (painted from a picture of the gun)
+        diffuseColor.rgb = mix(diffuseColor.rgb, pow(diffuseColor.rgb, vec3(0.7)) * 1.15, fxDef);   // skin pictures: dark tones lifted (brighter)
         float kHotArt = sstep(0.4, 0.75, kArt.r) * sstep(0.25, 0.5, kArt.r - kArt.b);
         float kPlate = fxForge * (1.0 - kHotArt) * (1.0 - kGold);
         vec4 kHam = artCell(vec2(vTriPos.z + vTriPos.x * 0.7, vTriPos.y) * 70.0);
@@ -966,6 +968,10 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         roughnessFactor = mix(roughnessFactor, 0.16 + 0.3 * sstep(0.85, 1.0, jRR), jLit);   // polished jade
         // a default skin: the picture's gun, worn and a little rough; its scuffed (lighter) edges catch more light
         roughnessFactor = mix(roughnessFactor, 0.62 - 0.3 * sstep(0.08, 0.3, kLum), fxDef);
+        // Epic pictures: polished metal, the coloured pattern brightest and glossiest (it is raised too: see the relief)
+        float kEpic = fxDef * artEpic, kPat = sstep(0.06, 0.4, max(kArt.r, max(kArt.g, kArt.b))) * sstep(0.08, 0.25, kSat);
+        metalnessFactor = mix(metalnessFactor, mix(0.4, 0.85, kPat), kEpic);
+        roughnessFactor = mix(roughnessFactor, mix(0.3, 0.12, kPat), kEpic);
         // Black Ice: its picture as painted. Most of the colour is the picture's own light (emissive, below), so
         // the range's lighting does not tint it; the rest is a glossy, non-metal surface that takes reflections.
         float kIce = fxDef * step(0.001, skinGlow.r + skinGlow.g + skinGlow.b);
@@ -1074,7 +1080,13 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
           vec3 col = artHue(vTriPos.z * 5.0 + vTriPos.y * 3.0 - triTime * 1.3 + kLum * 1.5);
           totalEmissiveRadiance += col * (band * 2.4 + after * (0.6 + 0.4 * sin(triTime * 9.0 + vTriPos.z * 60.0))) * on;
         }
-        totalEmissiveRadiance += kArt * 0.7 * kIce;     // Black Ice: the picture's own colours (see kIce)
+        totalEmissiveRadiance += kArt * 0.9 * kIce;     // Black Ice: the picture's own colours (see kIce)
+        // pack pictures: their bright colours (a Black Ice's frost too) glow, pulsing while inspecting
+        float kGlowM = sstep(0.06, 0.4, max(kArt.r, max(kArt.g, kArt.b))) * mix(0.35 + 0.65 * sstep(0.08, 0.25, kSat), 1.0, kIce);
+        totalEmissiveRadiance += kArt * kGlowM * artGlow * (1.0 + triAnim * (0.5 + 0.5 * sin(triTime * 4.0)));
+        // Epic inspect: a bright wave of energy runs along the pattern, muzzle to stock, every 1.6 s
+        float kWave = exp(-pow((vTriPos.z + 0.55 - 1.1 * fract(triTime * 0.625)) * 16.0, 2.0));
+        totalEmissiveRadiance += (mix(kArt, vec3(1.0), 0.45) * kPat * 2.2 + kArt * (1.0 - kPat) * 1.5) * kWave * kEpic * triAnim;   // white-hot in the pattern
         vec3 kNearArt = texture2D(artMap, kuv, 4.0).rgb;                  // blurred: is the seam close by?
         float kNear = kForge * sstep(0.04, 0.16, kNearArt.r - kNearArt.b);
         totalEmissiveRadiance += vec3(0.45, 0.03, 0.0) * kNear * (1.0 - sstep(0.03, 0.1, kLum)) * kHeat * (0.15 + 0.35 * kHot);
@@ -1091,7 +1103,11 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         vec2 e = vec2(1.0 / 2048.0, 1.0 / 512.0);
         float lx = dot(texture2D(artMap, kuv + vec2(e.x, 0.0)).rgb, vec3(0.3, 0.59, 0.11)) - kLum;
         float ly = dot(texture2D(artMap, kuv + vec2(0.0, e.y)).rgb, vec3(0.3, 0.59, 0.11)) - kLum;
-        normal = normalize(normal - (vTriAZ * lx + vTriAY * ly) * 2.2 * kSide);
+        normal = normalize(normal - (vTriAZ * lx + vTriAY * ly) * 2.2 * (1.0 + 1.5 * fxDef * artEpic) * kSide);
+        // Epic pictures: a wider bevel too, so the pattern stands up off the gun in 3D
+        float lx3 = dot(texture2D(artMap, kuv + vec2(e.x * 4.0, 0.0)).rgb, vec3(0.3, 0.59, 0.11)) - kLum;
+        float ly3 = dot(texture2D(artMap, kuv + vec2(0.0, e.y * 4.0)).rgb, vec3(0.3, 0.59, 0.11)) - kLum;
+        normal = normalize(normal - (vTriAZ * lx3 + vTriAY * ly3) * 2.0 * fxDef * artEpic * kSide);
         // Forgeheart: the hammer dimples (each a shallow cup: the normal tips towards its centre) and a fine grain
         normal = normalize(normal + (vTriAZ * kHam.z + vTriAY * kHam.w) * 0.34 * kPlate * kSide + vTriAY * cos((vTriPos.y + vTriPos.x * 0.5) * 620.0) * 0.06 * kPlate * kSide + (vTriAZ * (kScale - 0.5) + vTriAY * (artNoise(vTriPos.zy * 380.0 + 7.0) - 0.5)) * 0.12 * kPlate);
         // each jade scale is a dome, curving down to its edge (towards the scale behind it)

@@ -273,7 +273,8 @@ export function packSkin(def, slot) {
       parts = Object.fromEntries(Object.entries(fit[3]).map(([name, [px, gun]]) => [name, fitRect(size, px.map((v) => v * k), gun)]));
       artRect = parts.body;
     } else artRect = fitRect(size, ...PACK_WHOLE[slot]);
-    packSkins.set(key, { ...def, id: key, art: 'pack:' + slot + '/' + def.id + '.webp', artRect, parts, artLook: 'default', pattern: 18, wear: 0 });
+    packSkins.set(key, { ...def, id: key, art: 'pack:' + slot + '/' + def.id + '.webp', artRect, parts, artLook: 'default', pattern: 18, wear: 0,
+      artGlow: { common: 0.45, rare: 0.45, epic: 1.7, blackice: 1.5 }[def.rarity] || 0 });   // subtle on Commons and Rares, strong on Epics and Black Ices
   }
   return packSkins.get(key);
 }

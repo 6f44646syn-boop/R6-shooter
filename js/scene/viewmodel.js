@@ -16,7 +16,7 @@ import { legendCanvas, onLegendChange } from '../core/legend.js?v=b14a97f-mwkjfh
 import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=b14a97f-mwkjfhd1';
 import { HDPack, SkinPack } from '../render/hd-pack.js?v=b14a97f-mwkjfhd1';
 import { epicRelief } from './skin-relief.js?v=b14a97f-mwkjfhd1';
-import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect, forgeInspect, orreryInspect, amberInspect, jadeInspect, velvetInspect, opalInspect } from './inspect-effects.js?v=b14a97f-mwkjfhd1';
+import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect, forgeInspect, orreryInspect, amberInspect, jadeInspect, velvetInspect, opalInspect, epicInspect } from './inspect-effects.js?v=b14a97f-mwkjfhd1';
 import { F2 } from './f2-model.js?v=b14a97f-mwkjfhd1';
 import { G8 } from './g8-model.js?v=b14a97f-mwkjfhd1';
 import { C8 } from './c8-model.js?v=b14a97f-mwkjfhd1';
@@ -57,7 +57,7 @@ export function setSkinResolver(fn) { RESOLVE = fn; }
 // Which charm hangs on your guns: () -> charm id or null (main.js, from your profile).
 let CHARM_OF = () => null;
 export function setCharmResolver(fn) { CHARM_OF = fn; }
-// Minimal mode: no skins at all (every gun its own gunmetal, walnut and steel).
+// Minimal mode: every gun wears its default skin (not the plain gunmetal, walnut and steel).
 let NO_SKINS = false;
 export function setSkinsOff(on) { NO_SKINS = !!on; }
 // A catalogue skin on the gun in slot: its Weapon Skins pack picture when the pack has one.
@@ -67,7 +67,7 @@ function onGun(def, slot) {
 // The skin a slot shows right now: the equipped one, else its default skin, else none (the gun's own
 // gunmetal, walnut and steel).
 export function skinFor(slot) {
-  if (NO_SKINS) return null;
+  if (NO_SKINS) return DEFAULT_SKINS[slot] || null;
   const id = RESOLVE(slot);
   return id !== null && id !== undefined && onGun(skinById(id), slot) || DEFAULT_SKINS[slot] || null;
 }
@@ -82,7 +82,7 @@ function skinSize() {
 let WORLD = false;              // building a third-person gun
 let SKIN_FORCE;                 // undefined: the slot's skin; null: none; id: that skin
 function currentSkin() {
-  if (SKIN_FORCE !== undefined) return SKIN_FORCE === null || NO_SKINS ? null : onGun(skinById(SKIN_FORCE), SKIN_SLOT) || null;
+  if (SKIN_FORCE !== undefined) return SKIN_FORCE === null ? null : NO_SKINS ? DEFAULT_SKINS[SKIN_SLOT] || null : onGun(skinById(SKIN_FORCE), SKIN_SLOT) || null;
   return skinFor(SKIN_SLOT);
 }
 const skins = new Map();        // skin id + size -> baked skin; the last few are kept
@@ -1648,7 +1648,7 @@ export class WeaponRig {
   setGun(gun, slot, optic) {
     const type = MODEL_FOR[gun.id] || (MODEL_TYPES.includes(gun.model) ? gun.model : 'rifle');
     // forceSkin (replays: someone else's gun): undefined = your skin for the slot, else that id / null.
-    const sk = this.forceSkin !== undefined ? (this.forceSkin === null || NO_SKINS ? null : onGun(skinById(this.forceSkin), slot)) : skinFor(slot);
+    const sk = this.forceSkin !== undefined ? (this.forceSkin === null ? null : NO_SKINS ? DEFAULT_SKINS[slot] || null : onGun(skinById(this.forceSkin), slot)) : skinFor(slot);
     const hdm = hdModel(type);
     const key = gun.id + '|' + optic.id + '|' + (sk ? sk.id : '-') + (this.noHands ? '|nh' : '') + (hdm ? '|hd' + (packAnims.set ? 'a' + packAnims.revision : '') : TRACED[type] && packAnims.set ? '|ta' + packAnims.revision : '') + (gun.attach ? '|a' + gun.attach : '');   // a skin or attachment change builds a new model
     let m = this.models.get(key);
@@ -1736,6 +1736,7 @@ export class WeaponRig {
       if (ice) m.userData.inspectFx = frostInspect(gunG, frost, crystals, sk, INSPECT_QUALITY);
       else if (blossoms?.length) m.userData.inspectFx = sakuraInspect(gunG, blossoms, INSPECT_QUALITY, art?.roots || []);
       else if (art) m.userData.inspectFx = sk.artLook === 'bronze' ? abyssInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'glass' ? vesperInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'porcelain' ? kilnInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'forge' ? forgeInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'orrery' ? orreryInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'amber' ? amberInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'jade' ? jadeInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'velvet' ? velvetInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'opal' ? opalInspect(gunG, art, INSPECT_QUALITY) : null;
+      if (!m.userData.inspectFx && sk?.rarity === 'epic') m.userData.inspectFx = epicInspect(gunG, sk, INSPECT_QUALITY);   // a bullet flies round the gun
       m.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
       this.models.set(key, m);
       this.root.add(m);
