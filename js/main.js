@@ -1119,13 +1119,13 @@ async function boot(data) {
   {
     const B = settings.battle;
     if (B.opponent === 'p2') B.opponent = 'bots';          // split screen was removed
-    bEl('b-bots').value = String(B.bots); bEl('b-mates').value = String(B.mates || 0); bEl('b-level').value = B.level; bEl('b-kills').value = String(B.kills); bEl('b-map').value = B.map; bEl('b-time').value = B.night ? 'night' : 'day'; bEl('b-weather').value = B.weather; bEl('b-fog').value = B.fog ? 'on' : 'off'; bEl('b-voices').value = B.voices === false ? 'off' : 'on'; bEl('b-rank').value = B.ranked ? 'on' : 'off';
+    bEl('b-bots').value = String(B.bots); bEl('b-mates').value = String(B.mates || 0); bEl('b-level').value = B.level; bEl('b-kills').value = String(B.kills); bEl('b-map').value = B.map; bEl('b-rmap').value = B.royaleMap || 'random'; bEl('b-time').value = B.night ? 'night' : 'day'; bEl('b-weather').value = B.weather; bEl('b-fog').value = B.fog ? 'on' : 'off'; bEl('b-voices').value = B.voices === false ? 'off' : 'on'; bEl('b-rank').value = B.ranked ? 'on' : 'off';
     const sync = () => {
-      Object.assign(settings.battle, { bots: Number(bEl('b-bots').value), mates: Number(bEl('b-mates').value), level: bEl('b-level').value, kills: Number(bEl('b-kills').value), map: bEl('b-map').value, night: bEl('b-time').value === 'night', weather: bEl('b-weather').value, fog: bEl('b-fog').value === 'on', voices: bEl('b-voices').value === 'on', ranked: bEl('b-rank').value === 'on' });
+      Object.assign(settings.battle, { bots: Number(bEl('b-bots').value), mates: Number(bEl('b-mates').value), level: bEl('b-level').value, kills: Number(bEl('b-kills').value), map: bEl('b-map').value, royaleMap: bEl('b-rmap').value, night: bEl('b-time').value === 'night', weather: bEl('b-weather').value, fog: bEl('b-fog').value === 'on', voices: bEl('b-voices').value === 'on', ranked: bEl('b-rank').value === 'on' });
       saveSettings(settings);
       if (netInit) netUi();
     };
-    for (const id of ['b-bots', 'b-mates', 'b-level', 'b-kills', 'b-map', 'b-time', 'b-weather', 'b-fog', 'b-voices', 'b-rank']) bEl(id).addEventListener('change', sync);
+    for (const id of ['b-bots', 'b-mates', 'b-level', 'b-kills', 'b-map', 'b-rmap', 'b-time', 'b-weather', 'b-fog', 'b-voices', 'b-rank']) bEl(id).addEventListener('change', sync);
     sync();
   }
   function battleDeps() {
@@ -1218,7 +1218,7 @@ async function boot(data) {
     weapon.releaseTrigger(); setAds(false); player.releaseKeys();
     fairOn = (!!B.ranked && !royale && B.opponent === 'bots' && B.bots > 0 && !(B.mates > 0)) || B.opponent === 'net';
     try {
-      battle.start({ royale, endless, gungame, ranked: !!B.ranked && !royale && B.opponent === 'bots' && B.bots > 0 && !(B.mates > 0), opponent: B.opponent, bots: B.bots, mates: royale || B.opponent !== 'bots' ? 0 : B.mates, level: B.level, killsToWin: B.kills, map: B.map, night: B.night, weather: B.weather, fog: B.fog, p1Gun: state.gun, p2Gun: data.guns[Math.min(B.p2Gun, data.guns.length - 1)],
+      battle.start({ royale, royaleMap: B.royaleMap, endless, gungame, ranked: !!B.ranked && !royale && B.opponent === 'bots' && B.bots > 0 && !(B.mates > 0), opponent: B.opponent, bots: B.bots, mates: royale || B.opponent !== 'bots' ? 0 : B.mates, level: B.level, killsToWin: B.kills, map: B.map, night: B.night, weather: B.weather, fog: B.fog, p1Gun: state.gun, p2Gun: data.guns[Math.min(B.p2Gun, data.guns.length - 1)],
         hostName: 'Host', spectators: B.opponent === 'net' ? net.peers.filter(e => e.spectator).map(e => e.link) : [],
         remotes: B.opponent === 'net' ? net.peers.filter(e => !e.spectator).map((e) => ({ link: e.link, name: e.name, gunIndex: e.gunIndex, attach: e.attach, skin: e.skin })) : [] });
     } catch (err) {
@@ -1699,10 +1699,11 @@ async function boot(data) {
   function royaleFields() {
     const r = isRoyale();
     for (const id of ['b-map', 'b-time', 'b-weather', 'b-fog', 'b-voices', 'b-bots', 'b-kills']) $(id).closest('label').hidden = r;
+    $('b-rmap-field').hidden = !r;                                     // (which island)
   }
   const weatherHere = () => !isRoyale() && (!!document.querySelector('#battle-setup:not([hidden]) #b-weather') || flow.mode === 'tdm' || flow.mode === 'ctf');
   const visibleField = (id) => { const f = $(id)?.closest('label'); if (f && ['b-time', 'b-weather', 'b-fog'].includes(id)) return weatherHere() ? f : null; return f && !f.hidden && !f.closest('[hidden]') && $(id).options.length ? f : null; };
-  const mapSelect = () => ['b-map', 'md-map'].find((id) => visibleField(id));
+  const mapSelect = () => ['b-map', 'md-map', 'b-rmap'].find((id) => visibleField(id));
   function choiceBox(id, question, pics, picture) {
     const sel = $(id), box = document.createElement('div'); box.id = id + '-choice'; box.className = 'choice' + (pics && picture ? ' pictures' : '');
     const opts = document.createElement('div'); opts.className = 'choice-opts'; opts.setAttribute('role', 'radiogroup'); opts.setAttribute('aria-label', question);
@@ -1727,7 +1728,7 @@ async function boot(data) {
     const pics = ['high', 'ultra', 'max'].includes(settings.graphics);   // (the level picked, pack or not)
     let root = $('choice-root');
     if (!root) { root = document.createElement('div'); root.id = 'choice-root'; root.className = 'choice-root'; $('match-settings').prepend(root); }
-    for (const id of [...Object.keys(CHOICES), 'b-map', 'md-map']) { const f = $(id)?.closest('label'); if (f) f.classList.add('as-cards'); $(id + '-choice')?.remove(); }
+    for (const id of [...Object.keys(CHOICES), 'b-map', 'md-map', 'b-rmap']) { const f = $(id)?.closest('label'); if (f) f.classList.add('as-cards'); $(id + '-choice')?.remove(); }
     // online choices stay where they are, as buttons
     for (const [id, [question, page]] of Object.entries(CHOICES)) if (!page && visibleField(id)) visibleField(id).after(choiceBox(id, question, pics, false));
     const pages = choicePages();

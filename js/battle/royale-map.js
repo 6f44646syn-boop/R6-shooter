@@ -1,7 +1,8 @@
-import { wallPanels, duskSky } from '../scene/range-tex.js?v=a6e39f3-mwmzyysr';
-import { BoxGeometry, CanvasTexture, ConeGeometry, IcosahedronGeometry, RepeatWrapping, SRGBColorSpace } from '../../vendor/three/three.module.min.js?v=a6e39f3-mwmzyysr';
-import { addBlacktideDetails, blacktideTrails, villageHouse, villageHouses } from './royale-details.js?v=a6e39f3-mwmzyysr';
-import { MAPS } from './maps.js?v=a6e39f3-mwmzyysr';
+import { wallPanels, duskSky } from '../scene/range-tex.js?v=a2bb8f7-mwn7xt6i';
+import { BoxGeometry, CanvasTexture, ConeGeometry, IcosahedronGeometry, RepeatWrapping, SRGBColorSpace } from '../../vendor/three/three.module.min.js?v=a2bb8f7-mwn7xt6i';
+import { addBlacktideDetails, blacktideTrails, villageHouse, villageHouses, watchtowers, lighthouse } from './royale-details.js?v=a2bb8f7-mwn7xt6i';
+import { ruins } from './royale-city.js?v=a2bb8f7-mwn7xt6i';
+import { MAPS } from './maps.js?v=a2bb8f7-mwn7xt6i';
 
 export const ROYALE_MAP_ID = 'blacktide';
 export const ROYALE_BOTS = 20;
@@ -11,7 +12,29 @@ const spawns = Array.from({ length: ROYALE_BOTS + 1 }, (_, i) => {
   return [63 * Math.cos(a), 49 * Math.sin(a)];
 });
 const box = (x, z, w, d, h, kind = 'wall', y = 0) => ({ x, z, w, d, h, kind, y });
-function building(x,z,{w,d,h,door},kind='plank') {
+// The 3.2 m build grid: walls sit on grid lines and wider pieces fill whole cells, so players'
+// walls, ramps and cones fit flush against the map.
+const G = 3.2, line = (v) => Math.round(v / G) * G;
+function cells(c, s) {                       // a span on one axis: thin = centred on a line, wide = whole cells
+  if (s < 1.6) return [line(c), s];
+  const n = Math.max(1, Math.round(s / G));   // (the nearest whole number of cells, centred where they fit)
+  return [n % 2 ? (Math.round(c / G - .5) + .5) * G : line(c), n * G];
+}
+// Watchtowers: a platform (on a cell) 4.5 m up on timber legs, stairs up its south side.
+const towers = watchtowers.flatMap(([x, z]) => [
+  box(x, z, G, G, .3, 'plank', 4.5),
+  { stairs:'+z', x, z: z - G / 2 - 2.4, w: 1.4, d: 4.8, y: 0, y1: 4.5, base: 0, rise: .3, kind: 'plank' },
+]);
+const GRID_KINDS = new Set(['wall', 'container', 'dock', 'barrier', 'hill']);
+function onGrid(b) {
+  if (!GRID_KINDS.has(b.kind)) return b;
+  const [x, w] = cells(b.x, b.w), [z, d] = cells(b.z, b.d);
+  return { ...b, x, z, w, d };
+}
+function building(x0,z0,{w:w0,d:d0,h,door:_},kind='plank') {
+  // whole cells, an odd number wide so the one-cell door is centred and the walls either side are whole cells
+  const n = Math.max(3, Math.round(w0 / G) | 1), w = n * G, d = Math.max(2, Math.round(d0 / G)) * G, door = G;
+  const x = (Math.round(x0 / G - .5) + .5) * G, z = d / G % 2 ? (Math.round(z0 / G - .5) + .5) * G : line(z0);
   const wall = (w-door)/2, offset = (w+door)/4, roofW = (w+.55)/2, roofD = d+.5, eave = h+.25;
   return [
     box(x-w/2,z,.4,d,h,kind), box(x+w/2,z,.4,d,h,kind),
@@ -22,8 +45,8 @@ function building(x,z,{w,d,h,door},kind='plank') {
   ];
 }
 
-const hill = (x, z, w, d, y) => {
-  const rise = 6;
+const hill = (x0, z0, w0, d0, y) => {
+  const rise = 2 * G, [x, w] = cells(x0, w0), [z, d] = cells(z0, d0);
   return [
     box(x, z, w, d, y, 'hill'),
     { ramp:'+x', x:x-(w+rise)/2, z, w:rise, d, y1:y, kind:'hill' },
@@ -55,6 +78,11 @@ function groundTexture() {
     pixels.data[at+2] = 82+shade; pixels.data[at+3] = 255;
   }
   ctx.putImageData(pixels,0,0);
+  for (let i = 0; i < 4; i++) {                                     // a sandy beach round the edge, fading inland
+    const m = 8 + i * 10;
+    ctx.strokeStyle = `rgba(214,196,150,${.75 - i * .17})`; ctx.lineWidth = m;
+    ctx.strokeRect(m/2 - 4, m/2 - 4, w - m + 8, h - m + 8);
+  }
   ctx.lineCap = ctx.lineJoin = 'round';
   for (const trail of blacktideTrails) {
     ctx.beginPath();
@@ -69,7 +97,7 @@ function groundTexture() {
   return { map, tileX:160, tileZ:128, rough:.97, keepInLow:true };
 }
 
-export const BLACKTIDE = {
+export const BLACKTIDE = /** @type {any} */ ({
   name: 'Blacktide Island', hx: 80, hz: 64, wallH: 5,
   sky: duskSky, background: 0x4c5f65, fog: [0x73878e, 78, 186],
   hemi: [0xd5e8f1, 0x524638, 2.2], key: [0xffe2bb, 2, [-43, 83, 30]],
@@ -79,6 +107,9 @@ export const BLACKTIDE = {
     wall: { color: 0x707b70, rough: .9 },
     low: { color: 0x928576, rough: .95 },
     plank: { map:MAPS.yard.kinds.plank.map, tile:1.8, color:0xa88162, rough:.9 },
+    plankRed: { map:MAPS.yard.kinds.plank.map, tile:1.8, color:0xb5574a, rough:.9 },
+    plankBlue: { map:MAPS.yard.kinds.plank.map, tile:1.8, color:0x5d86a8, rough:.9 },
+    plankGreen: { map:MAPS.yard.kinds.plank.map, tile:1.8, color:0x6f9a62, rough:.9 },
     roof: { map:MAPS.yard.kinds.plank.map, tile:2.1, color:0x6f5546, rough:.95 },
     dock: { color: 0x829292, rough: .85 },
     container: { map:MAPS.yard.kinds.container.map, tile:1.5, color:0x486d74, metal:.45, rough:.65 },
@@ -94,12 +125,13 @@ export const BLACKTIDE = {
     [-45,-31], [-36,-18], [36,-35], [54,-22], [-50,28], [-31,35],
     [36,30], [52,19], [-14,0], [12,0], [0,-12], [0,12],
   ],
-  layout: [
+  layout: [...[
     // Wreck, village, container docks and quarry surround the central fort.
     box(-45, -29, 26, 1, 2.8, 'plank'), box(-45, -37, 20, .8, 2.2, 'plank'),
     box(-57, -33, 2, 7, 1.2, 'plank'), box(-34, -33, 4, 5, 1.2, 'dock'),
     box(-45, -24, 13, 5, .8, 'dock'), box(-38, -19, 4, 2.6, 1.2, 'crate'),
-    ...villageHouses.flatMap(([x,z]) => building(x,z,villageHouse)),
+    ...villageHouses.flatMap(([x,z], i) => building(x,z,villageHouse,['plank','plankRed','plankBlue','plankGreen'][i % 4])),
+    ...towers, box(lighthouse[0], lighthouse[1], 2 * G, 2 * G, 1.4, 'rock'),
     ...building(42,-15,{w:17,d:10,h:5.1,door:4.6},'container'),
     ...building(17,-40,{w:13,d:9,h:4.2,door:3.8},'wall'),
     box(39,-14,2.4,1.9,1.65,'crate'), box(46,-17,2.2,3.3,1.25,'crate'),
@@ -110,9 +142,9 @@ export const BLACKTIDE = {
     box(46, 31, 19, 9, 1.2, 'dock'), box(47, 35, 12, 6, 1.2, 'dock', 1.2),
     { ramp:'-z', x:43, z:23, w:3.5, d:7, y1:1.2, kind:'dock' },
     box(60, 29, 3, 12, 2.1), box(36, 38, 5, 7, 1.25, 'low'),
-    box(-8, -9, 6, .7, 3.2), box(8, -9, 6, .7, 3.2),
-    box(-8, 9, 6, .7, 3.2), box(8, 9, 6, .7, 3.2),
-    box(-11, 0, .7, 9, 3.2), box(11, 0, .7, 9, 3.2),
+    box(-6.4, -9.6, 6.4, .7, 3.2), box(6.4, -9.6, 6.4, .7, 3.2),
+    box(-6.4, 9.6, 6.4, .7, 3.2), box(6.4, 9.6, 6.4, .7, 3.2),
+    box(-12.8, 0, .7, 6.4, 3.2), box(12.8, 0, .7, 6.4, 3.2),
     box(0, 3, 7, 5, 1.15, 'dock'), box(-3, 3, 1, 3, .9, 'low', 1.15),
     { ramp:'+z', x:0, z:-1.8, w:2.6, d:4.6, y1:1.15, kind:'dock' },
     ...[-60,-30,0,30,60].flatMap((x, i) => [-50,-14,14,50].map((z, j) =>
@@ -129,7 +161,15 @@ export const BLACKTIDE = {
       box(x,z,i%2?3.8:1.2,i%2?1.2:3.8,1.15,'barrier'),
       box(x+2.8,z-2.5,1.7,1.55,i%3?1.3:1.9,'crate'),
     ]),
-  ],
+    // more buildings and cover across the open ground
+    ...building(-62,-46,{w:13,d:9,h:4.2},'wall'), ...building(62,-49,{w:13,d:9,h:4.6},'container'),
+    ...building(-64,30,{w:10,d:9,h:3.9},'wall'), ...building(-40,55,{w:13,d:7,h:4.2},'wall'),
+    ...building(22,-8,{w:10,d:7,h:3.8},'wall'), ...building(-24,-8,{w:10,d:7,h:3.8},'wall'),
+    ...[[-70,-5],[-48,-12],[-36,8],[-14,-50],[-6,30],[14,22],[26,-46],[40,12],[52,-6],[66,20],[-58,52],[44,50],[-12,46],[18,48],[-70,-30],[70,-20]].flatMap(([x,z],i) => [
+      box(x,z,i%2?6.4:1,i%2?1:6.4,1.2,'barrier'),
+      box(x+(i%2?0:2.4),z+(i%2?2.4:0),2,2,i%3?1.1:1.7,i%2?'rock':'crate'),
+    ]),
+  ].map(onGrid)],
   extra: (ctx, _map, solids) => {
     ctx.scatter(new BoxGeometry(1,1,1), {color:0x5d4931, rough:1, castShadow:true},
       trees.map(b => [b.x,b.h/2,b.z,b.w,b.h,b.d]));
@@ -143,4 +183,9 @@ export const BLACKTIDE = {
       brush.map(([x,z,s]) => [x+.7*s,.4*s,z+.25*s,.72*s,.48*s,.72*s]));
     addBlacktideDetails(ctx,solids);
   },
-};
+});
+
+// Battle Royale maps (the setting battle.royaleMap picks one; 'random' either).
+export const ROYALE_MAPS = { blacktide: BLACKTIDE, ruins: ruins(spawns) };
+export const isRoyaleMap = (id) => Object.hasOwn(ROYALE_MAPS, id);
+

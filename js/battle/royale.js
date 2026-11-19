@@ -95,8 +95,8 @@ export class BattleRoyale {
     this.chestBodies.castShadow = true;
     const matrix = new THREE.Matrix4();
     const color = new THREE.Color();
-    this.chests = locations.map(([x, z], i) => {
-      const p = this.point(x, z);
+    this.chests = locations.map(([x, z, y = 0], i) => {
+      const p = this.point(x, z, y);   // (y: an upper floor)
       const pirate = i === pirateIndex;
       const position = new THREE.Vector3(p.x,p.y+.31,p.z);
       this.chestBodies.setColorAt(i, color.setHex(pirate ? 0xab38c0 : 0x63472b));
@@ -148,8 +148,8 @@ export class BattleRoyale {
     return null;
   }
 
-  point(x, z) {
-    const a = this.arena, i = a.world.nearestNode(x, z, 0);
+  point(x, z, y = 0) {
+    const a = this.arena, i = a.world.nearestNode(x, z, y);
     return { x:a.nodeX[i], y:a.nodeY[i], z:a.nodeZ[i] };
   }
 
@@ -317,7 +317,8 @@ export class BattleRoyale {
     const chest = this.nearby(bot.f, true);
     if (!chest) return;
     this.takeChest(chest, bot.f);
-    bot.f.buildMaterials = 2;
+    bot.f.builder = bot.level === 'hard' || bot.level === 'terminator';   // (builders: ramps too, and 90s when shot at)
+    bot.f.buildMaterials = bot.f.builder ? 12 : 2;
     bot.setGun(chest.gun);
     this.battle._look(bot.f, chest.gun, null);
     bot.goal = null;
@@ -349,6 +350,7 @@ export class BattleRoyale {
 
   defend(bot, t) {
     const f = bot.f, attacker = bot.attacker;
+    if (f.builder) return this.crank(bot, t);
     if (!f.buildMaterials || !attacker?.alive || t - bot.attackedAt > 1.2 ||
         t < (bot.nextWall || 0) || f.health > 75 || this.outside(f, 1)) return;
     const dx = attacker.x - f.x, dz = attacker.z - f.z;
@@ -361,6 +363,27 @@ export class BattleRoyale {
       bot.holdUntil = t + 1.35;
       bot.crouchWanted = true;
     }
+  }
+
+  // Hard and Terminator bots shot at crank 90s: a wall toward the shooter, then a ramp under their
+  // feet (it lifts them), turned 90 degrees each level, up to 4 levels while materials last.
+  crank(bot, t) {
+    const f = bot.f, a = bot.attacker, c = bot.cranking;
+    const toward = () => Math.atan2(a.x - f.x, -(a.z - f.z)) * 180 / Math.PI;
+    if (c) {
+      if (t < c.next) return;
+      if (c.left <= 0 || !f.buildMaterials || !a?.alive || !f.alive || f.drop) { bot.cranking = null; return; }
+      this.build(f, toward(), 'wall', 0, null, true);
+      this.build(f, c.yaw, 'ramp', -70, null, true);
+      c.yaw += 90; c.left--; c.next = t + (bot.level === 'terminator' ? 0.3 : 0.5);
+      bot.mode = 'hold'; bot.holdUntil = t + 0.8;
+      return;
+    }
+    if ((f.buildMaterials || 0) < 2 || !a?.alive || t - bot.attackedAt > 1.2 || t < (bot.nextWall || 0) || this.outside(f, 1)) return;
+    const distance = Math.hypot(a.x - f.x, a.z - f.z);
+    if (distance < 4 || distance > 40) return;
+    bot.nextWall = t + 8;
+    bot.cranking = { yaw: toward(), left: 4, next: t };
   }
 
   coverTarget(f, contact, t) {
@@ -470,7 +493,7 @@ export class BattleRoyale {
   }
   // Where a piece would go (no side effects): the build and its ghost use the same answer.
   plan(f, yaw, selected = this.piece, pitch = 0) {
-    const player = this.isPlayer(f);
+    const player = this.isPlayer(f) || !!f.builder;   // (builder bots pick pieces like a player)
     const { arena } = this;
     const kind = player ? selected : 'wall', isWall = kind === 'wall';
     const angle = yaw * Math.PI / 180, dx = Math.sin(angle), dz = -Math.cos(angle), alongX = Math.abs(dx) > Math.abs(dz);

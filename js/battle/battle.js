@@ -7,25 +7,25 @@ import { replayCamera } from '../replay/view.js?v=a6e39f3-mwmzyysr';
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=a6e39f3-mwmzyysr';
-import { Arena } from './arena.js?v=a6e39f3-mwmzyysr';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=a6e39f3-mwmzyysr';
-import { Banter } from './banter.js?v=a6e39f3-mwmzyysr';
-import { Bot, LEVELS } from './bot.js?v=a6e39f3-mwmzyysr';
-import { Human } from './human.js?v=a6e39f3-mwmzyysr';
-import { BattleNades } from './nades.js?v=a6e39f3-mwmzyysr';
-import { drawCrosshair } from '../ui/crosshair.js?v=a6e39f3-mwmzyysr';
-import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=a6e39f3-mwmzyysr';
-import { effectiveGraphics } from '../render/quality.js?v=a6e39f3-mwmzyysr';
-import { effectiveGun, slotIn } from '../core/loadout.js?v=a6e39f3-mwmzyysr';
-import { BattleRoyale } from './royale.js?v=a6e39f3-mwmzyysr';
-import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=a6e39f3-mwmzyysr';
-import { Footprints } from '../scene/footprints.js?v=a6e39f3-mwmzyysr';
-import { Minimap } from '../ui/minimap.js?v=a6e39f3-mwmzyysr';
-import { botRankedChange } from '../core/ranked.js?v=a6e39f3-mwmzyysr';
-import { warmScene } from '../render/warm.js?v=a6e39f3-mwmzyysr';
-import { ShadowGate } from '../render/shadow-gate.js?v=a6e39f3-mwmzyysr';
-import { MatchStats, mvpCard } from '../core/mvp.js?v=a6e39f3-mwmzyysr';
+import * as THREE from '../../vendor/three/three.module.min.js?v=a2bb8f7-mwn7xt6i';
+import { Arena } from './arena.js?v=a2bb8f7-mwn7xt6i';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=a2bb8f7-mwn7xt6i';
+import { Banter } from './banter.js?v=a2bb8f7-mwn7xt6i';
+import { Bot, LEVELS } from './bot.js?v=a2bb8f7-mwn7xt6i';
+import { Human } from './human.js?v=a2bb8f7-mwn7xt6i';
+import { BattleNades } from './nades.js?v=a2bb8f7-mwn7xt6i';
+import { drawCrosshair } from '../ui/crosshair.js?v=a2bb8f7-mwn7xt6i';
+import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=a2bb8f7-mwn7xt6i';
+import { effectiveGraphics } from '../render/quality.js?v=a2bb8f7-mwn7xt6i';
+import { effectiveGun, slotIn } from '../core/loadout.js?v=a2bb8f7-mwn7xt6i';
+import { BattleRoyale } from './royale.js?v=a2bb8f7-mwn7xt6i';
+import { ROYALE_BOTS, ROYALE_MAPS } from './royale-map.js?v=a2bb8f7-mwn7xt6i';
+import { Footprints } from '../scene/footprints.js?v=a2bb8f7-mwn7xt6i';
+import { Minimap } from '../ui/minimap.js?v=a2bb8f7-mwn7xt6i';
+import { botRankedChange } from '../core/ranked.js?v=a2bb8f7-mwn7xt6i';
+import { warmScene } from '../render/warm.js?v=a2bb8f7-mwn7xt6i';
+import { ShadowGate } from '../render/shadow-gate.js?v=a2bb8f7-mwn7xt6i';
+import { MatchStats, mvpCard } from '../core/mvp.js?v=a2bb8f7-mwn7xt6i';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, p7: 0xff7048, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -155,7 +155,7 @@ export class Battle {
   //         remotes: [{ link, name, gunIndex }] (network game: players on other PCs) }
   start(opts) {
     this.stop();
-    if (opts.royale) opts = { ...opts, map:ROYALE_MAP_ID, opponent:'bots', bots:ROYALE_BOTS - (opts.remotes?.length || 0), remotes:opts.remotes || [], spectators:[] };
+    if (opts.royale) opts = { ...opts, map: ROYALE_MAPS[opts.royaleMap] ? opts.royaleMap : Object.keys(ROYALE_MAPS)[Math.floor(Math.random() * Object.keys(ROYALE_MAPS).length)], opponent:'bots', bots:ROYALE_BOTS - (opts.remotes?.length || 0), remotes:opts.remotes || [], spectators:[] };
     if (opts.endless) opts = { ...opts, opponent: 'bots', bots: 1, mates: 0, level: 'easy', killsToWin: Infinity, ranked: false, remotes: [], spectators: [] };
     if (opts.gungame) opts = { ...opts, opponent: 'bots', mates: 0, killsToWin: Infinity, ranked: false, remotes: [], spectators: [] };
     this.endless = opts.endless ? { wave: 1, kills: 0, lives: 3 } : null;

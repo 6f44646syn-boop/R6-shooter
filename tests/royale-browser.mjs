@@ -20,10 +20,11 @@ try {
   assert.ok(await page.locator('#b-map').isHidden());
   await page.evaluate(() => {
     __range.manual(true);
+    const island = document.getElementById('b-rmap'); island.value = 'blacktide'; island.dispatchEvent(new Event('change'));   // (default: either map)
     window.restoreRandom = Math.random;
     Math.random = () => 0.5;
   });
-  await page.click('#setup-next');
+  for (let i = 0; i < 5 && await page.locator('#page-setup').isVisible(); i++) await page.click('#setup-next');   // (the Island page, then start)
   await page.waitForFunction(() => __range.battle()?.royale);
   const started = await page.evaluate(() => {
     Math.random = window.restoreRandom;
@@ -139,7 +140,7 @@ try {
     a.setGraphics('standard',b.deps.renderer);
     return { counts, sharedCollision:world === a.world };
   });
-  assert.deepEqual(tiers, {counts:[32,860,2200,4140],sharedCollision:true});
+  assert.deepEqual(tiers, {counts:[32,1060,2700,5040],sharedCollision:true});
   console.log('PASS all graphics presets scale map detail with shared collision');
   assert.ok(await page.evaluate(() => {
     const R = __range, b = R.battle(), world = b.arena.world, h = b.humans[0];
@@ -490,6 +491,21 @@ try {
   });
   assert.deepEqual(rampVault, { high: true, up: true });
   console.log('PASS C vaults up onto the tall end of a ramp');
+  // Hard and Terminator bots shot at crank 90s: walls and ramps under their feet, climbing
+  const crank = await page.evaluate(() => {
+    const b = __range.battle(), r = b.royale, a = b.arena, h = b.humans[0], bot = b.bots[0], f = bot.f;
+    for (let i = 0; i < a.nodeCount; i += 7) { if (a.nodeY[i] > .01) continue; Object.assign(f, { x: a.nodeX[i], y: 0, z: a.nodeZ[i] }); if (!r.plan(f, 0, 'wall').blocked) break; }
+    bot.level = 'terminator'; f.builder = true; f.buildMaterials = 12; f.alive = true; f.drop = null;
+    Object.assign(h.f, { x: f.x, y: 0, z: f.z + 12 }); h.f.alive = true;
+    bot.attacker = h.f; bot.attackedAt = b.t; bot.nextWall = 0;
+    const n = r.walls.length, y0 = f.y;
+    for (let k = 0; k < 30; k++) { r.defend(bot, b.t); __range.step(0.05); bot.attackedAt = Math.max(bot.attackedAt, b.t - 0.5); }
+    const built = r.walls.slice(n), out = { ramps: built.filter((w) => w.kind === 'ramp').length, walls: built.filter((w) => w.kind === 'wall').length, rose: f.y - y0 > 3, spent: 12 - f.buildMaterials };
+    for (const w of built) { r.disposePiece(w); r.walls.splice(r.walls.indexOf(w), 1); } r.syncWalls(); f.builder = false;
+    return out;
+  });
+  assert.ok(crank.ramps >= 3 && crank.walls >= 2 && crank.rose, JSON.stringify(crank));
+  console.log('PASS a Terminator bot shot at cranks 90s: walls toward the shooter and ramps under its feet, climbing');
 
   const result = await page.evaluate(() => {
     const b = __range.battle(), r = b.royale, h = b.humans[0].f;
@@ -553,6 +569,28 @@ try {
   assert.deepEqual(errors, []);
   console.log('PASS the rare Pirate Token unlocks all ten Black Ice skins in storage and save codes');
   console.log('PASS bots find guns in chests and the full match ends with exactly one survivor');
+  // Ruined City: big buildings with floors and stairs on the build grid, chests upstairs that bots can walk to
+  const city = await page.evaluate(() => {
+    const b = __range.battle(), a = b.arena, r = b.royale;
+    b.start({ ...b.opts, royale: true, royaleMap: 'ruins' });
+    const up = b.royale.chests.filter((c) => c.position.y > 2.5), c = up[0].position;
+    const onGrid = (v) => Math.abs(v / 3.2 - Math.round(v / 3.2)) < 1e-6;
+    const walls = b.arena.boxes.filter((x) => (x.kind === 'brick' || x.kind === 'concrete') && x.maxY - x.minY > 3 && Math.min(x.maxX - x.minX, x.maxZ - x.minZ) < 0.5);
+    return { map: b.arena.mapId, chests: b.royale.chests.length, upstairs: up.length,
+      path: b.arena.findPath(0, 60, c.x, c.z, 0, c.y).length > 0,
+      grid: walls.length > 50 && walls.every((x) => onGrid((x.maxX - x.minX < 0.5 ? x.minX + x.maxX : x.minZ + x.maxZ) / 2)) };
+  });
+  assert.deepEqual({ ...city, chests: city.chests > 50, upstairs: city.upstairs > 10 }, { map: 'ruins', chests: true, upstairs: true, path: true, grid: true }, JSON.stringify(city));
+  console.log('PASS Ruined City: storeys with stairs on the 3.2 m grid, chests upstairs that bots can walk to');
+  const cityMatch = await page.evaluate(() => {
+    const r = __range, b = r.battle();
+    r.step(22, 15);
+    const armedBots = b.bots.filter((bot) => bot.gun).length;
+    r.step(223, 15);
+    return { over: b.over, living: b.fighters.filter((f) => f.alive).length, armedBots };
+  });
+  assert.ok(cityMatch.armedBots >= 12 && cityMatch.over && cityMatch.living === 1, JSON.stringify(cityMatch));
+  console.log('PASS Ruined City: bots loot the buildings and the full match ends with one survivor');
 } finally {
   await browser?.close();
   server.close();

@@ -7,18 +7,18 @@
 //
 // Coordinates: metres, x right, y up, z towards the "A" side. Same yaw convention as the
 // range: yaw 0 looks along -z, positive turns right.
-import { applyPackMaterials, revertPackMaterials } from '../render/pack-materials.js?v=a6e39f3-mwmzyysr';
-import { maxMode, minimalMode } from '../render/quality.js?v=a6e39f3-mwmzyysr';
-import * as THREE from '../../vendor/three/three.module.min.js?v=a6e39f3-mwmzyysr';
-import { MAPS, SMALL } from './maps.js?v=a6e39f3-mwmzyysr';
-import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=a6e39f3-mwmzyysr';
-import { flatMaterial } from '../scene/low.js?v=a6e39f3-mwmzyysr';
-import { BulletHoles } from '../scene/holes.js?v=a6e39f3-mwmzyysr';
-import { LightPool } from '../render/light-pool.js?v=a6e39f3-mwmzyysr';
-import { mulberry32 } from '../core/prng.js?v=a6e39f3-mwmzyysr';
-import { layoutSolids, layoutPieces, edgeSolids, span, piece, stairCount, rampCount } from './solids.js?v=a6e39f3-mwmzyysr';
-import { CoreWorld, BODY_R, STEP, BODY_H, VAULT_MAX } from '../wasm/world.js?v=a6e39f3-mwmzyysr';
-import { BLACKTIDE, ROYALE_MAP_ID } from './royale-map.js?v=a6e39f3-mwmzyysr';
+import { applyPackMaterials, revertPackMaterials } from '../render/pack-materials.js?v=a2bb8f7-mwn7xt6i';
+import { maxMode, minimalMode } from '../render/quality.js?v=a2bb8f7-mwn7xt6i';
+import * as THREE from '../../vendor/three/three.module.min.js?v=a2bb8f7-mwn7xt6i';
+import { MAPS, SMALL } from './maps.js?v=a2bb8f7-mwn7xt6i';
+import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=a2bb8f7-mwn7xt6i';
+import { flatMaterial } from '../scene/low.js?v=a2bb8f7-mwn7xt6i';
+import { BulletHoles } from '../scene/holes.js?v=a2bb8f7-mwn7xt6i';
+import { LightPool } from '../render/light-pool.js?v=a2bb8f7-mwn7xt6i';
+import { mulberry32 } from '../core/prng.js?v=a2bb8f7-mwn7xt6i';
+import { layoutSolids, layoutPieces, edgeSolids, span, piece, stairCount, rampCount } from './solids.js?v=a2bb8f7-mwn7xt6i';
+import { CoreWorld, BODY_R, STEP, BODY_H, VAULT_MAX } from '../wasm/world.js?v=a2bb8f7-mwn7xt6i';
+import { ROYALE_MAPS, isRoyaleMap } from './royale-map.js?v=a2bb8f7-mwn7xt6i';
 
 export const HALF_X = 18, HALF_Z = 14, WALL_H = 4.5;
 // Landmark names for callouts, by kind of cover.
@@ -146,8 +146,8 @@ export class Arena {
   // mapId: a key of MAPS (maps.js). small: its small version if it has one (SMALL, for 2 to 4 fighters).
   constructor(mapId = 'yard', small = false) {
     this.small = !!(small && SMALL[mapId]);
-    const map = this.map = mapId === ROYALE_MAP_ID ? BLACKTIDE : this.small ? SMALL[mapId] : MAPS[mapId] || MAPS.yard;
-    this.mapId = map === BLACKTIDE || MAPS[mapId] ? mapId : 'yard';
+    const map = this.map = isRoyaleMap(mapId) ? ROYALE_MAPS[mapId] : this.small ? SMALL[mapId] : MAPS[mapId] || MAPS.yard;
+    this.mapId = isRoyaleMap(mapId) || MAPS[mapId] ? mapId : 'yard';
     this.hx = map.hx; this.hz = map.hz; this.wallH = map.wallH;
     const HX = this.hx, HZ = this.hz, WH = this.wallH;
     const scene = this.scene = new THREE.Scene();
@@ -706,7 +706,7 @@ export class Arena {
   // goal (or [] if unreachable).
   findPath(ax, az, bx, bz, ay = 0, by = 0) {
     const world = this.world;
-    if (this.mapId !== ROYALE_MAP_ID) return world.path(ax, az, ay, bx, bz, by);
+    if (!isRoyaleMap(this.mapId)) return world.path(ax, az, ay, bx, bz, by);
     const base = this._baseWorld;
     if (base.clearWalk([ax, az, ay], [bx, bz, by]) &&
       (world === base || (Math.abs(ay - by) < .1 && world.walkClear(ax, az, bx, bz, BODY_R + .08, ay)))) return [[bx,bz,by,0]];

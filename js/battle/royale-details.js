@@ -10,8 +10,12 @@ export const blacktideTrails = [
   [[54,-46],[61,-28],[58,-16],[54,-6],[58,10],[52,21]],
   [[-38,48],[-26,50],[-14,47],[-8,37],[-6,26],[-5,13]],
 ];
-export const villageHouses = [[-51,29],[-38,29],[-44,42],[-31,42]];
-export const villageHouse = {w:11,d:8,h:3.65,door:3.2};
+// On the 3.2 m build grid (walls on grid lines, one-cell door).
+// Watchtowers (platform on a cell centre) and the lighthouse.
+export const watchtowers = [[-20.8,-56], [68.8,36.8], [-72,-17.6]];
+export const lighthouse = [72, -56];
+export const villageHouses = [[-49.6,30.4],[-36.8,30.4],[-43.2,43.2],[-30.4,43.2]];
+export const villageHouse = {w:9.6,d:9.6,h:3.65,door:3.2};
 
 function landmarkDetails(ctx) {
   const timber = { color:0x543c2a, rough:.98 };
@@ -47,11 +51,23 @@ function landmarkDetails(ctx) {
     else ctx.box(steel,.12,.12,length,x-1.45,2.72,z);
   }
 
-  for (const [x,z] of [[-8,-9],[8,-9],[-8,9],[8,9]]) {
+  for (const [x,z] of [[-6.4,-9.6],[6.4,-9.6],[-6.4,9.6],[6.4,9.6]]) {
     ctx.cylinder(timber,.085,2.1,x,4.25,z,6);
     ctx.box(canvas,1.24,.72,.045,x+.59,4.83,z);
     ctx.box(fadedWood,6.2,.16,.8,x,3.17,z);
   }
+  // watchtowers: four legs, rails, a little roof
+  for (const [x,z] of watchtowers) {
+    for (const [dx,dz] of [[-1.45,-1.45],[1.45,-1.45],[-1.45,1.45],[1.45,1.45]]) ctx.cylinder(timber,.13,4.5,x+dx,2.25,z+dz,6);
+    for (const [dx,dz,w,d] of [[0,-1.55,3.2,.1],[0,1.55,3.2,.1],[-1.55,0,.1,3.2],[1.55,0,.1,3.2]]) if (dz !== -1.55) ctx.box(fadedWood,w,.1,d,x+dx,5.6,z+dz);
+    for (const [dx,dz] of [[-1.45,-1.45],[1.45,-1.45],[-1.45,1.45],[1.45,1.45]]) ctx.cylinder(timber,.07,2.2,x+dx,5.9,z+dz,5);
+    ctx.box(canvas,3.6,.14,3.6,x,7.05,z);
+  }
+  // the lighthouse: red and white bands, a glowing lamp room
+  { const [x,z] = lighthouse;
+    for (let i = 0; i < 7; i++) ctx.cylinder({ color: i % 2 ? 0xf2eee6 : 0xb83a33, rough:.7 }, 1.45 - i * .08, 2, x, 2.4 + i * 2, z, 16);
+    ctx.cylinder({ color:0xfff2b0, rough:.3, emissive:0xffe08a }, .85, 1.3, x, 16, z, 12);
+    ctx.cylinder({ color:0x2c3436, rough:.6 }, 1.15, .25, x, 16.8, z, 12); }
   ctx.scatter(new BoxGeometry(1,1,1), {color:0xffffff,rough:.9}, hatches);
   ctx.scatter(new BoxGeometry(1,1,1), steel, ribs);
 }
@@ -108,4 +124,8 @@ export function addBlacktideDetails(ctx, solids) {
   ctx.scatter(new IcosahedronGeometry(1,0), {color:0xffffff,rough:1},
     samples(340,(x,y,z,s,a,t) => [x,y+.21*s,z,.085*s,.14*s,.083*s,a,t < .6 ? 0xd4b36c : 0xc0a4a9]),
     [0,0,90,340]);
+  // flower patches: red, yellow, white and purple
+  ctx.scatter(new IcosahedronGeometry(1,0), {color:0xffffff,rough:.8},
+    samples(900,(x,y,z,s,a,t) => [x,y+.25*s,z,.12*s,.1*s,.12*s,a,[0xd2453b,0xf0c63c,0xf3efe6,0x9b6bd0][Math.floor(t*4)]]),
+    [0,200,500,900]);
 }

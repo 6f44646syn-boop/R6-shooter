@@ -61,7 +61,7 @@ export const DEFAULTS = Object.freeze({
   sharpen: 0.25,         // sharpening after upscaling / TAA (0 = off)
   fixedSeed: '',         // empty = new random seed every magazine
   gunIndex: 0,
-  battle: { opponent: 'bots', bots: 3, mates: 0, level: 'medium', kills: 10, p2Gun: 1, map: 'yard', night: false, weather: 'auto', fog: false, voices: true },
+  battle: { opponent: 'bots', bots: 3, mates: 0, level: 'medium', kills: 10, p2Gun: 1, map: 'yard', royaleMap: 'random', night: false, weather: 'auto', fog: false, voices: true },
   distance: 10,
 });
 
@@ -160,6 +160,7 @@ export function sanitize(input) {
     kills: [5, 10, 20, 30].includes(bi.kills) ? bi.kills : DEFAULTS.battle.kills,
     p2Gun: Number.isInteger(bi.p2Gun) && bi.p2Gun >= 0 ? bi.p2Gun : DEFAULTS.battle.p2Gun,
     map: ['yard', 'winter', 'casino', 'school'].includes(bi.map) ? bi.map : DEFAULTS.battle.map,
+    royaleMap: ['random', 'blacktide', 'ruins'].includes(bi.royaleMap) ? bi.royaleMap : DEFAULTS.battle.royaleMap,
     night: bi.night === true,
     weather: ['auto', 'clear', 'rain', 'storm', 'snow'].includes(bi.weather) ? bi.weather : 'auto',
     fog: bi.fog === true || bi.weather === 'fog',
