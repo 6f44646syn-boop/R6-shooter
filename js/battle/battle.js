@@ -1,32 +1,33 @@
-import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=2707cda-mwneqmgv';
-import { MatchFinale } from '../replay/finale.js?v=2707cda-mwneqmgv';
-import { GrenadeReplay } from '../replay/grenade.js?v=2707cda-mwneqmgv';
-import { replayCamera } from '../replay/view.js?v=2707cda-mwneqmgv';
+import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=8bb16fc-mwnzky3l';
+import { MatchFinale } from '../replay/finale.js?v=8bb16fc-mwnzky3l';
+import { GrenadeReplay } from '../replay/grenade.js?v=8bb16fc-mwnzky3l';
+import { replayCamera } from '../replay/view.js?v=8bb16fc-mwnzky3l';
 // Battle mode: you against bots (Easy / Medium / Hard), or two local players in split
 // screen (optionally with bots as a third side). First side to the kill target wins.
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=2707cda-mwneqmgv';
-import { Arena } from './arena.js?v=2707cda-mwneqmgv';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=2707cda-mwneqmgv';
-import { Banter } from './banter.js?v=2707cda-mwneqmgv';
-import { Bot, LEVELS } from './bot.js?v=2707cda-mwneqmgv';
-import { Human } from './human.js?v=2707cda-mwneqmgv';
-import { BattleNades } from './nades.js?v=2707cda-mwneqmgv';
-import { drawCrosshair } from '../ui/crosshair.js?v=2707cda-mwneqmgv';
-import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=2707cda-mwneqmgv';
-import { effectiveGraphics } from '../render/quality.js?v=2707cda-mwneqmgv';
-import { effectiveGun, slotIn } from '../core/loadout.js?v=2707cda-mwneqmgv';
-import { BattleRoyale } from './royale.js?v=2707cda-mwneqmgv';
-import { ROYALE_BOTS, ROYALE_MAPS } from './royale-map.js?v=2707cda-mwneqmgv';
-import { Footprints } from '../scene/footprints.js?v=2707cda-mwneqmgv';
-import { nextWeather } from '../scene/rain.js?v=2707cda-mwneqmgv';
-import { Minimap } from '../ui/minimap.js?v=2707cda-mwneqmgv';
-import { botRankedChange } from '../core/ranked.js?v=2707cda-mwneqmgv';
-import { warmScene } from '../render/warm.js?v=2707cda-mwneqmgv';
-import { ShadowGate } from '../render/shadow-gate.js?v=2707cda-mwneqmgv';
-import { MatchStats, mvpCard } from '../core/mvp.js?v=2707cda-mwneqmgv';
+import * as THREE from '../../vendor/three/three.module.min.js?v=8bb16fc-mwnzky3l';
+import { Arena } from './arena.js?v=8bb16fc-mwnzky3l';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=8bb16fc-mwnzky3l';
+import { Banter } from './banter.js?v=8bb16fc-mwnzky3l';
+import { Bot, LEVELS } from './bot.js?v=8bb16fc-mwnzky3l';
+import { Human } from './human.js?v=8bb16fc-mwnzky3l';
+import { BattleNades } from './nades.js?v=8bb16fc-mwnzky3l';
+import { drawCrosshair } from '../ui/crosshair.js?v=8bb16fc-mwnzky3l';
+import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=8bb16fc-mwnzky3l';
+import { effectiveGraphics } from '../render/quality.js?v=8bb16fc-mwnzky3l';
+import { effectiveGun, slotIn } from '../core/loadout.js?v=8bb16fc-mwnzky3l';
+import { BattleRoyale } from './royale.js?v=8bb16fc-mwnzky3l';
+import { ROYALE_BOTS, ROYALE_MAPS, freshMistRoyale } from './royale-map.js?v=8bb16fc-mwnzky3l';
+import { freshMist } from './maps.js?v=8bb16fc-mwnzky3l';
+import { Footprints } from '../scene/footprints.js?v=8bb16fc-mwnzky3l';
+import { nextWeather } from '../scene/rain.js?v=8bb16fc-mwnzky3l';
+import { Minimap } from '../ui/minimap.js?v=8bb16fc-mwnzky3l';
+import { botRankedChange } from '../core/ranked.js?v=8bb16fc-mwnzky3l';
+import { warmScene } from '../render/warm.js?v=8bb16fc-mwnzky3l';
+import { ShadowGate } from '../render/shadow-gate.js?v=8bb16fc-mwnzky3l';
+import { MatchStats, mvpCard } from '../core/mvp.js?v=8bb16fc-mwnzky3l';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, p7: 0xff7048, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -84,8 +85,13 @@ export class Battle {
   }
 
   // small: the map's small version if it has one (Winter Cabin, School Basement)
-  _useArena(id, small = false) {
+  _useArena(id, small = false, seed = null) {
     const key = id + (small ? ':small' : '');
+    if (id === 'mist' || id === 'mistwood') {                       // (a new maze: last match's arena goes)
+      this.mapSeed = seed ?? ((Math.random() * 2 ** 31) | 0);
+      if (id === 'mist') freshMist(this.mapSeed); else freshMistRoyale(this.mapSeed);
+      if (this.arenas[key]) { if (this.arena === this.arenas[key]) this.arena = null; this.arenas[key].dispose(); delete this.arenas[key]; }
+    }
     if (!this.arenas[key]) this.arenas[key] = new Arena(id, small);
     this.arena = this.arenas[key];
     if (this.tracers) this.arena.scene.add(this.tracers);     // moves them to this map's scene
@@ -171,7 +177,7 @@ export class Battle {
     for (const f of this.fighters) f.group.removeFromParent();
     // 2 to 4 fighters (1v1, 1v2, 2v2) play the small Winter Cabin and School Basement
     const total = (opts.opponent === 'p2' ? 2 : 1) + (opts.remotes?.length || 0) + (opts.royale ? 99 : Math.max(0, Math.min(6, opts.bots | 0)) + (opts.opponent === 'bots' ? Math.max(0, Math.min(3, opts.mates | 0)) : 0));
-    this._useArena(opts.map || 'yard', total <= 4);
+    this._useArena(opts.map || 'yard', total <= 4, opts.mapSeed ?? null);
     this.atmo = { night: !!opts.night, weather: opts.weather || 'auto', fog: !!opts.fog };
     if (opts.royale) Object.assign(this.atmo, { night: opts.royaleTime === 'night', weather: 'auto', fog: false });   // (Battle Royale: its own time of day)
     this.arena.atm.midday = !!opts.royale && opts.royaleTime === 'midday';
@@ -229,7 +235,7 @@ export class Battle {
     this.t = t; this.prevT = t;
     // Network game: tell every remote player who is in the match before the spawns go out.
     for (const r of this.remotes) {
-      r.link.send({ k: 'start', royale: !!opts.royale, you: r.f.id, killsToWin: opts.killsToWin, map: this.arena.mapId, small: this.arena.small, night: this.atmo.night, midday: !!this.arena.atm.midday, weather: this.atmo.weather, fog: this.atmo.fog, roster: this._roster() });
+      r.link.send({ k: 'start', royale: !!opts.royale, mapSeed: this.mapSeed, you: r.f.id, killsToWin: opts.killsToWin, map: this.arena.mapId, small: this.arena.small, night: this.atmo.night, midday: !!this.arena.atm.midday, weather: this.atmo.weather, fog: this.atmo.fog, roster: this._roster() });
     }
     for (const link of this.watchers) {
       link.send({ k: 'start', spectator: true, you: this.humans[0].f.id, killsToWin: opts.killsToWin,
@@ -834,7 +840,7 @@ export class Battle {
     this.mvp = new MatchStats(); this.endless = null;
     this.net = { role: 'client', link, myId: m.you };
     for (const f of this.fighters) f.group.removeFromParent();
-    this._useArena(m.map || 'yard', !!m.small);
+    this._useArena(m.map || 'yard', !!m.small, m.mapSeed ?? null);
     this.arena.setGraphics(effectiveGraphics(d.settings), d.renderer);
     this.arena.holes.clear();
     for (const f of this.fighters) f.group.removeFromParent();

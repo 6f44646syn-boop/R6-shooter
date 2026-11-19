@@ -10,9 +10,10 @@
 // Each side is laid out differently.
 //
 // Everything is drawn in code (canvas textures); no image files.
-import * as THREE from '../../vendor/three/three.module.min.js?v=2707cda-mwneqmgv';
-import { concreteTiles, wallPanels, duskSky, hazardStripes } from '../scene/range-tex.js?v=2707cda-mwneqmgv';
-import { mulberry32 } from '../core/prng.js?v=2707cda-mwneqmgv';
+import * as THREE from '../../vendor/three/three.module.min.js?v=8bb16fc-mwnzky3l';
+import { concreteTiles, wallPanels, duskSky, hazardStripes } from '../scene/range-tex.js?v=8bb16fc-mwnzky3l';
+import { mistMap } from './mist.js?v=8bb16fc-mwnzky3l';
+import { mulberry32 } from '../core/prng.js?v=8bb16fc-mwnzky3l';
 
 /* ---------- texture helpers ---------- */
 function canvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; }
@@ -512,6 +513,7 @@ const SCHOOL_MORE = [
 ];
 
 export const MAPS = {
+  mist: null,                      // (The Mist: a new maze for every match, made by freshMist below)
   yard: {
     name: 'Container Yard', hx: 26, hz: 20, wallH: 5,
     sky: duskSky, background: 0x241a16, fog: [0x5a4038, 45, 130],
@@ -893,3 +895,7 @@ export const SMALL = {
     ceiling: { ...MAPS.school.ceiling, lightsAt: [[-14, 12], [6, 12], [-6, -1], [12, -2], [-16, -10], [8, -13]] },
     spawns: [[-18, 13], [-8, 14.5], [5, 15], [17, 14], [20, 2]], spawnsB: [[-19, -10.5, 1.2], [-7, -14.5], [8, -14.5], [19, -14.5], [20, -7]] },
 };
+
+// The Mist (Battle, TDM / CTF): a new maze from a seed, put in MAPS for the arena to build.
+export function freshMist(seed, size = 'battle') { return (MAPS.mist = mistMap(seed, size)); }
+freshMist(1);

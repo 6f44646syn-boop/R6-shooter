@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=2707cda-mwneqmgv';
-import { ROYALE_BOTS } from './royale-map.js?v=2707cda-mwneqmgv';
-import { PLATFORM_HALF, PLATFORM_MASK, RAMP_RISE, platformHeight, platformMeshes, platformSolids, rampSurface } from './royale-platform.js?v=2707cda-mwneqmgv';
+import * as THREE from '../../vendor/three/three.module.min.js?v=8bb16fc-mwnzky3l';
+import { ROYALE_BOTS } from './royale-map.js?v=8bb16fc-mwnzky3l';
+import { PLATFORM_HALF, PLATFORM_MASK, RAMP_RISE, platformHeight, platformMeshes, platformSolids, rampSurface } from './royale-platform.js?v=8bb16fc-mwnzky3l';
 
 const TOKEN_CHANCE = 0.001;
 const CHEST_MATERIALS = 18;
@@ -358,6 +358,8 @@ export class BattleRoyale {
     if (distance < 4 || distance > 36) return;
     bot.nextWall = t + 6;
     if (!this.arena.sightLine(f.chest([0,0,0]), attacker.chest([0,0,0]))) return;
+    if (this.botBuiltAt === t) { bot.nextWall = t; return; }        // (another bot built this frame: try the next)
+    this.botBuiltAt = t;
     if (this.build(f, Math.atan2(dx,-dz) * 180 / Math.PI, 'wall')) {
       bot.mode = 'hold';
       bot.holdUntil = t + 1.35;
@@ -371,10 +373,11 @@ export class BattleRoyale {
     const f = bot.f, a = bot.attacker, c = bot.cranking;
     const toward = () => Math.atan2(a.x - f.x, -(a.z - f.z)) * 180 / Math.PI;
     if (c) {
-      if (t < c.next) return;
+      if (t < c.next || this.botBuiltAt === t) return;             // (one bot piece a frame, so building never bunches up)
       if (c.left <= 0 || !f.buildMaterials || !a?.alive || !f.alive || f.drop) { bot.cranking = null; return; }
-      this.build(f, toward(), 'wall', 0, null, true);
-      this.build(f, c.yaw, 'ramp', -70, null, true);
+      this.botBuiltAt = t;
+      if (!c.walled) { this.build(f, toward(), 'wall', 0, null, true); c.walled = true; return; }   // the wall this frame, the ramp the next
+      this.build(f, c.yaw, 'ramp', -70, null, true); c.walled = false;
       c.yaw += 90; c.left--; c.next = t + (bot.level === 'terminator' ? 0.3 : 0.5);
       bot.mode = 'hold'; bot.holdUntil = t + 0.8;
       return;
@@ -461,7 +464,7 @@ export class BattleRoyale {
       new THREE.Vector3(box.maxX, box.maxY, box.maxZ));
     arena.scene.add(mesh);
     const piece = { id: ++this.pieceSeq, kind, box, bounds, mesh, owner:f, hp:WALL_HP, dir, startDir:dir, level:(previous?.level || 0)+1, mask:isWall ? FULL_WALL : PLATFORM_MASK };
-    if (isWall) this.makeWall(piece, x, y, z, w, d);
+    if (isWall) this.makeWall(piece, x, y, z, w, d, !player && !remote);
     else {
       mesh.position.set(x,y,z);
       platformMeshes(piece,this.wallMat);
@@ -732,8 +735,17 @@ export class BattleRoyale {
     return true;
   }
 
-  makeWall(wall, x, y, z, w, d) {
+  // simple: one block (bots never edit, so their walls skip the 9 editable tiles: 1 draw, not 9)
+  makeWall(wall, x, y, z, w, d, simple = false) {
     const { mesh } = wall;
+    if (simple) {
+      mesh.position.set(x, y + WALL_HEIGHT / 2, z);
+      const geometry = new THREE.BoxGeometry(w, WALL_HEIGHT, d), tile = new THREE.Mesh(geometry, this.wallMat);
+      tile.castShadow = tile.receiveShadow = true;
+      mesh.add(tile);
+      Object.assign(wall, { acrossX: w > d, cells: [], geometry, simple: true });
+      return;
+    }
     const acrossX = w > d, cw = acrossX ? w / GRID : w, cd = acrossX ? d : d / GRID, ch = WALL_HEIGHT / GRID;
     mesh.position.set(x, y + WALL_HEIGHT / 2, z);
     const geometry = new THREE.BoxGeometry(cw * (acrossX ? .98 : 1), ch * .98, cd * (acrossX ? 1 : .98));

@@ -1,4 +1,4 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=2707cda-mwneqmgv';
+import * as THREE from '../../vendor/three/three.module.min.js?v=8bb16fc-mwnzky3l';
 
 export class MatchFinale {
   constructor(end, table) {

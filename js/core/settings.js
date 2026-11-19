@@ -2,7 +2,7 @@
 // Storage can be missing or throw (private window, blocked site data), so every access is
 // wrapped and the app always works with the defaults.
 
-import { sensToCm360, cm360ToSens } from './sensitivity.js?v=2707cda-mwneqmgv';
+import { sensToCm360, cm360ToSens } from './sensitivity.js?v=8bb16fc-mwnzky3l';
 
 const KEY = 'recoilRange.settings.v1';
 
@@ -159,8 +159,8 @@ export function sanitize(input) {
     level: ['easy', 'medium', 'hard', 'terminator'].includes(bi.level) ? bi.level : DEFAULTS.battle.level,
     kills: [5, 10, 20, 30].includes(bi.kills) ? bi.kills : DEFAULTS.battle.kills,
     p2Gun: Number.isInteger(bi.p2Gun) && bi.p2Gun >= 0 ? bi.p2Gun : DEFAULTS.battle.p2Gun,
-    map: ['yard', 'winter', 'casino', 'school'].includes(bi.map) ? bi.map : DEFAULTS.battle.map,
-    royaleMap: ['random', 'blacktide', 'ruins'].includes(bi.royaleMap) ? bi.royaleMap : DEFAULTS.battle.royaleMap,
+    map: ['yard', 'winter', 'casino', 'school', 'mist'].includes(bi.map) ? bi.map : DEFAULTS.battle.map,
+    royaleMap: ['random', 'blacktide', 'ruins', 'mistwood'].includes(bi.royaleMap) ? bi.royaleMap : DEFAULTS.battle.royaleMap,
     royaleTime: ['dusk', 'midday', 'night'].includes(bi.royaleTime) ? bi.royaleTime : DEFAULTS.battle.royaleTime,
     night: bi.night === true,
     weather: ['auto', 'clear', 'rain', 'storm', 'snow'].includes(bi.weather) ? bi.weather : 'auto',

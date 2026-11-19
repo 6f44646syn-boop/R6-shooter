@@ -4,12 +4,12 @@
 // stations with stairs down, and chasms in the road you can drop through.
 // The streets are a deck DECK metres up; the tunnels are under every street (the ground under each block is
 // solid). Everything structural sits on the 3.2 m build grid, so players' walls, ramps and cones fit flush.
-import { BoxGeometry, BufferGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, CanvasTexture, RepeatWrapping, SRGBColorSpace } from '../../vendor/three/three.module.min.js?v=2707cda-mwneqmgv';
-import { wallPanels, duskSky } from '../scene/range-tex.js?v=2707cda-mwneqmgv';
-import { mulberry32 } from '../core/prng.js?v=2707cda-mwneqmgv';
-import { gfxLevel } from '../render/quality.js?v=2707cda-mwneqmgv';
-import { surface } from '../render/surfaces.js?v=2707cda-mwneqmgv';
-import { MAPS } from './maps.js?v=2707cda-mwneqmgv';
+import { BoxGeometry, BufferGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, CanvasTexture, RepeatWrapping, SRGBColorSpace } from '../../vendor/three/three.module.min.js?v=8bb16fc-mwnzky3l';
+import { wallPanels, duskSky } from '../scene/range-tex.js?v=8bb16fc-mwnzky3l';
+import { mulberry32 } from '../core/prng.js?v=8bb16fc-mwnzky3l';
+import { gfxLevel } from '../render/quality.js?v=8bb16fc-mwnzky3l';
+import { surface } from '../render/surfaces.js?v=8bb16fc-mwnzky3l';
+import { MAPS } from './maps.js?v=8bb16fc-mwnzky3l';
 
 const G = 3.2, H = 3.2, SLAB = 0.3, T = 0.4;                // grid cell, storey height, floor thickness, wall thickness
 export const DECK = 4;                                         // street level (the subway is below it)
@@ -127,11 +127,13 @@ chests.push([px - 2 * G, pz, DECK], [px + 2 * G, pz, DECK], [px, pz - 2 * G, DEC
 /* ---------- the subway: solid ground under the blocks, tunnels under the streets ---------- */
 const inBlock = (kx, kz) => BX.some((bx) => kx >= bx && kx <= bx + 6) && BZ.some((bz) => kz >= bz && kz <= bz + 6);
 // Chasms: 2 x 2 cells of broken road you can drop through. Stations: stairs down (3 cells along a street).
-const CHASMS = [[-21, -12], [9, -2], [-11, 9], [20, 18], [-16, -6]];
+const CHASMS = [[-21, -12], [10, -12], [-11, 9], [20, 18], [-16, -6]];
 const STATIONS = [[-12, -11, 'Old Town'], [7, -1, 'Central'], [-20, 9, 'Harbour Rd'], [16, 9, 'Ironworks']];
 const holes = new Set();
 for (const [kx, kz] of CHASMS) for (const [a, b] of [[0, 0], [1, 0], [0, 1], [1, 1]]) holes.add((kx + a) + ',' + (kz + b));
 for (const [sx, sz] of STATIONS) for (let a = 0; a < 3; a++) holes.add((sx + a) + ',' + sz);
+const keepClear = new Set(holes);                               // (cars, trees and barrels stay off the holes and station exits)
+for (const [sx, sz] of STATIONS) for (let a = -1; a <= 5; a++) for (let b = -1; b <= 1; b++) keepClear.add((sx + a) + ',' + (sz + b));
 for (const bx of BX) for (const bz of BZ) layout.push(under((bx + 3.5) * G, (bz + 3.5) * G, 7 * G, 7 * G, DECK, 'ground'));
 for (let kz = -20; kz < 20; kz++) {                             // the street deck, a row of cells at a time, with its holes
   let run = null;
@@ -156,12 +158,16 @@ for (const [sx, sz] of STATIONS) {
   stationLights.push([x0 - 2 * G, z], [x0 - 0.5 * G, z]);
 }
 
+// Two abandoned trains in the tunnels: solid carriages beside the platform-less lines, cover down there.
+export const TRAINS = [[31, (BZ[0] + 8.5) * G, true], [(BX[1] - 1.5) * G, 30, false]];
+for (const [x, z, alongX] of TRAINS) for (const k of [-1, 1]) layout.push(under(x + (alongX ? k * 9.4 : 0), z + (alongX ? 0 : k * 9.4), alongX ? 9 : 2.8, alongX ? 2.8 : 9, 3.1, 'train', 0.1));
+chests.push([TRAINS[0][0], TRAINS[0][1] + 3, 0], [TRAINS[1][0] + 3, TRAINS[1][1], 0]);
 const cars = [];
 for (let n = 0; n < 26; n++) {
   const alongX = rnd() < 0.5, k = Math.floor(rnd() * 4), s = -70 + rnd() * 140;
   const street = alongX ? (BZ[k] + 8.5) * G : (BX[Math.min(4, k + 1)] - 1.5) * G;
   const x = alongX ? s : street + (rnd() - 0.5) * 3, z = alongX ? street + (rnd() - 0.5) * 3 : s * 0.8;
-  if (Math.abs(x) > 76 || Math.abs(z) > 60 || holes.has(Math.floor(x / G) + ',' + Math.floor(z / G))) continue;
+  if (Math.abs(x) > 76 || Math.abs(z) > 60 || [-2.2, 0, 2.2].some((d) => keepClear.has(Math.floor((x + (alongX ? d : 0)) / G) + ',' + Math.floor((z + (alongX ? 0 : d)) / G)))) continue;
   const bus = n % 9 === 4, L = bus ? 9 : 4.3, W = bus ? 2.5 : 1.9;
   cars.push(box(x, z, alongX ? L : W, alongX ? W : L, bus ? 2.9 : 1.45, bus ? 'bus' : ['car', 'carRed', 'carBlue', 'carWhite'][n % 4]));
 }
@@ -169,7 +175,7 @@ layout.push(...cars);
 // Trees growing out of the courtyards, pavements and plaza (solid trunks).
 const trees = [];
 for (const [kx, kz] of BX.flatMap((x) => BZ.map((z) => [x, z]))) for (const [dx, dz] of [[-0.6, 2], [7.6, 4], [3, 7.6]]) {
-  if (rnd() < 0.45 || holes.has(Math.floor(kx + dx) + ',' + Math.floor(kz + dz))) continue;
+  if (rnd() < 0.45 || keepClear.has(Math.floor(kx + dx) + ',' + Math.floor(kz + dz))) continue;
   trees.push(box((kx + dx) * G, (kz + dz) * G, 0.5, 0.5, 4 + rnd() * 3, 'tree'));
 }
 for (const [dx, dz] of [[-2, -1], [2, 1], [-1, 2], [1, -2]]) trees.push(box(px + dx * G, pz + dz * G, 0.5, 0.5, 5 + rnd() * 2, 'tree'));
@@ -178,7 +184,7 @@ layout.push(...trees);
 const barrels = [], smokes = [];
 for (let n = 0; n < 14; n++) {
   const x = -70 + rnd() * 140, z = (BZ[Math.floor(rnd() * 4)] + 8.5) * G + (rnd() < 0.5 ? -3.6 : 3.6);
-  if (!holes.has(Math.floor(x / G) + ',' + Math.floor(z / G))) barrels.push([x, z]);
+  if (!keepClear.has(Math.floor(x / G) + ',' + Math.floor(z / G))) barrels.push([x, z]);
 }
 const burning = cars.filter((c, i) => c.kind !== 'bus' && i % 6 === 1).map((c) => [c.x, c.z]);
 for (const [x, z, big] of [...barrels.map(([x, z]) => [x, z, false]), ...burning.map(([x, z]) => [x, z, true])])
@@ -270,7 +276,40 @@ function life(ctx0) {
   ctx0.scatter(cube, { color: 0x6c7176, rough: 0.4, metal: 0.8 }, rails);
   ctx0.scatter(cube, { color: 0x4a3b2e, rough: 1 }, sleepers);
   ctx0.scatter(cube, { emissive: 0xd8efff }, tunnelLights.filter(([x, z]) => lit(x, z)).map(([x, z]) => [x, DECK - 0.45, z, 1.6, 0.06, 0.18]));
+  // graffiti all down the tunnel walls (the faces of the solid ground under each block): big pieces and tags
+  const art = [], tags = [], junk = [], wet = [], cables = [];
+  const COLS = [0xe0457b, 0x3fc1d9, 0xf2c230, 0x8d5bd6, 0x50c46a, 0xff7a33, 0xf4f1e8, 0x1d1d22];
+  for (const bx of BX) for (const bz of BZ) {
+    const x0 = bx * G, x1 = (bx + 7) * G, z0 = bz * G, z1 = (bz + 7) * G;
+    for (const [fx, fz, alongX, out] of [[null, z0, true, -1], [null, z1, true, 1], [x0, null, false, -1], [x1, null, false, 1]]) for (let k = 0; k < 4; k++) {
+      const u = (alongX ? x0 : z0) + 2 + r() * (7 * G - 4), x = alongX ? u : fx + out * 0.04, z = alongX ? fz + out * 0.04 : u;
+      const w = 1.6 + r() * 2.6, h = 0.7 + r() * 1.2, y = 0.5 + r() * 1.4, c = any(COLS);
+      art.push([x, y + h / 2, z, alongX ? w : 0.02, h, alongX ? 0.02 : w, 0, c]);                       // a piece's background
+      for (let j = 0; j < 3; j++) tags.push([x + (alongX ? (r() - 0.5) * w * 0.7 : out * 0.01), y + h * (0.25 + r() * 0.5), z + (alongX ? out * 0.01 : (r() - 0.5) * w * 0.7), alongX ? w * (0.2 + r() * 0.3) : 0.02, 0.08 + r() * 0.12, alongX ? 0.02 : w * (0.2 + r() * 0.3), 0, any(COLS)]);
+      if (r() < 0.6) junk.push([x + (alongX ? (r() - 0.5) * 3 : -out * 0.5), 0.25, z + (alongX ? -out * 0.5 : (r() - 0.5) * 3), 0.6 + r() * 0.6, 0.35 + r() * 0.3, 0.5 + r() * 0.5, r() * 3, any([0x26282b, 0x3a3226, 0x2e3b2f])]);
+    }
+    for (const [x, z, alongX] of [[(x0 + x1) / 2, z0 - 0.08, true], [(x0 + x1) / 2, z1 + 0.08, true], [x0 - 0.08, (z0 + z1) / 2, false], [x1 + 0.08, (z0 + z1) / 2, false]])
+      cables.push([x, 3.1, z, alongX ? 7 * G : 0.06, 0.06, alongX ? 0.06 : 7 * G], [x, 3.25, z, alongX ? 7 * G : 0.05, 0.05, alongX ? 0.05 : 7 * G]);
+  }
+  for (let n = 0; n < 40; n++) { const t = any(tunnelLights); wet.push([t[0] + (r() - 0.5) * 6, 0.012, t[1] + (r() - 0.5) * 6, 1 + r() * 2.5, 0.01, 0.8 + r() * 2, r() * 3]); }
+  ctx0.scatter(cube, { color: 0xffffff, rough: 0.85 }, art);
+  ctx0.scatter(cube, { color: 0xffffff, rough: 0.7 }, tags);
+  ctx0.scatter(cube, { color: 0xffffff, rough: 1 }, junk);
+  ctx0.scatter(cube, { color: 0x10161c, opacity: 0.55 }, wet);
+  ctx0.scatter(cube, { color: 0x1a1a1c, rough: 0.6 }, cables);
+  // the trains: windows and a red stripe down each side, a dim light left on inside
+  for (const [x, z, alongX] of TRAINS) for (const k of [-1, 1]) {
+    const cx = x + (alongX ? k * 9.4 : 0), cz = z + (alongX ? 0 : k * 9.4);
+    for (const side of [-1, 1]) {
+      ctx0.box({ color: 0xb8332e, rough: 0.6 }, alongX ? 9.02 : 0.02, 0.25, alongX ? 0.02 : 9.02, cx + (alongX ? 0 : side * 1.41), 1.1, cz + (alongX ? side * 1.41 : 0));
+      for (let j = -3; j <= 3; j++) ctx0.box({ emissive: 0x9fb4c0 }, alongX ? 0.9 : 0.02, 0.7, alongX ? 0.02 : 0.9, cx + (alongX ? j * 1.2 : side * 1.42), 2.1, cz + (alongX ? side * 1.42 : j * 1.2));
+    }
+  }
   for (const [sx, sz, name] of STATIONS) {
+    { const x0 = sx * G, z = (sz + 0.5) * G;                                                          // white tiles on the station walls, posters, a green EXIT sign
+      for (const dz of [-1.55 * G, 1.55 * G]) ctx0.box({ color: 0xd9dcd8, rough: 0.35 }, 4 * G, 2.4, 0.04, x0 - 2 * G, 1.4, z + dz);
+      for (const [dx, dz, c] of [[-2.6, -1.53, 0xd9b44a], [-1.2, -1.53, 0x2c8fd1], [-2.2, 1.53, 0xe04b3b]]) ctx0.box({ color: c, rough: 0.8 }, 1.1, 1.5, 0.03, x0 + dx * G, 1.6, z + dz * G);
+      ctx0.box({ emissive: 0x35d66a }, 0.06, 0.32, 0.9, x0 - 0.2, 3.1, z); }
     const x0 = sx * G, z = (sz + 0.5) * G;
     ctx0.box({ color: 0x1c4f9c, rough: 0.5 }, 0.08, 0.7, 2.6, x0 - 4.4 * G + 0.06, 2.3, z);           // the station's name board
     ctx0.box({ emissive: 0xf4f6f8 }, 0.02, 0.36, 2.2, x0 - 4.4 * G + 0.11, 2.3, z);
@@ -360,6 +399,7 @@ export const ruins = (spawns) => ({
     ground: { ...surface('rock', Y.low.map), color: 0x55524d, rough: 1, tile: 2 },
     deck: { ...surface('concrete', Y.low.map), color: 0x5e5f61, rough: 0.95, tile: 2 },
     steel: { color: 0x3b4146, rough: 0.5, metal: 0.7 },
+    train: { map: Y.container.map, color: 0x9aa3a8, metal: 0.5, rough: 0.5, tile: 2 },
     booth: { map: Y.container.map, color: 0x2f5e8e, metal: 0.4, rough: 0.6, tile: 1.5 },
     wood: { ...surface('planks', Y.plank.map), color: 0x8a6446, rough: 0.85, tile: 1.2 },
     fabric: { color: 0x5b6a7a, rough: 1 },

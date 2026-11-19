@@ -57,6 +57,8 @@ pub struct World {
     /// Floor areas that hurt (acid): [min_x, max_x, min_z, max_z]. Paths avoid them.
     pub hazards: Vec<[f64; 4]>,
     cells: Vec<Vec<u32>>,
+    /// Solids added by build() (the map); later ones are extras (players' builds), swapped cheaply.
+    base_count: usize,
     seen: Vec<u32>,
     stamp: u32,
     list: Vec<u32>,
@@ -67,7 +69,7 @@ pub struct World {
 
 impl World {
     pub fn new(hx: f64, hz: f64, wall_h: f64, ceil: f64) -> World {
-        World { hx, hz, ceil, wall_h, gx: 0, gz: 0, solids: Vec::new(), hazards: Vec::new(), cells: Vec::new(), seen: Vec::new(), stamp: 0, list: Vec::new(), hit_axis: 1, nav: crate::nav::CellNav::new() }
+        World { hx, hz, ceil, wall_h, gx: 0, gz: 0, solids: Vec::new(), hazards: Vec::new(), cells: Vec::new(), base_count: 0, seen: Vec::new(), stamp: 0, list: Vec::new(), hit_axis: 1, nav: crate::nav::CellNav::new() }
     }
 
     /// Put every solid into the grid cells it touches. Call once, after adding the solids.
@@ -85,6 +87,35 @@ impl World {
         }
         self.seen = vec![0; self.solids.len()];
         self.stamp = 0;
+        self.base_count = self.solids.len();
+    }
+
+    /// Drop the extras (the solids after the map's own): out of the grid and the list.
+    pub fn clear_extras(&mut self) {
+        for k in self.base_count..self.solids.len() {
+            let b = self.solids[k];
+            for j in self.cj(b.min_z)..=self.cj(b.max_z) {
+                for i in self.ci(b.min_x)..=self.ci(b.max_x) {
+                    let base = self.base_count as u32;
+                    self.cells[(j * self.gx + i) as usize].retain(|&x| x < base);
+                }
+            }
+        }
+        self.solids.truncate(self.base_count);
+        self.seen.truncate(self.base_count);
+    }
+
+    /// Add an extra solid (after build()): into the list and the grid cells it touches, without
+    /// rebuilding the grid. Its index follows the map's solids and any earlier extras.
+    pub fn add_extra(&mut self, b: Solid) {
+        let k = self.solids.len() as u32;
+        self.solids.push(b);
+        self.seen.push(0);
+        for j in self.cj(b.min_z)..=self.cj(b.max_z) {
+            for i in self.ci(b.min_x)..=self.ci(b.max_x) {
+                self.cells[(j * self.gx + i) as usize].push(k);
+            }
+        }
     }
 
     #[inline]

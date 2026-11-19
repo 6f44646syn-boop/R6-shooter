@@ -1,43 +1,45 @@
-import { applyMapArt } from '../render/pack-art.js?v=2707cda-mwneqmgv';
-import { applyPackMaterials, packMats, envMap } from '../render/pack-materials.js?v=2707cda-mwneqmgv';
-import { applyPackProps } from '../render/pack-props.js?v=2707cda-mwneqmgv';
-import { sensoryFor } from '../balance/bomb-utility.js?v=2707cda-mwneqmgv';
-import { createRankedSession, rankedChange, ratingOf, signRankedResult, botRankedChange } from '../core/ranked.js?v=2707cda-mwneqmgv';
-import { SpectatorTools } from '../replay/spectator.js?v=2707cda-mwneqmgv';
-import { MatchFinale } from '../replay/finale.js?v=2707cda-mwneqmgv';
-import { GrenadeReplay } from '../replay/grenade.js?v=2707cda-mwneqmgv';
-import { replayCamera } from '../replay/view.js?v=2707cda-mwneqmgv';
+import { applyMapArt } from '../render/pack-art.js?v=8bb16fc-mwnzky3l';
+import { applyPackMaterials, packMats, envMap } from '../render/pack-materials.js?v=8bb16fc-mwnzky3l';
+import { applyPackProps } from '../render/pack-props.js?v=8bb16fc-mwnzky3l';
+import { sensoryFor } from '../balance/bomb-utility.js?v=8bb16fc-mwnzky3l';
+import { createRankedSession, rankedChange, ratingOf, signRankedResult, botRankedChange } from '../core/ranked.js?v=8bb16fc-mwnzky3l';
+import { SpectatorTools } from '../replay/spectator.js?v=8bb16fc-mwnzky3l';
+import { MatchFinale } from '../replay/finale.js?v=8bb16fc-mwnzky3l';
+import { GrenadeReplay } from '../replay/grenade.js?v=8bb16fc-mwnzky3l';
+import { replayCamera } from '../replay/view.js?v=8bb16fc-mwnzky3l';
 // Team Deathmatch, Capture the Flag and Bomb in the browser: draws the match simulation
 // (sim.js) and runs your player with the range's own systems (look, sensitivity, recoil,
 // spread, sights, weapon model: battle/human.js), at a fixed 60 Hz simulation.
 //
 // Map: flat-shaded low poly from the map file; static walls merged into one mesh, breakable
 // panels in one instanced mesh, one directional light (a 1024 shadow map in High / Ultra).
-import * as THREE from '../../vendor/three/three.module.min.js?v=2707cda-mwneqmgv';
-import { BulletHoles, crackTexture } from '../scene/holes.js?v=2707cda-mwneqmgv';
-import { MatchMap } from './map.js?v=2707cda-mwneqmgv';
-import { initCore } from '../wasm/core.js?v=2707cda-mwneqmgv';
-import { Match, TICK } from './sim.js?v=2707cda-mwneqmgv';
-import { yawTo, wrap180, DEG } from './geom.js?v=2707cda-mwneqmgv';
-import { Fighter } from '../battle/fighter.js?v=2707cda-mwneqmgv';
-import { slotIn, effectiveGun } from '../core/loadout.js?v=2707cda-mwneqmgv';
-import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=2707cda-mwneqmgv';
-import { buildMapLook, panelTextures } from './look.js?v=2707cda-mwneqmgv';
-import { Arena } from '../battle/arena.js?v=2707cda-mwneqmgv';
-import { Human } from '../battle/human.js?v=2707cda-mwneqmgv';
-import { drawCrosshair } from '../ui/crosshair.js?v=2707cda-mwneqmgv';
-import { effectiveGraphics, maxMode } from '../render/quality.js?v=2707cda-mwneqmgv';
-import { MatchHost, MatchClient } from './net-match.js?v=2707cda-mwneqmgv';
-import { Brain } from './bots.js?v=2707cda-mwneqmgv';
-import { skyPalette } from '../render/sky.js?v=2707cda-mwneqmgv';
-import { dressMap } from './dressing.js?v=2707cda-mwneqmgv';
-import { LightPool } from '../render/light-pool.js?v=2707cda-mwneqmgv';
-import { Footprints } from '../scene/footprints.js?v=2707cda-mwneqmgv';
-import { Minimap } from '../ui/minimap.js?v=2707cda-mwneqmgv';
-import { warmScene } from '../render/warm.js?v=2707cda-mwneqmgv';
-import { ShadowGate } from '../render/shadow-gate.js?v=2707cda-mwneqmgv';
-import { MatchStats, mvpCard } from '../core/mvp.js?v=2707cda-mwneqmgv';
-import { rainFx, nextWeather } from '../scene/rain.js?v=2707cda-mwneqmgv';
+import * as THREE from '../../vendor/three/three.module.min.js?v=8bb16fc-mwnzky3l';
+import { BulletHoles, crackTexture } from '../scene/holes.js?v=8bb16fc-mwnzky3l';
+import { MatchMap } from './map.js?v=8bb16fc-mwnzky3l';
+import { initCore } from '../wasm/core.js?v=8bb16fc-mwnzky3l';
+import { Match, TICK } from './sim.js?v=8bb16fc-mwnzky3l';
+import { yawTo, wrap180, DEG } from './geom.js?v=8bb16fc-mwnzky3l';
+import { Fighter } from '../battle/fighter.js?v=8bb16fc-mwnzky3l';
+import { slotIn, effectiveGun } from '../core/loadout.js?v=8bb16fc-mwnzky3l';
+import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=8bb16fc-mwnzky3l';
+import { buildMapLook, panelTextures } from './look.js?v=8bb16fc-mwnzky3l';
+import { Arena } from '../battle/arena.js?v=8bb16fc-mwnzky3l';
+import { Human } from '../battle/human.js?v=8bb16fc-mwnzky3l';
+import { drawCrosshair } from '../ui/crosshair.js?v=8bb16fc-mwnzky3l';
+import { effectiveGraphics, maxMode } from '../render/quality.js?v=8bb16fc-mwnzky3l';
+import { MatchHost, MatchClient } from './net-match.js?v=8bb16fc-mwnzky3l';
+import { Brain } from './bots.js?v=8bb16fc-mwnzky3l';
+import { skyPalette } from '../render/sky.js?v=8bb16fc-mwnzky3l';
+import { dressMap } from './dressing.js?v=8bb16fc-mwnzky3l';
+import { LightPool } from '../render/light-pool.js?v=8bb16fc-mwnzky3l';
+import { Footprints } from '../scene/footprints.js?v=8bb16fc-mwnzky3l';
+import { Minimap } from '../ui/minimap.js?v=8bb16fc-mwnzky3l';
+import { warmScene } from '../render/warm.js?v=8bb16fc-mwnzky3l';
+import { ShadowGate } from '../render/shadow-gate.js?v=8bb16fc-mwnzky3l';
+import { MatchStats, mvpCard } from '../core/mvp.js?v=8bb16fc-mwnzky3l';
+import { rainFx, nextWeather } from '../scene/rain.js?v=8bb16fc-mwnzky3l';
+import { matchFromBattle } from './from-battle.js?v=8bb16fc-mwnzky3l';
+import { freshMist } from '../battle/maps.js?v=8bb16fc-mwnzky3l';
 
 const reducedMotion = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 const TEAM_COLOR = { A: 0x5b8cff, B: 0xff7048 };
@@ -60,6 +62,9 @@ const LOOK = {
   depot: { time: 'golden', floor: 0x6f6a62, wall: 0xa9a196, low: 0x6a5a44, edge: 0x5f5b56, soft: 0xa47a52, reinf: 0x56606c, sky: 0x9fb0c2, fog: [0xaab4be, 35, 120] },
 };
 
+// The Mist for TDM / CTF: a new 64 m maze from the seed, made into a match map (spawns west and east).
+function mistMatch(seed) { return matchFromBattle('mist', 'mist', 'The Mist', freshMist(seed, 'match')); }
+
 export class ModeGame {
   // deps: { renderer, settings, guns, sfx, catalogue (optic by id), adsVFov, baseDpc, now,
   //         slotOf(gun), hudRoot, onEnd(), onPoints(kind, head), opticFor(gun) }
@@ -80,11 +85,12 @@ export class ModeGame {
   // o.net (network host): { peers: [{ link, name, op, side, attach, skin }], hostName }.
   async start(o) {
     // the map and operator data, and the Rust core (collision, raycasts, pathfinding)
-    const [mapData, ops, abilities] = await Promise.all([load('data/maps/' + o.map + '.json'), load('data/ops.json'), load('data/abilities.json'), initCore()]);
+    const seed = o.seed ?? ((Math.random() * 2 ** 31) | 0);
+    let [mapData, ops, abilities] = await Promise.all([o.map === 'mist' ? null : load('data/maps/' + o.map + '.json'), load('data/ops.json'), load('data/abilities.json'), initCore()]);
+    if (o.map === 'mist') mapData = mistMatch(seed);
     this.stop();
     const d = this.deps;
     this.opts = o;
-    const seed = o.seed ?? ((Math.random() * 2 ** 31) | 0);
     const players = o.net?.peers.filter(peer => !peer.spectator);
     const ranked = o.mode === 'bomb' && !!o.ranked && !!o.net;
     if (ranked && players.length >= o.teamSize * 2) {   // (bots fill the empty places: one player is enough)
@@ -120,7 +126,8 @@ export class ModeGame {
   // Network client: the host's match (msg: its 'mstart'), drawn from what the host sends.
   async startClient(msg, link) {
     const o = msg.o || {};
-    const [mapData, ops, abilities] = await Promise.all([load('data/maps/' + o.map + '.json'), load('data/ops.json'), load('data/abilities.json'), initCore()]);
+    let [mapData, ops, abilities] = await Promise.all([o.map === 'mist' ? null : load('data/maps/' + o.map + '.json'), load('data/ops.json'), load('data/abilities.json'), initCore()]);
+    if (o.map === 'mist') mapData = mistMatch(o.seed | 0);
     this.stop();
     const d = this.deps;
     this.opts = { ...o, net: { role: 'client' } };
@@ -323,6 +330,7 @@ export class ModeGame {
     this._clearImpacts();
     if (!ModeGame.arenas) ModeGame.arenas = {};
     const id = this.map.data.arena;
+    if (id === 'mist' && ModeGame.arenas.mist) { ModeGame.arenas.mist.dispose(); delete ModeGame.arenas.mist; }   // (a new maze: a new arena)
     const ar = this.arena = ModeGame.arenas[id] || (ModeGame.arenas[id] = new Arena(id));
     this.scene = ar.scene;
     this.prints = new Footprints(this.scene);

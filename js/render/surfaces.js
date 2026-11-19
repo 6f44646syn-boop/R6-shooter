@@ -1,10 +1,10 @@
 // Realistic building surfaces for High and up: brick, weathered concrete, plaster, planks, roof shingles and
 // rock, each a greyscale picture (the map's colour for that material tints it) and a normal map for depth.
 // Made once each, 512 px. Low / Standard keep the simple textures (surface(kind, fallback) picks).
-import * as THREE from '../../vendor/three/three.module.min.js?v=2707cda-mwneqmgv';
-import { mulberry32 } from '../core/prng.js?v=2707cda-mwneqmgv';
-import { normalFromHeight } from '../scene/range-tex.js?v=2707cda-mwneqmgv';
-import { gfxLevel } from './quality.js?v=2707cda-mwneqmgv';
+import * as THREE from '../../vendor/three/three.module.min.js?v=8bb16fc-mwnzky3l';
+import { mulberry32 } from '../core/prng.js?v=8bb16fc-mwnzky3l';
+import { normalFromHeight } from '../scene/range-tex.js?v=8bb16fc-mwnzky3l';
+import { gfxLevel } from './quality.js?v=8bb16fc-mwnzky3l';
 
 const S = 512, made = new Map();
 const hiNow = () => gfxLevel.q === 'high' || gfxLevel.q === 'ultra';
@@ -107,6 +107,8 @@ function build(kind) {
   made.set(kind, out);
   return out;
 }
+// The picture alone, at any level (maps that want the stone look everywhere).
+export const surfacePicture = (kind) => () => build(kind).map;
 // A material spec's map and normal: the realistic surface on High and up, else the fallback map.
 export function surface(kind, fallback) {
   const fb = () => (typeof fallback === 'function' ? fallback() : fallback);

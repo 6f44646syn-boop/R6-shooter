@@ -7,9 +7,9 @@
 //
 // Levels: Easy, Medium, Hard and Terminator (near-instant, precise, leads moving targets,
 // hears everything, always pushes on a callout).
-import { Weapon } from '../core/weapon.js?v=2707cda-mwneqmgv';
-import { RecoilEngine } from '../core/recoil.js?v=2707cda-mwneqmgv';
-import { mulberry32 } from '../core/prng.js?v=2707cda-mwneqmgv';
+import { Weapon } from '../core/weapon.js?v=8bb16fc-mwnzky3l';
+import { RecoilEngine } from '../core/recoil.js?v=8bb16fc-mwnzky3l';
+import { mulberry32 } from '../core/prng.js?v=8bb16fc-mwnzky3l';
 
 // Per level: reaction (s), aim error sd (deg), turn rate when not fighting (deg/s), recoil
 // control (0..1), burst [min, max] shots, pause between bursts (s), head aim chance, strafes,
@@ -107,6 +107,7 @@ export class Bot {
     const ang = Math.atan2(dx, -dz) / DEG;
     const inCone = Math.abs(wrap180(ang - f.yaw)) <= this.L.cone / 2 || (this.attacker === e && t - this.attackedAt < 1.2);
     if (!inCone) return false;
+    if (arena.map.sight && Math.hypot(dx, dz) > arena.map.sight && !(this.attacker === e && t - this.attackedAt < 1.2)) return false;   // (thick fog)
     // At night someone with their flashlight off is hard to spot beyond a few metres.
     if (arena.atm && arena.atm.night && !e.light && Math.hypot(dx, dz) > 9 && !(this.attacker === e && t - this.attackedAt < 1.2) && t > e.flashUntil + 0.3) return false;
     // seeLine: through glass (spotted, but not shot at: behindGlass) and not through smoke

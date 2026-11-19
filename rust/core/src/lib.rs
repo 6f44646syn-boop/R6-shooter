@@ -101,6 +101,25 @@ pub extern "C" fn rc_world_add_hazards(id: u32, n: u32) {
         }
     }
 }
+/// Players' builds on a built world: drop the old ones, then rc_world_add_extras for the new.
+#[no_mangle]
+pub extern "C" fn rc_world_clear_extras(id: u32) {
+    if let Some(w) = world(id) {
+        w.clear_extras();
+    }
+}
+/// Add n extra solids from the buffer (8 numbers each, as rc_world_add_solids), after the build.
+#[no_mangle]
+pub extern "C" fn rc_world_add_extras(id: u32, n: u32) {
+    let s = st();
+    let n = (n as usize).min(BUF_LEN / 8);
+    if let Some(Some(w)) = s.worlds.get_mut(id as usize) {
+        for k in 0..n {
+            let b = &s.buf[k * 8..k * 8 + 8];
+            w.add_extra(Solid { min_x: b[0], max_x: b[1], min_y: b[2], max_y: b[3], min_z: b[4], max_z: b[5], kind: b[6] as u8, alive: b[7] != 0.0 });
+        }
+    }
+}
 /// Build the grid. Call after the last rc_world_add_solids.
 #[no_mangle]
 pub extern "C" fn rc_world_build(id: u32) {

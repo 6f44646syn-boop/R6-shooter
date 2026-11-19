@@ -3,7 +3,7 @@
 // collision, stairs, falling, vaulting, raycasts and pathfinding are the same code everywhere.
 //
 // Heights: y is the height of the feet. Paths are lists of [x, z, y].
-import { core } from './core.js?v=2707cda-mwneqmgv';
+import { core } from './core.js?v=8bb16fc-mwnzky3l';
 
 export const BODY_R = 0.32;      // a body's collision radius
 export const STEP = 0.45;        // highest ledge you walk up without vaulting
@@ -41,6 +41,16 @@ export class CoreWorld {
     this.nodeCount = 0;
     if (o.nav !== false) this.buildNavigation();
     this.hit = -1; this.axis = 1;
+  }
+  // Players' builds: replace the extra solids (after the map's own) without rebuilding the grid.
+  setExtras(list) {
+    const c = this._c, e = this.e, max = Math.floor(c.len / 8);
+    e.rc_world_clear_extras(this.id);
+    for (let at = 0; at < list.length; at += max) {
+      const n = Math.min(max, list.length - at), f = c.f;
+      for (let k = 0; k < n; k++) { const b = list[at + k], i = k * 8; f[i] = b.minX; f[i + 1] = b.maxX; f[i + 2] = b.minY; f[i + 3] = b.maxY; f[i + 4] = b.minZ; f[i + 5] = b.maxZ; f[i + 6] = 0; f[i + 7] = 1; }
+      e.rc_world_add_extras(this.id, n);
+    }
   }
   // Free the core's copy (otherwise it is freed when this object is garbage collected).
   dispose() {

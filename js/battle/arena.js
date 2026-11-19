@@ -7,19 +7,19 @@
 //
 // Coordinates: metres, x right, y up, z towards the "A" side. Same yaw convention as the
 // range: yaw 0 looks along -z, positive turns right.
-import { applyPackMaterials, revertPackMaterials } from '../render/pack-materials.js?v=2707cda-mwneqmgv';
-import { maxMode, minimalMode } from '../render/quality.js?v=2707cda-mwneqmgv';
-import * as THREE from '../../vendor/three/three.module.min.js?v=2707cda-mwneqmgv';
-import { MAPS, SMALL } from './maps.js?v=2707cda-mwneqmgv';
-import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=2707cda-mwneqmgv';
-import { flatMaterial } from '../scene/low.js?v=2707cda-mwneqmgv';
-import { BulletHoles } from '../scene/holes.js?v=2707cda-mwneqmgv';
-import { smokeColumns, airLife, windU, swayed } from '../scene/smoke.js?v=2707cda-mwneqmgv';
-import { LightPool } from '../render/light-pool.js?v=2707cda-mwneqmgv';
-import { mulberry32 } from '../core/prng.js?v=2707cda-mwneqmgv';
-import { layoutSolids, layoutPieces, edgeSolids, span, piece, stairCount, rampCount } from './solids.js?v=2707cda-mwneqmgv';
-import { CoreWorld, BODY_R, STEP, BODY_H, VAULT_MAX } from '../wasm/world.js?v=2707cda-mwneqmgv';
-import { ROYALE_MAPS, isRoyaleMap } from './royale-map.js?v=2707cda-mwneqmgv';
+import { applyPackMaterials, revertPackMaterials } from '../render/pack-materials.js?v=8bb16fc-mwnzky3l';
+import { maxMode, minimalMode } from '../render/quality.js?v=8bb16fc-mwnzky3l';
+import * as THREE from '../../vendor/three/three.module.min.js?v=8bb16fc-mwnzky3l';
+import { MAPS, SMALL } from './maps.js?v=8bb16fc-mwnzky3l';
+import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=8bb16fc-mwnzky3l';
+import { flatMaterial } from '../scene/low.js?v=8bb16fc-mwnzky3l';
+import { BulletHoles } from '../scene/holes.js?v=8bb16fc-mwnzky3l';
+import { smokeColumns, airLife, windU, swayed } from '../scene/smoke.js?v=8bb16fc-mwnzky3l';
+import { LightPool } from '../render/light-pool.js?v=8bb16fc-mwnzky3l';
+import { mulberry32 } from '../core/prng.js?v=8bb16fc-mwnzky3l';
+import { layoutSolids, layoutPieces, edgeSolids, span, piece, stairCount, rampCount } from './solids.js?v=8bb16fc-mwnzky3l';
+import { CoreWorld, BODY_R, STEP, BODY_H, VAULT_MAX } from '../wasm/world.js?v=8bb16fc-mwnzky3l';
+import { ROYALE_MAPS, isRoyaleMap } from './royale-map.js?v=8bb16fc-mwnzky3l';
 
 export const HALF_X = 18, HALF_Z = 14, WALL_H = 4.5;
 // Landmark names for callouts, by kind of cover.
@@ -166,7 +166,7 @@ export class Arena {
   // mapId: a key of MAPS (maps.js). small: its small version if it has one (SMALL, for 2 to 4 fighters).
   constructor(mapId = 'yard', small = false) {
     this.small = !!(small && SMALL[mapId]);
-    const map = this.map = isRoyaleMap(mapId) ? ROYALE_MAPS[mapId] : this.small ? SMALL[mapId] : MAPS[mapId] || MAPS.yard;
+    const map = this.map = isRoyaleMap(mapId) ? ROYALE_MAPS[mapId] : (this.small && SMALL[mapId]) || MAPS[mapId] || MAPS.yard;
     this.mapId = isRoyaleMap(mapId) || MAPS[mapId] ? mapId : 'yard';
     this.hx = map.hx; this.hz = map.hz; this.wallH = map.wallH;
     const HX = this.hx, HZ = this.hz, WH = this.wallH;
@@ -325,6 +325,7 @@ export class Arena {
     /* solids: boxes, stair steps, ramp slices (js/battle/solids.js); here, how they look */
     this.boxes = layoutSolids(map);
     this.smokes = map.smokes || []; this.hasGlass = this.boxes.some((b) => b.kind === 'glass');
+    this.boxes.push(...edgeSolids(this.hx, this.hz));      // (the edge too, so players' builds come right after the map's own solids)
     this.baseBoxCount = this.boxes.length;
     const cover = new THREE.Group(), noShadow = new THREE.Group();
     const kindOf = (b) => map.kinds[b.kind] || {};
@@ -658,11 +659,15 @@ export class Arena {
   }
 
   /* ---------- the map inside the Rust core ---------- */
+  // Players' builds: a second world (the map without paths) made once; after that each change only swaps
+  // its extra solids (no rebuild of the whole map: building never stutters).
   setBuilds(boxes) {
     void this.world;
     this.boxes.splice(this.baseBoxCount, this.boxes.length, ...boxes);
-    if (this._world !== this._baseWorld) this._world.dispose();
-    this._world = boxes.length ? this._makeWorld(false) : this._baseWorld;
+    if (!boxes.length) { this._world = this._baseWorld; return; }
+    if (!this._buildWorld) this._buildWorld = this._makeWorld(false);
+    this._buildWorld.setExtras(boxes);
+    this._world = this._buildWorld;
   }
 
   // Collision, standing, vaulting, raycasts and pathfinding are answered by the core
@@ -678,9 +683,10 @@ export class Arena {
   _makeWorld(nav) {
     const map = this.map;
     const code = (b) => ({ minX: b.minX, maxX: b.maxX, minY: b.minY, maxY: b.maxY, minZ: b.minZ, maxZ: b.maxZ });
+    // The map's own solids (edge included; builds go in later as extras: solid indices match this.boxes).
     // Nothing is stood on within 1.6 m of a ceiling; outdoors there is no such limit.
     return new CoreWorld({ hx: this.hx, hz: this.hz, wallH: map.ceiling ? this.wallH : Infinity,
-      ceil: map.ceiling ? this.wallH : 0, solids: [...this.boxes.map(code), ...edgeSolids(this.hx, this.hz)], hazards: this.hazards, nav });
+      ceil: map.ceiling ? this.wallH : 0, solids: this.boxes.slice(0, this.baseBoxCount ?? this.boxes.length).map(code), hazards: this.hazards, nav });
   }
   // Boxes in the grid cells within r of a point (each once).
   near(x, z, r, out = []) {
@@ -737,6 +743,12 @@ export class Arena {
   }
   // Clear line between two points (arrays [x, y, z])?
   sightLine(a, b) { return this.world.sight(a, b); }
+  // Free this arena (a map made for one match: the Mist): its meshes, materials and collision.
+  dispose() {
+    this.scene.traverse((o) => { o.geometry?.dispose?.(); for (const m of [].concat(o.material || [])) m.dispose?.(); });
+    for (const w of new Set([this._world, this._baseWorld, this._buildWorld])) w?.dispose?.();
+    this._world = this._baseWorld = this._buildWorld = null;
+  }
   // What a bot sees: like sightLine, but through glass (which still stops bullets) and not through
   // smoke. this.lastGlass: the line went through glass.
   seeLine(a, b) {

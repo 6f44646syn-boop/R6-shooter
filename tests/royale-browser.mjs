@@ -616,6 +616,25 @@ try {
   });
   assert.ok(cityMatch.armedBots >= 12 && cityMatch.over && cityMatch.living === 1, JSON.stringify(cityMatch));
   console.log('PASS Ruined City: bots loot the buildings and the full match ends with one survivor');
+  // The Mist: a new maze every match, thick fog; in Battle, Battle Royale and TDM
+  const mist = await page.evaluate(async () => {
+    const R = __range, b = R.battle();
+    b.start({ ...b.opts, royale: false, map: 'mist', opponent: 'bots', bots: 2 });
+    const s1 = b.mapSeed, w1 = JSON.stringify(b.arena.map.layout.slice(0, 5));
+    b.start({ ...b.opts, royale: false, map: 'mist', opponent: 'bots', bots: 2 });
+    const M = b.arena.map, battle = { fresh: b.mapSeed !== s1 && JSON.stringify(M.layout.slice(0, 5)) !== w1, fog: b.arena.scene.fog.far <= 16, sight: M.sight === 16,
+      path: b.arena.findPath(M.spawns[0][0], M.spawns[0][1], M.spawnsB[0][0], M.spawnsB[0][1]).length > 0 };
+    b.start({ ...b.opts, royale: true, royaleMap: 'mistwood' });
+    const royale = { size: [b.arena.hx * 2, b.arena.hz * 2].join('x'), chests: b.royale.chests.length > 30 };
+    b.stop();
+    await R.modeStart('tdm', { map: { tdm: 'mist' }, seed: 5, teamSize: 3 });
+    const g = R.modeGame(), d = g.map.data;
+    const tdm = { map: d.id, spawns: d.spawns.A.length === 6 && d.spawns.B.length === 6, flags: !!(d.flags.A && d.flags.B) };
+    g.stop();
+    return { battle, royale, tdm };
+  });
+  assert.deepEqual(mist, { battle: { fresh: true, fog: true, sight: true, path: true }, royale: { size: '160x128', chests: true }, tdm: { map: 'mist', spawns: true, flags: true } }, JSON.stringify(mist));
+  console.log('PASS The Mist: a new maze every match in Battle, thick fog that limits bots too, a 160 x 128 Battle Royale maze with chests, and TDM spawns and flags');
 } finally {
   await browser?.close();
   server.close();
