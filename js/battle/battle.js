@@ -1,31 +1,32 @@
-import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=25a8dbf-mwnd1mvm';
-import { MatchFinale } from '../replay/finale.js?v=25a8dbf-mwnd1mvm';
-import { GrenadeReplay } from '../replay/grenade.js?v=25a8dbf-mwnd1mvm';
-import { replayCamera } from '../replay/view.js?v=25a8dbf-mwnd1mvm';
+import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=5e4ab37-mwne6hty';
+import { MatchFinale } from '../replay/finale.js?v=5e4ab37-mwne6hty';
+import { GrenadeReplay } from '../replay/grenade.js?v=5e4ab37-mwne6hty';
+import { replayCamera } from '../replay/view.js?v=5e4ab37-mwne6hty';
 // Battle mode: you against bots (Easy / Medium / Hard), or two local players in split
 // screen (optionally with bots as a third side). First side to the kill target wins.
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=25a8dbf-mwnd1mvm';
-import { Arena } from './arena.js?v=25a8dbf-mwnd1mvm';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=25a8dbf-mwnd1mvm';
-import { Banter } from './banter.js?v=25a8dbf-mwnd1mvm';
-import { Bot, LEVELS } from './bot.js?v=25a8dbf-mwnd1mvm';
-import { Human } from './human.js?v=25a8dbf-mwnd1mvm';
-import { BattleNades } from './nades.js?v=25a8dbf-mwnd1mvm';
-import { drawCrosshair } from '../ui/crosshair.js?v=25a8dbf-mwnd1mvm';
-import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=25a8dbf-mwnd1mvm';
-import { effectiveGraphics } from '../render/quality.js?v=25a8dbf-mwnd1mvm';
-import { effectiveGun, slotIn } from '../core/loadout.js?v=25a8dbf-mwnd1mvm';
-import { BattleRoyale } from './royale.js?v=25a8dbf-mwnd1mvm';
-import { ROYALE_BOTS, ROYALE_MAPS } from './royale-map.js?v=25a8dbf-mwnd1mvm';
-import { Footprints } from '../scene/footprints.js?v=25a8dbf-mwnd1mvm';
-import { Minimap } from '../ui/minimap.js?v=25a8dbf-mwnd1mvm';
-import { botRankedChange } from '../core/ranked.js?v=25a8dbf-mwnd1mvm';
-import { warmScene } from '../render/warm.js?v=25a8dbf-mwnd1mvm';
-import { ShadowGate } from '../render/shadow-gate.js?v=25a8dbf-mwnd1mvm';
-import { MatchStats, mvpCard } from '../core/mvp.js?v=25a8dbf-mwnd1mvm';
+import * as THREE from '../../vendor/three/three.module.min.js?v=5e4ab37-mwne6hty';
+import { Arena } from './arena.js?v=5e4ab37-mwne6hty';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=5e4ab37-mwne6hty';
+import { Banter } from './banter.js?v=5e4ab37-mwne6hty';
+import { Bot, LEVELS } from './bot.js?v=5e4ab37-mwne6hty';
+import { Human } from './human.js?v=5e4ab37-mwne6hty';
+import { BattleNades } from './nades.js?v=5e4ab37-mwne6hty';
+import { drawCrosshair } from '../ui/crosshair.js?v=5e4ab37-mwne6hty';
+import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=5e4ab37-mwne6hty';
+import { effectiveGraphics } from '../render/quality.js?v=5e4ab37-mwne6hty';
+import { effectiveGun, slotIn } from '../core/loadout.js?v=5e4ab37-mwne6hty';
+import { BattleRoyale } from './royale.js?v=5e4ab37-mwne6hty';
+import { ROYALE_BOTS, ROYALE_MAPS } from './royale-map.js?v=5e4ab37-mwne6hty';
+import { Footprints } from '../scene/footprints.js?v=5e4ab37-mwne6hty';
+import { nextWeather } from '../scene/rain.js?v=5e4ab37-mwne6hty';
+import { Minimap } from '../ui/minimap.js?v=5e4ab37-mwne6hty';
+import { botRankedChange } from '../core/ranked.js?v=5e4ab37-mwne6hty';
+import { warmScene } from '../render/warm.js?v=5e4ab37-mwne6hty';
+import { ShadowGate } from '../render/shadow-gate.js?v=5e4ab37-mwne6hty';
+import { MatchStats, mvpCard } from '../core/mvp.js?v=5e4ab37-mwne6hty';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, p7: 0xff7048, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -174,6 +175,7 @@ export class Battle {
     this.atmo = { night: !!opts.night, weather: opts.weather || 'auto', fog: !!opts.fog };
     if (opts.royale) Object.assign(this.atmo, { night: opts.royaleTime === 'night', weather: 'auto', fog: false });   // (Battle Royale: its own time of day)
     this.arena.atm.midday = !!opts.royale && opts.royaleTime === 'midday';
+    if (this.atmo.weather === 'auto') this.atmo.weather = nextWeather(this.arena.map);   // (not picked: the next in the rotation)
     this.remotes = []; this.proxies = [];
     this._nextSnap = 0;
     this.arena.setGraphics(effectiveGraphics(d.settings), d.renderer);

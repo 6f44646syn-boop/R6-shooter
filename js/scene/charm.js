@@ -1,7 +1,7 @@
 // A gun charm: a trinket on a short cord, hung from the side of the gun. A damped pendulum in
 // the weapon scene: the gun's own movement (sway, kick, strafing, inspect turns) swings it, and
 // it always hangs towards the scene's down, whatever the gun's angle.
-import * as THREE from '../../vendor/three/three.module.min.js?v=25a8dbf-mwnd1mvm';
+import * as THREE from '../../vendor/three/three.module.min.js?v=5e4ab37-mwne6hty';
 
 const CORD = 0.03;                 // metres (the viewmodel's scale)
 const geo = {};

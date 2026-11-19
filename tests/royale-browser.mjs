@@ -37,15 +37,15 @@ try {
       skippedArmory:document.getElementById('armory').hidden,
     };
   });
-  assert.deepEqual(started, {teams:21, chests:33, pirate:0, map:'blacktide', size:[160,128], unarmed:true, skippedArmory:true});
+  assert.deepEqual(started, {teams:21, chests:49, pirate:0, map:'blacktide', size:[160,128], unarmed:true, skippedArmory:true});
   console.log('PASS deploy skips weapon selection and starts Blacktide Island with 20 unarmed rivals');
   assert.ok(await page.evaluate(() => {
     const a = __range.battle().arena;
-    return a.boxes.filter(b => b.kind === 'tree').length === 42
-      && a.groundAt(-42,0,2.5) > 2
-      && a.findPath(-55,0,-42,0,0,2.5).length > 0;
+    return a.boxes.filter(b => b.kind === 'tree').length === 36
+      && a.groundAt(52,-4,8) > 6
+      && a.findPath(-50,-1.6,52,-4,0,6.4).length > 0;   // (from the town up to the top of the high ground)
   }));
-  console.log('PASS solid trees and navigable hills are present on Blacktide');
+  console.log('PASS Blacktide: solid trees, the high ground 6.4 m up, and a walkable way from the town to its top');
   // the drop: all 21 start under a parachute, protected; land everyone for the checks below
   const drop = await page.evaluate(() => {
     const b = __range.battle(), r = b.royale;
@@ -59,7 +59,7 @@ try {
     const R = __range, b = R.battle(), r = b.royale, h = b.humans[0], a = b.arena;
     r.materials = 3; h.look.yaw = 0;
     let spot = null;
-    for (let i = 0; i < a.nodeCount && !spot; i += 11) { if (a.nodeY[i] > .01) continue; Object.assign(h.f, { x: a.nodeX[i], y: 0, z: a.nodeZ[i] }); const p = r.plan(h.f, 0); if (p && !p.blocked) spot = p; }
+    for (let i = 0; i < a.nodeCount && !spot; i += 11) { if ((a.nodeY[i] > .01 || a.hazardAt(a.nodeX[i], 0, a.nodeZ[i]))) continue; Object.assign(h.f, { x: a.nodeX[i], y: 0, z: a.nodeZ[i] }); const p = r.plan(h.f, 0); if (p && !p.blocked) spot = p; }
     const n = r.walls.length;
     b.key('KeyB', true); R.step(.05);
     const held = { shown: r.ghost.visible, built: r.walls.length - n, at: [r.ghost.position.x, r.ghost.position.z] };
@@ -80,7 +80,7 @@ try {
   const cones = await page.evaluate(() => {
     const R = __range, b = R.battle(), r = b.royale, h = b.humans[0], a = b.arena;
     r.materials = 20; h.look.yaw = 0; h.look.pitch = 0;
-    for (let i = 0; i < a.nodeCount; i += 11) { if (a.nodeY[i] > .01) continue; Object.assign(h.f, { x: a.nodeX[i], y: 0, z: a.nodeZ[i] }); const p = r.plan(h.f, 0, 'cone'); if (p && !p.blocked) break; }
+    for (let i = 0; i < a.nodeCount; i += 11) { if ((a.nodeY[i] > .01 || a.hazardAt(a.nodeX[i], 0, a.nodeZ[i]))) continue; Object.assign(h.f, { x: a.nodeX[i], y: 0, z: a.nodeZ[i] }); const p = r.plan(h.f, 0, 'cone'); if (p && !p.blocked) break; }
     const n = r.walls.length;
     r.piece = 'cone'; b.key('KeyB', true); b.key('KeyB', false);
     b.mouseButton(0, true);
@@ -104,7 +104,7 @@ try {
     const real = navigator.getGamepads; navigator.getGamepads = () => [pad];
     document.getElementById('menu').hidden = true;
     r.materials = 20; h.look.pitch = 0;
-    for (let i = 0; i < a.nodeCount; i += 7) { if (a.nodeY[i] > .01) continue; Object.assign(h.f, { x: a.nodeX[i], y: 0, z: a.nodeZ[i] }); if (['wall', 'ramp', 'cone'].every((k) => { const p = r.plan(h.f, 0, k); return p && !p.blocked; })) break; }
+    for (let i = 0; i < a.nodeCount; i += 7) { if ((a.nodeY[i] > .01 || a.hazardAt(a.nodeX[i], 0, a.nodeZ[i]))) continue; Object.assign(h.f, { x: a.nodeX[i], y: 0, z: a.nodeZ[i] }); if (['wall', 'ramp', 'cone'].every((k) => { const p = r.plan(h.f, 0, k); return p && !p.blocked; })) break; }
     const n = r.walls.length;
     await press(1); const buildMode = r.preview;                   // B: build mode
     const kinds = [];
@@ -120,8 +120,8 @@ try {
     const b = __range.battle(), r = b.royale, h = b.humans[0], a = b.arena;
     r.materials = 4; const n = r.walls.length;
     for (let i = 0; i < a.nodeCount; i += 13) {
-      if (a.nodeY[i] > .01) continue;
-      Object.assign(h.f, { x: a.nodeX[i], y: 0, z: a.nodeZ[i] });
+      if ((a.nodeY[i] > .01 || a.hazardAt(a.nodeX[i], 0, a.nodeZ[i]))) continue;
+      Object.assign(h.f, { x: (Math.floor(a.nodeX[i] / 3.2) + .5) * 3.2, y: 0, z: (Math.floor(a.nodeZ[i] / 3.2) + .5) * 3.2 });   // (the middle of a grid cell)
       if (!r.plan(h.f, 0, 'wall').blocked && !r.plan(h.f, 90, 'wall').blocked) break;
     }
     const w1 = r.build(h.f, 0, 'wall'), w2 = r.build(h.f, 90, 'wall'), again = r.plan(h.f, 0, 'wall').blocked;
@@ -140,7 +140,7 @@ try {
     a.setGraphics('standard',b.deps.renderer);
     return { counts, sharedCollision:world === a.world };
   });
-  assert.deepEqual(tiers, {counts:[32,1060,2700,5040],sharedCollision:true});
+  assert.deepEqual(tiers, {counts:[30,1110,2740,4920],sharedCollision:true});
   console.log('PASS all graphics presets scale map detail with shared collision');
   assert.ok(await page.evaluate(() => {
     const R = __range, b = R.battle(), world = b.arena.world, h = b.humans[0];
@@ -207,7 +207,7 @@ try {
     const b = __range.battle(), r = b.royale, h = b.humans[0], a = b.arena;
     h.look.yaw = 0;
     for (let i = 0; i < a.nodeCount && !r.walls.length; i += 7) {
-      if (a.nodeY[i] > .01) continue;
+      if ((a.nodeY[i] > .01 || a.hazardAt(a.nodeX[i], 0, a.nodeZ[i]))) continue;
       Object.assign(h.f, {x:a.nodeX[i], y:a.nodeY[i], z:a.nodeZ[i]});
       b.key('KeyB', true); b.key('KeyB', false); b.mouseButton(0, true); b.mouseButton(0, false); b.key('KeyB', true); b.key('KeyB', false);
     }
@@ -256,8 +256,8 @@ try {
   const botCover = await page.evaluate(() => {
     const b = __range.battle(), r = b.royale, h = b.humans[0], bot = b.bots[0], f = bot.f;
     const update = Object.getPrototypeOf(bot).update.bind(bot), t = b.t;
-    Object.assign(h.f,{x:5.5,y:0,z:1,vx:0,vz:0,protectUntil:0});
-    Object.assign(f,{x:5.5,y:0,z:-6,yaw:180,vx:0,vz:0,protectUntil:0});
+    Object.assign(h.f,{x:-20,y:0,z:1,vx:0,vz:0,protectUntil:0});
+    Object.assign(f,{x:-20,y:0,z:-6,yaw:180,vx:0,vz:0,protectUntil:0});
     bot.ay = 180;
     bot.setGun(b.deps.guns[1]);
     update(t,1/60,b);
@@ -269,7 +269,7 @@ try {
     for (let i = 1; i <= 90 && wall.hp === hp; i++) update(t+i/60,1/60,b);
     const shotCover = wall.hp < hp && !bot.target;
     if (wall.hp > 0) r.damageWall(wall,999);
-    Object.assign(f,{x:5.5,y:0,z:-6,vx:0,vz:0,health:67,buildMaterials:2});
+    Object.assign(f,{x:-20,y:0,z:-6,vx:0,vz:0,health:67,buildMaterials:2});
     r.piece = 'cone';
     bot.onHurt(h.f,t+2);
     update(t+2,1/60,b);
@@ -355,7 +355,7 @@ try {
     // a flat spot with room for a ramp, and a row of free cells along x (yaw 180: walls ahead on +z)
     const spot = (yaw, kind, along = 0) => {
       for (let i = 0; i < a.nodeCount; i += 7) {
-        if (a.nodeY[i] > .01 || Math.abs(a.nodeX[i]) > 45 || Math.abs(a.nodeZ[i]) > 35) continue;       // (clear of the island's edge)
+        if ((a.nodeY[i] > .01 || a.hazardAt(a.nodeX[i], 0, a.nodeZ[i])) || Math.abs(a.nodeX[i]) > 45 || Math.abs(a.nodeZ[i]) > 35) continue;       // (clear of the island's edge)
         let ok = true;
         for (let k = 0; k <= along && ok; k++) { Object.assign(h.f, { x: a.nodeX[i] + 3.2 * k, y: 0, z: a.nodeZ[i], vx: 0, vy: 0, vz: 0 }); h.look.yaw = yaw; ok = !r.plan(h.f, yaw, kind).blocked && !r.plan(h.f, yaw, 'ramp').blocked; }
         if (ok) { Object.assign(h.f, { x: a.nodeX[i], y: 0, z: a.nodeZ[i], vx: 0, vy: 0, vz: 0 }); return true; }
@@ -378,7 +378,8 @@ try {
     const next = r.plan(h.f, 0, 'ramp'); out.nextRamp = !next.blocked && next.previous === ramp && Math.abs(next.y - (q.y + 1.7)) < 1e-6;
     clear();
     // 2. the crank: ramps under your feet, a quarter turn each, lift you onto them (ten, then the limit)
-    out.found2 = spot(0, 'ramp'); r.materials = 60; R.step(.05); h.look.pitch = -70;
+    out.found2 = spot(0, 'ramp'); Object.assign(h.f, { x: -4.8, y: 0, z: 1.6, vx: 0, vy: 0, vz: 0 });   // (open field, clear sky above)
+    r.materials = 60; R.step(.05); h.look.pitch = -70;
     const tower = [];
     for (let k = 0; k < 11; k++) {
       const before = h.f.y, piece = r.build(h.f, k * 90, 'ramp', -70);
@@ -438,13 +439,14 @@ try {
   const sky = await page.evaluate(() => {
     const b = __range.battle(), r = b.royale, a = b.arena, h = b.humans[0];
     for (const w of r.walls.slice()) { r.disposePiece(w); r.walls.splice(r.walls.indexOf(w), 1); } r.syncWalls();
-    r.materials = 60;
+    r.materials = 60; Object.assign(h.f, { alive: true, health: 100, drop: null });   // (alive: an earlier check may have left you in deep water)
     let found = false;
     for (let i = 0; i < a.nodeCount && !found; i += 7) {
-      if (a.nodeY[i] > .01 || Math.abs(a.nodeX[i]) > 40 || Math.abs(a.nodeZ[i]) > 30) continue;
+      if ((a.nodeY[i] > .01 || a.hazardAt(a.nodeX[i], 0, a.nodeZ[i])) || Math.abs(a.nodeX[i]) > 40 || Math.abs(a.nodeZ[i]) > 30 || a.groundAt(a.nodeX[i], a.nodeZ[i], 40) > .01) continue;   // (open sky above)
       Object.assign(h.f, { x: a.nodeX[i], y: 0, z: a.nodeZ[i], vx: 0, vy: 0, vz: 0 });
       found = !r.plan(h.f, 0, 'wall').blocked && !r.plan(h.f, 0, 'cone').blocked;
     }
+    Object.assign(h.f, { x: -8, y: 0, z: 1.6, vx: 0, vy: 0, vz: 0 });   // (the open field west of the river: nothing near, open sky)
     const out = { found, bare: r.plan(h.f, 0, 'wall', 40).blocked };       // nothing below: no wall up there
     const low = r.build(h.f, 0, 'wall'), up = r.plan(h.f, 0, 'wall', 40);
     out.raised = !up.blocked && Math.abs(up.y - (low.box.minY + 2.7)) < 1e-6;
@@ -481,7 +483,7 @@ try {
   const rampVault = await page.evaluate(() => {
     const b = __range.battle(), r = b.royale, h = b.humans[0], a = b.arena;
     r.materials = 2;
-    for (let i = 0; i < a.nodeCount; i += 7) { if (a.nodeY[i] > .01) continue; Object.assign(h.f, { x: a.nodeX[i], y: 0, z: a.nodeZ[i] }); const p = r.plan(h.f, 0, 'ramp'); if (p && !p.blocked) break; }
+    for (let i = 0; i < a.nodeCount; i += 7) { if ((a.nodeY[i] > .01 || a.hazardAt(a.nodeX[i], 0, a.nodeZ[i]))) continue; Object.assign(h.f, { x: a.nodeX[i], y: 0, z: a.nodeZ[i] }); const p = r.plan(h.f, 0, 'ramp'); if (p && !p.blocked) break; }
     const ramp = r.build(h.f, 0, 'ramp'), c = ramp.mesh.position, high = ramp.dir === 0;   // (dir 0: the tall end faces -z)
     Object.assign(h.f, { x: c.x, y: c.y, z: c.z - 2.0, vx: 0, vy: 0, vz: 0 }); h.camY = c.y; h.vault = null; h.look.yaw = 180;
     b.key('KeyC', true); __range.step(.05); b.key('KeyC', false); __range.step(1);
@@ -494,7 +496,7 @@ try {
   // Hard and Terminator bots shot at crank 90s: walls and ramps under their feet, climbing
   const crank = await page.evaluate(() => {
     const b = __range.battle(), r = b.royale, a = b.arena, h = b.humans[0], bot = b.bots[0], f = bot.f;
-    for (let i = 0; i < a.nodeCount; i += 7) { if (a.nodeY[i] > .01) continue; Object.assign(f, { x: a.nodeX[i], y: 0, z: a.nodeZ[i] }); if (!r.plan(f, 0, 'wall').blocked) break; }
+    for (let i = 0; i < a.nodeCount; i += 7) { if ((a.nodeY[i] > .01 || a.hazardAt(a.nodeX[i], 0, a.nodeZ[i]))) continue; Object.assign(f, { x: a.nodeX[i], y: 0, z: a.nodeZ[i] }); if (!r.plan(f, 0, 'wall').blocked) break; }
     bot.level = 'terminator'; f.builder = true; f.buildMaterials = 12; f.alive = true; f.drop = null;
     Object.assign(h.f, { x: f.x, y: 0, z: f.z + 12 }); h.f.alive = true;
     bot.attacker = h.f; bot.attackedAt = b.t; bot.nextWall = 0;

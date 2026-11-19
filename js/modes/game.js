@@ -1,42 +1,43 @@
-import { applyMapArt } from '../render/pack-art.js?v=25a8dbf-mwnd1mvm';
-import { applyPackMaterials, packMats, envMap } from '../render/pack-materials.js?v=25a8dbf-mwnd1mvm';
-import { applyPackProps } from '../render/pack-props.js?v=25a8dbf-mwnd1mvm';
-import { sensoryFor } from '../balance/bomb-utility.js?v=25a8dbf-mwnd1mvm';
-import { createRankedSession, rankedChange, ratingOf, signRankedResult, botRankedChange } from '../core/ranked.js?v=25a8dbf-mwnd1mvm';
-import { SpectatorTools } from '../replay/spectator.js?v=25a8dbf-mwnd1mvm';
-import { MatchFinale } from '../replay/finale.js?v=25a8dbf-mwnd1mvm';
-import { GrenadeReplay } from '../replay/grenade.js?v=25a8dbf-mwnd1mvm';
-import { replayCamera } from '../replay/view.js?v=25a8dbf-mwnd1mvm';
+import { applyMapArt } from '../render/pack-art.js?v=5e4ab37-mwne6hty';
+import { applyPackMaterials, packMats, envMap } from '../render/pack-materials.js?v=5e4ab37-mwne6hty';
+import { applyPackProps } from '../render/pack-props.js?v=5e4ab37-mwne6hty';
+import { sensoryFor } from '../balance/bomb-utility.js?v=5e4ab37-mwne6hty';
+import { createRankedSession, rankedChange, ratingOf, signRankedResult, botRankedChange } from '../core/ranked.js?v=5e4ab37-mwne6hty';
+import { SpectatorTools } from '../replay/spectator.js?v=5e4ab37-mwne6hty';
+import { MatchFinale } from '../replay/finale.js?v=5e4ab37-mwne6hty';
+import { GrenadeReplay } from '../replay/grenade.js?v=5e4ab37-mwne6hty';
+import { replayCamera } from '../replay/view.js?v=5e4ab37-mwne6hty';
 // Team Deathmatch, Capture the Flag and Bomb in the browser: draws the match simulation
 // (sim.js) and runs your player with the range's own systems (look, sensitivity, recoil,
 // spread, sights, weapon model: battle/human.js), at a fixed 60 Hz simulation.
 //
 // Map: flat-shaded low poly from the map file; static walls merged into one mesh, breakable
 // panels in one instanced mesh, one directional light (a 1024 shadow map in High / Ultra).
-import * as THREE from '../../vendor/three/three.module.min.js?v=25a8dbf-mwnd1mvm';
-import { BulletHoles, crackTexture } from '../scene/holes.js?v=25a8dbf-mwnd1mvm';
-import { MatchMap } from './map.js?v=25a8dbf-mwnd1mvm';
-import { initCore } from '../wasm/core.js?v=25a8dbf-mwnd1mvm';
-import { Match, TICK } from './sim.js?v=25a8dbf-mwnd1mvm';
-import { yawTo, wrap180, DEG } from './geom.js?v=25a8dbf-mwnd1mvm';
-import { Fighter } from '../battle/fighter.js?v=25a8dbf-mwnd1mvm';
-import { slotIn, effectiveGun } from '../core/loadout.js?v=25a8dbf-mwnd1mvm';
-import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=25a8dbf-mwnd1mvm';
-import { buildMapLook, panelTextures } from './look.js?v=25a8dbf-mwnd1mvm';
-import { Arena } from '../battle/arena.js?v=25a8dbf-mwnd1mvm';
-import { Human } from '../battle/human.js?v=25a8dbf-mwnd1mvm';
-import { drawCrosshair } from '../ui/crosshair.js?v=25a8dbf-mwnd1mvm';
-import { effectiveGraphics, maxMode } from '../render/quality.js?v=25a8dbf-mwnd1mvm';
-import { MatchHost, MatchClient } from './net-match.js?v=25a8dbf-mwnd1mvm';
-import { Brain } from './bots.js?v=25a8dbf-mwnd1mvm';
-import { skyPalette } from '../render/sky.js?v=25a8dbf-mwnd1mvm';
-import { dressMap } from './dressing.js?v=25a8dbf-mwnd1mvm';
-import { LightPool } from '../render/light-pool.js?v=25a8dbf-mwnd1mvm';
-import { Footprints } from '../scene/footprints.js?v=25a8dbf-mwnd1mvm';
-import { Minimap } from '../ui/minimap.js?v=25a8dbf-mwnd1mvm';
-import { warmScene } from '../render/warm.js?v=25a8dbf-mwnd1mvm';
-import { ShadowGate } from '../render/shadow-gate.js?v=25a8dbf-mwnd1mvm';
-import { MatchStats, mvpCard } from '../core/mvp.js?v=25a8dbf-mwnd1mvm';
+import * as THREE from '../../vendor/three/three.module.min.js?v=5e4ab37-mwne6hty';
+import { BulletHoles, crackTexture } from '../scene/holes.js?v=5e4ab37-mwne6hty';
+import { MatchMap } from './map.js?v=5e4ab37-mwne6hty';
+import { initCore } from '../wasm/core.js?v=5e4ab37-mwne6hty';
+import { Match, TICK } from './sim.js?v=5e4ab37-mwne6hty';
+import { yawTo, wrap180, DEG } from './geom.js?v=5e4ab37-mwne6hty';
+import { Fighter } from '../battle/fighter.js?v=5e4ab37-mwne6hty';
+import { slotIn, effectiveGun } from '../core/loadout.js?v=5e4ab37-mwne6hty';
+import { makeGadget, animateGadget, gasCloud, updateCloud, beam, stunStars, dashTrail } from './gadget-look.js?v=5e4ab37-mwne6hty';
+import { buildMapLook, panelTextures } from './look.js?v=5e4ab37-mwne6hty';
+import { Arena } from '../battle/arena.js?v=5e4ab37-mwne6hty';
+import { Human } from '../battle/human.js?v=5e4ab37-mwne6hty';
+import { drawCrosshair } from '../ui/crosshair.js?v=5e4ab37-mwne6hty';
+import { effectiveGraphics, maxMode } from '../render/quality.js?v=5e4ab37-mwne6hty';
+import { MatchHost, MatchClient } from './net-match.js?v=5e4ab37-mwne6hty';
+import { Brain } from './bots.js?v=5e4ab37-mwne6hty';
+import { skyPalette } from '../render/sky.js?v=5e4ab37-mwne6hty';
+import { dressMap } from './dressing.js?v=5e4ab37-mwne6hty';
+import { LightPool } from '../render/light-pool.js?v=5e4ab37-mwne6hty';
+import { Footprints } from '../scene/footprints.js?v=5e4ab37-mwne6hty';
+import { Minimap } from '../ui/minimap.js?v=5e4ab37-mwne6hty';
+import { warmScene } from '../render/warm.js?v=5e4ab37-mwne6hty';
+import { ShadowGate } from '../render/shadow-gate.js?v=5e4ab37-mwne6hty';
+import { MatchStats, mvpCard } from '../core/mvp.js?v=5e4ab37-mwne6hty';
+import { rainFx, nextWeather } from '../scene/rain.js?v=5e4ab37-mwne6hty';
 
 const reducedMotion = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 const TEAM_COLOR = { A: 0x5b8cff, B: 0xff7048 };
@@ -267,6 +268,20 @@ export class ModeGame {
     Object.assign(this.sun.shadow.camera, { left: -S, right: S, top: S, bottom: -S, near: 1, far: 160 });
     this.sun.shadow.mapSize.set(1024, 1024); this.sun.shadow.bias = -0.0008; this.sun.shadow.normalBias = 0.02;
     scene.add(this.hemi, this.sun, this.sun.target);
+    // weather: the one picked for matches, or the next in the rotation ('snow' is not used here)
+    const B = this.deps.settings.battle || {}, w = !B.weather || B.weather === 'auto' ? nextWeather({}) : B.weather;
+    this.rain = null; this.storm = w === 'storm';
+    if (w === 'rain' || w === 'storm') {
+      const grey = new THREE.Color(w === 'storm' ? 0x4a5058 : 0x6a7078);
+      scene.fog.color.lerp(grey, 0.65); scene.fog.far *= w === 'storm' ? 0.55 : 0.7; scene.background = scene.fog.color.clone();
+      for (const k of ['zenith', 'horizon', 'fog', 'ground']) pal[k].lerp(grey, 0.75);   // (the sky dome: overcast, no sunset)
+      pal.sun.lerp(grey, 0.85); pal.sunI *= 0.3;
+      this.hemi.intensity *= 0.62; this.sun.intensity *= w === 'storm' ? 0.22 : 0.35;
+      const d = map.data, roofs = (d.inside && d.inside.length ? d.inside : d.building ? [d.building] : []);
+      this.rain = rainFx({ heavy: w === 'storm', roofs, under: 9 });
+      scene.add(this.rain);
+    }
+    this.weatherNow = w; this._hemiBase = this.hemi.intensity; this._bolt = 0; this._nextBolt = 4;
     // ground, floors, walls, furniture, trees (look.js), then the set dressing and footprints
     this.lookGroup = buildMapLook(scene, map, { ...L, palette: pal });
     dressMap(this.lookGroup, map, effectiveGraphics(this.deps.settings));
@@ -312,7 +327,7 @@ export class ModeGame {
     this.scene = ar.scene;
     this.prints = new Footprints(this.scene);
     const B = this.deps.settings.battle || {};   // (the weather picked for Battle maps: time, weather, fog)
-    ar.setAtmosphere(!!B.night, B.weather || 'auto', !!(B.fog || this.deps.settings.fog));
+    ar.setAtmosphere(!!B.night, !B.weather || B.weather === 'auto' ? nextWeather(ar.map) : B.weather, !!(B.fog || this.deps.settings.fog));
     ar.setGraphics(effectiveGraphics(this.deps.settings), this.deps.renderer);
     this.panelMesh = null; this.panelMeshes = {};
     if (this.markerG) this.markerG.removeFromParent();
@@ -553,6 +568,13 @@ export class ModeGame {
     if (!this.paused && !this.over && !this.kc) this._steps();
     this._updateTracers(t);
     if (this.arena) this.arena.update(dt, t, h.camera.position);
+    if (this.rain) {
+      this.rain.userData.tick(t, h.camera.position);
+      if (this.storm && dt > 0) {                                 // lightning: a white flash now and then
+        this._nextBolt -= dt; if (this._nextBolt <= 0) { this._bolt = 1; this._nextBolt = 5 + Math.random() * 8; }
+        this._bolt = Math.max(0, this._bolt - dt * 4); this.hemi.intensity = this._hemiBase * (1 + this._bolt * 2.5);
+      }
+    }
     if (this.pool) this.pool.update((this.camOverride || h.camera).position);
     if (this.lookGroup && this.lookGroup.userData.sky) this.lookGroup.userData.sky.userData.tick(t);
     if (this.prints) this.prints.update(t);

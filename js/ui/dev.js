@@ -1,6 +1,6 @@
 // Dev mode: a password-gated console with a recorder. Ctrl+Shift+D or the small "Dev" button opens it.
 // shortcut: the password check runs in the browser, so it keeps curious players out, not attackers; there is nothing server-side to protect.
-import { SKIN_COUNT } from '../core/skins.js?v=25a8dbf-mwnd1mvm';
+import { SKIN_COUNT } from '../core/skins.js?v=5e4ab37-mwne6hty';
 
 const PASSWORD = '183535';
 const KEEP = 20000;          // timeline entries kept while recording (oldest 4000 dropped when full)

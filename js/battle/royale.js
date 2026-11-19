@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=25a8dbf-mwnd1mvm';
-import { ROYALE_BOTS } from './royale-map.js?v=25a8dbf-mwnd1mvm';
-import { PLATFORM_HALF, PLATFORM_MASK, RAMP_RISE, platformHeight, platformMeshes, platformSolids, rampSurface } from './royale-platform.js?v=25a8dbf-mwnd1mvm';
+import * as THREE from '../../vendor/three/three.module.min.js?v=5e4ab37-mwne6hty';
+import { ROYALE_BOTS } from './royale-map.js?v=5e4ab37-mwne6hty';
+import { PLATFORM_HALF, PLATFORM_MASK, RAMP_RISE, platformHeight, platformMeshes, platformSolids, rampSurface } from './royale-platform.js?v=5e4ab37-mwne6hty';
 
 const TOKEN_CHANCE = 0.001;
 const CHEST_MATERIALS = 18;
@@ -547,7 +547,7 @@ export class BattleRoyale {
       if (level !== null) { y = level; attached = true; }
     }
     // The build height: as high as a full ramp tower from the highest hill. A cone (it snaps up to whatever it touches) stops there.
-    this.buildTop ??= Math.max(0, ...arena.boxes.filter((b) => b.kind === 'hill').map((b) => b.maxY)) + MAX_RAMPS * RAMP_RISE;
+    this.buildTop ??= Math.max(0, ...arena.boxes.filter((b) => b.kind === 'hill' || b.kind === 'cliff').map((b) => b.maxY)) + MAX_RAMPS * RAMP_RISE;
     if (kind === 'cone' && y + platformHeight(kind) > this.buildTop + 1e-6) return { limit: true };
     const box = { minX:x-w/2, maxX:x+w/2, minY:y, maxY:y+(isWall ? WALL_HEIGHT : platformHeight(kind)), minZ:z-d/2, maxZ:z+d/2 };
     if (raised) attached = this.walls.some(p => overlaps(grow(box), p.box));      // (even on a ramp's edge: raised, it may float)
