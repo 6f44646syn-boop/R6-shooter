@@ -183,6 +183,21 @@ try {
     return { puppets: P.length, mostModels: Math.max(0, ...P.map((p) => p.rig.models.size)), worldGuns: VM.worldGunCount() };
   });
   check('replay puppets keep one gun model each, the bot gun-model cache stays capped (no memory growth per match)', pool.puppets > 0 && pool.mostModels <= 1 && pool.worldGuns <= 40, pool);
+  // every game's settings page: the right questions, and the host / join panel (with the game code) for every online game
+  const pages = await page.evaluate(() => {
+    const vis = (id) => { let e = document.getElementById(id); for (; e && e.id !== 'menu'; e = e.parentElement) if (e.hidden) return false; return !!e; };
+    const wrong = [];
+    for (const b of document.querySelectorAll('.mode-set')) {
+      document.getElementById('go-home').click(); b.click();
+      const m = b.dataset.mode, online = m === 'net', matchQs = ['tdm', 'ctf', 'bomb'].includes(m) || (online && b.dataset.net === 'bomb');
+      const got = { battle: vis('battle-setup'), modes: vis('modes-setup'), net: vis('net-panel'), range: vis('range-setup') };
+      const want = { battle: m !== 'range' && !matchQs, modes: matchQs, net: online, range: m === 'range' };
+      if (JSON.stringify(got) !== JSON.stringify(want)) wrong.push(b.closest('.mode-item').querySelector('b').textContent + ' ' + JSON.stringify(got));
+    }
+    document.getElementById('go-home').click();
+    return wrong;
+  });
+  check('every game opens its own settings page; every online game shows the host / join panel', pages.length === 0, pages);
   check('No page errors', errors.length === 0, errors);
 } finally {
   await browser?.close();

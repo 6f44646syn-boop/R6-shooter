@@ -1,4 +1,4 @@
-import { ACTIONS, inputCode, inputLabel } from "./m7-raw-input.js?v=7eac1b8-mwmsd9zv";
+import { ACTIONS, inputCode, inputLabel } from "./m7-raw-input.js?v=74ef690-mwmsotjs";
 const node = (tag, text) => {
   const n = document.createElement(tag);
   if (text) n.textContent = text;

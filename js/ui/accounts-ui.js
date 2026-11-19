@@ -1,5 +1,5 @@
 // The account picker in the menu header: switch player, add one (optional PIN), delete one.
-import { accounts, switchTo, createAccount, deleteAccount } from '../core/accounts.js?v=7eac1b8-mwmsd9zv';
+import { accounts, switchTo, createAccount, deleteAccount } from '../core/accounts.js?v=74ef690-mwmsotjs';
 
 function el(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);
