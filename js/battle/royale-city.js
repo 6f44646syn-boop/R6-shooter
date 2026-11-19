@@ -4,11 +4,12 @@
 // stations with stairs down, and chasms in the road you can drop through.
 // The streets are a deck DECK metres up; the tunnels are under every street (the ground under each block is
 // solid). Everything structural sits on the 3.2 m build grid, so players' walls, ramps and cones fit flush.
-import { BoxGeometry, BufferGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, CanvasTexture, RepeatWrapping, SRGBColorSpace } from '../../vendor/three/three.module.min.js?v=5e4ab37-mwne6hty';
-import { wallPanels, duskSky } from '../scene/range-tex.js?v=5e4ab37-mwne6hty';
-import { mulberry32 } from '../core/prng.js?v=5e4ab37-mwne6hty';
-import { gfxLevel } from '../render/quality.js?v=5e4ab37-mwne6hty';
-import { MAPS } from './maps.js?v=5e4ab37-mwne6hty';
+import { BoxGeometry, BufferGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, CanvasTexture, RepeatWrapping, SRGBColorSpace } from '../../vendor/three/three.module.min.js?v=2707cda-mwneqmgv';
+import { wallPanels, duskSky } from '../scene/range-tex.js?v=2707cda-mwneqmgv';
+import { mulberry32 } from '../core/prng.js?v=2707cda-mwneqmgv';
+import { gfxLevel } from '../render/quality.js?v=2707cda-mwneqmgv';
+import { surface } from '../render/surfaces.js?v=2707cda-mwneqmgv';
+import { MAPS } from './maps.js?v=2707cda-mwneqmgv';
 
 const G = 3.2, H = 3.2, SLAB = 0.3, T = 0.4;                // grid cell, storey height, floor thickness, wall thickness
 export const DECK = 4;                                         // street level (the subway is below it)
@@ -351,16 +352,16 @@ export const ruins = (spawns) => ({
   floor: subwayFloor,
   wall: () => ({ ...wallPanels(), tileW: 2, tileH: 4 }),
   kinds: {
-    concrete: { map: Y.low.map, color: 0xa7a7a3, rough: 0.95, tile: 2 },
-    brick: { map: Y.low.map, color: 0x9a6650, rough: 0.95, tile: 1.4 },
-    plaster: { map: Y.low.map, color: 0xc9c2b4, rough: 0.95, tile: 2 },
-    slab: { map: Y.low.map, color: 0x8b8b88, rough: 0.95, tile: 2 },
-    rubble: { map: Y.low.map, color: 0x7a7570, rough: 1, tile: 1 },
-    ground: { map: Y.low.map, color: 0x55524d, rough: 1, tile: 2 },
-    deck: { map: Y.low.map, color: 0x5e5f61, rough: 0.95, tile: 2 },
+    concrete: { ...surface('concrete', Y.low.map), color: 0xa7a7a3, rough: 0.95, tile: 2 },
+    brick: { ...surface('brick', Y.low.map), color: 0x9a6650, rough: 0.95, tile: 1.4 },
+    plaster: { ...surface('plaster', Y.low.map), color: 0xc9c2b4, rough: 0.95, tile: 2 },
+    slab: { ...surface('concrete', Y.low.map), color: 0x8b8b88, rough: 0.95, tile: 2 },
+    rubble: { ...surface('rock', Y.low.map), color: 0x7a7570, rough: 1, tile: 1 },
+    ground: { ...surface('rock', Y.low.map), color: 0x55524d, rough: 1, tile: 2 },
+    deck: { ...surface('concrete', Y.low.map), color: 0x5e5f61, rough: 0.95, tile: 2 },
     steel: { color: 0x3b4146, rough: 0.5, metal: 0.7 },
     booth: { map: Y.container.map, color: 0x2f5e8e, metal: 0.4, rough: 0.6, tile: 1.5 },
-    wood: { map: Y.plank.map, color: 0x8a6446, rough: 0.85, tile: 1.2 },
+    wood: { ...surface('planks', Y.plank.map), color: 0x8a6446, rough: 0.85, tile: 1.2 },
     fabric: { color: 0x5b6a7a, rough: 1 },
     crate: Y.crate,
     car: { map: Y.container.map, color: 0x55606b, metal: 0.5, rough: 0.6, tile: 1.5 },

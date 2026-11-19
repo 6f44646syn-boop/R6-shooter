@@ -3,12 +3,13 @@
 // houses, walls and market stalls (plenty of cover), and high ground in the east: two terraces with
 // cliffs, open and exposed, a lighthouse on top. A jetty runs out from the town.
 // Everything structural sits on the 3.2 m build grid.
-import { BoxGeometry, BufferGeometry, ConeGeometry, PlaneGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, CanvasTexture, RepeatWrapping, SRGBColorSpace, ShaderMaterial, Mesh, Color } from '../../vendor/three/three.module.min.js?v=5e4ab37-mwne6hty';
-import { wallPanels, duskSky } from '../scene/range-tex.js?v=5e4ab37-mwne6hty';
-import { mulberry32 } from '../core/prng.js?v=5e4ab37-mwne6hty';
-import { gfxLevel } from '../render/quality.js?v=5e4ab37-mwne6hty';
-import { windU } from '../scene/smoke.js?v=5e4ab37-mwne6hty';
-import { MAPS } from './maps.js?v=5e4ab37-mwne6hty';
+import { BoxGeometry, BufferGeometry, ConeGeometry, PlaneGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, CanvasTexture, RepeatWrapping, SRGBColorSpace, ShaderMaterial, Mesh, Color } from '../../vendor/three/three.module.min.js?v=2707cda-mwneqmgv';
+import { wallPanels, duskSky } from '../scene/range-tex.js?v=2707cda-mwneqmgv';
+import { mulberry32 } from '../core/prng.js?v=2707cda-mwneqmgv';
+import { gfxLevel } from '../render/quality.js?v=2707cda-mwneqmgv';
+import { windU } from '../scene/smoke.js?v=2707cda-mwneqmgv';
+import { surface } from '../render/surfaces.js?v=2707cda-mwneqmgv';
+import { MAPS } from './maps.js?v=2707cda-mwneqmgv';
 
 const G = 3.2, T = 0.4;
 const cellC = (k) => (k + 0.5) * G;                       // the centre of grid cell k
@@ -134,11 +135,11 @@ function waterMesh() {
         float sea = smoothstep(0.985, 1.02, e), river = (1.0 - smoothstep(3.0, 3.5, rv)) * step(abs(z), 60.0);
         float wet = max(sea, river);
         if (wet < 0.02) discard;
-        float edge = max(1.0 - smoothstep(1.0, 1.06, e), smoothstep(2.2, 3.3, rv) * river);   // (near the shore)
+        float edge = max(1.0 - smoothstep(0.99, 1.02, e), smoothstep(2.95, 3.4, rv) * river);   // (near the shore)
         float r = sin(x * 1.7 + uT * 2.0) * sin(z * 1.3 - uT * 1.6) + sin((x + z) * 0.6 + uT);
         vec3 c = mix(uShal, uDeep, smoothstep(1.0, 1.25, e) * (1.0 - river * 0.4));
-        c += vec3(0.05) * r;
-        float foam = edge * smoothstep(0.35, 1.0, 0.5 + 0.5 * sin(x * 0.9 + z * 0.7 + uT * 2.2));
+        c += vec3(0.025) * r;
+        float foam = edge * (0.55 + 0.45 * sin(x * 2.3 + z * 1.9 + uT * 2.2) * sin(x * 0.7 - z * 1.1 - uT));
         c = mix(c, uFoam, foam * 0.6);
         c = mix(c, uHaze, smoothstep(70.0, 190.0, length(cameraPosition.xz - vW.xz)));   // (fades into the haze toward the horizon)
         gl_FragColor = vec4(c, wet * mix(0.62, 0.9, smoothstep(1.0, 1.15, e))); }`,
@@ -237,16 +238,16 @@ export const island = (spawns) => ({
   acid: water.map(([x, z, w, d]) => ({ x, z, w, d, dps: 24 })),           // deep water: you drown (bots keep out)
   kinds: {
     wall: { color: 0x707b70, rough: 0.9 },
-    stone: { map: Y.low.map, color: 0xa39c8e, rough: 0.95, tile: 1.6 },
-    plank: { map: Y.plank.map, tile: 1.8, color: 0xa88162, rough: 0.9 },
-    plankRed: { map: Y.plank.map, tile: 1.8, color: 0xb5574a, rough: 0.9 },
-    plankBlue: { map: Y.plank.map, tile: 1.8, color: 0x5d86a8, rough: 0.9 },
-    plankGreen: { map: Y.plank.map, tile: 1.8, color: 0x6f9a62, rough: 0.9 },
-    roof: { map: Y.plank.map, tile: 2.1, color: 0x6f5546, rough: 0.95 },
+    stone: { ...surface('plaster', Y.low.map), color: 0xa39c8e, rough: 0.95, tile: 1.6 },
+    plank: { ...surface('planks', Y.plank.map), tile: 1.8, color: 0xa88162, rough: 0.9 },
+    plankRed: { ...surface('planks', Y.plank.map), tile: 1.8, color: 0xb5574a, rough: 0.9 },
+    plankBlue: { ...surface('planks', Y.plank.map), tile: 1.8, color: 0x5d86a8, rough: 0.9 },
+    plankGreen: { ...surface('planks', Y.plank.map), tile: 1.8, color: 0x6f9a62, rough: 0.9 },
+    roof: { ...surface('shingles', Y.plank.map), tile: 2.1, color: 0x6f5546, rough: 0.95 },
     crate: { color: 0x9b6944, rough: 0.9 },
-    cart: { map: Y.plank.map, tile: 1.2, color: 0x7d5a3e, rough: 0.9 },
+    cart: { ...surface('planks', Y.plank.map), tile: 1.2, color: 0x7d5a3e, rough: 0.9 },
     hay: { color: 0xc9a85a, rough: 1 },
-    cliff: { map: Y.low.map, color: 0x7d7a6c, rough: 1, tile: 3 },
+    cliff: { ...surface('rock', Y.low.map), color: 0x7d7a6c, rough: 1, tile: 3 },
     rock: { color: 0x67736e, rough: 1 },
     tree: { hiddenBox: true },
   },

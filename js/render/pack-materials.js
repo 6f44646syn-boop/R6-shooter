@@ -4,10 +4,10 @@
 // metalness map, keeping each mesh's tiling and vertex colours. Low and Standard are untouched.
 // Only the materials the current map uses are loaded. Texture sizes: Ultra as baked (2048 for the
 // big surfaces), High half that, so integrated graphics keep their memory.
-import * as THREE from '../../vendor/three/three.module.min.js?v=5e4ab37-mwne6hty';
-import { HDPack } from './hd-pack.js?v=5e4ab37-mwne6hty';
-import { maxMode } from './quality.js?v=5e4ab37-mwne6hty';
-import { warmObjects } from './warm.js?v=5e4ab37-mwne6hty';
+import * as THREE from '../../vendor/three/three.module.min.js?v=2707cda-mwneqmgv';
+import { HDPack } from './hd-pack.js?v=2707cda-mwneqmgv';
+import { maxMode } from './quality.js?v=2707cda-mwneqmgv';
+import { warmObjects } from './warm.js?v=2707cda-mwneqmgv';
 
 export const packMats = { revision: 0, lightActive: false };
 const sets = new Map();          // name|quality -> Promise<{ map, normal, orm }>
