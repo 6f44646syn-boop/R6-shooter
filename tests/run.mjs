@@ -2146,7 +2146,7 @@ try {
       await B.fill('#relay-in', join.toLowerCase()); await B.click('#relay-connect');
       try {
         await B.waitForFunction(() => /Connected/.test(document.getElementById('net-status').textContent), null, { timeout: 8000 });
-        await A.waitForFunction(() => /Player 2/.test(document.getElementById('relay-players').textContent), null, { timeout: 8000 });
+        await A.waitForFunction(() => /Player/.test(document.getElementById('relay-players').textContent), null, { timeout: 8000 });   // (the joiner's account name)
       } catch (e) { connected = false; }
       check('the game code ' + join + ' connects two sessions through the relay', connected, await B.textContent('#net-status') + ' / ' + await A.textContent('#relay-players'));
     } else {
@@ -2189,7 +2189,7 @@ try {
       await tap(B, 180);                       // the player shoots the host
       const r1 = await A.evaluate(() => { const Bt = window.__range.battle(); return { hostDeaths: Bt.humans[0].f.deaths, playerKills: Bt.remotes[0].f.kills }; });
       const feed1 = await B.evaluate(() => window.__range.battle().hud.feed.textContent);
-      check('the player on the other PC kills the host; the kill feed shows on both', r1.hostDeaths === 1 && r1.playerKills === 1 && /Player 2 › Host/.test(feed1), JSON.stringify(r1) + feed1);
+      check('the player on the other PC kills the host; the kill feed shows on both', r1.hostDeaths === 1 && r1.playerKills === 1 && /Player[ \d]* › Host/.test(feed1), JSON.stringify(r1) + feed1);
       await run(3.5);
       await A.evaluate(() => { const Bt = window.__range.battle(); const h = Bt.humans[0]; h.f.x = 16; h.f.z = 12; h.f.protectUntil = 0; Bt.remotes[0].f.protectUntil = 0;
         const r = Bt.remotes[0]; r.f.x = 16; r.f.z = 2; r.ignoreUntil = Bt.t + .3; });
@@ -2216,13 +2216,13 @@ try {
       check('network Battle sends the final kill, winning lineup and leaderboard', finale.killer === 'Host' && finale.results && finale.rows === 3 && finale.lineup === 1, JSON.stringify(finale));
       await A.evaluate(() => window.__range.battleLeave());
       await run(0.3);
-      const end = await B.evaluate(() => ({ active: window.__range.battle().active, status: document.getElementById('net-status').textContent }));
-      check('host ending the match returns the player to the menu, still connected', !end.active && /Still connected/.test(end.status), JSON.stringify(end));
+      const end = await B.evaluate(() => ({ active: window.__range.battle().active, home: !document.getElementById('home').hidden, party: !document.getElementById('h-party').hidden, notice: document.getElementById('toast').textContent }));
+      check('host ending the match brings the player back to the lobby (Home, still in the party)', !end.active && end.home && end.party && /still in the party/.test(end.notice), JSON.stringify(end));
       if (via === 'relay') {
         await A.click('#net-reset');
         let told = true;
-        try { await B.waitForFunction(() => /host left/i.test(document.getElementById('net-status').textContent), null, { timeout: 8000 }); } catch (e) { told = false; }
-        check('when the host disconnects, the player is told', told, await B.textContent('#net-status'));
+        try { await B.waitForFunction(() => /host left/i.test(document.getElementById('toast').textContent) && !document.getElementById('home').hidden, null, { timeout: 8000 }); } catch (e) { told = false; }
+        check('when the host disconnects, the player is back in the lobby and told', told, await B.textContent('#toast'));
       }
     }
     check('no page errors in either session', nerr.length === 0, nerr.join('\n'));

@@ -96,6 +96,25 @@ try {
   });
   assert.ok(cones.early === 1 && cones.later > 1 && cones.capped && cones.top > 17, JSON.stringify(cones));
   console.log('PASS cones: one click places one cone (a short window before turbo repeats), holding keeps building, and none goes above the build height');
+  const padBuild = await page.evaluate(async () => {
+    const R = __range, b = R.battle(), r = b.royale, h = b.humans[0], a = b.arena, wait = (ms) => new Promise((res) => setTimeout(res, ms));
+    const pad = { id: 'Test pad', index: 0, connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })) };
+    const press = async (i) => { pad.buttons[i].pressed = true; pad.buttons[i].value = 1; await wait(120); pad.buttons[i].pressed = false; pad.buttons[i].value = 0; await wait(120); };
+    const real = navigator.getGamepads; navigator.getGamepads = () => [pad];
+    document.getElementById('menu').hidden = true;
+    r.materials = 20; h.look.pitch = 0;
+    for (let i = 0; i < a.nodeCount; i += 7) { if (a.nodeY[i] > .01) continue; Object.assign(h.f, { x: a.nodeX[i], y: 0, z: a.nodeZ[i] }); if (['wall', 'ramp', 'cone'].every((k) => { const p = r.plan(h.f, 0, k); return p && !p.blocked; })) break; }
+    const n = r.walls.length;
+    await press(1); const buildMode = r.preview;                   // B: build mode
+    const kinds = [];
+    for (const [btn, yaw] of [[7, 0], [6, 90], [4, 180]]) { h.look.yaw = yaw; await press(btn); kinds.push(r.walls.at(-1)?.kind); }
+    await press(1); const off = !r.preview;
+    for (const w of r.walls.splice(n)) r.disposePiece(w);
+    r.syncWalls(); r.piece = 'wall'; r.materials = 0; navigator.getGamepads = real;
+    return { buildMode, kinds: kinds.join(','), off };
+  });
+  assert.deepEqual(padBuild, { buildMode: true, kinds: 'wall,ramp,cone', off: true });
+  console.log('PASS controller instant build: B enters build mode, RT wall, LT ramp, LB cone, B leaves');
   const corner = await page.evaluate(() => {
     const b = __range.battle(), r = b.royale, h = b.humans[0], a = b.arena;
     r.materials = 4; const n = r.walls.length;

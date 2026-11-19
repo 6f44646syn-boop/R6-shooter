@@ -2,10 +2,10 @@
 // test. The body is a soldier (soldier.js) in team colours carrying their real gun with its
 // skin; hits are decided on the same shapes the body is built around. Crouching squashes the
 // body to CROUCH_SCALE. y is the height of the feet (floors, stairs, box tops).
-import * as THREE from '../../vendor/three/three.module.min.js?v=b4a6a0e-mwmt1ffg';
-import { soldierGeometry, raycastSoldier, GRIP_HAND, HIP_X, HIP_Y } from './soldier.js?v=b4a6a0e-mwmt1ffg';
-import { buildWorldGun } from '../scene/viewmodel.js?v=b4a6a0e-mwmt1ffg';
-import { maxMode } from '../render/quality.js?v=b4a6a0e-mwmt1ffg';
+import * as THREE from '../../vendor/three/three.module.min.js?v=a6e39f3-mwmzyysr';
+import { soldierGeometry, raycastSoldier, GRIP_HAND, HIP_X, HIP_Y } from './soldier.js?v=a6e39f3-mwmzyysr';
+import { buildWorldGun } from '../scene/viewmodel.js?v=a6e39f3-mwmzyysr';
+import { maxMode } from '../render/quality.js?v=a6e39f3-mwmzyysr';
 
 export const STAND_EYE = 1.6, CROUCH_EYE = 1.12;
 export const CROUCH_SCALE = 0.7;
@@ -35,8 +35,10 @@ let GHOST = null;
 function ghostMaterial() {
   return GHOST || (GHOST = new THREE.MeshBasicMaterial({ color: 0x4aa8ff, transparent: true, opacity: 0.5, depthWrite: false, depthFunc: THREE.GreaterDepth, toneMapped: false, fog: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }));
 }
-let OUTLINE = null;
-function outlineMaterial() {
+let OUTLINE = null, OUTLINE_TEAM = null;
+// team: the teammates' outline (a copy with its own colour). Colours: Settings > Accessibility (setOutlineColors).
+function outlineMaterial(team = false) {
+  if (team) { if (!OUTLINE_TEAM) { OUTLINE_TEAM = outlineMaterial().clone(); OUTLINE_TEAM.uniforms.color.value.set(0x4aa8ff); } return OUTLINE_TEAM; }
   return OUTLINE || (OUTLINE = new THREE.ShaderMaterial({
     side: THREE.BackSide, transparent: true, depthWrite: true, toneMapped: false,
     uniforms: { color: { value: new THREE.Color(0xff2a2a) } },
@@ -49,6 +51,12 @@ function outlineMaterial() {
       }`,
     fragmentShader: `uniform vec3 color; void main() { gl_FragColor = vec4(color, 0.9); }`,
   }));
+}
+
+export function setOutlineColors(enemy, team) {
+  outlineMaterial().uniforms.color.value.set(enemy);
+  outlineMaterial(true).uniforms.color.value.set(team);
+  ghostMaterial().color.set(team);
 }
 
 // The flashlight beam: an open cone from the lens forward (+z), bright at the lens and fading
@@ -241,6 +249,8 @@ export class Fighter {
   // Free this fighter's own materials (its geometry, gun model and outline materials are shared).
   dispose() { this.group.removeFromParent(); this.body.material.dispose(); this.barBg.material.dispose(); this.barFg.material.dispose(); }
   // A teammate's silhouette through walls (match modes).
+  // teammates' outlines take the team colour
+  setOutlineTeam(team) { if (this._olTeam === team) return; this._olTeam = team; const m = outlineMaterial(team); for (const o of this.outline.children) o.material = m; for (const l of this.legs) l.o.material = m; }
   setGhost(on) { if (this._ghost === on) return; this._ghost = on; for (const g of this.ghosts) g.visible = on; }
   updateVisual(t) {
     this.group.visible = this.alive;

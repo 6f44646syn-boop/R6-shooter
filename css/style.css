@@ -1013,3 +1013,14 @@ body:has(#menu:not([hidden])) #perf, body:has(#home:not([hidden])) #perf, body:h
 .toast { position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 80; padding: 12px 20px; border-radius: 12px; background: var(--accent); color: var(--accent-ink); font-weight: 700; box-shadow: 0 8px 30px #0008; }
 .toast[hidden] { display: none; }
 .h-party-code { margin: 0; font-size: 13px; color: var(--muted); } .h-party-code b { display: block; font: 700 26px var(--mono, monospace); letter-spacing: .12em; color: var(--fg); user-select: all; }
+/* the pack opening shows over Home and its pop-up menus */
+.pk-modal:not(#gfx) { z-index: 65; }
+/* OG colours (Settings > Accessibility): the menus as they were, amber on charcoal */
+html.og { --bg: #0e1013; --panel: rgba(18, 21, 26, 0.94); --panel-edge: #2b313b; --fg: #e7e9ec; --muted: #9aa3ae; --accent: #f2b33d; --accent-ink: #1a1305;
+  --ring: #f2b33d; --chart: #12151a; --accent2: #f2b33d; --line: #2b313b; --btn-fill: rgba(255, 255, 255, .06); --btn-fill-hover: rgba(255, 255, 255, .1); --btn-on: color-mix(in srgb, var(--accent) 40%, #1a1d22); }
+html.og #menu { background: linear-gradient(120deg, rgba(5, 12, 19, .96), rgba(12, 18, 25, .86)); }
+html.og #menu.over-home { background: rgba(0, 0, 0, .35); }
+html.og .mode-card { background: linear-gradient(135deg, #253241, #141d27); border-color: #3a4857; }
+html.og .mode-card:hover { background: #2c3a4a; border-color: var(--accent); }
+html.og #home { background: radial-gradient(ellipse at center, transparent 42%, rgba(6, 7, 9, .78)); }
+html.og .h-online b { text-shadow: 0 0 14px rgba(242, 179, 61, .4); }

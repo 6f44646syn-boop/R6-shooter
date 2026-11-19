@@ -1,31 +1,31 @@
-import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=b4a6a0e-mwmt1ffg';
-import { MatchFinale } from '../replay/finale.js?v=b4a6a0e-mwmt1ffg';
-import { GrenadeReplay } from '../replay/grenade.js?v=b4a6a0e-mwmt1ffg';
-import { replayCamera } from '../replay/view.js?v=b4a6a0e-mwmt1ffg';
+import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=a6e39f3-mwmzyysr';
+import { MatchFinale } from '../replay/finale.js?v=a6e39f3-mwmzyysr';
+import { GrenadeReplay } from '../replay/grenade.js?v=a6e39f3-mwmzyysr';
+import { replayCamera } from '../replay/view.js?v=a6e39f3-mwmzyysr';
 // Battle mode: you against bots (Easy / Medium / Hard), or two local players in split
 // screen (optionally with bots as a third side). First side to the kill target wins.
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=b4a6a0e-mwmt1ffg';
-import { Arena } from './arena.js?v=b4a6a0e-mwmt1ffg';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=b4a6a0e-mwmt1ffg';
-import { Banter } from './banter.js?v=b4a6a0e-mwmt1ffg';
-import { Bot, LEVELS } from './bot.js?v=b4a6a0e-mwmt1ffg';
-import { Human } from './human.js?v=b4a6a0e-mwmt1ffg';
-import { BattleNades } from './nades.js?v=b4a6a0e-mwmt1ffg';
-import { drawCrosshair } from '../ui/crosshair.js?v=b4a6a0e-mwmt1ffg';
-import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=b4a6a0e-mwmt1ffg';
-import { effectiveGraphics } from '../render/quality.js?v=b4a6a0e-mwmt1ffg';
-import { effectiveGun, slotIn } from '../core/loadout.js?v=b4a6a0e-mwmt1ffg';
-import { BattleRoyale } from './royale.js?v=b4a6a0e-mwmt1ffg';
-import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=b4a6a0e-mwmt1ffg';
-import { Footprints } from '../scene/footprints.js?v=b4a6a0e-mwmt1ffg';
-import { Minimap } from '../ui/minimap.js?v=b4a6a0e-mwmt1ffg';
-import { botRankedChange } from '../core/ranked.js?v=b4a6a0e-mwmt1ffg';
-import { warmScene } from '../render/warm.js?v=b4a6a0e-mwmt1ffg';
-import { ShadowGate } from '../render/shadow-gate.js?v=b4a6a0e-mwmt1ffg';
-import { MatchStats, mvpCard } from '../core/mvp.js?v=b4a6a0e-mwmt1ffg';
+import * as THREE from '../../vendor/three/three.module.min.js?v=a6e39f3-mwmzyysr';
+import { Arena } from './arena.js?v=a6e39f3-mwmzyysr';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=a6e39f3-mwmzyysr';
+import { Banter } from './banter.js?v=a6e39f3-mwmzyysr';
+import { Bot, LEVELS } from './bot.js?v=a6e39f3-mwmzyysr';
+import { Human } from './human.js?v=a6e39f3-mwmzyysr';
+import { BattleNades } from './nades.js?v=a6e39f3-mwmzyysr';
+import { drawCrosshair } from '../ui/crosshair.js?v=a6e39f3-mwmzyysr';
+import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=a6e39f3-mwmzyysr';
+import { effectiveGraphics } from '../render/quality.js?v=a6e39f3-mwmzyysr';
+import { effectiveGun, slotIn } from '../core/loadout.js?v=a6e39f3-mwmzyysr';
+import { BattleRoyale } from './royale.js?v=a6e39f3-mwmzyysr';
+import { ROYALE_BOTS, ROYALE_MAP_ID } from './royale-map.js?v=a6e39f3-mwmzyysr';
+import { Footprints } from '../scene/footprints.js?v=a6e39f3-mwmzyysr';
+import { Minimap } from '../ui/minimap.js?v=a6e39f3-mwmzyysr';
+import { botRankedChange } from '../core/ranked.js?v=a6e39f3-mwmzyysr';
+import { warmScene } from '../render/warm.js?v=a6e39f3-mwmzyysr';
+import { ShadowGate } from '../render/shadow-gate.js?v=a6e39f3-mwmzyysr';
+import { MatchStats, mvpCard } from '../core/mvp.js?v=a6e39f3-mwmzyysr';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, p7: 0xff7048, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -1579,7 +1579,7 @@ export class Battle {
     this._meAlive = f.alive;
     if (f.alive || (this.kc && t > this.kc.until)) this.kc = null;
     // outlines: everyone else, by day only
-    for (const g of this.fighters) { const v = g !== f && g.alive && !this.night && !Fighter.minimal; g.outline.visible = v; for (const l of g.legs) l.o.visible = v; }
+    for (const g of this.fighters) { const v = g !== f && g.alive && !this.night && !Fighter.minimal; g.outline.visible = v; for (const l of g.legs) l.o.visible = v; if (v) g.setOutlineTeam(g.team === f.team); }
     if (!f.alive) this.grenadeView.release();
     if (this.kc) this._playKillCam(t);
   }

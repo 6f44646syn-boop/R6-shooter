@@ -2,7 +2,7 @@
 // Storage can be missing or throw (private window, blocked site data), so every access is
 // wrapped and the app always works with the defaults.
 
-import { sensToCm360, cm360ToSens } from './sensitivity.js?v=b4a6a0e-mwmt1ffg';
+import { sensToCm360, cm360ToSens } from './sensitivity.js?v=a6e39f3-mwmzyysr';
 
 const KEY = 'recoilRange.settings.v1';
 
@@ -38,7 +38,10 @@ export const DEFAULTS = Object.freeze({
   antialias: true,       // MSAA; takes effect after a reload
   graphics: 'standard',  // 'low' (flat colours, slowest PCs), 'standard' (fast, school PCs), 'high' (shadows, PBR textures, filmic tone mapping) or 'ultra' (graphics card: 4K textures, weapon skins)
   animations: true,      // weapon animations: draw, reload, sprint pose, bolt, muzzle flash, brass
-  minimap: false,        // a small radar in the top-left corner during battles and matches
+  minimap: false,
+  outlineEnemy: '#ff2a2a',  // accessibility: outline colour of enemies and bots you fight
+  outlineTeam: '#4aa8ff',   // and of your teammates (also their silhouette through walls)
+  ogColors: false,          // the menus in their original colours (amber on charcoal)        // a small radar in the top-left corner during battles and matches
   hiResSkins: false,     // weapon skins baked at 4096 even on Low / Standard (your own gun)
   weaponShading: 'fast', // gun and sight look: 'fast' (matcap, cheap) or 'detailed' (PBR metal)
   lensQuality: '0',      // off by default (aiming +50% fps on a laptop RTX); ADS lens pass: 'auto' or 3 (all) / 2 (no blur) / 1 (no blur, fringing) / 0 (no glare either)
@@ -138,6 +141,8 @@ export function sanitize(input) {
   out.ao = typeof s.ao === 'boolean' ? s.ao : DEFAULTS.ao;
   out.hiResSkins = s.hiResSkins === true;
   out.minimap = s.minimap === true;
+  for (const k of ['outlineEnemy', 'outlineTeam']) out[k] = typeof s[k] === 'string' && /^#[0-9a-f]{6}$/i.test(s[k]) ? s[k] : DEFAULTS[k];
+  out.ogColors = s.ogColors === true;
   out.padAssist = ['off', 'light', 'standard'].includes(s.padAssist) ? s.padAssist : DEFAULTS.padAssist;
   out.taa = s.taa === true;
   out.botShadows = s.botShadows !== false;

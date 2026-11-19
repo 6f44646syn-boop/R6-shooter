@@ -17,18 +17,26 @@ const DEFAULTS = { fire: 7, ads: 6, sprint: 10, crouch: 1, vault: 0, reload: 2, 
 const STORE = 'recoilRange.pad.v1';
 const DZ = 0.18;
 const dz = (v) => (Math.abs(v) < DZ ? 0 : (v - Math.sign(v) * DZ) / (1 - DZ));
+const LOOK_CURVE = 1.8, LOOK_SMOOTH = 0.045;   // aim: finer near the centre; ~45 ms easing so the view glides instead of stepping
+// Instant build (Battle Royale): B build mode, right stick click crouch, Y pickaxe, X reload and chests;
+// in build mode RT places a wall, LT a ramp, LB a cone (held: keeps building).
+const ROYALE_BINDS = { underbarrel: 1, crouch: 11, knife: 3, interact: 2 };
+const BUILD_BUTTONS = { 7: 'wall', 6: 'ramp', 4: 'cone' };
 
 export class Gamepad {
   constructor() {
     this.binds = { ...DEFAULTS };
     this.lookSpeed = 240;          // degrees a second at full right-stick
     this.invert = false;
+    this.instantBuild = true;
+    this.vx = 0; this.vy = 0;       // eased look speed (stick units)
     try {
       const s = JSON.parse(localStorage.getItem(STORE) || 'null');
       if (s) {
         for (const [id] of PAD_ACTIONS) if (Number.isInteger(s.binds?.[id]) && s.binds[id] >= -1 && s.binds[id] < 16 && s.binds[id] !== START) this.binds[id] = s.binds[id];
         if (Number.isFinite(s.lookSpeed)) this.lookSpeed = Math.min(600, Math.max(60, s.lookSpeed));
         this.invert = s.invert === true;
+        this.instantBuild = s.instantBuild !== false;
       }
     } catch { /* storage blocked: defaults */ }
     this.held = new Set();          // actions held down by the pad
@@ -38,8 +46,8 @@ export class Gamepad {
     this.navAt = 0; this.navDir = 0;
     this.onChange = () => {};
   }
-  save() { try { localStorage.setItem(STORE, JSON.stringify({ binds: this.binds, lookSpeed: this.lookSpeed, invert: this.invert })); } catch { /* storage blocked */ } this.onChange(); }
-  reset() { this.binds = { ...DEFAULTS }; this.lookSpeed = 240; this.invert = false; this.save(); }
+  save() { try { localStorage.setItem(STORE, JSON.stringify({ binds: this.binds, lookSpeed: this.lookSpeed, invert: this.invert, instantBuild: this.instantBuild })); } catch { /* storage blocked */ } this.onChange(); }
+  reset() { this.binds = { ...DEFAULTS }; this.lookSpeed = 240; this.invert = false; this.instantBuild = true; this.save(); }
   // One button per action: taking a button from another action leaves that one unbound.
   bind(id, button) {
     if (button === START) return false;
@@ -53,7 +61,7 @@ export class Gamepad {
   recent(now = performance.now()) { return now - this.usedAt < 4000; }
   release(onAction) { for (const id of this.held) onAction(id, false); this.held.clear(); }
 
-  // hooks: { playing, onAction(id, down), look(degX, degY), start(), menuMove(dir, sideways), menuPress(), menuBack() }
+  // hooks: { playing, royale, building, onAction(id, down), look(degX, degY), start(), menuMove(dir, sideways), menuPress(), menuBack() }
   poll(dt, hooks, now = performance.now()) {
     const pad = this.pad();
     if (!pad) { this.release(hooks.onAction); this.was = []; return; }
@@ -68,20 +76,27 @@ export class Gamepad {
     }
     if (edge(START)) hooks.start();
     if (hooks.playing) {
-      const want = new Set();
-      for (const [id] of PAD_ACTIONS) if (this.binds[id] >= 0 && pressed[this.binds[id]]) want.add(id);
-      const [lx = 0, ly = 0, rx = 0, ry = 0] = ax;
+      const want = new Set(), royale = this.instantBuild && hooks.royale, building = royale && hooks.building;
+      const binds = royale ? { ...this.binds, ...ROYALE_BINDS } : this.binds;
+      for (const [id] of PAD_ACTIONS) { const btn = binds[id]; if (btn >= 0 && pressed[btn] && !(building && BUILD_BUTTONS[btn])) want.add(id); }
+      if (building) for (const [btn, piece] of Object.entries(BUILD_BUTTONS)) if (pressed[btn]) want.add('build:' + piece);
+      const [lx = 0, ly = 0] = ax;
       // shortcut: the left stick is on / off (walk or stand), not gradual; upgrade if players want slow walking on the stick
 
       if (ly < -0.35) want.add('forward'); if (ly > 0.35) want.add('back');
       if (lx < -0.35) want.add('left'); if (lx > 0.35) want.add('right');
       for (const id of this.held) if (!want.has(id)) { this.held.delete(id); hooks.onAction(id, false); }
       for (const id of want) if (!this.held.has(id)) { this.held.add(id); hooks.onAction(id, true); }
-      // finer aim near the centre of the stick
+      // aim: a round dead zone (no snapping on diagonals), a curve for fine aim near the centre, then light easing
+      const sx = pad.axes[2] || 0, sy = pad.axes[3] || 0, mag = Math.hypot(sx, sy);
+      const m = mag < DZ ? 0 : Math.min(1, (mag - DZ) / (1 - DZ)), g = mag ? m ** LOOK_CURVE / mag : 0;
+      const a = 1 - Math.exp(-dt / LOOK_SMOOTH);
+      this.vx += (sx * g - this.vx) * a; this.vy += (sy * g - this.vy) * a;
+      if (Math.abs(this.vx) < 1e-4 && Math.abs(this.vy) < 1e-4) this.vx = this.vy = 0;
       const k = this.lookSpeed * dt;
-      if (rx || ry) hooks.look(rx * Math.abs(rx) * k, (this.invert ? -1 : 1) * ry * Math.abs(ry) * k);
+      if (this.vx || this.vy) hooks.look(this.vx * k, (this.invert ? -1 : 1) * this.vy * k);
     } else {
-      this.release(hooks.onAction);
+      this.release(hooks.onAction); this.vx = this.vy = 0;
       const v = pressed[12] || ax[1] < -0.5 ? -1 : pressed[13] || ax[1] > 0.5 ? 1 : 0;
       const h = pressed[14] || ax[0] < -0.5 ? -1 : pressed[15] || ax[0] > 0.5 ? 1 : 0;
       const dir = v || h, key = v ? 'v' + v : 'h' + h;
@@ -109,7 +124,12 @@ export function padPanel(pad) {
   inv.addEventListener('change', () => { pad.invert = inv.checked; pad.save(); });
   const speedField = n('label', '', 'field'); speedField.htmlFor = 'pad-speed'; speedField.append(speedLabel, speed);
   const invField = n('label', '', 'check'); invField.htmlFor = 'pad-invert'; invField.append(inv, n('span', 'Invert vertical look'));
-  const opts = n('div', '', 'set-grid'); opts.append(speedField, invField);
+  const ib = n('input'); ib.type = 'checkbox'; ib.id = 'pad-instant-build';
+  ib.addEventListener('change', () => { pad.instantBuild = ib.checked; pad.save(); });
+  const ibField = n('label', '', 'check'); ibField.htmlFor = 'pad-instant-build';
+  ibField.title = 'Battle Royale: B build mode, right stick click crouch, Y pickaxe, X reload and open chests. In build mode RT wall, LT ramp, LB cone (hold to keep building).';
+  ibField.append(ib, n('span', 'Instant build (Battle Royale): RT wall, LT ramp, LB cone'));
+  const opts = n('div', '', 'set-grid'); opts.append(speedField, invField, ibField);
   const list = n('div', '', 'pad-binds');
   const rows = PAD_ACTIONS.map(([id, name]) => {
     const btn = n('button'); btn.type = 'button'; btn.dataset.padAction = id;
@@ -129,7 +149,7 @@ export function padPanel(pad) {
     const p = pad.pad();
     status.textContent = p ? 'Controller connected: ' + p.id.replace(/\s*\(.*$/, '') : 'No controller found. Plug one in (or pair it) and press any button.';
     speed.value = pad.lookSpeed; speedLabel.textContent = 'Look speed ' + pad.lookSpeed + '°/s';
-    inv.checked = pad.invert;
+    inv.checked = pad.invert; ib.checked = pad.instantBuild;
     for (const [id, btn] of rows) btn.textContent = pad.label(id);
   };
   pad.onChange = render;
