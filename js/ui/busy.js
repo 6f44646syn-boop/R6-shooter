@@ -1,7 +1,7 @@
 // A loading wheel for anything still loading: track(promise, label) shows it (after a short delay, so
 // quick loads do not flash it) until every tracked promise has settled. Textures loaded through
 // three.js's default loading manager count too. It never blocks clicks.
-import * as THREE from '../../vendor/three/three.module.min.js?v=0636e0a-mwmru1gp';
+import * as THREE from '../../vendor/three/three.module.min.js?v=7eac1b8-mwmsd9zv';
 
 const jobs = new Map();
 let el = null, label = null, timer = 0, seq = 0;

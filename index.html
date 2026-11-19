@@ -15,7 +15,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recoil Range</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="css/style.css?v=0636e0a-mwmru1gp">
+<link rel="stylesheet" href="css/style.css?v=7eac1b8-mwmsd9zv">
 </head>
 <body>
 <div id="boot-screen" role="status" style="position:fixed;inset:0;z-index:2147483000;background:#000;color:#c9d1db;display:grid;place-items:center;font:600 16px/1 system-ui,sans-serif;letter-spacing:0.3em;cursor:none">LOADING…</div>
@@ -87,7 +87,9 @@
       <p class="small">You get a game code to tell your friends.</p>
       <label class="field" for="h-code-in"><span>Join with a game code</span><input id="h-code-in" class="code-in" maxlength="8" autocomplete="off" spellcheck="false" placeholder="K7QD"></label>
       <button type="button" id="h-join">Join</button>
+      <div id="h-party" class="h-party" hidden><h3>Party</h3><ol id="h-party-list"></ol></div>
     </section>
+    <div id="toast" class="toast" role="status" hidden></div>
     <button type="button" class="h-skin" id="h-skin" title="Inspect"><span id="h-skin-name"></span></button>
     <section class="h-ch" aria-label="Challenges"><h3>Challenges</h3><div id="h-challenges" class="challenges"></div></section>
     <div class="h-play"><button type="button" id="h-play" class="primary">Play<span id="h-game"></span></button><button type="button" id="h-settings" title="Options for the game Play starts">Game settings</button><button type="button" id="h-pick">Pick game</button></div>
@@ -426,6 +428,6 @@
     </div>
   </div>
 </div>
-<script type="module" src="js/main.js?v=0636e0a-mwmru1gp"></script>
+<script type="module" src="js/main.js?v=7eac1b8-mwmsd9zv"></script>
 </body>
 </html>

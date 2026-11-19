@@ -90,10 +90,12 @@ try {
     b.mouseButton(0, false); b.key('KeyB', true); b.key('KeyB', false);
     for (const w of r.walls.splice(n)) r.disposePiece(w);
     r.syncWalls(); r.piece = 'wall'; r.materials = 0;
-    return { early, later };
+    const top = r.buildTop; r.buildTop = h.f.y + .2;                     // a ceiling just over your head: no cone fits under it
+    const capped = !!r.plan(h.f, 0, 'cone')?.limit; r.buildTop = top;
+    return { early, later, capped, top };
   });
-  assert.ok(cones.early === 1 && cones.later > 1, JSON.stringify(cones));
-  console.log('PASS cones: one click places one cone (a short window before turbo repeats), holding keeps building');
+  assert.ok(cones.early === 1 && cones.later > 1 && cones.capped && cones.top > 17, JSON.stringify(cones));
+  console.log('PASS cones: one click places one cone (a short window before turbo repeats), holding keeps building, and none goes above the build height');
   const corner = await page.evaluate(() => {
     const b = __range.battle(), r = b.royale, h = b.humans[0], a = b.arena;
     r.materials = 4; const n = r.walls.length;
