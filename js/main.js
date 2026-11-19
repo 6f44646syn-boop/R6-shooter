@@ -1,74 +1,74 @@
-import { track as trackLoad } from './ui/busy.js?v=74ef690-mwmsotjs';
-import { loadPackArt } from './render/pack-art.js?v=74ef690-mwmsotjs';
-import { loadPackAnims } from './scene/weapon-anims.js?v=74ef690-mwmsotjs';
-import { packMats } from './render/pack-materials.js?v=74ef690-mwmsotjs';
-import { loadSkinSheets } from './render/skins2.js?v=74ef690-mwmsotjs';
-import { connectAudioPack } from './audio/pack-bridge.js?v=74ef690-mwmsotjs';
-import { initBombUtility, utilityFor } from './balance/bomb-utility.js?v=74ef690-mwmsotjs';
-import { createAcoustics } from './audio/acoustics.js?v=74ef690-mwmsotjs';
-import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=74ef690-mwmsotjs';
-import { mountControls, mountFirstLaunch } from './ui/m7-menu.js?v=74ef690-mwmsotjs';
+import { track as trackLoad } from './ui/busy.js?v=b4a6a0e-mwmt1ffg';
+import { loadPackArt } from './render/pack-art.js?v=b4a6a0e-mwmt1ffg';
+import { loadPackAnims } from './scene/weapon-anims.js?v=b4a6a0e-mwmt1ffg';
+import { packMats } from './render/pack-materials.js?v=b4a6a0e-mwmt1ffg';
+import { loadSkinSheets } from './render/skins2.js?v=b4a6a0e-mwmt1ffg';
+import { connectAudioPack } from './audio/pack-bridge.js?v=b4a6a0e-mwmt1ffg';
+import { initBombUtility, utilityFor } from './balance/bomb-utility.js?v=b4a6a0e-mwmt1ffg';
+import { createAcoustics } from './audio/acoustics.js?v=b4a6a0e-mwmt1ffg';
+import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=b4a6a0e-mwmt1ffg';
+import { mountControls, mountFirstLaunch } from './ui/m7-menu.js?v=b4a6a0e-mwmt1ffg';
 // Recoil Range entry point: wires input, camera, scene, HUD and the frame loop together.
-import * as THREE from '../vendor/three/three.module.min.js?v=74ef690-mwmsotjs';
-import { Look, PITCH_LIMIT } from './core/look.js?v=74ef690-mwmsotjs';
-import { Player } from './core/player.js?v=74ef690-mwmsotjs';
-import { PointerLock } from './core/pointer-lock.js?v=74ef690-mwmsotjs';
-import { loadSettings, saveSettings, DISTANCES, DEFAULTS } from './core/settings.js?v=74ef690-mwmsotjs';
-import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=74ef690-mwmsotjs';
-import { Weapon } from './core/weapon.js?v=74ef690-mwmsotjs';
-import { RecoilEngine } from './core/recoil.js?v=74ef690-mwmsotjs';
-import { Spread } from './core/spread.js?v=74ef690-mwmsotjs';
-import { loadGameData } from './core/guns.js?v=74ef690-mwmsotjs';
-import { initLoadout, effectiveGun, sanitize, slotIn, baseOf, SLOTS as ATTACH_SLOTS, allowed as attachAllowed, measuredCode, describe as describeAttach, hint as attachHint } from './core/loadout.js?v=74ef690-mwmsotjs';
-import { randomSeed } from './core/prng.js?v=74ef690-mwmsotjs';
-import { Range, EYE_HEIGHT } from './scene/range.js?v=74ef690-mwmsotjs';
-import { RING_STEP } from './scene/range-tex.js?v=74ef690-mwmsotjs';
-import { Gamepad, padPanel } from './ui/gamepad.js?v=74ef690-mwmsotjs';
-import { WeaponRig, setUltraTexSize, skinName, setSkinResolver, setHiResSkins, setSkinsOff, setCharmResolver } from './scene/viewmodel.js?v=74ef690-mwmsotjs';
-import { LensPost } from './render/lens-post.js?v=74ef690-mwmsotjs';
-import { warmScene, warmBudget } from './render/warm.js?v=74ef690-mwmsotjs';
-import { addMatch, matches as pastMatches, totals as matchTotals } from './core/history.js?v=74ef690-mwmsotjs';
-import { addXp, matchXp, XP, checkIn, seasonState, rewardOf, rewardText, TIERS, XP_PER_TIER } from './core/season.js?v=74ef690-mwmsotjs';
-import { submit as submitBests, bests as myBests, BOARD } from './core/bests.js?v=74ef690-mwmsotjs';
-import { mountAccounts } from './ui/accounts-ui.js?v=74ef690-mwmsotjs';
-import { PAD_ASSIST, nearestAim, assistLook } from './core/pad-assist.js?v=74ef690-mwmsotjs';
-import { record as recordChallenge, matchStats, challengesFor, progressOf, isPaid } from './core/challenges.js?v=74ef690-mwmsotjs';
-import { reticleTextures } from './ui/reticle-tex.js?v=74ef690-mwmsotjs';
-import { DOT_POINTS } from './scene/dots.js?v=74ef690-mwmsotjs';
-import { Voices } from './audio/voice.js?v=74ef690-mwmsotjs';
-import { ModeGame } from './modes/game.js?v=74ef690-mwmsotjs';
-import { Sfx } from './audio/sfx.js?v=74ef690-mwmsotjs';
-import { DebugHud } from './ui/debug-hud.js?v=74ef690-mwmsotjs';
-import { buildHitboxes, syncFighterBoxes, RayTrail } from './scene/range-debug.js?v=74ef690-mwmsotjs';
-import { mountDev } from './ui/dev.js?v=74ef690-mwmsotjs';
-import { drawCrosshair } from './ui/crosshair.js?v=74ef690-mwmsotjs';
-import { Hud } from './ui/hud.js?v=74ef690-mwmsotjs';
-import { MagPlot } from './ui/plot.js?v=74ef690-mwmsotjs';
-import { SettingsUI } from './ui/settings-ui.js?v=74ef690-mwmsotjs';
-import { sensKeys, zoomKey } from './core/optics.js?v=74ef690-mwmsotjs';
+import * as THREE from '../vendor/three/three.module.min.js?v=b4a6a0e-mwmt1ffg';
+import { Look, PITCH_LIMIT } from './core/look.js?v=b4a6a0e-mwmt1ffg';
+import { Player } from './core/player.js?v=b4a6a0e-mwmt1ffg';
+import { PointerLock } from './core/pointer-lock.js?v=b4a6a0e-mwmt1ffg';
+import { loadSettings, saveSettings, DISTANCES, DEFAULTS } from './core/settings.js?v=b4a6a0e-mwmt1ffg';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=b4a6a0e-mwmt1ffg';
+import { Weapon } from './core/weapon.js?v=b4a6a0e-mwmt1ffg';
+import { RecoilEngine } from './core/recoil.js?v=b4a6a0e-mwmt1ffg';
+import { Spread } from './core/spread.js?v=b4a6a0e-mwmt1ffg';
+import { loadGameData } from './core/guns.js?v=b4a6a0e-mwmt1ffg';
+import { initLoadout, effectiveGun, sanitize, slotIn, baseOf, SLOTS as ATTACH_SLOTS, allowed as attachAllowed, measuredCode, describe as describeAttach, hint as attachHint } from './core/loadout.js?v=b4a6a0e-mwmt1ffg';
+import { randomSeed } from './core/prng.js?v=b4a6a0e-mwmt1ffg';
+import { Range, EYE_HEIGHT } from './scene/range.js?v=b4a6a0e-mwmt1ffg';
+import { RING_STEP } from './scene/range-tex.js?v=b4a6a0e-mwmt1ffg';
+import { Gamepad, padPanel } from './ui/gamepad.js?v=b4a6a0e-mwmt1ffg';
+import { WeaponRig, setUltraTexSize, skinName, setSkinResolver, setHiResSkins, setSkinsOff, setCharmResolver } from './scene/viewmodel.js?v=b4a6a0e-mwmt1ffg';
+import { LensPost } from './render/lens-post.js?v=b4a6a0e-mwmt1ffg';
+import { warmScene, warmBudget } from './render/warm.js?v=b4a6a0e-mwmt1ffg';
+import { addMatch, matches as pastMatches, totals as matchTotals } from './core/history.js?v=b4a6a0e-mwmt1ffg';
+import { addXp, matchXp, XP, checkIn, seasonState, rewardOf, rewardText, TIERS, XP_PER_TIER } from './core/season.js?v=b4a6a0e-mwmt1ffg';
+import { submit as submitBests, bests as myBests, BOARD } from './core/bests.js?v=b4a6a0e-mwmt1ffg';
+import { mountAccounts } from './ui/accounts-ui.js?v=b4a6a0e-mwmt1ffg';
+import { PAD_ASSIST, nearestAim, assistLook } from './core/pad-assist.js?v=b4a6a0e-mwmt1ffg';
+import { record as recordChallenge, matchStats, challengesFor, progressOf, isPaid } from './core/challenges.js?v=b4a6a0e-mwmt1ffg';
+import { reticleTextures } from './ui/reticle-tex.js?v=b4a6a0e-mwmt1ffg';
+import { DOT_POINTS } from './scene/dots.js?v=b4a6a0e-mwmt1ffg';
+import { Voices } from './audio/voice.js?v=b4a6a0e-mwmt1ffg';
+import { ModeGame } from './modes/game.js?v=b4a6a0e-mwmt1ffg';
+import { Sfx } from './audio/sfx.js?v=b4a6a0e-mwmt1ffg';
+import { DebugHud } from './ui/debug-hud.js?v=b4a6a0e-mwmt1ffg';
+import { buildHitboxes, syncFighterBoxes, RayTrail } from './scene/range-debug.js?v=b4a6a0e-mwmt1ffg';
+import { mountDev } from './ui/dev.js?v=b4a6a0e-mwmt1ffg';
+import { drawCrosshair } from './ui/crosshair.js?v=b4a6a0e-mwmt1ffg';
+import { Hud } from './ui/hud.js?v=b4a6a0e-mwmt1ffg';
+import { MagPlot } from './ui/plot.js?v=b4a6a0e-mwmt1ffg';
+import { SettingsUI } from './ui/settings-ui.js?v=b4a6a0e-mwmt1ffg';
+import { sensKeys, zoomKey } from './core/optics.js?v=b4a6a0e-mwmt1ffg';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
 function sensRows(catalogue, sens) {
   const keys = new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)]);
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
-import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=74ef690-mwmsotjs';
-import { Battle } from './battle/battle.js?v=74ef690-mwmsotjs';
-import { initCore, coreLoaded } from './wasm/core.js?v=74ef690-mwmsotjs';
-import { createJoinRequest, acceptJoin } from './net/link.js?v=74ef690-mwmsotjs';
-import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt } from './net/relay.js?v=74ef690-mwmsotjs';
-import { Profile, WIN_POINTS } from './core/profile.js?v=74ef690-mwmsotjs';
-import { skinFits, skinById, CATALOGUE } from './core/skins.js?v=74ef690-mwmsotjs';
-import { currentAccount } from './core/accounts.js?v=74ef690-mwmsotjs';
-import { CHARMS } from './core/charms.js?v=74ef690-mwmsotjs';
-import { gunDamage } from './battle/fighter.js?v=74ef690-mwmsotjs';
-import { PackUI } from './ui/packs.js?v=74ef690-mwmsotjs';
-import { HDPack, SkinPack } from './render/hd-pack.js?v=74ef690-mwmsotjs';
-import { effectiveGraphics, needsPack, maxMode } from './render/quality.js?v=74ef690-mwmsotjs';
-import { GraphicsUI } from './ui/graphics-ui.js?v=74ef690-mwmsotjs';
-import { PerfHud } from './ui/perf-hud.js?v=74ef690-mwmsotjs';
-import { WorldPost } from './render/world-post.js?v=74ef690-mwmsotjs';
-import { rankOf, rankedSummary, ratingOf, rankedChange, validRankedTicket, verifyRankedResult } from './core/ranked.js?v=74ef690-mwmsotjs';
+import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=b4a6a0e-mwmt1ffg';
+import { Battle } from './battle/battle.js?v=b4a6a0e-mwmt1ffg';
+import { initCore, coreLoaded } from './wasm/core.js?v=b4a6a0e-mwmt1ffg';
+import { createJoinRequest, acceptJoin } from './net/link.js?v=b4a6a0e-mwmt1ffg';
+import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt } from './net/relay.js?v=b4a6a0e-mwmt1ffg';
+import { Profile, WIN_POINTS } from './core/profile.js?v=b4a6a0e-mwmt1ffg';
+import { skinFits, skinById, CATALOGUE } from './core/skins.js?v=b4a6a0e-mwmt1ffg';
+import { currentAccount } from './core/accounts.js?v=b4a6a0e-mwmt1ffg';
+import { CHARMS } from './core/charms.js?v=b4a6a0e-mwmt1ffg';
+import { gunDamage } from './battle/fighter.js?v=b4a6a0e-mwmt1ffg';
+import { PackUI } from './ui/packs.js?v=b4a6a0e-mwmt1ffg';
+import { HDPack, SkinPack } from './render/hd-pack.js?v=b4a6a0e-mwmt1ffg';
+import { effectiveGraphics, needsPack, maxMode } from './render/quality.js?v=b4a6a0e-mwmt1ffg';
+import { GraphicsUI } from './ui/graphics-ui.js?v=b4a6a0e-mwmt1ffg';
+import { PerfHud } from './ui/perf-hud.js?v=b4a6a0e-mwmt1ffg';
+import { WorldPost } from './render/world-post.js?v=b4a6a0e-mwmt1ffg';
+import { rankOf, rankedSummary, ratingOf, rankedChange, validRankedTicket, verifyRankedResult } from './core/ranked.js?v=b4a6a0e-mwmt1ffg';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -1264,7 +1264,7 @@ async function boot(data) {
   try { if (localStorage.getItem('recoil-range-net-via') === 'lan') netVia = 'lan'; } catch (e) { /* storage blocked */ }
   const net = { role: null, peers: [], request: null, link: null, hub: null, busy: false };
   $('battle-setup').after($('net-panel'));   // the host / join panel (and its game code) shows for every online game, Bomb's settings too
-  function netStatus(text, kind = '') { const e = $('net-status'); e.textContent = text; e.className = 'small ' + kind; }
+  function netStatus(text, kind = '') { const e = $('net-status'); e.textContent = text; e.className = 'small ' + kind; if (kind === 'bad' && !$('home').hidden) toast(text); }   // (on Home the online panel is out of sight)
   function netUi() {
     const relay = netVia === 'relay';
     $('net-via-relay').setAttribute('aria-checked', String(relay));
@@ -1374,7 +1374,7 @@ async function boot(data) {
     for (const e of net.peers) e.link.close();
     if (net.link) net.link.close();
     if (net.request) net.request.cancel();
-    net.role = null; net.peers = []; net.request = null; net.link = null; net.hub = null; net.party = null;
+    net.role = null; net.peers = []; net.request = null; net.link = null; net.hub = null; net.party = null; net.joinCode = '';
     for (const id of ['net-in-h', 'net-out-h', 'net-in-j', 'net-out-j']) $(id).value = '';
     $('net-reply-box').hidden = true;
     $('battle-btn').disabled = false;
@@ -1441,6 +1441,7 @@ async function boot(data) {
     $('h-party').hidden = !inLobby;
     for (const id of ['h-host', 'h-join']) $(id).hidden = inLobby;
     $('h-code-in').closest('label').hidden = inLobby; $('h-host').nextElementSibling.hidden = inLobby;
+    $('h-party-code').textContent = net.hub ? net.hub.code : net.joinCode || '....';
     if (inLobby) $('h-party-list').replaceChildren(...(partyNames().length ? partyNames() : ['Connecting...']).map((n) => { const li = document.createElement('li'); li.textContent = n; return li; }));
     if (!$('home').hidden) $('h-code').hidden = !home.online && !inLobby;
     // not hosting: no match settings to change; Play joins the game, or picks your weapon until the host starts
@@ -1638,10 +1639,10 @@ async function boot(data) {
     if (name === 'setup') {
       $('range-setup').hidden = flow.mode !== 'range';
       $('battle-setup').hidden = flow.mode === 'range' || MATCH_MODES.includes(modeOf());
-      $('b-kills-field').hidden = flow.mode === 'royale' || flow.mode === 'endless' || flow.mode === 'gungame';
+      royaleFields();
+      $('b-kills-field').hidden ||= flow.mode === 'endless' || flow.mode === 'gungame';
       $('gungame-rules').hidden = flow.mode !== 'gungame';
-      $('b-map-field').hidden = flow.mode === 'royale';
-      $('b-bots-field').hidden = flow.mode === 'royale' || flow.mode === 'endless';
+      $('b-bots-field').hidden ||= flow.mode === 'endless';
       $('b-level').closest('label').hidden = flow.mode === 'endless';
       $('endless-rules').hidden = flow.mode !== 'endless';
       $('b-mates-field').hidden = flow.mode !== 'bots';
@@ -1673,7 +1674,13 @@ async function boot(data) {
   };
   var CHOICE_PAGES = ['where', 'who', 'rules'];
   var choicePage = 'where';
-  const weatherHere = () => !!document.querySelector('#battle-setup:not([hidden]) #b-weather') || flow.mode === 'tdm' || flow.mode === 'ctf';
+  function isRoyale() { return flow.mode === 'royale' || (flow.mode === 'net' && netMode() === 'royale'); }
+  // Battle Royale (offline and online) asks one thing: the bots' level. Its island, weather, size and win are fixed.
+  function royaleFields() {
+    const r = isRoyale();
+    for (const id of ['b-map', 'b-time', 'b-weather', 'b-fog', 'b-voices', 'b-bots', 'b-kills']) $(id).closest('label').hidden = r;
+  }
+  const weatherHere = () => !isRoyale() && (!!document.querySelector('#battle-setup:not([hidden]) #b-weather') || flow.mode === 'tdm' || flow.mode === 'ctf');
   const visibleField = (id) => { const f = $(id)?.closest('label'); if (f && ['b-time', 'b-weather', 'b-fog'].includes(id)) return weatherHere() ? f : null; return f && !f.hidden && !f.closest('[hidden]') && $(id).options.length ? f : null; };
   const mapSelect = () => ['b-map', 'md-map'].find((id) => visibleField(id));
   function choiceBox(id, question, pics, picture) {
@@ -1849,11 +1856,17 @@ async function boot(data) {
   function homeNet(join) {
     const code = $('h-code-in').value.trim().toUpperCase();
     if (join && !code) { $('h-code-in').focus(); return; }
-    leaveHome(); openGame('net', false, home.mode === 'net' ? home.net : undefined);   // (the online game lined up on Home)
+    // Stay on Home: you go into the party (its code at the top); the online game is the one lined up (Network battle by default)
+    if (home.mode !== 'net') { home = { mode: 'net', ranked: false, online: true, net: 'battle' }; saveHome(); }
+    if ($('net-mode').value !== (home.net || 'battle')) { $('net-mode').value = home.net || 'battle'; $('net-mode').dispatchEvent(new Event('change')); }
+    flow.mode = 'net'; settings.battle.opponent = 'net'; saveSettings(settings);
     $('net-via-relay').click();
-    if (!join) { $('net-host').click(); return; }
-    $('net-join').click(); $('relay-in').value = code; $('relay-connect').click();
+    net.joinCode = join ? code : '';
+    if (!join) $('net-host').click();
+    else { $('net-join').click(); $('relay-in').value = code; $('relay-connect').click(); }
+    showHome();
   }
+  $('h-leave').addEventListener('click', () => { $('net-reset').click(); showHome(); });
   $('h-host').addEventListener('click', () => homeNet(false));
   $('h-join').addEventListener('click', () => homeNet(true));
   $('h-code-in').addEventListener('keydown', (e) => { if (e.key === 'Enter') homeNet(true); });
@@ -1955,7 +1968,7 @@ async function boot(data) {
     $('net-mode').value = m;
     $('net-ranked-field').hidden = m !== 'bomb';
     $('net-map-field').hidden = m === 'battle' || m === 'royale' || m === 'bomb';   // (Bomb: the map is the first of Bomb's questions above)
-    if (flow.page === 'setup' && flow.mode === 'net') { $('setup-title').textContent = { bomb: 'Bomb online', royale: 'Battle Royale online' }[m] || 'Network battle'; $('battle-setup').hidden = m === 'bomb'; $('modes-setup').hidden = m !== 'bomb'; if (m === 'bomb') modesUi(); }
+    if (flow.page === 'setup' && flow.mode === 'net') { royaleFields(); $('setup-title').textContent = { bomb: 'Bomb online', royale: 'Battle Royale online' }[m] || 'Network battle'; $('battle-setup').hidden = m === 'bomb'; $('modes-setup').hidden = m !== 'bomb'; if (m === 'bomb') modesUi(); }
     if (m !== 'battle' && m !== 'royale') {
       const maps = m === 'bomb' ? ['ranch', 'embassy', 'workshop'] : ['containers', 'winter', 'casino', 'school', 'yard'];
       $('net-map').replaceChildren(...maps.map((id) => { const o = document.createElement('option'); o.value = id; o.textContent = MAP_NAMES[id]; return o; }));

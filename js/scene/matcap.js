@@ -2,7 +2,7 @@
 // shading up by surface direction (one texture read per pixel, no lighting maths), so the gun
 // and sight still read as dark anodised metal with lit edges at a fraction of the cost of
 // MeshStandardMaterial. Neutral greys; the material colour tints them.
-import * as THREE from '../../vendor/three/three.module.min.js?v=74ef690-mwmsotjs';
+import * as THREE from '../../vendor/three/three.module.min.js?v=b4a6a0e-mwmt1ffg';
 
 const cache = new Map();
 
