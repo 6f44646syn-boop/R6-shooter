@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=a6e39f3-mwmzyysr';
-import { mulberry32 } from '../core/prng.js?v=a6e39f3-mwmzyysr';
-import { mergeStatic } from './sight-model.js?v=a6e39f3-mwmzyysr';
+import * as THREE from '../../vendor/three/three.module.min.js?v=59bc26c-mwnbwud4';
+import { mulberry32 } from '../core/prng.js?v=59bc26c-mwnbwud4';
+import { mergeStatic } from './sight-model.js?v=59bc26c-mwnbwud4';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s); Forgeheart, Abyssal Crown, Jade

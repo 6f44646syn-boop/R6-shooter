@@ -1,10 +1,10 @@
 // Ruined City: the second Battle Royale map. City blocks of broken multi-storey buildings you can
 // go inside (doors, windows, floors, stairs, holes), streets with wrecked cars, a central plaza.
 // Everything structural sits on the 3.2 m build grid, so players' walls, ramps and cones fit flush.
-import { BoxGeometry, CylinderGeometry, IcosahedronGeometry, CanvasTexture, RepeatWrapping, SRGBColorSpace } from '../../vendor/three/three.module.min.js?v=a5a4ad8-mwnblb3y';
-import { wallPanels, duskSky } from '../scene/range-tex.js?v=a5a4ad8-mwnblb3y';
-import { mulberry32 } from '../core/prng.js?v=a5a4ad8-mwnblb3y';
-import { MAPS } from './maps.js?v=a5a4ad8-mwnblb3y';
+import { BoxGeometry, CylinderGeometry, IcosahedronGeometry, CanvasTexture, RepeatWrapping, SRGBColorSpace } from '../../vendor/three/three.module.min.js?v=59bc26c-mwnbwud4';
+import { wallPanels, duskSky } from '../scene/range-tex.js?v=59bc26c-mwnbwud4';
+import { mulberry32 } from '../core/prng.js?v=59bc26c-mwnbwud4';
+import { MAPS } from './maps.js?v=59bc26c-mwnbwud4';
 
 const G = 3.2, H = 3.2, SLAB = 0.3, T = 0.4;                // grid cell, storey height, floor thickness, wall thickness
 const box = (x, z, w, d, h, kind, y = 0) => ({ x, z, w, d, h, kind, y });
