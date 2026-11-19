@@ -1,5 +1,5 @@
-import { BoxGeometry, BufferGeometry, Float32BufferAttribute, IcosahedronGeometry } from '../../vendor/three/three.module.min.js?v=59bc26c-mwnbwud4';
-import { mulberry32 } from '../core/prng.js?v=59bc26c-mwnbwud4';
+import { BoxGeometry, BufferGeometry, Float32BufferAttribute, IcosahedronGeometry } from '../../vendor/three/three.module.min.js?v=25a8dbf-mwnd1mvm';
+import { mulberry32 } from '../core/prng.js?v=25a8dbf-mwnd1mvm';
 
 export const blacktideTrails = [
   [[-47,-23],[-33,-16],[-23,-10],[-12,-7],[-4,-5]],
@@ -115,7 +115,7 @@ export function addBlacktideDetails(ctx, solids) {
     }
     return result;
   };
-  ctx.scatter(blades(), {color:0xffffff,rough:1},
+  ctx.scatter(blades(), {color:0xffffff,rough:1,sway:.12},
     samples(3300,(x,y,z,s,a,t) => [x,y,z,s,s,s,a,t < .35 ? 0x586b3d : t < .7 ? 0x82904b : 0xa2a36c]),
     [0,740,1850,3300]);
   ctx.scatter(new IcosahedronGeometry(1,0), {color:0xffffff,rough:1},

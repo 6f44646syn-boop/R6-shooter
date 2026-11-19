@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=59bc26c-mwnbwud4';
-import { ROYALE_BOTS } from './royale-map.js?v=59bc26c-mwnbwud4';
-import { PLATFORM_HALF, PLATFORM_MASK, RAMP_RISE, platformHeight, platformMeshes, platformSolids, rampSurface } from './royale-platform.js?v=59bc26c-mwnbwud4';
+import * as THREE from '../../vendor/three/three.module.min.js?v=25a8dbf-mwnd1mvm';
+import { ROYALE_BOTS } from './royale-map.js?v=25a8dbf-mwnd1mvm';
+import { PLATFORM_HALF, PLATFORM_MASK, RAMP_RISE, platformHeight, platformMeshes, platformSolids, rampSurface } from './royale-platform.js?v=25a8dbf-mwnd1mvm';
 
 const TOKEN_CHANCE = 0.001;
 const CHEST_MATERIALS = 18;
@@ -89,7 +89,7 @@ export class BattleRoyale {
     const starterCount = ROYALE_BOTS + 1;
     const pirateIndex = rng() < TOKEN_CHANCE ? starterCount + Math.floor(rng() * (locations.length - starterCount)) : -1;
     const spawnOffset = Math.floor(rng() * starterCount);
-    this.spawns = arena.map.spawns.map((_, i) => this.point(...arena.map.spawns[(i + spawnOffset) % starterCount]));
+    this.spawns = arena.map.spawns.map((_, i) => this.point(...arena.map.spawns[(i + spawnOffset) % starterCount], arena.map.deckY || 0));   // (deckY: the street level over a subway)
     this.chestBodies = new THREE.InstancedMesh(chestGeo, chestMat, locations.length);
     this.chestStraps = new THREE.InstancedMesh(trimGeo, goldMat, locations.length * 2);
     this.chestBodies.castShadow = true;

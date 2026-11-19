@@ -2,7 +2,7 @@
 // Storage can be missing or throw (private window, blocked site data), so every access is
 // wrapped and the app always works with the defaults.
 
-import { sensToCm360, cm360ToSens } from './sensitivity.js?v=59bc26c-mwnbwud4';
+import { sensToCm360, cm360ToSens } from './sensitivity.js?v=25a8dbf-mwnd1mvm';
 
 const KEY = 'recoilRange.settings.v1';
 
@@ -61,7 +61,7 @@ export const DEFAULTS = Object.freeze({
   sharpen: 0.25,         // sharpening after upscaling / TAA (0 = off)
   fixedSeed: '',         // empty = new random seed every magazine
   gunIndex: 0,
-  battle: { opponent: 'bots', bots: 3, mates: 0, level: 'medium', kills: 10, p2Gun: 1, map: 'yard', royaleMap: 'random', night: false, weather: 'auto', fog: false, voices: true },
+  battle: { opponent: 'bots', bots: 3, mates: 0, level: 'medium', kills: 10, p2Gun: 1, map: 'yard', royaleMap: 'random', royaleTime: 'dusk', night: false, weather: 'auto', fog: false, voices: true },
   distance: 10,
 });
 
@@ -161,6 +161,7 @@ export function sanitize(input) {
     p2Gun: Number.isInteger(bi.p2Gun) && bi.p2Gun >= 0 ? bi.p2Gun : DEFAULTS.battle.p2Gun,
     map: ['yard', 'winter', 'casino', 'school'].includes(bi.map) ? bi.map : DEFAULTS.battle.map,
     royaleMap: ['random', 'blacktide', 'ruins'].includes(bi.royaleMap) ? bi.royaleMap : DEFAULTS.battle.royaleMap,
+    royaleTime: ['dusk', 'midday', 'night'].includes(bi.royaleTime) ? bi.royaleTime : DEFAULTS.battle.royaleTime,
     night: bi.night === true,
     weather: ['auto', 'clear', 'rain', 'storm', 'snow'].includes(bi.weather) ? bi.weather : 'auto',
     fog: bi.fog === true || bi.weather === 'fog',

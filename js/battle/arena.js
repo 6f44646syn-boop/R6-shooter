@@ -7,18 +7,19 @@
 //
 // Coordinates: metres, x right, y up, z towards the "A" side. Same yaw convention as the
 // range: yaw 0 looks along -z, positive turns right.
-import { applyPackMaterials, revertPackMaterials } from '../render/pack-materials.js?v=59bc26c-mwnbwud4';
-import { maxMode, minimalMode } from '../render/quality.js?v=59bc26c-mwnbwud4';
-import * as THREE from '../../vendor/three/three.module.min.js?v=59bc26c-mwnbwud4';
-import { MAPS, SMALL } from './maps.js?v=59bc26c-mwnbwud4';
-import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=59bc26c-mwnbwud4';
-import { flatMaterial } from '../scene/low.js?v=59bc26c-mwnbwud4';
-import { BulletHoles } from '../scene/holes.js?v=59bc26c-mwnbwud4';
-import { LightPool } from '../render/light-pool.js?v=59bc26c-mwnbwud4';
-import { mulberry32 } from '../core/prng.js?v=59bc26c-mwnbwud4';
-import { layoutSolids, layoutPieces, edgeSolids, span, piece, stairCount, rampCount } from './solids.js?v=59bc26c-mwnbwud4';
-import { CoreWorld, BODY_R, STEP, BODY_H, VAULT_MAX } from '../wasm/world.js?v=59bc26c-mwnbwud4';
-import { ROYALE_MAPS, isRoyaleMap } from './royale-map.js?v=59bc26c-mwnbwud4';
+import { applyPackMaterials, revertPackMaterials } from '../render/pack-materials.js?v=25a8dbf-mwnd1mvm';
+import { maxMode, minimalMode } from '../render/quality.js?v=25a8dbf-mwnd1mvm';
+import * as THREE from '../../vendor/three/three.module.min.js?v=25a8dbf-mwnd1mvm';
+import { MAPS, SMALL } from './maps.js?v=25a8dbf-mwnd1mvm';
+import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=25a8dbf-mwnd1mvm';
+import { flatMaterial } from '../scene/low.js?v=25a8dbf-mwnd1mvm';
+import { BulletHoles } from '../scene/holes.js?v=25a8dbf-mwnd1mvm';
+import { smokeColumns, airLife, windU, swayed } from '../scene/smoke.js?v=25a8dbf-mwnd1mvm';
+import { LightPool } from '../render/light-pool.js?v=25a8dbf-mwnd1mvm';
+import { mulberry32 } from '../core/prng.js?v=25a8dbf-mwnd1mvm';
+import { layoutSolids, layoutPieces, edgeSolids, span, piece, stairCount, rampCount } from './solids.js?v=25a8dbf-mwnd1mvm';
+import { CoreWorld, BODY_R, STEP, BODY_H, VAULT_MAX } from '../wasm/world.js?v=25a8dbf-mwnd1mvm';
+import { ROYALE_MAPS, isRoyaleMap } from './royale-map.js?v=25a8dbf-mwnd1mvm';
 
 export const HALF_X = 18, HALF_Z = 14, WALL_H = 4.5;
 // Landmark names for callouts, by kind of cover.
@@ -106,6 +107,25 @@ function fogBlob() {
 
 // Overcast sky for rain, storms and fog: grey cloud bands.
 let GREY_SKY = null;
+// Midday: a high blue sky with soft fair-weather clouds.
+let MIDDAY_SKY = null;
+function middaySky() {
+  if (MIDDAY_SKY) return MIDDAY_SKY;
+  const W = 2048, H = 1024, cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const g = cv.getContext('2d'), rng = mulberry32(131), gr = g.createLinearGradient(0, 0, 0, H);
+  gr.addColorStop(0, '#3f78c8'); gr.addColorStop(0.42, '#7fb0e2'); gr.addColorStop(0.5, '#d4e6f2'); gr.addColorStop(1, '#a9b4ba');
+  g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  for (let i = 0; i < 18; i++) {                                // (a few small fair-weather clouds)
+    const cx = rng() * W, cy = H * (0.26 + rng() * 0.18), s = 18 + rng() * 34;
+    for (let k = 0; k < 7; k++) { const r = g.createRadialGradient(cx + (k - 3) * s * 0.45, cy + (rng() - 0.5) * s * 0.3, 2, cx + (k - 3) * s * 0.45, cy, s * (0.5 + rng() * 0.4));
+      r.addColorStop(0, 'rgba(255,255,255,.5)'); r.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = r; g.fillRect(cx - 4 * s, cy - s, 8 * s, 2 * s); }
+  }
+  MIDDAY_SKY = new THREE.CanvasTexture(cv);
+  MIDDAY_SKY.colorSpace = THREE.SRGBColorSpace;
+  return MIDDAY_SKY;
+}
+
 function greySky() {
   if (GREY_SKY) return GREY_SKY;
   const W = 1024, H = 512, cv = document.createElement('canvas');
@@ -263,7 +283,7 @@ export class Arena {
       floorPlane: (m, w, d, x, y, z) => { const p = add(new THREE.PlaneGeometry(w, d), m, x, y + yo, z); p.rotation.x = -Math.PI / 2; return p; },
       cone: (m, r, h, x, y, z, rx = 0) => { const c = add(new THREE.ConeGeometry(r, h, 10), m, x, y + yo, z); c.rotation.x = rx; return c; },
       scatter: (geometry, m, placements, counts) => {
-        const mesh = new THREE.InstancedMesh(geometry, material(m), placements.length);
+        const mesh = new THREE.InstancedMesh(geometry, m.sway ? swayed(material(m), m.sway) : material(m), placements.length);
         const transform = new THREE.Matrix4();
         const scale = new THREE.Vector3(), tint = new THREE.Color();
         placements.forEach(([x,y,z,sx,sy,sz,yaw=0,color], i) => {
@@ -275,8 +295,10 @@ export class Arena {
         mesh.receiveShadow = true;
         scene.add(mesh);
         if (counts) this.detailBatches.push({mesh,counts});
+        return mesh;
       },
       cylinder: (m, r, h, x, y, z, seg = 16) => add(new THREE.CylinderGeometry(r, r, h, seg), m, x, y + yo, z),
+      object: (o) => { scene.add(o); return o; },          // (a map's own mesh, e.g. animated water)
       tubeX: (m, r, len, x, y, z) => { const c = add(new THREE.CylinderGeometry(r, r, len, 10), m, x, y + yo, z); c.rotation.z = Math.PI / 2; return c; },
       tubeZ: (m, r, len, x, y, z) => { const c = add(new THREE.CylinderGeometry(r, r, len, 10), m, x, y + yo, z); c.rotation.x = Math.PI / 2; return c; },
       // Triangular prism (a gable end): base w along x, height h, thickness t along z.
@@ -337,9 +359,14 @@ export class Arena {
     };
     for (const e of layoutPieces(map)) (e.stairs ? addStairs : e.ramp ? addRamp : addBox)(e);
     if (map.extra) map.extra(ctx, map, this.boxes);
+    // fires: moving smoke on Max (the still puffs, marked userData.smoke, show on the other levels)
+    this.smokeFx = map.fires ? smokeColumns(map.fires) : null;
+    this.airFx = map.mist ? airLife(this.hx, this.hz) : null;
+    if (this.airFx) scene.add(this.airFx);
+    if (this.smokeFx) { this.smokeFx.visible = false; scene.add(this.smokeFx); this.stillSmoke = scene.children.filter((o) => o.userData.smoke); }   // (update() shows the right one)
     // light from objects (js/render/light-pool.js): [x, y, z, color, intensity, distance, angle], shining down
-    this._fixtures = (typeof map.fixtures === 'function' ? map.fixtures(map) : map.fixtures || []).map(([x, y, z, color, intensity, distance, angle]) =>
-      ({ p: new THREE.Vector3(x, y, z), dir: new THREE.Vector3(0, -1, 0), color, intensity, distance, angle }));
+    this._fixtures = (typeof map.fixtures === 'function' ? map.fixtures(map) : map.fixtures || []).map(([x, y, z, color, intensity, distance, angle, flicker]) =>
+      ({ p: new THREE.Vector3(x, y, z), dir: new THREE.Vector3(0, -1, 0), color, intensity, distance, angle, flicker }));
     this.pool = null;
     if (map.outside) map.outside(ctx, map);
     mergeChunks(cover);
@@ -438,6 +465,8 @@ export class Arena {
     if (a.fog) { near = 0; far = map.indoor ? 16 : 22; col.lerp(new THREE.Color(0xb8bcc0), map.indoor ? 0.3 : 0.6); }
     if (rain) { near = Math.min(near, 12); far = Math.min(far, 60); col.lerp(new THREE.Color(0x6a7078), 0.6); }
     if (a.night) { col.multiplyScalar(map.indoor ? 0.15 : 0.12).lerp(new THREE.Color(0x05070d), 0.5); near = Math.min(near, 4); far = Math.min(far, 45); }
+    const noon = a.midday && !a.night && !a.fog && !rain && outdoor;            // (Battle Royale: midday)
+    if (noon) { col.set(0x8fb4dc); far *= 1.3; }
     this.scene.fog.color.copy(col); this.scene.fog.near = near; this.scene.fog.far = far;
     a.fogNear = near; a.fogFar = far;
     const bg = new THREE.Color(map.background);
@@ -446,7 +475,7 @@ export class Arena {
     this.scene.background = bg;
     if (this.sky) {
       // In fog the sky is just the fog colour, so everything fades into one grey.
-      this.sky.material.map = a.fog ? null : a.night ? nightSky() : rain ? greySky() : this._daySky;
+      this.sky.material.map = a.fog ? null : a.night ? nightSky() : rain ? greySky() : noon ? middaySky() : this._daySky;
       if (a.fog) this.sky.material.color.copy(col);
       else this.sky.material.color.set(a.night && rain ? 0x8090a0 : 0xffffff);
       this.sky.material.needsUpdate = true;
@@ -454,8 +483,11 @@ export class Arena {
     // light levels: moonlight outdoors, almost nothing indoors (the lamps and screens still glow)
     a.hemi = (a.night ? (map.indoor ? 0.07 : 0.1) : 1) * (rain ? 0.6 : 1) * (a.fog ? 0.85 : 1);
     a.key = (a.night ? (map.indoor ? 0.03 : 0.12) : 1) * (rain ? 0.35 : 1) * (a.fog ? 0.6 : 1);
-    this.key.color.set(a.night ? 0x8aa0ff : map.key[0]);
-    this.hemi.color.set(a.night ? 0x6a7aa8 : map.hemi[0]);
+    this.key.color.set(a.night ? 0x8aa0ff : noon ? 0xfff4e2 : map.key[0]);
+    this.hemi.color.set(a.night ? 0x6a7aa8 : noon ? 0xdce8f4 : map.hemi[0]);
+    if (!this._keyAt) this._keyAt = this.key.position.clone();
+    if (noon) { this.key.position.set(this._keyAt.x * 0.35, Math.max(this._keyAt.y, 95), this._keyAt.z * 0.35); a.key *= 1.2; a.hemi *= 1.15; }
+    else this.key.position.copy(this._keyAt);
     a.nextFlash = 3 + Math.random() * 6;
     if (this.quality) { this._applyLights(); this._fogBanks(); this._maxEnv(); }
   }
@@ -478,8 +510,9 @@ export class Arena {
   _fogBanks() {
     const a = this.atm, q = this.quality, w = a.w || 'clear';
     const rain = !this.map.indoor && (w === 'rain' || w === 'storm');
-    // Off: every quality uses the plain distance fog (it reads better than the banks did).
-    const want = 0;
+    // Off: every quality uses the plain distance fog (it reads better than the banks did) except Max on
+    // maps with mist (Battle Royale): a thin drifting haze low over the ground.
+    const want = maxMode.on && this.map.mist && !this.map.indoor ? 34 : 0;
     if (!this.banks) {
       this.banks = new THREE.Group();
       const rng = mulberry32(91), maxY = this.map.indoor ? this.wallH - 0.6 : 3.2;
@@ -498,7 +531,7 @@ export class Arena {
     this.banks.children.forEach((sp, i) => {
       sp.visible = i < want;
       sp.material.color.copy(col);
-      sp.material.opacity = a.fog ? (a.night ? 0.7 : 0.55) : 0.3;
+      sp.material.opacity = a.fog ? (a.night ? 0.7 : 0.55) : want ? 0.16 : 0.3;
     });
     this.banks.visible = want > 0;
   }
@@ -538,6 +571,12 @@ export class Arena {
   // Per-frame animation (snow, rain, lightning, acid, glow flicker). cam: viewer position.
   update(dt, t, cam = null) {
     if (this.snow) this.snow.userData.uT.value = t;
+    if (this.airFx) { this.airFx.visible = maxMode.on; if (maxMode.on) this.airFx.userData.tick(t, dt, cam); }
+    windU.uWT.value = t; windU.uWA.value = maxMode.on ? 1 : 0;
+    if (this.smokeFx) {
+      if (this.smokeFx.visible !== maxMode.on) { this.smokeFx.visible = maxMode.on; for (const m of this.stillSmoke) m.visible = !maxMode.on; }
+      if (maxMode.on) this.smokeFx.userData.tick(t);
+    }
     if (this.rain && this.rain.visible) {
       this.rain.userData.uT.value = t;
       if (cam) this.rain.userData.uC.value.set(cam.x, cam.z);

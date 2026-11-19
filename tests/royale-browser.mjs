@@ -577,25 +577,25 @@ try {
     const onGrid = (v) => Math.abs(v / 3.2 - Math.round(v / 3.2)) < 1e-6;
     const walls = b.arena.boxes.filter((x) => (x.kind === 'brick' || x.kind === 'concrete') && x.maxY - x.minY > 3 && Math.min(x.maxX - x.minX, x.maxZ - x.minZ) < 0.5);
     return { map: b.arena.mapId, chests: b.royale.chests.length, upstairs: up.length,
-      path: b.arena.findPath(0, 60, c.x, c.z, 0, c.y).length > 0,
+      path: b.arena.findPath(0, 60, c.x, c.z, 4, c.y).length > 0, subway: b.arena.findPath((-12 - 2) * 3.2, -10.5 * 3.2, 0, 60, 0, 4).length > 0,
       grid: walls.length > 50 && walls.every((x) => onGrid((x.maxX - x.minX < 0.5 ? x.minX + x.maxX : x.minZ + x.maxZ) / 2)) };
   });
-  assert.deepEqual({ ...city, chests: city.chests > 50, upstairs: city.upstairs > 10 }, { map: 'ruins', chests: true, upstairs: true, path: true, grid: true }, JSON.stringify(city));
-  console.log('PASS Ruined City: storeys with stairs on the 3.2 m grid, chests upstairs that bots can walk to');
+  assert.deepEqual({ ...city, chests: city.chests > 50, upstairs: city.upstairs > 10 }, { map: 'ruins', chests: true, upstairs: true, path: true, subway: true, grid: true }, JSON.stringify(city));
+  console.log('PASS Ruined City: storeys with stairs on the 3.2 m grid, chests upstairs that bots can walk to, and the subway links to the street');
   // Glass: bots spot you through it but bullets stop at it, and they hold fire. Smoke: bots can't see through.
   const glass = await page.evaluate(() => {
     const R = __range, b = R.battle(), a = b.arena;
-    const g = a.boxes.find((x) => x.kind === 'glass' && x.minY > 0.9 && x.minY < 1.1 && Math.abs(x.minX) < 60 && Math.abs(x.minZ) < 50);
+    const g = a.boxes.find((x) => x.kind === 'glass' && x.minY > 4.9 && x.minY < 5.1 && Math.abs(x.minX) < 60 && Math.abs(x.minZ) < 50);
     const thinX = g.maxX - g.minX < 0.5, cx = (g.minX + g.maxX) / 2, cz = (g.minZ + g.maxZ) / 2, n = thinX ? [1, 0] : [0, 1];
-    const P = (k) => [cx + n[0] * k, 1.6, cz + n[1] * k];
+    const P = (k) => [cx + n[0] * k, 5.6, cz + n[1] * k];   // (the street is 4 m up, over the subway)
     const out = { see: a.seeLine(P(-2.5), P(2.5)), glass: a.lastGlass, bullet: a.sightLine(P(-2.5), P(2.5)) };
     const [sx, sy, sz, sr] = a.smokes[0];
     out.smoke = a.seeLine([sx - sr - 2, sy, sz], [sx + sr + 2, sy, sz]);
     // a Terminator on one side, you on the other: it sees you, and does not shoot
     const bot = b.bots[0], f = bot.f, h = b.humans[0].f;
     for (const o of b.bots) if (o !== bot) o.update = () => {};
-    Object.assign(f, { x: P(-2.5)[0], z: P(-2.5)[2], y: 0, alive: true, drop: null, protectUntil: 0 }); f.yaw = Math.atan2(n[0], -n[1]) * 180 / Math.PI;
-    Object.assign(h, { x: P(2.5)[0], z: P(2.5)[2], y: 0, alive: true, drop: null, protectUntil: 0, health: 100 });
+    Object.assign(f, { x: P(-2.5)[0], z: P(-2.5)[2], y: 4, alive: true, drop: null, protectUntil: 0 }); f.yaw = Math.atan2(n[0], -n[1]) * 180 / Math.PI;
+    Object.assign(h, { x: P(2.5)[0], z: P(2.5)[2], y: 4, alive: true, drop: null, protectUntil: 0, health: 100 });
     bot.L = { ...bot.L, reaction: 0.05 }; bot.setGun(R.data?.guns?.[1] || b.deps.guns[1]);
     const fired = { n: 0 }, fire = b.fire.bind(b); b.fire = (...x) => { fired.n++; return fire(...x); };
     for (let k = 0; k < 40; k++) R.step(0.05);

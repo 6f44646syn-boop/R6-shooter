@@ -1,8 +1,8 @@
-import { wallPanels, duskSky } from '../scene/range-tex.js?v=59bc26c-mwnbwud4';
-import { BoxGeometry, CanvasTexture, ConeGeometry, IcosahedronGeometry, RepeatWrapping, SRGBColorSpace } from '../../vendor/three/three.module.min.js?v=59bc26c-mwnbwud4';
-import { addBlacktideDetails, blacktideTrails, villageHouse, villageHouses, watchtowers, lighthouse } from './royale-details.js?v=59bc26c-mwnbwud4';
-import { ruins } from './royale-city.js?v=59bc26c-mwnbwud4';
-import { MAPS } from './maps.js?v=59bc26c-mwnbwud4';
+import { wallPanels, duskSky } from '../scene/range-tex.js?v=25a8dbf-mwnd1mvm';
+import { BoxGeometry, CanvasTexture, ConeGeometry, IcosahedronGeometry, RepeatWrapping, SRGBColorSpace } from '../../vendor/three/three.module.min.js?v=25a8dbf-mwnd1mvm';
+import { addBlacktideDetails, blacktideTrails, villageHouse, villageHouses, watchtowers, lighthouse } from './royale-details.js?v=25a8dbf-mwnd1mvm';
+import { ruins } from './royale-city.js?v=25a8dbf-mwnd1mvm';
+import { MAPS } from './maps.js?v=25a8dbf-mwnd1mvm';
 
 export const ROYALE_MAP_ID = 'blacktide';
 export const ROYALE_BOTS = 20;
@@ -98,7 +98,7 @@ function groundTexture() {
 }
 
 export const BLACKTIDE = /** @type {any} */ ({
-  name: 'Blacktide Island', hx: 80, hz: 64, wallH: 5,
+  name: 'Blacktide Island', hx: 80, hz: 64, wallH: 5, mist: true,
   sky: duskSky, background: 0x4c5f65, fog: [0x73878e, 78, 186],
   hemi: [0xd5e8f1, 0x524638, 2.2], key: [0xffe2bb, 2, [-43, 83, 30]],
   floor: groundTexture,
@@ -173,9 +173,9 @@ export const BLACKTIDE = /** @type {any} */ ({
   extra: (ctx, _map, solids) => {
     ctx.scatter(new BoxGeometry(1,1,1), {color:0x5d4931, rough:1, castShadow:true},
       trees.map(b => [b.x,b.h/2,b.z,b.w,b.h,b.d]));
-    ctx.scatter(new ConeGeometry(1,1,9), {color:0x375646, rough:.95, castShadow:true},
+    ctx.scatter(new ConeGeometry(1,1,9), {color:0x375646, rough:.95, castShadow:true, sway:.1},
       trees.map(b => [b.x,b.h-.55,b.z,2.15,3.1,2.15]));
-    ctx.scatter(new ConeGeometry(1,1,9), {color:0x4c6c4b, rough:.95},
+    ctx.scatter(new ConeGeometry(1,1,9), {color:0x4c6c4b, rough:.95, sway:.14},
       trees.map(b => [b.x,b.h+.65,b.z,1.65,2.9,1.65]));
     ctx.scatter(new IcosahedronGeometry(1,0), {color:0x375646, rough:1},
       brush.map(([x,z,s]) => [x,.55*s,z,s,.65*s,s]));

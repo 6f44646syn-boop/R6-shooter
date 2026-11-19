@@ -1,31 +1,31 @@
-import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=59bc26c-mwnbwud4';
-import { MatchFinale } from '../replay/finale.js?v=59bc26c-mwnbwud4';
-import { GrenadeReplay } from '../replay/grenade.js?v=59bc26c-mwnbwud4';
-import { replayCamera } from '../replay/view.js?v=59bc26c-mwnbwud4';
+import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=25a8dbf-mwnd1mvm';
+import { MatchFinale } from '../replay/finale.js?v=25a8dbf-mwnd1mvm';
+import { GrenadeReplay } from '../replay/grenade.js?v=25a8dbf-mwnd1mvm';
+import { replayCamera } from '../replay/view.js?v=25a8dbf-mwnd1mvm';
 // Battle mode: you against bots (Easy / Medium / Hard), or two local players in split
 // screen (optionally with bots as a third side). First side to the kill target wins.
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=59bc26c-mwnbwud4';
-import { Arena } from './arena.js?v=59bc26c-mwnbwud4';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=59bc26c-mwnbwud4';
-import { Banter } from './banter.js?v=59bc26c-mwnbwud4';
-import { Bot, LEVELS } from './bot.js?v=59bc26c-mwnbwud4';
-import { Human } from './human.js?v=59bc26c-mwnbwud4';
-import { BattleNades } from './nades.js?v=59bc26c-mwnbwud4';
-import { drawCrosshair } from '../ui/crosshair.js?v=59bc26c-mwnbwud4';
-import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=59bc26c-mwnbwud4';
-import { effectiveGraphics } from '../render/quality.js?v=59bc26c-mwnbwud4';
-import { effectiveGun, slotIn } from '../core/loadout.js?v=59bc26c-mwnbwud4';
-import { BattleRoyale } from './royale.js?v=59bc26c-mwnbwud4';
-import { ROYALE_BOTS, ROYALE_MAPS } from './royale-map.js?v=59bc26c-mwnbwud4';
-import { Footprints } from '../scene/footprints.js?v=59bc26c-mwnbwud4';
-import { Minimap } from '../ui/minimap.js?v=59bc26c-mwnbwud4';
-import { botRankedChange } from '../core/ranked.js?v=59bc26c-mwnbwud4';
-import { warmScene } from '../render/warm.js?v=59bc26c-mwnbwud4';
-import { ShadowGate } from '../render/shadow-gate.js?v=59bc26c-mwnbwud4';
-import { MatchStats, mvpCard } from '../core/mvp.js?v=59bc26c-mwnbwud4';
+import * as THREE from '../../vendor/three/three.module.min.js?v=25a8dbf-mwnd1mvm';
+import { Arena } from './arena.js?v=25a8dbf-mwnd1mvm';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=25a8dbf-mwnd1mvm';
+import { Banter } from './banter.js?v=25a8dbf-mwnd1mvm';
+import { Bot, LEVELS } from './bot.js?v=25a8dbf-mwnd1mvm';
+import { Human } from './human.js?v=25a8dbf-mwnd1mvm';
+import { BattleNades } from './nades.js?v=25a8dbf-mwnd1mvm';
+import { drawCrosshair } from '../ui/crosshair.js?v=25a8dbf-mwnd1mvm';
+import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=25a8dbf-mwnd1mvm';
+import { effectiveGraphics } from '../render/quality.js?v=25a8dbf-mwnd1mvm';
+import { effectiveGun, slotIn } from '../core/loadout.js?v=25a8dbf-mwnd1mvm';
+import { BattleRoyale } from './royale.js?v=25a8dbf-mwnd1mvm';
+import { ROYALE_BOTS, ROYALE_MAPS } from './royale-map.js?v=25a8dbf-mwnd1mvm';
+import { Footprints } from '../scene/footprints.js?v=25a8dbf-mwnd1mvm';
+import { Minimap } from '../ui/minimap.js?v=25a8dbf-mwnd1mvm';
+import { botRankedChange } from '../core/ranked.js?v=25a8dbf-mwnd1mvm';
+import { warmScene } from '../render/warm.js?v=25a8dbf-mwnd1mvm';
+import { ShadowGate } from '../render/shadow-gate.js?v=25a8dbf-mwnd1mvm';
+import { MatchStats, mvpCard } from '../core/mvp.js?v=25a8dbf-mwnd1mvm';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, p7: 0xff7048, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -172,6 +172,8 @@ export class Battle {
     const total = (opts.opponent === 'p2' ? 2 : 1) + (opts.remotes?.length || 0) + (opts.royale ? 99 : Math.max(0, Math.min(6, opts.bots | 0)) + (opts.opponent === 'bots' ? Math.max(0, Math.min(3, opts.mates | 0)) : 0));
     this._useArena(opts.map || 'yard', total <= 4);
     this.atmo = { night: !!opts.night, weather: opts.weather || 'auto', fog: !!opts.fog };
+    if (opts.royale) Object.assign(this.atmo, { night: opts.royaleTime === 'night', weather: 'auto', fog: false });   // (Battle Royale: its own time of day)
+    this.arena.atm.midday = !!opts.royale && opts.royaleTime === 'midday';
     this.remotes = []; this.proxies = [];
     this._nextSnap = 0;
     this.arena.setGraphics(effectiveGraphics(d.settings), d.renderer);
@@ -225,7 +227,7 @@ export class Battle {
     this.t = t; this.prevT = t;
     // Network game: tell every remote player who is in the match before the spawns go out.
     for (const r of this.remotes) {
-      r.link.send({ k: 'start', royale: !!opts.royale, you: r.f.id, killsToWin: opts.killsToWin, map: this.arena.mapId, small: this.arena.small, night: this.atmo.night, weather: this.atmo.weather, fog: this.atmo.fog, roster: this._roster() });
+      r.link.send({ k: 'start', royale: !!opts.royale, you: r.f.id, killsToWin: opts.killsToWin, map: this.arena.mapId, small: this.arena.small, night: this.atmo.night, midday: !!this.arena.atm.midday, weather: this.atmo.weather, fog: this.atmo.fog, roster: this._roster() });
     }
     for (const link of this.watchers) {
       link.send({ k: 'start', spectator: true, you: this.humans[0].f.id, killsToWin: opts.killsToWin,
@@ -859,6 +861,7 @@ export class Battle {
       if (this.viewOnly || e.id !== m.you) this.proxies.push(new Proxy(f));
     }
     this.atmo = { night: !!m.night, weather: typeof m.weather === 'string' ? m.weather : 'auto', fog: !!m.fog };
+    this.arena.atm.midday = !!m.midday;
     this._setNight(this.atmo.night, this.atmo.weather, this.atmo.fog);
     this.royale?.dispose(); this.royale = null;
     if (m.royale && !this.viewOnly && this.humans[0]) { this.humans[0].setGun(null); this.royale = new BattleRoyale(this); }
