@@ -109,7 +109,13 @@ export class Bot {
     if (!inCone) return false;
     // At night someone with their flashlight off is hard to spot beyond a few metres.
     if (arena.atm && arena.atm.night && !e.light && Math.hypot(dx, dz) > 9 && !(this.attacker === e && t - this.attackedAt < 1.2) && t > e.flashUntil + 0.3) return false;
-    return arena.sightLine(this._eye, e.head(this._pt)) || arena.sightLine(this._eye, e.chest(this._pt));
+    // seeLine: through glass (spotted, but not shot at: behindGlass) and not through smoke
+    const head = arena.seeLine(this._eye, e.head(this._pt)), headGlass = arena.lastGlass;
+    if (head && !headGlass) { this.seeGlass = false; return true; }
+    const chest = arena.seeLine(this._eye, e.chest(this._pt)), chestGlass = arena.lastGlass;
+    if (chest && !chestGlass) { this.seeGlass = false; return true; }
+    this.seeGlass = head || chest;
+    return head || chest;
   }
 
   // One update. battle provides: arena, enemiesOf(fighter), fire(bot, shotT).
@@ -124,10 +130,11 @@ export class Bot {
     if (this.gun && t >= this.nextLook) {
       this.nextLook = t + 0.12;
       let best = null, bd = royale ? 62 ** 2 : Infinity;
+      this.behindGlass = false;
       for (const e of battle.enemiesOf(f)) {
         if (!e.alive || t < e.protectUntil) continue;
         const d = (e.x - f.x) ** 2 + (e.z - f.z) ** 2;
-        if (d < bd && this.canSee(e, arena, t)) { bd = d; best = e; }
+        if (d < bd && this.canSee(e, arena, t)) { bd = d; best = e; this.behindGlass = this.seeGlass; }
       }
       if (royale) {
         if (best) {
@@ -313,7 +320,7 @@ export class Bot {
     const ready = (cover || (tgt && t - this.seenAt >= L.reaction)) && !this.weapon.reloading && t >= this.pauseUntil && t >= f.protectUntil;
     const lined = Math.abs(wrap180(wantYaw - f.yaw)) < 2.5 + L.err && Math.abs(wantPitch - f.pitch) < 2.5 + L.err;
     const steady = !this.mv || this.mv.t > this.mv.T * 0.8;      // fire as a flick lands, not halfway
-    if (ready && lined && steady && this.mode !== 'retreat') {
+    if (ready && lined && steady && this.mode !== 'retreat' && !this.behindGlass) {   // (seen through glass: no point shooting)
       if (!this.weapon.triggerHeld) {
         if (this.burstLeft === 0) this.burstLeft = Math.round(this._r(L.burst[0], L.burst[1]));
         this.weapon.pressTrigger(t);

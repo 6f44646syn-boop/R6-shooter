@@ -582,8 +582,31 @@ try {
   });
   assert.deepEqual({ ...city, chests: city.chests > 50, upstairs: city.upstairs > 10 }, { map: 'ruins', chests: true, upstairs: true, path: true, grid: true }, JSON.stringify(city));
   console.log('PASS Ruined City: storeys with stairs on the 3.2 m grid, chests upstairs that bots can walk to');
+  // Glass: bots spot you through it but bullets stop at it, and they hold fire. Smoke: bots can't see through.
+  const glass = await page.evaluate(() => {
+    const R = __range, b = R.battle(), a = b.arena;
+    const g = a.boxes.find((x) => x.kind === 'glass' && x.minY > 0.9 && x.minY < 1.1 && Math.abs(x.minX) < 60 && Math.abs(x.minZ) < 50);
+    const thinX = g.maxX - g.minX < 0.5, cx = (g.minX + g.maxX) / 2, cz = (g.minZ + g.maxZ) / 2, n = thinX ? [1, 0] : [0, 1];
+    const P = (k) => [cx + n[0] * k, 1.6, cz + n[1] * k];
+    const out = { see: a.seeLine(P(-2.5), P(2.5)), glass: a.lastGlass, bullet: a.sightLine(P(-2.5), P(2.5)) };
+    const [sx, sy, sz, sr] = a.smokes[0];
+    out.smoke = a.seeLine([sx - sr - 2, sy, sz], [sx + sr + 2, sy, sz]);
+    // a Terminator on one side, you on the other: it sees you, and does not shoot
+    const bot = b.bots[0], f = bot.f, h = b.humans[0].f;
+    for (const o of b.bots) if (o !== bot) o.update = () => {};
+    Object.assign(f, { x: P(-2.5)[0], z: P(-2.5)[2], y: 0, alive: true, drop: null, protectUntil: 0 }); f.yaw = Math.atan2(n[0], -n[1]) * 180 / Math.PI;
+    Object.assign(h, { x: P(2.5)[0], z: P(2.5)[2], y: 0, alive: true, drop: null, protectUntil: 0, health: 100 });
+    bot.L = { ...bot.L, reaction: 0.05 }; bot.setGun(R.data?.guns?.[1] || b.deps.guns[1]);
+    const fired = { n: 0 }, fire = b.fire.bind(b); b.fire = (...x) => { fired.n++; return fire(...x); };
+    for (let k = 0; k < 40; k++) R.step(0.05);
+    b.fire = fire;
+    return { ...out, spotted: bot.target === h, held: fired.n === 0, health: h.health };
+  });
+  assert.deepEqual(glass, { see: true, glass: true, bullet: false, smoke: false, spotted: true, held: true, health: 100 }, JSON.stringify(glass));
+  console.log('PASS glass: bots spot you through it but bullets stop and they hold fire; smoke blocks their sight');
   const cityMatch = await page.evaluate(() => {
     const r = __range, b = r.battle();
+    b.start({ ...b.opts, royale: true, royaleMap: 'ruins' });   // (a fresh city match)
     r.step(22, 15);
     const armedBots = b.bots.filter((bot) => bot.gun).length;
     r.step(223, 15);

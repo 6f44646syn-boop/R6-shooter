@@ -7,18 +7,18 @@
 //
 // Coordinates: metres, x right, y up, z towards the "A" side. Same yaw convention as the
 // range: yaw 0 looks along -z, positive turns right.
-import { applyPackMaterials, revertPackMaterials } from '../render/pack-materials.js?v=a2bb8f7-mwn7xt6i';
-import { maxMode, minimalMode } from '../render/quality.js?v=a2bb8f7-mwn7xt6i';
-import * as THREE from '../../vendor/three/three.module.min.js?v=a2bb8f7-mwn7xt6i';
-import { MAPS, SMALL } from './maps.js?v=a2bb8f7-mwn7xt6i';
-import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=a2bb8f7-mwn7xt6i';
-import { flatMaterial } from '../scene/low.js?v=a2bb8f7-mwn7xt6i';
-import { BulletHoles } from '../scene/holes.js?v=a2bb8f7-mwn7xt6i';
-import { LightPool } from '../render/light-pool.js?v=a2bb8f7-mwn7xt6i';
-import { mulberry32 } from '../core/prng.js?v=a2bb8f7-mwn7xt6i';
-import { layoutSolids, layoutPieces, edgeSolids, span, piece, stairCount, rampCount } from './solids.js?v=a2bb8f7-mwn7xt6i';
-import { CoreWorld, BODY_R, STEP, BODY_H, VAULT_MAX } from '../wasm/world.js?v=a2bb8f7-mwn7xt6i';
-import { ROYALE_MAPS, isRoyaleMap } from './royale-map.js?v=a2bb8f7-mwn7xt6i';
+import { applyPackMaterials, revertPackMaterials } from '../render/pack-materials.js?v=a5a4ad8-mwnblb3y';
+import { maxMode, minimalMode } from '../render/quality.js?v=a5a4ad8-mwnblb3y';
+import * as THREE from '../../vendor/three/three.module.min.js?v=a5a4ad8-mwnblb3y';
+import { MAPS, SMALL } from './maps.js?v=a5a4ad8-mwnblb3y';
+import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=a5a4ad8-mwnblb3y';
+import { flatMaterial } from '../scene/low.js?v=a5a4ad8-mwnblb3y';
+import { BulletHoles } from '../scene/holes.js?v=a5a4ad8-mwnblb3y';
+import { LightPool } from '../render/light-pool.js?v=a5a4ad8-mwnblb3y';
+import { mulberry32 } from '../core/prng.js?v=a5a4ad8-mwnblb3y';
+import { layoutSolids, layoutPieces, edgeSolids, span, piece, stairCount, rampCount } from './solids.js?v=a5a4ad8-mwnblb3y';
+import { CoreWorld, BODY_R, STEP, BODY_H, VAULT_MAX } from '../wasm/world.js?v=a5a4ad8-mwnblb3y';
+import { ROYALE_MAPS, isRoyaleMap } from './royale-map.js?v=a5a4ad8-mwnblb3y';
 
 export const HALF_X = 18, HALF_Z = 14, WALL_H = 4.5;
 // Landmark names for callouts, by kind of cover.
@@ -167,6 +167,11 @@ export class Arena {
         if (!matCache.has(k)) matCache.set(k, new THREE.MeshBasicMaterial({ color: m.emissive ?? 0xffffff, map: m.emissiveMap || null, toneMapped: false }));
         return matCache.get(k);
       }
+      if (m.opacity !== undefined) {                       // see-through: glass, smoke
+        const k = 'o' + (m.color ?? 0xffffff) + '|' + m.opacity;
+        if (!matCache.has(k)) matCache.set(k, new THREE.MeshLambertMaterial({ color: m.color ?? 0xffffff, transparent: true, opacity: m.opacity, depthWrite: false }));
+        return matCache.get(k);
+      }
       const map = typeof m.map === 'function' ? m.map() : m.map || null;
       if (m.basic) return new THREE.MeshBasicMaterial({ map, color: m.color ?? 0xffffff });
       const key = (map ? map.uuid : '-') + '|' + (m.color ?? 0xffffff) + '|' + (m.rough ?? 0.8) + '|' + (m.metal ?? 0);
@@ -297,6 +302,7 @@ export class Arena {
 
     /* solids: boxes, stair steps, ramp slices (js/battle/solids.js); here, how they look */
     this.boxes = layoutSolids(map);
+    this.smokes = map.smokes || []; this.hasGlass = this.boxes.some((b) => b.kind === 'glass');
     this.baseBoxCount = this.boxes.length;
     const cover = new THREE.Group(), noShadow = new THREE.Group();
     const kindOf = (b) => map.kinds[b.kind] || {};
@@ -692,6 +698,34 @@ export class Arena {
   }
   // Clear line between two points (arrays [x, y, z])?
   sightLine(a, b) { return this.world.sight(a, b); }
+  // What a bot sees: like sightLine, but through glass (which still stops bullets) and not through
+  // smoke. this.lastGlass: the line went through glass.
+  seeLine(a, b) {
+    this.lastGlass = false;
+    if (this.smokes?.length && this.smoked(a, b)) return false;
+    if (this.world.sight(a, b)) return true;
+    if (!this.hasGlass) return false;
+    const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], len = Math.hypot(...d), u = d.map((v) => v / len), o = [...a];
+    for (let left = len, k = 0; k < 4; k++) {
+      const t = this.world.raycast(o, u, left);
+      if (t < 0) return true;
+      if (this.boxes[this.world.hit]?.kind !== 'glass') return false;
+      this.lastGlass = true;
+      for (let i = 0; i < 3; i++) o[i] += u[i] * (t + 0.12);
+      left -= t + 0.12;
+      if (left <= 0) return true;
+    }
+    return false;
+  }
+  // Does the segment a-b pass through a smoke puff (spheres [x, y, z, r])?
+  smoked(a, b) {
+    const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], dd = d[0] * d[0] + d[1] * d[1] + d[2] * d[2] || 1;
+    for (const [x, y, z, r] of this.smokes) {
+      const t = Math.max(0, Math.min(1, ((x - a[0]) * d[0] + (y - a[1]) * d[1] + (z - a[2]) * d[2]) / dd));
+      if ((a[0] + d[0] * t - x) ** 2 + (a[1] + d[1] * t - y) ** 2 + (a[2] + d[2] * t - z) ** 2 < r * r) return true;
+    }
+    return false;
+  }
 
   /* ---------- navigation ---------- */
   // The core keeps one node per 0.5 m cell and level you can stand on (the floor, a box top,

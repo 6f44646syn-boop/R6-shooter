@@ -1,10 +1,10 @@
 // Ruined City: the second Battle Royale map. City blocks of broken multi-storey buildings you can
 // go inside (doors, windows, floors, stairs, holes), streets with wrecked cars, a central plaza.
 // Everything structural sits on the 3.2 m build grid, so players' walls, ramps and cones fit flush.
-import { BoxGeometry, CylinderGeometry, IcosahedronGeometry, CanvasTexture, RepeatWrapping, SRGBColorSpace } from '../../vendor/three/three.module.min.js?v=a2bb8f7-mwn7xt6i';
-import { wallPanels, duskSky } from '../scene/range-tex.js?v=a2bb8f7-mwn7xt6i';
-import { mulberry32 } from '../core/prng.js?v=a2bb8f7-mwn7xt6i';
-import { MAPS } from './maps.js?v=a2bb8f7-mwn7xt6i';
+import { BoxGeometry, CylinderGeometry, IcosahedronGeometry, CanvasTexture, RepeatWrapping, SRGBColorSpace } from '../../vendor/three/three.module.min.js?v=a5a4ad8-mwnblb3y';
+import { wallPanels, duskSky } from '../scene/range-tex.js?v=a5a4ad8-mwnblb3y';
+import { mulberry32 } from '../core/prng.js?v=a5a4ad8-mwnblb3y';
+import { MAPS } from './maps.js?v=a5a4ad8-mwnblb3y';
 
 const G = 3.2, H = 3.2, SLAB = 0.3, T = 0.4;                // grid cell, storey height, floor thickness, wall thickness
 const box = (x, z, w, d, h, kind, y = 0) => ({ x, z, w, d, h, kind, y });
@@ -19,7 +19,10 @@ function segment(x, z, alongX, type, y0, kind, out = 0) {
   if (out && (type === 'wall' || type === 'window')) facades.push([x, z, alongX, out, y0]);
   const w = alongX ? G : T, d = alongX ? T : G;
   if (type === 'wall') layout.push(box(x, z, w, d, H, kind, y0));
-  else if (type === 'window') layout.push(box(x, z, w, d, 1, kind, y0), box(x, z, w, d, 0.9, kind, y0 + 2.3));
+  else if (type === 'window') {
+    layout.push(box(x, z, w, d, 1, kind, y0), box(x, z, w, d, 0.9, kind, y0 + 2.3));
+    if (Math.abs(Math.round(x * 7 + z * 13 + y0 * 3)) % 5 < 2) layout.push(box(x, z, alongX ? G : 0.08, alongX ? 0.08 : G, 1.3, 'glass', y0 + 1));   // (2 in 5 windows glazed)
+  }
   else if (type === 'door') layout.push(box(x, z, w, d, 0.7, kind, y0 + 2.5));
   else if (type === 'stub') layout.push(box(x, z, w, d, 0.5 + (Math.abs(x * 7 + z * 3) % 1.4), kind, y0));   // a broken-off wall
 }
@@ -111,6 +114,12 @@ for (const [kx, kz] of BX.flatMap((x) => BZ.map((z) => [x, z]))) for (const [dx,
 }
 for (const [dx, dz] of [[-2, -1], [2, 1], [-1, 2], [1, -2]]) trees.push(box(px + dx * G, pz + dz * G, 0.5, 0.5, 5 + rnd() * 2, 'tree'));
 layout.push(...trees);
+// Fires: burning barrels in the streets and a few burning cars, each with a column of smoke.
+const barrels = [], smokes = [];
+for (let n = 0; n < 14; n++) { const x = -70 + rnd() * 140, z = (BZ[Math.floor(rnd() * 4)] + 8.5) * G + (rnd() < 0.5 ? -3.6 : 3.6); barrels.push([x, z]); }
+const burning = cars.filter((c, i) => c.kind !== 'bus' && i % 6 === 1).map((c) => [c.x, c.z]);
+for (const [x, z, big] of [...barrels.map(([x, z]) => [x, z, false]), ...burning.map(([x, z]) => [x, z, true])])
+  for (let k = 0; k < (big ? 5 : 4); k++) smokes.push([x + k * 0.35, 1.8 + k * 1.4, z - k * 0.25, (big ? 1.5 : 1.1) + k * 0.35]);   // (drifting up and growing)
 
 // Street life, drawn only (nothing to bump into): tree crowns, weeds, vines, graffiti, neon, shop
 // awnings, street lamps (about half still lit), rooftop billboards and burning barrels.
@@ -148,10 +157,12 @@ function life(ctx) {
     ctx.box({ color: any([0xe04b3b, 0x2c8fd1, 0xf2b630, 0x37b06b]), rough: 0.7 }, 5.4, 2.4, 0.18, x, y + 3.6, z);
     ctx.box({ color: 0xf4f1e8, rough: 0.7 }, 3.8, 0.45, 0.2, x, y + 3.9, z);
   }
-  const barrels = [], flames = [];
-  for (let n = 0; n < 14; n++) { const x = -70 + r() * 140, z = (any(BZ) + 8.5) * G + (r() < 0.5 ? -3.6 : 3.6); barrels.push([x, 0.5, z, 0.32, 1, 0.32]); flames.push([x, 1.15, z, 0.3, 0.45, 0.3]); }
-  ctx.scatter(can, { color: 0x6b4a36, rough: 0.8, metal: 0.3 }, barrels);
-  ctx.scatter(ball, { emissive: 0xff8a2a }, flames);
+  ctx.scatter(can, { color: 0x6b4a36, rough: 0.8, metal: 0.3 }, barrels.map(([x, z]) => [x, 0.5, z, 0.32, 1, 0.32]));
+  ctx.scatter(ball, { emissive: 0xff8a2a }, [...barrels.map(([x, z]) => [x, 1.15, z, 0.3, 0.45, 0.3]), ...burning.flatMap(([x, z]) => [[x, 1.7, z, 0.8, 0.6, 1.4], [x + 0.6, 1.9, z - 0.3, 0.5, 0.5, 0.6]])]);
+  ctx.scatter(ball, { emissive: 0xffc14d }, burning.map(([x, z]) => [x - 0.3, 1.8, z + 0.4, 0.45, 0.5, 0.45]));
+  // smoke: dark grey puffs, a little see-through, the size of the spheres bots can't see through
+  for (const [op, col] of [[0.55, 0x3d3f42], [0.35, 0x6a6c70]]) ctx.scatter(ball, { color: col, opacity: op }, smokes.flatMap(([x, y, z, rr], i) =>
+    [[0, 0, 0], [0.5, 0.3, -0.4], [-0.45, -0.2, 0.35]].map(([dx, dy, dz]) => [x + dx * rr, y + dy * rr, z + dz * rr, rr * (op > 0.4 ? 0.75 : 0.95), rr * 0.7, rr * 0.8, i])));
 }
 
 
@@ -200,10 +211,11 @@ export const ruins = (spawns) => ({
     carWhite: { map: Y.container.map, color: 0xcfcfca, metal: 0.4, rough: 0.6, tile: 1.5 },
     bus: { map: Y.container.map, color: 0xd9a72e, metal: 0.4, rough: 0.6, tile: 2 },
     tree: { hiddenBox: true },
+    glass: { color: 0xa9d4e8, opacity: 0.32 },
     wall: { color: 0x707270, rough: 0.9 },
   },
   spawns, spawnsB: [],
   chests: [...spawns.map(([x, z]) => [x * 0.92, z * 0.92]), ...chests],
-  layout,
+  layout, smokes,
   extra: (ctx) => life(ctx),
 });
