@@ -1024,3 +1024,5 @@ html.og .mode-card { background: linear-gradient(135deg, #253241, #141d27); bord
 html.og .mode-card:hover { background: #2c3a4a; border-color: var(--accent); }
 html.og #home { background: radial-gradient(ellipse at center, transparent 42%, rgba(6, 7, 9, .78)); }
 html.og .h-online b { text-shadow: 0 0 14px rgba(242, 179, 61, .4); }
+/* Settings > Graphics: a pack shows only when the chosen level needs it (as in the Graphics pop-up) */
+#m7-settings-7 .gx-pack:not(.gx-need) { display: none; }

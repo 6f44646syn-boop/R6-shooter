@@ -3,9 +3,9 @@
 // some with arches), pillars, dead trees, reed beds and pools with plank walkways, moss and roots.
 // mistMap(seed, size): size 'battle' (about 45 m square), 'match' (64 m: TDM / CTF, spawns west and east)
 // or 'royale' (160 x 128 m, with chests). Everything sits on the 3.2 m build grid.
-import { BoxGeometry, ConeGeometry, CylinderGeometry, IcosahedronGeometry, CanvasTexture, RepeatWrapping, SRGBColorSpace } from '../../vendor/three/three.module.min.js?v=a8a0f6a-mwo0loc9';
-import { mulberry32 } from '../core/prng.js?v=a8a0f6a-mwo0loc9';
-import { surface, surfacePicture } from '../render/surfaces.js?v=a8a0f6a-mwo0loc9';
+import { BoxGeometry, ConeGeometry, CylinderGeometry, IcosahedronGeometry, CanvasTexture, RepeatWrapping, SRGBColorSpace } from '../../vendor/three/three.module.min.js?v=55df10f-mwol65cb';
+import { mulberry32 } from '../core/prng.js?v=55df10f-mwol65cb';
+import { surface, surfacePicture } from '../render/surfaces.js?v=55df10f-mwol65cb';
 
 const G = 3.2, C = 2 * G;                                     // the build grid; a maze cell is two grid cells
 const SIZES = { battle: [22.4, 22.4], match: [32, 32], royale: [80, 64] };
@@ -16,7 +16,7 @@ const THEMES = [
   { name: 'Old Ruins', loops: 0.22, tall: 0.72, low: 0.9, arch: 0.22, pillar: 0.28, tree: 0.1, pool: 0.16, fern: 0.8, fog: 0xc6c3b8, ground: 0x5a5648 },
 ];
 // Landmarks for the clearings (2 x 2 cells): one of each kind before any repeats.
-const LANDMARKS = ['shrine', 'tower', 'camp', 'well', 'statue', 'plinth'];
+const LANDMARKS = ['shrine', 'tower', 'camp', 'well', 'statue', 'plinth', 'graveyard', 'henge', 'wreck'];
 
 function fogSky() {
   const cv = document.createElement('canvas'); cv.width = 512; cv.height = 256;
@@ -43,12 +43,13 @@ function marshFloor(hx, hz) {
   };
 }
 
-export function mistMap(seed = 1, size = 'battle') {
+// clear: the No mist option (the same maze, a long view, bots see as far as anywhere else)
+export function mistMap(seed = 1, size = 'battle', clear = false) {
   const [hx, hz] = SIZES[size] || SIZES.battle, r = mulberry32(seed >>> 0 || 1);
   const nx = Math.floor(2 * hx / C), nz = Math.floor(2 * hz / C), x0 = -nx * C / 2, z0 = -nz * C / 2;
   const box = (x, z, w, d, h, kind, y = 0) => ({ x, z, w, d, h, kind, y });
   const T = THEMES[(seed >>> 0) % THEMES.length];
-  const layout = [], decor = { pools: [], reeds: [], trees: [], moss: [], arches: [], planks: [], lanterns: [], fires: [], tents: [], wells: [], mush: [] };
+  const layout = [], decor = { pools: [], reeds: [], trees: [], moss: [], arches: [], planks: [], lanterns: [], fires: [], tents: [], wells: [], mush: [], rubble: [], barrels: [] };
   // the maze: a randomised depth-first carve, then more walls knocked through (loops, so fights flow)
   const open = new Set(), key = (a, b) => a < b ? a + '|' + b : b + '|' + a, id = (i, j) => j * nx + i;
   const seen = new Uint8Array(nx * nz), stack = [[Math.floor(r() * nx), Math.floor(r() * nz)]];
@@ -62,7 +63,7 @@ export function mistMap(seed = 1, size = 'battle') {
   for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) for (const [a, b] of [[i + 1, j], [i, j + 1]]) if (a < nx && b < nz && r() < T.loops) open.add(key(id(i, j), id(a, b)));
   // a few open clearings (2 x 2 cells): no walls inside
   const clearings = [];
-  for (let k = 0; k < Math.max(1, Math.round(nx * nz / 28)); k++) {
+  for (let k = 0; k < Math.max(1, Math.round(nx * nz / 20)); k++) {
     const i = 1 + Math.floor(r() * Math.max(1, nx - 3)), j = 1 + Math.floor(r() * Math.max(1, nz - 3));
     if (clearings.some(([a, b]) => Math.abs(a - i) < 3 && Math.abs(b - j) < 3)) continue;      // (landmarks never overlap)
     clearings.push([i, j]);
@@ -102,6 +103,13 @@ export function mistMap(seed = 1, size = 'battle') {
     if (t < T.tree) { const h = 5 + r() * 3; decor.trees.push([cx + (r() - 0.5) * 2, cz + (r() - 0.5) * 2, h]); layout.push(box(decor.trees.at(-1)[0], decor.trees.at(-1)[1], 0.55, 0.55, h, 'deadwood')); }
     else if (t < T.pool) { decor.pools.push([cx, cz, 2.2 + r() * 1.2]); layout.push(box(cx, cz, C * 0.7, 0.9, 0.18, 'plank')); }   // a walkway across it
     else if (t < T.pool + 0.06) layout.push(box(cx + (r() - 0.5) * 2, cz + (r() - 0.5) * 2, 1.4 + r(), 1.4 + r(), 0.7 + r() * 0.6, 'ruin'));   // fallen masonry
+    else if (t < T.pool + 0.11) { const a = r() < 0.5; layout.push(box(cx, cz + (r() - 0.5) * 2, a ? 3.4 : 0.6, a ? 0.6 : 3.4, 0.55, 'deadwood')); }   // a fallen log (vault it)
+    else if (t < T.pool + 0.16) {                                                             // a supply cache: crates and a barrel
+      const x = cx + (r() - 0.5) * 2.4, z = cz + (r() - 0.5) * 2.4;
+      layout.push(box(x, z, 1.1, 1.1, 0.95, 'crate'), box(x + 1.15, z + 0.2, 0.9, 0.9, 0.75, 'crate'));
+      decor.barrels.push([x - 0.95, z + 0.5]);
+    } else if (t < T.pool + 0.2) for (let k = 0; k < 3; k++) layout.push(box(cx + (k - 1) * 1.4, cz + (r() - 0.5) * 2, 0.6, 0.22, 0.8 + r() * 0.3, 'pillar'));   // old gravestones
+    if (r() < 0.5) decor.rubble.push([cx + (r() - 0.5) * C * 0.8, cz + (r() - 0.5) * C * 0.8]);
     for (let k = 0; k < 3; k++) decor.reeds.push([cx + (r() - 0.5) * C * 0.8, cz + (r() - 0.5) * C * 0.8]);
   }
   // landmarks in the clearings (centre: the corner the four cells share)
@@ -125,6 +133,18 @@ export function mistMap(seed = 1, size = 'battle') {
       for (const s of [-1, 1]) layout.push(box(x + s * 0.8, z, 0.18, 0.18, 2.4, 'deadwood'));
     } else if (kind === 'statue') {                            // a fallen statue: the head, an arm, the plinth
       layout.push(box(x, z, 3.2, 3.2, 0.8, 'ruin'), box(x + 3, z + 1.5, 2.4, 2.4, 2.2, 'pillar'), box(x - 3.4, z - 1, 3.6, 0.9, 0.9, 'pillar'));
+    } else if (kind === 'graveyard') {                         // rows of headstones in a broken iron fence, a lantern on a post
+      for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b += 2) layout.push(box(x + a * 2.6, z + b * 1.8, 0.7, 0.25, 0.9 + r() * 0.4, 'pillar'));
+      for (const [dx, dz] of [[-5, -4], [5, -4], [-5, 4], [5, 4], [0, -4.6], [0, 4.6]]) layout.push(box(x + dx, z + dz, 0.16, 0.16, 1.6, 'iron'));
+      layout.push(box(x, z, 2.4, 1.2, 1.1, 'ruin'));                                                 // (a tomb in the middle: cover)
+      layout.push(box(x + 4, z, 0.2, 0.2, 2.6, 'deadwood')); decor.lanterns.push([x + 4, 2.8, z]);
+    } else if (kind === 'henge') {                             // standing stones in a ring
+      for (let a = 0; a < 8; a++) { const t = a * Math.PI / 4; layout.push(box(x + Math.cos(t) * 5, z + Math.sin(t) * 5, 1.1, 1.1, 3.6 + (a % 3) * 0.4, 'pillar')); }
+      decor.lanterns.push([x, 0.5, z]);
+    } else if (kind === 'wreck') {                             // a broken cart on its side, its load spilled: crates and barrels
+      layout.push(box(x, z, 3.2, 1.6, 1.4, 'plank'), box(x + 2.2, z + 1.6, 0.25, 1.4, 1.4, 'deadwood'));
+      layout.push(box(x - 2.6, z + 2.4, 1.1, 1.1, 0.95, 'crate'), box(x + 2.8, z - 2.6, 1, 1, 0.85, 'crate'), box(x - 3.2, z - 2.2, 0.9, 0.9, 0.75, 'crate'));
+      decor.barrels.push([x - 1.2, z + 2.6], [x + 1, z - 2.4], [x + 3.4, z + 3]);
     } else {                                                   // a raised stone platform, steps up two sides
       layout.push(box(x, z, 2 * G, 2 * G, 1.6, 'ruin'));
       layout.push({ stairs: '+x', x: x - G - 1.2, z, w: 2.4, d: 2.4, y: 0, y1: 1.6, base: 0, rise: 0.32, kind: 'ruin' },
@@ -132,12 +152,14 @@ export function mistMap(seed = 1, size = 'battle') {
       decor.lanterns.push([x, 2.0, z]);
     }
   });
+  for (const [x, z] of decor.barrels) layout.push({ ...box(x, z, 0.76, 0.76, 1, 'deadwood'), hidden: true });   // (barrels: solid, drawn in extra)
   // Battle Royale: drop points round an oval and chests in dead ends, clearings and under arches
   const chests = [];
   if (size === 'royale') {
     for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
       const links = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([a, b]) => i + a >= 0 && j + b >= 0 && i + a < nx && j + b < nz && open.has(key(id(i, j), id(i + a, j + b)))).length;
-      if (links === 1 && r() < 0.55) chests.push(edge(i, j));                       // dead ends: worth the walk
+      if (links === 1) chests.push(edge(i, j));                                     // dead ends: worth the walk
+      else if (r() < 0.05 && !spawnCell.has(i + ',' + j)) chests.push(edge(i, j));  // and now and then on the way
     }
     for (const [i, j] of clearings) chests.push([x0 + (i + 1) * C, z0 + (j + 1) * C]);
   }
@@ -165,11 +187,17 @@ export function mistMap(seed = 1, size = 'battle') {
     // tents: canvas over the low box; the fire: glowing logs
     for (const [x, z, ry] of decor.tents) ctx.cone({ color: 0x7a6a4e, rough: 1 }, 1.7, 2, x, 1.0, z);
     if (decor.fires.length) ctx.scatter(ball, { emissive: 0xff8a2a }, decor.fires.map(([x, z]) => [x, 0.25, z, 0.45, 0.35, 0.45]));
+    // barrels (standing, banded) and rubble at the foot of things
+    if (decor.barrels.length) {
+      ctx.scatter(can, { color: 0x5a4030, rough: 0.9 }, decor.barrels.map(([x, z]) => [x, 0.5, z, 0.38, 1, 0.38]));
+      ctx.scatter(can, { color: 0x2a2826, rough: 0.6, metal: 0.6 }, decor.barrels.flatMap(([x, z]) => [[x, 0.25, z, 0.4, 0.06, 0.4], [x, 0.78, z, 0.4, 0.06, 0.4]]));
+    }
+    if (decor.rubble.length) ctx.scatter(ball, { color: 0x7d7f75, rough: 1 }, decor.rubble.flatMap(([x, z]) => Array.from({ length: 5 }, () => [x + (q() - 0.5) * 1.4, 0.06, z + (q() - 0.5) * 1.4, 0.12 + q() * 0.2, 0.08 + q() * 0.12, 0.12 + q() * 0.2, q() * 6])));
     for (const [x, z] of decor.wells) ctx.box({ ...{ color: 0x4a3c30, rough: 1 } }, 2.2, 0.12, 1.2, x, 2.45, z);
   }
   const map = {
-    name: 'The Mist', hx, hz, wallH: 5, mist: true, openEdge: false, sight: 16,
-    sky: fogSky, background: T.fog, fog: [T.fog, 3, 16], theme: T.name,             // thick: about 15 m
+    name: 'The Mist', hx, hz, wallH: 5, mist: !clear, openEdge: false, sight: clear ? 0 : 16,
+    sky: fogSky, background: T.fog, fog: clear ? [T.fog, 40, 150] : [T.fog, 3, 16], theme: T.name,             // thick: about 15 m
     hemi: [0xd6ddd8, 0x4b5243, 1.9], key: [0xe6ebe6, 1.1, [-30, 70, 20]],
     floor: marshFloor(hx, hz),
     wall: () => ({ map: surfacePicture('rock')(), tileW: 1.6, tileH: 1.6 }),   // (the edge: the same old stone, not metal panels)
@@ -180,6 +208,7 @@ export function mistMap(seed = 1, size = 'battle') {
       plank: { ...surface('planks', surfacePicture('planks')), color: 0x7a6248, rough: 0.95, tile: 1.4 },
       tent: { color: 0x6e5f45, rough: 1 },
       crate: { ...surface('planks', surfacePicture('planks')), color: 0x8a6446, rough: 0.9, tile: 1 },
+      iron: { color: 0x2a2a2c, rough: 0.6, metal: 0.7 },
       wall: { color: 0x707a72, rough: 0.9 },
     },
     spawns, spawnsB, layout, seed, size, extra,

@@ -2,7 +2,7 @@
 // Storage can be missing or throw (private window, blocked site data), so every access is
 // wrapped and the app always works with the defaults.
 
-import { sensToCm360, cm360ToSens } from './sensitivity.js?v=a8a0f6a-mwo0loc9';
+import { sensToCm360, cm360ToSens } from './sensitivity.js?v=55df10f-mwol65cb';
 
 const KEY = 'recoilRange.settings.v1';
 
@@ -34,6 +34,8 @@ export const DEFAULTS = Object.freeze({
   renderScale: 0,        // 0 = auto (screen's pixel ratio, up to 2x); else 0.5 to 2 (above 1 = supersampling)
   royaleRenderDistance: 200,
   oneXRecoil: 0.8,       // recoil multiplier with a 1x sight (red dots, holos, iron): 20% less; always 1 in ranked and online
+  buildKeys: 'off',      // Battle Royale piece keys: 'off', 'toggle' (they work in build mode) or 'always' (they build any time)
+  buildBinds: { wall: '', ramp: '', cone: '' },   // the key (KeyboardEvent.code) for each piece
   turboBuild: true,      // Battle Royale: holding fire builds as fast as the game allows and rebuilds a destroyed piece in place
   antialias: true,       // MSAA; takes effect after a reload
   graphics: 'standard',  // 'low' (flat colours, slowest PCs), 'standard' (fast, school PCs), 'high' (shadows, PBR textures, filmic tone mapping) or 'ultra' (graphics card: 4K textures, weapon skins)
@@ -61,7 +63,7 @@ export const DEFAULTS = Object.freeze({
   sharpen: 0.25,         // sharpening after upscaling / TAA (0 = off)
   fixedSeed: '',         // empty = new random seed every magazine
   gunIndex: 0,
-  battle: { opponent: 'bots', bots: 3, mates: 0, level: 'medium', kills: 10, p2Gun: 1, map: 'yard', royaleMap: 'random', royaleTime: 'dusk', night: false, weather: 'auto', fog: false, voices: true },
+  battle: { opponent: 'bots', bots: 3, mates: 0, level: 'medium', kills: 10, p2Gun: 1, map: 'yard', royaleMap: 'random', royaleTime: 'dusk', night: false, weather: 'auto', fog: false, noMist: false, voices: true },
   distance: 10,
 });
 
@@ -149,6 +151,9 @@ export function sanitize(input) {
   let beforeMinimal = 'low';   // (switching Minimal off goes back to the level before it)
   Object.defineProperty(out, 'minimal', { get() { return this.graphics === 'minimal'; }, set(v) { if (v) { if (this.graphics !== 'minimal') beforeMinimal = this.graphics; this.graphics = 'minimal'; } else if (this.graphics === 'minimal') this.graphics = beforeMinimal; }, enumerable: false, configurable: true });   // (the Minimal graphics level)
   out.turboBuild = s.turboBuild !== false;
+  out.buildKeys = ['off', 'toggle', 'always'].includes(s.buildKeys) ? s.buildKeys : 'off';
+  out.buildBinds = {};
+  for (const p of ['wall', 'ramp', 'cone']) { const c = s.buildBinds?.[p]; out.buildBinds[p] = typeof c === 'string' && /^[A-Za-z0-9]{1,24}$/.test(c) ? c : ''; }
   out.oneXRecoil = typeof s.oneXRecoil === 'number' && s.oneXRecoil >= 0.5 && s.oneXRecoil <= 1 ? s.oneXRecoil : DEFAULTS.oneXRecoil;
   out.sharpen = [0, 0.25, 0.4, 0.6].includes(s.sharpen) ? s.sharpen : DEFAULTS.sharpen;
   out.fixedSeed = (typeof s.fixedSeed === 'string' && /^\d{0,10}$/.test(s.fixedSeed.trim())) ? s.fixedSeed.trim() : '';
@@ -165,6 +170,7 @@ export function sanitize(input) {
     night: bi.night === true,
     weather: ['auto', 'clear', 'rain', 'storm', 'snow'].includes(bi.weather) ? bi.weather : 'auto',
     fog: bi.fog === true || bi.weather === 'fog',
+    noMist: bi.noMist === true,
     voices: bi.voices !== false,
     mates: Number.isInteger(bi.mates) ? Math.max(0, Math.min(3, bi.mates)) : 0,
     ranked: bi.ranked === true,

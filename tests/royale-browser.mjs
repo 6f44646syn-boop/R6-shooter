@@ -116,6 +116,24 @@ try {
   });
   assert.deepEqual(padBuild, { buildMode: true, kinds: 'wall,ramp,cone', off: true });
   console.log('PASS controller instant build: B enters build mode, RT wall, LT ramp, LB cone, B leaves');
+  // Piece keys (Controls > Keybinds > Battle Royale): T wall, Y ramp. "Always": they build without build mode;
+  // "In build mode": they do nothing until B is on.
+  await page.evaluate(() => document.querySelector('[data-build-key=wall]').click()); await page.keyboard.press('KeyT');
+  await page.evaluate(() => document.querySelector('[data-build-key=ramp]').click()); await page.keyboard.press('KeyY');
+  const mode = (v) => page.evaluate((v) => { const s = document.getElementById('build-keys-mode'); s.value = v; s.dispatchEvent(new Event('change')); }, v);
+  const spot = (k) => page.evaluate((k) => { const b = __range.battle(), r = b.royale, h = b.humans[0], a = b.arena; document.getElementById('menu').hidden = true; r.materials = 20; h.look.yaw = h.look.pitch = 0;
+    for (let i = 0; i < a.nodeCount; i += 7) { if (a.nodeY[i] > .01 || a.hazardAt(a.nodeX[i], 0, a.nodeZ[i])) continue; Object.assign(h.f, { x: a.nodeX[i], y: 0, z: a.nodeZ[i] }); const p = r.plan(h.f, 0, k); if (p && !p.blocked && !p.limit && !r.walls.some((w) => Math.hypot(w.mesh.position.x - h.f.x, w.mesh.position.z - h.f.z) < 8)) return; } }, k);
+  const tap = async (key) => { const R = () => page.evaluate(() => __range.battle().royale.walls.length); const n = await R(); await page.keyboard.down(key); await page.evaluate(() => __range.step(.05)); await page.keyboard.up(key); await page.evaluate(() => __range.step(.05)); return { built: await R() - n, kind: await page.evaluate(() => __range.battle().royale.walls.at(-1)?.kind), preview: await page.evaluate(() => __range.battle().royale.preview) }; };
+  await mode('always');
+  await spot('wall'); const always = await tap('KeyT');
+  await spot('ramp'); const ramp = await tap('KeyY');
+  await mode('toggle');
+  await spot('wall'); const outside = (await tap('KeyT')).built;
+  await page.keyboard.press('KeyB'); await spot('wall'); const inside = await tap('KeyT'); await page.keyboard.press('KeyB');
+  await mode('off');
+  assert.deepEqual({ always, ramp, outside, inside }, { always: { built: 1, kind: 'wall', preview: false }, ramp: { built: 1, kind: 'ramp', preview: false }, outside: 0, inside: { built: 1, kind: 'wall', preview: true } });
+  await page.evaluate(() => { const r = __range.battle().royale, n = r.walls.length - 3; for (const w of r.walls.splice(n)) r.disposePiece(w); r.syncWalls(); r.piece = 'wall'; r.materials = 0; for (let i = 0; i < 20; i++) { __range.step(.05); __range.renderFrame(); } });   // (the blueprint lowers)
+  console.log('PASS piece keys: T wall, Y ramp build any time ("Always"), or only in build mode ("In build mode")');
   const corner = await page.evaluate(() => {
     const b = __range.battle(), r = b.royale, h = b.humans[0], a = b.arena;
     r.materials = 4; const n = r.walls.length;
@@ -624,7 +642,9 @@ try {
     b.start({ ...b.opts, royale: false, map: 'mist', opponent: 'bots', bots: 2 });
     const M = b.arena.map, battle = { fresh: b.mapSeed !== s1 && JSON.stringify(M.layout.slice(0, 5)) !== w1, fog: b.arena.scene.fog.far <= 16, sight: M.sight === 16,
       path: b.arena.findPath(M.spawns[0][0], M.spawns[0][1], M.spawnsB[0][0], M.spawnsB[0][1]).length > 0 };
-    b.start({ ...b.opts, royale: true, royaleMap: 'mistwood' });
+    b.start({ ...b.opts, royale: false, map: 'mist', opponent: 'bots', bots: 2, noMist: true });   // (the No mist option)
+    battle.noMist = b.arena.map.fog[2] > 100 && !b.arena.map.sight;
+    b.start({ ...b.opts, royale: true, royaleMap: 'mistwood', noMist: false });
     const royale = { size: [b.arena.hx * 2, b.arena.hz * 2].join('x'), chests: b.royale.chests.length > 30 };
     b.stop();
     await R.modeStart('tdm', { map: { tdm: 'mist' }, seed: 5, teamSize: 3 });
@@ -633,8 +653,8 @@ try {
     g.stop();
     return { battle, royale, tdm };
   });
-  assert.deepEqual(mist, { battle: { fresh: true, fog: true, sight: true, path: true }, royale: { size: '160x128', chests: true }, tdm: { map: 'mist', spawns: true, flags: true } }, JSON.stringify(mist));
-  console.log('PASS The Mist: a new maze every match in Battle, thick fog that limits bots too, a 160 x 128 Battle Royale maze with chests, and TDM spawns and flags');
+  assert.deepEqual(mist, { battle: { fresh: true, fog: true, sight: true, path: true, noMist: true }, royale: { size: '160x128', chests: true }, tdm: { map: 'mist', spawns: true, flags: true } }, JSON.stringify(mist));
+  console.log('PASS The Mist: a new maze every match in Battle, thick fog that limits bots too (or No mist), a 160 x 128 Battle Royale maze with chests, and TDM spawns and flags');
 } finally {
   await browser?.close();
   server.close();

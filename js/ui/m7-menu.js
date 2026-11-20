@@ -1,4 +1,4 @@
-import { ACTIONS, inputCode, inputLabel } from "./m7-raw-input.js?v=a8a0f6a-mwo0loc9";
+import { ACTIONS, inputCode, inputLabel } from "./m7-raw-input.js?v=55df10f-mwol65cb";
 const node = (tag, text) => {
   const n = document.createElement(tag);
   if (text) n.textContent = text;
@@ -52,7 +52,7 @@ export function tabs(root, groups, label) {
   return select;
 }
 
-export function mountControls(root, api, padPanel = null) {
+export function mountControls(root, api, padPanel = null, royaleExtra = null) {
   let capture = null;
   const status = node("p");
   status.setAttribute("role", "status");
@@ -199,6 +199,7 @@ export function mountControls(root, api, padPanel = null) {
     bindRow("royale:" + id, title + " (same key as " + ACTIONS[a][1] + ")", a, panels[3].panel);
   }
   panels[3].panel.append(node("p", "Keys 1 to 5 pick a hotbar slot."));
+  if (royaleExtra) panels[3].panel.append(royaleExtra);
   function render() {
     buttons.forEach(({ b, a, slot, title }) => {
       b.textContent =

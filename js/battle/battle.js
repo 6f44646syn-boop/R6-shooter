@@ -1,33 +1,33 @@
-import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=a8a0f6a-mwo0loc9';
-import { MatchFinale } from '../replay/finale.js?v=a8a0f6a-mwo0loc9';
-import { GrenadeReplay } from '../replay/grenade.js?v=a8a0f6a-mwo0loc9';
-import { replayCamera } from '../replay/view.js?v=a8a0f6a-mwo0loc9';
+import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=55df10f-mwol65cb';
+import { MatchFinale } from '../replay/finale.js?v=55df10f-mwol65cb';
+import { GrenadeReplay } from '../replay/grenade.js?v=55df10f-mwol65cb';
+import { replayCamera } from '../replay/view.js?v=55df10f-mwol65cb';
 // Battle mode: you against bots (Easy / Medium / Hard), or two local players in split
 // screen (optionally with bots as a third side). First side to the kill target wins.
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=a8a0f6a-mwo0loc9';
-import { Arena } from './arena.js?v=a8a0f6a-mwo0loc9';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=a8a0f6a-mwo0loc9';
-import { Banter } from './banter.js?v=a8a0f6a-mwo0loc9';
-import { Bot, LEVELS } from './bot.js?v=a8a0f6a-mwo0loc9';
-import { Human } from './human.js?v=a8a0f6a-mwo0loc9';
-import { BattleNades } from './nades.js?v=a8a0f6a-mwo0loc9';
-import { drawCrosshair } from '../ui/crosshair.js?v=a8a0f6a-mwo0loc9';
-import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=a8a0f6a-mwo0loc9';
-import { effectiveGraphics } from '../render/quality.js?v=a8a0f6a-mwo0loc9';
-import { effectiveGun, slotIn } from '../core/loadout.js?v=a8a0f6a-mwo0loc9';
-import { BattleRoyale } from './royale.js?v=a8a0f6a-mwo0loc9';
-import { ROYALE_BOTS, ROYALE_MAPS, freshMistRoyale } from './royale-map.js?v=a8a0f6a-mwo0loc9';
-import { freshMist } from './maps.js?v=a8a0f6a-mwo0loc9';
-import { Footprints } from '../scene/footprints.js?v=a8a0f6a-mwo0loc9';
-import { nextWeather } from '../scene/rain.js?v=a8a0f6a-mwo0loc9';
-import { Minimap } from '../ui/minimap.js?v=a8a0f6a-mwo0loc9';
-import { botRankedChange } from '../core/ranked.js?v=a8a0f6a-mwo0loc9';
-import { warmScene } from '../render/warm.js?v=a8a0f6a-mwo0loc9';
-import { ShadowGate } from '../render/shadow-gate.js?v=a8a0f6a-mwo0loc9';
-import { MatchStats, mvpCard } from '../core/mvp.js?v=a8a0f6a-mwo0loc9';
+import * as THREE from '../../vendor/three/three.module.min.js?v=55df10f-mwol65cb';
+import { Arena } from './arena.js?v=55df10f-mwol65cb';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=55df10f-mwol65cb';
+import { Banter } from './banter.js?v=55df10f-mwol65cb';
+import { Bot, LEVELS } from './bot.js?v=55df10f-mwol65cb';
+import { Human } from './human.js?v=55df10f-mwol65cb';
+import { BattleNades } from './nades.js?v=55df10f-mwol65cb';
+import { drawCrosshair } from '../ui/crosshair.js?v=55df10f-mwol65cb';
+import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=55df10f-mwol65cb';
+import { effectiveGraphics } from '../render/quality.js?v=55df10f-mwol65cb';
+import { effectiveGun, slotIn } from '../core/loadout.js?v=55df10f-mwol65cb';
+import { BattleRoyale } from './royale.js?v=55df10f-mwol65cb';
+import { ROYALE_BOTS, ROYALE_MAPS, freshMistRoyale } from './royale-map.js?v=55df10f-mwol65cb';
+import { freshMist } from './maps.js?v=55df10f-mwol65cb';
+import { Footprints } from '../scene/footprints.js?v=55df10f-mwol65cb';
+import { nextWeather } from '../scene/rain.js?v=55df10f-mwol65cb';
+import { Minimap } from '../ui/minimap.js?v=55df10f-mwol65cb';
+import { botRankedChange } from '../core/ranked.js?v=55df10f-mwol65cb';
+import { warmScene } from '../render/warm.js?v=55df10f-mwol65cb';
+import { ShadowGate } from '../render/shadow-gate.js?v=55df10f-mwol65cb';
+import { MatchStats, mvpCard } from '../core/mvp.js?v=55df10f-mwol65cb';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, p7: 0xff7048, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -85,11 +85,11 @@ export class Battle {
   }
 
   // small: the map's small version if it has one (Winter Cabin, School Basement)
-  _useArena(id, small = false, seed = null) {
+  _useArena(id, small = false, seed = null, clear = false) {
     const key = id + (small ? ':small' : '');
     if (id === 'mist' || id === 'mistwood') {                       // (a new maze: last match's arena goes)
       this.mapSeed = seed ?? ((Math.random() * 2 ** 31) | 0);
-      if (id === 'mist') freshMist(this.mapSeed); else freshMistRoyale(this.mapSeed);
+      if (id === 'mist') freshMist(this.mapSeed, 'battle', clear); else freshMistRoyale(this.mapSeed, clear);   // (clear: No mist)
       if (this.arenas[key]) { if (this.arena === this.arenas[key]) this.arena = null; this.arenas[key].dispose(); delete this.arenas[key]; }
     }
     if (!this.arenas[key]) this.arenas[key] = new Arena(id, small);
@@ -177,7 +177,8 @@ export class Battle {
     for (const f of this.fighters) f.group.removeFromParent();
     // 2 to 4 fighters (1v1, 1v2, 2v2) play the small Winter Cabin and School Basement
     const total = (opts.opponent === 'p2' ? 2 : 1) + (opts.remotes?.length || 0) + (opts.royale ? 99 : Math.max(0, Math.min(6, opts.bots | 0)) + (opts.opponent === 'bots' ? Math.max(0, Math.min(3, opts.mates | 0)) : 0));
-    this._useArena(opts.map || 'yard', total <= 4, opts.mapSeed ?? null);
+    this.noMist = !!opts.noMist;
+    this._useArena(opts.map || 'yard', total <= 4, opts.mapSeed ?? null, this.noMist);
     this.atmo = { night: !!opts.night, weather: opts.weather || 'auto', fog: !!opts.fog };
     if (opts.royale) Object.assign(this.atmo, { night: opts.royaleTime === 'night', weather: 'auto', fog: false });   // (Battle Royale: its own time of day)
     this.arena.atm.midday = !!opts.royale && opts.royaleTime === 'midday';
@@ -235,7 +236,7 @@ export class Battle {
     this.t = t; this.prevT = t;
     // Network game: tell every remote player who is in the match before the spawns go out.
     for (const r of this.remotes) {
-      r.link.send({ k: 'start', royale: !!opts.royale, mapSeed: this.mapSeed, you: r.f.id, killsToWin: opts.killsToWin, map: this.arena.mapId, small: this.arena.small, night: this.atmo.night, midday: !!this.arena.atm.midday, weather: this.atmo.weather, fog: this.atmo.fog, roster: this._roster() });
+      r.link.send({ k: 'start', royale: !!opts.royale, mapSeed: this.mapSeed, noMist: this.noMist, you: r.f.id, killsToWin: opts.killsToWin, map: this.arena.mapId, small: this.arena.small, night: this.atmo.night, midday: !!this.arena.atm.midday, weather: this.atmo.weather, fog: this.atmo.fog, roster: this._roster() });
     }
     for (const link of this.watchers) {
       link.send({ k: 'start', spectator: true, you: this.humans[0].f.id, killsToWin: opts.killsToWin,
@@ -840,7 +841,7 @@ export class Battle {
     this.mvp = new MatchStats(); this.endless = null;
     this.net = { role: 'client', link, myId: m.you };
     for (const f of this.fighters) f.group.removeFromParent();
-    this._useArena(m.map || 'yard', !!m.small, m.mapSeed ?? null);
+    this._useArena(m.map || 'yard', !!m.small, m.mapSeed ?? null, !!m.noMist);
     this.arena.setGraphics(effectiveGraphics(d.settings), d.renderer);
     this.arena.holes.clear();
     for (const f of this.fighters) f.group.removeFromParent();
@@ -1589,8 +1590,9 @@ export class Battle {
     if (this._meAlive && !f.alive && !this.kc && this.pendingGrenadeDeath === null) this._startKillCam(t);
     this._meAlive = f.alive;
     if (f.alive || (this.kc && t > this.kc.until)) this.kc = null;
-    // outlines: everyone else, by day only
-    for (const g of this.fighters) { const v = g !== f && g.alive && !this.night && !Fighter.minimal; g.outline.visible = v; for (const l of g.legs) l.o.visible = v; if (v) g.setOutlineTeam(g.team === f.team); }
+    // outlines: everyone else, by day only; in The Mist's mist, teammates only
+    const fogged = /^mist/.test(this.arena.mapId) && this.arena.map.mist;
+    for (const g of this.fighters) { const v = g !== f && g.alive && !this.night && !Fighter.minimal && !(fogged && g.team !== f.team); g.outline.visible = v; for (const l of g.legs) l.o.visible = v; if (v) g.setOutlineTeam(g.team === f.team); }
     if (!f.alive) this.grenadeView.release();
     if (this.kc) this._playKillCam(t);
   }

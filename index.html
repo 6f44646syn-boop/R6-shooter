@@ -15,7 +15,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recoil Range</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="css/style.css?v=a8a0f6a-mwo0loc9">
+<link rel="stylesheet" href="css/style.css?v=55df10f-mwol65cb">
 </head>
 <body>
 <div id="boot-screen" role="status" style="position:fixed;inset:0;z-index:2147483000;background:#000;color:#c9d1db;display:grid;place-items:center;font:600 16px/1 system-ui,sans-serif;letter-spacing:0.3em;cursor:none">LOADING…</div>
@@ -155,6 +155,7 @@
           <button id="start-btn" type="button" class="primary">Resume</button>
           <button id="pause-loadout" type="button">Change weapon</button>
           <button id="pause-settings" type="button">Settings</button>
+          <button id="pause-graphics" type="button">Graphics</button>
           <button id="pause-shop" type="button">Open packs <span id="pause-points"></span></button>
           <button id="pause-packs" type="button">Skins</button>
           <button id="clear-btn" type="button">Clear bullet holes and data (C)</button>
@@ -180,6 +181,8 @@
               <select id="b-rtime"><option value="dusk">Dusk</option><option value="midday">Midday</option><option value="night">Night (flashlights)</option></select></label>
             <label id="b-rmap-field" class="field" for="b-rmap" hidden><span>Island</span>
               <select id="b-rmap"><option value="random">Random (either map)</option><option value="blacktide">Blacktide Island</option><option value="ruins">Ruined City</option><option value="mistwood">The Mist (a new maze every match)</option></select></label>
+            <label id="b-mist-field" class="field" for="b-mist" hidden><span>Mist</span>
+              <select id="b-mist"><option value="on">Thick mist (about 15 m)</option><option value="off">No mist (see across the maze)</option></select></label>
             <label class="field" for="b-time"><span>Time</span>
               <select id="b-time"><option value="day">Day</option><option value="night">Night (use your flashlight: F)</option></select></label>
             <label class="field" for="b-weather"><span>Weather</span>
@@ -432,6 +435,6 @@
     </div>
   </div>
 </div>
-<script type="module" src="js/main.js?v=a8a0f6a-mwo0loc9"></script>
+<script type="module" src="js/main.js?v=55df10f-mwol65cb"></script>
 </body>
 </html>

@@ -2,8 +2,8 @@
 // Ultra (needs the Enhanced Graphics pack), download / update / remove the pack, pick a
 // performance profile, the frame-rate target and the FPS counter; download / remove the Weapon Skins pack.
 // ctx: { settings, commit(key) (sanitise, save, apply), packSize() }
-import { HDPack, SkinPack } from '../render/hd-pack.js?v=a8a0f6a-mwo0loc9';
-import { needsPack } from '../render/quality.js?v=a8a0f6a-mwo0loc9';
+import { HDPack, SkinPack } from '../render/hd-pack.js?v=55df10f-mwol65cb';
+import { needsPack } from '../render/quality.js?v=55df10f-mwol65cb';
 
 function el(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);
@@ -107,17 +107,21 @@ export class GraphicsUI {
       chk('gx-botshadows', 'Player and bot shadows (off is faster on weak GPUs; always on in Ranked and online)', () => this.s.botShadows, (v) => { this.s.botShadows = v; }, 'shading'),
       chk('gx-skins', 'High-res weapon skins (any graphics level)', () => this.s.hiResSkins, (v) => { this.s.hiResSkins = v; }, 'shading'),
       chk('gx-counter', 'FPS counter', () => this.s.fpsCounter, (v) => { this.s.fpsCounter = v; }, 'perf'));
+    // the controls themselves: shown in this pop-up, or in Settings > Graphics (mountInline)
+    this.body = el('div', { class: 'gx-body' }, grid, this.prompt, this.pack, this.packs[1].section,
+      el('div', { class: 'gx-perf' }, el('h3', { text: 'Performance' }), prof, this.fields, this.checks));
+    this.done = el('div', { class: 'row pk-skip' }, el('button', { type: 'button', class: 'primary', onclick: () => this.close() }, 'Done'));
     this.modal = el('div', { class: 'pk-modal gx-modal', id: 'gfx', hidden: true, role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'gx-title' },
       el('div', { class: 'pk-box gx-box' },
         el('div', { class: 'row gx-head' }, el('h1', { id: 'gx-title', text: 'Graphics' }), el('button', { type: 'button', class: 'gx-close', 'aria-label': 'Close', onclick: () => this.close() }, '×')),
-        grid, this.prompt, this.pack, this.packs[1].section,
-        el('div', { class: 'gx-perf' }, el('h3', { text: 'Performance' }), prof, this.fields, this.checks),
-        el('div', { class: 'row pk-skip' }, el('button', { type: 'button', class: 'primary', onclick: () => this.close() }, 'Done'))));
+        this.body, this.done));
     this.modal.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); this.close(); } });
   }
 
   // view: 'download' shows only the packs (the Download page); otherwise Graphics, with a pack only when a level needs it
+  mountInline(root) { this.inline = true; root.append(this.body); HDPack.check(); SkinPack.check(); this.refresh(); }
   open(prompt = '', view = 'graphics') {
+    this.done.before(this.body); this.inline = false;   // (back from Settings > Graphics)
     this.modal.classList.toggle('gx-dl', view === 'download');
     this.modal.querySelector('#gx-title').textContent = view === 'download' ? 'Download' : 'Graphics';
     this.modal.hidden = false;
@@ -151,7 +155,7 @@ export class GraphicsUI {
   }
 
   refresh() {
-    if (this.modal.hidden) return;
+    if (this.modal.hidden && !this.inline) return;
     const g = this.s.graphics, ready = HDPack.ready;
     for (const [k, b] of this.cards) {
       b.setAttribute('aria-checked', String(k === g));

@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=a8a0f6a-mwo0loc9';
-import { ROYALE_BOTS } from './royale-map.js?v=a8a0f6a-mwo0loc9';
-import { PLATFORM_HALF, PLATFORM_MASK, RAMP_RISE, platformHeight, platformMeshes, platformSolids, rampSurface } from './royale-platform.js?v=a8a0f6a-mwo0loc9';
+import * as THREE from '../../vendor/three/three.module.min.js?v=55df10f-mwol65cb';
+import { ROYALE_BOTS } from './royale-map.js?v=55df10f-mwol65cb';
+import { PLATFORM_HALF, PLATFORM_MASK, RAMP_RISE, platformHeight, platformMeshes, platformSolids, rampSurface } from './royale-platform.js?v=55df10f-mwol65cb';
 
 const TOKEN_CHANCE = 0.001;
 const CHEST_MATERIALS = 18;
@@ -666,8 +666,9 @@ export class BattleRoyale {
     if (f.alive) f.protectUntil = t + LAND_PROTECT;
   }
 
-  cyclePiece() {
-    this.piece = PIECES[(PIECES.indexOf(this.piece) + 1) % PIECES.length];
+  cyclePiece() { this.pick(PIECES[(PIECES.indexOf(this.piece) + 1) % PIECES.length]); }
+  pick(piece) {
+    this.piece = piece;
     this.noticeUntil = 0;
     this.drawBlueprint();
     this.updateHud();

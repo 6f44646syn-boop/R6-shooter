@@ -10,10 +10,10 @@
 // Each side is laid out differently.
 //
 // Everything is drawn in code (canvas textures); no image files.
-import * as THREE from '../../vendor/three/three.module.min.js?v=a8a0f6a-mwo0loc9';
-import { concreteTiles, wallPanels, duskSky, hazardStripes } from '../scene/range-tex.js?v=a8a0f6a-mwo0loc9';
-import { mistMap } from './mist.js?v=a8a0f6a-mwo0loc9';
-import { mulberry32 } from '../core/prng.js?v=a8a0f6a-mwo0loc9';
+import * as THREE from '../../vendor/three/three.module.min.js?v=55df10f-mwol65cb';
+import { concreteTiles, wallPanels, duskSky, hazardStripes } from '../scene/range-tex.js?v=55df10f-mwol65cb';
+import { mistMap } from './mist.js?v=55df10f-mwol65cb';
+import { mulberry32 } from '../core/prng.js?v=55df10f-mwol65cb';
 
 /* ---------- texture helpers ---------- */
 function canvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; }
@@ -897,5 +897,5 @@ export const SMALL = {
 };
 
 // The Mist (Battle, TDM / CTF): a new maze from a seed, put in MAPS for the arena to build.
-export function freshMist(seed, size = 'battle') { return (MAPS.mist = mistMap(seed, size)); }
+export function freshMist(seed, size = 'battle', clear = false) { return (MAPS.mist = mistMap(seed, size, clear)); }
 freshMist(1);

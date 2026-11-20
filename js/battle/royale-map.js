@@ -1,8 +1,8 @@
 // Battle Royale maps: Blacktide Island (royale-island.js) and the Ruined City (royale-city.js).
 // The setting battle.royaleMap picks one ('random': either).
-import { island } from './royale-island.js?v=a8a0f6a-mwo0loc9';
-import { ruins } from './royale-city.js?v=a8a0f6a-mwo0loc9';
-import { mistMap } from './mist.js?v=a8a0f6a-mwo0loc9';
+import { island } from './royale-island.js?v=55df10f-mwol65cb';
+import { ruins } from './royale-city.js?v=55df10f-mwol65cb';
+import { mistMap } from './mist.js?v=55df10f-mwol65cb';
 
 export const ROYALE_BOTS = 20;
 
@@ -14,8 +14,8 @@ const spawns = Array.from({ length: ROYALE_BOTS + 1 }, (_, i) => {
 
 export const ROYALE_MAPS = { blacktide: island(spawns), ruins: ruins(spawns), mistwood: null };
 // The Mist for Battle Royale: a new 160 x 128 m maze from a seed (drop points round the oval, chests in it).
-export function freshMistRoyale(seed) {
-  const m = mistMap(seed, 'royale');
+export function freshMistRoyale(seed, clear = false) {
+  const m = mistMap(seed, 'royale', clear);
   return (ROYALE_MAPS.mistwood = { ...m, spawns, chests: [...spawns.map(([x, z]) => [x * 0.85, z * 0.85]), ...m.chests] });
 }
 freshMistRoyale(1);
