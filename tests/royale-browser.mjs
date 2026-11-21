@@ -646,6 +646,18 @@ try {
     battle.noMist = b.arena.map.fog[2] > 100 && !b.arena.map.sight;
     b.start({ ...b.opts, royale: true, royaleMap: 'mistwood', noMist: false });
     const royale = { size: [b.arena.hx * 2, b.arena.hz * 2].join('x'), chests: b.royale.chests.length > 30 };
+    {   // walls and ramps may go into the maze's walls; cones may not
+      const a = b.arena, r = b.royale, h = b.humans[0], base = a.boxes.slice(0, a.baseBoxCount), into = (pl) => pl && !pl.blocked && base.some((q) => pl.box.minX < q.maxX && pl.box.maxX > q.minX && pl.box.minZ < q.maxZ && pl.box.maxZ > q.minZ && pl.box.minY < q.maxY && pl.box.maxY > q.minY);
+      const got = { wall: 0, ramp: 0, cone: 0 };
+      for (const q of base) {
+        if (q.maxY < 3 || q.minY > .1 || q.maxX - q.minX < 3 || q.maxZ - q.minZ > 1.2) continue;
+        const x = (q.minX + q.maxX) / 2, z = q.maxZ + 1.2;
+        if (a.groundAt(x, z, 0) > .05 || base.some((o) => x > o.minX - .5 && x < o.maxX + .5 && z > o.minZ - .5 && z < o.maxZ + .5 && o.maxY > .3)) continue;
+        Object.assign(h.f, { x, y: 0, z });
+        for (const k in got) if (into(r.plan(h.f, 0, k, 0))) got[k]++;
+      }
+      royale.intoWalls = got.wall > 0 && got.ramp > 0 && got.cone === 0;
+    }
     b.stop();
     await R.modeStart('tdm', { map: { tdm: 'mist' }, seed: 5, teamSize: 3 });
     const g = R.modeGame(), d = g.map.data;
@@ -653,8 +665,8 @@ try {
     g.stop();
     return { battle, royale, tdm };
   });
-  assert.deepEqual(mist, { battle: { fresh: true, fog: true, sight: true, path: true, noMist: true }, royale: { size: '160x128', chests: true }, tdm: { map: 'mist', spawns: true, flags: true } }, JSON.stringify(mist));
-  console.log('PASS The Mist: a new maze every match in Battle, thick fog that limits bots too (or No mist), a 160 x 128 Battle Royale maze with chests, and TDM spawns and flags');
+  assert.deepEqual(mist, { battle: { fresh: true, fog: true, sight: true, path: true, noMist: true }, royale: { size: '160x128', chests: true, intoWalls: true }, tdm: { map: 'mist', spawns: true, flags: true } }, JSON.stringify(mist));
+  console.log('PASS The Mist: a new maze every match in Battle, thick fog that limits bots too (or No mist), a 160 x 128 Battle Royale maze with chests where walls and ramps may go into the maze walls, and TDM spawns and flags');
 } finally {
   await browser?.close();
   server.close();

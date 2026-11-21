@@ -1,6 +1,6 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=55df10f-mwol65cb';
-import { ROYALE_BOTS } from './royale-map.js?v=55df10f-mwol65cb';
-import { PLATFORM_HALF, PLATFORM_MASK, RAMP_RISE, platformHeight, platformMeshes, platformSolids, rampSurface } from './royale-platform.js?v=55df10f-mwol65cb';
+import * as THREE from '../../vendor/three/three.module.min.js?v=53a8f5f-mwpr23xg';
+import { ROYALE_BOTS } from './royale-map.js?v=53a8f5f-mwpr23xg';
+import { PLATFORM_HALF, PLATFORM_MASK, RAMP_RISE, platformHeight, platformMeshes, platformSolids, rampSurface } from './royale-platform.js?v=53a8f5f-mwpr23xg';
 
 const TOKEN_CHANCE = 0.001;
 const CHEST_MATERIALS = 18;
@@ -564,10 +564,12 @@ export class BattleRoyale {
     const lifted = under ? rampSurface(y, (f.x - x) * forwardX + (f.z - z) * forwardZ) : 0;
     const floating = under ? y > f.y + 2 || f.y - y > 2.2 || arena.raycast([f.x, Math.max(f.y, lifted) + .05, f.z], [0, 1, 0], 1.85) < 1.8
       : !previous && !attached && Math.abs(y - f.y) > .45;
+    // The Mist: walls and ramps may go into the maze's own walls (its corridors are narrow); cones may not.
+    const intoMap = /^mist/.test(arena.mapId) && kind !== 'cone' && arena.boxes.some((other, i) => i < arena.baseBoxCount && overlaps(core, other));
     const blocked = floating || box.maxY >= (arena.map.ceiling ? arena.wallH : Infinity)
       || box.minX <= -arena.hx || box.maxX >= arena.hx || box.minZ <= -arena.hz || box.maxZ >= arena.hz
-      || arena.boxes.some((other, i) => (!under || i < arena.baseBoxCount) && overlaps(core, other))
-      || (!under && !attached && !arena.sightLine([f.x, f.y + 1.2, f.z], [x, y + .7, z]))
+      || arena.boxes.some((other, i) => (i < arena.baseBoxCount ? !intoMap : !under) && overlaps(core, other))
+      || (!under && !attached && !intoMap && !arena.sightLine([f.x, f.y + 1.2, f.z], [x, y + .7, z]))
       || this.occupied(box, previous || under ? f : null);
     const key = kind + x.toFixed(2) + y.toFixed(2) + z.toFixed(2) + (isWall ? w > 1 : dir);
     return { kind, isWall, previous, under, attached, dir, box, x, y, z, w, d, blocked, key };

@@ -3,9 +3,9 @@
 // some with arches), pillars, dead trees, reed beds and pools with plank walkways, moss and roots.
 // mistMap(seed, size): size 'battle' (about 45 m square), 'match' (64 m: TDM / CTF, spawns west and east)
 // or 'royale' (160 x 128 m, with chests). Everything sits on the 3.2 m build grid.
-import { BoxGeometry, ConeGeometry, CylinderGeometry, IcosahedronGeometry, CanvasTexture, RepeatWrapping, SRGBColorSpace } from '../../vendor/three/three.module.min.js?v=55df10f-mwol65cb';
-import { mulberry32 } from '../core/prng.js?v=55df10f-mwol65cb';
-import { surface, surfacePicture } from '../render/surfaces.js?v=55df10f-mwol65cb';
+import { BoxGeometry, ConeGeometry, CylinderGeometry, IcosahedronGeometry, CanvasTexture, RepeatWrapping, SRGBColorSpace } from '../../vendor/three/three.module.min.js?v=53a8f5f-mwpr23xg';
+import { mulberry32 } from '../core/prng.js?v=53a8f5f-mwpr23xg';
+import { surface, surfacePicture } from '../render/surfaces.js?v=53a8f5f-mwpr23xg';
 
 const G = 3.2, C = 2 * G;                                     // the build grid; a maze cell is two grid cells
 const SIZES = { battle: [22.4, 22.4], match: [32, 32], royale: [80, 64] };
