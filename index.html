@@ -16,6 +16,7 @@
 <title>Recoil Range</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="css/style.css?v=53a8f5f-mwpr23xg">
+<link rel="stylesheet" href="ads/sponsor.css?v=2">
 </head>
 <body>
 <div id="boot-screen" role="status" style="position:fixed;inset:0;z-index:2147483000;background:#000;color:#c9d1db;display:grid;place-items:center;font:600 16px/1 system-ui,sans-serif;letter-spacing:0.3em;cursor:none">LOADING…</div>
@@ -92,7 +93,7 @@
     <div id="toast" class="toast" role="status" hidden></div>
     <button type="button" class="h-skin" id="h-skin" title="Inspect"><span id="h-skin-name"></span></button>
     <section class="h-ch" aria-label="Challenges"><h3>Challenges</h3><div id="h-challenges" class="challenges"></div></section>
-    <div class="h-play"><button type="button" id="h-play" class="primary">Play<span id="h-game"></span></button><button type="button" id="h-settings" title="Options for the game Play starts">Game settings</button><button type="button" id="h-pick">Pick game</button></div>
+    <div class="h-play"><button type="button" id="h-play" class="primary">Play<span id="h-game"></span></button><button type="button" id="h-settings" title="Options for the game Play starts">Game settings</button><button type="button" id="h-pick">Pick game</button><rr-sponsor></rr-sponsor></div>
     <button type="button" class="h-pass" id="h-pass" aria-label="Season pass"></button>
   </div>
   <div id="menu">
@@ -135,6 +136,7 @@
         <div id="presets" class="presets"></div>
         <h3 class="ch-head">Challenges <span class="small">new ones every day and every Monday</span></h3>
         <div id="challenges" class="challenges"></div>
+        <rr-sponsor></rr-sponsor>
 
       </section>
 
@@ -435,6 +437,7 @@
     </div>
   </div>
 </div>
-<script type="module" src="js/main.js?v=53a8f5f-mwpr23xg"></script>
+<script type="module" src="ads/sponsor.js?v=1"></script>
+<script type="module" src="js/main.js?v=53a8f5f-mwpr23xg-sponsor1"></script>
 </body>
 </html>

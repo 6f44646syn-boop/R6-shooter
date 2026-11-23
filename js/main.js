@@ -54,7 +54,7 @@ function sensRows(catalogue, sens) {
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
 import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=53a8f5f-mwpr23xg';
-import { Battle } from './battle/battle.js?v=53a8f5f-mwpr23xg';
+import { Battle } from './battle/battle.js?v=53a8f5f-mwpr23xg-sponsor1';
 import { setOutlineColors } from './battle/fighter.js?v=53a8f5f-mwpr23xg';
 import { initCore, coreLoaded } from './wasm/core.js?v=53a8f5f-mwpr23xg';
 import { createJoinRequest, acceptJoin } from './net/link.js?v=53a8f5f-mwpr23xg';
@@ -1639,6 +1639,8 @@ async function boot(data) {
     dev?.note('page', name);
     if (flow.page !== name && ['mode', 'pause', 'setup'].includes(flow.page)) flow.prev = flow.page;
     flow.page = name;
+    const sponsor = $('page-mode').querySelector('rr-sponsor');
+    if (sponsor) sponsor.hidden = flow.inGame;
     $('menu-x').hidden = name === 'pause';
     for (const p of document.querySelectorAll('#menu .page')) p.hidden = p.id !== 'page-' + name;
     // steps: 1 controls, 2 graphics (a dialog), 3 settings, 4 packs, 5 mode (and its match options), 6 weapon / operator

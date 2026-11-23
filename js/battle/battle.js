@@ -677,6 +677,7 @@ export class Battle {
       return r;
     }));
     this.hud.again.hidden = !canRestart;
+    this.hud.sponsor.hidden = !(this.royale && this.opts.opponent === 'bots' && !this.net && !this.viewOnly);
     this.hud.endNote.textContent = (this.matchPoints ? 'You earned ' + this.matchPoints + ' points this match. ' : '') +
       (canRestart ? 'Click "Play again" for a rematch with the same settings.' : 'The host can start a rematch; you will join it automatically.');
     if (this.royale?.token) this.hud.endNote.textContent += ' Pirate Token collected · All Black Ice skins unlocked.';
@@ -1330,14 +1331,16 @@ export class Battle {
     again.type = leave.type = 'button';
     const row = el('div', 'row'); row.append(again, leave);
     const endNote = el('p', 'small', '');
-    box.append(endTitle, endTable, row, endNote);
+    const sponsor = document.createElement('rr-sponsor');
+    sponsor.hidden = true;
+    box.append(endTitle, endTable, row, endNote, sponsor);
     end.append(box);
     root.append(end);
     const skip = el('button', 'primary b-skip', ''); skip.type = 'button'; skip.hidden = true;     // Battle Royale, after you are out
     skip.addEventListener('click', () => this.skipRoyale());
     root.append(skip);
     this.deps.hudRoot.insertBefore(root, this.deps.hudRoot.querySelector('#menu'));   // under the menu
-    this.hud = { root, score, royale, feed, comms, end, endTitle, endTable, endNote, again, leave, skip, views: [] };
+    this.hud = { root, score, royale, feed, comms, end, endTitle, endTable, endNote, again, leave, skip, sponsor, views: [] };
   }
   _layoutHud() {
     for (const v of this.hud.views) v.box.remove();
