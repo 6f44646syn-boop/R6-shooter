@@ -1,0 +1,31 @@
+rr-sponsor {
+  display: none;
+}
+
+rr-sponsor.sponsor-ready:not([hidden]) {
+  display: grid;
+  gap: 4px;
+  width: min(100%, 480px);
+  min-width: 0;
+  justify-self: center;
+  margin-inline: auto;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+rr-sponsor img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
+#page-mode rr-sponsor {
+  margin-top: 12px;
+}
+
+#app:has(#menu.over-home:not([hidden])) #home rr-sponsor,
+.b-end:not([data-finale="results"]) rr-sponsor.sponsor-ready {
+  display: none;
+}
