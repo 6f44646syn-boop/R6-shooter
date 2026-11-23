@@ -29,3 +29,15 @@ rr-sponsor img {
 .b-end:not([data-finale="results"]) rr-sponsor.sponsor-ready {
   display: none;
 }
+
+@media (max-width: 520px) {
+  #menu-panel:has(#page-mode:not([hidden]) rr-sponsor.sponsor-ready),
+  #page-mode:has(rr-sponsor.sponsor-ready) {
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #page-mode:has(rr-sponsor.sponsor-ready) .game-tabs {
+    flex-wrap: wrap;
+  }
+}
