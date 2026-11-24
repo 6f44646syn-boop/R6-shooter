@@ -4,12 +4,12 @@
 // stations with stairs down, and chasms in the road you can drop through.
 // The streets are a deck DECK metres up; the tunnels are under every street (the ground under each block is
 // solid). Everything structural sits on the 3.2 m build grid, so players' walls, ramps and cones fit flush.
-import { BoxGeometry, BufferGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, CanvasTexture, RepeatWrapping, SRGBColorSpace } from '../../vendor/three/three.module.min.js?v=7c7639f-mwu5l724';
-import { wallPanels, duskSky } from '../scene/range-tex.js?v=7c7639f-mwu5l724';
-import { mulberry32 } from '../core/prng.js?v=7c7639f-mwu5l724';
-import { gfxLevel } from '../render/quality.js?v=7c7639f-mwu5l724';
-import { surface } from '../render/surfaces.js?v=7c7639f-mwu5l724';
-import { MAPS } from './maps.js?v=7c7639f-mwu5l724';
+import { BoxGeometry, BufferGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, CanvasTexture, RepeatWrapping, SRGBColorSpace } from '../../vendor/three/three.module.min.js?v=e94e41c-mwu5yowd';
+import { wallPanels, duskSky } from '../scene/range-tex.js?v=e94e41c-mwu5yowd';
+import { mulberry32 } from '../core/prng.js?v=e94e41c-mwu5yowd';
+import { gfxLevel } from '../render/quality.js?v=e94e41c-mwu5yowd';
+import { surface } from '../render/surfaces.js?v=e94e41c-mwu5yowd';
+import { MAPS } from './maps.js?v=e94e41c-mwu5yowd';
 
 const G = 3.2, H = 3.2, SLAB = 0.3, T = 0.4;                // grid cell, storey height, floor thickness, wall thickness
 export const DECK = 4;                                         // street level (the subway is below it)

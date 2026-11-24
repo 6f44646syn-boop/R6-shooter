@@ -166,6 +166,14 @@ its settings (bots, level, kills to win, the network lobby), then Deploy: there 
 select before a match, you take your current gun. Esc pauses: Resume, Change weapon (the
 weapon screen: sights, the gun in 3D, skins), Settings, Skins & packs, Main menu.
 
+**Endless online**: Network battle > Game > Endless. Every player on one side against waves of
+bots; each player adds 3 lives to a shared pool and anyone's kills bring the next wave. In Endless
+the bar at the top shows what comes next (kills to the next wave, one more bot, tougher bots).
+
+**Sound captions**: with the master volume under 20%, every player sees the sounds around
+them at the bottom of the screen with their direction (footsteps behind you, a gunshot to the
+left, explosions, breaching, knives, zaps).
+
 **Free for all**: everyone for themselves, every bot fights everyone. It is its own card, and a
 "Free for all" setting in Battle vs bots, Gun Game, Endless and Network battle (not Bomb or
 Battle Royale). In Team Deathmatch and Capture the Flag the setting opens Free for all (no teams).
@@ -227,9 +235,11 @@ Main menu > Network battle. No server and no outside service: the browsers conne
    the join code (chat, email...).
 2. Host: paste each join code, press **Make reply code** and send the reply code back.
 3. Player: paste the reply code and press **Connect**.
-4. Host: press **Open the lobby**. Everyone (the host too) is put in a lobby room on the map
-   where nobody can be hurt; players press Play / "Join the lobby" to capture the mouse. A
-   player who connects later is added (the lobby reopens with them in).
+4. Host: press **Open the lobby**. Everyone (the host too) is put in the lobby, a small room of
+   its own where nobody can be hurt; players press Play / "Join the lobby" to capture the mouse.
+   A player can connect at any time: they join the lobby, or a running Battle or Endless, at
+   once (a running Battle Royale or team match: from the next lobby). In the lobby the host's
+   pause menu has **Match settings** (map, game, bots, rules) for the match to come.
 5. Host: press **Enter** in game (or **Start the match** in the pause menu). The match (Battle,
    Battle Royale, Team Deathmatch, Capture the Flag or Bomb) starts for everyone at the same
    time, bots included; players already in the lobby go straight in. Play again returns

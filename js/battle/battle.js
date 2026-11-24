@@ -1,33 +1,33 @@
-import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=7c7639f-mwu5l724';
-import { MatchFinale } from '../replay/finale.js?v=7c7639f-mwu5l724';
-import { GrenadeReplay } from '../replay/grenade.js?v=7c7639f-mwu5l724';
-import { replayCamera } from '../replay/view.js?v=7c7639f-mwu5l724';
+import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=e94e41c-mwu5yowd';
+import { MatchFinale } from '../replay/finale.js?v=e94e41c-mwu5yowd';
+import { GrenadeReplay } from '../replay/grenade.js?v=e94e41c-mwu5yowd';
+import { replayCamera } from '../replay/view.js?v=e94e41c-mwu5yowd';
 // Battle mode: you against bots (Easy / Medium / Hard), or two local players in split
 // screen (optionally with bots as a third side). First side to the kill target wins.
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=7c7639f-mwu5l724';
-import { Arena } from './arena.js?v=7c7639f-mwu5l724';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=7c7639f-mwu5l724';
-import { Banter } from './banter.js?v=7c7639f-mwu5l724';
-import { Bot, LEVELS } from './bot.js?v=7c7639f-mwu5l724';
-import { Human } from './human.js?v=7c7639f-mwu5l724';
-import { BattleNades } from './nades.js?v=7c7639f-mwu5l724';
-import { drawCrosshair } from '../ui/crosshair.js?v=7c7639f-mwu5l724';
-import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=7c7639f-mwu5l724';
-import { effectiveGraphics } from '../render/quality.js?v=7c7639f-mwu5l724';
-import { effectiveGun, slotIn } from '../core/loadout.js?v=7c7639f-mwu5l724';
-import { BattleRoyale } from './royale.js?v=7c7639f-mwu5l724';
-import { ROYALE_BOTS, ROYALE_MAPS, freshMistRoyale } from './royale-map.js?v=7c7639f-mwu5l724';
-import { freshMist } from './maps.js?v=7c7639f-mwu5l724';
-import { Footprints } from '../scene/footprints.js?v=7c7639f-mwu5l724';
-import { nextWeather } from '../scene/rain.js?v=7c7639f-mwu5l724';
-import { Minimap } from '../ui/minimap.js?v=7c7639f-mwu5l724';
-import { botRankedChange } from '../core/ranked.js?v=7c7639f-mwu5l724';
-import { warmScene } from '../render/warm.js?v=7c7639f-mwu5l724';
-import { ShadowGate } from '../render/shadow-gate.js?v=7c7639f-mwu5l724';
-import { MatchStats, mvpCard } from '../core/mvp.js?v=7c7639f-mwu5l724';
+import * as THREE from '../../vendor/three/three.module.min.js?v=e94e41c-mwu5yowd';
+import { Arena } from './arena.js?v=e94e41c-mwu5yowd';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=e94e41c-mwu5yowd';
+import { Banter } from './banter.js?v=e94e41c-mwu5yowd';
+import { Bot, LEVELS } from './bot.js?v=e94e41c-mwu5yowd';
+import { Human } from './human.js?v=e94e41c-mwu5yowd';
+import { BattleNades } from './nades.js?v=e94e41c-mwu5yowd';
+import { drawCrosshair } from '../ui/crosshair.js?v=e94e41c-mwu5yowd';
+import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=e94e41c-mwu5yowd';
+import { effectiveGraphics } from '../render/quality.js?v=e94e41c-mwu5yowd';
+import { effectiveGun, slotIn } from '../core/loadout.js?v=e94e41c-mwu5yowd';
+import { BattleRoyale } from './royale.js?v=e94e41c-mwu5yowd';
+import { ROYALE_BOTS, ROYALE_MAPS, freshMistRoyale } from './royale-map.js?v=e94e41c-mwu5yowd';
+import { freshMist } from './maps.js?v=e94e41c-mwu5yowd';
+import { Footprints } from '../scene/footprints.js?v=e94e41c-mwu5yowd';
+import { nextWeather } from '../scene/rain.js?v=e94e41c-mwu5yowd';
+import { Minimap } from '../ui/minimap.js?v=e94e41c-mwu5yowd';
+import { botRankedChange } from '../core/ranked.js?v=e94e41c-mwu5yowd';
+import { warmScene } from '../render/warm.js?v=e94e41c-mwu5yowd';
+import { ShadowGate } from '../render/shadow-gate.js?v=e94e41c-mwu5yowd';
+import { MatchStats, mvpCard } from '../core/mvp.js?v=e94e41c-mwu5yowd';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, p7: 0xff7048, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
@@ -52,6 +52,7 @@ class Proxy {
 }
 const BOT_NAMES = ['Rook', 'Vex', 'Mako', 'Quill', 'Brisk', 'Tarn'];
 const MATE_NAMES = ['Biscuit', 'Moose', 'Pickles'];   // bot teammates on your side (Battle vs bots)
+const endlessLevel = (wave) => (wave < 3 ? 'easy' : wave < 5 ? 'medium' : wave < 8 ? 'hard' : 'terminator');
 const RESPAWN_S = 3, PROTECT_S = 3, REGEN_DELAY = 5, REGEN_PER_S = 15;
 // Endless: a new wave every ENDLESS_STEP kills; your best run (kills) is kept in this browser.
 const ENDLESS_STEP = 4, ENDLESS_KEY = 'recoilRange.endless.best';
@@ -163,25 +164,25 @@ export class Battle {
   start(opts) {
     this.stop(!!(opts.remotes?.length || opts.spectators?.length));   // (players in the next match too: no 'stopped', they go straight on)
     if (opts.royale) opts = { ...opts, map: ROYALE_MAPS[opts.royaleMap] ? opts.royaleMap : Object.keys(ROYALE_MAPS)[Math.floor(Math.random() * Object.keys(ROYALE_MAPS).length)], opponent:'bots', bots:ROYALE_BOTS - (opts.remotes?.length || 0), remotes:opts.remotes || [], spectators:[] };
-    if (opts.endless) opts = { ...opts, opponent: 'bots', bots: 1, mates: 0, level: 'easy', killsToWin: Infinity, ranked: false, remotes: [], spectators: [] };
+    if (opts.endless) opts = { ...opts, bots: 1, mates: 0, level: 'easy', killsToWin: Infinity, ranked: false };   // (online: every player on your side, against the waves)
     if (opts.gungame) opts = { ...opts, opponent: 'bots', mates: 0, killsToWin: Infinity, ranked: false, remotes: [], spectators: [] };
     if (opts.lobby) opts = { ...opts, bots: 0, mates: 0, ranked: false, royale: false, endless: false, gungame: false };   // the network lobby: everyone in, nobody can be hurt, until the host starts
     if (opts.ffa) opts = { ...opts, mates: 0 };   // free for all: every bot its own side, no teammates
-    this.endless = opts.endless ? { wave: 1, kills: 0, lives: 3 } : null;
+    this.endless = opts.endless ? { wave: 1, kills: 0, lives: 3 * (1 + (opts.remotes?.length || 0)) } : null;   // (3 lives a player, shared)
     this.gungame = opts.gungame ? { guns: this.deps.guns.slice() } : null;
     this.mvp = new MatchStats();
     const d = this.deps;
     this.opts = { ...opts, remotes: undefined };
     this.watchers = opts.spectators || [];
-    this.net = opts.remotes?.length || this.watchers.length ? { role: 'host' } : null;
+    this.net = opts.remotes?.length || this.watchers.length || opts.opponent === 'net' ? { role: 'host' } : null;   // (online with nobody in yet: players can still join)
     if (!this.nadesB) this.nadesB = new BattleNades(this);
     this.nadesB.reset();
     for (const f of this.fighters) f.group.removeFromParent();
     // 2 to 4 fighters (1v1, 1v2, 2v2) play the small Winter Cabin and School Basement
     const total = (opts.opponent === 'p2' ? 2 : 1) + (opts.remotes?.length || 0) + (opts.royale ? 99 : Math.max(0, Math.min(6, opts.bots | 0)) + (opts.opponent === 'bots' ? Math.max(0, Math.min(3, opts.mates | 0)) : 0));
     this.noMist = !!opts.noMist;
-    this._useArena(opts.map || 'yard', total <= 4, opts.mapSeed ?? null, this.noMist);
-    this.atmo = { night: !!opts.night, weather: opts.weather || 'auto', fog: !!opts.fog };
+    this._useArena(opts.lobby ? 'lobby' : opts.map || 'yard', total <= 4, opts.mapSeed ?? null, this.noMist);
+    this.atmo = opts.lobby ? { night: false, weather: 'clear', fog: false } : { night: !!opts.night, weather: opts.weather || 'auto', fog: !!opts.fog };
     if (opts.royale) Object.assign(this.atmo, { night: opts.royaleTime === 'night', weather: 'auto', fog: false });   // (Battle Royale: its own time of day)
     this.arena.atm.midday = !!opts.royale && opts.royaleTime === 'midday';
     if (this.atmo.weather === 'auto') this.atmo.weather = nextWeather(this.arena.map);   // (not picked: the next in the rotation)
@@ -209,15 +210,7 @@ export class Battle {
     };
     mk(0, two ? 'Player 1' : this.net ? (opts.hostName || 'Host') : 'You', 'p1', opts.royale ? null : opts.p1Gun, 'mouse');
     if (two) mk(1, 'Player 2', 'p2', opts.p2Gun, 'keys');
-    (opts.remotes || []).forEach((r, i) => {
-      const team = 'p' + (i + 2);
-      const f = new Fighter({ name: r.name, team, color: TEAM_COLOR[team], human: true });
-      f.showBar = false;
-      const rm = new Remote(f, r.link, opts.royale ? null : effectiveGun(d.guns[r.gunIndex] || d.guns[0], r.attach));   // attachments checked by Rust (Battle Royale: a pickaxe until a chest)
-      if (rm.gun) this._look(f, rm.gun, skinNum(r.skin));
-      this.remotes.push(rm);
-      this.fighters.push(f);
-    });
+    (opts.remotes || []).forEach((r, i) => this._addRemote(r, opts.endless ? 'p1' : 'p' + (i + 2)));
     const n = opts.royale ? ROYALE_BOTS - this.remotes.length : Math.max(0, Math.min(6, opts.bots | 0));
     for (let i = 0; i < n; i++) this._newBot(i + (opts.royale ? this.remotes.length : 0), opts.level, opts.royale);   // (each its own side after the players')
     // bot teammates on your side
@@ -237,9 +230,7 @@ export class Battle {
     const t = d.now();
     this.t = t; this.prevT = t;
     // Network game: tell every remote player who is in the match before the spawns go out.
-    for (const r of this.remotes) {
-      r.link.send({ k: 'start', lobby: !!opts.lobby, royale: !!opts.royale, mapSeed: this.mapSeed, noMist: this.noMist, you: r.f.id, killsToWin: opts.killsToWin, map: this.arena.mapId, small: this.arena.small, night: this.atmo.night, midday: !!this.arena.atm.midday, weather: this.atmo.weather, fog: this.atmo.fog, roster: this._roster() });
-    }
+    for (const r of this.remotes) r.link.send(this._startMsg(r));
     for (const link of this.watchers) {
       link.send({ k: 'start', lobby: !!opts.lobby, spectator: true, you: this.humans[0].f.id, killsToWin: opts.killsToWin,
         map: this.arena.mapId, small: this.arena.small, ...this.atmo, roster: this._roster() });
@@ -258,6 +249,42 @@ export class Battle {
     this._layoutHud();
     this._updateScore();
     this._renderFeed();
+  }
+
+  // A player on another PC (host side), in this match from now on.
+  _addRemote(r, team) {
+    const f = new Fighter({ name: r.name, team, color: TEAM_COLOR[team] || TEAM_COLOR.bots, human: true });
+    f.showBar = false;
+    const rm = new Remote(f, r.link, this.opts.royale ? null : effectiveGun(this.deps.guns[r.gunIndex] || this.deps.guns[0], r.attach));   // attachments checked by Rust (Battle Royale: a pickaxe until a chest)
+    if (rm.gun) this._look(f, rm.gun, skinNum(r.skin));
+    this.remotes.push(rm);
+    this.fighters.push(f);
+    return rm;
+  }
+  _startMsg(r) {
+    return { k: 'start', lobby: !!this.opts.lobby, royale: !!this.opts.royale, mapSeed: this.mapSeed, noMist: this.noMist, you: r.f.id, killsToWin: this.opts.killsToWin, map: this.arena.mapId, small: this.arena.small, night: this.atmo.night, midday: !!this.arena.atm.midday, weather: this.atmo.weather, fog: this.atmo.fog, roster: this._roster() };
+  }
+  _nextId() { return Math.max(0, ...this.fighters.map((f) => f.id || 0)) + 1; }
+  // A new fighter mid-match (a player who joined, an Endless wave's bot): the players' PCs add it.
+  _announce(f) { if (this.net?.role === 'host') this._broadcast({ k: 'add', e: this._roster().find((e) => e.id === f.id) }, false, this.remotes.find((r) => r.f === f)); }
+  // Host: a player connects while this match (or the lobby) runs: they join it now. Not Battle Royale (its drop is over).
+  join(r) {
+    if (!this.active || this.over || this.royale || this.net?.role !== 'host' || this.remotes.some((x) => x.link === r.link)) return false;
+    const used = new Set(this.fighters.map((f) => f.team));
+    let k = 2; while (used.has('p' + k)) k++;
+    const rm = this._addRemote(r, this.endless ? 'p1' : 'p' + k);
+    rm.f.id = this._nextId();
+    this.arena.scene.add(rm.f.group);
+    if (this.endless) this.endless.lives += 3;
+    rm.link.send(this._startMsg(rm));
+    this._announce(rm.f);
+    this._spawn(rm.f, this.t);
+    this.feed.unshift({ k: rm.f.name, kc: rm.f.team, v: 'joined', vc: 'bots', t: this.t, info: true });
+    this.feed.length = Math.min(this.feed.length, 5);
+    this._broadcast({ k: 'feed', e: this.feed[0] });
+    this._renderFeed();
+    this._updateScore();
+    return true;
   }
 
   // You picked another gun from the pause menu: take it now (full magazine).
@@ -570,23 +597,23 @@ export class Battle {
     this.bots.push(b); this.fighters.push(f);
     return b;
   }
-  // Endless: every ENDLESS_STEP of your kills a new wave, one more bot (up to 6) and, every
+  // Endless: every ENDLESS_STEP of your kills (online: everyone's) a new wave, one more bot (up to 6) and, every
   // other wave, a tougher level. Three lives; the run's kills are your score.
   _endlessKill(by, g, t) {
-    const E = this.endless, me = this.humans[0]?.f;
-    if (by === me && g !== me && ++E.kills % ENDLESS_STEP === 0) {
+    const E = this.endless, side = (f) => f && f.team === 'p1';   // (you and, online, every player)
+    if (side(by) && !side(g) && ++E.kills % ENDLESS_STEP === 0) {
       E.wave++;
-      const level = E.wave < 3 ? 'easy' : E.wave < 5 ? 'medium' : E.wave < 8 ? 'hard' : 'terminator';
+      const level = endlessLevel(E.wave);
       for (const b of this.bots) if (!b.mate) { b.L = LEVELS[level]; b.level = level; b.f.name = b.f.name.replace(/\(.*\)$/, '(' + LEVELS[level].name + ')'); }
       const enemies = this.bots.filter((b) => !b.mate).length;
       if (enemies < 6) {
         const b = this._newBot(enemies, level);
-        b.f.id = this.fighters.length; this.arena.scene.add(b.f.group); this._spawn(b.f, t);
+        b.f.id = this._nextId(); this.arena.scene.add(b.f.group); this._announce(b.f); this._spawn(b.f, t);
       }
       this.deps.sfx.radio?.();
       this._addComm('Endless', 'bots', 'Wave ' + E.wave + ': ' + (enemies < 6 ? 'one more bot, ' : '') + LEVELS[level].name + ' bots', t);
     }
-    if (g === me && --E.lives <= 0) {
+    if (side(g) && --E.lives <= 0) {
       E.newBest = E.kills > endlessBest();
       try { if (E.newBest) localStorage.setItem(ENDLESS_KEY, String(E.kills)); } catch { /* storage blocked */ }
       this._end('bots', by);
@@ -723,7 +750,8 @@ export class Battle {
   // Positions, health and score of everyone, ~30 times a second (newest wins).
   _sendSnapshot(t) {
     const f = this.fighters.map((g) => [g.id, r2(g.x), r2(g.z), r1(g.yaw + (g.viewDY || 0)), r1(g.pitch + (g.viewDP || 0)), r2(g.crouch), Math.ceil(Math.max(0, g.health)), g.alive ? 1 : 0, t < g.flashUntil ? 1 : 0, g.kills, g.deaths, r2(g.y), g.light ? 1 : 0, r2(g.ads || 0), g.nades ?? 2, r2(g.lean || 0), g.viewOptic || this.deps.opticFor(g.gun)?.id || 0]);
-    this._broadcast({ k: 'snap', f, s: this.teamScore, z: this.royale ? r2(this.royale.elapsed) : undefined }, true);
+    const E = this.endless;
+    this._broadcast({ k: 'snap', f, s: this.teamScore, z: this.royale ? r2(this.royale.elapsed) : undefined, e: E ? [E.wave, E.kills, E.lives] : undefined }, true);
     if (this.watchers.length) {
       const visible = spectatorVisibility(this.fighters, this.humans[0].f.team, this.arena.world);
       const view = { k: 'watchSnap', f: f.filter(row => visible.has(row[0])), s: this.teamScore };
@@ -835,6 +863,27 @@ export class Battle {
   /* ---------- network: client ---------- */
   // The host started a match: build it from the roster. You play on this PC; everyone else
   // follows the host's updates.
+  // Client: one fighter of the host's roster (at the start, or added mid-match). you: your own id.
+  _clientFighter(e, you) {
+    const d = this.deps, m = { you };
+    const f = new Fighter({ name: e.name, team: e.team, color: TEAM_COLOR[e.team] || 0xffffff, human: e.human });
+    f.id = e.id;
+    f.gun = effectiveGun(d.guns[e.gun] || d.guns[0], e.at);
+    this._look(f, f.gun, !this.viewOnly && e.id === m.you ? (d.skinOf ? d.skinOf(f.gun) : null) : skinNum(e.skin), !this.viewOnly && e.id === m.you);
+    if (e.human) f.showBar = false;
+    this.fighters.push(f);
+    this.arena.scene.add(f.group);
+    if (e.id === m.you) {
+      let h = this.humanPool[0];
+      if (!h) h = this.humanPool[0] = new Human(f, 'mouse', { ...d }, d.slotOf);
+      h.f = f; h.controls = 'mouse'; h.padIndex = -1; h.releaseAll();
+      h.setGun(f.gun);
+      f.alive = false;                     // until the host's spawn message
+      this.humans.push(h);
+    }
+    if (this.viewOnly) f.alive = false;
+    if (this.viewOnly || e.id !== m.you) this.proxies.push(new Proxy(f));
+  }
   startClient(m, link) {
     if (!this.nadesB) this.nadesB = new BattleNades(this);
     this.nadesB.reset();
@@ -854,25 +903,8 @@ export class Battle {
     this.feed = [];
     this.matchPoints = 0;
     this.noises = []; this.intelQ = []; this.comms = []; this._renderComms();
-    for (const e of m.roster) {
-      const f = new Fighter({ name: e.name, team: e.team, color: TEAM_COLOR[e.team] || 0xffffff, human: e.human });
-      f.id = e.id;
-      f.gun = effectiveGun(d.guns[e.gun] || d.guns[0], e.at);
-      this._look(f, f.gun, !this.viewOnly && e.id === m.you ? (d.skinOf ? d.skinOf(f.gun) : null) : skinNum(e.skin), !this.viewOnly && e.id === m.you);
-      if (e.human) f.showBar = false;
-      this.fighters.push(f);
-      this.arena.scene.add(f.group);
-      if (e.id === m.you) {
-        let h = this.humanPool[0];
-        if (!h) h = this.humanPool[0] = new Human(f, 'mouse', { ...d }, d.slotOf);
-        h.f = f; h.controls = 'mouse'; h.padIndex = -1; h.releaseAll();
-        h.setGun(f.gun);
-        f.alive = false;                     // until the host's spawn message
-        this.humans.push(h);
-      }
-      if (this.viewOnly) f.alive = false;
-      if (this.viewOnly || e.id !== m.you) this.proxies.push(new Proxy(f));
-    }
+    this._endlessRow = null;
+    for (const e of m.roster) this._clientFighter(e, m.you);
     this.atmo = { night: !!m.night, weather: typeof m.weather === 'string' ? m.weather : 'auto', fog: !!m.fog };
     this.arena.atm.midday = !!m.midday;
     this._setNight(this.atmo.night, this.atmo.weather, this.atmo.fog);
@@ -915,6 +947,11 @@ export class Battle {
       if (m.k === 'mats') { this.royale.materials = m.n | 0; this.royale.renderInventory(); return; }
       if (m.k === 'snap' && Number.isFinite(m.z)) this.royale.elapsed = m.z;   // (the zone keeps the host's time)
     }
+    if (m.k === 'add') {                               // someone new mid-match: a player who joined, an Endless wave's bot
+      const e = m.e;
+      if (e && Number.isInteger(e.id) && !this.fighters.some((g) => g.id === e.id)) { this._clientFighter({ ...e, name: String(e.name || '?').slice(0, 40), team: String(e.team || 'bots').slice(0, 8) }, null); this._updateScore(); }
+      return;
+    }
     if (m.k === 'snap' || m.k === 'watchSnap') {
       if (this.viewOnly) {
         const present = new Set(m.f.map(row => row[0]));
@@ -939,6 +976,9 @@ export class Battle {
       }
       let changed = false;
       for (const k of Object.keys(m.s)) if (this.teamScore[k] !== m.s[k]) { this.teamScore[k] = m.s[k]; changed = true; }
+      if (Array.isArray(m.e) && m.e.length === 3 && m.e.every(Number.isFinite) && String(m.e) !== String(this._endlessRow)) {   // (Endless online: the host's wave)
+        this._endlessRow = m.e; this.endless = { wave: m.e[0], kills: m.e[1], lives: m.e[2] }; changed = true;
+      }
       if (changed) this._updateScore();
     } else if (m.k === 'back' && me) {               // the host would not take that move: back where it has you
       const f = me.f; f.x = +m.x || 0; f.y = +m.y || 0; f.z = +m.z || 0; f.vx = f.vy = f.vz = 0; me.camY = f.y; me.vault = null;
@@ -1732,7 +1772,13 @@ export class Battle {
       this.hud.score.replaceChildren(el('span', 't-p1', 'You ' + ((me?.gg || 0) + 1) + ' / ' + N), el('span', 't-' + lead.team, 'Leader: ' + (lead === me ? 'you' : lead.name.replace(/ \(.*\)$/, '')) + ' ' + ((lead.gg || 0) + 1) + ' / ' + N), el('span', 'b-goal', 'kill with every gun to win'));
       return;
     }
-    if (E) { this.hud.score.replaceChildren(el('span', 't-p1', 'Wave ' + E.wave), el('span', 't-p1', E.kills + ' kills'), el('span', 't-bots', E.lives + (E.lives === 1 ? ' life' : ' lives')), el('span', 'b-goal', 'best ' + Math.max(endlessBest(), E.kills))); return; }
+    if (E) {
+      // what comes next: kills to the next wave, and what that wave brings
+      const left = ENDLESS_STEP - (E.kills % ENDLESS_STEP), more = this.fighters.filter((f) => !f.human).length < 6, lv = endlessLevel(E.wave + 1);
+      const next = 'Next: wave ' + (E.wave + 1) + ' in ' + left + (left === 1 ? ' kill' : ' kills') + (more ? ' · one more bot' : '') + (lv !== endlessLevel(E.wave) ? ' · ' + LEVELS[lv].name + ' bots' : '');
+      this.hud.score.replaceChildren(el('span', 't-p1', 'Wave ' + E.wave), el('span', 't-p1', E.kills + ' kills'), el('span', 't-bots', E.lives + (E.lives === 1 ? ' life' : ' lives')), el('span', 'b-goal', next), el('span', 'b-goal', 'best ' + Math.max(endlessBest(), E.kills)));
+      return;
+    }
     this.hud.score.replaceChildren(...parts.map(([n, c, s]) => el('span', 't-' + c, n + ' ' + s)), el('span', 'b-goal', 'first to ' + o.killsToWin));
   }
   _renderFeed() {

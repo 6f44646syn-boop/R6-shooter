@@ -1,6 +1,6 @@
 // Daily and weekly challenges, one of each for every mode. The same for everyone on a given
 // day / week (picked from the date), progress kept in this browser, points paid out once.
-import { mulberry32 } from './prng.js?v=7c7639f-mwu5l724';
+import { mulberry32 } from './prng.js?v=e94e41c-mwu5yowd';
 
 export const DAILY_POINTS = 60, WEEKLY_POINTS = 250;
 const MODES = { range: 'Shooting range', battle: 'Battle vs bots', endless: 'Endless', royale: 'Battle Royale', tdm: 'Team Deathmatch', ctf: 'Capture the Flag', bomb: 'Bomb' };

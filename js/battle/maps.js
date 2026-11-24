@@ -10,10 +10,10 @@
 // Each side is laid out differently.
 //
 // Everything is drawn in code (canvas textures); no image files.
-import * as THREE from '../../vendor/three/three.module.min.js?v=7c7639f-mwu5l724';
-import { concreteTiles, wallPanels, duskSky, hazardStripes } from '../scene/range-tex.js?v=7c7639f-mwu5l724';
-import { mistMap } from './mist.js?v=7c7639f-mwu5l724';
-import { mulberry32 } from '../core/prng.js?v=7c7639f-mwu5l724';
+import * as THREE from '../../vendor/three/three.module.min.js?v=e94e41c-mwu5yowd';
+import { concreteTiles, wallPanels, duskSky, hazardStripes } from '../scene/range-tex.js?v=e94e41c-mwu5yowd';
+import { mistMap } from './mist.js?v=e94e41c-mwu5yowd';
+import { mulberry32 } from '../core/prng.js?v=e94e41c-mwu5yowd';
 
 /* ---------- texture helpers ---------- */
 function canvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; }
@@ -885,6 +885,16 @@ export const MAPS = {
   },
 };
 export const MAP_IDS = Object.keys(MAPS);
+// The online lobby: a small walled room of its own (not in MAP_IDS, so never a match map), where
+// players gather, unhurt, until the host starts the match.
+MAPS.lobby = { ...MAPS.yard, name: 'Lobby', hx: 12, hz: 9, wallH: 4,
+  fixtures: () => [[-6, 3.9, 0, 0xffe0c0, 30, 14, 1], [6, 3.9, 0, 0xffe0c0, 30, 14, 1]],
+  layout: [
+    { x: 0, z: 0, w: 2.4, d: 2.4, h: 1.2, kind: 'crate' }, { x: 0, z: 0, w: 1.2, d: 1.2, h: 1.2, y: 1.2, kind: 'crate' },
+    { x: -7, z: 0, w: 0.6, d: 3, h: 1.1, kind: 'barrier' }, { x: 7, z: 0, w: 0.6, d: 3, h: 1.1, kind: 'barrier' },
+  ],
+  spawns: [[-9, 6], [-4.5, 6.5], [0, 6.5], [4.5, 6.5], [9, 6]], spawnsB: [[-9, -6], [-4.5, -6.5], [0, -6.5], [4.5, -6.5], [9, -6]],
+  extra: null };
 
 // Small versions for small fights (2 to 4 fighters, chosen in js/battle/battle.js): Winter Cabin
 // and the School Basement at their old size and layout, with the same look and lamps.

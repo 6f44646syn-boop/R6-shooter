@@ -1,76 +1,77 @@
-import { track as trackLoad } from './ui/busy.js?v=7c7639f-mwu5l724';
-import { loadPackArt } from './render/pack-art.js?v=7c7639f-mwu5l724';
-import { loadPackAnims } from './scene/weapon-anims.js?v=7c7639f-mwu5l724';
-import { packMats } from './render/pack-materials.js?v=7c7639f-mwu5l724';
-import { loadSkinSheets } from './render/skins2.js?v=7c7639f-mwu5l724';
-import { connectAudioPack } from './audio/pack-bridge.js?v=7c7639f-mwu5l724';
-import { initBombUtility, utilityFor } from './balance/bomb-utility.js?v=7c7639f-mwu5l724';
-import { createAcoustics } from './audio/acoustics.js?v=7c7639f-mwu5l724';
-import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=7c7639f-mwu5l724';
-import { mountControls, mountFirstLaunch } from './ui/m7-menu.js?v=7c7639f-mwu5l724';
+import { track as trackLoad } from './ui/busy.js?v=e94e41c-mwu5yowd';
+import { loadPackArt } from './render/pack-art.js?v=e94e41c-mwu5yowd';
+import { loadPackAnims } from './scene/weapon-anims.js?v=e94e41c-mwu5yowd';
+import { packMats } from './render/pack-materials.js?v=e94e41c-mwu5yowd';
+import { loadSkinSheets } from './render/skins2.js?v=e94e41c-mwu5yowd';
+import { connectAudioPack } from './audio/pack-bridge.js?v=e94e41c-mwu5yowd';
+import { initBombUtility, utilityFor } from './balance/bomb-utility.js?v=e94e41c-mwu5yowd';
+import { createAcoustics } from './audio/acoustics.js?v=e94e41c-mwu5yowd';
+import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=e94e41c-mwu5yowd';
+import { mountControls, mountFirstLaunch } from './ui/m7-menu.js?v=e94e41c-mwu5yowd';
 // Recoil Range entry point: wires input, camera, scene, HUD and the frame loop together.
-import * as THREE from '../vendor/three/three.module.min.js?v=7c7639f-mwu5l724';
-import { Look, PITCH_LIMIT } from './core/look.js?v=7c7639f-mwu5l724';
-import { Player } from './core/player.js?v=7c7639f-mwu5l724';
-import { PointerLock } from './core/pointer-lock.js?v=7c7639f-mwu5l724';
-import { loadSettings, saveSettings, DISTANCES, DEFAULTS } from './core/settings.js?v=7c7639f-mwu5l724';
-import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=7c7639f-mwu5l724';
-import { Weapon } from './core/weapon.js?v=7c7639f-mwu5l724';
-import { RecoilEngine } from './core/recoil.js?v=7c7639f-mwu5l724';
-import { Spread } from './core/spread.js?v=7c7639f-mwu5l724';
-import { loadGameData } from './core/guns.js?v=7c7639f-mwu5l724';
-import { initLoadout, effectiveGun, sanitize, slotIn, baseOf, SLOTS as ATTACH_SLOTS, allowed as attachAllowed, measuredCode, describe as describeAttach, hint as attachHint } from './core/loadout.js?v=7c7639f-mwu5l724';
-import { randomSeed } from './core/prng.js?v=7c7639f-mwu5l724';
-import { Range, EYE_HEIGHT } from './scene/range.js?v=7c7639f-mwu5l724';
-import { RING_STEP } from './scene/range-tex.js?v=7c7639f-mwu5l724';
-import { Gamepad, padPanel } from './ui/gamepad.js?v=7c7639f-mwu5l724';
-import { buildKeysPanel, buildKey } from './ui/build-keys.js?v=7c7639f-mwu5l724';
-import { WeaponRig, setUltraTexSize, skinName, setSkinResolver, setHiResSkins, setSkinsOff, setCharmResolver } from './scene/viewmodel.js?v=7c7639f-mwu5l724';
-import { LensPost } from './render/lens-post.js?v=7c7639f-mwu5l724';
-import { warmScene, warmBudget } from './render/warm.js?v=7c7639f-mwu5l724';
-import { addMatch, matches as pastMatches, totals as matchTotals } from './core/history.js?v=7c7639f-mwu5l724';
-import { addXp, matchXp, XP, checkIn, seasonState, rewardOf, rewardText, TIERS, XP_PER_TIER } from './core/season.js?v=7c7639f-mwu5l724';
-import { submit as submitBests, bests as myBests, BOARD } from './core/bests.js?v=7c7639f-mwu5l724';
-import { mountAccounts } from './ui/accounts-ui.js?v=7c7639f-mwu5l724';
-import { PAD_ASSIST, nearestAim, assistLook } from './core/pad-assist.js?v=7c7639f-mwu5l724';
-import { record as recordChallenge, matchStats, challengesFor, progressOf, isPaid } from './core/challenges.js?v=7c7639f-mwu5l724';
-import { reticleTextures } from './ui/reticle-tex.js?v=7c7639f-mwu5l724';
-import { DOT_POINTS } from './scene/dots.js?v=7c7639f-mwu5l724';
-import { Voices } from './audio/voice.js?v=7c7639f-mwu5l724';
-import { ModeGame } from './modes/game.js?v=7c7639f-mwu5l724';
-import { Sfx } from './audio/sfx.js?v=7c7639f-mwu5l724';
-import { DebugHud } from './ui/debug-hud.js?v=7c7639f-mwu5l724';
-import { buildHitboxes, syncFighterBoxes, RayTrail } from './scene/range-debug.js?v=7c7639f-mwu5l724';
-import { mountDev } from './ui/dev.js?v=7c7639f-mwu5l724';
-import { drawCrosshair } from './ui/crosshair.js?v=7c7639f-mwu5l724';
-import { Hud } from './ui/hud.js?v=7c7639f-mwu5l724';
-import { MagPlot } from './ui/plot.js?v=7c7639f-mwu5l724';
-import { SettingsUI } from './ui/settings-ui.js?v=7c7639f-mwu5l724';
-import { sensKeys, zoomKey } from './core/optics.js?v=7c7639f-mwu5l724';
+import * as THREE from '../vendor/three/three.module.min.js?v=e94e41c-mwu5yowd';
+import { Look, PITCH_LIMIT } from './core/look.js?v=e94e41c-mwu5yowd';
+import { Player } from './core/player.js?v=e94e41c-mwu5yowd';
+import { PointerLock } from './core/pointer-lock.js?v=e94e41c-mwu5yowd';
+import { loadSettings, saveSettings, DISTANCES, DEFAULTS } from './core/settings.js?v=e94e41c-mwu5yowd';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=e94e41c-mwu5yowd';
+import { Weapon } from './core/weapon.js?v=e94e41c-mwu5yowd';
+import { RecoilEngine } from './core/recoil.js?v=e94e41c-mwu5yowd';
+import { Spread } from './core/spread.js?v=e94e41c-mwu5yowd';
+import { loadGameData } from './core/guns.js?v=e94e41c-mwu5yowd';
+import { initLoadout, effectiveGun, sanitize, slotIn, baseOf, SLOTS as ATTACH_SLOTS, allowed as attachAllowed, measuredCode, describe as describeAttach, hint as attachHint } from './core/loadout.js?v=e94e41c-mwu5yowd';
+import { randomSeed } from './core/prng.js?v=e94e41c-mwu5yowd';
+import { Range, EYE_HEIGHT } from './scene/range.js?v=e94e41c-mwu5yowd';
+import { RING_STEP } from './scene/range-tex.js?v=e94e41c-mwu5yowd';
+import { Gamepad, padPanel } from './ui/gamepad.js?v=e94e41c-mwu5yowd';
+import { buildKeysPanel, buildKey } from './ui/build-keys.js?v=e94e41c-mwu5yowd';
+import { WeaponRig, setUltraTexSize, skinName, setSkinResolver, setHiResSkins, setSkinsOff, setCharmResolver } from './scene/viewmodel.js?v=e94e41c-mwu5yowd';
+import { LensPost } from './render/lens-post.js?v=e94e41c-mwu5yowd';
+import { warmScene, warmBudget } from './render/warm.js?v=e94e41c-mwu5yowd';
+import { addMatch, matches as pastMatches, totals as matchTotals } from './core/history.js?v=e94e41c-mwu5yowd';
+import { addXp, matchXp, XP, checkIn, seasonState, rewardOf, rewardText, TIERS, XP_PER_TIER } from './core/season.js?v=e94e41c-mwu5yowd';
+import { submit as submitBests, bests as myBests, BOARD } from './core/bests.js?v=e94e41c-mwu5yowd';
+import { mountAccounts } from './ui/accounts-ui.js?v=e94e41c-mwu5yowd';
+import { PAD_ASSIST, nearestAim, assistLook } from './core/pad-assist.js?v=e94e41c-mwu5yowd';
+import { record as recordChallenge, matchStats, challengesFor, progressOf, isPaid } from './core/challenges.js?v=e94e41c-mwu5yowd';
+import { reticleTextures } from './ui/reticle-tex.js?v=e94e41c-mwu5yowd';
+import { DOT_POINTS } from './scene/dots.js?v=e94e41c-mwu5yowd';
+import { Voices } from './audio/voice.js?v=e94e41c-mwu5yowd';
+import { ModeGame } from './modes/game.js?v=e94e41c-mwu5yowd';
+import { Sfx } from './audio/sfx.js?v=e94e41c-mwu5yowd';
+import { Captions } from './ui/captions.js?v=e94e41c-mwu5yowd';
+import { DebugHud } from './ui/debug-hud.js?v=e94e41c-mwu5yowd';
+import { buildHitboxes, syncFighterBoxes, RayTrail } from './scene/range-debug.js?v=e94e41c-mwu5yowd';
+import { mountDev } from './ui/dev.js?v=e94e41c-mwu5yowd';
+import { drawCrosshair } from './ui/crosshair.js?v=e94e41c-mwu5yowd';
+import { Hud } from './ui/hud.js?v=e94e41c-mwu5yowd';
+import { MagPlot } from './ui/plot.js?v=e94e41c-mwu5yowd';
+import { SettingsUI } from './ui/settings-ui.js?v=e94e41c-mwu5yowd';
+import { sensKeys, zoomKey } from './core/optics.js?v=e94e41c-mwu5yowd';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
 function sensRows(catalogue, sens) {
   const keys = new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)]);
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
-import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=7c7639f-mwu5l724';
-import { Battle } from './battle/battle.js?v=7c7639f-mwu5l724';
-import { setOutlineColors } from './battle/fighter.js?v=7c7639f-mwu5l724';
-import { initCore, coreLoaded } from './wasm/core.js?v=7c7639f-mwu5l724';
-import { createJoinRequest, acceptJoin } from './net/link.js?v=7c7639f-mwu5l724';
-import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt } from './net/relay.js?v=7c7639f-mwu5l724';
-import { Profile, WIN_POINTS } from './core/profile.js?v=7c7639f-mwu5l724';
-import { skinFits, skinById, CATALOGUE } from './core/skins.js?v=7c7639f-mwu5l724';
-import { currentAccount } from './core/accounts.js?v=7c7639f-mwu5l724';
-import { CHARMS } from './core/charms.js?v=7c7639f-mwu5l724';
-import { gunDamage } from './battle/fighter.js?v=7c7639f-mwu5l724';
-import { PackUI } from './ui/packs.js?v=7c7639f-mwu5l724';
-import { HDPack, SkinPack } from './render/hd-pack.js?v=7c7639f-mwu5l724';
-import { effectiveGraphics, needsPack, maxMode } from './render/quality.js?v=7c7639f-mwu5l724';
-import { GraphicsUI } from './ui/graphics-ui.js?v=7c7639f-mwu5l724';
-import { PerfHud } from './ui/perf-hud.js?v=7c7639f-mwu5l724';
-import { WorldPost } from './render/world-post.js?v=7c7639f-mwu5l724';
-import { rankOf, rankedSummary, ratingOf, rankedChange, validRankedTicket, verifyRankedResult } from './core/ranked.js?v=7c7639f-mwu5l724';
+import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=e94e41c-mwu5yowd';
+import { Battle } from './battle/battle.js?v=e94e41c-mwu5yowd';
+import { setOutlineColors } from './battle/fighter.js?v=e94e41c-mwu5yowd';
+import { initCore, coreLoaded } from './wasm/core.js?v=e94e41c-mwu5yowd';
+import { createJoinRequest, acceptJoin } from './net/link.js?v=e94e41c-mwu5yowd';
+import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt } from './net/relay.js?v=e94e41c-mwu5yowd';
+import { Profile, WIN_POINTS } from './core/profile.js?v=e94e41c-mwu5yowd';
+import { skinFits, skinById, CATALOGUE } from './core/skins.js?v=e94e41c-mwu5yowd';
+import { currentAccount } from './core/accounts.js?v=e94e41c-mwu5yowd';
+import { CHARMS } from './core/charms.js?v=e94e41c-mwu5yowd';
+import { gunDamage } from './battle/fighter.js?v=e94e41c-mwu5yowd';
+import { PackUI } from './ui/packs.js?v=e94e41c-mwu5yowd';
+import { HDPack, SkinPack } from './render/hd-pack.js?v=e94e41c-mwu5yowd';
+import { effectiveGraphics, needsPack, maxMode } from './render/quality.js?v=e94e41c-mwu5yowd';
+import { GraphicsUI } from './ui/graphics-ui.js?v=e94e41c-mwu5yowd';
+import { PerfHud } from './ui/perf-hud.js?v=e94e41c-mwu5yowd';
+import { WorldPost } from './render/world-post.js?v=e94e41c-mwu5yowd';
+import { rankOf, rankedSummary, ratingOf, rankedChange, validRankedTicket, verifyRankedResult } from './core/ranked.js?v=e94e41c-mwu5yowd';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -216,6 +217,7 @@ async function boot(data) {
   let testNoPost = false;
   const dots = range.dots;
   const sfx = new Sfx(acoustics);
+  { const captions = new Captions(document.getElementById('app')); sfx.onCue = (kind, source, camera) => captions.add(kind, source, camera); }   // (volume under 20%: sounds on screen)
   rig.onInspect = () => {};   // (no inspect sounds: gunshots are the only game sounds)
   const audioPack = connectAudioPack(HDPack, sfx);
   sfx.spatialAudio = settings.spatialAudio;
@@ -1205,13 +1207,14 @@ async function boot(data) {
     loadingCover();
     controls.release();
     const netRoyale = !lobby && settings.battle.opponent === 'net' && net.role === 'host' && flow.mode === 'net' && netMode() === 'royale';   // (Battle Royale online)
-    const royale = flow.mode === 'royale' || netRoyale, endless = flow.mode === 'endless', gungame = flow.mode === 'gungame';
-    const B = (royale && !netRoyale) || endless || gungame ? { ...settings.battle, opponent: 'bots' } : settings.battle;
+    const netEndless = !lobby && settings.battle.opponent === 'net' && net.role === 'host' && flow.mode === 'net' && netMode() === 'endless';
+    const royale = flow.mode === 'royale' || netRoyale, endless = flow.mode === 'endless' || netEndless, gungame = flow.mode === 'gungame';
+    const B = (royale && !netRoyale) || (endless && !netEndless) || gungame ? { ...settings.battle, opponent: 'bots' } : settings.battle;
     if (!royale && !endless && B.opponent === 'bots' && B.bots < 1) { flashNotice('Choose at least one bot.'); return; }
     if (B.opponent === 'net') {
       if (net.role === 'client') { flashNotice('Only the host can start a network battle.'); return; }
       if (net.peers.some(peer => !peer.ready)) { flashNotice('Wait for everyone to finish joining.'); return; }
-      if (!lobby && net.role === 'host' && netMode() !== 'battle' && netMode() !== 'royale') {
+      if (!lobby && net.role === 'host' && !['battle', 'royale', 'endless'].includes(netMode())) {
         if (!net.peers.length) { flashNotice('Wait for at least one player to join first.'); return; }
         const mode = netMode(), ranked = mode === 'bomb' && $('net-ranked').checked;
         const peers = net.peers.map(e => ({ link: e.link, name: e.name, op: e.ops?.[mode], side: e.side,
@@ -1220,7 +1223,7 @@ async function boot(data) {
         startMode(mode, { ranked, net: { hostName: 'Host', rating: profile.rating, peers } }).then(() => netUi());   // (leaves the lobby without telling the players: they go straight in)
         return;
       }
-      if (net.role !== 'host' || (!lobby && !net.peers.length && B.bots < 1)) { flashNotice('Host a game and connect at least one player (or add bots) first.'); return; }
+      if (net.role !== 'host' || (!lobby && !endless && !net.peers.length && B.bots < 1)) { flashNotice('Host a game and connect at least one player (or add bots) first.'); return; }
     }
     if (!battle) {
       battle = new Battle(battleDeps());
@@ -1433,7 +1436,8 @@ async function boot(data) {
           entry.ready = true;
           entry.spectator = m.spectator === true;
           entry.rating = ratingOf(m.rating);
-          if (lobbyOpen() && net.role === 'host') setTimeout(() => { if (lobbyOpen() && !net.peers.some((e) => !e.ready)) startBattle(); }, 0);   // the lobby again, with them in
+          // in at once: the lobby or a running Battle / Endless (Battle Royale and the team matches: at the next lobby)
+          if (!entry.spectator && battle?.active && cur() === battle) battle.join({ link, name: entry.name, gunIndex: Math.min(data.guns.length - 1, Math.max(0, m.gun | 0)), attach: typeof m.at === 'string' ? m.at.slice(0, 4) : null, skin: Number.isInteger(m.skin) ? m.skin : null });
         }
         entry.gunIndex = Math.min(data.guns.length - 1, Math.max(0, m.gun | 0)); entry.skin = Number.isInteger(m.skin) ? m.skin : null; entry.attach = typeof m.at === 'string' ? m.at.slice(0, 4) : null;
         // for the match modes: their operator per mode, Bomb side, and attachments per gun
@@ -1651,7 +1655,7 @@ async function boot(data) {
     // steps: 1 controls, 2 graphics (a dialog), 3 settings, 4 packs, 5 mode (and its match options), 6 weapon / operator
     const step = flow.inGame && name !== 'controls' ? 0 : name === 'controls' ? 1 : name === 'setup' && flow.settingsOnly || name === 'quick' ? 3 : name === 'shop' ? 4 : name === 'mode' || name === 'setup' && !flow.setupFromPause ? 5 : name === 'ops' ? 6 : 0;
     $('pause-loadout').hidden = MATCH_MODES.includes(flow.mode) || flow.mode === 'royale';
-    $('pause-go').hidden = !(lobbyOpen() && net.role === 'host');
+    $('pause-go').hidden = $('pause-match').hidden = !(lobbyOpen() && net.role === 'host');
     $('clear-btn').hidden = flow.mode !== 'range';          // a range tool (and C is vault everywhere else)
     $('menu').querySelector('.steps').hidden = !step || name === 'mode';
     // Pick game has its own tabs; a game's own settings show nothing above them but a Back button
@@ -1660,7 +1664,7 @@ async function boot(data) {
     $('menu').querySelector('.menu-head').hidden = matchOptions;
     $('setup-back-top').hidden = true; $('setup-back').hidden = false;   // (Back bottom left, Next bottom right)
     for (const sp of $('menu').querySelectorAll('.steps button')) { sp.classList.toggle('on', Number(sp.dataset.step) === step); sp.classList.toggle('done', Number(sp.dataset.step) < step); }
-    const names = { range: 'Shooting range', bots: 'Battle vs bots', ffa: 'Free for all', gungame: 'Gun Game', endless: 'Endless', royale: 'Battle Royale', net: { bomb: 'Bomb online', royale: 'Battle Royale online' }[netMode()] || 'Network battle', tdm: 'Team Deathmatch', ctf: 'Capture the Flag', bomb: 'Bomb' };
+    const names = { range: 'Shooting range', bots: 'Battle vs bots', ffa: 'Free for all', gungame: 'Gun Game', endless: 'Endless', royale: 'Battle Royale', net: { bomb: 'Bomb online', royale: 'Battle Royale online', endless: 'Endless online' }[netMode()] || 'Network battle', tdm: 'Team Deathmatch', ctf: 'Capture the Flag', bomb: 'Bomb' };
     $('menu-crumbs').textContent = name === 'mode' ? 'Choose a mode' : name === 'pause' ? names[flow.mode] + ' (paused)' :
       name === 'setup' ? (flow.settingsOnly ? 'Settings' : names[flow.mode] + ': match options') : name === 'ops' ? names[flow.mode] + ': operator' : name === 'packs' ? 'Skins' : name === 'shop' ? 'Packs' : name === 'quick' ? 'Quick setup' : name === 'season' ? 'Season pass' : name === 'stats' ? 'Player stats' : name === 'save' ? 'Save code' : name === 'board' ? 'Leaderboards' : 'Controls';
     document.querySelectorAll('[aria-label="Main menu"] button').forEach(b=>b.setAttribute('aria-current', b.id === ({mode:'go-play',pause:'go-play',setup:flow.settingsOnly ? 'go-settings' : 'go-play',controls:'go-controls',packs:'go-packs',shop:'go-shop'}[name]) ? 'page' : 'false'));
@@ -1674,11 +1678,9 @@ async function boot(data) {
       $('range-setup').hidden = flow.mode !== 'range';
       $('battle-setup').hidden = flow.mode === 'range' || MATCH_MODES.includes(modeOf());
       royaleFields();
-      $('b-kills-field').hidden ||= flow.mode === 'endless' || flow.mode === 'gungame';
+      $('b-kills-field').hidden ||= isEndless() || flow.mode === 'gungame';
       $('gungame-rules').hidden = flow.mode !== 'gungame';
-      $('b-bots-field').hidden ||= flow.mode === 'endless';
-      $('b-level').closest('label').hidden = flow.mode === 'endless';
-      $('endless-rules').hidden = flow.mode !== 'endless';
+
       $('b-mates-field').hidden = flow.mode !== 'bots' || !!settings.battle.ranked;   // (ranked is you alone against the bots)
       $('b-rank-field').hidden = true;                   // (Ranked is its own card under Pick game)
       $('royale-rules').hidden = flow.mode !== 'royale';
@@ -1689,7 +1691,7 @@ async function boot(data) {
       selectSetupTab(flow.settingsOnly ? 1 : 0);
       $('setup-next').hidden = flow.settingsOnly;   // Settings: no Next, the x closes it
       if (flow.settingsOnly && graphicsUI && $('gfx').hidden) graphicsUI.mountInline(settingsUI.gfxPanel);   // Settings > Graphics
-      $('setup-next').textContent = flow.settingsOnly ? (flow.inGame ? 'Done' : 'Next: packs') : flow.setupFromPause ? 'Back to the game' : flow.mode === 'royale' ? 'Deploy' : MATCH_MODES.includes(flow.mode) ? 'Next: choose your operator' : flow.mode === 'range' ? 'Deploy to the range' : flow.mode === 'net' ? (net.role === 'client' ? 'Ready' : 'Open the lobby') : 'Deploy';
+      $('setup-next').textContent = flow.settingsOnly ? (flow.inGame ? 'Done' : 'Next: packs') : flow.setupFromPause ? (lobbyOpen() ? 'Back to the lobby' : 'Back to the game') : flow.mode === 'royale' ? 'Deploy' : MATCH_MODES.includes(flow.mode) ? 'Next: choose your operator' : flow.mode === 'range' ? 'Deploy to the range' : flow.mode === 'net' ? (net.role === 'client' ? 'Ready' : 'Open the lobby') : 'Deploy';
       $('setup-next').dataset.end = $('setup-next').textContent;
       if (netInit) netUi();
       choiceUi();
@@ -1709,15 +1711,19 @@ async function boot(data) {
   };
   var CHOICE_PAGES = ['where', 'who', 'rules'];
   var choicePage = 'where';
+  function isEndless() { return flow.mode === 'endless' || (flow.mode === 'net' && netMode() === 'endless'); }
   function isRoyale() { return flow.mode === 'royale' || (flow.mode === 'net' && netMode() === 'royale'); }
   // Battle Royale (offline and online) asks one thing: the bots' level. Its island, weather, size and win are fixed.
   function royaleFields() {
     const r = isRoyale();
     for (const id of ['b-map', 'b-time', 'b-weather', 'b-fog', 'b-voices', 'b-bots', 'b-kills']) $(id).closest('label').hidden = r;
+    const e = isEndless();                                             // (Endless: the waves set the bots and there is no kill target)
+    if (e) for (const id of ['b-bots', 'b-kills']) $(id).closest('label').hidden = true;
+    $('b-level').closest('label').hidden = e; $('endless-rules').hidden = !e;
     $('b-rmap-field').hidden = !r;                                     // (which island)
     $('b-rtime-field').hidden = !r;                                    // (dusk, midday or night)
     // the Free for all switch: every game but Bomb and Battle Royale (the Free for all card is always on)
-    $('b-ffa-field').hidden = !(['bots', 'gungame', 'endless'].includes(flow.mode) || (flow.mode === 'net' && ['battle', 'tdm', 'ctf'].includes(netMode())));
+    $('b-ffa-field').hidden = !(['bots', 'gungame', 'endless'].includes(flow.mode) || (flow.mode === 'net' && ['battle', 'endless', 'tdm', 'ctf'].includes(netMode())));
     $('md-ffa-field').hidden = !['tdm', 'ctf'].includes(modeOf());
   }
   const weatherHere = () => !isRoyale() && (!!document.querySelector('#battle-setup:not([hidden]) #b-weather') || flow.mode === 'tdm' || flow.mode === 'ctf' || flow.mode === 'bomb');
@@ -1782,17 +1788,17 @@ async function boot(data) {
     }
     root.replaceChildren(page);
     const last = pages.indexOf(choicePage === 'weather' ? 'where' : choicePage) >= pages.length - 1;
-    if (!flow.settingsOnly && !flow.setupFromPause) $('setup-next').textContent = last ? $('setup-next').dataset.end || 'Next' : 'Next';
+    if (!flow.settingsOnly && !(flow.setupFromPause && !lobbyOpen())) $('setup-next').textContent = last ? $('setup-next').dataset.end || 'Next' : 'Next';
   }
   // Back and Next walk the pages first (the weather page goes back to the maps); at the ends they leave or start.
   function choiceAdvance() {
-    if (flow.settingsOnly || flow.setupFromPause || $('choice-root')?.hidden !== false) return false;
+    if (flow.settingsOnly || (flow.setupFromPause && !lobbyOpen()) || $('choice-root')?.hidden !== false) return false;
     const pages = choicePages(), i = pages.indexOf(choicePage === 'weather' ? 'where' : choicePage);
     if (i < 0 || i >= pages.length - 1) return false;
     choicePage = pages[i + 1]; choiceUi(); $('page-setup').scrollTop = 0; return true;
   }
   function choiceBack() {
-    if (flow.settingsOnly || flow.setupFromPause || $('choice-root')?.hidden !== false) return false;
+    if (flow.settingsOnly || (flow.setupFromPause && !lobbyOpen()) || $('choice-root')?.hidden !== false) return false;
     if (choicePage === 'weather') { choicePage = 'where'; choiceUi(); return true; }
     const pages = choicePages(), i = pages.indexOf(choicePage);
     if (i <= 0) return false;
@@ -1959,6 +1965,7 @@ async function boot(data) {
   $('pause-graphics').addEventListener('click', () => pauseSettings(7));   // Settings > Graphics
   $('pause-loadout').addEventListener('click', () => openArmory('pause'));
   $('pause-go').addEventListener('click', () => startBattle(true));
+  $('pause-match').addEventListener('click', () => { flow.settingsOnly = false; flow.setupFromPause = true; choicePage = 'where'; showPage('setup'); });   // (the lobby: the next match's settings, page by page)
   $('pause-quit').addEventListener('click', () => { if (cur() && cur().active) leaveBattle(); flow.inGame = false; showPage('mode'); });
 
   /* ---------- match modes: settings and operator select ---------- */
@@ -2006,19 +2013,20 @@ async function boot(data) {
   // Network lobby (host): which game to play online, and its map. Team size, bot level,
   // abilities and time come from that mode's own settings.
   var netModeVal = (() => { try { return localStorage.getItem('recoil-range-net-mode') || 'battle'; } catch (e) { return 'battle'; } })();
-  function netMode() { return ['battle', 'royale', 'tdm', 'ctf', 'bomb'].includes(netModeVal) ? netModeVal : 'battle'; }
+  function netMode() { return ['battle', 'royale', 'endless', 'tdm', 'ctf', 'bomb'].includes(netModeVal) ? netModeVal : 'battle'; }
   function netGameUi() {
     const m = netMode(), P = modePrefs;
     $('net-mode').value = m;
     $('net-ranked-field').hidden = m !== 'bomb';
-    $('net-map-field').hidden = m === 'battle' || m === 'royale' || m === 'bomb';   // (Bomb: the map is the first of Bomb's questions above)
-    if (flow.page === 'setup' && flow.mode === 'net') { royaleFields(); $('setup-title').textContent = { bomb: 'Bomb online', royale: 'Battle Royale online' }[m] || 'Network battle'; $('battle-setup').hidden = m === 'bomb'; $('modes-setup').hidden = m !== 'bomb'; if (m === 'bomb') modesUi(); }
-    if (m !== 'battle' && m !== 'royale') {
+    $('net-map-field').hidden = m === 'battle' || m === 'royale' || m === 'endless' || m === 'bomb';   // (Bomb: the map is the first of Bomb's questions above)
+    if (flow.page === 'setup' && flow.mode === 'net') { royaleFields(); $('setup-title').textContent = { bomb: 'Bomb online', royale: 'Battle Royale online', endless: 'Endless online' }[m] || 'Network battle'; $('battle-setup').hidden = m === 'bomb'; $('modes-setup').hidden = m !== 'bomb'; if (m === 'bomb') modesUi(); }
+    if (m !== 'battle' && m !== 'royale' && m !== 'endless') {
       const maps = m === 'bomb' ? ['ranch', 'embassy', 'workshop'] : ['containers', 'winter', 'casino', 'school', 'yard', 'mist'];
       $('net-map').replaceChildren(...maps.map((id) => { const o = document.createElement('option'); o.value = id; o.textContent = MAP_NAMES[id]; return o; }));
       $('net-map').value = maps.includes(P.map[m]) ? P.map[m] : maps[0];
     }
     $('net-game-note').textContent = m === 'battle' ? 'Everyone for themselves on the Battle map above.' :
+      m === 'endless' ? 'Everyone together against waves of bots that never stop, on the map above. Every player brings 3 lives to a shared pool; anyone\'s kills bring the next wave.' :
       m === 'royale' ? 'Blacktide Island: everyone drops in, bots fill the rest of the 21 places. Loot chests, build, outlast the zone. Editing builds works offline only.' :
       m === 'bomb' && $('net-ranked').checked ? 'Local Elo with your Bomb settings above; bots fill the empty places, so it can start with just you. The host confirms results.' :
       'Players join teams' + (m === 'bomb' ? ' (each on the side they chose in Bomb\'s setup, if there is room)' : '') + '; bots fill the empty places. Team size, bot level' + (m === 'bomb' ? ', preparation time' : ', time') + ' and abilities are the ones set for this mode in its own settings. Each player uses the operator they last picked for it.';

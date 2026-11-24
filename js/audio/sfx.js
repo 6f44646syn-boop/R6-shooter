@@ -1,9 +1,10 @@
-import { Hearing } from './hearing.js?v=7c7639f-mwu5l724';
-import { decodeAudioPack } from './audio-pack.js?v=7c7639f-mwu5l724';
+import { Hearing } from './hearing.js?v=e94e41c-mwu5yowd';
+import { decodeAudioPack } from './audio-pack.js?v=e94e41c-mwu5yowd';
 // WebAudio output only: sound propagation, surface profiles and step cadence are Rust-owned.
-import { cameraPose } from './acoustics.js?v=7c7639f-mwu5l724';
+import { cameraPose } from './acoustics.js?v=e94e41c-mwu5yowd';
 const clamp = (v, lo, hi) =>
   Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo;
+export const CUE_BELOW = 0.2;   // master volume under this: sounds also show as captions
 export class Sfx {
   constructor(acoustics = null) {
     this.acoustics = acoustics;
@@ -67,13 +68,16 @@ export class Sfx {
   locate(kind, source, camera, geometry, arena = null, options = {}) {
     const p = cameraPose(camera);
     this.listen(camera);
-    return this.acoustics.locate(kind, source, p, geometry, arena, {
+    const w = this.acoustics.locate(kind, source, p, geometry, arena, {
       ...options,
       trace: !!this.ctx && this.volume > 0,
     });
+    // Volume under 20%: the sound is shown on screen too (onCue: the captions at the bottom)
+    if (this.onCue && this.volume < CUE_BELOW && w && w.gain > 0.01) this.onCue(kind, source, camera);
+    return w;
   }
   observeSteps(actors, camera, geometry, time, arena = null, ownId = null) {
-    if (!this.ctx || this.volume <= 0 || !this.acoustics || !camera) return;
+    if (!this.ctx || (this.volume <= 0 && !this.onCue) || !this.acoustics || !camera) return;   // (silent: still shown as captions)
     this.listen(camera);
     this.acoustics.configure(geometry, arena);
     const team = actors.find((a) => a.id === ownId)?.team;
@@ -100,12 +104,12 @@ export class Sfx {
     }
   }
   stepAt(source, camera, geometry, arena, noiseRange, teammate = false) {
-    if (!this.footsteps) return null;            // footstep sounds are a setting (off by default)
+    if (!this.footsteps && !(this.onCue && this.volume < CUE_BELOW)) return null;   // footstep sounds are a setting (off by default; captions show them anyway)
     const w = this.locate('step', source, camera, geometry, arena, {
       reach: this.acoustics.e.ma_reach(noiseRange),
       teammate,
     });
-    this.step(w.gain, w.route, w.muffle, w.step);
+    if (this.footsteps) this.step(w.gain, w.route, w.muffle, w.step);
     return w;
   }
   _dispose(v) {

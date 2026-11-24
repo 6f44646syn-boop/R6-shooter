@@ -1,4 +1,4 @@
-import * as THREE from '../../vendor/three/three.module.min.js?v=7c7639f-mwu5l724';
+import * as THREE from '../../vendor/three/three.module.min.js?v=e94e41c-mwu5yowd';
 
 const DEG = Math.PI / 180;
 const movement = { KeyW: 'forward', KeyS: 'back', KeyA: 'left', KeyD: 'right', ShiftLeft: 'fast', Space: 'up', KeyC: 'down' };

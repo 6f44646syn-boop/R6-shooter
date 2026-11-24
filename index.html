@@ -15,7 +15,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Recoil Range</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="css/style.css?v=7c7639f-mwu5l724">
+<link rel="stylesheet" href="css/style.css?v=e94e41c-mwu5yowd">
 </head>
 <body>
 <div id="boot-screen" role="status" style="position:fixed;inset:0;z-index:2147483000;background:#000;color:#c9d1db;display:grid;place-items:center;font:600 16px/1 system-ui,sans-serif;letter-spacing:0.3em;cursor:none">LOADING…</div>
@@ -155,6 +155,7 @@
         <div class="pause-grid">
           <button id="start-btn" type="button" class="primary">Resume</button>
           <button id="pause-go" type="button" class="primary" hidden>Start the match (Enter)</button>
+          <button id="pause-match" type="button" hidden>Match settings</button>
           <button id="pause-loadout" type="button">Change weapon</button>
           <button id="pause-settings" type="button">Settings</button>
           <button id="pause-graphics" type="button">Graphics</button>
@@ -227,7 +228,7 @@
             </div>
             <div id="net-game-box" class="set-grid" hidden>
               <label class="field" for="net-mode"><span>Game</span>
-                <select id="net-mode"><option value="battle">Battle (everyone for themselves)</option><option value="royale">Battle Royale</option><option value="tdm">Team Deathmatch</option><option value="ctf">Capture the Flag</option><option value="bomb">Bomb</option></select></label>
+                <select id="net-mode"><option value="battle">Battle (everyone for themselves)</option><option value="royale">Battle Royale</option><option value="endless">Endless (everyone together against the waves)</option><option value="tdm">Team Deathmatch</option><option value="ctf">Capture the Flag</option><option value="bomb">Bomb</option></select></label>
               <label class="field" for="net-map" id="net-map-field"><span>Map</span><select id="net-map"></select></label>
               <label id="net-ranked-field" class="field" hidden><span>Ranked Bomb</span>
                 <input id="net-ranked" type="checkbox">
@@ -441,6 +442,6 @@
     </div>
   </div>
 </div>
-<script type="module" src="js/main.js?v=7c7639f-mwu5l724"></script>
+<script type="module" src="js/main.js?v=e94e41c-mwu5yowd"></script>
 </body>
 </html>
