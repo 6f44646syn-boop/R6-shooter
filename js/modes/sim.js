@@ -28,7 +28,7 @@ export const KNIFE = { range: 1.7, cone: 50, damage: 60, back: 200, door: 100, e
 // Bot skill by difficulty.
 export const SKILL = {
   easy: { name: 'Easy', reaction: 0.45, err: 3.2, turn: 200, burst: [3, 5], pause: 0.55, head: 0.1, strafe: 0.2 },
-  normal: { name: 'Normal', reaction: 0.3, err: 2.0, turn: 320, burst: [4, 8], pause: 0.35, head: 0.2, strafe: 0.5 },
+  normal: { name: 'Normal', reaction: 0.38, err: 2.5, turn: 270, burst: [4, 7], pause: 0.45, head: 0.14, strafe: 0.4 },
   hard: { name: 'Hard', reaction: 0.18, err: 1.1, turn: 480, burst: [6, 12], pause: 0.22, head: 0.35, strafe: 0.9 },
   terminator: { name: 'Terminator', reaction: 0.12, err: 0.55, turn: 720, burst: [10, 18], pause: 0.12, head: 0.6, strafe: 1 },
 };

@@ -113,7 +113,7 @@ export class SettingsUI {
         this.select('set-pad-assist', 'Controller aim assist', [['off', 'Off'], ['light', 'Light'], ['standard', 'Standard']], () => this.s.padAssist, (v) => { this.s.padAssist = v; }, 'assist'),
         this.range('set-assist', 'Range training aim assist (offline only)', { min: 0, max: 1, step: 0.05, fmt: (v) => v === 0 ? 'off' : Math.round(v * 100) + '%' }, () => this.s.aimAssist, (v) => { this.s.aimAssist = v; }, 'assist'),
       ),
-      this.derived);
+      el('details', { class: 'derived-box' }, el('summary', { text: 'Show the numbers (cm / 360, counts, degrees)' }), this.derived));   // (folded: most players never need them)
 
     /* ADS multipliers: one row per magnification used in data/optics.json */
     const tbody = el('tbody');

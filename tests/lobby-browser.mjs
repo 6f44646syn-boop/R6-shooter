@@ -83,8 +83,8 @@ for (const mode of ['battle', 'tdm']) {
   // the player's kills bring the next wave; the new bot appears on the player's PC too
   for (let k = 0; k < 4; k++) await A.evaluate(() => { const b = window.__range.battle(), bot = b.bots[0].f, by = b.remotes[0].f; bot.protectUntil = 0; b._damage(bot, 999, by, 'head', b.t); b._spawn(bot, b.t); });
   await run(0.5);
-  const w = await B.evaluate(() => { const b = window.__range.battle(); return { fighters: b.fighters.length, hud: b.hud.score.textContent }; });
-  check('Endless online: the wave comes on both PCs, with what comes next on screen', w.fighters === 4 && /Wave 2/.test(w.hud) && /Next: wave 3 in 4 kills/.test(w.hud), JSON.stringify(w));
+  const w = await B.evaluate(() => { const b = window.__range.battle(), p = document.querySelector('.b-popup'); return { fighters: b.fighters.length, hud: b.hud.score.textContent, pop: p?.classList.contains('on') ? p.textContent : '' }; });
+  check('Endless online: the wave comes on both PCs, with a big pop-up of what comes next', w.fighters === 4 && /Wave 2/.test(w.hud) && /^Wave 2Next wave in 4 kills/i.test(w.pop), JSON.stringify(w));
   await A.evaluate(() => window.__range.battleLeave());
 }
 // Free for all offline: every bot is its own side and they fight each other
@@ -103,7 +103,10 @@ for (const mode of ['battle', 'tdm']) {
   let cue = '';
   for (let i = 0; i < 30 && !cue; i++) cue = await A.evaluate(() => { window.__range.step(0.5, 30); const c = document.querySelector('.captions'); return c && !c.hidden ? c.textContent : ''; });
   await A.evaluate(() => window.__range.audio.setVolume(0.5));
-  check('captions: under 20% volume, sounds show with their direction', /(Gunshot|Footsteps|Explosion).*(ahead|behind|left|right)/.test(cue), cue);
+  check('captions: under 20% volume, sounds show grouped with their direction and distance', /(Gunshot|footsteps|Explosion).*(ahead|behind|left|right) · (close|far)/i.test(cue), cue);
+  // the save code is on the Skins page too
+  const save = await A.evaluate(() => { document.getElementById('go-packs').click(); return !!document.querySelector('#packs-save .pk-save') && !document.getElementById('page-packs').hidden; });
+  check('the save code box is on the Skins page', save);
 }
 check('no page errors', !nerr.length, nerr.join('\n'));
 await browser.close(); server.close?.();

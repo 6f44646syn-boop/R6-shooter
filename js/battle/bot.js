@@ -18,7 +18,7 @@ import { mulberry32 } from '../core/prng.js?v=e94e41c-mwu5yowd';
 // (tracking rate, 1/s), tremor (hand shake, deg).
 export const LEVELS = {
   easy: { name: 'Easy', reaction: 0.7, err: 1.9, turn: 120, control: 0.35, burst: [3, 5], pause: 0.75, head: 0.05, strafe: 0, cover: false, cone: 110, speed: 2.6, motor: 1.5, flick: 3, pursuit: 5, tremor: 0.22 },
-  medium: { name: 'Medium', reaction: 0.5, err: 1.3, turn: 220, control: 0.65, burst: [5, 9], pause: 0.45, head: 0.2, strafe: 0.5, cover: true, cone: 140, speed: 3.0, motor: 1.15, flick: 2.2, pursuit: 8, tremor: 0.14 },
+  medium: { name: 'Medium', reaction: 0.62, err: 1.65, turn: 180, control: 0.55, burst: [4, 7], pause: 0.6, head: 0.12, strafe: 0.5, cover: true, cone: 140, speed: 3.0, motor: 1.15, flick: 2.2, pursuit: 8, tremor: 0.14 },
   hard: { name: 'Hard', reaction: 0.3, err: 0.6, turn: 400, control: 0.85, burst: [6, 12], pause: 0.3, head: 0.45, strafe: 1, cover: true, cone: 170, speed: 3.4, motor: 0.85, flick: 1.5, pursuit: 12, tremor: 0.09 },
   terminator: { name: 'Terminator', reaction: 0.17, err: 0.22, turn: 600, control: 0.97, burst: [12, 22], pause: 0.12, head: 0.75, strafe: 1, cover: true, cone: 210, speed: 3.9, motor: 0.55, flick: 0.9, pursuit: 20, tremor: 0.035, lead: true },
 };

@@ -168,6 +168,7 @@ export class Battle {
     if (opts.gungame) opts = { ...opts, opponent: 'bots', mates: 0, killsToWin: Infinity, ranked: false, remotes: [], spectators: [] };
     if (opts.lobby) opts = { ...opts, bots: 0, mates: 0, ranked: false, royale: false, endless: false, gungame: false };   // the network lobby: everyone in, nobody can be hurt, until the host starts
     if (opts.ffa) opts = { ...opts, mates: 0 };   // free for all: every bot its own side, no teammates
+    this._popWave = 0;
     this.endless = opts.endless ? { wave: 1, kills: 0, lives: 3 * (1 + (opts.remotes?.length || 0)) } : null;   // (3 lives a player, shared)
     this.gungame = opts.gungame ? { guns: this.deps.guns.slice() } : null;
     this.mvp = new MatchStats();
@@ -903,7 +904,7 @@ export class Battle {
     this.feed = [];
     this.matchPoints = 0;
     this.noises = []; this.intelQ = []; this.comms = []; this._renderComms();
-    this._endlessRow = null;
+    this._endlessRow = null; this._popWave = 0;
     for (const e of m.roster) this._clientFighter(e, m.you);
     this.atmo = { night: !!m.night, weather: typeof m.weather === 'string' ? m.weather : 'auto', fog: !!m.fog };
     this.arena.atm.midday = !!m.midday;
@@ -1775,11 +1776,21 @@ export class Battle {
     if (E) {
       // what comes next: kills to the next wave, and what that wave brings
       const left = ENDLESS_STEP - (E.kills % ENDLESS_STEP), more = this.fighters.filter((f) => !f.human).length < 6, lv = endlessLevel(E.wave + 1);
-      const next = 'Next: wave ' + (E.wave + 1) + ' in ' + left + (left === 1 ? ' kill' : ' kills') + (more ? ' · one more bot' : '') + (lv !== endlessLevel(E.wave) ? ' · ' + LEVELS[lv].name + ' bots' : '');
-      this.hud.score.replaceChildren(el('span', 't-p1', 'Wave ' + E.wave), el('span', 't-p1', E.kills + ' kills'), el('span', 't-bots', E.lives + (E.lives === 1 ? ' life' : ' lives')), el('span', 'b-goal', next), el('span', 'b-goal', 'best ' + Math.max(endlessBest(), E.kills)));
+      const brings = [more && 'one more bot', lv !== endlessLevel(E.wave) && LEVELS[lv].name + ' bots'].filter(Boolean).join(' · ');
+      this.hud.score.replaceChildren(el('span', 't-p1', 'Wave ' + E.wave), el('span', 't-p1', E.kills + ' kills'), el('span', 't-bots', E.lives + (E.lives === 1 ? ' life' : ' lives')), el('span', 'b-goal', 'next wave in ' + left), el('span', 'b-goal', 'best ' + Math.max(endlessBest(), E.kills)));
+      // the big pop-up at the top: each new wave, and one kill before the next
+      if (E.wave !== this._popWave) { this._popWave = E.wave; this._popLeft = 0; this._popup('Wave ' + E.wave, 'Next wave in ' + left + (left === 1 ? ' kill' : ' kills') + (brings ? ': ' + brings : '')); }
+      else if (left === 1 && this._popLeft !== E.kills) { this._popLeft = E.kills; this._popup('1 kill to wave ' + (E.wave + 1), brings || 'the same bots'); }
       return;
     }
     this.hud.score.replaceChildren(...parts.map(([n, c, s]) => el('span', 't-' + c, n + ' ' + s)), el('span', 'b-goal', 'first to ' + o.killsToWin));
+  }
+  // A big line at the top middle that fades (Endless: what is coming next).
+  _popup(title, sub) {
+    if (!this._popEl) { this._popEl = el('div', 'b-popup'); this.hud.root.append(this._popEl); }
+    const p = this._popEl;
+    p.replaceChildren(el('b', '', title), el('span', '', sub));
+    p.classList.remove('on'); void p.offsetWidth; p.classList.add('on');   // (restart the fade)
   }
   _renderFeed() {
     this.hud.feed.replaceChildren(...this.feed.map((e) => {

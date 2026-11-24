@@ -734,7 +734,7 @@ export class ModeGame {
       if (a) { const b = m.map.data.building, inside = n.y > 0.1 || (b && n.x > b[0] && n.x < b[2] && n.z > b[1] && n.z < b[3]); this.prints.add(n.id, n.x, n.y || 0, n.z, a.yaw, this.prevT || 0, inside ? 0.25 : 0.5); }
       if (n.id === me.id) continue;
       const y = n.y || 0;
-      this.deps.sfx.stepAt({x:n.x,y:y+.12,z:n.z,feetY:y}, camera, this.map, this.arena, n.range, n.team === me.team);
+      this.deps.sfx.stepAt({x:n.x,y:y+.12,z:n.z,feetY:y,id:n.id}, camera, this.map, this.arena, n.range, n.team === me.team);
     }
     for (const n of m.noises) this._stepT = Math.max(this._stepT || 0, n.t);
   }

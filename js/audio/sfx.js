@@ -73,7 +73,7 @@ export class Sfx {
       trace: !!this.ctx && this.volume > 0,
     });
     // Volume under 20%: the sound is shown on screen too (onCue: the captions at the bottom)
-    if (this.onCue && this.volume < CUE_BELOW && w && w.gain > 0.01) this.onCue(kind, source, camera);
+    if (this.onCue && this.volume < CUE_BELOW && w && w.gain > 0.01) this.onCue(kind, source, camera, w.gain, options.teammate);
     return w;
   }
   observeSteps(actors, camera, geometry, time, arena = null, ownId = null) {
@@ -94,7 +94,7 @@ export class Sfx {
       if (!range) continue;
       const y = a.y || 0;
       this.stepAt(
-        { x: a.x, y: y + 0.12, z: a.z, feetY: y },
+        { x: a.x, y: y + 0.12, z: a.z, feetY: y, id: a.id },
         camera,
         geometry,
         arena,

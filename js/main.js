@@ -217,7 +217,7 @@ async function boot(data) {
   let testNoPost = false;
   const dots = range.dots;
   const sfx = new Sfx(acoustics);
-  { const captions = new Captions(document.getElementById('app')); sfx.onCue = (kind, source, camera) => captions.add(kind, source, camera); }   // (volume under 20%: sounds on screen)
+  { const captions = new Captions(document.getElementById('app')); sfx.onCue = (kind, source, camera, gain, ally) => captions.add(kind, source, camera, gain, ally); }   // (volume under 20%: sounds on screen)
   rig.onInspect = () => {};   // (no inspect sounds: gunshots are the only game sounds)
   const audioPack = connectAudioPack(HDPack, sfx);
   sfx.spatialAudio = settings.spatialAudio;
@@ -1305,7 +1305,8 @@ async function boot(data) {
     $('net-host').hidden = $('net-join').hidden = !!net.role;
     $('net-game-box').hidden = net.role !== 'host';
     $('net-reset').hidden = !net.role;
-    $('net-watch-field').hidden = net.role === 'host';
+    $('net-watch-field').hidden = net.role !== 'client' || !!net.link;   // (asked when you join)
+    $('net-ranked-browser').hidden = netMode() !== 'bomb';            // (ranked is Bomb only)
     $('net-watch').disabled = !!net.link || net.busy;
     $('net-rank-search').hidden = !relay || net.role === 'host' || !!net.link;
     $('net-rank-games').hidden = $('net-rank-search').hidden || !$('net-rank-games').children.length;
@@ -1318,6 +1319,7 @@ async function boot(data) {
     const waiting = settings.battle.opponent === 'net' && net.role === 'client';
     $('battle-btn').disabled = waiting && !(battle && battle.active);
     if (waiting && !(battle && battle.active)) $('battle-btn').textContent = net.link ? 'Waiting for the host to start' : 'Only the host starts the battle';
+    if (flow.page === 'setup' && flow.mode === 'net' && !flow.setupFromPause && !flow.settingsOnly) $('setup-next').dataset.end = net.role === 'client' ? 'Ready' : 'Open the lobby';
     choiceUi();
     renderParty();
   }
@@ -1496,7 +1498,7 @@ async function boot(data) {
     link.onmessage = (m) => {
       if (m.k === 'mrankResult') { void applyRankedPacket(m); return; }
       if (m.k === 'party') { net.party = Array.isArray(m.names) ? m.names.slice(0, 16).map((n) => String(n).slice(0, 32)) : []; renderParty(); return; }
-      if (m.k === 'start' || m.k === 'mstart') toast(m.lobby ? 'The host opened the lobby. Press Play to join it.' : 'The host started the game. Press Play to join.');
+      if ((m.k === 'start' || m.k === 'mstart') && !lock.locked) toast(m.lobby ? 'You are in the lobby: click Join the lobby.' : 'The match has started: click Join.');   // (already playing: nothing to say)
       if (m.k === 'start') { startClientBattle(m); renderParty(); return; }
       if (m.k === 'mstart') { startClientMatch(m); renderParty(); return; }
       if (m.k === 'stopped') { if (cur() && cur().active) { if (battle?.active && battle.net?.role === 'client') battle.stop(true); backToLobby('The host ended the game. You are still in the party.'); } return; }
@@ -1622,8 +1624,7 @@ async function boot(data) {
     $('pause-title').textContent = 'The match has started';
     $('start-btn').disabled = false;
     $('start-btn').textContent = m.spectator ? 'Watch the match' : 'Join the match';
-    if (!lock.locked) { closeArmory(); showPage('pause'); $('menu').hidden = !$('home').hidden; }
-    if (!$('home').hidden && cur()?.hud) cur().hud.root.hidden = true;   // on Home: nothing of the match shows until Play joins it
+    if (!lock.locked) { closeArmory(); leaveHome(); showPage('pause'); $('menu').hidden = false; }   // (off Home, onto the Join button)
   }
   function startClientBattle(m) {
     if (needCore(() => startClientBattle(m))) return;
@@ -1641,8 +1642,7 @@ async function boot(data) {
     $('pause-title').textContent = m.lobby ? 'In the lobby: nobody can be hurt until the host starts' : 'The battle has started';
     $('start-btn').disabled = false;
     $('start-btn').textContent = m.spectator ? 'Watch the battle' : m.lobby ? 'Join the lobby' : 'Join the battle';
-    if (!lock.locked) { closeArmory(); showPage('pause'); $('menu').hidden = !$('home').hidden; }
-    if (!$('home').hidden && cur()?.hud) cur().hud.root.hidden = true;   // on Home: nothing of the match shows until Play joins it
+    if (!lock.locked) { closeArmory(); leaveHome(); showPage('pause'); $('menu').hidden = false; }   // (off Home, onto the Join button)
   }
 
   /* ---------- menu flow: mode -> settings -> weapon -> deploy ---------- */
@@ -1672,6 +1672,7 @@ async function boot(data) {
     $('pause-points').textContent = '(' + profile.points + ' points)';
     if (name === 'mode') { renderChallenges(); renderPresets(); filterGames(); }
     if (name === 'season') renderSeason();
+    if (name === 'packs' || name === 'save') (name === 'packs' ? $('packs-save') : $('save-root')).append(packs.saveEl);   // (one save code box: on the Skins page and its own page)
     if (name === 'stats') renderStats();
     if (name === 'setup') $('preset-save-row').hidden = flow.settingsOnly || flow.mode === 'range' || flow.mode === 'net';
     if (name === 'setup') {
@@ -1704,7 +1705,7 @@ async function boot(data) {
   var CHOICES = {             // (var: the network panel may draw before this line has run)
     'b-time': ['Day or night?', 'weather', true], 'b-weather': ['Do you want weather?', 'weather', true], 'b-fog': ['Do you want fog?', 'weather', true],
     'b-mist': ['Mist or no mist?', 'who'], 'b-ffa': ['Free for all?', 'who'], 'md-ffa': ['Free for all?', 'who'], 'b-bots': ['How many bots?', 'who'], 'b-rtime': ['What time of day?', 'who'], 'b-mates': ['Bots on your side?', 'who'], 'b-level': ['How good are the bots?', 'who'],
-    'md-diff': ['How good are the bots?', 'who'], 'md-size': ['How big are the teams?', 'who'], 'b-voices': ['Should bots talk on the radio?', 'who'],
+    'md-diff': ['How good are the bots?', 'who'], 'md-size': ['How big are the teams?', 'who'], 'b-voices': ['Should bots talk on the radio?', 'rules'],
     'b-kills': ['Kills to win?', 'rules'], 'md-len': ['How long is a match?', 'rules'], 'md-prep': ['Preparation time?', 'rules'],
     'md-ab': ['Operator abilities?', 'rules'], 'md-head': ['What does a headshot do?', 'rules'],
     'net-watch': ['Join as?', null], 'net-mode': ['Which game?', null], 'net-map': ['Which map?', null],
@@ -2018,6 +2019,7 @@ async function boot(data) {
     const m = netMode(), P = modePrefs;
     $('net-mode').value = m;
     $('net-ranked-field').hidden = m !== 'bomb';
+    $('net-ranked-browser').hidden = m !== 'bomb';
     $('net-map-field').hidden = m === 'battle' || m === 'royale' || m === 'endless' || m === 'bomb';   // (Bomb: the map is the first of Bomb's questions above)
     if (flow.page === 'setup' && flow.mode === 'net') { royaleFields(); $('setup-title').textContent = { bomb: 'Bomb online', royale: 'Battle Royale online', endless: 'Endless online' }[m] || 'Network battle'; $('battle-setup').hidden = m === 'bomb'; $('modes-setup').hidden = m !== 'bomb'; if (m === 'bomb') modesUi(); }
     if (m !== 'battle' && m !== 'royale' && m !== 'endless') {
@@ -2303,6 +2305,8 @@ async function boot(data) {
       flow.inGame = true;
       $('pause-title').textContent = 'Paused';
       startLock();
+    } else if (flow.mode === 'net' && net.role === 'client' && cur()?.active) {
+      flow.inGame = true; if (cur().hud) cur().hud.root.hidden = false; startLock();
     } else if (flow.mode === 'net' && net.role === 'client') {
       flow.inGame = false;
       showPage('pause'); $('menu').hidden = false;

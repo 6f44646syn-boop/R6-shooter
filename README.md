@@ -168,11 +168,13 @@ weapon screen: sights, the gun in 3D, skins), Settings, Skins & packs, Main menu
 
 **Endless online**: Network battle > Game > Endless. Every player on one side against waves of
 bots; each player adds 3 lives to a shared pool and anyone's kills bring the next wave. In Endless
-the bar at the top shows what comes next (kills to the next wave, one more bot, tougher bots).
+a big pop-up at the top middle shows each new wave and what the next brings (one more bot,
+tougher bots), and again one kill before it; it fades after a few seconds.
 
 **Sound captions**: with the master volume under 20%, every player sees the sounds around
-them at the bottom of the screen with their direction (footsteps behind you, a gunshot to the
-left, explosions, breaching, knives, zaps).
+them at the bottom of the screen: one line per kind of sound and direction, the loudest four
+first, with how many make it (×3), ally or enemy for footsteps (blue or red edge) and close or
+far (footsteps, gunshots, explosions, breaching, knives, zaps).
 
 **Free for all**: everyone for themselves, every bot fights everyone. It is its own card, and a
 "Free for all" setting in Battle vs bots, Gun Game, Endless and Network battle (not Bomb or
@@ -223,7 +225,7 @@ regenerates after 5 s without damage.
   spray, partly controlled. Easy: slow, inaccurate, stands still. Medium: faster, strafes,
   retreats to cover when hurt. Hard: quick, accurate, aims for the head, strafes, crouch-peeks
   low cover. They roam the arena on A* paths. (Stationary at 12 m, a single bot kills you in
-  about 3 s on Easy, 1.4 s on Medium and 0.5 s on Hard.)
+  about 3 s on Easy and 0.5 s on Hard; Medium was made softer and sits between them.)
 - Esc pauses and opens the menu (Resume battle / Leave battle).
 
 ### Network battle (other PCs on the same network)
