@@ -55,8 +55,8 @@ for (const mode of ['battle', 'tdm']) {
 }
 // Free for all offline: every bot is its own side and they fight each other
 {
-  await A.evaluate(() => { const R = window.__range; R.battleLeave(); document.getElementById('net-reset').click(); document.querySelector('.mode-set[data-mode=ffa]').click(); });
-  await A.selectOption('#b-bots', '3');
+  await A.evaluate(() => { const R = window.__range; R.battleLeave(); document.getElementById('net-reset').click(); document.querySelector('.mode-set[data-mode=ffa]').click(); document.getElementById('menu').hidden = false; });
+  await A.evaluate(() => { const s = document.getElementById('b-bots'); s.value = '3'; s.dispatchEvent(new Event('change')); });   // (the drop-down sits behind the choice cards)
   for (let i = 0; i < 6 && await A.locator('#page-setup').isVisible(); i++) await A.click('#setup-next');
   await A.waitForFunction(() => window.__range.battle()?.active && !window.__range.battle().opts.lobby, null, { timeout: 15000 });
   const f = await A.evaluate(() => { const b = window.__range.battle(); return { ffa: b.opts.ffa, teams: b.fighters.map((x) => x.team), armory: document.getElementById('armory').hidden }; });

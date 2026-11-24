@@ -1952,7 +1952,7 @@ async function boot(data) {
     if (flow.setupFromPause) { flow.setupFromPause = false; showPage('pause'); }
     else if (flow.mode === 'royale') startBattle();
     else if (MATCH_MODES.includes(flow.mode)) { showPage('ops'); renderOps(); }
-    else { flow.armoryFrom = 'setup'; deploy(); }   // (no weapon select: your current gun; Change weapon is in the pause menu)
+    else { flow.armoryFrom = 'setup'; $('menu').hidden = true; deploy(); }   // (no weapon select: your current gun; Change weapon is in the pause menu)
   });
   const pauseSettings = (tab) => { flow.settingsOnly = true; flow.setupFromPause = true; showPage('setup'); selectSetupTab(1); $(`m7-settings-${tab}-tab`)?.click(); };
   $('pause-settings').addEventListener('click', () => pauseSettings(0));   // the real settings, on Sensitivity
