@@ -665,6 +665,7 @@ async function boot(data) {
       return;
     }
     if (!lock.locked && !testMode) return;
+    if ((c === 'Enter' || c === 'NumpadEnter') && lobbyOpen() && net.role === 'host') { startBattle(true); return; }
     if (cur() && cur().active) { if (cur().key(c, true)) e.preventDefault(); return; }
     if (c === 'KeyW' || c === 'KeyA' || c === 'KeyS' || c === 'KeyD') { player.keys[c[3].toLowerCase()] = true; return; }
     if (c === 'ShiftLeft' || c === 'ShiftRight') { player.sprint = true; return; }
@@ -701,7 +702,8 @@ async function boot(data) {
     else (down?handleKeyDown:handleKeyUp)(event);
   };
   // Only these fixed browser/debug/range shortcuts bypass the binding table.
-  const auxiliary = /^(F3|F4|Escape|BracketLeft|BracketRight|Digit[0-9]|Minus|Equal|NumpadAdd|NumpadSubtract)$/;
+  function lobbyOpen() { return !!(battle?.active && battle.opts?.lobby && cur() === battle); }   // the online lobby (nobody can be hurt) is open
+  const auxiliary = /^(Enter|NumpadEnter|F3|F4|Escape|BracketLeft|BracketRight|Digit[0-9]|Minus|Equal|NumpadAdd|NumpadSubtract)$/;
   // Battle Royale piece keys go first (capture phase), so they win over the key's usual binding.
   for (const [type, down] of [['keydown', true], ['keyup', false]]) window.addEventListener(type, (e) => {
     if (!padHooks.playing || e.target.closest?.('input,select,textarea')) return;
@@ -1125,13 +1127,13 @@ async function boot(data) {
   {
     const B = settings.battle;
     if (B.opponent === 'p2') B.opponent = 'bots';          // split screen was removed
-    bEl('b-bots').value = String(B.bots); bEl('b-mates').value = String(B.mates || 0); bEl('b-level').value = B.level; bEl('b-kills').value = String(B.kills); bEl('b-map').value = B.map; bEl('b-rmap').value = B.royaleMap || 'random'; bEl('b-rtime').value = B.royaleTime || 'dusk'; bEl('b-time').value = B.night ? 'night' : 'day'; bEl('b-weather').value = B.weather; bEl('b-fog').value = B.fog ? 'on' : 'off'; bEl('b-mist').value = B.noMist ? 'off' : 'on'; bEl('b-voices').value = B.voices === false ? 'off' : 'on'; bEl('b-rank').value = B.ranked ? 'on' : 'off';
+    bEl('b-bots').value = String(B.bots); bEl('b-mates').value = String(B.mates || 0); bEl('b-level').value = B.level; bEl('b-kills').value = String(B.kills); bEl('b-map').value = B.map; bEl('b-rmap').value = B.royaleMap || 'random'; bEl('b-rtime').value = B.royaleTime || 'dusk'; bEl('b-time').value = B.night ? 'night' : 'day'; bEl('b-weather').value = B.weather; bEl('b-fog').value = B.fog ? 'on' : 'off'; bEl('b-mist').value = B.noMist ? 'off' : 'on'; bEl('b-voices').value = B.voices === false ? 'off' : 'on'; bEl('b-rank').value = B.ranked ? 'on' : 'off'; bEl('b-ffa').value = B.ffa ? 'on' : 'off';
     const sync = () => {
-      Object.assign(settings.battle, { bots: Number(bEl('b-bots').value), mates: Number(bEl('b-mates').value), level: bEl('b-level').value, kills: Number(bEl('b-kills').value), map: bEl('b-map').value, royaleMap: bEl('b-rmap').value, royaleTime: bEl('b-rtime').value, night: bEl('b-time').value === 'night', weather: bEl('b-weather').value, fog: bEl('b-fog').value === 'on', noMist: bEl('b-mist').value === 'off', voices: bEl('b-voices').value === 'on', ranked: bEl('b-rank').value === 'on' });
+      Object.assign(settings.battle, { bots: Number(bEl('b-bots').value), mates: Number(bEl('b-mates').value), level: bEl('b-level').value, kills: Number(bEl('b-kills').value), map: bEl('b-map').value, royaleMap: bEl('b-rmap').value, royaleTime: bEl('b-rtime').value, night: bEl('b-time').value === 'night', weather: bEl('b-weather').value, fog: bEl('b-fog').value === 'on', noMist: bEl('b-mist').value === 'off', voices: bEl('b-voices').value === 'on', ranked: bEl('b-rank').value === 'on', ffa: bEl('b-ffa').value === 'on' });
       saveSettings(settings);
       if (netInit) netUi();
     };
-    for (const id of ['b-bots', 'b-mates', 'b-level', 'b-kills', 'b-map', 'b-rmap', 'b-rtime', 'b-time', 'b-weather', 'b-fog', 'b-mist', 'b-voices', 'b-rank']) bEl(id).addEventListener('change', sync);
+    for (const id of ['b-bots', 'b-mates', 'b-level', 'b-kills', 'b-map', 'b-rmap', 'b-rtime', 'b-time', 'b-weather', 'b-fog', 'b-mist', 'b-voices', 'b-rank', 'b-ffa']) bEl(id).addEventListener('change', sync);
     sync();
   }
   function battleDeps() {
@@ -1192,29 +1194,33 @@ async function boot(data) {
     noteRecords(submitBests({ kills: sum.kills, endless: sum.mode === 'endless' ? sum.kills : 0, longest: mv?.longest, double: mv && mv.double < 10 ? mv.double : 0 }));
     packsUi?.refresh();
   }
-  function startBattle() {
-    if (needCore(startBattle)) return;
+  // go: the host starts the match from the lobby (online, Deploy opens the lobby first: everyone in, nobody hurt).
+  function startBattle(go = false) {
+    if (go !== true) go = false;   // (also a click handler)
+    if (needCore(() => startBattle(go))) return;
+    const lobby = settings.battle.opponent === 'net' && flow.mode === 'net' && net.role === 'host' && !go;
+    if (lobby && modeGame?.active) leaveMode();   // (Play again after a match: back to the lobby)
     dev?.note('match-start', 'battle ' + JSON.stringify(settings.battle));
     $('menu').classList.remove('over-home'); $('home').hidden = true;   // a match never plays under Home (and the menu stays as it is)
     loadingCover();
     controls.release();
-    const netRoyale = settings.battle.opponent === 'net' && net.role === 'host' && flow.mode === 'net' && netMode() === 'royale';   // (Battle Royale online)
+    const netRoyale = !lobby && settings.battle.opponent === 'net' && net.role === 'host' && flow.mode === 'net' && netMode() === 'royale';   // (Battle Royale online)
     const royale = flow.mode === 'royale' || netRoyale, endless = flow.mode === 'endless', gungame = flow.mode === 'gungame';
     const B = (royale && !netRoyale) || endless || gungame ? { ...settings.battle, opponent: 'bots' } : settings.battle;
     if (!royale && !endless && B.opponent === 'bots' && B.bots < 1) { flashNotice('Choose at least one bot.'); return; }
     if (B.opponent === 'net') {
       if (net.role === 'client') { flashNotice('Only the host can start a network battle.'); return; }
       if (net.peers.some(peer => !peer.ready)) { flashNotice('Wait for everyone to finish joining.'); return; }
-      if (net.role === 'host' && netMode() !== 'battle' && netMode() !== 'royale') {
+      if (!lobby && net.role === 'host' && netMode() !== 'battle' && netMode() !== 'royale') {
         if (!net.peers.length) { flashNotice('Wait for at least one player to join first.'); return; }
         const mode = netMode(), ranked = mode === 'bomb' && $('net-ranked').checked;
         const peers = net.peers.map(e => ({ link: e.link, name: e.name, op: e.ops?.[mode], side: e.side,
           attach: e.attachMap, skin: e.skin, spectator: e.spectator, rating: e.rating }));
         net.hub?.ranked(null);
-        startMode(mode, { ranked, net: { hostName: 'Host', rating: profile.rating, peers } }).then(() => netUi());
+        startMode(mode, { ranked, net: { hostName: 'Host', rating: profile.rating, peers } }).then(() => netUi());   // (leaves the lobby without telling the players: they go straight in)
         return;
       }
-      if (net.role !== 'host' || (!net.peers.length && B.bots < 1)) { flashNotice('Host a game and connect at least one player (or add bots) first.'); return; }
+      if (net.role !== 'host' || (!lobby && !net.peers.length && B.bots < 1)) { flashNotice('Host a game and connect at least one player (or add bots) first.'); return; }
     }
     if (!battle) {
       battle = new Battle(battleDeps());
@@ -1224,7 +1230,7 @@ async function boot(data) {
     weapon.releaseTrigger(); setAds(false); player.releaseKeys();
     fairOn = (!!B.ranked && !royale && B.opponent === 'bots' && B.bots > 0 && !(B.mates > 0)) || B.opponent === 'net';
     try {
-      battle.start({ royale, royaleMap: B.royaleMap, royaleTime: B.royaleTime, endless, gungame, ranked: !!B.ranked && !royale && B.opponent === 'bots' && B.bots > 0 && !(B.mates > 0), opponent: B.opponent, bots: B.bots, mates: royale || B.opponent !== 'bots' ? 0 : B.mates, level: B.level, killsToWin: B.kills, map: B.map, night: B.night, weather: B.weather, fog: B.fog, noMist: !!B.noMist, p1Gun: state.gun, p2Gun: data.guns[Math.min(B.p2Gun, data.guns.length - 1)],
+      battle.start({ lobby, ffa: !lobby && !royale && (flow.mode === 'ffa' || !!B.ffa), royale, royaleMap: B.royaleMap, royaleTime: B.royaleTime, endless, gungame, ranked: !!B.ranked && !royale && flow.mode !== 'ffa' && B.opponent === 'bots' && B.bots > 0 && !(B.mates > 0), opponent: B.opponent, bots: B.bots, mates: royale || B.opponent !== 'bots' ? 0 : B.mates, level: B.level, killsToWin: B.kills, map: B.map, night: B.night, weather: B.weather, fog: B.fog, noMist: !!B.noMist, p1Gun: state.gun, p2Gun: data.guns[Math.min(B.p2Gun, data.guns.length - 1)],
         hostName: 'Host', spectators: B.opponent === 'net' ? net.peers.filter(e => e.spectator).map(e => e.link) : [],
         remotes: B.opponent === 'net' ? net.peers.filter(e => !e.spectator).map((e) => ({ link: e.link, name: e.name, gunIndex: e.gunIndex, attach: e.attach, skin: e.skin })) : [] });
     } catch (err) {
@@ -1236,7 +1242,7 @@ async function boot(data) {
     }
     $('hud').hidden = true;
     flow.inGame = true;
-    $('pause-title').textContent = royale ? 'Battle Royale paused' : 'Battle paused';
+    $('pause-title').textContent = lobby ? 'Lobby: press Enter in game (or Start the match) when everyone is in' : royale ? 'Battle Royale paused' : 'Battle paused';
     if (royale && testMode) $('menu').hidden = true;
     if (!testMode) startLock();
     holdCover(battle, battle.arena?.packReady, B.opponent === 'net');
@@ -1255,11 +1261,11 @@ async function boot(data) {
     rig.setGun(state.gun, state.gunIndex, state.optic);
     resize();
   }
-  function leaveBattle() {
+  function leaveBattle(switching = false) {   // switching: the host's next match follows at once (the players are not sent back)
     controls.release();
     if (modeGame && modeGame.active) { leaveMode(); return; }
     if (!battle) return;
-    battle.stop();
+    battle.stop(switching === true);
     $('hud').hidden = false;
     $('pause-title').textContent = 'Paused';
     if (netInit) netUi();
@@ -1379,7 +1385,7 @@ async function boot(data) {
   }
   function refreshRankedListing() {
     if (!net.hub) return;
-    const available = netMode() === 'bomb' && $('net-ranked').checked && !(cur()?.active && !cur().over);
+    const available = netMode() === 'bomb' && $('net-ranked').checked && !(cur()?.active && !cur().over && !lobbyOpen());
     const players = [profile.rating, ...net.peers.filter(peer => !peer.spectator).map(peer => peer.rating)];
     const capacity = Math.min(8, 2 * Math.max(1, Math.min(5, modePrefs.teamSize | 0)));
     net.hub.ranked(available && net.peers.length < 7 && players.length < capacity ? { ...rankedSummary(players), players: players.length,
@@ -1427,6 +1433,7 @@ async function boot(data) {
           entry.ready = true;
           entry.spectator = m.spectator === true;
           entry.rating = ratingOf(m.rating);
+          if (lobbyOpen() && net.role === 'host') setTimeout(() => { if (lobbyOpen() && !net.peers.some((e) => !e.ready)) startBattle(); }, 0);   // the lobby again, with them in
         }
         entry.gunIndex = Math.min(data.guns.length - 1, Math.max(0, m.gun | 0)); entry.skin = Number.isInteger(m.skin) ? m.skin : null; entry.attach = typeof m.at === 'string' ? m.at.slice(0, 4) : null;
         // for the match modes: their operator per mode, Bomb side, and attachments per gun
@@ -1466,7 +1473,7 @@ async function boot(data) {
     if (!$('home').hidden) $('h-code').hidden = !home.online && !inLobby;
     // not hosting: no match settings to change; Play joins the game, or picks your weapon until the host starts
     $('h-settings').hidden = $('h-pick').hidden = client;
-    if (client) $('h-game').textContent = cur()?.active ? 'Join the game' : 'Choose your weapon';
+    if (client) $('h-game').textContent = cur()?.active ? (lobbyOpen() ? 'Join the lobby' : 'Join the game') : 'Waiting for the host';
   }
   // The host ended the game or left: whatever you were in, back to Home (the lobby) with a notice.
   function backToLobby(msg) {
@@ -1485,7 +1492,7 @@ async function boot(data) {
     link.onmessage = (m) => {
       if (m.k === 'mrankResult') { void applyRankedPacket(m); return; }
       if (m.k === 'party') { net.party = Array.isArray(m.names) ? m.names.slice(0, 16).map((n) => String(n).slice(0, 32)) : []; renderParty(); return; }
-      if (m.k === 'start' || m.k === 'mstart') toast('The host started the game. Press Play to join.');
+      if (m.k === 'start' || m.k === 'mstart') toast(m.lobby ? 'The host opened the lobby. Press Play to join it.' : 'The host started the game. Press Play to join.');
       if (m.k === 'start') { startClientBattle(m); renderParty(); return; }
       if (m.k === 'mstart') { startClientMatch(m); renderParty(); return; }
       if (m.k === 'stopped') { if (cur() && cur().active) { if (battle?.active && battle.net?.role === 'client') battle.stop(true); backToLobby('The host ended the game. You are still in the party.'); } return; }
@@ -1598,7 +1605,7 @@ async function boot(data) {
   async function startClientMatch(m) {
     if (needCore(() => startClientMatch(m))) return;
     controls.release();
-    if (battle && battle.active) leaveBattle();
+    if (battle && battle.active) leaveBattle(true);   // (from the lobby: straight into the match)
     ensureModeGame();
     weapon.releaseTrigger(); setAds(false); player.releaseKeys();
     fairOn = true;
@@ -1627,9 +1634,9 @@ async function boot(data) {
     $('hud').hidden = true;
     flow.inGame = true;
     netUi();
-    $('pause-title').textContent = 'The battle has started';
+    $('pause-title').textContent = m.lobby ? 'In the lobby: nobody can be hurt until the host starts' : 'The battle has started';
     $('start-btn').disabled = false;
-    $('start-btn').textContent = m.spectator ? 'Watch the battle' : 'Join the battle';
+    $('start-btn').textContent = m.spectator ? 'Watch the battle' : m.lobby ? 'Join the lobby' : 'Join the battle';
     if (!lock.locked) { closeArmory(); showPage('pause'); $('menu').hidden = !$('home').hidden; }
     if (!$('home').hidden && cur()?.hud) cur().hud.root.hidden = true;   // on Home: nothing of the match shows until Play joins it
   }
@@ -1644,6 +1651,7 @@ async function boot(data) {
     // steps: 1 controls, 2 graphics (a dialog), 3 settings, 4 packs, 5 mode (and its match options), 6 weapon / operator
     const step = flow.inGame && name !== 'controls' ? 0 : name === 'controls' ? 1 : name === 'setup' && flow.settingsOnly || name === 'quick' ? 3 : name === 'shop' ? 4 : name === 'mode' || name === 'setup' && !flow.setupFromPause ? 5 : name === 'ops' ? 6 : 0;
     $('pause-loadout').hidden = MATCH_MODES.includes(flow.mode) || flow.mode === 'royale';
+    $('pause-go').hidden = !(lobbyOpen() && net.role === 'host');
     $('clear-btn').hidden = flow.mode !== 'range';          // a range tool (and C is vault everywhere else)
     $('menu').querySelector('.steps').hidden = !step || name === 'mode';
     // Pick game has its own tabs; a game's own settings show nothing above them but a Back button
@@ -1652,7 +1660,7 @@ async function boot(data) {
     $('menu').querySelector('.menu-head').hidden = matchOptions;
     $('setup-back-top').hidden = true; $('setup-back').hidden = false;   // (Back bottom left, Next bottom right)
     for (const sp of $('menu').querySelectorAll('.steps button')) { sp.classList.toggle('on', Number(sp.dataset.step) === step); sp.classList.toggle('done', Number(sp.dataset.step) < step); }
-    const names = { range: 'Shooting range', bots: 'Battle vs bots', gungame: 'Gun Game', endless: 'Endless', royale: 'Battle Royale', net: { bomb: 'Bomb online', royale: 'Battle Royale online' }[netMode()] || 'Network battle', tdm: 'Team Deathmatch', ctf: 'Capture the Flag', bomb: 'Bomb' };
+    const names = { range: 'Shooting range', bots: 'Battle vs bots', ffa: 'Free for all', gungame: 'Gun Game', endless: 'Endless', royale: 'Battle Royale', net: { bomb: 'Bomb online', royale: 'Battle Royale online' }[netMode()] || 'Network battle', tdm: 'Team Deathmatch', ctf: 'Capture the Flag', bomb: 'Bomb' };
     $('menu-crumbs').textContent = name === 'mode' ? 'Choose a mode' : name === 'pause' ? names[flow.mode] + ' (paused)' :
       name === 'setup' ? (flow.settingsOnly ? 'Settings' : names[flow.mode] + ': match options') : name === 'ops' ? names[flow.mode] + ': operator' : name === 'packs' ? 'Skins' : name === 'shop' ? 'Packs' : name === 'quick' ? 'Quick setup' : name === 'season' ? 'Season pass' : name === 'stats' ? 'Player stats' : name === 'save' ? 'Save code' : name === 'board' ? 'Leaderboards' : 'Controls';
     document.querySelectorAll('[aria-label="Main menu"] button').forEach(b=>b.setAttribute('aria-current', b.id === ({mode:'go-play',pause:'go-play',setup:flow.settingsOnly ? 'go-settings' : 'go-play',controls:'go-controls',packs:'go-packs',shop:'go-shop'}[name]) ? 'page' : 'false'));
@@ -1671,7 +1679,7 @@ async function boot(data) {
       $('b-bots-field').hidden ||= flow.mode === 'endless';
       $('b-level').closest('label').hidden = flow.mode === 'endless';
       $('endless-rules').hidden = flow.mode !== 'endless';
-      $('b-mates-field').hidden = flow.mode !== 'bots';
+      $('b-mates-field').hidden = flow.mode !== 'bots' || !!settings.battle.ranked;   // (ranked is you alone against the bots)
       $('b-rank-field').hidden = true;                   // (Ranked is its own card under Pick game)
       $('royale-rules').hidden = flow.mode !== 'royale';
       $('modes-setup').hidden = !MATCH_MODES.includes(modeOf());
@@ -1681,7 +1689,7 @@ async function boot(data) {
       selectSetupTab(flow.settingsOnly ? 1 : 0);
       $('setup-next').hidden = flow.settingsOnly;   // Settings: no Next, the x closes it
       if (flow.settingsOnly && graphicsUI && $('gfx').hidden) graphicsUI.mountInline(settingsUI.gfxPanel);   // Settings > Graphics
-      $('setup-next').textContent = flow.settingsOnly ? (flow.inGame ? 'Done' : 'Next: packs') : flow.setupFromPause ? 'Back to the game' : flow.mode === 'royale' ? 'Deploy to Blacktide Island' : MATCH_MODES.includes(flow.mode) ? 'Next: choose your operator' : 'Next: choose your weapon';
+      $('setup-next').textContent = flow.settingsOnly ? (flow.inGame ? 'Done' : 'Next: packs') : flow.setupFromPause ? 'Back to the game' : flow.mode === 'royale' ? 'Deploy' : MATCH_MODES.includes(flow.mode) ? 'Next: choose your operator' : flow.mode === 'range' ? 'Deploy to the range' : flow.mode === 'net' ? (net.role === 'client' ? 'Ready' : 'Open the lobby') : 'Deploy';
       $('setup-next').dataset.end = $('setup-next').textContent;
       if (netInit) netUi();
       choiceUi();
@@ -1693,7 +1701,7 @@ async function boot(data) {
   // The drop-downs stay (out of sight) and hold the values.
   var CHOICES = {             // (var: the network panel may draw before this line has run)
     'b-time': ['Day or night?', 'weather', true], 'b-weather': ['Do you want weather?', 'weather', true], 'b-fog': ['Do you want fog?', 'weather', true],
-    'b-mist': ['Mist or no mist?', 'who'], 'b-bots': ['How many bots?', 'who'], 'b-rtime': ['What time of day?', 'who'], 'b-mates': ['Bots on your side?', 'who'], 'b-level': ['How good are the bots?', 'who'],
+    'b-mist': ['Mist or no mist?', 'who'], 'b-ffa': ['Free for all?', 'who'], 'md-ffa': ['Free for all?', 'who'], 'b-bots': ['How many bots?', 'who'], 'b-rtime': ['What time of day?', 'who'], 'b-mates': ['Bots on your side?', 'who'], 'b-level': ['How good are the bots?', 'who'],
     'md-diff': ['How good are the bots?', 'who'], 'md-size': ['How big are the teams?', 'who'], 'b-voices': ['Should bots talk on the radio?', 'who'],
     'b-kills': ['Kills to win?', 'rules'], 'md-len': ['How long is a match?', 'rules'], 'md-prep': ['Preparation time?', 'rules'],
     'md-ab': ['Operator abilities?', 'rules'], 'md-head': ['What does a headshot do?', 'rules'],
@@ -1708,6 +1716,9 @@ async function boot(data) {
     for (const id of ['b-map', 'b-time', 'b-weather', 'b-fog', 'b-voices', 'b-bots', 'b-kills']) $(id).closest('label').hidden = r;
     $('b-rmap-field').hidden = !r;                                     // (which island)
     $('b-rtime-field').hidden = !r;                                    // (dusk, midday or night)
+    // the Free for all switch: every game but Bomb and Battle Royale (the Free for all card is always on)
+    $('b-ffa-field').hidden = !(['bots', 'gungame', 'endless'].includes(flow.mode) || (flow.mode === 'net' && ['battle', 'tdm', 'ctf'].includes(netMode())));
+    $('md-ffa-field').hidden = !['tdm', 'ctf'].includes(modeOf());
   }
   const weatherHere = () => !isRoyale() && (!!document.querySelector('#battle-setup:not([hidden]) #b-weather') || flow.mode === 'tdm' || flow.mode === 'ctf' || flow.mode === 'bomb');
   const mistPicked = () => { const id = mapSelect(); return !!id && $(id).value === (id === 'b-rmap' ? 'mistwood' : 'mist'); };
@@ -1793,12 +1804,12 @@ async function boot(data) {
     controls.release();
     flow.mode = m; flow.inGame = false; flow.setupFromPause = false; flow.settingsOnly = false;
     if (modeGame && modeGame.active) leaveMode();
-    if (m !== 'range' && m !== 'royale' && m !== 'endless' && m !== 'gungame' && !MATCH_MODES.includes(m)) settings.battle.opponent = m;
+    if (m !== 'range' && m !== 'royale' && m !== 'endless' && m !== 'gungame' && !MATCH_MODES.includes(m)) settings.battle.opponent = m === 'ffa' ? 'bots' : m;
     saveSettings(settings);
     showPage('setup');
   }
   // Home: the game Play starts (picked under Pick game), offline or online, kept between visits.
-  const HOME_KEY = 'recoilRange.home.v1', GAME_NAMES = { range: 'Shooting range', bots: 'Battle vs bots', gungame: 'Gun Game', endless: 'Endless', royale: 'Battle Royale', net: 'Network battle', tdm: 'Team Deathmatch', ctf: 'Capture the Flag', bomb: 'Bomb' };
+  const HOME_KEY = 'recoilRange.home.v1', GAME_NAMES = { range: 'Shooting range', bots: 'Battle vs bots', ffa: 'Free for all', gungame: 'Gun Game', endless: 'Endless', royale: 'Battle Royale', net: 'Network battle', tdm: 'Team Deathmatch', ctf: 'Capture the Flag', bomb: 'Bomb' };
   let home = { mode: 'bots', ranked: false, online: false };
   try { Object.assign(home, JSON.parse(localStorage.getItem(HOME_KEY)) || {}); } catch { /* blocked: defaults */ }
   const saveHome = () => { try { localStorage.setItem(HOME_KEY, JSON.stringify(home)); } catch { /* kept for this visit */ } };
@@ -1917,7 +1928,7 @@ async function boot(data) {
   $('h-pass').addEventListener('click', () => { leaveHome(); showPage('season'); });
   $('h-skin').addEventListener('click', () => { if (previewRig.inspectT < 0 && !homeFlat()) previewRig.inspect(); });
   $('h-play').addEventListener('click', () => {
-    if (net.role === 'client' && net.link) { leaveHome(); if (cur()?.active) { if (cur().hud) cur().hud.root.hidden = false; startLock(); } else openArmory('lobby'); return; }   // in someone's lobby: join, or pick a weapon
+    if (net.role === 'client' && net.link) { if (!cur()?.active) { toast('Waiting for the host to open the lobby.'); return; } leaveHome(); if (cur().hud) cur().hud.root.hidden = false; startLock(); return; }   // in someone's party: join their lobby or match
     leaveHome();
     openGame(home.mode, home.ranked, home.net);
     if (home.mode !== 'net') { while (choiceAdvance()); $('setup-next').click(); }   // (Play skips the settings pages)         // straight on with the game's saved settings
@@ -1941,12 +1952,13 @@ async function boot(data) {
     if (flow.setupFromPause) { flow.setupFromPause = false; showPage('pause'); }
     else if (flow.mode === 'royale') startBattle();
     else if (MATCH_MODES.includes(flow.mode)) { showPage('ops'); renderOps(); }
-    else openArmory('setup');
+    else { flow.armoryFrom = 'setup'; deploy(); }   // (no weapon select: your current gun; Change weapon is in the pause menu)
   });
   const pauseSettings = (tab) => { flow.settingsOnly = true; flow.setupFromPause = true; showPage('setup'); selectSetupTab(1); $(`m7-settings-${tab}-tab`)?.click(); };
   $('pause-settings').addEventListener('click', () => pauseSettings(0));   // the real settings, on Sensitivity
   $('pause-graphics').addEventListener('click', () => pauseSettings(7));   // Settings > Graphics
   $('pause-loadout').addEventListener('click', () => openArmory('pause'));
+  $('pause-go').addEventListener('click', () => startBattle(true));
   $('pause-quit').addEventListener('click', () => { if (cur() && cur().active) leaveBattle(); flow.inGame = false; showPage('mode'); });
 
   /* ---------- match modes: settings and operator select ---------- */
@@ -1958,7 +1970,7 @@ async function boot(data) {
   var presets = [];   // (var: the mode page can render before this line runs at boot)
   try { presets = JSON.parse(localStorage.getItem('recoilRange.presets') || '[]'); if (!Array.isArray(presets)) presets = []; } catch { presets = []; }
   const savePresets = () => { try { localStorage.setItem('recoilRange.presets', JSON.stringify(presets)); } catch { /* storage blocked */ } };
-  const MODE_NAME = { bots: 'Battle vs bots', gungame: 'Gun Game', endless: 'Endless', royale: 'Battle Royale', tdm: 'Team Deathmatch', ctf: 'Capture the Flag', bomb: 'Bomb' };
+  const MODE_NAME = { bots: 'Battle vs bots', ffa: 'Free for all', gungame: 'Gun Game', endless: 'Endless', royale: 'Battle Royale', tdm: 'Team Deathmatch', ctf: 'Capture the Flag', bomb: 'Bomb' };
   $('preset-save').addEventListener('click', () => {
     const name = $('preset-name').value.trim() || MODE_NAME[flow.mode] + ' ' + (presets.length + 1);
     presets = presets.filter((p) => p.name !== name).concat({ name, mode: flow.mode, battle: { ...settings.battle }, prefs: JSON.parse(JSON.stringify(modePrefs)) }).slice(-8);
@@ -2061,6 +2073,9 @@ async function boot(data) {
   }
   for (const id of ['md-map', 'md-diff', 'md-rank', 'md-size', 'md-ab', 'md-len', 'md-prep', 'md-head']) $(id).addEventListener('change', readModes);
   $('md-rank').addEventListener('change', modesUi);
+  // Free for all in Team Deathmatch or Capture the Flag: no teams, so it is the Free for all game (online: Network battle with free for all on)
+  $('md-ffa').addEventListener('change', () => { if ($('md-ffa').value !== 'on') return; $('md-ffa').value = 'off'; openGame('ffa'); });
+  bEl('b-ffa').addEventListener('change', () => { if (bEl('b-ffa').value === 'on' && flow.mode === 'net' && netMode() !== 'battle') { $('net-mode').value = 'battle'; $('net-mode').dispatchEvent(new Event('change')); } });
   let opsData = null, abilityData = null;
   async function renderOps() {
     if (!opsData) {
@@ -2120,7 +2135,7 @@ async function boot(data) {
     loadingCover();
     controls.release();
     const m = mode, P = modePrefs;
-    if (battle && battle.active) leaveBattle();
+    if (battle && battle.active) leaveBattle(!!extra.net);
     ensureModeGame();
     modeGame.hud.again.hidden = false;
     weapon.releaseTrigger(); setAds(false); player.releaseKeys();
@@ -2283,7 +2298,7 @@ async function boot(data) {
     } else if (flow.mode === 'net' && net.role === 'client') {
       flow.inGame = false;
       showPage('pause'); $('menu').hidden = false;
-      $('pause-title').textContent = net.link ? 'Waiting for the host to start the battle...' : 'Connect to a host first (Settings).';
+      $('pause-title').textContent = net.link ? 'Waiting for the host to open the lobby...' : 'Connect to a host first (Settings).';
       $('start-btn').disabled = true;
       $('start-btn').textContent = 'Waiting for the host';
       if (net.link) net.link.send({ k: 'hello', gun: state.gunIndex, at: state.gun.attach || null, skin: equippedSkin(state.gunIndex) });
@@ -2703,7 +2718,7 @@ async function boot(data) {
       rigObj: () => rig,
       skinShot: (id, o) => skinShot(id, o),
       shotDebug: () => ({ renderW, renderH, cw: canvas.width, ch: canvas.height, cam: previewCam.position.toArray(), fov: previewCam.fov, aspect: previewCam.aspect, root: previewRig.root.position.toArray(), box: (() => { const b = new THREE.Box3().setFromObject(previewRig.current); return [b.min.toArray(), b.max.toArray()]; })() }),
-      battleStart(o = {}) { Object.assign(settings.battle, o); startBattle(); return !!(battle && battle.active); },
+      battleStart(o = {}, lobby = false) { Object.assign(settings.battle, o); startBattle(!lobby); return !!(battle && battle.active); },   // (online: lobby true opens the lobby, else straight into the match)
       battleLeave: () => leaveBattle(),
       slowOffer: (fps) => offerLower(fps),
       padAim: () => padAim(),

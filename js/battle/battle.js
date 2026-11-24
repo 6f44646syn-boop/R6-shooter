@@ -161,10 +161,12 @@ export class Battle {
   // opts: { opponent: 'bots' | 'p2' | 'net', bots, level, killsToWin, p1Gun, p2Gun,
   //         remotes: [{ link, name, gunIndex }] (network game: players on other PCs) }
   start(opts) {
-    this.stop();
+    this.stop(!!(opts.remotes?.length || opts.spectators?.length));   // (players in the next match too: no 'stopped', they go straight on)
     if (opts.royale) opts = { ...opts, map: ROYALE_MAPS[opts.royaleMap] ? opts.royaleMap : Object.keys(ROYALE_MAPS)[Math.floor(Math.random() * Object.keys(ROYALE_MAPS).length)], opponent:'bots', bots:ROYALE_BOTS - (opts.remotes?.length || 0), remotes:opts.remotes || [], spectators:[] };
     if (opts.endless) opts = { ...opts, opponent: 'bots', bots: 1, mates: 0, level: 'easy', killsToWin: Infinity, ranked: false, remotes: [], spectators: [] };
     if (opts.gungame) opts = { ...opts, opponent: 'bots', mates: 0, killsToWin: Infinity, ranked: false, remotes: [], spectators: [] };
+    if (opts.lobby) opts = { ...opts, bots: 0, mates: 0, ranked: false, royale: false, endless: false, gungame: false };   // the network lobby: everyone in, nobody can be hurt, until the host starts
+    if (opts.ffa) opts = { ...opts, mates: 0 };   // free for all: every bot its own side, no teammates
     this.endless = opts.endless ? { wave: 1, kills: 0, lives: 3 } : null;
     this.gungame = opts.gungame ? { guns: this.deps.guns.slice() } : null;
     this.mvp = new MatchStats();
@@ -219,7 +221,7 @@ export class Battle {
     const n = opts.royale ? ROYALE_BOTS - this.remotes.length : Math.max(0, Math.min(6, opts.bots | 0));
     for (let i = 0; i < n; i++) this._newBot(i + (opts.royale ? this.remotes.length : 0), opts.level, opts.royale);   // (each its own side after the players')
     // bot teammates on your side
-    const mates = opts.royale || opts.opponent !== 'bots' ? 0 : Math.max(0, Math.min(3, opts.mates | 0));
+    const mates = opts.royale || opts.ffa || opts.opponent !== 'bots' ? 0 : Math.max(0, Math.min(3, opts.mates | 0));
     for (let i = 0; i < mates; i++) {
       const f = new Fighter({ name: MATE_NAMES[i] + ' (' + LEVELS[opts.level].name + ')', team: 'p1', color: TEAM_COLOR.p1 });
       const gun = d.guns[(i * 4 + 2) % d.guns.length];
@@ -236,10 +238,10 @@ export class Battle {
     this.t = t; this.prevT = t;
     // Network game: tell every remote player who is in the match before the spawns go out.
     for (const r of this.remotes) {
-      r.link.send({ k: 'start', royale: !!opts.royale, mapSeed: this.mapSeed, noMist: this.noMist, you: r.f.id, killsToWin: opts.killsToWin, map: this.arena.mapId, small: this.arena.small, night: this.atmo.night, midday: !!this.arena.atm.midday, weather: this.atmo.weather, fog: this.atmo.fog, roster: this._roster() });
+      r.link.send({ k: 'start', lobby: !!opts.lobby, royale: !!opts.royale, mapSeed: this.mapSeed, noMist: this.noMist, you: r.f.id, killsToWin: opts.killsToWin, map: this.arena.mapId, small: this.arena.small, night: this.atmo.night, midday: !!this.arena.atm.midday, weather: this.atmo.weather, fog: this.atmo.fog, roster: this._roster() });
     }
     for (const link of this.watchers) {
-      link.send({ k: 'start', spectator: true, you: this.humans[0].f.id, killsToWin: opts.killsToWin,
+      link.send({ k: 'start', lobby: !!opts.lobby, spectator: true, you: this.humans[0].f.id, killsToWin: opts.killsToWin,
         map: this.arena.mapId, small: this.arena.small, ...this.atmo, roster: this._roster() });
     }
     if (opts.royale) this.royale = new BattleRoyale(this);
@@ -307,7 +309,7 @@ export class Battle {
     this.royale = null;
     this.hud.leave.textContent = 'Back to the range';
     this.deps.sfx.stopAll?.();
-    if (this.active && this.net && this.net.role === 'host') this._broadcast({ k: 'stopped' });
+    if (this.active && this.net && this.net.role === 'host' && !switching) this._broadcast({ k: 'stopped' });
     if (this.active && !switching && this.net?.role === 'client' && !this.viewOnly) this.net.link.send({ k: 'left' });
     this.active = false;
     this.rec = null; this.kc = null; this._meAlive = false;
@@ -487,6 +489,7 @@ export class Battle {
 
   // Acid: damage with no shooter (spawn protection does not help; a death scores for no one).
   _acid(g, dmg, t, cause = 'Acid') {
+    if (this.opts.lobby) return;
     g.health -= dmg;
     g.lastHurt = t;
     const hv = this.humans.find((h) => h.f === g), rv = this.remotes.find((r) => r.f === g);
@@ -505,7 +508,7 @@ export class Battle {
   }
 
   _damage(g, dmg, by, zone, t, grenade = null) {
-    if (this.royale && this.over) return;
+    if ((this.royale && this.over) || this.opts.lobby) return;
     if (t < g.protectUntil) dmg = 0;
     if (g === this.humans[0]?.f && this.deps.godMode?.()) dmg = 0;   // dev mode (never true in ranked or online matches)
     if (dmg <= 0) return;
@@ -558,7 +561,7 @@ export class Battle {
 
   // Enemy bot number i (Battle Royale: its own team and no gun yet).
   _newBot(i, level, royale = false) {
-    const d = this.deps, team = royale ? 'p' + (i + 2) : 'bots';
+    const d = this.deps, team = royale ? 'p' + (i + 2) : this.opts.ffa ? 'p' + (i + 2 + this.remotes.length) : 'bots';   // (Battle Royale and free for all: each bot its own side)
     const name = BOT_NAMES[i % BOT_NAMES.length] + (i >= BOT_NAMES.length ? ' ' + (i + 1) : '');
     const f = new Fighter({ name: name + ' (' + LEVELS[level].name + ')', team, color: TEAM_COLOR[team] || TEAM_COLOR.bots });
     const gun = royale ? null : d.guns[(i * 3 + 1) % d.guns.length];
@@ -640,6 +643,7 @@ export class Battle {
     let title = names[team];
     if (this.net) { const w = this.fighters.find((f) => f.team === team); title = team === 'bots' ? 'The bots win' : (w ? w.name : 'Someone') + ' wins'; }
     const winner = this.fighters.find(f => f.team === team);
+    if (!title) title = (winner ? winner.name.replace(/ \(.*\)$/, '') : 'Someone') + ' wins';   // (free for all: a bot)
     const rows = this.royale
       ? [winner, ...this.royale.eliminated.slice().reverse()].map((f, i) => [f.name, f.team, f.kills, f.deaths, i + 1])
       : this.fighters.slice().sort((a, b) => b.kills - a.kills || a.deaths - b.deaths).map(f => [f.name, f.team, f.kills, f.deaths]);
@@ -837,7 +841,7 @@ export class Battle {
     this.stop(this.net?.role === 'client' && this.net.link === link);
     this.viewOnly = m.spectator === true;
     const d = this.deps;
-    this.opts = { opponent: 'net', killsToWin: m.killsToWin };
+    this.opts = { opponent: 'net', killsToWin: m.killsToWin, lobby: !!m.lobby };
     this.mvp = new MatchStats(); this.endless = null;
     this.net = { role: 'client', link, myId: m.you };
     for (const f of this.fighters) f.group.removeFromParent();
@@ -1718,10 +1722,11 @@ export class Battle {
     for (const f of this.fighters) {
       if (seen.has(f.team)) continue;
       seen.add(f.team);
-      const label = f.team === 'bots' ? 'Bots' : this.net ? f.name : f.team === 'p1' ? (two ? 'P1' : 'You') : 'P2';
+      const label = f.team === 'bots' ? 'Bots' : this.net || o.ffa ? f.name.replace(/ \(.*\)$/, '') : f.team === 'p1' ? (two ? 'P1' : 'You') : 'P2';
       parts.push([label, f.team, this.teamScore[f.team] || 0]);
     }
     const E = this.endless;
+    if (o.lobby) { this.hud.score.replaceChildren(el('span', 'b-goal', 'LOBBY · ' + parts.length + ' in · nobody can be hurt · ' + (this.net?.role === 'client' ? 'waiting for the host to start' : 'press Enter to start the match'))); return; }
     if (this.gungame) {
       const N = this.gungame.guns.length, me = this.humans[0]?.f, lead = this.fighters.reduce((a, f) => ((f.gg || 0) > (a.gg || 0) ? f : a), this.fighters[0]);
       this.hud.score.replaceChildren(el('span', 't-p1', 'You ' + ((me?.gg || 0) + 1) + ' / ' + N), el('span', 't-' + lead.team, 'Leader: ' + (lead === me ? 'you' : lead.name.replace(/ \(.*\)$/, '')) + ' ' + ((lead.gg || 0) + 1) + ' / ' + N), el('span', 'b-goal', 'kill with every gun to win'));

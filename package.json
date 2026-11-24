@@ -25,6 +25,7 @@
     "test:finale": "node tests/finale-browser.mjs",
     "test:ranked": "node tests/ranked.mjs && node tests/ranked-browser.mjs",
     "test:royale": "node tests/royale-browser.mjs",
-    "test:qa": "node tests/qa-browser.mjs"
+    "test:qa": "node tests/qa-browser.mjs",
+    "test:lobby": "node tests/lobby-browser.mjs"
   }
 }

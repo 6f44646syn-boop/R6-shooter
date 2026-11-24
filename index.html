@@ -104,7 +104,7 @@
         </div>
         <div id="acct-root"></div>
         <button type="button" id="menu-x" class="menu-x" aria-label="Close" title="Close">&times;</button>
-        <nav class="steps" aria-label="Steps"><button type="button" data-step="1">1 Controls</button><button type="button" data-step="2">2 Graphics</button><button type="button" data-step="3">3 Settings</button><button type="button" data-step="4">4 Packs</button><button type="button" data-step="5">5 Mode</button><button type="button" data-step="6">6 Weapon</button></nav>
+        <nav class="steps" aria-label="Steps"><button type="button" data-step="1">1 Controls</button><button type="button" data-step="2">2 Graphics</button><button type="button" data-step="3">3 Settings</button><button type="button" data-step="4">4 Packs</button><button type="button" data-step="5">5 Mode</button><button type="button" data-step="6">6 Operator</button></nav>
       </header>
       <nav class="row" aria-label="Main menu"><button type="button" id="go-save" hidden>Save code</button><button type="button" id="go-home">Home</button><button type="button" id="go-play">Pick game</button><button type="button" id="go-controls">Controls &amp; keybinds</button><button type="button" id="go-graphics">Graphics</button><button type="button" id="go-settings">Settings</button><button type="button" id="go-shop">Packs <span id="mini-points"></span></button><button type="button" id="go-packs">Skins</button></nav>
       <p id="lock-hint" class="hint" hidden></p>
@@ -118,6 +118,7 @@
           <div class="mode-item" data-online="0" data-cat="training"><button type="button" class="mode-card" data-mode="range"><b>Shooting range</b><span>Practise spray control on a dummy, a paper target or red dots. Measured sprays, every sight.</span></button><button type="button" class="mode-set" data-mode="range">Settings</button></div>
           <div class="mode-item" data-online="0" data-cat="casual"><button type="button" class="mode-card" data-mode="bots"><b>Battle vs bots</b><span>An arena with cover against 1-6 bots: Easy, Medium or Hard. Kills earn points for packs.</span></button><button type="button" class="mode-set" data-mode="bots">Settings</button></div>
           <div class="mode-item" data-online="0" data-cat="ranked"><button type="button" class="mode-card mode-ranked" data-mode="bots" data-ranked="1"><b>Ranked battle vs bots</b><span>Win or lose rating against bots. Fixed recoil and aim assist.</span></button><button type="button" class="mode-set" data-mode="bots" data-ranked="1">Settings</button></div>
+          <div class="mode-item" data-online="0" data-cat="casual"><button type="button" class="mode-card mode-new" data-mode="ffa"><b>Free for all</b><span>Everyone for themselves: you and 1-6 bots that fight each other too. First to the kill target wins.</span></button><button type="button" class="mode-set" data-mode="ffa">Settings</button></div>
           <div class="mode-item" data-online="0" data-cat="casual"><button type="button" class="mode-card mode-new" data-mode="gungame"><b>Gun Game</b><span>Every kill swaps you to the next gun. Get a kill with every gun first to win. Against 1-6 bots.</span></button><button type="button" class="mode-set" data-mode="gungame">Settings</button></div>
           <div class="mode-item" data-online="0" data-cat="casual"><button type="button" class="mode-card mode-new" data-mode="endless"><b>Endless</b><span>Waves of bots that never stop: every 4 kills one more bot joins and they get tougher. Three lives. Beat your best.</span></button><button type="button" class="mode-set" data-mode="endless">Settings</button></div>
           <div class="mode-item" data-online="0" data-cat="casual"><button type="button" class="mode-card" data-mode="royale"><b>Battle Royale</b><span>You and 20 rivals on Blacktide Island or in the Ruined City. Loot chests and outlast the shrinking zone.</span></button><button type="button" class="mode-set" data-mode="royale">Settings</button></div>
@@ -153,6 +154,7 @@
         <h2 id="pause-title">Paused</h2>
         <div class="pause-grid">
           <button id="start-btn" type="button" class="primary">Resume</button>
+          <button id="pause-go" type="button" class="primary" hidden>Start the match (Enter)</button>
           <button id="pause-loadout" type="button">Change weapon</button>
           <button id="pause-settings" type="button">Settings</button>
           <button id="pause-graphics" type="button">Graphics</button>
@@ -193,6 +195,8 @@
               <select id="b-voices"><option value="on">On (bots read their radio out loud)</option><option value="off">Off (text only)</option></select></label>
             <label id="b-bots-field" class="field" for="b-bots"><span>Bots</span>
               <select id="b-bots"><option>0</option><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option></select></label>
+            <label id="b-ffa-field" class="field" for="b-ffa"><span>Free for all</span>
+              <select id="b-ffa"><option value="off">Off (the bots are one side)</option><option value="on">On (everyone for themselves)</option></select></label>
             <label id="b-mates-field" class="field" for="b-mates"><span>Bot teammates</span>
               <select id="b-mates"><option selected>0</option><option>1</option><option>2</option><option>3</option></select></label>
             <label class="field" for="b-level"><span>Bot level</span>
@@ -277,6 +281,8 @@
               <select id="md-rank"><option value="off">Off (casual)</option><option value="on">On (win or lose Elo against the bots)</option></select></label>
             <label class="field" for="md-size"><span>Teams</span>
               <select id="md-size"><option value="3">3v3</option><option value="5" selected>5v5</option></select></label>
+            <label id="md-ffa-field" class="field" for="md-ffa"><span>Free for all</span>
+              <select id="md-ffa"><option value="off">Off (two teams)</option><option value="on">On (no teams: opens Free for all)</option></select></label>
             <label class="field" for="md-ab"><span>Abilities</span>
               <select id="md-ab"><option value="on">On (operator ability)</option><option value="off">Off</option></select></label>
             <label class="field" for="md-len"><span>Match length</span>

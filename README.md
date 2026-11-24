@@ -161,11 +161,14 @@ tab** button. Embed the GitHub Pages URL and players click through to a normal t
 
 ## Menus
 
-Main menu: choose a mode (Shooting range, Battle vs bots, Network battle), then its settings
-(bots, level, kills to win, the network lobby; every other setting folds out below), then
-your weapon: sights on the left, the gun turning in 3D in the middle (‹ › or the slot strip
-switch guns), skins on the right. Deploy starts. Esc pauses: Resume, Change weapon,
-Settings, Skins & packs, Main menu. Every gun has its own model.
+Main menu: choose a mode (Shooting range, Battle vs bots, Free for all, Network battle...), then
+its settings (bots, level, kills to win, the network lobby), then Deploy: there is no weapon
+select before a match, you take your current gun. Esc pauses: Resume, Change weapon (the
+weapon screen: sights, the gun in 3D, skins), Settings, Skins & packs, Main menu.
+
+**Free for all**: everyone for themselves, every bot fights everyone. It is its own card, and a
+"Free for all" setting in Battle vs bots, Gun Game, Endless and Network battle (not Bomb or
+Battle Royale). In Team Deathmatch and Capture the Flag the setting opens Free for all (no teams).
 
 ## Skins, packs and save codes
 
@@ -224,8 +227,13 @@ Main menu > Network battle. No server and no outside service: the browsers conne
    the join code (chat, email...).
 2. Host: paste each join code, press **Make reply code** and send the reply code back.
 3. Player: paste the reply code and press **Connect**.
-4. Host: press **Start battle** (bots optional, as a third side). Players join automatically
-   and click "Join the battle" to capture the mouse.
+4. Host: press **Open the lobby**. Everyone (the host too) is put in a lobby room on the map
+   where nobody can be hurt; players press Play / "Join the lobby" to capture the mouse. A
+   player who connects later is added (the lobby reopens with them in).
+5. Host: press **Enter** in game (or **Start the match** in the pause menu). The match (Battle,
+   Battle Royale, Team Deathmatch, Capture the Flag or Bomb) starts for everyone at the same
+   time, bots included; players already in the lobby go straight in. Play again returns
+   everyone to the lobby.
 
 The host runs the match (health, damage, bots, respawns, score). Each player moves and aims
 on their own PC, so recoil and sensitivity feel exactly like single player; their PC decides
