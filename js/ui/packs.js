@@ -1,13 +1,13 @@
 // Skins & packs: points, the pack opening (a slot-machine reel that slows down and lands on
 // your skin), your collection (click to put a skin on the selected gun), and the save code.
-import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById, skinFits, LEGEND_ID } from '../core/skins.js?v=e94e41c-mwu5yowd';
-import { Profile, PACK_COST, LEGEND_PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=e94e41c-mwu5yowd';
-import { legendPhotoURL, setLegendPhoto, clearLegendPhoto, onLegendChange } from '../core/legend.js?v=e94e41c-mwu5yowd';
-import { skinThumb } from '../render/gpu-tex.js?v=e94e41c-mwu5yowd';
-import { CHARMS } from '../core/charms.js?v=e94e41c-mwu5yowd';
-import { BOARD, ranking, myCode, addFriend, removeFriend, myName, setName, friends } from '../core/bests.js?v=e94e41c-mwu5yowd';
-import { TRADE_UP, TRADE_NEXT } from '../core/profile.js?v=e94e41c-mwu5yowd';
-import { mulberry32 } from '../core/prng.js?v=e94e41c-mwu5yowd';
+import { RARITY, RARITIES, CATALOGUE, SKIN_COUNT, skinById, skinFits, LEGEND_ID } from '../core/skins.js?v=ab0532e-mwu7i8ba';
+import { Profile, PACK_COST, LEGEND_PACK_COST, KILL_POINTS, HEADSHOT_BONUS, WIN_POINTS } from '../core/profile.js?v=ab0532e-mwu7i8ba';
+import { legendPhotoURL, setLegendPhoto, clearLegendPhoto, onLegendChange } from '../core/legend.js?v=ab0532e-mwu7i8ba';
+import { skinThumb } from '../render/gpu-tex.js?v=ab0532e-mwu7i8ba';
+import { CHARMS } from '../core/charms.js?v=ab0532e-mwu7i8ba';
+import { BOARD, ranking, myCode, addFriend, removeFriend, myName, setName, friends } from '../core/bests.js?v=ab0532e-mwu7i8ba';
+import { TRADE_UP, TRADE_NEXT } from '../core/profile.js?v=ab0532e-mwu7i8ba';
+import { mulberry32 } from '../core/prng.js?v=ab0532e-mwu7i8ba';
 
 // Weekly shop prices (a pack is 100 points for a random skin).
 const SHOP_PRICE = { common: 120, rare: 250, epic: 450, blackice: 900, legendary: 1500 };

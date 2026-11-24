@@ -1,7 +1,7 @@
-import { Hearing } from './hearing.js?v=e94e41c-mwu5yowd';
-import { decodeAudioPack } from './audio-pack.js?v=e94e41c-mwu5yowd';
+import { Hearing } from './hearing.js?v=ab0532e-mwu7i8ba';
+import { decodeAudioPack } from './audio-pack.js?v=ab0532e-mwu7i8ba';
 // WebAudio output only: sound propagation, surface profiles and step cadence are Rust-owned.
-import { cameraPose } from './acoustics.js?v=e94e41c-mwu5yowd';
+import { cameraPose } from './acoustics.js?v=ab0532e-mwu7i8ba';
 const clamp = (v, lo, hi) =>
   Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo;
 export const CUE_BELOW = 0.2;   // master volume under this: sounds also show as captions
