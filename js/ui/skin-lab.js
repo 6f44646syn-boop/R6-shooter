@@ -1,12 +1,12 @@
 // Skin Lab (skin-lab.html): every skin on every gun it fits, drawn by the game's own weapon rig.
 // Pick a gun and a skin, switch graphics, play the inspect; first person (with hands) or a studio
 // view you can turn by dragging. Nothing here changes a profile: the skin is forced on the rig.
-import * as THREE from '../../vendor/three/three.module.min.js?v=a96459a-mwwrvrc6';
-import { WeaponRig, setUltraTexSize } from '../scene/viewmodel.js?v=a96459a-mwwrvrc6';
-import { playInspect } from '../audio/inspect-sfx.js?v=a96459a-mwwrvrc6';
-import { loadGameData } from '../core/guns.js?v=a96459a-mwwrvrc6';
-import { SkinPack } from '../render/hd-pack.js?v=a96459a-mwwrvrc6';
-import { CATALOGUE, RARITIES, RARITY, skinFits, skinById, DEFAULT_SKINS } from '../core/skins.js?v=a96459a-mwwrvrc6';
+import * as THREE from '../../vendor/three/three.module.min.js?v=72da9c3-mwws8gb3';
+import { WeaponRig, setUltraTexSize } from '../scene/viewmodel.js?v=72da9c3-mwws8gb3';
+import { playInspect } from '../audio/inspect-sfx.js?v=72da9c3-mwws8gb3';
+import { loadGameData } from '../core/guns.js?v=72da9c3-mwws8gb3';
+import { SkinPack } from '../render/hd-pack.js?v=72da9c3-mwws8gb3';
+import { CATALOGUE, RARITIES, RARITY, skinFits, skinById, DEFAULT_SKINS } from '../core/skins.js?v=72da9c3-mwws8gb3';
 
 const $ = (id) => document.getElementById(id);
 const store = { get(k) { try { return localStorage.getItem('skinLab.' + k); } catch { return null; } }, set(k, v) { try { localStorage.setItem('skinLab.' + k, v); } catch { /* blocked */ } } };

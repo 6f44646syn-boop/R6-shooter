@@ -1,4 +1,4 @@
-import { utilityFor, abilitiesFor } from '../balance/bomb-utility.js?v=a96459a-mwwrvrc6';
+import { utilityFor, abilitiesFor } from '../balance/bomb-utility.js?v=72da9c3-mwws8gb3';
 // Match simulation for Team Deathmatch, Capture the Flag and Bomb (no three.js, no DOM:
 // the same code runs in the browser and in tools/check-modes.mjs).
 //
@@ -8,14 +8,14 @@ import { utilityFor, abilitiesFor } from '../balance/bomb-utility.js?v=a96459a-m
 //
 // Body for hits (actor frame, standing; crouching squashes y to 0.7): head sphere at 1.62 m
 // (r 0.13), torso capsule 0.95-1.34 m (r 0.24), legs capsule 0.1-0.9 m (r 0.19).
-import { mulberry32 } from '../core/prng.js?v=a96459a-mwwrvrc6';
-import { effectiveGun } from '../core/loadout.js?v=a96459a-mwwrvrc6';
-import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=a96459a-mwwrvrc6';
-import { BODY_R } from './map.js?v=a96459a-mwwrvrc6';
-import { Brain } from './bots.js?v=a96459a-mwwrvrc6';
-import { makeRules } from './rules.js?v=a96459a-mwwrvrc6';
-import { Nades } from './nades.js?v=a96459a-mwwrvrc6';
-import { Abilities } from './abilities.js?v=a96459a-mwwrvrc6';
+import { mulberry32 } from '../core/prng.js?v=72da9c3-mwws8gb3';
+import { effectiveGun } from '../core/loadout.js?v=72da9c3-mwws8gb3';
+import { rayCapsule, raySphere, dirFrom, yawTo, wrap180, DEG } from './geom.js?v=72da9c3-mwws8gb3';
+import { BODY_R } from './map.js?v=72da9c3-mwws8gb3';
+import { Brain } from './bots.js?v=72da9c3-mwws8gb3';
+import { makeRules } from './rules.js?v=72da9c3-mwws8gb3';
+import { Nades } from './nades.js?v=72da9c3-mwws8gb3';
+import { Abilities } from './abilities.js?v=72da9c3-mwws8gb3';
 
 export const TICK = 1 / 60;
 export const EYE = 1.6, CROUCH_EYE = 1.1;
