@@ -92,9 +92,11 @@ for (const mode of ['battle', 'tdm']) {
   await A.evaluate(() => { const R = window.__range; R.battleLeave(); document.getElementById('net-reset').click(); document.querySelector('.mode-set[data-mode=ffa]').click(); document.getElementById('menu').hidden = false; });
   await A.evaluate(() => { const s = document.getElementById('b-bots'); s.value = '3'; s.dispatchEvent(new Event('change')); });   // (the drop-down sits behind the choice cards)
   for (let i = 0; i < 6 && await A.locator('#page-setup').isVisible(); i++) await A.click('#setup-next');
+  const armory = await A.evaluate(() => !document.getElementById('armory').hidden);
+  await A.click('#arm-deploy');
   await A.waitForFunction(() => window.__range.battle()?.active && !window.__range.battle().opts.lobby, null, { timeout: 15000 });
-  const f = await A.evaluate(() => { const b = window.__range.battle(); return { ffa: b.opts.ffa, teams: b.fighters.map((x) => x.team), armory: document.getElementById('armory').hidden }; });
-  check('Free for all: no weapon select, every fighter its own side', f.ffa && new Set(f.teams).size === 4 && f.armory, JSON.stringify(f));
+  const f = await A.evaluate(() => { const b = window.__range.battle(); return { ffa: b.opts.ffa, teams: b.fighters.map((x) => x.team) }; });
+  check('Free for all: the weapon screen, then every fighter its own side', armory && f.ffa && new Set(f.teams).size === 4, JSON.stringify({ armory, ...f }));
   for (let i = 0; i < 90; i++) await A.evaluate(() => window.__range.step(1, 30));
   const botKills = await A.evaluate(() => window.__range.battle().bots.reduce((n, b) => n + b.f.kills, 0));
   check('Free for all: the bots fight each other', botKills > 0, String(botKills));

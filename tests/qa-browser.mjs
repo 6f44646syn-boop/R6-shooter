@@ -165,6 +165,7 @@ try {
     const setup = await page.locator('#page-setup').isVisible();
     await page.selectOption('#b-bots', '1');
     for (let i = 0; i < 5 && await page.locator('#page-setup').isVisible(); i++) { await page.evaluate(() => document.getElementById('setup-next').focus()); await tap(0); } await page.waitForTimeout(400);
+    await page.evaluate(() => [...document.querySelectorAll('#armory button.primary')].filter((b) => b.offsetParent).at(-1).focus()); await tap(0);
     await page.waitForFunction(() => window.__range.battle()?.active && document.getElementById('menu').hidden, null, { timeout: 40000 });
     const s0 = await page.evaluate(() => { const h = window.__range.battle().humans[0]; for (const b of window.__range.battle().bots) { b.f.x = 999; b.update = () => {}; } return { yaw: h.look.yaw, x: h.f.x, z: h.f.z, ammo: h.weapon.ammo }; });
     // right stick at half: 60 deg/s (curved), about 90 deg in 1.5 s (full stick turns 360 deg and the yaw wraps back to the start)

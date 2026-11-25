@@ -162,9 +162,10 @@ tab** button. Embed the GitHub Pages URL and players click through to a normal t
 ## Menus
 
 Main menu: choose a mode (Shooting range, Battle vs bots, Free for all, Network battle...), then
-its settings (bots, level, kills to win, the network lobby), then Deploy: there is no weapon
-select before a match, you take your current gun. Esc pauses: Resume, Change weapon (the
-weapon screen: sights, the gun in 3D, skins), Settings, Skins & packs, Main menu.
+its settings (bots, level, kills to win, the network lobby), then your weapon: sights on the
+left, the gun turning in 3D in the middle, skins on the right (Battle Royale skips it: guns come
+from chests; Team Deathmatch, Capture the Flag and Bomb pick an operator instead). Deploy starts.
+Esc pauses: Resume, Change weapon, Settings, Skins & packs, Main menu.
 
 **Endless online**: Network battle > Game > Endless. Every player on one side against waves of
 bots; each player adds 3 lives to a shared pool and anyone's kills bring the next wave. In Endless

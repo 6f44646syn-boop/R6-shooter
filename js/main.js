@@ -1319,7 +1319,6 @@ async function boot(data) {
     const waiting = settings.battle.opponent === 'net' && net.role === 'client';
     $('battle-btn').disabled = waiting && !(battle && battle.active);
     if (waiting && !(battle && battle.active)) $('battle-btn').textContent = net.link ? 'Waiting for the host to start' : 'Only the host starts the battle';
-    if (flow.page === 'setup' && flow.mode === 'net' && !flow.setupFromPause && !flow.settingsOnly) $('setup-next').dataset.end = net.role === 'client' ? 'Ready' : 'Open the lobby';
     choiceUi();
     renderParty();
   }
@@ -1479,7 +1478,7 @@ async function boot(data) {
     if (!$('home').hidden) $('h-code').hidden = !home.online && !inLobby;
     // not hosting: no match settings to change; Play joins the game, or picks your weapon until the host starts
     $('h-settings').hidden = $('h-pick').hidden = client;
-    if (client) $('h-game').textContent = cur()?.active ? (lobbyOpen() ? 'Join the lobby' : 'Join the game') : 'Waiting for the host';
+    if (client) $('h-game').textContent = cur()?.active ? (lobbyOpen() ? 'Join the lobby' : 'Join the game') : 'Choose your weapon';
   }
   // The host ended the game or left: whatever you were in, back to Home (the lobby) with a notice.
   function backToLobby(msg) {
@@ -1692,7 +1691,7 @@ async function boot(data) {
       selectSetupTab(flow.settingsOnly ? 1 : 0);
       $('setup-next').hidden = flow.settingsOnly;   // Settings: no Next, the x closes it
       if (flow.settingsOnly && graphicsUI && $('gfx').hidden) graphicsUI.mountInline(settingsUI.gfxPanel);   // Settings > Graphics
-      $('setup-next').textContent = flow.settingsOnly ? (flow.inGame ? 'Done' : 'Next: packs') : flow.setupFromPause ? (lobbyOpen() ? 'Back to the lobby' : 'Back to the game') : flow.mode === 'royale' ? 'Deploy' : MATCH_MODES.includes(flow.mode) ? 'Next: choose your operator' : flow.mode === 'range' ? 'Deploy to the range' : flow.mode === 'net' ? (net.role === 'client' ? 'Ready' : 'Open the lobby') : 'Deploy';
+      $('setup-next').textContent = flow.settingsOnly ? (flow.inGame ? 'Done' : 'Next: packs') : flow.setupFromPause ? (lobbyOpen() ? 'Back to the lobby' : 'Back to the game') : flow.mode === 'royale' ? 'Deploy' : MATCH_MODES.includes(flow.mode) ? 'Next: choose your operator' : flow.mode === 'net' && ['royale', 'bomb'].includes(netMode()) ? (net.role === 'client' ? 'Ready' : 'Open the lobby') : 'Next: choose your weapon';
       $('setup-next').dataset.end = $('setup-next').textContent;
       if (netInit) netUi();
       choiceUi();
@@ -1935,7 +1934,7 @@ async function boot(data) {
   $('h-pass').addEventListener('click', () => { leaveHome(); showPage('season'); });
   $('h-skin').addEventListener('click', () => { if (previewRig.inspectT < 0 && !homeFlat()) previewRig.inspect(); });
   $('h-play').addEventListener('click', () => {
-    if (net.role === 'client' && net.link) { if (!cur()?.active) { toast('Waiting for the host to open the lobby.'); return; } leaveHome(); if (cur().hud) cur().hud.root.hidden = false; startLock(); return; }   // in someone's party: join their lobby or match
+    if (net.role === 'client' && net.link) { leaveHome(); if (cur()?.active) { if (cur().hud) cur().hud.root.hidden = false; startLock(); } else openArmory('lobby'); return; }   // in someone's party: join their lobby or match, or pick a weapon until it opens
     leaveHome();
     openGame(home.mode, home.ranked, home.net);
     if (home.mode !== 'net') { while (choiceAdvance()); $('setup-next').click(); }   // (Play skips the settings pages)         // straight on with the game's saved settings
@@ -1959,7 +1958,8 @@ async function boot(data) {
     if (flow.setupFromPause) { flow.setupFromPause = false; showPage('pause'); }
     else if (flow.mode === 'royale') startBattle();
     else if (MATCH_MODES.includes(flow.mode)) { showPage('ops'); renderOps(); }
-    else { flow.armoryFrom = 'setup'; $('menu').hidden = true; deploy(); }   // (no weapon select: your current gun; Change weapon is in the pause menu)
+    else if (flow.mode === 'net' && ['royale', 'bomb'].includes(netMode())) { flow.armoryFrom = 'setup'; $('menu').hidden = true; deploy(); }   // (online Battle Royale and Bomb: no weapon screen either)
+    else openArmory('setup');   // the weapon screen (not Battle Royale: chests; nor TDM / CTF / Bomb: the operator screen)
   });
   const pauseSettings = (tab) => { flow.settingsOnly = true; flow.setupFromPause = true; showPage('setup'); selectSetupTab(1); $(`m7-settings-${tab}-tab`)?.click(); };
   $('pause-settings').addEventListener('click', () => pauseSettings(0));   // the real settings, on Sensitivity
@@ -2202,7 +2202,7 @@ async function boot(data) {
     packs.renderArmorySkins($('arm-skins'), state.gunIndex);
     renderAttach();
     $('arm-skins-note').textContent = 'Skins you own that fit the ' + g.name + '. Get more from packs (Skins & packs).';
-    $('arm-deploy').textContent = flow.armoryFrom === 'lobby' ? 'Ready' : flow.armoryFrom === 'pause' ? 'Back to the game' : flow.mode === 'range' ? 'Deploy to the range' : 'Deploy to battle';
+    $('arm-deploy').textContent = flow.armoryFrom === 'lobby' ? 'Ready' : flow.armoryFrom === 'pause' ? 'Back to the game' : flow.mode === 'range' ? 'Deploy to the range' : flow.mode === 'net' ? (net.role === 'client' ? 'Ready' : 'Open the lobby') : 'Deploy to battle';
   }
   // Weapon select: fire rate, magazine and damage as bars against the strongest gun of each.
   function renderArmStats(g) {
