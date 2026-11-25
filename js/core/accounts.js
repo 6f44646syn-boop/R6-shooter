@@ -21,6 +21,31 @@ function pinHash(name, pin) {
   for (const ch of name + '\u0000' + pin) { h ^= ch.charCodeAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
   return h.toString(36);
 }
+// Once per browser: delete every account called name, and its progress. If it is the one in use,
+// the next player (or a fresh Player 1) takes over. Returns true when something was deleted (the
+// caller reloads). The name can be used again afterwards.
+const DROPPED = 'recoilAccountsDropped.v1';   // (not a player key: it outlives switching players)
+export function dropAccounts(name, storage = localStorage) {
+  const r = reg(), bad = (a) => a.name.toLowerCase() === name.toLowerCase();
+  try { if (storage.getItem(DROPPED + ':' + name)) return false; storage.setItem(DROPPED + ':' + name, '1'); if (!r.list.some(bad)) return false; } catch { return false; }
+  for (const a of r.list.filter(bad)) storage.removeItem(SNAP + a.name);
+  const inUse = bad({ name: r.current });
+  r.list = r.list.filter((a) => !bad(a));
+  if (!r.list.length) r.list.push({ name: 'Player 1', pin: null });
+  if (inUse) {
+    const keys = [];
+    for (let i = 0; i < storage.length; i++) { const k = storage.key(i); if (mine(k)) keys.push(k); }
+    for (const k of keys) storage.removeItem(k);
+    const next = r.list[0];
+    let snap = {};
+    try { snap = JSON.parse(storage.getItem(SNAP + next.name) || '{}') || {}; } catch { snap = {}; }
+    for (const [k, v] of Object.entries(snap)) if (mine(k) && typeof v === 'string') storage.setItem(k, v);
+    storage.removeItem(SNAP + next.name);
+    r.current = next.name;
+  }
+  putReg(r);
+  return true;
+}
 export function accounts() { const r = reg(); return { current: r.current, list: r.list.map((a) => ({ name: a.name, locked: !!a.pin })) }; }
 export const currentAccount = () => reg().current;
 

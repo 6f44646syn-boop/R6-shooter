@@ -62,7 +62,7 @@ import { createJoinRequest, acceptJoin } from './net/link.js?v=a96459a-mwwrvrc6'
 import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt } from './net/relay.js?v=a96459a-mwwrvrc6';
 import { Profile, WIN_POINTS } from './core/profile.js?v=a96459a-mwwrvrc6';
 import { skinFits, skinById, CATALOGUE } from './core/skins.js?v=a96459a-mwwrvrc6';
-import { currentAccount } from './core/accounts.js?v=a96459a-mwwrvrc6';
+import { currentAccount, dropAccounts } from './core/accounts.js?v=a96459a-mwwrvrc6';
 import { CHARMS } from './core/charms.js?v=a96459a-mwwrvrc6';
 import { gunDamage } from './battle/fighter.js?v=a96459a-mwwrvrc6';
 import { PackUI } from './ui/packs.js?v=a96459a-mwwrvrc6';
@@ -166,6 +166,7 @@ async function boot(data) {
       back?.click();
     },
   };
+  if (dropAccounts(ICONIC)) { location.reload(); return; }   // (once per browser: the old iconicmussle736 accounts go; the next player takes over)
   const settings = loadSettings();
   iconicSettings(settings, data.sens);
   const canvas = $('view');

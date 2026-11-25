@@ -110,14 +110,23 @@ for (const mode of ['battle', 'tdm']) {
   const save = await A.evaluate(() => { document.getElementById('go-packs').click(); return !!document.querySelector('#packs-save .pk-save') && !document.getElementById('page-packs').hidden; });
   check('the save code box is on the Skins page', save);
 }
-// Easter egg: a player named iconicmussle736 starts with his Siege settings
+// iconicmussle736 accounts are deleted once per browser (the one in use too: the next player takes over)
 {
   const P = await (await browser.newContext()).newPage({ viewport: { width: 640, height: 360 } });
-  P.on('pageerror', (e) => nerr.push('iconic: ' + String(e.stack || e)));
-  await P.addInitScript(() => { if (!localStorage.getItem('recoilAccounts.v1')) localStorage.setItem('recoilAccounts.v1', JSON.stringify({ current: 'iconicmussle736', list: [{ name: 'iconicmussle736', pin: null }] })); });
+  P.on('pageerror', (e) => nerr.push('accounts: ' + String(e.stack || e)));
+  await P.addInitScript(() => { if (!sessionStorage.getItem('seeded')) { sessionStorage.setItem('seeded', '1');
+    localStorage.setItem('recoilAccounts.v1', JSON.stringify({ current: 'iconicmussle736', list: [{ name: 'Player 1', pin: null }, { name: 'iconicmussle736', pin: null }] }));
+    localStorage.setItem('recoilAccount:Player 1', JSON.stringify({ 'recoilRange.marker': 'p1' }));
+    localStorage.setItem('recoilRange.marker', 'iconic'); } });
   await P.goto(BASE + 'index.html?test', { waitUntil: 'networkidle' }); await P.waitForFunction(() => window.__range?.ready);
-  const s = await P.evaluate(() => JSON.parse(localStorage.getItem('recoilRange.settings.v1')));
-  check('easter egg: iconicmussle736 gets his settings (sens 5 / 6, FOV 85, volume 100, his aimed sliders)', s.sensH === 5 && s.sensV === 6 && s.fov === 85 && s.volume === 1 && s.adsSens === 'game' && s.opticOverrides['1.0x'] > 0 && Math.abs(s.opticOverrides['2.5x'] / s.opticOverrides['1.0x'] - (40 / 2.5) / 25) < 0.01, JSON.stringify(s && { h: s.sensH, v: s.sensV, fov: s.fov, vol: s.volume, ads: s.adsSens, o: s.opticOverrides }));
+  const r = await P.evaluate(() => ({ reg: JSON.parse(localStorage.getItem('recoilAccounts.v1')), marker: localStorage.getItem('recoilRange.marker') }));
+  check('iconicmussle736 accounts are deleted once and the next player takes over', r.reg.current === 'Player 1' && r.reg.list.length === 1 && r.marker === 'p1', JSON.stringify(r));
+  // after that the name works again, with the easter egg: his Siege settings
+  await P.evaluate(() => { localStorage.setItem('recoilAccounts.v1', JSON.stringify({ current: 'iconicmussle736', list: [{ name: 'iconicmussle736', pin: null }] })); for (const k of Object.keys(localStorage)) if (k.startsWith('recoilRange.')) localStorage.removeItem(k); });
+  await P.reload({ waitUntil: 'networkidle' }); await P.waitForFunction(() => window.__range?.ready);
+  const s = await P.evaluate(() => ({ cur: JSON.parse(localStorage.getItem('recoilAccounts.v1')).current, set: JSON.parse(localStorage.getItem('recoilRange.settings.v1')) }));
+  const o = s.set?.opticOverrides || {};
+  check('easter egg: a new iconicmussle736 gets his settings (sens 5 / 6, FOV 85, volume 100, his aimed sliders)', s.cur === 'iconicmussle736' && s.set.sensH === 5 && s.set.sensV === 6 && s.set.fov === 85 && s.set.volume === 1 && s.set.adsSens === 'game' && o['1.0x'] > 0 && Math.abs(o['2.5x'] / o['1.0x'] - (40 / 2.5) / 25) < 0.01, JSON.stringify(s));
   await P.close();
 }
 check('no page errors', !nerr.length, nerr.join('\n'));

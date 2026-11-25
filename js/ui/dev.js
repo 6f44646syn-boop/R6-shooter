@@ -1,6 +1,7 @@
 // Dev mode: a password-gated console with a recorder. Ctrl+Shift+D or the small "Dev" button opens it.
 // shortcut: the password check runs in the browser, so it keeps curious players out, not attackers; there is nothing server-side to protect.
 import { SKIN_COUNT } from '../core/skins.js?v=a96459a-mwwrvrc6';
+import { ratingOf } from '../core/ranked.js?v=a96459a-mwwrvrc6';
 
 const PASSWORD = '183535';
 const KEEP = 20000;          // timeline entries kept while recording (oldest 4000 dropped when full)
@@ -202,6 +203,7 @@ export function mountDev(root, api) {
   const COMMANDS = {
     help: ['list the commands', () => Object.entries(COMMANDS).map(([k, v]) => k.padEnd(14) + v[0]).join('\n')],
     coins: ['coins N  add N points', (n) => { api.profile.addPoints(num(n)); return 'points: ' + api.profile.points; }, true],
+    rp: ['rp N  add N rank points (rating; rp -N takes them off)', (n) => { const d = Math.trunc(Number(n)); if (!Number.isFinite(d)) throw new Error('need a whole number, e.g. rp 100 or rp -50'); api.profile.rating = ratingOf(api.profile.rating + d); api.profile._changed(); return 'rating: ' + api.profile.rating; }, true],
     charms: ['charms N  add N charm drops', (n) => { api.profile.charms += num(n); api.profile._changed(); return 'charms: ' + api.profile.charms; }, true],
     xp: ['xp N  add N season XP', (n) => { api.giveXp(num(n)); return 'added ' + num(n) + ' XP'; }, true],
     skins: ['skins all  own every skin', (a) => { if (a !== 'all') throw new Error('usage: skins all'); for (let i = 0; i < SKIN_COUNT; i++) api.profile._own(i); api.profile._changed(); return 'owned: ' + api.profile.ownedCount; }, true],
