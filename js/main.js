@@ -14,7 +14,7 @@ import { Look, PITCH_LIMIT } from './core/look.js?v=29bac34-mwwptgjz';
 import { Player } from './core/player.js?v=29bac34-mwwptgjz';
 import { PointerLock } from './core/pointer-lock.js?v=29bac34-mwwptgjz';
 import { loadSettings, saveSettings, DISTANCES, DEFAULTS } from './core/settings.js?v=29bac34-mwwptgjz';
-import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio } from './core/sensitivity.js?v=29bac34-mwwptgjz';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio, sensToCm360 } from './core/sensitivity.js?v=29bac34-mwwptgjz';
 import { Weapon } from './core/weapon.js?v=29bac34-mwwptgjz';
 import { RecoilEngine } from './core/recoil.js?v=29bac34-mwwptgjz';
 import { Spread } from './core/spread.js?v=29bac34-mwwptgjz';
@@ -99,6 +99,22 @@ if (embedded) {
   trackLoad(loadAll(), 'Loading the game').then((d) => trackLoad(boot(d), 'Loading the game')).catch(e => { $('boot-screen')?.remove(); $('data-errors').hidden = false; $('data-errors').textContent = e.message; });
 }
 
+// Easter egg: a player named iconicmussle736 starts with his own Siege settings (once per account;
+// he can change them after). Hip 5 / 6, FOV 85, volume 100, and his per-magnification aimed sliders.
+// Siege's aimed sliders are linear: multiplier = k * slider / zoom, with k from your own calibrated
+// 1.0x value in data/sens.json (the same k fits its 2.5x value). Brightness, toggles and the rest of
+// his file have nothing to set in this game.
+const ICONIC = 'iconicmussle736', ICONIC_KEY = 'recoilRange.iconic.v1';
+const ICONIC_ADS = { '1.0x': 25, '1.5x': 50, '2.0x': 50, '2.5x': 40, '3.0x': 50, '3.5x': 50, '4.0x': 51, '5.0x': 52, '8.0x': 52, '12.0x': 52 };   // (3.5x: Siege's 3x slider)
+function iconicSettings(settings, sens) {
+  try { if (currentAccount().toLowerCase() !== ICONIC || localStorage.getItem(ICONIC_KEY)) return; } catch { return; }
+  const k = sens.ads['1.0x'] / sens.magnifications.find((m) => m.key === '1.0x').slider;
+  Object.assign(settings, { sensH: 5, sensV: 6, cm360: sensToCm360(settings.dpi, 5), fov: 85, volume: 1, adsSens: 'game',
+    opticOverrides: Object.fromEntries(Object.entries(ICONIC_ADS).map(([key, slider]) => [key, +(k * slider / parseFloat(key)).toFixed(4)])) });
+  saveSettings(settings);
+  try { localStorage.setItem(ICONIC_KEY, '1'); } catch { /* applied for this visit */ }
+}
+
 async function boot(data) {
   const [controls, acoustics] = await Promise.all([createControls(), createAcoustics(), initBombUtility(), initLoadout()]);
   // Controller: buttons fire the same actions as keys; in menus it moves the focus (js/ui/gamepad.js).
@@ -151,6 +167,7 @@ async function boot(data) {
     },
   };
   const settings = loadSettings();
+  iconicSettings(settings, data.sens);
   const canvas = $('view');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: settings.antialias, powerPreference: 'high-performance' });
   renderer.setPixelRatio(1); // devicePixelRatio capped at 1

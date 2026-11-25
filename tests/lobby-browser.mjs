@@ -110,6 +110,16 @@ for (const mode of ['battle', 'tdm']) {
   const save = await A.evaluate(() => { document.getElementById('go-packs').click(); return !!document.querySelector('#packs-save .pk-save') && !document.getElementById('page-packs').hidden; });
   check('the save code box is on the Skins page', save);
 }
+// Easter egg: a player named iconicmussle736 starts with his Siege settings
+{
+  const P = await (await browser.newContext()).newPage({ viewport: { width: 640, height: 360 } });
+  P.on('pageerror', (e) => nerr.push('iconic: ' + String(e.stack || e)));
+  await P.addInitScript(() => { if (!localStorage.getItem('recoilAccounts.v1')) localStorage.setItem('recoilAccounts.v1', JSON.stringify({ current: 'iconicmussle736', list: [{ name: 'iconicmussle736', pin: null }] })); });
+  await P.goto(BASE + 'index.html?test', { waitUntil: 'networkidle' }); await P.waitForFunction(() => window.__range?.ready);
+  const s = await P.evaluate(() => JSON.parse(localStorage.getItem('recoilRange.settings.v1')));
+  check('easter egg: iconicmussle736 gets his settings (sens 5 / 6, FOV 85, volume 100, his aimed sliders)', s.sensH === 5 && s.sensV === 6 && s.fov === 85 && s.volume === 1 && s.adsSens === 'game' && s.opticOverrides['1.0x'] > 0 && Math.abs(s.opticOverrides['2.5x'] / s.opticOverrides['1.0x'] - (40 / 2.5) / 25) < 0.01, JSON.stringify(s && { h: s.sensH, v: s.sensV, fov: s.fov, vol: s.volume, ads: s.adsSens, o: s.opticOverrides }));
+  await P.close();
+}
 check('no page errors', !nerr.length, nerr.join('\n'));
 await browser.close(); server.close?.();
 console.log(failures ? failures + ' FAILED' : 'all passed');
