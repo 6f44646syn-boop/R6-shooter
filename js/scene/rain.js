@@ -1,7 +1,7 @@
 // Rain for the match maps that build their own scene (Bomb): streaks falling round the viewer, kept out of
 // the buildings (roofs: rectangles [x0, z0, x1, z1] where no rain falls below `under` metres). Moves in the
 // vertex shader; a frame sets the time and the viewer's position.
-import * as THREE from '../../vendor/three/three.module.min.js?v=29bac34-mwwptgjz';
+import * as THREE from '../../vendor/three/three.module.min.js?v=a96459a-mwwrvrc6';
 
 // heavy: a storm (more, longer, slanted streaks). roofs: up to 6 rectangles.
 export function rainFx({ heavy = false, roofs = [], under = 6 } = {}) {
