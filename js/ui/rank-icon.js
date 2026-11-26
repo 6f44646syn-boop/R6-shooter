@@ -1,6 +1,6 @@
 // Rank badges: one drawing per rank (Copper a plain medal ... Champion a crown), a laurel from Bronze
 // up, and the division (5 lowest ... 1 highest) on the badge; Champion shows its world number.
-import { rankOf, rankDivision } from '../core/ranked.js?v=96fa9c7-mwx0kz3f';
+import { rankOf, rankDivision } from '../core/ranked.js?v=e7475a5-mwx0ullj';
 
 const TIER = {   // light, dark, laurel colour
   Copper: ['#e39a6a', '#7a3d1d', null],
