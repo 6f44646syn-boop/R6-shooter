@@ -1990,11 +1990,11 @@ async function boot(data) {
         return;
       }
       const name = el('input', { type: 'text', maxLength: 16, value: '', placeholder: 'Player name', autocomplete: 'username' }); name.setAttribute('aria-label', 'Player name');
-      const pin = el('input', { type: 'password', inputMode: 'numeric', maxLength: 8, placeholder: 'PIN (4-8 digits)', autocomplete: 'current-password' }); pin.setAttribute('aria-label', 'PIN');
+      const pin = el('input', { type: 'password', inputMode: 'numeric', maxLength: 8, placeholder: 'PIN (optional)', autocomplete: 'current-password' }); pin.setAttribute('aria-label', 'PIN');
       // Sign in: an account that exists; Create account: a new name (with this browser's progress)
       const send = async (create) => {
         if (!name.value.trim()) { say('Type your player name.'); name.focus(); return; }
-        if (!/^\d{4,8}$/.test(pin.value)) { say('The PIN is 4 to 8 digits.'); pin.focus(); return; }
+        if (!/^(\d{4,8})?$/.test(pin.value)) { say('The PIN is 4 to 8 digits, or leave it empty for none.'); pin.focus(); return; }
         for (const b of buttons) b.disabled = true; say(create ? 'Creating the account...' : 'Signing in...');
         try {
           const r = await cloudAccount(relayUrl(), { op: create ? 'create' : 'login', name: name.value, pin: pin.value, ...(create ? { code: profile.saveCode(), secs: playtime.get() } : {}) });
@@ -2009,7 +2009,7 @@ async function boot(data) {
       };
       const buttons = [el('button', { type: 'submit', className: 'primary', textContent: 'Sign in' }), el('button', { type: 'button', textContent: 'Create account', onclick: () => send(true) })];
       const form = el('form', { className: 'row', onsubmit: (e) => { e.preventDefault(); send(false); } }, name, pin, ...buttons);   // (Enter signs in)
-      box.replaceChildren(el('h4', { textContent: 'Online account' }), el('p', { className: 'small', textContent: 'Sign in on any PC to play with your skins, points and rank. New here? Create an account: it claims the name (nobody else can use it) and saves the progress in this browser.' }), form, msg);
+      box.replaceChildren(el('h4', { textContent: 'Online account' }), el('p', { className: 'small', textContent: 'Sign in on any PC to play with your skins, points and rank. New here? Create an account: it claims the name (nobody else can use it) and saves the progress in this browser. The PIN is optional, but without one anyone who knows your name can sign in as you.' }), form, msg);
     }
     // keep the online copy up to date (a few seconds after any change, and when the game closes)
     let dirty = false;                              // changes here not saved online yet (closing never sends old progress over a newer save)

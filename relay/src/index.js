@@ -316,7 +316,7 @@ export class Room {
     if (b.op !== 'login' && b.op !== 'create') return bad(400, 'Unknown request.');
     if (b.op === 'create' && DEFAULT_NAME.test(name)) return bad(400, 'Pick a name of your own (not ' + name + ').');
     if (b.op === 'create' && row) return bad(409, 'The name ' + row.name + ' is taken: pick another, or sign in if it is yours.');
-    if (typeof b.pin !== 'string' || !/^\d{4,8}$/.test(b.pin)) return bad(400, 'A PIN is 4 to 8 digits.');
+    if (typeof b.pin !== 'string' || !/^(\d{4,8})?$/.test(b.pin)) return bad(400, 'A PIN is 4 to 8 digits (or none).');   // (no PIN: the name alone signs in)
     const hash = await pinHash(key, b.pin), token = [...crypto.getRandomValues(new Uint8Array(16))].map((x) => x.toString(16).padStart(2, '0')).join('');
     if (!row) {                                     // a new name: claim it with this PIN and your progress
       if (code === null) return bad(404, 'No player called ' + name + '.');
