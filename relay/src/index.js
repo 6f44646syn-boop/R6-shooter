@@ -35,7 +35,7 @@ const RANK_SHARDS = 4;
 const RANK_TTL = 45_000;
 const RECEIPT_TTL = 86_400_000;
 const MATCH_ID = /^[0-9a-f]{32}$/;
-const RESET = 1;   // one-time resets (see _resetOnce)
+const RESET = 2;   // one-time resets (see _resetOnce)
 const DEFAULT_NAME = /^player\s*\d*$/i;   // "Player", "Player 1"...: the game's default name, never an account
 const SAVE_CODE = /^RRS1-[A-Za-z0-9_-]{4,10000}$/, ACCOUNTS_MAX = 200_000;
 // A PIN is kept as SHA-256 of the name and the PIN (never the PIN itself).
@@ -263,14 +263,22 @@ export class Room {
     return true;
   }
   // One-time resets (RESET goes up by one for each): 1 = everyone signs in again (sessions end; names, PINs and
-  // progress stay), and accounts with the default name ("Player", "Player 1"...) are deleted.
+  // progress stay), and accounts with the default name ("Player", "Player 1"...) are deleted; 2 = every account not
+  // signed in since then is deleted (its name is free again; the progress in its player's browser stays).
   _resetOnce(sql) {
     sql.exec('CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v INTEGER)');
     const done = sql.exec("SELECT v FROM meta WHERE k = 'reset'").toArray()[0]?.v || 0;
     if (done >= RESET) return;
     this._accountsTable(sql);
-    sql.exec('UPDATE accounts SET token = NULL');
-    for (const { key } of sql.exec('SELECT key FROM accounts').toArray()) if (DEFAULT_NAME.test(key)) sql.exec('DELETE FROM accounts WHERE key = ?', key);   // (and the "Player 1" accounts go)
+    if (done < 1) {
+      sql.exec('UPDATE accounts SET token = NULL');
+      for (const { key } of sql.exec('SELECT key FROM accounts').toArray()) if (DEFAULT_NAME.test(key)) sql.exec('DELETE FROM accounts WHERE key = ?', key);   // (and the "Player 1" accounts go)
+    }
+    if (done < 2) {                                  // only the accounts signed in since reset 1 stay; every other name is free again
+      sql.exec('DELETE FROM accounts WHERE token IS NULL');
+      sql.exec('CREATE TABLE IF NOT EXISTS board (key TEXT PRIMARY KEY, name TEXT, rating INTEGER, kills INTEGER, skins INTEGER, points INTEGER, games INTEGER, minutes INTEGER, at INTEGER)');
+      sql.exec('DELETE FROM board WHERE key NOT IN (SELECT key FROM accounts)');
+    }
     sql.exec("INSERT OR REPLACE INTO meta VALUES ('reset', ?)", RESET);
   }
 
