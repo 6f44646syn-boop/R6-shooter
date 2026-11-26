@@ -2519,12 +2519,39 @@ const NUKE_FRAGMENT = `uniform float uTime, uFlash, uRise, uBlast, uFade; varyin
     float ball = smoothstep(0.22 * (1.0 - r * 0.6), 0.0, length(vec2(lx, ly - capY))) ;
     float cloud = max(stem, cap);
     vec3 fire = mix(vec3(0.55, 0.03, 0.02), vec3(1.0, 0.25, 0.08), churn) + vec3(1.0, 0.85, 0.6) * ball * 1.5;
-    // the shockwave: a red-white ring at angle uBlast from ground zero; behind it the sky burns red with heat haze
-    float ring = exp(-pow((ang - uBlast) / 0.06, 2.0)), inside = smoothstep(uBlast + 0.02, uBlast - 0.15, ang);
-    float haze = fbm(vec2(atan(d.z, d.x) * 3.0, d.y * 6.0 - t * 0.4));
-    vec3 sky = mix(vec3(0.25, 0.01, 0.015), vec3(0.6, 0.06, 0.03), haze) * (d.y < 0.0 ? 0.55 : 1.0) + vec3(0.9, 0.12, 0.05) * exp(-abs(d.y) * 12.0) * 0.6;
-    vec3 col = sky * inside + vec3(1.0, 0.45, 0.3) * ring * 1.6;
-    float a = inside * 0.62 + ring * 0.9;
+    // the blast: a 3D bubble (ray-traced: a sphere of uBlast metres round ground zero, 30 m ahead on the ground
+    // 1.6 m below your eye), glassy in the middle, bright iridescent red-gold at its edges, a glint of the sun on it,
+    // and a burning ring where it meets the ground, sweeping across the map; once it has passed you, the air is red
+    vec3 C = vec3(D.x, 0.0, D.z) * 30.0 + vec3(0.0, -1.6, 0.0);
+    float R = max(uBlast, 0.01), hb = dot(d, C), hc = dot(C, C) - R * R, disc = hb * hb - hc;
+    bool inBubble = hc < 0.0;
+    vec3 col = vec3(0.0); float a = 0.0;
+    vec3 sun = normalize(vec3(0.35, 0.75, -0.55));
+    if (disc > 0.0) {
+      float sq = sqrt(disc);
+      for (int k = 0; k < 2; k++) {                                     // the near and the far wall (it is see-through)
+        float th = k == 0 ? hb - sq : hb + sq;
+        if (th <= 0.0) continue;
+        vec3 nrm = normalize(th * d - C);
+        if (nrm.y < -0.05) continue;                                      // (only the dome above the ground)
+        float f = 1.0 - abs(dot(nrm, d)), rim = pow(f, 3.0);
+        float film = 0.5 + 0.5 * sin(f * 14.0 + t * 1.5 + nrm.y * 6.0);   // thin-film bands
+        vec3 tint = mix(vec3(0.95, 0.08, 0.05), vec3(1.0, 0.7, 0.25), film);
+        float glint = pow(max(dot(reflect(d, nrm), sun), 0.0), 80.0) * (k == 0 ? 1.0 : 0.4);
+        float w = k == 0 ? 1.0 : 0.55;
+        col += (tint * (0.22 + rim * 1.8) + vec3(1.0, 0.95, 0.9) * glint * 2.0) * w;
+        a = max(a, (0.2 + rim * 0.8 + glint) * w);
+      }
+    }
+    if (d.y < 0.0) {                                                    // where the bubble's foot is on the ground
+      vec3 g = d * (-1.6 / d.y);
+      float foot = exp(-pow((length(g.xz - C.xz) - R) / max(0.8, R * 0.025), 2.0));
+      col += vec3(1.0, 0.35, 0.15) * foot * 1.8; a = max(a, foot * 0.9);
+    }
+    if (inBubble) {                                                     // inside: the air burns red with heat haze
+      float haze = fbm(vec2(atan(d.z, d.x) * 3.0, d.y * 6.0 - t * 0.4));
+      col += mix(vec3(0.22, 0.01, 0.015), vec3(0.5, 0.05, 0.03), haze) * 0.8; a = max(a, 0.42);
+    }
     col = mix(col, fire, cloud); a = max(a, cloud * 0.97);
     // the flash: blinding at ground zero, washing the whole view
     float glow = exp(-ang * 2.5);
@@ -2846,7 +2873,8 @@ export function rankInspect(gun, mag, kind, quality) {
       domU.uTime.value = p * RANK_SECONDS;
       domU.uFlash.value = bump(p, 0.13, 0.145, 0.16, 0.26);
       domU.uRise.value = smooth(p, 0.14, 0.7);
-      domU.uBlast.value = Math.PI * 1.05 * Math.pow(smooth(p, 0.16, 0.44), 0.8);
+      // the bubble's radius in metres: it swells slowly as a dome on the map (to 34 m: past you, 30 m away, at about 0.4), then races outwards
+      domU.uBlast.value = p < 0.42 ? 34 * Math.pow(smooth(p, 0.16, 0.42), 1.2) : 34 + 110 * smooth(p, 0.42, 0.62);
       domU.uFade.value = smooth(p, 0.12, 0.14) * (1 - smooth(p, 0.88, 0.98));
       dome.visible = domU.uFade.value > 0.003;
       rays.material.opacity = total * 1.3; rays.scale.setScalar(1.25 + 0.15 * total); rays.rotation.z = p * 1.5; rays.position.z = 0.004;
