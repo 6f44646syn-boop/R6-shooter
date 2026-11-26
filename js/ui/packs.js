@@ -7,6 +7,7 @@ import { skinThumb } from '../render/gpu-tex.js?v=7141ab8-mwx5zl37';
 import { CHARMS } from '../core/charms.js?v=7141ab8-mwx5zl37';
 import { BOARD, ranking, myCode, addFriend, removeFriend, myName, setName, friends } from '../core/bests.js?v=7141ab8-mwx5zl37';
 import { TRADE_UP, TRADE_NEXT } from '../core/profile.js?v=7141ab8-mwx5zl37';
+import { SKIN_CHALLENGES, progressOf } from '../core/challenges.js?v=7141ab8-mwx5zl37';
 import { mulberry32 } from '../core/prng.js?v=7141ab8-mwx5zl37';
 
 // Weekly shop prices (a pack is 100 points for a random skin).
@@ -133,10 +134,12 @@ export class PackUI {
     this.strip = el('div', { class: 'pk-strip' });
     this.reveal = el('div', { class: 'pk-reveal', hidden: '' });
     this.skipBtn = el('button', { type: 'button', text: 'Skip', onclick: () => this._finish() });
+    this.modalTitle = el('h1', { text: 'Opening pack' });
+    this.reel = el('div', { class: 'pk-reel' }, this.strip, el('div', { class: 'pk-marker' }));
     this.modal = el('div', { class: 'pk-modal', hidden: '' },
       el('div', { class: 'pk-box' },
-        el('h1', { text: 'Opening pack' }),
-        el('div', { class: 'pk-reel' }, this.strip, el('div', { class: 'pk-marker' })),
+        this.modalTitle,
+        this.reel,
         el('div', { class: 'row pk-skip' }, this.skipBtn),
         this.reveal));
     this.app.append(this.modal);
@@ -196,6 +199,9 @@ export class PackUI {
       }, this.thumbImg(id), el('span', { class: 'pk-name', text: s.name }),
       el('span', { class: 'pk-rar', text: have ? rar.name : rar.name + ' · Locked' }),
       !have && s.unlock ? el('span', { class: 'pk-only', text: s.unlock }) : null,
+      !have && s.trial ? (() => { const c = SKIN_CHALLENGES.find((x) => x.skin === id), n = c ? progressOf(c) : 0;   // how far you are
+        return el('span', { class: 'pk-prog', title: n + ' / ' + s.trial.goal, 'aria-label': 'Progress ' + n + ' of ' + s.trial.goal },
+          el('i', { style: 'width:' + (100 * n / s.trial.goal).toFixed(1) + '%' }), el('b', { text: n.toLocaleString('en') + ' / ' + s.trial.goal.toLocaleString('en') })); })() : null,
       only ? el('span', { class: 'pk-only', text: only }) : null));
     }
     this.grid.replaceChildren(...cards);
@@ -298,6 +304,7 @@ export class PackUI {
     const res = given || (legend ? this.profile.openLegendPack(rng) : this.profile.openPack(rng));
     if (!res) return null;
     this.result = res;
+    this.modalTitle.textContent = 'Opening pack'; this.reel.hidden = false;
     // A reel of random skins (same odds as packs); the winning card sits at WIN_AT.
     const ids = Array.from({ length: REEL_LEN }, (_, i) => (i === WIN_AT ? res.skin.id : Profile.roll(rng).id));
     this.strip.replaceChildren(...ids.map((id) => {
@@ -358,6 +365,25 @@ export class PackUI {
           el('button', { type: 'button', text: 'Close', onclick: () => this.close() }))));
     this.reveal.hidden = false;
     if (this.sfx) this.sfx.reload();
+  }
+  // A skin challenge finished: its skin, earned, no reel. what: the challenge ("Win 15 Bomb matches").
+  earned(skinId, what) {
+    if (!this.modal.hidden) return false;
+    const skin = CATALOGUE[skinId], slot = skin.guns ? skin.guns[0] : this.gunIndex(), gun = this.guns[slot];
+    this.modalTitle.textContent = 'Challenge complete'; this.reel.hidden = true; this.skipBtn.hidden = true;
+    this.reveal.className = 'pk-reveal r-' + skin.rarity + ' pk-earned';
+    this.reveal.replaceChildren(
+      el('img', { class: 'pk-shot', src: this.thumb(skin.id), alt: skin.name + ' on the ' + gun.name }),   // (its card: the gun painted; a render could come out before the paint has loaded)
+      el('div', { class: 'pk-info' },
+        el('div', { class: 'pk-rarity', text: 'Earned' }),
+        el('div', { class: 'pk-title', text: skin.name }),
+        el('p', { class: 'small', text: what + ' · ' + gun.name + ' only · ' + this.profile.ownedCount + ' / ' + SKIN_COUNT + ' collected' }),
+        el('div', { class: 'row' },
+          el('button', { type: 'button', class: 'primary', text: 'Put on ' + gun.name, onclick: () => { this.profile.equip(slot, skin.id); this.onEquip(slot); this.close(); } }),
+          el('button', { type: 'button', text: 'Close', onclick: () => this.close() }))));
+    this.reveal.hidden = false; this.modal.hidden = false;
+    if (this.sfx) this.sfx.reload();
+    return true;
   }
   close() { this._spinning = false; clearTimeout(this._timer); this.modal.hidden = true; this.refresh(); }
 }

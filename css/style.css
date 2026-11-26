@@ -203,6 +203,10 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 .r-epic { border-color: #8a3fc0; } .r-epic .pk-rar { color: #c26bff; }
 .r-ranked { border-color: #c4553a; } .r-ranked .pk-rar { color: #ff7a59; }
 .r-challenge { border-color: #2f9e55; } .r-challenge .pk-rar { color: #5be37d; }
+.pk-prog { position: relative; display: block; height: 14px; margin-top: 4px; border-radius: 7px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.pk-prog i { position: absolute; inset: 0 auto 0 0; background: #2f9e55; }
+.pk-prog b { position: relative; display: block; font-size: 10px; line-height: 14px; text-align: center; color: #e8fff0; }
+.pk-earned .pk-rarity { color: #5be37d; }
 .r-blackice { border-color: #5fd6e6; background: #071016; box-shadow: 0 0 10px rgba(127, 243, 255, 0.35); } .r-blackice .pk-rar { color: #7ff3ff; }
 .pk-stats { display: grid; gap: 6px; padding-top: 6px; border-top: 1px solid var(--panel-edge); }
 .pk-hist { display: grid; gap: 2px; font: 12px/1.4 var(--mono); }

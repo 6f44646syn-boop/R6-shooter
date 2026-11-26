@@ -2521,6 +2521,19 @@ export function challengeInspect(gun, skin, quality) {
   const motesMat = new THREE.PointsMaterial({ size: size.z * 0.012, map: sparkTexture(), color: col.clone().lerp(new THREE.Color(1, 1, 1), 0.15), transparent: true, depthWrite: false, toneMapped: false, blending: THREE.AdditiveBlending });
   const motes = new THREE.Points(geo, motesMat); motes.frustumCulled = false; fx.add(motes); own.push(geo, motesMat);
   const seed = Array.from({ length: n }, () => [rng() * Math.PI * 2, 0.4 + rng() * 0.7, rng(), 0.6 + rng() * 0.8]);
+  // the nameplate: a hologram over the gun with the skin's name and the challenge you beat for it
+  const plate = document.createElement('canvas'); plate.width = 1024; plate.height = 256;
+  { const g = plate.getContext('2d'), css = '#' + col.getHexString(THREE.SRGBColorSpace);
+    g.fillStyle = 'rgba(8, 12, 18, 0.72)'; g.strokeStyle = css; g.lineWidth = 6;
+    g.beginPath(); g.roundRect(8, 8, 1008, 240, 28); g.fill(); g.stroke();
+    for (let y = 14; y < 244; y += 6) { g.fillStyle = 'rgba(255, 255, 255, 0.035)'; g.fillRect(12, y, 1000, 2); }   // scan lines
+    g.textAlign = 'center'; g.fillStyle = '#fff'; g.shadowColor = css; g.shadowBlur = 18;
+    g.font = '800 92px system-ui, sans-serif'; g.fillText((skin.name || '').toUpperCase(), 512, 118, 960);
+    g.shadowBlur = 0; g.fillStyle = css; g.font = '700 40px system-ui, sans-serif'; g.fillText('EARNED · ' + (skin.unlock || ''), 512, 196, 960); }
+  const plateTex = new THREE.CanvasTexture(plate); plateTex.colorSpace = THREE.SRGBColorSpace;
+  const plateMat = new THREE.SpriteMaterial({ map: plateTex, transparent: true, depthWrite: false, depthTest: false, toneMapped: false });
+  const nameplate = new THREE.Sprite(plateMat); nameplate.renderOrder = 22; nameplate.scale.set(size.z * 0.62, size.z * 0.62 / 4, 1);
+  nameplate.position.set(centre.x, box.max.y + size.y * 0.12, centre.z); fx.add(nameplate); own.push(plateTex, plateMat);
   let phase = -1;
   return {
     clip: CHALLENGE_CLIP, seconds: CHALLENGE_SECONDS,
@@ -2538,6 +2551,10 @@ export function challengeInspect(gun, skin, quality) {
       seed.forEach(([a, r, off, sp], i) => { const k = (t * sp * 0.35 + off) % 1, ang = a + t * 0.8;
         pos.setXYZ(i, centre.x + Math.cos(ang) * size.z * 0.45 * r, box.min.y - size.y * 0.2 + k * size.y * 1.8, centre.z + Math.sin(ang) * size.z * 0.45 * r); });
       pos.needsUpdate = true; motesMat.opacity = on;
+      // the nameplate flickers on (a hologram), rises a little over the gun, holds, and fades before the gun goes back
+      const show = smooth(p, 0.3, 0.4) * (1 - smooth(p, 0.78, 0.86)), flicker = p < 0.42 ? (Math.sin(t * 70) > -0.3 ? 1 : 0.25) : 1;
+      plateMat.opacity = show * flicker * (0.92 + 0.08 * Math.sin(t * 9));
+      nameplate.position.y = box.max.y + size.y * (0.12 + 0.08 * smooth(p, 0.3, 0.45));
     },
     dispose() { fx.removeFromParent(); for (const o of own) o.dispose(); },
   };

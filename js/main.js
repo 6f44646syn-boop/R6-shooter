@@ -189,6 +189,8 @@ async function boot(data) {
   // Your skins and points (localStorage + save code). The gun model asks it which skin a slot wears.
   const flow = { page: null, prev: 'mode', mode: 'range', inGame: false, armoryFrom: 'setup', setupFromPause: false, settingsOnly: false };
   const profile = new Profile();
+  // a skin challenge finished in this browser whose skin you do not have (an older save code loaded since): yours again
+  for (const c of SKIN_CHALLENGES) if (isPaid(c) && !profile.has(c.skin)) profile.grant({ skin: c.skin });
   var packsUi = null;      // the Skins & packs panel (created further down; var: readable before then)
   let skinOverride = null;   // { slot, id }: a one-off render of a skin (pack reveal)
   // Your skin on the gun in a slot (what other players see), or null.
@@ -933,9 +935,10 @@ async function boot(data) {
     note.textContent = next ? S.into + ' / ' + XP_PER_TIER + ' XP · next: ' + rewardText(next) + (S.tier + 1 === TIERS ? '' : ' · tier ' + TIERS + ': ' + rewardText(rewardOf(TIERS, S.id))) : 'Season complete. A new one starts in ' + days + ' days.';
     box.append(head, bar, note);
   }
+  const earnedQueue = [];     // skin challenges finished: their reveal waits until you are out of play (see the frame loop)
   function payChallenges(done) {
     for (const c of done) {
-      if (c.skin !== undefined) { profile.grant({ skin: c.skin }); giveXp(XP.weekly); flashNotice('Skin challenge done: ' + c.text + ' · ' + c.skinName + ' unlocked', 5000); continue; }
+      if (c.skin !== undefined) { profile.grant({ skin: c.skin }); giveXp(XP.weekly); earnedQueue.push(c); flashNotice('Skin challenge done: ' + c.text + ' · ' + c.skinName + ' unlocked', 5000); continue; }
       profile.addPoints(c.points); giveXp(c.period === 'daily' ? XP.daily : XP.weekly); flashNotice('Challenge done: ' + c.modeName + ', ' + c.text + ' · +' + c.points + ' points', 4000);
     }
     if (done.length) renderChallenges();
@@ -2590,6 +2593,8 @@ async function boot(data) {
 
   function update(t) {
     if (menuInspect && rig.inspectT < 0) endMenuInspect();   // the inspect ended: back to the Skins page
+    // a skin challenge was finished: show its reveal once you are out of play (not in a match, mouse free, nothing else open)
+    if (earnedQueue.length && packsUi && !lock.locked && !cur()?.active && packsUi.modal.hidden && $('title').hidden) { const c = earnedQueue.shift(); packsUi.earned(c.skin, c.text); }
     if (cur() && cur().active) { prevT = t; cur().update(t); return; }
     const dt = Math.min(0.1, Math.max(0, t - prevT));
     prevT = t;
