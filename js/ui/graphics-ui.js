@@ -2,8 +2,8 @@
 // Ultra (needs the Enhanced Graphics pack), download / update / remove the pack, pick a
 // performance profile, the frame-rate target and the FPS counter; download / remove the Weapon Skins pack.
 // ctx: { settings, commit(key) (sanitise, save, apply), packSize() }
-import { HDPack, SkinPack } from '../render/hd-pack.js?v=f777da5-mwwsktcn';
-import { needsPack } from '../render/quality.js?v=f777da5-mwwsktcn';
+import { HDPack, SkinPack } from '../render/hd-pack.js?v=bd1de4b-mwwsowvu';
+import { needsPack } from '../render/quality.js?v=bd1de4b-mwwsowvu';
 
 function el(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);

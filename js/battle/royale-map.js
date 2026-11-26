@@ -1,8 +1,8 @@
 // Battle Royale maps: Blacktide Island (royale-island.js) and the Ruined City (royale-city.js).
 // The setting battle.royaleMap picks one ('random': either).
-import { island } from './royale-island.js?v=f777da5-mwwsktcn';
-import { ruins } from './royale-city.js?v=f777da5-mwwsktcn';
-import { mistMap } from './mist.js?v=f777da5-mwwsktcn';
+import { island } from './royale-island.js?v=bd1de4b-mwwsowvu';
+import { ruins } from './royale-city.js?v=bd1de4b-mwwsowvu';
+import { mistMap } from './mist.js?v=bd1de4b-mwwsowvu';
 
 export const ROYALE_BOTS = 20;
 

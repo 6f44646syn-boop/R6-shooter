@@ -1,33 +1,33 @@
-import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=f777da5-mwwsktcn';
-import { MatchFinale } from '../replay/finale.js?v=f777da5-mwwsktcn';
-import { GrenadeReplay } from '../replay/grenade.js?v=f777da5-mwwsktcn';
-import { replayCamera } from '../replay/view.js?v=f777da5-mwwsktcn';
+import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=bd1de4b-mwwsowvu';
+import { MatchFinale } from '../replay/finale.js?v=bd1de4b-mwwsowvu';
+import { GrenadeReplay } from '../replay/grenade.js?v=bd1de4b-mwwsowvu';
+import { replayCamera } from '../replay/view.js?v=bd1de4b-mwwsowvu';
 // Battle mode: you against bots (Easy / Medium / Hard), or two local players in split
 // screen (optionally with bots as a third side). First side to the kill target wins.
 //
 // Uses the same guns, measured sprays, sensitivity and weapon models as the range; adds an
 // arena with cover, fighters with health, bot brains, tracers, hit markers and a kill feed.
-import * as THREE from '../../vendor/three/three.module.min.js?v=f777da5-mwwsktcn';
-import { Arena } from './arena.js?v=f777da5-mwwsktcn';
-import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=f777da5-mwwsktcn';
-import { Banter } from './banter.js?v=f777da5-mwwsktcn';
-import { Bot, LEVELS } from './bot.js?v=f777da5-mwwsktcn';
-import { Human } from './human.js?v=f777da5-mwwsktcn';
-import { BattleNades } from './nades.js?v=f777da5-mwwsktcn';
-import { drawCrosshair } from '../ui/crosshair.js?v=f777da5-mwwsktcn';
-import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=f777da5-mwwsktcn';
-import { effectiveGraphics } from '../render/quality.js?v=f777da5-mwwsktcn';
-import { effectiveGun, slotIn } from '../core/loadout.js?v=f777da5-mwwsktcn';
-import { BattleRoyale } from './royale.js?v=f777da5-mwwsktcn';
-import { ROYALE_BOTS, ROYALE_MAPS, freshMistRoyale } from './royale-map.js?v=f777da5-mwwsktcn';
-import { freshMist } from './maps.js?v=f777da5-mwwsktcn';
-import { Footprints } from '../scene/footprints.js?v=f777da5-mwwsktcn';
-import { nextWeather } from '../scene/rain.js?v=f777da5-mwwsktcn';
-import { Minimap } from '../ui/minimap.js?v=f777da5-mwwsktcn';
-import { botRankedChange } from '../core/ranked.js?v=f777da5-mwwsktcn';
-import { warmScene } from '../render/warm.js?v=f777da5-mwwsktcn';
-import { ShadowGate } from '../render/shadow-gate.js?v=f777da5-mwwsktcn';
-import { MatchStats, mvpCard } from '../core/mvp.js?v=f777da5-mwwsktcn';
+import * as THREE from '../../vendor/three/three.module.min.js?v=bd1de4b-mwwsowvu';
+import { Arena } from './arena.js?v=bd1de4b-mwwsowvu';
+import { Fighter, gunDamage, ZONE_DAMAGE, MAX_HEALTH } from './fighter.js?v=bd1de4b-mwwsowvu';
+import { Banter } from './banter.js?v=bd1de4b-mwwsowvu';
+import { Bot, LEVELS } from './bot.js?v=bd1de4b-mwwsowvu';
+import { Human } from './human.js?v=bd1de4b-mwwsowvu';
+import { BattleNades } from './nades.js?v=bd1de4b-mwwsowvu';
+import { drawCrosshair } from '../ui/crosshair.js?v=bd1de4b-mwwsowvu';
+import { CATALOGUE, skinFits, LEGEND_ID, LEGEND_GOLD_ID } from '../core/skins.js?v=bd1de4b-mwwsowvu';
+import { effectiveGraphics } from '../render/quality.js?v=bd1de4b-mwwsowvu';
+import { effectiveGun, slotIn } from '../core/loadout.js?v=bd1de4b-mwwsowvu';
+import { BattleRoyale } from './royale.js?v=bd1de4b-mwwsowvu';
+import { ROYALE_BOTS, ROYALE_MAPS, freshMistRoyale } from './royale-map.js?v=bd1de4b-mwwsowvu';
+import { freshMist } from './maps.js?v=bd1de4b-mwwsowvu';
+import { Footprints } from '../scene/footprints.js?v=bd1de4b-mwwsowvu';
+import { nextWeather } from '../scene/rain.js?v=bd1de4b-mwwsowvu';
+import { Minimap } from '../ui/minimap.js?v=bd1de4b-mwwsowvu';
+import { botRankedChange } from '../core/ranked.js?v=bd1de4b-mwwsowvu';
+import { warmScene } from '../render/warm.js?v=bd1de4b-mwwsowvu';
+import { ShadowGate } from '../render/shadow-gate.js?v=bd1de4b-mwwsowvu';
+import { MatchStats, mvpCard } from '../core/mvp.js?v=bd1de4b-mwwsowvu';
 
 const TEAM_COLOR = { p1: 0x5b8cff, p2: 0x3fd07a, p3: 0xc77dff, p4: 0xffd23f, p5: 0x3fd8e0, p6: 0xff6fae, p7: 0xff7048, bots: 0xff7048 };
 const SNAP_HZ = 30;            // network position updates per second
