@@ -1,6 +1,6 @@
 // Moving smoke (Max graphics): each column is a loop of soft puffs that rise, spread, drift with the
 // wind and fade. Everything moves in the vertex shader, so a frame only sets the time.
-import * as THREE from '../../vendor/three/three.module.min.js?v=f0bcd95-mwx1eekj';
+import * as THREE from '../../vendor/three/three.module.min.js?v=672d321-mwx5s550';
 
 let puffTex = null;
 function puff() {                               // a soft round puff, lighter in the middle

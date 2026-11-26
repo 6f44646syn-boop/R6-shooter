@@ -1,9 +1,9 @@
 // Battle maps for the match modes (TDM, CTF): a Battle map's solids, plus places to go, cover spots,
 // spawns, flags and gadget spots worked out with the game's own collision and paths (the Rust core).
 // Used by tools/build-maps.mjs (the baked maps) and at run time (the Mist: a new maze each match).
-import { MatchMap } from './map.js?v=f0bcd95-mwx1eekj';
-import { layoutSolids } from '../battle/solids.js?v=f0bcd95-mwx1eekj';
-import { MAPS as BATTLE } from '../battle/maps.js?v=f0bcd95-mwx1eekj';
+import { MatchMap } from './map.js?v=672d321-mwx5s550';
+import { layoutSolids } from '../battle/solids.js?v=672d321-mwx5s550';
+import { MAPS as BATTLE } from '../battle/maps.js?v=672d321-mwx5s550';
 
 const yawTo = (dx, dz) => Math.atan2(dx, -dz) * 180 / Math.PI;
 export function fromBattle(id, key, name, M = BATTLE[key]) {

@@ -8,16 +8,16 @@
 //                       B crouch, A vault, L3 sprint, LB/RB lean.
 //   keys  (player 2, no gamepad): I J K L move, arrow keys look, Enter fire,
 //                       Right Shift aim, Backspace reload, / crouch.
-import * as THREE from '../../vendor/three/three.module.min.js?v=f0bcd95-mwx1eekj';
-import { Look, PITCH_LIMIT } from '../core/look.js?v=f0bcd95-mwx1eekj';
-import { Weapon } from '../core/weapon.js?v=f0bcd95-mwx1eekj';
-import { RecoilEngine } from '../core/recoil.js?v=f0bcd95-mwx1eekj';
-import { Spread } from '../core/spread.js?v=f0bcd95-mwx1eekj';
-import { focalRatio } from '../core/sensitivity.js?v=f0bcd95-mwx1eekj';
-import { WeaponRig } from '../scene/viewmodel.js?v=f0bcd95-mwx1eekj';
-import { EYE_Z, VIEW_H } from '../scene/sight-model.js?v=f0bcd95-mwx1eekj';
-import { reticleTextures } from '../ui/reticle-tex.js?v=f0bcd95-mwx1eekj';
-import { RETICLE_COLORS } from '../ui/scope.js?v=f0bcd95-mwx1eekj';
+import * as THREE from '../../vendor/three/three.module.min.js?v=672d321-mwx5s550';
+import { Look, PITCH_LIMIT } from '../core/look.js?v=672d321-mwx5s550';
+import { Weapon } from '../core/weapon.js?v=672d321-mwx5s550';
+import { RecoilEngine } from '../core/recoil.js?v=672d321-mwx5s550';
+import { Spread } from '../core/spread.js?v=672d321-mwx5s550';
+import { focalRatio } from '../core/sensitivity.js?v=672d321-mwx5s550';
+import { WeaponRig } from '../scene/viewmodel.js?v=672d321-mwx5s550';
+import { EYE_Z, VIEW_H } from '../scene/sight-model.js?v=672d321-mwx5s550';
+import { reticleTextures } from '../ui/reticle-tex.js?v=672d321-mwx5s550';
+import { RETICLE_COLORS } from '../ui/scope.js?v=672d321-mwx5s550';
 
 const DEG = Math.PI / 180;
 const WALK = 3.4, SPRINT = 5.6, CROUCH_WALK = 1.6, ADS_WALK = 2.2;
