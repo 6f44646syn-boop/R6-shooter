@@ -17,7 +17,7 @@ import { legendCanvas, onLegendChange } from '../core/legend.js?v=7141ab8-mwx5zl
 import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=7141ab8-mwx5zl37';
 import { HDPack, SkinPack } from '../render/hd-pack.js?v=7141ab8-mwx5zl37';
 import { epicRelief } from './skin-relief.js?v=7141ab8-mwx5zl37';
-import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect, forgeInspect, orreryInspect, amberInspect, jadeInspect, velvetInspect, opalInspect, epicInspect, rankInspect } from './inspect-effects.js?v=7141ab8-mwx5zl37';
+import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect, forgeInspect, orreryInspect, amberInspect, jadeInspect, velvetInspect, opalInspect, epicInspect, rankInspect, challengeInspect } from './inspect-effects.js?v=7141ab8-mwx5zl37';
 import { F2 } from './f2-model.js?v=7141ab8-mwx5zl37';
 import { G8 } from './g8-model.js?v=7141ab8-mwx5zl37';
 import { C8 } from './c8-model.js?v=7141ab8-mwx5zl37';
@@ -1840,6 +1840,7 @@ export class WeaponRig {
       m.add(gunG);
       m.userData.inspectSound = ice ? 'ice' : blossoms?.length ? 'lacquer' : sk?.artLook;
       if (sk?.inspect) m.userData.inspectFx = rankInspect(gunG, magG, sk.inspect, INSPECT_QUALITY);   // the rank skins' own inspects
+      else if (sk?.rarity === 'challenge') m.userData.inspectFx = challengeInspect(gunG, sk, INSPECT_QUALITY);   // floats out in front of you
       else if (ice) m.userData.inspectFx = frostInspect(gunG, frost, crystals, sk, INSPECT_QUALITY);
       else if (blossoms?.length) m.userData.inspectFx = sakuraInspect(gunG, blossoms, INSPECT_QUALITY, art?.roots || []);
       else if (art) m.userData.inspectFx = sk.artLook === 'bronze' ? abyssInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'glass' ? vesperInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'porcelain' ? kilnInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'forge' ? forgeInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'orrery' ? orreryInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'amber' ? amberInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'jade' ? jadeInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'velvet' ? velvetInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'opal' ? opalInspect(gunG, art, INSPECT_QUALITY) : null;

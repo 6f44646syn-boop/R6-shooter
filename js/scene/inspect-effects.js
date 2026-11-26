@@ -2488,6 +2488,61 @@ export function epicInspect(gun, skin, quality) {
   };
 }
 
+// Challenge skins: the gun leaves your hand and floats out to the middle of your view, turns its side to you and
+// hangs there (bobbing and swaying a little, no spin), wrapped in a glow and drifting motes of the skin's colour over
+// a ring of light, then drifts back into your hand. The hand is hidden while the gun is away.
+// Root keys: [progress, x (- to the middle), y (up), z (- away from you), pitch, yaw, roll].
+const CHALLENGE_SECONDS = 7.2;
+const FLOAT = [-0.07, 0.11, -0.4], SIDE = 0.95;     // out in front of you, in the middle; turned to show its side
+const CHALLENGE_CLIP = { root: [
+  [0, 0, 0, 0, 0, 0, 0],
+  [0.14, FLOAT[0] * 0.5, FLOAT[1] * 0.7, FLOAT[2] * 0.45, 0.08, SIDE * 0.5, 0.04],   // lifts out
+  ...Array.from({ length: 7 }, (_, i) => { const k = i / 6;
+    return [0.24 + k * 0.56, FLOAT[0], FLOAT[1] + Math.sin(i * 1.7) * 0.007, FLOAT[2], 0.03 * Math.sin(i * 1.2), SIDE + 0.08 * Math.sin(i * 0.9), 0.035 * Math.cos(i * 1.4)]; }),
+  [0.9, FLOAT[0] * 0.4, FLOAT[1] * 0.4, FLOAT[2] * 0.35, 0.04, SIDE * 0.35, 0],     // drifts back
+  [1, 0, 0, 0, 0, 0, 0],
+] };
+export function challengeInspect(gun, skin, quality) {
+  gun.updateMatrixWorld(true);
+  const toGun = gun.matrixWorld.clone().invert(), box = new THREE.Box3().setFromObject(gun).applyMatrix4(toGun);
+  const size = box.getSize(new THREE.Vector3()), centre = box.getCenter(new THREE.Vector3());
+  const col = new THREE.Color(...(skin.c?.[1] || [0.4, 0.8, 1])), tier = particleTier[quality] ?? 1, rng = mulberry32(skin.id * 977);
+  const fx = new THREE.Group(); fx.name = 'Challenge float'; fx.visible = false; gun.add(fx);
+  const own = [], hand = [];
+  gun.traverse((o) => { if (o.isMesh && [].concat(o.material).some((m) => m?.userData?.hand)) hand.push(o); });   // (the firing hand)
+  const glowMat = new THREE.SpriteMaterial({ map: sparkTexture(), color: col, transparent: true, depthWrite: false, toneMapped: false, blending: THREE.AdditiveBlending });
+  const glow = new THREE.Sprite(glowMat); glow.position.copy(centre); glow.scale.set(size.z * 1.3, size.y * 1.6, 1); glow.renderOrder = -1; fx.add(glow); own.push(glowMat);
+  // a ring of light under the gun, lying flat
+  const ringGeo = new THREE.RingGeometry(size.z * 0.42, size.z * 0.5, 64), ringMat = new THREE.MeshBasicMaterial({ color: col, transparent: true, depthWrite: false, toneMapped: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+  const ring = new THREE.Mesh(ringGeo, ringMat); ring.rotation.x = -Math.PI / 2; ring.position.set(centre.x, box.min.y - size.y * 0.25, centre.z); fx.add(ring); own.push(ringGeo, ringMat);
+  // motes rising round the gun
+  const n = [30, 60, 90, 120][tier], geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  const motesMat = new THREE.PointsMaterial({ size: size.z * 0.012, map: sparkTexture(), color: col.clone().lerp(new THREE.Color(1, 1, 1), 0.15), transparent: true, depthWrite: false, toneMapped: false, blending: THREE.AdditiveBlending });
+  const motes = new THREE.Points(geo, motesMat); motes.frustumCulled = false; fx.add(motes); own.push(geo, motesMat);
+  const seed = Array.from({ length: n }, () => [rng() * Math.PI * 2, 0.4 + rng() * 0.7, rng(), 0.6 + rng() * 0.8]);
+  let phase = -1;
+  return {
+    clip: CHALLENGE_CLIP, seconds: CHALLENGE_SECONDS,
+    update(p) {
+      const active = p >= 0 && p < 1;
+      if (!active && phase < 0) return;
+      phase = active ? p : -1;
+      fx.visible = active;
+      for (const h of hand) h.visible = !(active && p > 0.04 && p < 0.96);    // the gun is out of your hand
+      if (!active) return;
+      const on = smooth(p, 0.08, 0.22) * (1 - smooth(p, 0.82, 0.95)), t = p * CHALLENGE_SECONDS;
+      glowMat.opacity = on * (0.8 + 0.15 * Math.sin(t * 3));
+      ringMat.opacity = on * 0.8; ring.scale.setScalar(0.9 + 0.1 * Math.sin(t * 2)); ring.rotation.z = t * 0.6;
+      const pos = geo.attributes.position;
+      seed.forEach(([a, r, off, sp], i) => { const k = (t * sp * 0.35 + off) % 1, ang = a + t * 0.8;
+        pos.setXYZ(i, centre.x + Math.cos(ang) * size.z * 0.45 * r, box.min.y - size.y * 0.2 + k * size.y * 1.8, centre.z + Math.sin(ang) * size.z * 0.45 * r); });
+      pos.needsUpdate = true; motesMat.opacity = on;
+    },
+    dispose() { fx.removeFromParent(); for (const o of own) o.dispose(); },
+  };
+}
+
 // Rank skins (Foundry ... Totality): each inspect is a short scene of a few glowing props, the rank's
 // crest among them, placed on whichever side of the gun faces the camera (the gun is turned by its clip).
 // 8.4 s like the Legendaries. kind: the skin's `inspect` (core/skins.js RANK_SKINS).
