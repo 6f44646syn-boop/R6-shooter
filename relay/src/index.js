@@ -11,7 +11,9 @@
 //   POST /account {op:'login', name, pin, code?} (text/plain JSON) -> claim a name (with your save code)
 //                 or log in to it: { token, code, created }; 403 for a wrong PIN (5 wrong: locked 15 min)
 //   POST /account {op:'create', name, pin, code} -> a new account only (409 if the name is taken)
-//   POST /account {op:'save', name, token, code} -> keep your progress online
+//   POST /account {op:'save', name, token, code} -> keep your progress online ({ at })
+//   POST /account {op:'pull', name, token} -> your latest progress { code, at, secs } (another PC may have saved since)
+//   POST /account {op:'rename', name, token, newName} -> a new name, if nobody has it (409 if taken)
 //   POST /world?by=STAT  {id,name,rating,kills,skins,points,games} (text/plain JSON) -> record a player, then as GET
 //   WS   /room/CODE?role=host   -> host of game CODE (refused if the room already has a host)
 //   WS   /room/CODE?role=player -> player in game CODE (refused if there is no host, or full)
@@ -40,7 +42,7 @@ async function pinHash(key, pin) {
   const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('recoil-range-account\u0000' + key + '\u0000' + pin));
   return [...new Uint8Array(d)].map((x) => x.toString(16).padStart(2, '0')).join('');
 }
-const WORLD_STATS = { rating: 3000, kills: 1e9, skins: 5000, points: 0xffffffff, games: 1e9 };   // each board, and the highest value it takes
+const WORLD_STATS = { rating: 3000, kills: 1e9, skins: 5000, points: 0xffffffff, games: 1e9, minutes: 1e8 };   // each board, and the highest value it takes
 const rankedStub = (env, shard) => env.ROOMS.get(env.ROOMS.idFromName('ranked-' + shard));
 const rankedShard = code => code.charCodeAt(0) % RANK_SHARDS;
 const rankedHeaders = { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' };
@@ -228,6 +230,7 @@ export class Room {
   async _world(req, url) {
     const sql = this.state.storage.sql, now = Date.now();
     sql.exec('CREATE TABLE IF NOT EXISTS players (id TEXT PRIMARY KEY, name TEXT, rating INTEGER, kills INTEGER, skins INTEGER, points INTEGER, games INTEGER, at INTEGER)');
+    try { sql.exec('ALTER TABLE players ADD COLUMN minutes INTEGER DEFAULT 0'); } catch { /* there already: time played */ }
     const by = Object.hasOwn(WORLD_STATS, url.searchParams.get('by')) ? url.searchParams.get('by') : 'rating';
     let id = url.searchParams.get('id');
     if (req.method === 'POST') {
@@ -235,12 +238,13 @@ export class Room {
       if (text.length > 512) return new Response(null, { status: 413 });
       let b; try { b = JSON.parse(text); } catch { return new Response(null, { status: 400 }); }
       const name = typeof b?.name === 'string' ? b.name.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 16) : '';
+      if (b && b.minutes === undefined) b.minutes = 0;   // (older games do not send it)
       const ok = Object.entries(WORLD_STATS).every(([k, max]) => Number.isInteger(b[k]) && b[k] >= 0 && b[k] <= max);
       if (!WORLD_ID.test(b?.id || '') || !name || !ok) return new Response(null, { status: 400 });
       id = b.id;
       const old = sql.exec('SELECT at FROM players WHERE id = ?', id).toArray()[0];
       if (!old || now - old.at > 500) {           // (two writes a second a player at most)
-        sql.exec('INSERT OR REPLACE INTO players VALUES (?, ?, ?, ?, ?, ?, ?, ?)', id, name, b.rating, b.kills, b.skins, b.points, b.games, now);
+        sql.exec('INSERT OR REPLACE INTO players (id, name, rating, kills, skins, points, games, at, minutes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', id, name, b.rating, b.kills, b.skins, b.points, b.games, now, b.minutes);
         sql.exec('DELETE FROM players WHERE id IN (SELECT id FROM players ORDER BY rating DESC, at ASC LIMIT -1 OFFSET ?)', WORLD_MAX);
       }
     }
@@ -260,19 +264,36 @@ export class Room {
   async _account(req) {
     const sql = this.state.storage.sql, now = Date.now();
     sql.exec('CREATE TABLE IF NOT EXISTS accounts (key TEXT PRIMARY KEY, name TEXT, pin TEXT, token TEXT, code TEXT, fails INTEGER, lock INTEGER, at INTEGER)');
+    try { sql.exec('ALTER TABLE accounts ADD COLUMN secs INTEGER DEFAULT 0'); } catch { /* there already: time played, in seconds */ }
     const text = await req.text();
     if (text.length > 12000) return new Response(null, { status: 413 });
     let b; try { b = JSON.parse(text); } catch { return new Response(null, { status: 400 }); }
-    const name = typeof b?.name === 'string' ? b.name.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 16) : '', key = name.toLowerCase();
+    const clean = (v) => (typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 16) : '');
+    const name = clean(b?.name), key = name.toLowerCase();
     const code = b?.code === undefined ? null : b.code;
+    const secs = Number.isInteger(b?.secs) && b.secs >= 0 && b.secs < 1e9 ? b.secs : null;   // time played (seconds)
     const bad = (status, error) => Response.json({ error }, { status });
     if (!name) return bad(400, 'Type a player name.');
     if (code !== null && !SAVE_CODE.test(code)) return bad(400, 'That save code is not valid.');
     const row = sql.exec('SELECT * FROM accounts WHERE key = ?', key).toArray()[0];
+    const signedIn = row && typeof b.token === 'string' && b.token === row.token;
     if (b.op === 'save') {
-      if (!row || typeof b.token !== 'string' || b.token !== row.token || code === null) return bad(403, 'Log in again to save online.');
-      sql.exec('UPDATE accounts SET code = ?, at = ? WHERE key = ?', code, now, key);
-      return Response.json({ ok: true });
+      if (!signedIn || code === null) return bad(403, 'Sign in again to save online.');
+      sql.exec('UPDATE accounts SET code = ?, at = ?, secs = MAX(COALESCE(secs, 0), ?) WHERE key = ?', code, now, secs ?? 0, key);
+      return Response.json({ ok: true, at: now });
+    }
+    if (b.op === 'rename') {                        // a new name, if nobody has it (the PIN, progress and sign-ins stay)
+      if (!signedIn) return bad(403, 'Sign in again.');
+      const to = clean(b.newName), toKey = to.toLowerCase();
+      if (!to) return bad(400, 'Type the new name.');
+      if (toKey !== key && sql.exec('SELECT 1 FROM accounts WHERE key = ?', toKey).toArray().length) return bad(409, 'The name ' + to + ' is taken.');
+      sql.exec('DELETE FROM accounts WHERE key = ?', key);
+      sql.exec('INSERT INTO accounts (key, name, pin, token, code, fails, lock, at, secs) VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?)', toKey, to, row.pin, row.token, row.code, row.at, row.secs || 0);
+      return Response.json({ name: to });
+    }
+    if (b.op === 'pull') {                          // the latest progress (another PC may have saved since)
+      if (!signedIn) return bad(403, 'Sign in again.');
+      return Response.json({ code: row.code, at: row.at, name: row.name, secs: row.secs || 0 });
     }
     if (b.op !== 'login' && b.op !== 'create') return bad(400, 'Unknown request.');
     if (b.op === 'create' && row) return bad(409, 'The name ' + row.name + ' is taken: pick another, or sign in if it is yours.');
@@ -280,9 +301,9 @@ export class Room {
     const hash = await pinHash(key, b.pin), token = [...crypto.getRandomValues(new Uint8Array(16))].map((x) => x.toString(16).padStart(2, '0')).join('');
     if (!row) {                                     // a new name: claim it with this PIN and your progress
       if (code === null) return bad(404, 'No player called ' + name + '.');
-      sql.exec('INSERT INTO accounts VALUES (?, ?, ?, ?, ?, 0, 0, ?)', key, name, hash, token, code, now);
+      sql.exec('INSERT INTO accounts (key, name, pin, token, code, fails, lock, at, secs) VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?)', key, name, hash, token, code, now, secs ?? 0);
       sql.exec('DELETE FROM accounts WHERE key IN (SELECT key FROM accounts ORDER BY at DESC LIMIT -1 OFFSET ?)', ACCOUNTS_MAX);
-      return Response.json({ token, code, name, created: true });
+      return Response.json({ token, code, name, at: now, created: true });
     }
     if (row.lock > now) return bad(429, 'Too many wrong PINs for ' + row.name + '. Try again in ' + Math.ceil((row.lock - now) / 60000) + ' min.');
     if (row.pin !== hash) {
@@ -290,8 +311,9 @@ export class Room {
       sql.exec('UPDATE accounts SET fails = ?, lock = ? WHERE key = ?', fails >= 5 ? 0 : fails, fails >= 5 ? now + 15 * 60000 : 0, key);
       return bad(403, 'Wrong PIN for ' + row.name + ' (or that name is taken).');
     }
-    sql.exec('UPDATE accounts SET fails = 0, lock = 0, token = ? WHERE key = ?', token, key);
-    return Response.json({ token, code: row.code, name: row.name, created: false });
+    // (the same token for every PC you sign in on: they all stay signed in)
+    sql.exec('UPDATE accounts SET fails = 0, lock = 0, token = COALESCE(token, ?) WHERE key = ?', token, key);
+    return Response.json({ token: row.token || token, code: row.code, name: row.name, at: row.at, secs: row.secs || 0, created: false });
   }
 
   async webSocketClose(ws) { await this._gone(ws); }

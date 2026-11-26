@@ -195,8 +195,10 @@ export async function worldBoard(base, by, me, id) {
 
 // Online accounts: { op: 'login', name, pin, code } claims a new name or logs in ({ token, code, name, created });
 // { op: 'save', name, token, code } keeps your progress online. Throws an Error with the relay's message.
-export async function cloudAccount(base, body) {
-  const response = await fetch(relayBase(base) + '/account', { method: 'POST', body: JSON.stringify(body), cache: 'no-store' });   // (text/plain: no preflight)
+export async function cloudAccount(base, body, keepalive = false) {
+  let response;
+  try { response = await fetch(relayBase(base) + '/account', { method: 'POST', body: JSON.stringify(body), cache: 'no-store', keepalive }); }   // (text/plain: no preflight; keepalive: still sent while the page closes)
+  catch { throw new Error('Could not reach the game server. Check your internet connection (some school or work networks block it).'); }
   let data = {}; try { data = await response.json(); } catch { /* empty */ }
   if (!response.ok) throw Object.assign(new Error(data.error || 'The online accounts are unavailable.'), { status: response.status });
   return data;
