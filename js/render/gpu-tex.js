@@ -774,9 +774,12 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         // mottled fire scale, temper colours (straw, purple, blue) where the molten seam has heated them
         float fxForge = step(0.5, artFx) * step(artFx, 1.5);
         float fxDef = step(3.5, artFx) * step(artFx, 4.5);   // a default skin (painted from a picture of the gun)
-        diffuseColor.rgb = mix(diffuseColor.rgb, pow(diffuseColor.rgb, vec3(0.7)) * 1.15, fxDef);   // skin pictures: dark tones lifted (brighter)
+        diffuseColor.rgb = mix(diffuseColor.rgb, pow(diffuseColor.rgb, vec3(0.7)) * 1.15, max(fxDef, fxForge));   // skin pictures (and Forgeheart's painting): dark tones lifted (brighter)
         float kHotArt = sstep(0.4, 0.75, kArt.r) * sstep(0.25, 0.5, kArt.r - kArt.b);
         float kPlate = fxForge * (1.0 - kHotArt) * (1.0 - kGold);
+        // the painting (Nov 2026) has its own cracked, copper-edged plates: it shows as painted; kPlate still
+        // drives the plates' metal and their glow and cracks in the inspect, not their look
+        const float kForgedLook = 0.0;
         vec4 kHam = artCell(vec2(vTriPos.z + vTriPos.x * 0.7, vTriPos.y) * 70.0);
         float kScale = artNoise(vTriPos.zy * 140.0 + vTriPos.x * 60.0) * 0.6 + artNoise(vTriPos.zy * 420.0) * 0.4;
         // folded (Damascus) steel: wavy bands of light and dark layers running along the gun, and small forge pits
@@ -793,7 +796,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
           vec3 kTemper = mix(vec3(0.1, 0.16, 0.38), mix(vec3(0.3, 0.11, 0.27), vec3(0.55, 0.38, 0.13), sstep(0.45, 0.8, kHeatTint)), sstep(0.2, 0.5, kHeatTint));
           kSteel = mix(kSteel, kTemper * 0.55, sstep(0.1, 0.35, kHeatTint) * 0.8);
           kSteel *= (0.72 + 0.42 * kDam) * (1.0 - 0.65 * kPit);
-          diffuseColor.rgb = mix(diffuseColor.rgb, kSteel * triGain, kPlate);
+          diffuseColor.rgb = mix(diffuseColor.rgb, kSteel * triGain, kPlate * kForgedLook);
         }
         // Jade Coil: as the dragon settles on the muzzle, carved jade scales spread over the gun from the muzzle
         // back (JADE_PERCH in js/scene/inspect-effects.js): rows of rounded scales, each overlapping the root
@@ -1019,7 +1022,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
       #elif defined( TRI_ART )
         roughnessFactor = mix(mix(mix(mix(0.12, 0.2, kSilver), 0.34, kBelow), mix(0.42, 0.07, kTeal), kBronze), mix(0.45, 0.05, kGlass), kStained);
         roughnessFactor = mix(roughnessFactor, mix(0.14, 0.18, kGold), kLacq);
-        roughnessFactor = mix(roughnessFactor, 0.2 + 0.22 * kScale + 0.14 * (1.0 - kDam) + 0.3 * kPit - 0.08 * sstep(0.35, 0.5, kHam.x), kPlate);   // forged steel: rims of the dimples catch the light
+        roughnessFactor = mix(roughnessFactor, 0.2 + 0.22 * kScale + 0.14 * (1.0 - kDam) + 0.3 * kPit - 0.08 * sstep(0.35, 0.5, kHam.x), kPlate * kForgedLook);   // forged steel: rims of the dimples catch the light
       #elif defined( TRI_SKIN )
         vec4 skrm = triTex(skinRM, triP, tw);
         roughnessFactor = mix(skrm.g, 0.3, triWear);
@@ -1192,7 +1195,7 @@ export function triplanar(material, { skin = null, detail = null, scale = 3, det
         float ly3 = dot(texture2D(artMap, kuv + vec2(0.0, e.y * 4.0)).rgb, vec3(0.3, 0.59, 0.11)) - kLum;
         normal = normalize(normal - (vTriAZ * lx3 + vTriAY * ly3) * 2.0 * fxDef * artEpic * kSide);
         // Forgeheart: the hammer dimples (each a shallow cup: the normal tips towards its centre) and a fine grain
-        normal = normalize(normal + (vTriAZ * kHam.z + vTriAY * kHam.w) * 0.34 * kPlate * kSide + vTriAY * cos((vTriPos.y + vTriPos.x * 0.5) * 620.0) * 0.06 * kPlate * kSide + (vTriAZ * (kScale - 0.5) + vTriAY * (artNoise(vTriPos.zy * 380.0 + 7.0) - 0.5)) * 0.12 * kPlate);
+        normal = normalize(normal + ((vTriAZ * kHam.z + vTriAY * kHam.w) * 0.34 * kPlate * kSide + vTriAY * cos((vTriPos.y + vTriPos.x * 0.5) * 620.0) * 0.06 * kPlate * kSide + (vTriAZ * (kScale - 0.5) + vTriAY * (artNoise(vTriPos.zy * 380.0 + 7.0) - 0.5)) * 0.12 * kPlate) * kForgedLook);
         // each jade scale is a dome, curving down to its edge (towards the scale behind it)
         normal = normalize(normal + (vTriAY * jD.x + vTriAZ * jD.y * 0.6) * 0.9 * sstep(0.35, 1.0, jRR) * jLit);
         // the cracks' walls slope down into them (the normal leans towards the cut), with a raised lip at the rim
