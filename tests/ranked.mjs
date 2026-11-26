@@ -22,7 +22,9 @@ assert.equal(performance({ kills: 2, deaths: 2, streak: 3, alive: 60 }), 0.5);  
 assert.ok(performance({ kills: 12, deaths: 2, streak: 6, alive: 150 }) > 0.7);
 assert.ok(performance({ kills: 0, deaths: 5, alive: 10 }) < 0.1);
 assert.equal(performance({ kills: 2, deaths: 2, streak: 3, alive: 60, roundsWon: 4, rounds: 4 }), 0.625);   // + rounds won (Bomb)
-assert.equal(rankOf(1500), 'Diamond');
+assert.equal(rankOf(1500), 'Emerald');
+assert.equal(rankOf(1650), 'Diamond');
+assert.equal(rankOf(1800), 'Champion');
 
 const host = await createRankedSession([[1, 'A', 1000], [2, 'B', 1000]]);
 host.rounds = 2;

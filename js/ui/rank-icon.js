@@ -8,6 +8,7 @@ const TIER = {   // light, dark, laurel colour
   Silver: ['#f4f6f9', '#7d8894', '#aab4bf'],
   Gold: ['#ffe58f', '#b8860b', '#e6b230'],
   Platinum: ['#d4fff6', '#2f9e8c', '#5fc9b6'],
+  Emerald: ['#b8ffd2', '#0f8a4a', '#3fd17f'],
   Diamond: ['#e2f1ff', '#3f6fe0', '#7aa6ff'],
   Champion: ['#ff8a80', '#b0161b', '#ffd36b'],
 };
@@ -18,12 +19,14 @@ const EMBLEM = {
   Silver: '<path d="M32 16 L46 21 V33 C46 42 40 48 32 51 C24 48 18 42 18 33 V21 Z"/>',
   Gold: '<path d="M32 15 L36.7 26.5 L49 27.4 L39.6 35.3 L42.6 47.4 L32 40.8 L21.4 47.4 L24.4 35.3 L15 27.4 L27.3 26.5 Z"/>',
   Platinum: '<path d="M32 15 L46 23 V39 L32 47 L18 39 V23 Z"/>',
+  Emerald: '<path d="M25 15 H39 L47 23 V41 L39 49 H25 L17 41 V23 Z"/>',
   Diamond: '<path d="M22 20 H42 L50 29 L32 50 L14 29 Z"/>',
   Champion: '<path d="M16 42 L14 22 L24 30 L32 16 L40 30 L50 22 L48 42 Z"/><rect x="16" y="43" width="32" height="5" rx="1.5"/>',
 };
 // Facet lines that make the gems and the crown read as such (drawn lighter on top).
 const SHINE = {
   Platinum: '<path d="M32 15 V31 M18 23 L32 31 L46 23" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1.2"/>',
+  Emerald: '<path d="M26 21 H38 L41 24 V40 L38 43 H26 L23 40 V24 Z M25 15 L26 21 M39 15 L38 21 M47 23 L41 24 M47 41 L41 40 M39 49 L38 43 M25 49 L26 43 M17 41 L23 40 M17 23 L23 24" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="1.1"/>',
   Diamond: '<path d="M14 29 H50 M27 20 L23 29 L32 50 L41 29 L37 20" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1.2"/>',
   Champion: '<circle cx="32" cy="16" r="2.4" fill="#fff"/><circle cx="14" cy="22" r="2" fill="#fff"/><circle cx="50" cy="22" r="2" fill="#fff"/>',
 };

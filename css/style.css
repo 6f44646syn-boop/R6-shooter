@@ -564,6 +564,7 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 .rank-crest[data-rank="gold"] { background: #f4cd70; }
 .rank-crest[data-rank="platinum"] { background: #85d8cd; }
 .rank-crest[data-rank="diamond"] { background: #a6d6ff; }
+.rank-crest[data-rank="emerald"] { background: #3fd17f; }
 /* Match kill cam: the box out of the way of their aim, their inputs lit along the bottom, your own
    HP / ammo / ability hidden while you watch through their eyes */
 .mg-killcam .mg-kc { left: 16px; bottom: auto; top: 30%; transform: none; text-align: left; max-width: 340px; }
@@ -768,6 +769,7 @@ label.as-cards { position: absolute !important; width: 1px; height: 1px; overflo
 .rank-gold { background: linear-gradient(160deg, #ffe08a, #c99419); }
 .rank-platinum { background: linear-gradient(160deg, #c8fff4, #4fb6a4); }
 .rank-diamond { background: linear-gradient(160deg, #d6ecff, #5c8cff); color: #0b1830; }
+.rank-emerald { background: linear-gradient(160deg, #b8ffd2, #0f8a4a); color: #062a16; }
 .h-code { grid-column: 1; grid-row: 2 / 4; align-self: start; display: grid; gap: 8px; padding: 14px 16px; background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 14px; }
 .h-code[hidden] { display: none; }
 .h-code h3 { margin: 0; font-size: 16px; }

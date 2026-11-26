@@ -5,10 +5,11 @@ export function ratingOf(value) {
   return Number.isInteger(value) ? Math.max(0, Math.min(3000, value)) : START_RATING;
 }
 
-export const CHAMPION = 1700;   // Champion: above Diamond, shown with the player's world number (Champion #3)
+export const CHAMPION = 1800;   // Champion: above Diamond, shown with the player's world number (Champion #3)
 export function rankOf(rating) {
   if (rating >= CHAMPION) return 'Champion';
-  if (rating >= 1500) return 'Diamond';
+  if (rating >= 1650) return 'Diamond';
+  if (rating >= 1500) return 'Emerald';           // (between Platinum and Diamond, as in Siege)
   if (rating >= 1350) return 'Platinum';
   if (rating >= 1200) return 'Gold';
   if (rating >= 1050) return 'Silver';
@@ -16,9 +17,9 @@ export function rankOf(rating) {
   return 'Copper';
 }
 
-// Divisions, as in Siege: each rank from Copper to Diamond has 5 (5 lowest ... 1 highest), 30 rating
+// Divisions, as in Siege: each rank from Copper to Diamond (Emerald too) has 5 (5 lowest ... 1 highest), 30 rating
 // points each (Copper's start 150 below Bronze: under 780 is Copper 5). Champion has none (its world number).
-const RANK_FLOOR = { Copper: 750, Bronze: 900, Silver: 1050, Gold: 1200, Platinum: 1350, Diamond: 1500 };
+const RANK_FLOOR = { Copper: 750, Bronze: 900, Silver: 1050, Gold: 1200, Platinum: 1350, Emerald: 1500, Diamond: 1650 };
 export function rankDivision(rating) {
   const r = rankOf(rating);
   if (r === 'Champion') return 0;
