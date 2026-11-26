@@ -1367,7 +1367,8 @@ async function boot(data) {
     if (!pending) return;
     const result = await verifyRankedResult(pending.ticket, packet);
     if (!result || rankPending.get(id) !== pending) return;
-    const label = applyRankedChange(rankedChange(pending.ticket, result, pending.id));
+    const perf = modeGame?.rankedClient?.ticket.id === id ? modeGame.perf() : 0.5;   // (your own performance in that match, while it is still here)
+    const label = applyRankedChange(rankedChange(pending.ticket, result, pending.id, perf));
     rankPending.delete(id); saveRankedTickets();
     if (label && modeGame?.over && modeGame.rankedClient?.ticket.id === id) modeGame.hud.endNote.textContent += ' ' + label;
   }

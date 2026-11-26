@@ -208,8 +208,8 @@ export class Match {
     return applied;
   }
   kill(v, by, head = false, kind = 'gun') {
-    v.hp = 0; v.alive = false; v.deaths++; v.hold = null;
-    if (by && by !== v && by.team !== v.team) by.kills++;
+    v.hp = 0; v.alive = false; v.deaths++; v.hold = null; v.streak = 0;
+    if (by && by !== v && by.team !== v.team) { by.kills++; by.streak = (by.streak || 0) + 1; by.bestStreak = Math.max(by.bestStreak || 0, by.streak); }   // (kill streaks, for ranked performance)
     this.bb[v.team].deaths.push({ x: v.x, z: v.z, y: v.y, t: this.t });
     if (this.bb[v.team].deaths.length > 8) this.bb[v.team].deaths.shift();
     this.emit({ type: 'kill', id: v.id, by: by ? by.id : 0, head, kind });

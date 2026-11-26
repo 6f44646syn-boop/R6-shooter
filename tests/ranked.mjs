@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { Profile } from '../js/core/profile.js';
-import { createRankedSession, eloDelta, rankedChange, rankOf, signRankedResult, verifyRankedResult } from '../js/core/ranked.js';
+import { createRankedSession, eloDelta, performance, rankedChange, rankOf, signRankedResult, verifyRankedResult } from '../js/core/ranked.js';
 import { spectatorVisibility } from '../js/replay/spectator.js';
 import worker, { Room } from '../relay/src/index.js';
 
@@ -9,14 +9,19 @@ assert.equal(eloDelta(1000, 1000, 1), 16);
 assert.equal(eloDelta(1000, 1000, 0), -16);
 assert.equal(eloDelta(1400, 1000, 1), 3);
 assert.equal(eloDelta(1400, 1000, 0), -29);
-assert.equal(eloDelta(1000, 1000, 1, { seconds: 150 }), 24);            // longer wins: x1.5 at 2.5 min
-assert.equal(eloDelta(1000, 1000, 1, { seconds: 900 }), 32);            // x2 from 5 min on
-assert.equal(eloDelta(1000, 1000, 0, { seconds: 900 }), -16);           // (a loss is not changed by time)
+assert.equal(eloDelta(1000, 1000, 1, { perf: 1 }), 24);                 // a great game: a win x1.5
+assert.equal(eloDelta(1000, 1000, 0, { perf: 1 }), -8);                 //               a loss x0.5
+assert.equal(eloDelta(1000, 1000, 1, { perf: 0 }), 8);                  // a poor game: a win x0.5
+assert.equal(eloDelta(1000, 1000, 0, { perf: 0 }), -24);                //              a loss x1.5
 assert.equal(eloDelta(1000, 1000, 1, { bots: 6 }), 24);                 // 6 bots: a win x1.5
 assert.equal(eloDelta(1000, 1000, 0, { bots: 6 }), -11);                //         a loss / 1.5
 assert.equal(eloDelta(1000, 1000, 1, { bots: 1 }), 11);                 // 1 bot: a win x0.67
 assert.equal(eloDelta(1000, 1000, 0, { bots: 1 }), -24);                //        a loss / 0.67
-assert.equal(eloDelta(1000, 3000, 1, { seconds: 300, bots: 6 }), 96);   // the most: x2 time, x1.5 bots (fits a save code)
+assert.equal(eloDelta(1000, 3000, 1, { perf: 1, bots: 6 }), 72);        // the most: x1.5 performance, x1.5 bots
+assert.equal(performance({ kills: 2, deaths: 2, streak: 3, alive: 60 }), 0.5);   // an average game
+assert.ok(performance({ kills: 12, deaths: 2, streak: 6, alive: 150 }) > 0.7);
+assert.ok(performance({ kills: 0, deaths: 5, alive: 10 }) < 0.1);
+assert.equal(performance({ kills: 2, deaths: 2, streak: 3, alive: 60, roundsWon: 4, rounds: 4 }), 0.625);   // + rounds won (Bomb)
 assert.equal(rankOf(1500), 'Diamond');
 
 const host = await createRankedSession([[1, 'A', 1000], [2, 'B', 1000]]);

@@ -27,21 +27,32 @@ export function rankDivision(rating) {
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V'];
 export const rankTitle = (rating) => rankOf(rating) + (rankDivision(rating) ? ' ' + ROMAN[rankDivision(rating)] : '');   // "Bronze III"
 
-// Elo with K 32. A win is worth more the longer the match lasted (x1 to x2, reached at 5 minutes),
-// and the number of enemy bots scales it: x(0.5 + bots / 6) for a win (1 bot x0.67, 3 x1, 6 x1.5), and a
-// loss divided by that (fewer bots: losing costs more). Online against players: time only (as 3 bots).
-export const MAX_DELTA = 127;          // (what a save code holds; the most possible is 32 x 2 x 1.5 = 96)
-export function eloDelta(rating, opponent, score, { seconds = 0, bots = 3 } = {}) {
+// Elo with K 32, then two factors (both ways, so rating does not drift up over time):
+// - performance (0 to 1, 0.5 an average game; see performance()): a win x(0.5 + perf), a loss x(1.5 - perf),
+//   so a great game wins up to x1.5 and loses x0.5, a poor one the other way round;
+// - enemy bots: 0.5 + bots / 6 (1 bot x0.67, 3 x1, 6 x1.5), a win times it, a loss divided by it.
+// Online against players: bots count as 3.
+export const MAX_DELTA = 127;          // (what a save code holds; the most possible is 32 x 1.5 x 1.5 = 72)
+export function eloDelta(rating, opponent, score, { perf = 0.5, bots = 3 } = {}) {
   const expected = 1 / (1 + 10 ** ((opponent - rating) / 400)), d = 32 * (score - expected);
-  const time = 1 + Math.min(300, Math.max(0, +seconds || 0)) / 300, many = 0.5 + Math.min(6, Math.max(1, bots | 0)) / 6;
-  return Math.max(-MAX_DELTA, Math.min(MAX_DELTA, Math.round(d > 0 ? d * time * many : d / many)));
+  const p = Math.min(1, Math.max(0, Number.isFinite(perf) ? perf : 0.5)), many = 0.5 + Math.min(6, Math.max(1, bots | 0)) / 6;
+  return Math.max(-MAX_DELTA, Math.min(MAX_DELTA, Math.round(d > 0 ? d * (0.5 + p) * many : d * (1.5 - p) / many)));
+}
+// How well you played, 0 to 1 (0.5 an average game): the mean of K/D (1 = 0.5, 3 = 0.75), your best
+// kill streak (3 = 0.5), how long you stayed alive before dying on average (60 s = 0.5) and, in round
+// games (Bomb), the share of rounds your team won.
+export function performance({ kills = 0, deaths = 0, streak = 0, alive = 0, roundsWon = 0, rounds = 0 } = {}) {
+  const kd = Math.max(0, kills) / Math.max(1, deaths), s = Math.max(0, streak), a = Math.max(0, alive);
+  const parts = [kd / (kd + 1), s / (s + 3), a / (a + 60)];
+  if (rounds > 0) parts.push(Math.min(1, Math.max(0, roundsWon) / rounds));
+  return parts.reduce((x, y) => x + y, 0) / parts.length;
 }
 
 // Ranked against bots: the bots' rating by difficulty; leaving early counts as a loss.
 export const BOT_RATING = { easy: 850, normal: 1050, hard: 1250, terminator: 1500 };
-// seconds: how long the match lasted; bots: how many enemy bots you faced.
-export function botRankedChange(rating, difficulty, outcome, seconds = 0, bots = 3) {
-  const delta = eloDelta(ratingOf(rating), BOT_RATING[difficulty] ?? BOT_RATING.normal, outcome === 'win' ? 1 : outcome === 'draw' ? 0.5 : 0, { seconds, bots });
+// perf: how well you played (performance()); bots: how many enemy bots you faced.
+export function botRankedChange(rating, difficulty, outcome, perf = 0.5, bots = 3) {
+  const delta = eloDelta(ratingOf(rating), BOT_RATING[difficulty] ?? BOT_RATING.normal, outcome === 'win' ? 1 : outcome === 'draw' ? 0.5 : 0, { perf, bots });
   return { id: crypto.randomUUID().replaceAll('-', ''), outcome, delta };
 }
 
@@ -54,7 +65,7 @@ export function rankedSummary(ratings) {
   };
 }
 
-export function rankedChange(ticket, result, actorId) {
+export function rankedChange(ticket, result, actorId, perf = 0.5) {   // perf: how well this player played
   if (!result || result.id !== ticket.id || result.rounds < 2 || result.early) return null;
   const seat = ticket.roster.find(([id]) => id === actorId);
   if (!seat) return null;
@@ -64,7 +75,7 @@ export function rankedChange(ticket, result, actorId) {
   const outcome = result.left.includes(actorId) ? 'loss'
     : result.winner === 'draw' ? 'draw' : result.winner === team ? 'win' : 'loss';
   const score = outcome === 'win' ? 1 : outcome === 'draw' ? 0.5 : 0;
-  return { id: result.id, outcome, delta: eloDelta(rating, rankedSummary(opposition).average, score, { seconds: result.seconds || 0 }) };
+  return { id: result.id, outcome, delta: eloDelta(rating, rankedSummary(opposition).average, score, { perf }) };
 }
 
 const keyOptions = { name: 'ECDSA', namedCurve: 'P-256' };
@@ -79,7 +90,7 @@ export async function createRankedSession(roster) {
       publicKey: await crypto.subtle.exportKey('jwk', publicKey),
       roster,
     },
-    privateKey, left: new Set(), early: false, rounds: 0, finished: false, started: Date.now(),
+    privateKey, left: new Set(), early: false, rounds: 0, finished: false,
   };
 }
 
@@ -87,7 +98,6 @@ export async function signRankedResult(session, winner) {
   const result = {
     id: session.ticket.id, winner, rounds: session.rounds,
     early: session.early, left: [...session.left].sort((a, b) => a - b),
-    seconds: Math.min(300, Math.round((Date.now() - session.started) / 1000)),   // (how long it lasted: longer wins are worth more)
   };
   const signature = await crypto.subtle.sign(signatureOptions, session.privateKey, bytes(result));
   return { k: 'mrankResult', result, signature: btoa(String.fromCharCode(...new Uint8Array(signature))) };

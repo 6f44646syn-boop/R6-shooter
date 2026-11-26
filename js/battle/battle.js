@@ -24,7 +24,7 @@ import { freshMist } from './maps.js?v=e7475a5-mwx0ullj';
 import { Footprints } from '../scene/footprints.js?v=e7475a5-mwx0ullj';
 import { nextWeather } from '../scene/rain.js?v=e7475a5-mwx0ullj';
 import { Minimap } from '../ui/minimap.js?v=e7475a5-mwx0ullj';
-import { botRankedChange } from '../core/ranked.js?v=e7475a5-mwx0ullj';
+import { botRankedChange, performance } from '../core/ranked.js?v=e7475a5-mwx0ullj';
 import { warmScene } from '../render/warm.js?v=e7475a5-mwx0ullj';
 import { ShadowGate } from '../render/shadow-gate.js?v=e7475a5-mwx0ullj';
 import { MatchStats, mvpCard } from '../core/mvp.js?v=e7475a5-mwx0ullj';
@@ -526,7 +526,7 @@ export class Battle {
     if (hv && (!this._acidFlash || t > this._acidFlash)) { this._acidFlash = t + 0.3; this._hurtFlash(hv, null, t); }
     if (rv && (!rv.acidMsg || t > rv.acidMsg)) { rv.acidMsg = t + 0.3; rv.link.send({ k: 'hurt', from: null, by: 'Acid' }); }
     if (g.health > 0) return;
-    g.health = 0; g.alive = false; g.deaths++; g.respawnAt = t + RESPAWN_S;
+    g.health = 0; g.alive = false; g.deaths++; g.respawnAt = t + RESPAWN_S; g.streak = 0;
     const entry = { k: cause, kc: 'env', v: g.name, vc: g.team, vid: g.id, head: false, t };
     this.feed.unshift(entry);
     this.feed.length = Math.min(this.feed.length, 5);
@@ -563,6 +563,7 @@ export class Battle {
     if (!dead) return;
     g.health = 0; g.alive = false; g.deaths++; g.respawnAt = t + RESPAWN_S;
     by.kills++;
+    g.streak = 0; by.streak = (by.streak || 0) + 1; by.bestStreak = Math.max(by.bestStreak || 0, by.streak);   // (kill streaks, for ranked performance)
     if (mine) this.mvp?.kill(t, Math.hypot(by.x - g.x, by.z - g.z));
     this.teamScore[by.team] = (this.teamScore[by.team] || 0) + 1;
     const kb = this.bots.find((b) => b.f === by);
@@ -699,7 +700,9 @@ export class Battle {
   _ranked(outcome) {
     if (!this.opts.ranked || this.net) return '';
     this.opts.ranked = false;          // once a battle
-    return this.deps.onRanked?.(botRankedChange(this.deps.rating(), this.opts.level === 'medium' ? 'normal' : this.opts.level, outcome, this.playT || 0, this.bots.filter((b) => !b.mate).length)) || '';
+    const me = this.humans[0]?.f, perf = me ? performance({ kills: me.kills, deaths: me.deaths, streak: me.bestStreak || 0, alive: (this.playT || 0) / (me.deaths + 1) }) : 0.5;
+    const label = this.deps.onRanked?.(botRankedChange(this.deps.rating(), this.opts.level === 'medium' ? 'normal' : this.opts.level, outcome, perf, this.bots.filter((b) => !b.mate).length)) || '';
+    return label && label + ' · performance ' + Math.round(perf * 100) + '%';
   }
   _showEnd(title, rows, canRestart, team, t, killer) {
     this.over = true;

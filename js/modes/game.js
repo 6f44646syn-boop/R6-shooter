@@ -2,7 +2,7 @@ import { applyMapArt } from '../render/pack-art.js?v=e7475a5-mwx0ullj';
 import { applyPackMaterials, packMats, envMap } from '../render/pack-materials.js?v=e7475a5-mwx0ullj';
 import { applyPackProps } from '../render/pack-props.js?v=e7475a5-mwx0ullj';
 import { sensoryFor } from '../balance/bomb-utility.js?v=e7475a5-mwx0ullj';
-import { createRankedSession, rankedChange, ratingOf, signRankedResult, botRankedChange } from '../core/ranked.js?v=e7475a5-mwx0ullj';
+import { createRankedSession, rankedChange, ratingOf, signRankedResult, botRankedChange, performance } from '../core/ranked.js?v=e7475a5-mwx0ullj';
 import { SpectatorTools } from '../replay/spectator.js?v=e7475a5-mwx0ullj';
 import { MatchFinale } from '../replay/finale.js?v=e7475a5-mwx0ullj';
 import { GrenadeReplay } from '../replay/grenade.js?v=e7475a5-mwx0ullj';
@@ -196,7 +196,7 @@ export class ModeGame {
       const packet = await signRankedResult(session, winner);
       for (const peer of network.peers) if (!peer.spectator) peer.link.send(packet);
       this.deps.onRankedReceipt?.(packet);
-      this._applyRating(rankedChange(session.ticket, packet.result, local));
+      this._applyRating(rankedChange(session.ticket, packet.result, local, this.perf()));
     } catch (error) { console.warn('Ranked result could not be signed', error); }
   }
   get netRole() { return this.netHost ? 'host' : this.netClient ? 'client' : null; }
@@ -646,7 +646,7 @@ export class ModeGame {
         if (e.by === me.id && e.id !== me.id) this.mvp?.hit(e.dmg);
       } else if (e.type === 'kill') {
         const v = m.actors.find((x) => x.id === e.id), k = m.actors.find((x) => x.id === e.by);
-        if (this.netClient) { v.alive = false; v.hp = 0; }
+        if (this.netClient) { v.alive = false; v.hp = 0; v.streak = 0; if (k && k !== v && k.team !== v.team) { k.streak = (k.streak || 0) + 1; k.bestStreak = Math.max(k.bestStreak || 0, k.streak); } }   // (the host's kills: streaks here too, for ranked performance)
         this.feed.unshift({ k: k ? (k === me ? 'You' : k.name) : '', kc: k ? k.team : '', v: v === me ? 'You' : v.name, vc: v.team, head: e.head, knife: e.kind === 'knife', nade: e.kind === 'nade', t });
         this.feed.length = Math.min(this.feed.length, 5);
         this._renderFeed();
@@ -1596,8 +1596,17 @@ export class ModeGame {
     h.rig.sprinting = false; h.rig.update(dt, 0, t);
     this.deps.sfx.listen(h.camera);
   }
+  // How well you played this match (0 to 1): K/D, best kill streak, time alive before dying, rounds won (Bomb).
+  perf() {
+    const me = this.me, m = this.m, R = m?.rules;
+    if (!me || !m) return 0.5;
+    return performance({ kills: me.kills, deaths: me.deaths, streak: me.bestStreak || 0, alive: (m.t || 0) / (me.deaths + 1),
+      roundsWon: R?.rounds ? R.score[me.team] || 0 : 0, rounds: R?.rounds ? R.rounds.length : 0 });
+  }
   _botRanked(outcome) {
-    const label = this.deps.onRanked?.(botRankedChange(this.opts.botRating, this.opts.difficulty, outcome, this.m?.t || 0, this.m ? this.m.actors.filter((a) => a.team !== this.me.team).length : 3)) || '';
+    const perf = this.perf();
+    let label = this.deps.onRanked?.(botRankedChange(this.opts.botRating, this.opts.difficulty, outcome, perf, this.m ? this.m.actors.filter((a) => a.team !== this.me.team).length : 3)) || '';
+    if (label) label += ' · performance ' + Math.round(perf * 100) + '%';
     this.opts.botRanked = false;          // once a match
     return label;
   }

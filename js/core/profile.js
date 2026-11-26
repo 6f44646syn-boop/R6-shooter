@@ -153,11 +153,14 @@ export class Profile {
     if (id !== null && !this.hasCharm(id)) return false;
     this.charm = id; this._changed(); return true;
   }
-  // Pick a skin for a pack: a rarity by its odds, then any skin of that rarity.
-  static roll(rng = Math.random) {
+  // Pick a skin for a pack: a rarity by its odds, then a skin of that rarity. has (your skins): only
+  // skins you do not own (all of that rarity owned: any you lack; all owned: a duplicate, refunded).
+  static roll(rng = Math.random, has = null) {
     let r = rng(), rar = RARITIES[0];
     for (const x of RARITIES) { if (r < x.odds) { rar = x; break; } r -= x.odds; }
-    const pool = CATALOGUE.filter((s) => s.rarity === rar.key);
+    const all = CATALOGUE.filter((s) => s.rarity === rar.key), lack = (list) => (has ? list.filter((s) => !has(s.id)) : list);
+    const missing = CATALOGUE.filter((s) => RARITIES.some((x) => x.key === s.rarity));
+    const pool = [lack(all), lack(missing), all].find((p) => p.length);
     return pool[Math.floor(rng() * pool.length)];
   }
   // Spend PACK_COST points on a pack. Returns { skin, duplicate, refund } or null.
@@ -165,7 +168,7 @@ export class Profile {
     if (!this.canOpen) return null;
     this.points -= PACK_COST;
     this.packs++;
-    const skin = Profile.roll(rng);
+    const skin = Profile.roll(rng, (id) => this.has(id));   // (never one you own, while any is left)
     const duplicate = this.has(skin.id);
     const refund = duplicate ? RARITIES.find((r) => r.key === skin.rarity).refund : 0;
     if (duplicate) { this.points += refund; this._dup(skin.rarity); } else this._own(skin.id);

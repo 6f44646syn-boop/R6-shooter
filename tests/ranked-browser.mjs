@@ -94,7 +94,7 @@ try {
     rating:__range.profile().rating, history:__range.profile().rankedHistory, finale:__range.modeGame().over,
   }))));
   check('host and player apply the same signed match once and the watcher stays unrated',
-    ranks[0].rating >= 1016 && ranks[0].rating <= 1032 && ranks[1].rating === 984 && ranks[2].rating === 1000   // (the win: +16, more the longer the match lasted)
+    ranks[0].rating >= 1008 && ranks[0].rating <= 1024 && ranks[1].rating >= 976 && ranks[1].rating <= 992 && ranks[2].rating === 1000   // (16 x performance: a win +8 to +24, a loss -8 to -24)
       && ranks[0].history[0].id === ranks[1].history[0].id && ranks[2].history.length === 0 && ranks.every(r=>r.finale), ranks);
 
   async function stopMatch() {
