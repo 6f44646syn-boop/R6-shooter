@@ -5,7 +5,9 @@ export function ratingOf(value) {
   return Number.isInteger(value) ? Math.max(0, Math.min(3000, value)) : START_RATING;
 }
 
+export const CHAMPION = 1700;   // Champion: above Diamond, shown with the player's world number (Champion #3)
 export function rankOf(rating) {
+  if (rating >= CHAMPION) return 'Champion';
   if (rating >= 1500) return 'Diamond';
   if (rating >= 1350) return 'Platinum';
   if (rating >= 1200) return 'Gold';

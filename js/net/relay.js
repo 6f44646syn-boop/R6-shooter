@@ -184,6 +184,15 @@ export async function joinRelay(base, code) {
   return link;
 }
 
+// A world board (rating, kills, skins, points or games): { by, top: [{ pos, name, value }], me: { pos, value } | null, total }.
+// me: your id, name and numbers to record first (or null just to read; id then finds you).
+export async function worldBoard(base, by, me, id) {
+  const q = '/world?by=' + encodeURIComponent(by) + '&id=' + encodeURIComponent(id || '');
+  const response = await fetch(relayBase(base) + q, me ? { method: 'POST', body: JSON.stringify(me), cache: 'no-store' } : { cache: 'no-store' });   // (text/plain: no preflight)
+  if (!response.ok) throw new Error('The world boards are unavailable.');
+  return response.json();
+}
+
 export async function rankedGames(base) {
   const response = await fetch(relayBase(base) + '/ranked', { cache: 'no-store' });
   if (!response.ok) throw new Error('Ranked games are unavailable on this relay.');

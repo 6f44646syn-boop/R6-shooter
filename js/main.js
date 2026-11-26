@@ -28,7 +28,7 @@ import { buildKeysPanel, buildKey } from './ui/build-keys.js?v=72da9c3-mwws8gb3'
 import { WeaponRig, setUltraTexSize, skinName, setSkinResolver, setHiResSkins, setSkinsOff, setCharmResolver } from './scene/viewmodel.js?v=72da9c3-mwws8gb3';
 import { LensPost } from './render/lens-post.js?v=72da9c3-mwws8gb3';
 import { warmScene, warmBudget } from './render/warm.js?v=72da9c3-mwws8gb3';
-import { addMatch, matches as pastMatches, totals as matchTotals } from './core/history.js?v=72da9c3-mwws8gb3';
+import { addMatch, matches as pastMatches, totals as matchTotals, gamesPlayed } from './core/history.js?v=72da9c3-mwws8gb3';
 import { addXp, matchXp, XP, checkIn, seasonState, rewardOf, rewardText, TIERS, XP_PER_TIER } from './core/season.js?v=72da9c3-mwws8gb3';
 import { submit as submitBests, bests as myBests, BOARD } from './core/bests.js?v=72da9c3-mwws8gb3';
 import { mountAccounts } from './ui/accounts-ui.js?v=72da9c3-mwws8gb3';
@@ -59,7 +59,7 @@ import { Battle } from './battle/battle.js?v=72da9c3-mwws8gb3';
 import { setOutlineColors } from './battle/fighter.js?v=72da9c3-mwws8gb3';
 import { initCore, coreLoaded } from './wasm/core.js?v=72da9c3-mwws8gb3';
 import { createJoinRequest, acceptJoin } from './net/link.js?v=72da9c3-mwws8gb3';
-import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt } from './net/relay.js?v=72da9c3-mwws8gb3';
+import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt, worldBoard } from './net/relay.js?v=72da9c3-mwws8gb3';
 import { Profile, WIN_POINTS } from './core/profile.js?v=72da9c3-mwws8gb3';
 import { skinFits, skinById, CATALOGUE } from './core/skins.js?v=72da9c3-mwws8gb3';
 import { currentAccount, dropAccounts } from './core/accounts.js?v=72da9c3-mwws8gb3';
@@ -1375,7 +1375,7 @@ async function boot(data) {
     if (!entry) return '';
     netUi();
     net.link?.send({ k: 'rankProfile', rating: profile.rating });
-    const label = rankOf(profile.rating) + ' · ' + profile.rating + ' Elo (' + (entry.delta > 0 ? '+' : '') + entry.delta + ')';
+    const label = rankName() + ' · ' + profile.rating + ' Elo (' + (entry.delta > 0 ? '+' : '') + entry.delta + ')';
     netStatus(label, 'ok');
     return label;
   }
@@ -1398,7 +1398,7 @@ async function boot(data) {
     crest.className = 'rank-crest';
     crest.dataset.rank = rankOf(profile.rating).toLowerCase();
     crest.setAttribute('aria-hidden', 'true');
-    $('net-rank-info').replaceChildren(crest, rankOf(profile.rating) + ' · ' + profile.rating + ' Elo · Stored on this profile');
+    $('net-rank-info').replaceChildren(crest, rankName() + ' · ' + profile.rating + ' Elo · Stored on this profile');
     $('net-rank-history').replaceChildren(...profile.rankedHistory.map(entry => {
       const row = document.createElement('li');
       row.textContent = entry.outcome + ' · ' + (entry.delta > 0 ? '+' : '') + entry.delta + ' Elo';
@@ -1690,7 +1690,7 @@ async function boot(data) {
     if (name === 'mode') { renderChallenges(); renderPresets(); filterGames(); }
     if (name === 'season') renderSeason();
     if (name === 'packs' || name === 'save') (name === 'packs' ? $('packs-save') : $('save-root')).append(packs.saveEl);   // (one save code box: on the Skins page and its own page)
-    if (name === 'stats') renderStats();
+    if (name === 'stats') { renderStats(); syncWorld(); }
     if (name === 'setup') $('preset-save-row').hidden = flow.settingsOnly || flow.mode === 'range' || flow.mode === 'net';
     if (name === 'setup') {
       $('range-setup').hidden = flow.mode !== 'range';
@@ -1893,15 +1893,57 @@ async function boot(data) {
   // A rank as a small badge: its colour and first letter (Copper ... Diamond), from your rating.
   function rankBadge(rating = profile.rating) {
     const rank = rankOf(rating), i = document.createElement('i');
-    i.className = 'rank-badge rank-' + rank.toLowerCase(); i.textContent = rank[0]; i.title = rank + ' · ' + rating;
+    i.className = 'rank-badge rank-' + rank.toLowerCase(); i.title = rankName(rating) + ' · ' + rating;
+    i.textContent = rank !== 'Champion' ? rank[0] : world.champ && world.champ < 1000 ? '#' + world.champ : '♛';   // (Champions show their world number)
     return i;
   }
+  // Your rank's name; a Champion with a world number: "Champion #3" (as in Siege).
+  function rankName(rating = profile.rating) { const r = rankOf(rating); return r === 'Champion' && world.champ ? 'Champion #' + world.champ : r; }
+  /* ---------- world boards (on the relay): rating, kills, skins, points, games played ---------- */
+  const WORLD_ID_KEY = 'recoilRange.worldId.v1', WORLD_BOARDS = [['rating', 'Rank'], ['kills', 'Kills'], ['skins', 'Skins'], ['points', 'Points'], ['games', 'Games played']];
+  function worldId() {
+    let id = null; try { id = localStorage.getItem(WORLD_ID_KEY); } catch { /* blocked */ }
+    if (!/^[0-9a-f]{32}$/.test(id || '')) { id = [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, '0')).join(''); try { localStorage.setItem(WORLD_ID_KEY, id); } catch { /* new id each visit */ } }
+    return id;
+  }
+  const worldMe = () => ({ id: worldId(), name: currentAccount(), rating: profile.rating, kills: profile.kills, skins: profile.ownedCount, points: Math.min(profile.points, 0xffffffff), games: gamesPlayed() });
+  // Send your numbers when they changed (else just read), then show the board.
+  async function syncWorld(by = world.by) {
+    if (testMode && !params.get('relay')) return;           // (tests never write to the real boards)
+    const me = worldMe(), key = JSON.stringify(me);
+    try {
+      const d = await worldBoard(relayUrl(), by, key !== world.sent ? me : null, me.id);
+      world.sent = d.me?.value === me[by] ? key : ''; world.by = by; world.data = d; world.error = '';   // (not taken yet, e.g. too soon after the last: sent again next time)
+      if (!world.sent) setTimeout(() => syncWorld(), 1000);
+      if (by === 'rating') world.champ = rankOf(profile.rating) === 'Champion' ? d.me?.pos || 0 : 0;
+    } catch (e) { world.error = e.message || 'The world boards are unavailable.'; }
+    if (flow.page === 'stats' && !$('menu').hidden) renderStats();
+    if (!$('home').hidden) $('h-rank').replaceChildren(rankBadge());
+  }
+  function worldSection(el) {
+    const box = el('section', 'world');
+    const tabs = el('div', 'row seg world-tabs');
+    for (const [k, label] of WORLD_BOARDS) {
+      const b = el('button', 'seg-btn', label); b.type = 'button'; b.setAttribute('aria-pressed', String(world.by === k));
+      b.addEventListener('click', () => { world.by = k; renderStats(); syncWorld(k); });
+      tabs.append(b);
+    }
+    const d = world.data && world.data.by === world.by ? world.data : null, unit = WORLD_BOARDS.find(([k]) => k === world.by)[1];
+    const you = el('p', 'small', world.error ? world.error : !d ? 'Loading...' : d.me ? 'You are #' + d.me.pos + ' of ' + d.total + ' players (' + d.me.value + ').' : 'You are not on the board yet.');
+    const list = el('ol', 'stats-list world-list');
+    for (const r of d?.top || []) list.append(el('li', r.pos === d.me?.pos && r.name === currentAccount() ? 'me' : '', '#' + r.pos + ' ' + r.name + ' · ' + r.value + (world.by === 'rating' ? ' · ' + rankOf(r.value) : '')));
+    box.append(el('h3', '', 'World leaderboards'), tabs, you, list, el('p', 'small', 'Your player name and these numbers are shared on the world boards (through the relay server). ' + unit + ': the top 50.'));
+    return box;
+  }
+  var world = { by: 'rating', data: null, sent: '', champ: 0, error: '' };   // (var: badges can draw before this line)
+  { let t = 0; profile.onChange(() => { clearTimeout(t); t = setTimeout(() => { if (JSON.stringify(worldMe()) !== world.sent) syncWorld(); }, 3000); }); }
+  setTimeout(() => syncWorld('rating'), 1500);   // your place (and Champion number) at start
   // Player stats: rank and rating, totals, personal bests, ranked history and recent matches.
   function renderStats() {
     const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
     const T = matchTotals(), S = seasonState(), rank = rankOf(profile.rating);
     const head = el('div', 'stats-head'); head.append(rankBadge(), Object.assign(el('div'), {}));
-    head.lastChild.append(el('b', '', currentAccount()), el('span', 'small', rank + ' · rating ' + profile.rating + ' · season tier ' + S.tier + ' / ' + TIERS));
+    head.lastChild.append(el('b', '', currentAccount()), el('span', 'small', rankName() + ' · rating ' + profile.rating + ' · season tier ' + S.tier + ' / ' + TIERS));
     const tile = (label, value) => { const d = el('div', 'stat'); d.append(el('b', '', String(value)), el('span', 'small', label)); return d; };
     const grid = el('div', 'stats-grid');
     grid.append(tile('matches (last 50)', T.matches), tile('wins', T.wins), tile('kills', T.kills), tile('deaths', T.deaths), tile('K/D', T.kd.toFixed(2)),
@@ -1914,7 +1956,7 @@ async function boot(data) {
     const recent = el('ul', 'stats-list');
     for (const m of pastMatches().slice(0, 10)) recent.append(el('li', m.result, (GAME_NAMES[m.mode] || m.mode) + ' · ' + (m.result || '') + ' · ' + m.kills + ' kills, ' + m.deaths + ' deaths' + (m.gun ? ' · ' + m.gun : '') + ' · ' + new Date(m.at).toLocaleDateString()));
     if (!pastMatches().length) recent.append(el('li', '', 'No matches yet.'));
-    $('stats-root').replaceChildren(head, grid, el('h3', '', 'Personal bests'), bestList, el('h3', '', 'Ranked history'), ranked, el('h3', '', 'Recent matches'), recent);
+    $('stats-root').replaceChildren(head, grid, worldSection(el), el('h3', '', 'Personal bests'), bestList, el('h3', '', 'Ranked history'), ranked, el('h3', '', 'Recent matches'), recent);
   }
   $('h-rank').addEventListener('click', () => { overHome(); showPage('stats'); });
   // Online on Home: host (a game code for your friends) or join with one, over the relay

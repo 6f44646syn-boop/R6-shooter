@@ -7,6 +7,8 @@
 //   GET  /                      -> "Recoil Range relay: OK" (for the in-game connection test)
 //   GET  /ranked               -> open ranked Bomb lobbies
 //   GET  /ranked-result/CODE/ID -> signed match receipt, if available
+//   GET  /world?by=STAT&id=ID   -> a world board (rating, kills, skins, points or games): the top 50, and where ID stands
+//   POST /world?by=STAT  {id,name,rating,kills,skins,points,games} (text/plain JSON) -> record a player, then as GET
 //   WS   /room/CODE?role=host   -> host of game CODE (refused if the room already has a host)
 //   WS   /room/CODE?role=player -> player in game CODE (refused if there is no host, or full)
 //
@@ -27,6 +29,8 @@ const RANK_SHARDS = 4;
 const RANK_TTL = 45_000;
 const RECEIPT_TTL = 86_400_000;
 const MATCH_ID = /^[0-9a-f]{32}$/;
+const WORLD_ID = /^[0-9a-f]{32}$/, WORLD_MAX = 100_000;
+const WORLD_STATS = { rating: 3000, kills: 1e9, skins: 5000, points: 0xffffffff, games: 1e9 };   // each board, and the highest value it takes
 const rankedStub = (env, shard) => env.ROOMS.get(env.ROOMS.idFromName('ranked-' + shard));
 const rankedShard = code => code.charCodeAt(0) % RANK_SHARDS;
 const rankedHeaders = { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' };
@@ -53,6 +57,10 @@ export default {
       const games = shards.flatMap(s => s.status === 'fulfilled' ? s.value : []).sort((a, b) => b.players - a.players || a.code.localeCompare(b.code));
       return Response.json(games, { headers: rankedHeaders });
     }
+    if (url.pathname === '/world' && (req.method === 'GET' || req.method === 'POST')) {
+      const response = await env.ROOMS.get(env.ROOMS.idFromName('world')).fetch('https://relay.internal/world' + url.search, { method: req.method, body: req.method === 'POST' ? await req.text() : undefined });
+      return new Response(response.body, { status: response.status, headers: { ...rankedHeaders, 'Content-Type': 'application/json; charset=utf-8' } });
+    }
     if (url.pathname === '/' || url.pathname === '/health') return new Response('Recoil Range relay: OK', { headers: cors });
     const m = url.pathname.match(/^\/room\/([A-Za-z0-9]{4,8})$/);
     if (!m || !CODE.test(m[1].toUpperCase())) return new Response('Not found', { status: 404, headers: cors });
@@ -77,6 +85,7 @@ export class Room {
     const url = new URL(req.url);
     if (url.pathname === '/directory') return this._directory(req);
     if (url.pathname === '/receipt') return this._receipt(req, url);
+    if (url.pathname === '/world') return this._world(req, url);
     const role = url.searchParams.get('role') === 'host' ? 'host' : 'player';
     const all = this._all();
     const host = all.find((x) => x.a.role === 'host');
@@ -197,6 +206,38 @@ export class Room {
     sql.exec('INSERT OR IGNORE INTO ranked_receipts VALUES (?, ?, ?, ?)', code, id, now + RECEIPT_TTL, data);
     sql.exec('DELETE FROM ranked_receipts WHERE rowid IN (SELECT rowid FROM ranked_receipts ORDER BY expires DESC LIMIT -1 OFFSET 512)');
     return new Response(null, { status: 204 });
+  }
+
+  // The world boards: one row per player (a random id kept in their browser), one board per stat,
+  // best first. The numbers come from the players' own browsers, so these are friendly boards, not proof.
+  async _world(req, url) {
+    const sql = this.state.storage.sql, now = Date.now();
+    sql.exec('CREATE TABLE IF NOT EXISTS players (id TEXT PRIMARY KEY, name TEXT, rating INTEGER, kills INTEGER, skins INTEGER, points INTEGER, games INTEGER, at INTEGER)');
+    const by = Object.hasOwn(WORLD_STATS, url.searchParams.get('by')) ? url.searchParams.get('by') : 'rating';
+    let id = url.searchParams.get('id');
+    if (req.method === 'POST') {
+      const text = await req.text();
+      if (text.length > 512) return new Response(null, { status: 413 });
+      let b; try { b = JSON.parse(text); } catch { return new Response(null, { status: 400 }); }
+      const name = typeof b?.name === 'string' ? b.name.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 16) : '';
+      const ok = Object.entries(WORLD_STATS).every(([k, max]) => Number.isInteger(b[k]) && b[k] >= 0 && b[k] <= max);
+      if (!WORLD_ID.test(b?.id || '') || !name || !ok) return new Response(null, { status: 400 });
+      id = b.id;
+      const old = sql.exec('SELECT at FROM players WHERE id = ?', id).toArray()[0];
+      if (!old || now - old.at > 500) {           // (two writes a second a player at most)
+        sql.exec('INSERT OR REPLACE INTO players VALUES (?, ?, ?, ?, ?, ?, ?, ?)', id, name, b.rating, b.kills, b.skins, b.points, b.games, now);
+        sql.exec('DELETE FROM players WHERE id IN (SELECT id FROM players ORDER BY rating DESC, at ASC LIMIT -1 OFFSET ?)', WORLD_MAX);
+      }
+    }
+    // (by is one of WORLD_STATS' own names, so it is safe in the query)
+    const top = sql.exec('SELECT name, ' + by + ' AS v FROM players ORDER BY ' + by + ' DESC, at ASC LIMIT 50').toArray().map((r, i) => ({ pos: i + 1, name: r.name, value: r.v }));
+    const total = sql.exec('SELECT COUNT(*) AS n FROM players').one().n;
+    let me = null;
+    if (WORLD_ID.test(id || '')) {
+      const row = sql.exec('SELECT ' + by + ' AS v, at FROM players WHERE id = ?', id).toArray()[0];
+      if (row) me = { value: row.v, pos: sql.exec('SELECT COUNT(*) AS n FROM players WHERE ' + by + ' > ? OR (' + by + ' = ? AND at < ?)', row.v, row.v, row.at).one().n + 1 };
+    }
+    return Response.json({ by, top, me, total });
   }
 
   async webSocketClose(ws) { await this._gone(ws); }

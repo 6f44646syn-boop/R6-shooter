@@ -8,12 +8,16 @@ function load() {
   return list;
 }
 export function addMatch(m) {
-  const L = load();
+  const played = gamesPlayed(), L = load();
   L.unshift({ mode: String(m.mode), result: m.result, kills: m.kills | 0, deaths: m.deaths | 0, gun: m.gun || '', place: m.place | 0, at: Date.now() });
   L.length = Math.min(L.length, MAX);
   try { localStorage.setItem(KEY, JSON.stringify(L)); } catch { /* storage full or blocked: kept for this visit */ }
+  try { localStorage.setItem(GAMES, String(played + 1)); } catch { /* kept in the history */ }
 }
 export function matches() { return load(); }
+// Every match you have finished (all time; the history keeps only the last 50). Starts from the history's length.
+const GAMES = 'recoilRange.games.v1';
+export function gamesPlayed() { let n = 0; try { n = parseInt(localStorage.getItem(GAMES), 10) || 0; } catch { /* blocked */ } return Math.max(n, load().length); }
 // Totals over the kept matches.
 export function totals() {
   const L = load(), t = { matches: L.length, wins: 0, kills: 0, deaths: 0, guns: new Map() };
