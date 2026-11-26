@@ -20,7 +20,7 @@ const OUTCOMES = ['loss', 'draw', 'win'];
 const RANK_RECORD = 18;
 const LEGEND_BYTE = 254;
 const NONE16 = 0xffff, LEGEND16 = 0xfffe;   // format 6
-// Trade-up: TRADE_UP duplicates of one rarity become one skin of the next rarity.
+// Trade-up: TRADE_UP skins you own of one rarity (you lose them) become one skin of the next rarity.
 export const TRADE_UP = 5;
 export const TRADE_NEXT = { common: 'rare', rare: 'epic', epic: 'legendary', blackice: 'legendary' };
 const DUP_KEYS = ['common', 'rare', 'epic', 'blackice', 'legendary'];
@@ -113,12 +113,18 @@ export class Profile {
     return { skin, duplicate, refund };
   }
   _dup(rarity) { if (rarity in this.dups) this.dups[rarity] = Math.min(255, this.dups[rarity] + 1); }
-  canTradeUp(rarity) { return !!TRADE_NEXT[rarity] && this.dups[rarity] >= TRADE_UP; }
-  // TRADE_UP duplicates of a rarity -> a skin of the next rarity (one you lack, if any). Returns
-  // { skin, duplicate, refund } like a pack, or null.
-  tradeUp(rarity, rng = Math.random) {
-    if (!this.canTradeUp(rarity)) return null;
-    this.dups[rarity] -= TRADE_UP;
+  // The skins you own of a rarity that a trade-up can take (not the Legendary photo).
+  tradeable(rarity) { return CATALOGUE.filter((s) => s.rarity === rarity && s.id !== LEGEND_ID && !s.photo && this.has(s.id)); }
+  canTradeUp(rarity) { return !!TRADE_NEXT[rarity] && this.tradeable(rarity).length >= TRADE_UP; }
+  // Give up TRADE_UP skins you own of a rarity (ids: the ones you chose; they are gone, and taken off
+  // any gun) -> a skin of the next rarity (one you lack, if any). Returns { skin, duplicate, refund } like a pack, or null.
+  tradeUp(rarity, ids, rng = Math.random) {
+    const mine = new Set(this.tradeable(rarity).map((s) => s.id)), give = [...new Set(ids || [])];
+    if (!TRADE_NEXT[rarity] || give.length !== TRADE_UP || !give.every((id) => mine.has(id))) return null;
+    for (const id of give) {
+      this.owned[id >> 3] &= ~(1 << (id & 7));
+      for (let i = 0; i < SLOTS; i++) if (this.equipped[i] === id) this.equipped[i] = null;
+    }
     const next = TRADE_NEXT[rarity];
     const all = CATALOGUE.filter((s) => s.rarity === next && s.id !== LEGEND_ID && !s.photo);
     const fresh = all.filter((s) => !this.has(s.id)), pool = fresh.length ? fresh : all;
@@ -153,14 +159,11 @@ export class Profile {
     if (id !== null && !this.hasCharm(id)) return false;
     this.charm = id; this._changed(); return true;
   }
-  // Pick a skin for a pack: a rarity by its odds, then a skin of that rarity. has (your skins): only
-  // skins you do not own (all of that rarity owned: any you lack; all owned: a duplicate, refunded).
-  static roll(rng = Math.random, has = null) {
+  // Pick a skin for a pack: a rarity by its odds, then any skin of that rarity.
+  static roll(rng = Math.random) {
     let r = rng(), rar = RARITIES[0];
     for (const x of RARITIES) { if (r < x.odds) { rar = x; break; } r -= x.odds; }
-    const all = CATALOGUE.filter((s) => s.rarity === rar.key), lack = (list) => (has ? list.filter((s) => !has(s.id)) : list);
-    const missing = CATALOGUE.filter((s) => RARITIES.some((x) => x.key === s.rarity));
-    const pool = [lack(all), lack(missing), all].find((p) => p.length);
+    const pool = CATALOGUE.filter((s) => s.rarity === rar.key);
     return pool[Math.floor(rng() * pool.length)];
   }
   // Spend PACK_COST points on a pack. Returns { skin, duplicate, refund } or null.
@@ -168,7 +171,7 @@ export class Profile {
     if (!this.canOpen) return null;
     this.points -= PACK_COST;
     this.packs++;
-    const skin = Profile.roll(rng, (id) => this.has(id));   // (never one you own, while any is left)
+    const skin = Profile.roll(rng);
     const duplicate = this.has(skin.id);
     const refund = duplicate ? RARITIES.find((r) => r.key === skin.rarity).refund : 0;
     if (duplicate) { this.points += refund; this._dup(skin.rarity); } else this._own(skin.id);

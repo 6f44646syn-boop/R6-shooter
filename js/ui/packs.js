@@ -267,10 +267,22 @@ export class PackUI {
           buy('Buy', SHOP_PRICE[s.rarity], p.has(s.id), () => p.buySkin(s.id, SHOP_PRICE[s.rarity])))),
         el('div', { class: 'pk-offer pk-charm-offer' }, el('span', { class: 'pk-charm-dot', style: 'background:#' + w.charm.color.toString(16).padStart(6, '0') }), el('span', { class: 'pk-name', text: w.charm.name }), el('span', { class: 'pk-rar', text: 'Charm' }),
           buy('Buy', w.charm.price, p.hasCharm(w.charm.id), () => p.buyCharm(w.charm.id)))));
+    // Trade up: pick TRADE_UP of your skins of one rarity to give up for one of the next rarity
+    const pick = this.tradePick, mine = pick ? p.tradeable(pick.rarity) : [];
+    const equipped = new Set(Array.from({ length: 10 }, (_, i) => p.equippedFor(i)).filter((x) => x !== null));
     this.tradeEl.replaceChildren(el('h3', { class: 'pk-h3', text: 'Trade up' }),
-      el('p', { class: 'small', text: 'Duplicates from packs count here (you still get their points). ' + TRADE_UP + ' duplicates of one rarity become a skin of the next rarity, one you do not have yet when there is one.' }),
-      el('div', { class: 'pk-trades' }, ...Object.keys(TRADE_NEXT).map((r) => el('button', { type: 'button', class: 'pk-trade r-' + r, disabled: p.canTradeUp(r) && this.modal.hidden ? null : '',
-        text: p.dups[r] + ' / ' + TRADE_UP + ' ' + RARITY[r].name + ' → ' + RARITY[TRADE_NEXT[r]].name, onclick: () => this.open(Math.random, false, p.tradeUp(r)) }))));
+      el('p', { class: 'small', text: 'Give up ' + TRADE_UP + ' skins you own of one rarity (they are gone for good) for a skin of the next rarity, one you do not have yet when there is one.' }),
+      pick ? el('div', { class: 'pk-pick' },
+        el('p', { class: 'small', text: 'Choose ' + TRADE_UP + ' ' + RARITY[pick.rarity].name + ' skins to give up: ' + pick.ids.size + ' / ' + TRADE_UP + ' chosen.' }),
+        el('div', { class: 'pk-offers' }, ...mine.map((s) => el('button', { type: 'button', class: 'pk-offer pk-pickable r-' + s.rarity + (pick.ids.has(s.id) ? ' on' : ''), 'aria-pressed': String(pick.ids.has(s.id)),
+          onclick: () => { if (pick.ids.has(s.id)) pick.ids.delete(s.id); else if (pick.ids.size < TRADE_UP) pick.ids.add(s.id); this._shopExtras(); } },
+          this.thumbImg(s.id), el('span', { class: 'pk-name', text: s.name }), el('span', { class: 'pk-rar', text: equipped.has(s.id) ? 'On a gun' : RARITY[s.rarity].name })))),
+        el('div', { class: 'pk-trades' },
+          el('button', { type: 'button', class: 'primary', disabled: pick.ids.size === TRADE_UP && this.modal.hidden ? null : '', text: 'Give up these ' + TRADE_UP + ' for ' + (/^[AEIOU]/.test(RARITY[TRADE_NEXT[pick.rarity]].name) ? 'an ' : 'a ') + RARITY[TRADE_NEXT[pick.rarity]].name,
+            onclick: () => { const r = p.tradeUp(pick.rarity, [...pick.ids]); this.tradePick = null; if (r) this.open(Math.random, false, r); this.refresh(); this.onEquip(this.gunIndex()); } }),
+          el('button', { type: 'button', text: 'Cancel', onclick: () => { this.tradePick = null; this._shopExtras(); } })))
+      : el('div', { class: 'pk-trades' }, ...Object.keys(TRADE_NEXT).map((r) => el('button', { type: 'button', class: 'pk-trade r-' + r, disabled: p.canTradeUp(r) && this.modal.hidden ? null : '',
+        text: Math.min(TRADE_UP, p.tradeable(r).length) + ' / ' + TRADE_UP + ' ' + RARITY[r].name + ' → ' + RARITY[TRADE_NEXT[r]].name, onclick: () => { this.tradePick = { rarity: r, ids: new Set() }; this._shopExtras(); } }))));
     this.charmEl.replaceChildren(el('h3', { class: 'pk-h3', text: 'Your charms' }),
       el('div', { class: 'pk-trades' },
         el('button', { type: 'button', class: p.charm === null ? 'on' : '', text: 'No charm', onclick: () => { p.wearCharm(null); this.refresh(); this.onEquip(this.gunIndex()); } }),

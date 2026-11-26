@@ -417,10 +417,18 @@ test('match history: newest first, totals, K/D and most-used gun', () => {
 test('profile v5: duplicates, trade-up, charms survive a save code; v4 codes still load', () => {
   const mem = { getItem: () => null, setItem() {} };
   const p = new Profile(mem); p.points = 2000;
-  p.dups.common = TRADE_UP + 1;
-  const r = p.tradeUp('common', () => 0.3);
-  eq(r.skin.rarity, 'rare', 'next rarity'); eq(p.dups.common, 1);
-  eq(p.tradeUp('common'), null, 'not enough duplicates');
+  p.dups.common = 1;
+  const commons = CATALOGUE.filter((s) => s.rarity === 'common').slice(0, TRADE_UP + 1);
+  for (const s of commons) p._own(s.id);
+  const give = commons.slice(0, TRADE_UP).map((s) => s.id);
+  p.equip(commons[0].guns ? commons[0].guns[0] : 0, give[0]);
+  eq(p.tradeUp('common', give.slice(0, 4)), null, 'five skins, not four');
+  eq(p.tradeUp('common', [...give.slice(0, 4), 99999]), null, 'only skins you own');
+  const r = p.tradeUp('common', give, () => 0.3);
+  eq(r.skin.rarity, 'rare', 'next rarity');
+  eq(give.some((id) => p.has(id)), false, 'the five are gone'); eq(p.has(commons[TRADE_UP].id), true, 'the others stay');
+  eq(p.equipped.includes(give[0]), false, 'a traded skin comes off its gun');
+  eq(p.canTradeUp('common'), false, 'one common left: no trade-up');
   eq(p.buyCharm(2), true); eq(p.charm, 2); eq(p.buyCharm(2), false, 'only once');
   const q = new Profile(mem); q.loadCode(p.saveCode());
   eq(q.dups.common, 1); eq(q.charm, 2); eq(q.hasCharm(2), true); eq(q.points, p.points); eq(q.has(r.skin.id), true);

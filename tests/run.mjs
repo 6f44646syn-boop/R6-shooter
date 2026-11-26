@@ -657,18 +657,22 @@ try {
     });
     check('slow PC: the menu offers lower graphics and the button switches', slow.shown && slow.label === 'Switch to Low graphics' && slow.g === 'low' && slow.gone, JSON.stringify(slow));
     // The weekly shop, trade-up and charms.
-    const shop = await page.evaluate(() => {
-      const P = window.__range.packs(), prof = window.__range.profile();
-      prof.points = 3000; prof.dups.rare = 5; P.refresh();
+    const shop = await page.evaluate(async () => {
+      const P = window.__range.packs(), prof = window.__range.profile(), { CATALOGUE } = await import('/js/core/skins.js');
+      prof.points = 3000;
+      for (const sk of CATALOGUE.filter((x) => x.rarity === 'rare').slice(0, 6)) prof._own(sk.id);   // (six rares: five to give up)
+      P.refresh();
       const offers = P.weekEl.querySelectorAll('.pk-offer').length, first = P.weekOffers().skins[0], had = prof.has(first.id);
       P.weekEl.querySelector('.pk-offer button').click();
       const bought = had || prof.has(first.id);
-      [...P.tradeEl.querySelectorAll('button')].find((b) => !b.disabled)?.click(); P._finish();
+      [...P.tradeEl.querySelectorAll('button')].find((b) => !b.disabled)?.click();                     // the Rare trade-up: pick five
+      for (let i = 0; i < 5; i++) [...P.tradeEl.querySelectorAll('.pk-pickable:not(.on)')][0]?.click();
+      [...P.tradeEl.querySelectorAll('button.primary')].find((b) => !b.disabled)?.click(); P._finish();
       const traded = P.result?.skin.rarity; P.close();
       [...P.weekEl.querySelectorAll('.pk-offer button')].at(-1).click();
       return { offers, bought, traded, dups: prof.dups.rare, charm: prof.charm };
     });
-    check('weekly shop: 3 skins + a charm, buying works, 5 rare duplicates trade up to an Epic', shop.offers === 4 && shop.bought && shop.traded === 'epic' && shop.dups === 0 && shop.charm !== null, JSON.stringify(shop));
+    check('weekly shop: 3 skins + a charm, buying works, 5 owned rares (chosen, then gone) trade up to an Epic', shop.offers === 4 && shop.bought && shop.traded === 'epic' && shop.charm !== null, JSON.stringify(shop));
     const charm = await page.evaluate(() => {
       const R = window.__range, prof = R.profile(), rig = R.rigObj();
       prof.charms = 255; prof.wearCharm(4); R.selectGun(4); R.manual(true);
