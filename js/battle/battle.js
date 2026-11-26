@@ -1,4 +1,5 @@
 import { SpectatorTools, spectatorVisibility } from '../replay/spectator.js?v=7141ab8-mwx5zl37';
+import { setWorldView } from '../scene/inspect-effects.js?v=7141ab8-mwx5zl37';
 import { MatchFinale } from '../replay/finale.js?v=7141ab8-mwx5zl37';
 import { GrenadeReplay } from '../replay/grenade.js?v=7141ab8-mwx5zl37';
 import { replayCamera } from '../replay/view.js?v=7141ab8-mwx5zl37';
@@ -1311,6 +1312,7 @@ export class Battle {
       const rig = !pickaxe && !blueprint && (this.watchFocus || royaleFocus || (this.kc && this.kc.pov && i === 0 && this.puppet)) ? this.puppet.rig : h.rig;
       if (pickaxe || blueprint) rig.root.visible = false;
       rig.setAspect(aspect, v.h);
+      setWorldView(camera.quaternion);     // (world-anchored inspect effects)
       r.render(rig.scene, rig.camera);
       if (pickaxe || blueprint) rig.root.visible = h.f.alive && !!h.gun;
     });

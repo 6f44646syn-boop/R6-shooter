@@ -1,4 +1,5 @@
 import { applyMapArt } from '../render/pack-art.js?v=7141ab8-mwx5zl37';
+import { setWorldView } from '../scene/inspect-effects.js?v=7141ab8-mwx5zl37';
 import { applyPackMaterials, packMats, envMap } from '../render/pack-materials.js?v=7141ab8-mwx5zl37';
 import { applyPackProps } from '../render/pack-props.js?v=7141ab8-mwx5zl37';
 import { sensoryFor } from '../balance/bomb-utility.js?v=7141ab8-mwx5zl37';
@@ -1168,7 +1169,7 @@ export class ModeGame {
     }
     const rig = this.spectator || (this.kc && this.camOverride === this.kcCam) ? this.kcPuppet?.rig : !this.viewOnly && !this.camOverride ? h.rig : null;
     if (rig) {
-      r.clearDepth(); rig.setAspect(aspect, sz.y); r.render(rig.scene, rig.camera);
+      r.clearDepth(); rig.setAspect(aspect, sz.y); setWorldView(cam.quaternion); r.render(rig.scene, rig.camera);
     }
   }
 

@@ -14,6 +14,7 @@
 // (result = effect + screen x darkening), which needs no texture reads of the scene. Only
 // blur, fringing and distortion need the scene as a texture, so only levels 3 and 2 pay for it.
 import * as THREE from '../../vendor/three/three.module.min.js?v=7141ab8-mwx5zl37';
+import { setWorldView } from '../scene/inspect-effects.js?v=7141ab8-mwx5zl37';
 
 const VERT = /* glsl */`
 varying vec2 vUv;
@@ -271,7 +272,7 @@ export class LensPost {
       r.setRenderTarget(null);
       r.clear();
       this._world(world, worldCam, null);
-      if (vm) { r.clearDepth(); r.render(vm, vmCam); }
+      if (vm) { r.clearDepth(); setWorldView(worldCam.quaternion); r.render(vm, vmCam); }
       return;
     }
     if (p.quality <= 1) {
@@ -279,7 +280,7 @@ export class LensPost {
       r.setRenderTarget(null);
       r.clear();
       this._world(world, worldCam, null);
-      if (vm) { r.clearDepth(); r.render(vm, vmCam); }
+      if (vm) { r.clearDepth(); setWorldView(worldCam.quaternion); r.render(vm, vmCam); }
       this._uniforms(p);
       this._pass(this.overlayMat, null);
       return;
@@ -288,7 +289,7 @@ export class LensPost {
     r.clear();
     this._world(world, worldCam, this.sceneRT);
     r.setRenderTarget(this.sceneRT);
-    if (vm) { r.clearDepth(); r.render(vm, vmCam); }
+    if (vm) { r.clearDepth(); setWorldView(worldCam.quaternion); r.render(vm, vmCam); }
     const u = this.u;
     const blur = p.quality >= 3;
     if (blur) {

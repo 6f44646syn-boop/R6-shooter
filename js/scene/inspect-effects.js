@@ -2567,6 +2567,10 @@ const RANK_SECONDS = 8.4;
 const RANK_OF = { foundry: 'Bronze', quickmirror: 'Silver', mintmark: 'Gold', whiteout: 'Platinum', verdant: 'Emerald', splitlight: 'Diamond', totality: 'Champion' };
 const RANK_RATING = { Bronze: 1040, Silver: 1190, Gold: 1340, Platinum: 1490, Emerald: 1640, Diamond: 1790, Champion: 1800 };
 const crestTex = new Map();
+// The world camera's turn this frame, set by the game before it draws the weapon view (identity in the skin lab):
+// effects that belong to the world (Sovereign's blast) are turned back by it, so they stay put as you look around.
+const WORLD_Q = new THREE.Quaternion();
+export function setWorldView(q) { WORLD_Q.copy(q); }
 // Champion's red nuke: a sky round the camera (in the weapon view: only you see it). Everything on it is painted by
 // direction, so it reads as far away however small the sphere: a flash on the horizon ahead, a fireball rising into a
 // mushroom cloud, a shockwave ring sweeping across the whole sky and over you, then the world bathed in red.
@@ -2577,7 +2581,7 @@ const NUKE_FRAGMENT = `uniform float uTime, uFlash, uRise, uBlast, uFade; varyin
     return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1)), f.x), f.y); }
   float fbm(vec2 p) { float s = 0.0, a = 0.5; for (int i = 0; i < 5; i++) { s += a * n(p); p *= 2.03; a *= 0.5; } return s; }
   void main() {
-    vec3 D = normalize(vec3(-0.32, 0.02, -1.0));                    // ground zero: on the horizon, ahead and to the left (clear of the gun and badge)
+    vec3 GZ = vec3(-3.0, -1.6, -10.0), D = normalize(GZ);          // ground zero: on the floor 10 m ahead (a little left, clear of the gun and badge)
     vec3 d = normalize(vDir);
     float ang = acos(clamp(dot(d, D), -1.0, 1.0));
     vec3 right = normalize(cross(D, vec3(0.0, 1.0, 0.0)));
@@ -2594,7 +2598,7 @@ const NUKE_FRAGMENT = `uniform float uTime, uFlash, uRise, uBlast, uFade; varyin
     // the blast: a 3D bubble (ray-traced: a sphere of uBlast metres round ground zero, 30 m ahead on the ground
     // 1.6 m below your eye), glassy in the middle, bright iridescent red-gold at its edges, a glint of the sun on it,
     // and a burning ring where it meets the ground, sweeping across the map; once it has passed you, the air is red
-    vec3 C = vec3(D.x, 0.0, D.z) * 30.0 + vec3(0.0, -1.6, 0.0);
+    vec3 C = GZ;
     float R = max(uBlast, 0.01), hb = dot(d, C), hc = dot(C, C) - R * R, disc = hb * hb - hc;
     bool inBubble = hc < 0.0;
     vec3 col = vec3(0.0); float a = 0.0;
@@ -2740,6 +2744,7 @@ export function rankInspect(gun, mag, kind, quality) {
   for (const [o, twin] of shines) o.add(twin);       // (a child at no offset: drawn exactly over its mesh)
   const fx = new THREE.Group(); fx.name = 'Rank inspect'; fx.visible = false; gun.add(fx);
   const own = [];      // materials and geometries to free
+  const onStop = [];   // run when the inspect ends or is cancelled
   const sprite = (map, color, scale, additive = true) => {
     const mat = new THREE.SpriteMaterial({ map, color, transparent: true, depthWrite: false, depthTest: false, toneMapped: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending });
     const s = new THREE.Sprite(mat); s.scale.setScalar(scale * K); s.renderOrder = 20; fx.add(s); own.push(mat); return s;
@@ -2915,13 +2920,20 @@ export function rankInspect(gun, mag, kind, quality) {
     const domU = { uTime: { value: 0 }, uFlash: { value: 0 }, uRise: { value: 0 }, uBlast: { value: 0 }, uFade: { value: 0 } }, domGeo = new THREE.SphereGeometry(1, 64, 32);
     const domMat = new THREE.ShaderMaterial({ uniforms: domU, vertexShader: NUKE_VERTEX, fragmentShader: NUKE_FRAGMENT, transparent: true, depthWrite: false, side: THREE.BackSide });
     const dome = new THREE.Mesh(domGeo, domMat); dome.renderOrder = -5; dome.frustumCulled = false; dome.visible = false;
-    dome.name = 'Champion domain'; gun.add(dome); own.push(domGeo, domMat);
+    dome.name = 'Champion domain'; fx.add(dome); own.push(domGeo, domMat);       // (in fx: hidden with it when the inspect stops, ADS included)
+    const startQ = new THREE.Quaternion(), worldQ = new THREE.Quaternion(), fwd = new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
+    let anchored = false;
+    onStop.push(() => { anchored = false; });
     const camW = new THREE.Vector3(), gq = new THREE.Quaternion(), gs = new THREE.Vector3();
     dome.onBeforeRender = (renderer, scene, camera) => {
       camW.setFromMatrixPosition(camera.matrixWorld);
       gun.matrixWorld.decompose(camW.clone(), gq, gs);
       dome.position.copy(gun.worldToLocal(camW.clone()));
-      dome.quaternion.copy(gq).invert();                    // undo the gun's turn: the sky stays square to the world
+      // the blast belongs to the world: anchored where you faced (level) when it began, then turned back by
+      // however you have looked since, so it stays put while you look up or around
+      if (!anchored) { fwd.set(0, 0, -1).applyQuaternion(WORLD_Q); startQ.setFromAxisAngle(UP, Math.atan2(-fwd.x, -fwd.z)); anchored = true; }
+      worldQ.copy(WORLD_Q).invert().multiply(startQ);
+      dome.quaternion.copy(gq).invert().multiply(worldQ);
       dome.scale.setScalar(2.5 / gs.x);
       dome.updateMatrixWorld();
     };
@@ -2945,8 +2957,8 @@ export function rankInspect(gun, mag, kind, quality) {
       domU.uTime.value = p * RANK_SECONDS;
       domU.uFlash.value = bump(p, 0.13, 0.145, 0.16, 0.26);
       domU.uRise.value = smooth(p, 0.14, 0.7);
-      // the bubble's radius in metres: it swells slowly as a dome on the map (to 34 m: past you, 30 m away, at about 0.4), then races outwards
-      domU.uBlast.value = p < 0.42 ? 34 * Math.pow(smooth(p, 0.16, 0.42), 1.2) : 34 + 110 * smooth(p, 0.42, 0.62);
+      // the bubble's radius in metres: it swells slowly as a dome off the floor ahead (to 12 m: past you, 10.6 m away, at about 0.4), then races outwards
+      domU.uBlast.value = p < 0.42 ? 12 * Math.pow(smooth(p, 0.16, 0.42), 1.2) : 12 + 130 * smooth(p, 0.42, 0.62);
       domU.uFade.value = smooth(p, 0.12, 0.14) * (1 - smooth(p, 0.88, 0.98));
       dome.visible = domU.uFade.value > 0.003;
       rays.material.opacity = total * 1.3; rays.scale.setScalar(1.25 + 0.15 * total); rays.rotation.z = p * 1.5; rays.position.z = 0.004;
@@ -3005,7 +3017,7 @@ export function rankInspect(gun, mag, kind, quality) {
       back.scale.setScalar(L * (0.3 + 0.22 * open));
       glowMat.opacity = open * 0.9; badgeMat.opacity = open * 0.85;
       glow.scale.setScalar(1.9 + 0.08 * Math.sin(p * 40)); badge.rotation.z = 0;
-      if (!active) return;
+      if (!active) { for (const f of onStop) f(); return; }
       // the camera in gun space: the last one that drew the backdrop, else the scene's origin (the first-person rig's)
       if (haveCam) cam.copy(camLocal); else cam.set(0, 0, 0).applyMatrix4(inv.copy(gun.matrixWorld).invert());
       side = cam.x >= 0 ? 1 : -1; sx = side > 0 ? box.max.x + 0.004 : box.min.x - 0.004;
