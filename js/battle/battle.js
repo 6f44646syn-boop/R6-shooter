@@ -40,7 +40,7 @@ class Remote {
   constructor(f, link, gun) { this.f = f; this.link = link; this.gun = gun; f.gun = gun; this.shotTimes = []; }
 }
 // A random skin that fits the gun in this slot (bots show off a little).
-const BOT_SKINS = CATALOGUE.filter(s => s.rarity !== 'legendary');
+const BOT_SKINS = CATALOGUE.filter(s => s.rarity !== 'legendary' && !s.unlock);   // (not the earned ones: rank and challenge skins)
 function botSkin(slot, rng = Math.random) {
   for (let i = 0; i < 20; i++) { const s = BOT_SKINS[Math.floor(rng() * BOT_SKINS.length)]; if (skinFits(s.id, slot)) return s.id; }
   return null;

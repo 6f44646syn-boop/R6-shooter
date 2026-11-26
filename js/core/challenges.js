@@ -1,6 +1,8 @@
 // Daily and weekly challenges, one of each for every mode. The same for everyone on a given
 // day / week (picked from the date), progress kept in this browser, points paid out once.
+// Skin challenges: long ones that never reset, each paying one skin (core/skins.js, the Challenge skins).
 import { mulberry32 } from './prng.js?v=7141ab8-mwx5zl37';
+import { CATALOGUE } from './skins.js?v=7141ab8-mwx5zl37';
 
 export const DAILY_POINTS = 60, WEEKLY_POINTS = 250;
 const MODES = { range: 'Shooting range', battle: 'Battle vs bots', endless: 'Endless', royale: 'Battle Royale', tdm: 'Team Deathmatch', ctf: 'Capture the Flag', bomb: 'Bomb' };
@@ -36,9 +38,14 @@ export function challengesFor(now = Date.now()) {
   return out;
 }
 
+// The skin challenges: [{ id, mode, modeName, period: 'skin', stat, goal, text, skin, skinName }].
+export const SKIN_CHALLENGES = CATALOGUE.filter((s) => s.trial).map((s) => ({
+  id: 's' + s.id, ...s.trial, modeName: MODES[s.trial.mode], period: 'skin', text: s.unlock, skin: s.id, skinName: s.name,
+}));
+
 function load() {
-  try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && typeof s === 'object') return { progress: s.progress || {}, paid: s.paid || {} }; } catch { /* blocked or broken */ }
-  return { progress: {}, paid: {} };
+  try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && typeof s === 'object') return { progress: s.progress || {}, paid: s.paid || {}, skins: s.skins || {} }; } catch { /* blocked or broken */ }
+  return { progress: {}, paid: {}, skins: {} };
 }
 let state = null;
 const st = () => (state ||= load());
@@ -48,18 +55,27 @@ function save(now) {
   for (const k of Object.keys(s.paid)) if (!live.has(k)) delete s.paid[k];
   try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* kept for this visit */ }
 }
-export function progressOf(c) { return Math.min(c.goal, st().progress[c.id] || 0); }
-export function isPaid(c) { return !!st().paid[c.id]; }
+// (skin challenges keep their progress and paid flag in s.skins: { id: [progress, paid] }, never pruned)
+const slot = (c) => (c.period === 'skin' ? (st().skins[c.id] ||= [0, 0]) : null);
+export function progressOf(c) { return Math.min(c.goal, c.period === 'skin' ? slot(c)[0] : st().progress[c.id] || 0); }
+export function isPaid(c) { return c.period === 'skin' ? !!slot(c)[1] : !!st().paid[c.id]; }
 
 // Record what happened: mode and stats { kills, wins, matches, heads, hits, best, top5 }.
-// Returns the challenges finished just now (their points are for the caller to pay).
+// Returns the challenges finished just now: daily and weekly ones pay points, skin ones their skin (c.skin),
+// both for the caller to pay.
 export function record(mode, stats, now = Date.now()) {
   const s = st(), done = [];
+  const add = (old, c) => { const v = stats[c.stat] || 0; return c.stat === 'best' ? Math.max(old, v) : old + v; };
   for (const c of challengesFor(now)) {
     if (c.mode !== mode || !(c.stat in stats) || s.paid[c.id]) continue;
-    const v = stats[c.stat] || 0;
-    s.progress[c.id] = c.stat === 'best' ? Math.max(s.progress[c.id] || 0, v) : (s.progress[c.id] || 0) + v;
+    s.progress[c.id] = add(s.progress[c.id] || 0, c);
     if (s.progress[c.id] >= c.goal) { s.paid[c.id] = true; done.push(c); }
+  }
+  for (const c of SKIN_CHALLENGES) {
+    const k = slot(c);
+    if (c.mode !== mode || !(c.stat in stats) || k[1]) continue;
+    k[0] = add(k[0], c);
+    if (k[0] >= c.goal) { k[1] = 1; done.push(c); }
   }
   save(now);
   return done;

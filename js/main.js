@@ -32,7 +32,7 @@ import { addMatch, matches as pastMatches, totals as matchTotals, gamesPlayed } 
 import { addXp, matchXp, XP, checkIn, seasonState, rewardOf, rewardText, TIERS, XP_PER_TIER } from './core/season.js?v=7141ab8-mwx5zl37';
 import { submit as submitBests, bests as myBests, BOARD } from './core/bests.js?v=7141ab8-mwx5zl37';
 import { PAD_ASSIST, nearestAim, assistLook } from './core/pad-assist.js?v=7141ab8-mwx5zl37';
-import { record as recordChallenge, matchStats, challengesFor, progressOf, isPaid } from './core/challenges.js?v=7141ab8-mwx5zl37';
+import { record as recordChallenge, matchStats, challengesFor, progressOf, isPaid, SKIN_CHALLENGES } from './core/challenges.js?v=7141ab8-mwx5zl37';
 import { reticleTextures } from './ui/reticle-tex.js?v=7141ab8-mwx5zl37';
 import { DOT_POINTS } from './scene/dots.js?v=7141ab8-mwx5zl37';
 import { Voices } from './audio/voice.js?v=7141ab8-mwx5zl37';
@@ -934,7 +934,10 @@ async function boot(data) {
     box.append(head, bar, note);
   }
   function payChallenges(done) {
-    for (const c of done) { profile.addPoints(c.points); giveXp(c.period === 'daily' ? XP.daily : XP.weekly); flashNotice('Challenge done: ' + c.modeName + ', ' + c.text + ' · +' + c.points + ' points', 4000); }
+    for (const c of done) {
+      if (c.skin !== undefined) { profile.grant({ skin: c.skin }); giveXp(XP.weekly); flashNotice('Skin challenge done: ' + c.text + ' · ' + c.skinName + ' unlocked', 5000); continue; }
+      profile.addPoints(c.points); giveXp(c.period === 'daily' ? XP.daily : XP.weekly); flashNotice('Challenge done: ' + c.modeName + ', ' + c.text + ' · +' + c.points + ' points', 4000);
+    }
     if (done.length) renderChallenges();
   }
   function renderChallenges() {
@@ -950,8 +953,16 @@ async function boot(data) {
       const n = document.createElement('b'); n.textContent = all[i].modeName;
       r.append(n, cell(all[i]), cell(all[i + 1])); rows.push(r);
     }
-    box.replaceChildren(...rows);
     $('h-challenges').replaceChildren(...rows.map((r) => r.cloneNode(true)));
+    // the skin challenges (never reset), under the daily and weekly ones on the challenges page
+    const skinRow = document.createElement('div'); skinRow.className = 'ch-row ch-skins';
+    const sh = document.createElement('b'); sh.textContent = 'Skin challenges';
+    skinRow.append(sh, ...SKIN_CHALLENGES.map((c) => { const p = progressOf(c), done = isPaid(c) || profile.has(c.skin);
+      const d = document.createElement('div'); d.className = 'ch-cell' + (done ? ' done' : '');
+      const t = document.createElement('span'); t.textContent = c.text + (done ? ' ✓' : ' · ' + p + ' / ' + c.goal) + ' (' + c.skinName + ' skin)';
+      const bar = document.createElement('i'); bar.style.width = (done ? 100 : 100 * p / c.goal).toFixed(0) + '%';
+      d.append(t, bar); return d; }));
+    box.replaceChildren(...rows, skinRow);
   }
   function finishMagazine() {
     flushRange();
@@ -1379,6 +1390,7 @@ async function boot(data) {
     net.link?.send({ k: 'rankProfile', rating: profile.rating });
     const label = rankName() + ' · ' + profile.rating + ' Elo (' + (entry.delta > 0 ? '+' : '') + entry.delta + ')';
     netStatus(label, 'ok');
+    for (const s of profile.claimRankSkins()) flashNotice('Rank reward: ' + s.rank + ' reached · ' + s.name + ' skin unlocked', 5000);
     return label;
   }
   async function refreshRankedReceipts() {

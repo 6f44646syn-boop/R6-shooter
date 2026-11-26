@@ -5,8 +5,8 @@
 // Points: KILL_POINTS per battle kill (+ HEADSHOT_BONUS for a headshot kill), WIN_POINTS for
 // winning a battle. A pack costs PACK_COST and gives one random skin; a duplicate refunds
 // points instead (by rarity).
-import { RARITIES, CATALOGUE, SKIN_COUNT, LEGEND_ID, CATALOGUE_GEN, skinFits } from './skins.js?v=7141ab8-mwx5zl37';
-import { HISTORY_LIMIT, START_RATING, ratingOf, MAX_DELTA } from './ranked.js?v=7141ab8-mwx5zl37';
+import { RARITIES, CATALOGUE, SKIN_COUNT, LEGEND_ID, CATALOGUE_GEN, skinFits, RANK_SKINS } from './skins.js?v=7141ab8-mwx5zl37';
+import { HISTORY_LIMIT, START_RATING, ratingOf, MAX_DELTA, rankOf } from './ranked.js?v=7141ab8-mwx5zl37';
 import { CHARMS } from './charms.js?v=7141ab8-mwx5zl37';
 
 export const KILL_POINTS = 20, HEADSHOT_BONUS = 10, WIN_POINTS = 50, PACK_COST = 100;
@@ -96,6 +96,17 @@ export class Profile {
     this.rankedHistory = [entry, ...this.rankedHistory].slice(0, HISTORY_LIMIT);
     this._changed();
     return entry;
+  }
+
+  // Rank rewards: the skin of every rank up to the one you hold now (kept if you drop back down).
+  // Returns the skins unlocked just now. shortcut: judged on the current rating, not your best ever (not saved).
+  claimRankSkins() {
+    if (!this.rankedHistory.length) return [];      // (the starting rating is already Bronze: a ranked match first)
+    const reached = RANK_SKINS.findIndex((s) => s.rank === rankOf(this.rating));
+    const got = RANK_SKINS.slice(0, reached + 1).filter((s) => !this.has(s.id));
+    for (const s of got) this._own(s.id);
+    if (got.length) this._changed();
+    return got;
   }
 
   get canOpen() { return this.points >= PACK_COST; }
@@ -224,6 +235,7 @@ export class Profile {
     if (crc16(body) !== c) throw new Error('The save code does not check out (a character is wrong or missing).');
     if (![1, 2, 3, 4, 5, 6].includes(body[0])) throw new Error('This save code is from a newer version. Refresh the page (Ctrl+F5).');
     this._fromBytes(body);
+    this.claimRankSkins();      // (a save from before the rank skins: the ranks it holds pay out)
     this._changed();
     return true;
   }

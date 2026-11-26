@@ -201,6 +201,8 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 .r-common { border-color: #5d646d; } .r-common .pk-rar { color: #b4bcc6; }
 .r-rare { border-color: #2f6fb5; } .r-rare .pk-rar { color: #4da3ff; }
 .r-epic { border-color: #8a3fc0; } .r-epic .pk-rar { color: #c26bff; }
+.r-ranked { border-color: #c4553a; } .r-ranked .pk-rar { color: #ff7a59; }
+.r-challenge { border-color: #2f9e55; } .r-challenge .pk-rar { color: #5be37d; }
 .r-blackice { border-color: #5fd6e6; background: #071016; box-shadow: 0 0 10px rgba(127, 243, 255, 0.35); } .r-blackice .pk-rar { color: #7ff3ff; }
 .pk-stats { display: grid; gap: 6px; padding-top: 6px; border-top: 1px solid var(--panel-edge); }
 .pk-hist { display: grid; gap: 2px; font: 12px/1.4 var(--mono); }
@@ -641,7 +643,8 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 .ch-cell span { position: relative; z-index: 1; }
 .ch-cell i { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(226,82,74,0.18); }
 .ch-cell.done { color: #7fe0a0; }
-@media (max-width: 640px) { .ch-row { grid-template-columns: 1fr; } }
+.ch-row.ch-skins { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 6px; } .ch-skins b { grid-column: 1 / -1; }
+@media (max-width: 640px) { .ch-row, .ch-row.ch-skins { grid-template-columns: 1fr; } }
 
 /* MVP card (end of match) */
 .mvp-card { display: grid; gap: 4px; margin: 8px auto; padding: 10px 16px; max-width: 320px; border-radius: 12px; background: linear-gradient(135deg, rgba(226,82,74,0.22), rgba(226,82,74,0.06)); border: 1px solid rgba(226,82,74,0.5); text-align: center; animation: mvp-in 0.35s ease-out; }

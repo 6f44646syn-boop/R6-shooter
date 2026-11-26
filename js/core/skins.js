@@ -17,6 +17,9 @@ export const RARITIES = [
   { key: 'epic', name: 'Epic', color: '#c26bff', odds: 0.07, refund: 80 },
   { key: 'blackice', name: 'Black Ice', color: '#7ff3ff', odds: 0.05, refund: 200 },
   { key: 'legendary', name: 'Legendary', color: '#ffc23a', odds: 0.01, refund: 400 },       // (shared by ten skins)
+  // Earned only (never in packs, trade-ups or the shop): a rank reached, a skin challenge finished.
+  { key: 'ranked', name: 'Ranked', color: '#ff7a59', odds: 0, refund: 0 },
+  { key: 'challenge', name: 'Challenge', color: '#5be37d', odds: 0, refund: 0 },
 ];
 // The Legendary skin (your photo, any gun; see legend.js) and the gold finish other players
 // see on a gun wearing it.
@@ -127,6 +130,79 @@ const NEW_ICE = [
   ['Sun Dog',        [ 25,  43,  55], 0.21, 1, 0.57, 1.17, [1, 1, 1, 0.69], 0.15],  // T-5
 ];
 
+// Rank rewards (ids 212-218): one per rank from Bronze up, yours for good once you reach the rank, fit every gun.
+// art: [a folder in data/skins/ranked/, the guns (slots) it has a picture for]: each picture is the gun's
+// default picture repainted (same file names and sizes as DEFAULT_ART), laid on the gun like its default
+// skin. Guns without one wear the generated finish below (colours matched to the pictures). The pictures for guns other than the F2,
+// where only an F2 card was drawn, are the Silver cards' panels recoloured to the F2 card's colours (brightness matched).
+export const RANK_BASE = 212;
+const ALL_GUNS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+export const RANK_SKINS = [
+  ['Foundry', 'Bronze', 'foundry', 4, [[0.3, 0.15, 0.05], [0.55, 0.3, 0.1], [0.03, 0.025, 0.02], [0.8, 0.45, 0.15]], [0.45, 0.9, 0.7, 0.1], 0.2, 0.9, [0, 0, 0], ['foundry', ALL_GUNS]],
+  ['Frostline', 'Silver', 'quickmirror', 12, [[0.55, 0.57, 0.6], [0.02, 0.45, 0.7], [0.75, 0.77, 0.8], [0.03, 0.03, 0.035]], [0.28, 1, 0.3, 0.2], 0.6, 0.3, [0, 0.12, 0.2], ['frostline', ALL_GUNS]],
+  ['Meridian', 'Gold', 'mintmark', 12, [[0.55, 0.38, 0.12], [0.02, 0.02, 0.022], [0.8, 0.6, 0.25], [0.04, 0.035, 0.03]], [0.3, 1, 0.6, 0.1], 0.7, 0.25, [0, 0, 0], ['meridian', ALL_GUNS]],
+  ['Parallax', 'Platinum', 'whiteout', 9, [[0.7, 0.7, 0.75], [0.12, 0.05, 0.3], [0.9, 0.88, 0.95], [0.3, 0.15, 0.55]], [0.25, 1, 0.3, 0.6], 0.8, 0.1, [0, 0, 0], ['parallax', ALL_GUNS]],
+  ['Faultline', 'Emerald', 'verdant', 9, [[0.01, 0.05, 0.03], [0.05, 0.6, 0.2], [0.02, 0.025, 0.022], [0.2, 0.9, 0.4]], [0.3, 0.3, 0.2, 0.6], 0.9, 0.15, [0.02, 0.25, 0.08], ['faultline', ALL_GUNS]],
+  ['Caustic', 'Diamond', 'splitlight', 9, [[0.75, 0.8, 0.9], [0.02, 0.04, 0.35], [0.95, 0.97, 1], [0.1, 0.2, 0.8]], [0.15, 0.9, 0.1, 0.4], 1, 0.05, [0.02, 0.05, 0.25], ['caustic', ALL_GUNS]],
+  ['Sovereign', 'Champion', 'totality', 0, [[0.35, 0.01, 0.02], [0.85, 0.6, 0.15], [0.02, 0.015, 0.015], [0.7, 0.03, 0.05]], [0.2, 0.6, 0.2, 1], 1, 0.05, [0.1, 0.06, 0.01], ['sovereign', ALL_GUNS]],
+].map(([name, rank, inspect, pattern, c, rm, clearcoat, wear, glow, art], i) => ({
+  id: RANK_BASE + i, name, rarity: 'ranked', rank, unlock: 'Reach ' + rank + ' in ranked', inspect, pattern, c, p: [1, 1, 0, 0], rm, clearcoat, wear, glow,
+  ...(art ? { slotArt: 'data/skins/ranked/' + art[0] + '/', artSlots: art[1], thumb: 'data/skins/ranked/' + art[0] + '/f2.webp' } : {}),
+}));
+// Skin challenges (ids 219-228): one long challenge each, the skin its only reward (core/challenges.js keeps the
+// progress). Each is for one gun, painted on that gun's default picture (data/skins/challenge/<folder>/).
+export const TRIAL_BASE = 219;
+const DEFAULT_ART_FILES = ['evo', 'f2', 'r4c', 'smg11', 'ak12', 'g8a1', 'mp5k', 'c8', 'mp7', 't5'];   // (DEFAULT_ART's, by slot: it is defined further down)
+const TRIAL_SKINS = [
+  // name, gun (slot), folder, challenge [mode, stat, goal, text], colours (the generated finish's, for swatches)
+  ['Cinder Survey', 2, 'cinder-survey', ['range', 'heads', 500, '500 headshots on the range dummy'], [[0.05, 0.045, 0.04], [0.8, 0.35, 0.06], [0.45, 0.35, 0.2], [0.02, 0.02, 0.02]]],
+  ['Polar Relay', 4, 'polar-relay', ['range', 'hits', 5000, '5,000 hits on range targets'], [[0.04, 0.05, 0.12], [0.2, 0.3, 0.7], [0.75, 0.15, 0.08], [0.6, 0.62, 0.65]]],
+  ['Brass Atlas', 5, 'brass-atlas', ['battle', 'wins', 25, 'Win 25 battles vs bots'], [[0.03, 0.05, 0.12], [0.75, 0.55, 0.2], [0.1, 0.8, 0.75], [0.02, 0.02, 0.03]]],
+  ['Heat Sink', 6, 'heat-sink', ['battle', 'kills', 500, '500 kills in battles vs bots'], [[0.02, 0.02, 0.02], [1, 0.35, 0.05], [0.9, 0.15, 0.05], [0.1, 0.1, 0.1]]],
+  ['After Hours', 3, 'after-hours', ['endless', 'best', 40, 'Reach 40 kills in one Endless run'], [[0.1, 0.04, 0.16], [0.75, 0.3, 0.4], [0.9, 0.8, 0.6], [0.6, 0.7, 0.1]]],
+  ['Slipstream', 1, 'slipstream', ['royale', 'wins', 5, 'Win 5 Battle Royale matches'], [[0.75, 0.65, 0.48], [0.02, 0.25, 0.25], [0.9, 0.3, 0.05], [0.6, 0.55, 0.4]]],
+  ['Signal Bloom', 0, 'signal-bloom', ['royale', 'kills', 150, '150 Battle Royale eliminations'], [[0.15, 0.03, 0.08], [0.6, 0.45, 0.65], [0.9, 0.25, 0.25], [0.3, 0.1, 0.2]]],
+  ['Jade Circuit', 9, 'jade-circuit', ['tdm', 'kills', 400, '400 Team Deathmatch kills'], [[0.35, 0.5, 0.42], [0.75, 0.3, 0.05], [0.03, 0.03, 0.03], [0.5, 0.6, 0.55]]],
+  ['Tidal Glass', 7, 'tidal-glass', ['ctf', 'wins', 15, 'Win 15 Capture the Flag matches'], [[0.05, 0.45, 0.5], [0.8, 0.85, 0.9], [0.1, 0.15, 0.6], [0.3, 0.7, 0.7]]],
+  ['Ghost Trace', 8, 'ghost-trace', ['bomb', 'wins', 15, 'Win 15 Bomb matches'], [[0.85, 0.85, 0.85], [0.4, 0.4, 0.42], [0.5, 0.15, 0.9], [0.05, 0.05, 0.05]]],
+].map(([name, gun, folder, [mode, stat, goal, text], c], i) => ({
+  id: TRIAL_BASE + i, name, rarity: 'challenge', guns: [gun], trial: { mode, stat, goal }, unlock: text, pattern: 9, c,
+  p: [1, 1, 0, 0], rm: [0.35, 0.6, 0.2, 0.8], clearcoat: 0.9, wear: 0.15, glow: [0, 0, 0],
+  slotArt: 'data/skins/challenge/' + folder + '/', artSlots: [gun], thumb: 'data/skins/challenge/' + folder + '/' + DEFAULT_ART_FILES[gun] + '.webp',
+}));
+
+// The last 21 pack skins (ids 229-249), drawn by hand: 6 Common, 7 Rare, 8 Epic. In packs, trade-ups and the shop
+// like the generated ones. [name, rarity, pattern, four HSL colours, [roughness, metal] base then accent, glow from the accent]
+export const EXTRA_BASE = 229;
+const EXTRA_SKINS = [
+  ['Basalt Splinter', 'common', 9, [[0.6, 0.04, 0.22], [0.6, 0.03, 0.42], [0.6, 0.05, 0.08], [0.58, 0.04, 0.3]], [0.72, 0.05, 0.6, 0.1]],
+  ['Tundra Pixel', 'common', 1, [[0.58, 0.08, 0.78], [0.6, 0.12, 0.6], [0.6, 0.1, 0.35], [0.58, 0.05, 0.9]], [0.7, 0.05, 0.6, 0.08]],
+  ['Copperhead Woodland', 'common', 2, [[0.07, 0.4, 0.32], [0.2, 0.25, 0.22], [0.05, 0.3, 0.12], [0.09, 0.45, 0.45]], [0.74, 0.05, 0.62, 0.1]],
+  ['Dune Tiger', 'common', 3, [[0.1, 0.3, 0.6], [0.09, 0.35, 0.4], [0.08, 0.3, 0.2], [0.11, 0.25, 0.75]], [0.75, 0.05, 0.6, 0.08]],
+  ['Gravel Blot', 'common', 7, [[0.08, 0.06, 0.45], [0.1, 0.08, 0.3], [0.07, 0.07, 0.15], [0.09, 0.05, 0.6]], [0.78, 0.04, 0.66, 0.06]],
+  ['Ironbark Line', 'common', 12, [[0.08, 0.25, 0.16], [0.2, 0.2, 0.25], [0.07, 0.2, 0.08], [0.1, 0.2, 0.35]], [0.72, 0.05, 0.6, 0.1]],
+  ['Riptide Hexcore', 'rare', 5, [[0.62, 0.45, 0.12], [0.5, 0.85, 0.5], [0.52, 0.7, 0.7], [0.6, 0.35, 0.35]], [0.4, 0.46, 0.26, 0.73]],
+  ['Magma Contour', 'rare', 0, [[0.02, 0.1, 0.07], [0.05, 0.95, 0.5], [0.09, 0.9, 0.6], [0.03, 0.5, 0.3]], [0.42, 0.46, 0.26, 0.73], 0.25],
+  ['Lilac Marble', 'rare', 13, [[0.78, 0.25, 0.8], [0.8, 0.45, 0.55], [0.76, 0.3, 0.92], [0.82, 0.2, 0.4]], [0.36, 0.3, 0.24, 0.5]],
+  ['Signal Weave', 'rare', 8, [[0.6, 0.05, 0.06], [0.99, 0.85, 0.45], [0.6, 0.04, 0.14], [0.98, 0.6, 0.3]], [0.36, 0.2, 0.22, 0.5]],
+  ['Frostbite Shard', 'rare', 9, [[0.55, 0.15, 0.88], [0.55, 0.8, 0.6], [0.58, 0.25, 0.7], [0.56, 0.5, 0.45]], [0.38, 0.4, 0.22, 0.6]],
+  ['Citrus Line', 'rare', 12, [[0.2, 0.05, 0.08], [0.2, 0.95, 0.55], [0.15, 0.9, 0.6], [0.22, 0.4, 0.3]], [0.4, 0.4, 0.25, 0.7]],
+  ['Rosewood Damascus', 'rare', 6, [[0.98, 0.45, 0.18], [0.03, 0.35, 0.55], [0.0, 0.5, 0.1], [0.02, 0.3, 0.4]], [0.32, 0.9, 0.22, 0.95]],
+  ['Neon Requiem', 'epic', 14, [[0.85, 0.3, 0.05], [0.88, 0.95, 0.6], [0.8, 0.8, 0.45], [0.9, 0.5, 0.8]], [0.48, 0.6, 0.2, 0.84], 0.45],
+  ['Starfall Tide', 'epic', 16, [[0.64, 0.8, 0.12], [0.62, 0.75, 0.35], [0.12, 0.85, 0.6], [0.13, 0.4, 0.9]], [0.3, 0.3, 0.16, 0.36]],
+  ['Koi Blossom', 'epic', 15, [[0.6, 0.4, 0.1], [0.06, 0.9, 0.55], [0.08, 0.6, 0.88], [0.6, 0.15, 0.6]], [0.32, 0.23, 0.22, 0.47]],
+  ['Thunderhead Hexcore', 'epic', 5, [[0.75, 0.6, 0.12], [0.55, 0.95, 0.6], [0.72, 0.7, 0.4], [0.58, 0.6, 0.8]], [0.41, 0.3, 0.23, 0.45], 0.45],
+  ['Solar Damascus', 'epic', 6, [[0.08, 0.7, 0.25], [0.11, 0.9, 0.55], [0.06, 0.8, 0.12], [0.12, 0.7, 0.7]], [0.29, 0.94, 0.19, 0.95]],
+  ['Event Horizon', 'epic', 0, [[0.75, 0.3, 0.03], [0.76, 0.9, 0.62], [0.7, 0.8, 0.35], [0.8, 0.6, 0.8]], [0.33, 0.65, 0.2, 0.72], 0.45],
+  ['Venom Fade', 'epic', 11, [[0.33, 0.6, 0.06], [0.3, 0.95, 0.5], [0.28, 0.8, 0.3], [0.35, 0.7, 0.75]], [0.35, 0.5, 0.2, 0.7]],
+  ['Prismatic Marble', 'epic', 13, [[0.9, 0.4, 0.8], [0.48, 0.6, 0.6], [0.95, 0.6, 0.65], [0.6, 0.5, 0.85]], [0.47, 0.19, 0.24, 0.63]],
+].map(([name, rarity, pattern, hsls, rm, glow = 0], i) => {
+  const c = hsls.map(([h, s, l]) => hsl(h, s, l));
+  const finish = { common: [0.12, 0.83], rare: [0.48, 0.43], epic: [0.9, 0.19] }[rarity];
+  return { id: EXTRA_BASE + i, name, rarity, pattern, c, p: [1 + (i % 2), 0.8 + (i % 3) * 0.15, 0, 0], rm, clearcoat: finish[0], wear: finish[1],
+    glow: glow ? c[1].map((v) => v * glow) : [0, 0, 0] };
+});
+
 function make(id) {
   const rng = mulberry32((id + 1) * 7919 + 13);
   if (id < 100) {                                       // Common: muted 2-4 colour camo, matt
@@ -185,6 +261,9 @@ function make(id) {
   if (id === ABYSS_ID) return ABYSS;
   if (id === VESPER_ID) return VESPER;
   if (id >= LEG_BASE + 4 && id < LEG_BASE + 10) return LATE[id - LEG_BASE - 4];
+  if (id >= RANK_BASE && id < RANK_BASE + RANK_SKINS.length) return RANK_SKINS[id - RANK_BASE];
+  if (id >= TRIAL_BASE && id < TRIAL_BASE + TRIAL_SKINS.length) return TRIAL_SKINS[id - TRIAL_BASE];
+  if (id >= EXTRA_BASE && id < EXTRA_BASE + EXTRA_SKINS.length) return EXTRA_SKINS[id - EXTRA_BASE];
   throw new Error('no skin ' + id);
 }
 
@@ -209,7 +288,7 @@ const fitRect = ([W, H], [x0, x1, py0, py1], [z0, z1, y0, y1]) => {
   const sz = (z1 - z0) / (x1 - x0), sy = (y1 - y0) / (py1 - py0), Z0 = z0 - x0 * sz, Y1 = y1 + py0 * sy;
   return [Z0, Z0 + W * sz, Y1 - H * sy, Y1];
 };
-export const SKIN_COUNT = 212;      // 100 Common, 60 Rare, 32 Epic, 9 Black Ice, 10 Legendary, then the 10th Black Ice (id 211)
+export const SKIN_COUNT = 250;      // 100 Common, 60 Rare, 32 Epic, 9 Black Ice, 10 Legendary, the 10th Black Ice (id 211), 7 Ranked, 10 Challenge, then 21 more (6 Common, 7 Rare, 8 Epic)
 export const CATALOGUE = Array.from({ length: SKIN_COUNT }, (_, i) => make(i));
 // Unique names (the same word + pattern can come up twice).
 {
@@ -225,6 +304,7 @@ export const CATALOGUE = Array.from({ length: SKIN_COUNT }, (_, i) => make(i));
 // Epic to one gun, and every fifth Rare to a family (SMGs, or rifles and carbines).
 export const FAMILIES_BY_SLOT = { smg: [0, 3, 6, 8, 9], rifle: [1, 2, 4, 7] };
 for (const s of CATALOGUE) {
+  if (s.id >= EXTRA_BASE) continue;          // (the last 21 fit every gun)
   if (s.rarity === 'epic' && (s.id - 160) % 2 === 0) s.guns = [((s.id - 160) / 2 + 3) % 10];
   else if (s.rarity === 'rare' && (s.id - 100) % 5 === 0) s.guns = ((s.id - 100) / 5) % 2 ? FAMILIES_BY_SLOT.rifle : FAMILIES_BY_SLOT.smg;
 }
@@ -266,6 +346,15 @@ export function packSkin(def, slot) {
     packSkins.set(key, { ...def, id: key, art: 'pack:' + slot + '/' + def.id + '.webp', artRect, parts, artLook: 'default', pattern: 18, wear: 0,
       artGlow: { common: 0.45, rare: 0.45, epic: 1.7 }[def.rarity] || 0 });   // subtle on Commons and Rares, strong on Epics and Black Ices
   }
+  return packSkins.get(key);
+}
+
+// A skin with a picture per gun (slotArt) on the gun in slot: that picture, fitted like the gun's default skin.
+export function slotArtSkin(def, slot) {
+  const base = DEFAULT_SKINS[slot], key = def.id + '@' + slot;
+  if (!base || !def.artSlots.includes(slot)) return def;     // no picture for this gun: the generated finish
+  if (!packSkins.has(key)) packSkins.set(key, { ...def, id: key, art: def.slotArt + DEFAULT_ART.find(([s]) => s === slot)[1] + '.webp',
+    artRect: base.artRect, parts: base.parts, artLook: 'default', pattern: 18, wear: 0 });
   return packSkins.get(key);
 }
 

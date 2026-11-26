@@ -23,7 +23,7 @@ function el(tag, attrs = {}, ...kids) {
 }
 
 const EARN_TEXT = () => KILL_POINTS + ' points per battle kill (+' + HEADSHOT_BONUS + ' for a headshot), +' + WIN_POINTS + ' for winning a battle. Odds: ' +
-  RARITIES.map((x) => x.name + ' ' + new Intl.NumberFormat('en', { style: 'percent', maximumFractionDigits: 3 }).format(x.odds)).join(' · ') + '. A duplicate gives points back.';
+  RARITIES.filter((x) => x.odds).map((x) => x.name + ' ' + new Intl.NumberFormat('en', { style: 'percent', maximumFractionDigits: 3 }).format(x.odds)).join(' · ') + '. A duplicate gives points back.';
 const PIRATE_TEXT = 'Pirate Token: find the Pirate Chest in Battle Royale and the token inside unlocks every Black Ice skin at once.';
 const CARD = 112, GAP = 8, REEL_LEN = 56, WIN_AT = 50, SPIN_MS = 5200;
 
@@ -40,7 +40,7 @@ export class PackUI {
 
   thumb(id, size = 96) {
     if (id === LEGEND_ID) return legendPhotoURL() || '';
-    if (skinById(id).art) return skinById(id).thumb || skinById(id).art;   // painted skins: their artwork (a small copy for picture skins)
+    if (skinById(id).art || skinById(id).thumb) return skinById(id).thumb || skinById(id).art;   // painted skins: their artwork (a small copy for picture skins)
     const key = id + '@' + size;
     if (!this.thumbs.has(key)) {
       let url = '';
@@ -184,17 +184,18 @@ export class PackUI {
     }, el('span', { class: 'pk-thumb plain' }), el('span', { class: 'pk-name', text: 'Factory finish' }))];
     // Your skins, or (Show all) the whole catalogue rarest first, with the ones you lack locked.
     this.allBtn.textContent = this.showAll ? 'Show only mine' : 'Show all ' + SKIN_COUNT + ' skins';
-    const order = { legendary: 0, blackice: 1, epic: 2, rare: 3, common: 4 };
+    const order = { legendary: 0, ranked: 1, challenge: 2, blackice: 3, epic: 4, rare: 5, common: 6 };
     const ids = [LEGEND_ID, ...(this.showAll ? CATALOGUE.map((s) => s.id).sort((a, b) => order[CATALOGUE[a].rarity] - order[CATALOGUE[b].rarity] || a - b) : p.ownedIds())];
     for (const id of ids) {
       const s = skinById(id), rar = RARITY[s.rarity], have = p.has(id);
       const fit = this.fits(id, slot), only = this.onlyFor(id);
       cards.push(el('button', {
         type: 'button', class: 'pk-card r-' + s.rarity + (eq === id ? ' on' : '') + (have ? '' : ' locked') + (have && !fit ? ' nofit' : ''),
-        title: s.name + ' (' + rar.name + ')' + (only ? '. ' + only : '') + (have ? '' : ': not unlocked yet'),
+        title: s.name + ' (' + rar.name + ')' + (only ? '. ' + only : '') + (have ? '' : ': ' + (s.unlock || 'not unlocked yet')),
         onclick: have && fit ? () => { p.equip(slot, id); this.onEquip(slot); } : null,
       }, this.thumbImg(id), el('span', { class: 'pk-name', text: s.name }),
       el('span', { class: 'pk-rar', text: have ? rar.name : rar.name + ' · Locked' }),
+      !have && s.unlock ? el('span', { class: 'pk-only', text: s.unlock }) : null,
       only ? el('span', { class: 'pk-only', text: only }) : null));
     }
     this.grid.replaceChildren(...cards);
@@ -206,7 +207,7 @@ export class PackUI {
     const pick = (id) => { p.equip(slot, id); this.onEquip(slot); };
     const cards = [el('button', { type: 'button', class: 'pk-card factory' + (eq === null ? ' on' : ''), onclick: () => pick(null) },
       el('span', { class: 'pk-thumb plain' }), el('span', { class: 'pk-name', text: 'Factory finish' }))];
-    const order = { legendary: 0, blackice: 1, epic: 2, rare: 3, common: 4 };
+    const order = { legendary: 0, ranked: 1, challenge: 2, blackice: 3, epic: 4, rare: 5, common: 6 };
     for (const id of [LEGEND_ID, ...p.ownedIds().filter((i) => this.fits(i, slot)).sort((a, b) => order[CATALOGUE[a].rarity] - order[CATALOGUE[b].rarity] || a - b)]) {
       const s = skinById(id);
       cards.push(el('button', { type: 'button', class: 'pk-card r-' + s.rarity + (eq === id ? ' on' : ''), title: s.name, onclick: () => pick(id) },

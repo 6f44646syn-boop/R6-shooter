@@ -12,12 +12,12 @@ import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, set
 import { matcap } from './matcap.js?v=7141ab8-mwx5zl37';
 import { mulberry32 } from '../core/prng.js?v=7141ab8-mwx5zl37';
 import { gunMaps } from './range-tex.js?v=7141ab8-mwx5zl37';
-import { skinById, SAKURA_ID, DEFAULT_SKINS, packSkin } from '../core/skins.js?v=7141ab8-mwx5zl37';
+import { skinById, SAKURA_ID, DEFAULT_SKINS, packSkin, slotArtSkin } from '../core/skins.js?v=7141ab8-mwx5zl37';
 import { legendCanvas, onLegendChange } from '../core/legend.js?v=7141ab8-mwx5zl37';
 import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=7141ab8-mwx5zl37';
 import { HDPack, SkinPack } from '../render/hd-pack.js?v=7141ab8-mwx5zl37';
 import { epicRelief } from './skin-relief.js?v=7141ab8-mwx5zl37';
-import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect, forgeInspect, orreryInspect, amberInspect, jadeInspect, velvetInspect, opalInspect, epicInspect } from './inspect-effects.js?v=7141ab8-mwx5zl37';
+import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect, forgeInspect, orreryInspect, amberInspect, jadeInspect, velvetInspect, opalInspect, epicInspect, rankInspect } from './inspect-effects.js?v=7141ab8-mwx5zl37';
 import { F2 } from './f2-model.js?v=7141ab8-mwx5zl37';
 import { G8 } from './g8-model.js?v=7141ab8-mwx5zl37';
 import { C8 } from './c8-model.js?v=7141ab8-mwx5zl37';
@@ -63,6 +63,7 @@ let NO_SKINS = false;
 export function setSkinsOff(on) { NO_SKINS = !!on; }
 // A catalogue skin on the gun in slot: its Weapon Skins pack picture when the pack has one.
 function onGun(def, slot) {
+  if (def?.slotArt) return slotArtSkin(def, slot);
   return def && !def.art && !def.photo && def.rarity !== 'blackice' && SkinPack.has(slot + '/' + def.id + '.webp') ? packSkin(def, slot) : def;
 }
 // The skin a slot shows right now: the equipped one, else its default skin, else none (the gun's own
@@ -1838,7 +1839,8 @@ export class WeaponRig {
       gunG.position.set(0, sight.railY - TOP_Y[type] * s, -EYE_Z - (SIGHT_Z[type] ?? 0.05 / s) * s);
       m.add(gunG);
       m.userData.inspectSound = ice ? 'ice' : blossoms?.length ? 'lacquer' : sk?.artLook;
-      if (ice) m.userData.inspectFx = frostInspect(gunG, frost, crystals, sk, INSPECT_QUALITY);
+      if (sk?.inspect) m.userData.inspectFx = rankInspect(gunG, magG, sk.inspect, INSPECT_QUALITY);   // the rank skins' own inspects
+      else if (ice) m.userData.inspectFx = frostInspect(gunG, frost, crystals, sk, INSPECT_QUALITY);
       else if (blossoms?.length) m.userData.inspectFx = sakuraInspect(gunG, blossoms, INSPECT_QUALITY, art?.roots || []);
       else if (art) m.userData.inspectFx = sk.artLook === 'bronze' ? abyssInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'glass' ? vesperInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'porcelain' ? kilnInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'forge' ? forgeInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'orrery' ? orreryInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'amber' ? amberInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'jade' ? jadeInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'velvet' ? velvetInspect(gunG, art, INSPECT_QUALITY) : sk.artLook === 'opal' ? opalInspect(gunG, art, INSPECT_QUALITY) : null;
       if (!m.userData.inspectFx && sk?.rarity === 'epic') m.userData.inspectFx = epicInspect(gunG, sk, INSPECT_QUALITY);   // glowing motes float off the gun

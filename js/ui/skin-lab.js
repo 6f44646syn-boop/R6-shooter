@@ -99,7 +99,7 @@ function syncChips() {
 }
 
 // the skin list: Legendaries first, then by rarity
-const ORDER = { legendary: 0, blackice: 1, epic: 2, rare: 3, common: 4 };
+const ORDER = { legendary: 0, ranked: 1, challenge: 2, blackice: 3, epic: 4, rare: 5, common: 6 };
 const all = [...Object.values(DEFAULT_SKINS), ...CATALOGUE.slice().sort((a, b) => ORDER[a.rarity] - ORDER[b.rarity] || a.id - b.id)];   // (the default skins first)
 function swatch(sk) {
   const c = (v) => 'rgb(' + v.map((x) => Math.round(255 * Math.pow(Math.min(1, x), 1 / 2.2))).join(',') + ')';
@@ -114,7 +114,7 @@ function renderList() {
     b.type = 'button'; b.className = 'skin'; b.setAttribute('aria-pressed', String(sk.id === S.skin));
     b.style.setProperty('--rar', RARITY[sk.rarity].color);
     const sw = document.createElement('span'); sw.className = 'sw';
-    if (sk.art) sw.style.backgroundImage = 'url(' + (sk.thumb || sk.art) + ')', sw.classList.add('art');
+    if (sk.art || sk.thumb) sw.style.backgroundImage = 'url(' + (sk.thumb || sk.art) + ')', sw.classList.add('art');
     else sw.style.background = swatch(sk);
     const name = document.createElement('span'); name.className = 'nm'; name.textContent = sk.name;
     const meta = document.createElement('span'); meta.className = 'mt';

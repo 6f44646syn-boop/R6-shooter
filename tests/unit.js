@@ -9,9 +9,9 @@ import { validateCatalogue, resolveGunOptics, sensKeys } from '../js/core/optics
 import { sanitize } from '../js/core/settings.js';
 import { raycastDummy } from '../js/scene/dummy.js';
 import { addMatch, totals, matches } from '../js/core/history.js';
-import { CATALOGUE, LEGEND_ID, RARITIES, SAKURA_ID, skinFits } from '../js/core/skins.js';
+import { CATALOGUE, LEGEND_ID, RARITIES, SAKURA_ID, skinFits, RANK_SKINS } from '../js/core/skins.js';
 import { Profile, TRADE_UP } from '../js/core/profile.js';
-import { challengesFor, record, progressOf, isPaid, matchStats } from '../js/core/challenges.js';
+import { challengesFor, record, progressOf, isPaid, matchStats, SKIN_CHALLENGES } from '../js/core/challenges.js';
 import { PAD_ASSIST, nearestAim, assistLook } from '../js/core/pad-assist.js';
 import { MatchStats } from '../js/core/mvp.js';
 import { addXp, checkIn, seasonState, rewardOf, TIERS, XP_PER_TIER } from '../js/core/season.js';
@@ -434,6 +434,35 @@ test('profile v5: duplicates, trade-up, charms survive a save code; v4 codes sti
   eq(q.dups.common, 1); eq(q.charm, 2); eq(q.hasCharm(2), true); eq(q.points, p.points); eq(q.has(r.skin.id), true);
   const old = new Profile(mem); old.loadCode('RRS1-BBAnAAD__________________________________wf_____________AAAAAAAA6AMAeso');
   eq(old.points, 10000, 'v4 code'); eq(old.charm, null);
+});
+
+test('rank skins: every rank reached pays its skin once, after a ranked match; never in packs', () => {
+  const box = new Map(), mem = { getItem: (k) => box.get(k) ?? null, setItem: (k, v) => box.set(k, v), removeItem: (k) => box.delete(k) };
+  const p = new Profile(mem);
+  eq(p.claimRankSkins().length, 0, 'no ranked match yet (the start rating is Bronze)');
+  p.applyRanked({ id: 'a'.repeat(32), outcome: 'win', delta: 100 });       // 1100: Silver
+  eq(p.claimRankSkins().map((s) => s.rank).join(), 'Bronze,Silver');
+  eq(p.claimRankSkins().length, 0, 'paid once');
+  p.applyRanked({ id: 'b'.repeat(32), outcome: 'loss', delta: -120 });     // back to Bronze: kept
+  eq(p.has(RANK_SKINS[1].id), true, 'kept after dropping');
+  for (let slot = 0; slot < 10; slot++) eq(skinFits(RANK_SKINS[1].id, slot), true, 'universal, slot ' + slot);
+  const back = new Profile(mem); back.loadCode(p.saveCode());
+  eq(back.has(RANK_SKINS[0].id) && back.has(RANK_SKINS[1].id), true, 'in the save code');
+  for (let i = 0; i < 2000; i++) eq(['ranked', 'challenge'].includes(Profile.roll().rarity), false, 'packs never roll them');
+});
+
+test('skin challenges: progress keeps across days, pays its skin once', () => {
+  try { localStorage.removeItem('recoilRange.challenges.v1'); } catch { /* blocked */ }
+  eq(SKIN_CHALLENGES.length, 10);
+  const c = SKIN_CHALLENGES.find((x) => x.mode === 'battle' && x.stat === 'wins');
+  const day = Date.UTC(2026, 10, 13, 12);
+  record('battle', matchStats({ mode: 'battle', result: 'win', kills: 3 }), day);
+  record('battle', matchStats({ mode: 'battle', result: 'win', kills: 3 }), day + 9 * 86400000);
+  eq(progressOf(c), 2, 'not reset by a new day or week');
+  let done = [];
+  for (let i = 0; i < c.goal; i++) done.push(...record('battle', matchStats({ mode: 'battle', result: 'win', kills: 0 }), day));
+  eq(done.filter((x) => x.id === c.id).length, 1, 'finished once'); eq(done.find((x) => x.id === c.id).skin, c.skin);
+  eq(isPaid(c), true);
 });
 
 test('challenges: one daily and one weekly per mode, the same all day, paid once', () => {

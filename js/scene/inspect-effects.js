@@ -1,6 +1,7 @@
 import * as THREE from '../../vendor/three/three.module.min.js?v=7141ab8-mwx5zl37';
 import { mulberry32 } from '../core/prng.js?v=7141ab8-mwx5zl37';
 import { mergeStatic } from './sight-model.js?v=7141ab8-mwx5zl37';
+import { rankIconSvg } from '../ui/rank-icon.js?v=7141ab8-mwx5zl37';
 
 const FROST_SECONDS = 4.35, FROST_PEAK = 0.59;
 // The Legendaries' inspects run twice as long as an ordinary one (8.4 s); Forgeheart, Abyssal Crown, Jade
@@ -2484,5 +2485,432 @@ export function epicInspect(gun, skin, quality) {
       pos.needsUpdate = true; cl.needsUpdate = true;
     },
     dispose() { geo.dispose(); motes.material.dispose(); },
+  };
+}
+
+// Rank skins (Foundry ... Totality): each inspect is a short scene of a few glowing props, the rank's
+// crest among them, placed on whichever side of the gun faces the camera (the gun is turned by its clip).
+// 8.4 s like the Legendaries. kind: the skin's `inspect` (core/skins.js RANK_SKINS).
+const RANK_SECONDS = 8.4;
+const RANK_OF = { foundry: 'Bronze', quickmirror: 'Silver', mintmark: 'Gold', whiteout: 'Platinum', verdant: 'Emerald', splitlight: 'Diamond', totality: 'Champion' };
+const RANK_RATING = { Bronze: 1040, Silver: 1190, Gold: 1340, Platinum: 1490, Emerald: 1640, Diamond: 1790, Champion: 1800 };
+const crestTex = new Map();
+// Champion's red nuke: a sky round the camera (in the weapon view: only you see it). Everything on it is painted by
+// direction, so it reads as far away however small the sphere: a flash on the horizon ahead, a fireball rising into a
+// mushroom cloud, a shockwave ring sweeping across the whole sky and over you, then the world bathed in red.
+const NUKE_VERTEX = `varying vec3 vDir; void main() { vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
+const NUKE_FRAGMENT = `uniform float uTime, uFlash, uRise, uBlast, uFade; varying vec3 vDir;
+  float h(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  float n(vec2 p) { vec2 i = floor(p), f = fract(p); f *= f * (3.0 - 2.0 * f);
+    return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1)), f.x), f.y); }
+  float fbm(vec2 p) { float s = 0.0, a = 0.5; for (int i = 0; i < 5; i++) { s += a * n(p); p *= 2.03; a *= 0.5; } return s; }
+  void main() {
+    vec3 D = normalize(vec3(-0.32, 0.02, -1.0));                    // ground zero: on the horizon, ahead and to the left (clear of the gun and badge)
+    vec3 d = normalize(vDir);
+    float ang = acos(clamp(dot(d, D), -1.0, 1.0));
+    vec3 right = normalize(cross(D, vec3(0.0, 1.0, 0.0)));
+    float lx = dot(d, right), ly = d.y - D.y;
+    // the mushroom: a churning stem, a wide cap that rises and spreads, a white-hot core
+    float r = uRise, capY = 0.08 + 0.42 * r, t = uTime;
+    float churn = fbm(vec2(lx * 9.0, ly * 9.0 - t * 0.8));
+    float stem = smoothstep(0.045 + 0.045 * r, 0.0, abs(lx) + (churn - 0.5) * 0.03) * step(0.0, ly) * step(ly, capY) * step(0.01, r);
+    vec2 c = vec2(lx / (0.1 + 0.3 * r), (ly - capY) / (0.05 + 0.15 * r));
+    float cap = smoothstep(1.05, 0.7, length(c) + (fbm(c * 2.5 + vec2(0.0, -t * 0.6)) - 0.5) * 0.5) * step(0.01, r);
+    float ball = smoothstep(0.22 * (1.0 - r * 0.6), 0.0, length(vec2(lx, ly - capY))) ;
+    float cloud = max(stem, cap);
+    vec3 fire = mix(vec3(0.55, 0.03, 0.02), vec3(1.0, 0.25, 0.08), churn) + vec3(1.0, 0.85, 0.6) * ball * 1.5;
+    // the shockwave: a red-white ring at angle uBlast from ground zero; behind it the sky burns red with heat haze
+    float ring = exp(-pow((ang - uBlast) / 0.06, 2.0)), inside = smoothstep(uBlast + 0.02, uBlast - 0.15, ang);
+    float haze = fbm(vec2(atan(d.z, d.x) * 3.0, d.y * 6.0 - t * 0.4));
+    vec3 sky = mix(vec3(0.25, 0.01, 0.015), vec3(0.6, 0.06, 0.03), haze) * (d.y < 0.0 ? 0.55 : 1.0) + vec3(0.9, 0.12, 0.05) * exp(-abs(d.y) * 12.0) * 0.6;
+    vec3 col = sky * inside + vec3(1.0, 0.45, 0.3) * ring * 1.6;
+    float a = inside * 0.62 + ring * 0.9;
+    col = mix(col, fire, cloud); a = max(a, cloud * 0.97);
+    // the flash: blinding at ground zero, washing the whole view
+    float glow = exp(-ang * 2.5);
+    col += vec3(1.0, 0.75, 0.65) * uFlash * (0.6 + 1.6 * glow); a = max(a, uFlash * (0.55 + 0.45 * glow));
+    gl_FragColor = vec4(col, clamp(a, 0.0, 1.0) * uFade);
+  }`;
+// the shine's colour: the skin's own metal (Frostline silver, Meridian gold, Sovereign red-gold ...)
+const RANK_SHINE = { Bronze: 0xffb878, Silver: 0xf2f7ff, Gold: 0xffdc8c, Platinum: 0xe6d8ff, Emerald: 0x7affb0, Diamond: 0xd8ecff, Champion: 0xff7a5a };
+const SHINE_VERTEX = `uniform mat4 uRel; varying vec3 vG; varying vec3 vN; varying vec3 vV;
+  void main() { vG = (uRel * vec4(position, 1.0)).xyz; vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position, 1.0); vV = normalize(-mv.xyz);
+    gl_Position = projectionMatrix * mv; }`;
+const SHINE_FRAGMENT = `uniform float uAt, uWidth, uAmt; uniform vec3 uColor; varying vec3 vG; varying vec3 vN; varying vec3 vV;
+  void main() {
+    float d = (vG.z - uAt + vG.y * 0.6) / uWidth;                     // slanted band, leaning back at the top
+    float band = exp(-d * d) + 0.35 * exp(-d * d * 0.08);              // a sharp core and a soft glow round it
+    float face = 0.55 + 0.45 * pow(max(dot(normalize(vN), normalize(vV)), 0.0), 0.5);
+    float a = band * face * uAmt;
+    if (a < 0.003) discard;
+    gl_FragColor = vec4(uColor * a, a);
+  }`;
+const RANK_LIGHT = { Bronze: 0xf0b47a, Silver: 0xdfe8f4, Gold: 0xffd36b, Platinum: 0xb48cff, Emerald: 0x3fd17f, Diamond: 0x7aa6ff, Champion: 0xff4a4a };
+function crestTexture(rank, px = 128) {      // the rank's badge (ui/rank-icon.js) without its division number
+  const key = rank + px;
+  if (crestTex.has(key)) return crestTex.get(key);
+  const c = document.createElement('canvas'); c.width = c.height = px;
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  const img = new Image();
+  img.onload = () => { c.getContext('2d').drawImage(img, 0, 0, px, px); tex.needsUpdate = true; };
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(rankIconSvg(RANK_RATING[rank]).replace(/<text[\s\S]*?<\/text>/, '')
+    .replace('width="100%" height="100%"', `width="${px}" height="${px}" xmlns="http://www.w3.org/2000/svg"`));
+  crestTex.set(key, tex);
+  return tex;
+}
+let ringTex = null;
+function goldRing() {
+  if (ringTex) return ringTex;
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d');
+  g.shadowColor = '#ffcc55'; g.shadowBlur = 14; g.strokeStyle = '#ffd36b'; g.lineWidth = 9;
+  g.beginPath(); g.arc(64, 64, 42, 0, Math.PI * 2); g.stroke();
+  ringTex = new THREE.CanvasTexture(c); ringTex.colorSpace = THREE.SRGBColorSpace;
+  return ringTex;
+}
+let shaftTex = null;
+function shaftTexture() {    // a beam of light: bright at its start (u 0), fading along it, soft across it (v)
+  if (shaftTex) return shaftTex;
+  const c = document.createElement('canvas'); c.width = 128; c.height = 32;
+  const g = c.getContext('2d'), img = g.createImageData(128, 32);
+  for (let y = 0; y < 32; y++) for (let x = 0; x < 128; x++) {
+    const u = x / 127, v = (y - 15.5) / 16, a = Math.pow(1 - u, 1.6) * Math.exp(-v * v * 5) * (0.7 + 0.3 * Math.exp(-v * v * 40)), i = (y * 128 + x) * 4;
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = 255; img.data[i + 3] = Math.round(255 * a);
+  }
+  g.putImageData(img, 0, 0);
+  shaftTex = new THREE.CanvasTexture(c);
+  return shaftTex;
+}
+let rayTex = null;
+function rayTexture() {      // a corona: soft uneven streamers round a dark middle
+  if (rayTex) return rayTex;
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d'), rng = mulberry32(1800);
+  g.translate(128, 128); g.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 90; i++) {
+    const a = rng() * Math.PI * 2, len = 60 + rng() * 66, w = 0.01 + rng() * 0.04;
+    const gr = g.createLinearGradient(0, 0, Math.cos(a) * len, Math.sin(a) * len);
+    gr.addColorStop(0.3, 'rgba(255,240,210,0.35)'); gr.addColorStop(1, 'rgba(255,200,120,0)');
+    g.fillStyle = gr; g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, len, a - w, a + w); g.closePath(); g.fill();
+  }
+  rayTex = new THREE.CanvasTexture(c); rayTex.colorSpace = THREE.SRGBColorSpace;
+  return rayTex;
+}
+// A pose held while the scene plays: side towards you (yaw), rolled and pitched; extra keys replace the ones near their time.
+function rankClip(yaw, roll, pitch, extra = [], events = []) {
+  const keys = [
+    [0, 0, 0, 0, 0, 0, 0],
+    [0.18, -0.072, 0.082, -0.1, pitch * 0.7, yaw * 0.75, roll * 0.5],
+    [0.4, -0.085, 0.095, -0.125, pitch, yaw, roll],
+    [0.66, -0.088, 0.098, -0.135, pitch, yaw, roll],
+    [0.84, -0.065, 0.075, -0.095, pitch * 0.6, yaw * 0.65, roll * 0.4],
+    [1, 0, 0, 0, 0, 0, 0],
+  ].filter(([t]) => !extra.some(([u]) => Math.abs(u - t) < 0.05));
+  return { root: [...keys, ...extra].sort((a, b) => a[0] - b[0]), events };
+}
+const RANK_CLIPS = {
+  foundry: rankClip(1.0, 0.42, 0.1),                                               // rolled inward: the stamp above the magazine faces you
+  quickmirror: rankClip(0.95, 0.05, -0.2, [[0.74, -0.086, 0.096, -0.13, 0.06, 0.95, 0.05]]),   // tipped forward, then levelled
+  mintmark: rankClip(1.05, 0.1, 0.08, [[0.5, -0.085, 0.1, -0.125, 0.16, 1.05, 0.1]], [[0.55, 'charge']]),
+  whiteout: rankClip(1.0, 0.12, 0.06, [], [[0.22, 'slap']]),
+  verdant: rankClip(1.1, 0.2, 0.08),
+  splitlight: rankClip(1.0, 0, 0.08, [[0.3, -0.085, 0.095, -0.125, 0.08, 1.0, -0.28], [0.66, -0.088, 0.098, -0.135, 0.08, 1.0, 0.38]]),   // a slow roll
+  totality: rankClip(1.05, 0.15, 0.1, [], [[0.36, 'slap'], [0.61, 'charge']]),      // the shockwave hits; the chime answers the diamond ring
+};
+const CHAMP_CROWN = [[16, 42], [14, 22], [24, 30], [32, 16], [40, 30], [50, 22], [48, 42]];
+const bump = (p, a, b, c, d) => smooth(p, a, b) * (1 - smooth(p, c, d));
+export function rankInspect(gun, mag, kind, quality) {
+  gun.updateMatrixWorld(true);
+  const toGun = gun.matrixWorld.clone().invert();
+  const box = new THREE.Box3().setFromObject(gun).applyMatrix4(toGun);
+  const mb = mag ? new THREE.Box3().setFromObject(mag).applyMatrix4(toGun) : new THREE.Box3();
+  const size = box.getSize(new THREE.Vector3()), L = size.z, H = size.y, K = 0.55;   // K: props' size against the gun's height
+  const magZ = Math.min(box.min.z + L * 0.48, mb.isEmpty() ? Infinity : (mb.min.z + mb.max.z) / 2), magTop = mb.isEmpty() ? box.min.y + H * 0.45 : Math.min(mb.max.y, box.min.y + H * 0.55);
+  const rank = RANK_OF[kind], tier = particleTier[quality] ?? 1, rng = mulberry32(kind.length * 7919 + 31);
+  // the shine: a band of light in the skin's colour sweeping over the painted surfaces, stock to barrel. Each painted
+  // mesh gets an additive twin on the same geometry that lights only the band (z in gun space, slanted a little).
+  const shineU = { uAt: { value: 1e3 }, uWidth: { value: L * 0.07 }, uColor: { value: new THREE.Color(RANK_SHINE[rank]) }, uAmt: { value: 0 } };
+  const shines = [];
+  gun.traverse((o) => {
+    if (!o.isMesh || !o.material?.userData?.skinKey) return;
+    const mat = new THREE.ShaderMaterial({ uniforms: { ...shineU, uRel: { value: toGun.clone().multiply(o.matrixWorld) } }, vertexShader: SHINE_VERTEX, fragmentShader: SHINE_FRAGMENT,
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+    const twin = new THREE.Mesh(o.geometry, mat); twin.visible = false; twin.frustumCulled = false; twin.renderOrder = 1; twin.name = 'Inspect shine';
+    shines.push([o, twin]);
+  });
+  for (const [o, twin] of shines) o.add(twin);       // (a child at no offset: drawn exactly over its mesh)
+  const fx = new THREE.Group(); fx.name = 'Rank inspect'; fx.visible = false; gun.add(fx);
+  const own = [];      // materials and geometries to free
+  const sprite = (map, color, scale, additive = true) => {
+    const mat = new THREE.SpriteMaterial({ map, color, transparent: true, depthWrite: false, depthTest: false, toneMapped: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending });
+    const s = new THREE.Sprite(mat); s.scale.setScalar(scale * K); s.renderOrder = 20; fx.add(s); own.push(mat); return s;
+  };
+  const cloud = (n, color, px) => {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+    const mat = new THREE.PointsMaterial({ size: px * K, map: sparkTexture(), color, transparent: true, depthWrite: false, depthTest: false, toneMapped: false, blending: THREE.AdditiveBlending });
+    const pts = new THREE.Points(geo, mat); pts.frustumCulled = false; pts.renderOrder = 21; fx.add(pts); own.push(geo, mat);
+    return pts;
+  };
+  // a shaft of light from a to b (gun space), width w: one quad turned to face the camera, bright at a, fading out
+  const shaft = (color) => {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(12), 3));
+    geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array([0, 0, 0, 1, 1, 0, 1, 1]), 2));
+    geo.setIndex([0, 2, 1, 2, 3, 1]);
+    const mat = new THREE.MeshBasicMaterial({ map: shaftTexture(), color, transparent: true, depthWrite: false, depthTest: false, toneMapped: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+    const m = new THREE.Mesh(geo, mat); m.frustumCulled = false; m.renderOrder = 21; fx.add(m); own.push(geo, mat);
+    const d = new THREE.Vector3(), v = new THREE.Vector3(), s = new THREE.Vector3();
+    return { set(a, b, w, opacity) {
+      d.subVectors(b, a); v.subVectors(cam, a); s.crossVectors(d, v).normalize().multiplyScalar(w / 2);
+      const pos = geo.attributes.position;
+      pos.setXYZ(0, a.x - s.x, a.y - s.y, a.z - s.z); pos.setXYZ(1, a.x + s.x, a.y + s.y, a.z + s.z);
+      pos.setXYZ(2, b.x - s.x * 2.5, b.y - s.y * 2.5, b.z - s.z * 2.5); pos.setXYZ(3, b.x + s.x * 2.5, b.y + s.y * 2.5, b.z + s.z * 2.5);   // (widening as it goes)
+      pos.needsUpdate = true; mat.opacity = opacity; m.visible = opacity > 0.005;
+    } };
+  };
+  const crest = sprite(crestTexture(rank), 0xffffff, H * 0.32, false);
+  // the rank's badge, big, behind the gun as you look at it (as Midnight Orrery's portal), in a glow of the rank's colour
+  const back = new THREE.Group(); back.name = 'Rank backdrop'; back.visible = false; gun.add(back);
+  const plane = new THREE.PlaneGeometry(1, 1);
+  const glowMat = new THREE.MeshBasicMaterial({ map: sparkTexture(), color: RANK_LIGHT[rank], transparent: true, depthWrite: false, toneMapped: false, blending: THREE.AdditiveBlending });
+  const badgeMat = new THREE.MeshBasicMaterial({ map: crestTexture(rank, 512), transparent: true, depthWrite: false, toneMapped: false });
+  const glow = new THREE.Mesh(plane, glowMat), badge = new THREE.Mesh(plane, badgeMat);
+  glow.renderOrder = -2; badge.renderOrder = -1; glow.frustumCulled = badge.frustumCulled = false;
+  back.add(glow, badge); own.push(plane, glowMat, badgeMat);
+  // (centre: above the gun, so the badge shows over its top)
+  const centre = box.getCenter(new THREE.Vector3()).add(new THREE.Vector3(0, H * 0.65, 0)), camWorld = new THREE.Vector3(), camLocal = new THREE.Vector3(), away = new THREE.Vector3();
+  let haveCam = false;
+  glow.onBeforeRender = (renderer, scene, camera) => {     // (drawn first: places the backdrop for this frame's camera)
+    gun.updateMatrixWorld();
+    camWorld.setFromMatrixPosition(camera.matrixWorld);
+    camLocal.copy(camWorld); gun.worldToLocal(camLocal); haveCam = true;
+    back.position.copy(centre).addScaledVector(away.copy(camLocal).sub(centre).normalize(), -L * 0.7);
+    back.lookAt(camWorld);
+    back.updateMatrixWorld();
+  };
+  // where things sit (gun space); x is set each frame to the side you see
+  const yMid = box.min.y + H * 0.62, badgeY = magTop + (box.max.y - magTop) * 0.3;
+  // (in first person the back of the gun is beside your cheek, out of view: everything stays between its front third and middle)
+  const stockZ = box.min.z + L * 0.62, guardZ = box.min.z + L * 0.3;
+  let side = 1, sx = 0;
+  const cam = new THREE.Vector3(), inv = new THREE.Matrix4();
+  const at = (o, z, y, out = 0) => o.position.set(sx + side * out, y, z);
+  const N = (k) => [k, k * 2, k * 3, k * 4][tier];
+  // the scene of each rank: props made here, posed by step(p)
+  let step;
+  if (kind === 'foundry') {
+    const soot = sprite(sparkTexture(), 0x050302, H * 0.36, false), ember = sprite(sparkTexture(), 0xff752b, H * 0.6), embers = cloud(N(10), 0xff8a3a, H * 0.05);
+    const seed = Array.from({ length: embers.geometry.attributes.position.count }, () => [rng() - 0.5, rng(), rng()]);
+    step = (p) => {
+      const wipe = smooth(p, 0.28, 0.42), heat = bump(p, 0.36, 0.46, 0.55, 0.8);
+      at(crest, magZ, badgeY); crest.material.opacity = smooth(p, 0.2, 0.3) * (1 - smooth(p, 0.9, 0.98));
+      crest.material.color.setRGB(1 + heat * 1.2, 1 + heat * 0.15, 1 - heat * 0.5);
+      at(soot, magZ - wipe * 0.5 * H * K * 0.36, badgeY); soot.scale.x = H * K * 0.36 * (1 - wipe); soot.material.opacity = 0.9 * (1 - wipe) * smooth(p, 0.15, 0.25);
+      at(ember, magZ, badgeY); ember.material.opacity = heat * 1.4;
+      const pos = embers.geometry.attributes.position;
+      seed.forEach(([dx, d, v], i) => { const age = Math.max(0, (p - 0.4 - d * 0.25) / 0.25); pos.setXYZ(i, sx + side * 0.004, badgeY + age * H * (0.3 + v * 0.4), magZ + dx * H * 0.3 + Math.sin(age * 6 + d * 9) * H * 0.03); });
+      pos.needsUpdate = true; embers.material.opacity = bump(p, 0.4, 0.45, 0.7, 0.85);
+    };
+  } else if (kind === 'quickmirror') {
+    const beads = [0, 1].map(() => Array.from({ length: 5 }, (_, k) => sprite(sparkTexture(), 0xdfe8ff, H * (0.11 - k * 0.016))));
+    step = (p) => {
+      at(crest, magZ, badgeY);
+      const run = smooth(p, 0.24, 0.72), on = bump(p, 0.22, 0.26, 0.72, 0.78);
+      let near = 0;
+      beads.forEach((trail, j) => trail.forEach((b, k) => {
+        const z = THREE.MathUtils.lerp(stockZ, guardZ, Math.max(0, run - k * 0.018));
+        const split = Math.exp(-(((z - magZ) / (L * 0.07)) ** 2));
+        if (k === 0) near = Math.max(near, split);
+        at(b, z, yMid + H * 0.12 + (j ? -1 : 1) * split * H * 0.09);
+        b.material.opacity = on * (1 - k * 0.17) * (j && split < 0.05 ? 0 : 1);     // one bead, two while it parts round the badge
+      }));
+      crest.material.opacity = (0.25 + 0.75 * near) * bump(p, 0.15, 0.25, 0.85, 0.95);
+    };
+  } else if (kind === 'mintmark') {
+    const coinMat = new THREE.MeshStandardMaterial({ color: 0xd8a634, metalness: 1, roughness: 0.22, emissive: 0x3a2600 });
+    const coinGeo = new THREE.CylinderGeometry(H * K * 0.1, H * K * 0.1, H * K * 0.018, 28);
+    const coin = new THREE.Group(), face = new THREE.Mesh(coinGeo, coinMat);
+    face.rotation.z = Math.PI / 2; coin.add(face); fx.add(coin); own.push(coinMat, coinGeo);
+    const glow = sprite(sparkTexture(), 0xffc23a, H * 0.5), lines = Array.from({ length: 12 }, () => sprite(sparkTexture(), 0xffd36b, H * 0.07));
+    step = (p) => {
+      const fly = smooth(p, 0.22, 0.55), up = Math.sin(Math.PI * fly) * H * 0.75, landed = smooth(p, 0.53, 0.56);
+      at(coin, THREE.MathUtils.lerp(stockZ + L * 0.06, stockZ, fly), yMid - H * 0.2 * (1 - fly) + up, H * 0.25 * (1 - fly) + 0.003);
+      coin.rotation.set(0, fly * Math.PI * 4, 0);           // two turns, landing face out
+      coin.visible = p > 0.2 && p < 0.93;
+      at(glow, stockZ, yMid); glow.material.opacity = landed * bump(p, 0.54, 0.6, 0.8, 0.92) * 1.2;
+      at(crest, stockZ, yMid, 0.002); crest.material.opacity = landed * (1 - smooth(p, 0.88, 0.95)); crest.scale.setScalar(H * K * 0.17);
+      lines.forEach((s, i) => { const k = i / (lines.length - 1); at(s, THREE.MathUtils.lerp(stockZ - L * 0.08, guardZ, k), yMid + H * 0.05); s.material.opacity = bump(p, 0.56 + k * 0.12, 0.6 + k * 0.12, 0.8, 0.92); });
+    };
+  } else if (kind === 'whiteout') {
+    const frost = cloud(N(30), 0xcfe8ff, H * 0.045), dust = cloud(N(24), 0xe6f4ff, H * 0.04);
+    const fs = Array.from({ length: frost.geometry.attributes.position.count }, () => [rng(), (rng() - 0.5) * H * 0.05]);
+    const ds = Array.from({ length: dust.geometry.attributes.position.count }, () => [rng() - 0.5, rng() - 0.3, rng() * 0.5 + 0.5]);
+    step = (p) => {
+      const front = THREE.MathUtils.lerp(guardZ, stockZ, smooth(p, 0.24, 0.52)), formed = smooth(p, 0.5, 0.62), brushed = smooth(p, 0.74, 0.8);
+      const fp = frost.geometry.attributes.position;
+      fs.forEach(([k, dy], i) => { const z = THREE.MathUtils.lerp(guardZ, stockZ, k); fp.setXYZ(i, sx + side * 0.003, yMid + dy + Math.sin(k * 40) * H * 0.015, z > front ? guardZ : z); });
+      fp.needsUpdate = true; frost.material.opacity = bump(p, 0.23, 0.27, 0.6, 0.75);
+      at(crest, stockZ, yMid); crest.material.opacity = formed * (1 - brushed); crest.scale.setScalar(H * K * (0.16 + 0.16 * formed));
+      crest.material.color.setRGB(0.85, 0.95, 1.2);
+      const dp = dust.geometry.attributes.position, t = Math.max(0, p - 0.74) / 0.2;
+      ds.forEach(([a, b, v], i) => dp.setXYZ(i, sx + side * (0.004 + t * v * H * 0.5), yMid + b * t * H * 0.6 - t * t * H * 0.15, stockZ + a * H * 0.2 + t * v * L * 0.12));
+      dp.needsUpdate = true; dust.material.opacity = bump(p, 0.74, 0.76, 0.88, 0.97);
+    };
+  } else if (kind === 'verdant') {
+    const vein = Array.from({ length: 9 }, (_, i) => { const k = i / 8; return [THREE.MathUtils.lerp(box.min.z + L * 0.68, box.min.z + L * 0.42, k), box.min.y + H * (0.5 + 0.15 * Math.sin(k * 5))]; });
+    const lit = vein.map(() => sprite(sparkTexture(), 0x3dff7a, H * 0.06)), thumb = sprite(sparkTexture(), 0xb8ffd2, H * 0.16);
+    const leafMat = new THREE.MeshStandardMaterial({ color: 0x2bd96b, emissive: 0x0b6b2c, metalness: 0.2, roughness: 0.15 });
+    const leafGeo = new THREE.OctahedronGeometry(H * 0.05); own.push(leafMat, leafGeo);
+    const leaves = [0, 1].map(() => { const m = new THREE.Mesh(leafGeo, leafMat); fx.add(m); return m; });
+    const strandMat = new THREE.MeshStandardMaterial({ color: 0x42ff88, emissive: 0x1aa850, roughness: 0.3 }); own.push(strandMat);
+    const [az, ay] = vein[8];
+    const strands = [1, -1].map((s) => {   // one per side (its x is fixed): from the vein's end, up and out, back into the stock crest
+      const x = s > 0 ? box.max.x : box.min.x, pts = [[0, az, ay], [0.25, az + L * 0.02, ay + H * 0.35], [0.45, (az + stockZ) / 2, ay + H * 0.55], [0.3, stockZ - L * 0.04, yMid + H * 0.3], [0.02, stockZ, yMid]];
+      const curve = new THREE.CatmullRomCurve3(pts.map(([o, z, y]) => new THREE.Vector3(x + s * (0.003 + o * H), y, z)));
+      const geo = new THREE.TubeGeometry(curve, 48, H * 0.012, 5, false);
+      const m = new THREE.Mesh(geo, strandMat); m.visible = false; fx.add(m); own.push(geo);
+      return { m, curve, count: geo.index.count };
+    });
+    step = (p) => {
+      const trace = smooth(p, 0.18, 0.42);
+      lit.forEach((s, i) => { at(s, vein[i][0], vein[i][1]); s.material.opacity = (trace * 8 >= i ? 1 : 0) * bump(p, 0.18, 0.2, 0.45, 0.6); });
+      const ti = Math.min(7, Math.floor(trace * 8)), f = trace * 8 - ti;
+      at(thumb, THREE.MathUtils.lerp(vein[ti][0], vein[ti + 1][0], f), THREE.MathUtils.lerp(vein[ti][1], vein[ti + 1][1], f), 0.004); thumb.material.opacity = bump(p, 0.16, 0.2, 0.42, 0.46);
+      const grow = smooth(p, 0.42, 0.7), drain = smooth(p, 0.74, 0.88), mine = strands[side > 0 ? 0 : 1];
+      for (const st of strands) {
+        st.m.visible = st === mine && grow > drain;
+        const a = Math.floor(st.count * drain / 30) * 30, b = Math.floor(st.count * grow / 30) * 30;    // (whole tube segments: 5 sides x 6 indices)
+        st.m.geometry.setDrawRange(a, Math.max(0, b - a));
+      }
+      const tip = mine.curve.getPointAt(0.45), sprout = smooth(p, 0.54, 0.62) * (1 - smooth(p, 0.78, 0.84));
+      leaves.forEach((m, j) => { m.position.set(tip.x + side * H * 0.02, tip.y + H * 0.05, tip.z + (j ? 1 : -1) * H * 0.06); m.rotation.set(0, 0, (j ? 1 : -1) * 0.9); m.scale.set(0.5 * sprout, 1.6 * sprout, 0.35 * sprout); m.visible = sprout > 0.01; });
+      at(crest, stockZ, yMid); crest.material.opacity = bump(p, 0.8, 0.88, 0.93, 0.99); crest.scale.setScalar(H * K * 0.26);
+    };
+  } else if (kind === 'splitlight') {
+    const glint = sprite(sparkTexture(), 0xeaf6ff, H * 0.22);
+    const RAINBOW = [0xff3b3b, 0xff9a2e, 0xffee3a, 0x47ff6a, 0x3ac8ff, 0x5a6bff, 0xc45aff];
+    const beams = RAINBOW.map((c) => shaft(c));
+    const crestAt = new THREE.Vector3(), glove = new THREE.Vector3(), from = new THREE.Vector3();
+    step = (p) => {
+      const roll = smooth(p, 0.25, 0.66), merge = smooth(p, 0.66, 0.78), on = bump(p, 0.24, 0.3, 0.86, 0.94);
+      at(glint, magZ, badgeY, 0.003); glint.material.opacity = (0.4 + 0.6 * Math.abs(Math.sin(roll * 9))) * bump(p, 0.15, 0.22, 0.9, 0.97);
+      crestAt.set(sx + side * H * 0.45, badgeY + H * 0.55, magZ);
+      from.set(sx + side * 0.003, badgeY, magZ);
+      beams.forEach((b, j) => {
+        const spread = (j - 3) / 3;
+        glove.set(sx + side * H * 0.7, box.min.y - H * 0.15, magZ + L * (0.12 + spread * 0.12 + (roll - 0.5) * 0.2)).lerp(crestAt, merge);
+        b.set(from, glove, H * 0.05, on * (0.55 + 0.25 * Math.sin(p * 30 + j)));
+      });
+      crest.position.copy(crestAt); crest.material.opacity = smooth(p, 0.74, 0.84) * (1 - smooth(p, 0.92, 0.99)); crest.scale.setScalar(H * K * 0.3);
+    };
+  } else {   // totality: a corona blazes round the Champion badge behind the gun, then breaks into sparks that crown the gun
+    // in the backdrop (unit plane, facing you): rays and a gold ring for the corona, the diamond-ring flash
+    const layer = (map, color, order, add = true) => {
+      const mat = new THREE.MeshBasicMaterial({ map, color, transparent: true, opacity: 0, depthWrite: false, toneMapped: false, ...(add ? { blending: THREE.AdditiveBlending } : {}) });
+      const m = new THREE.Mesh(plane, mat); m.renderOrder = order; m.frustumCulled = false; back.add(m); own.push(mat); return m;
+    };
+    const rays = layer(rayTexture(), 0xffc860, -0.9), halo = layer(goldRing(), 0xffe2a0, -0.8);
+    const flash = layer(sparkTexture(), 0xfff4d8, -0.4);
+    // the nuke's sky: a sphere kept on the camera (radius 2.5 m: the weapon view sees 3 m) and square to the world
+    const domU = { uTime: { value: 0 }, uFlash: { value: 0 }, uRise: { value: 0 }, uBlast: { value: 0 }, uFade: { value: 0 } }, domGeo = new THREE.SphereGeometry(1, 64, 32);
+    const domMat = new THREE.ShaderMaterial({ uniforms: domU, vertexShader: NUKE_VERTEX, fragmentShader: NUKE_FRAGMENT, transparent: true, depthWrite: false, side: THREE.BackSide });
+    const dome = new THREE.Mesh(domGeo, domMat); dome.renderOrder = -5; dome.frustumCulled = false; dome.visible = false;
+    dome.name = 'Champion domain'; gun.add(dome); own.push(domGeo, domMat);
+    const camW = new THREE.Vector3(), gq = new THREE.Quaternion(), gs = new THREE.Vector3();
+    dome.onBeforeRender = (renderer, scene, camera) => {
+      camW.setFromMatrixPosition(camera.matrixWorld);
+      gun.matrixWorld.decompose(camW.clone(), gq, gs);
+      dome.position.copy(gun.worldToLocal(camW.clone()));
+      dome.quaternion.copy(gq).invert();                    // undo the gun's turn: the sky stays square to the world
+      dome.scale.setScalar(2.5 / gs.x);
+      dome.updateMatrixWorld();
+    };
+    const sparks = cloud(N(20) + 12, 0xffd36b, H * 0.05), rain = cloud(N(10), 0xffb84a, H * 0.035), n = sparks.geometry.attributes.position.count;
+    const fall = Array.from({ length: rain.geometry.attributes.position.count }, () => [rng() - 0.5, rng(), rng()]);
+    const from = new THREE.Vector3();
+    // points along the crown outline (the badge's 64 x 64 box onto the side, about the size of the ring)
+    const per = CHAMP_CROWN.map((a, i) => { const b = CHAMP_CROWN[(i + 1) % CHAMP_CROWN.length]; return Math.hypot(b[0] - a[0], b[1] - a[1]); }), total = per.reduce((x, y) => x + y, 0);
+    const crown = Array.from({ length: n }, (_, i) => {
+      let d = (i / n) * total, k = 0;
+      while (d > per[k]) d -= per[k++];
+      const a = CHAMP_CROWN[k], b = CHAMP_CROWN[(k + 1) % CHAMP_CROWN.length], f = d / per[k];
+      return [(a[0] + (b[0] - a[0]) * f - 32) / 64, (30 - (a[1] + (b[1] - a[1]) * f)) / 64];
+    });
+    step = (p) => {
+      // the corona blazes round the badge (0.38-0.6), the diamond-ring flash and the chime (0.6), the corona breaks into
+      // sparks that fly onto the gun and trace the crown (0.62-0.8)
+      const total = bump(p, 0.38, 0.46, 0.6, 0.66);
+      // the nuke: flash (0.14), the fireball rises into a mushroom (0.14-0.7), the shockwave crosses the sky and passes
+      // over you (0.16-0.44: the gun jolts), the red sky holds, then everything fades (0.88-0.98)
+      domU.uTime.value = p * RANK_SECONDS;
+      domU.uFlash.value = bump(p, 0.13, 0.145, 0.16, 0.26);
+      domU.uRise.value = smooth(p, 0.14, 0.7);
+      domU.uBlast.value = Math.PI * 1.05 * Math.pow(smooth(p, 0.16, 0.44), 0.8);
+      domU.uFade.value = smooth(p, 0.12, 0.14) * (1 - smooth(p, 0.88, 0.98));
+      dome.visible = domU.uFade.value > 0.003;
+      rays.material.opacity = total * 1.3; rays.scale.setScalar(1.25 + 0.15 * total); rays.rotation.z = p * 1.5; rays.position.z = 0.004;
+      halo.material.opacity = total * 1.6 + bump(p, 0.3, 0.4, 0.62, 0.7) * 0.4; halo.scale.setScalar(0.78); halo.position.z = 0.005;
+      const ding = bump(p, 0.58, 0.605, 0.615, 0.66);
+      flash.material.opacity = ding * 2.2; flash.scale.setScalar(0.25 + ding * 0.5); flash.position.set(0.21, 0.23, 0.02);
+      back.updateMatrix();
+      const cy = yMid + H * 0.05, sp = sparks.geometry.attributes.position;
+      crown.forEach(([u, v], i) => {
+        const a = (i / n) * Math.PI * 2, e = smooth(p, 0.62 + (i / n) * 0.06, 0.76 + (i / n) * 0.06);
+        from.set(Math.cos(a) * 0.36, Math.sin(a) * 0.36, 0.03).applyMatrix4(back.matrix);    // on the corona, in gun space
+        const ty = cy + v * H * 0.5, tz = stockZ + u * H * 0.5;
+        sp.setXYZ(i, THREE.MathUtils.lerp(from.x, sx + side * 0.005, e), THREE.MathUtils.lerp(from.y, ty, e) + Math.sin(Math.PI * e) * H * 0.35, THREE.MathUtils.lerp(from.z, tz, e));
+      });
+      sp.needsUpdate = true; sparks.material.opacity = bump(p, 0.6, 0.63, 0.9, 0.98) * (1.3 + 0.3 * Math.sin(p * 90));
+      at(crest, stockZ, cy + H * 0.08); crest.scale.setScalar(H * K * 0.5); crest.material.opacity = smooth(p, 0.8, 0.86) * (1 - smooth(p, 0.93, 0.99));
+      const rp = rain.geometry.attributes.position, t = Math.max(0, p - 0.8) / 0.18;   // gold embers drift down off the crown
+      fall.forEach(([a, d, v], i) => { const k = (t + d) % 1; rp.setXYZ(i, sx + side * (0.004 + v * H * 0.05), cy + H * 0.3 - k * H * (0.6 + v * 0.3), stockZ + a * H * 0.5); });
+      rp.needsUpdate = true; rain.material.opacity = bump(p, 0.8, 0.84, 0.94, 0.99);
+    };
+  }
+  // every rank's light play, as Caustic's: a glint on the gun throwing a fan of beams (here in the rank's colours, up
+  // towards the badge behind) while the gun turns in the light
+  if (kind !== 'splitlight') {
+    const flare = sprite(sparkTexture(), 0xffffff, H * 0.2), base = new THREE.Color(RANK_LIGHT[rank]), white = new THREE.Color(0xffffff);
+    const fan = Array.from({ length: 5 }, (_, j) => shaft(base.clone().lerp(white, j / 6)));
+    const end = new THREE.Vector3(), start = new THREE.Vector3(), own = step;
+    step = (p) => {
+      own(p);
+      const sweep = smooth(p, 0.26, 0.74), on = bump(p, 0.26, 0.32, 0.68, 0.76), gz = (guardZ + stockZ) / 2, gy = yMid + H * 0.12;
+      at(flare, gz, gy, 0.003); flare.material.opacity = on * (0.45 + 0.55 * Math.abs(Math.sin(sweep * 10)));
+      start.set(sx + side * 0.003, gy, gz);
+      fan.forEach((b, j) => {
+        const spread = (j - 2) / 2;
+        end.set(sx + side * H * 0.6, gy + H * (0.55 + spread * 0.2), gz + L * (spread * 0.14 + (sweep - 0.5) * 0.25));
+        b.set(start, end, H * 0.045, on * (0.5 + 0.25 * Math.sin(p * 30 + j)));
+      });
+    };
+  }
+  let phase = -1;
+  return {
+    clip: RANK_CLIPS[kind], seconds: RANK_SECONDS,
+    update(p) {
+      const active = p >= 0 && p < 1;
+      if (!active && phase < 0) return;
+      phase = active ? p : -1;
+      fx.visible = active;
+      // the shine sweeps stock to barrel as the gun comes round (0.12-0.4), and once more, softer, before it goes back (0.74-0.9)
+      const s1 = smooth(p, 0.12, 0.4), s2 = smooth(p, 0.74, 0.9), second = p > 0.6;
+      const sweep = second ? s2 : s1, w = shineU.uWidth.value * 3;
+      shineU.uAt.value = THREE.MathUtils.lerp(box.max.z + w, box.min.z - w, sweep);
+      shineU.uAmt.value = active ? (second ? 0.8 * bump(p, 0.72, 0.75, 0.88, 0.91) : 1.3 * bump(p, 0.1, 0.13, 0.38, 0.42)) : 0;
+      for (const [, twin] of shines) twin.visible = shineU.uAmt.value > 0.003;
+      const open = active ? smooth(p, 0.06, 0.2) * (1 - smooth(p, 0.9, 0.98)) : 0;
+      back.visible = open > 0.005;
+      back.scale.setScalar(L * (0.3 + 0.22 * open));
+      glowMat.opacity = open * 0.9; badgeMat.opacity = open * 0.85;
+      glow.scale.setScalar(1.9 + 0.08 * Math.sin(p * 40)); badge.rotation.z = 0;
+      if (!active) return;
+      // the camera in gun space: the last one that drew the backdrop, else the scene's origin (the first-person rig's)
+      if (haveCam) cam.copy(camLocal); else cam.set(0, 0, 0).applyMatrix4(inv.copy(gun.matrixWorld).invert());
+      side = cam.x >= 0 ? 1 : -1; sx = side > 0 ? box.max.x + 0.004 : box.min.x - 0.004;
+      step(p);
+    },
+    dispose() { fx.removeFromParent(); back.removeFromParent(); gun.getObjectByName('Champion domain')?.removeFromParent(); for (const o of own) o.dispose(); for (const [, twin] of shines) { twin.removeFromParent(); twin.material.dispose(); } },
   };
 }
