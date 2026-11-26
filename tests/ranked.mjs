@@ -9,6 +9,14 @@ assert.equal(eloDelta(1000, 1000, 1), 16);
 assert.equal(eloDelta(1000, 1000, 0), -16);
 assert.equal(eloDelta(1400, 1000, 1), 3);
 assert.equal(eloDelta(1400, 1000, 0), -29);
+assert.equal(eloDelta(1000, 1000, 1, { seconds: 150 }), 24);            // longer wins: x1.5 at 2.5 min
+assert.equal(eloDelta(1000, 1000, 1, { seconds: 900 }), 32);            // x2 from 5 min on
+assert.equal(eloDelta(1000, 1000, 0, { seconds: 900 }), -16);           // (a loss is not changed by time)
+assert.equal(eloDelta(1000, 1000, 1, { bots: 6 }), 24);                 // 6 bots: a win x1.5
+assert.equal(eloDelta(1000, 1000, 0, { bots: 6 }), -11);                //         a loss / 1.5
+assert.equal(eloDelta(1000, 1000, 1, { bots: 1 }), 11);                 // 1 bot: a win x0.67
+assert.equal(eloDelta(1000, 1000, 0, { bots: 1 }), -24);                //        a loss / 0.67
+assert.equal(eloDelta(1000, 3000, 1, { seconds: 300, bots: 6 }), 96);   // the most: x2 time, x1.5 bots (fits a save code)
 assert.equal(rankOf(1500), 'Diamond');
 
 const host = await createRankedSession([[1, 'A', 1000], [2, 'B', 1000]]);

@@ -6,7 +6,7 @@
 // winning a battle. A pack costs PACK_COST and gives one random skin; a duplicate refunds
 // points instead (by rarity).
 import { RARITIES, CATALOGUE, SKIN_COUNT, LEGEND_ID, CATALOGUE_GEN, skinFits } from './skins.js?v=bd1de4b-mwwsowvu';
-import { HISTORY_LIMIT, START_RATING, ratingOf } from './ranked.js?v=bd1de4b-mwwsowvu';
+import { HISTORY_LIMIT, START_RATING, ratingOf, MAX_DELTA } from './ranked.js?v=bd1de4b-mwwsowvu';
 import { CHARMS } from './charms.js?v=bd1de4b-mwwsowvu';
 
 export const KILL_POINTS = 20, HEADSHOT_BONUS = 10, WIN_POINTS = 50, PACK_COST = 100;
@@ -88,7 +88,7 @@ export class Profile {
 
   applyRanked(change) {
     if (!change || !/^[0-9a-f]{32}$/.test(change.id) || !OUTCOMES.includes(change.outcome)
-      || !Number.isInteger(change.delta) || Math.abs(change.delta) > 32
+      || !Number.isInteger(change.delta) || Math.abs(change.delta) > MAX_DELTA
       || this.rankedHistory.some(entry => entry.id === change.id)) return null;
     const next = ratingOf(this.rating + change.delta);
     const entry = { ...change, delta: next - this.rating };
@@ -243,7 +243,7 @@ export class Profile {
         const id = Array.from(b.subarray(offset, offset + 16), v => v.toString(16).padStart(2, '0')).join('');
         offset += 16;
         const delta = dv.getInt8(offset++), outcome = OUTCOMES[b[offset++]];
-        if (!outcome || Math.abs(delta) > 32 || history.some(entry => entry.id === id)) throw new Error('The ranked history is invalid.');
+        if (!outcome || Math.abs(delta) > MAX_DELTA || history.some(entry => entry.id === id)) throw new Error('The ranked history is invalid.');
         history.push({ id, delta, outcome });
       }
     }

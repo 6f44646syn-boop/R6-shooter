@@ -169,6 +169,7 @@ export class Battle {
     if (opts.lobby) opts = { ...opts, bots: 0, mates: 0, ranked: false, royale: false, endless: false, gungame: false };   // the network lobby: everyone in, nobody can be hurt, until the host starts
     if (opts.ffa) opts = { ...opts, mates: 0 };   // free for all: every bot its own side, no teammates
     this._popWave = 0;
+    this.playT = 0;
     this.endless = opts.endless ? { wave: 1, kills: 0, lives: 3 * (1 + (opts.remotes?.length || 0)) } : null;   // (3 lives a player, shared)
     this.gungame = opts.gungame ? { guns: this.deps.guns.slice() } : null;
     this.mvp = new MatchStats();
@@ -387,6 +388,7 @@ export class Battle {
     this.prevT = t;
     // A network game never pauses (Esc only opens your menu); local games do.
     if ((this.paused && !this.net) || this.over) dt = 0;
+    this.playT = (this.playT || 0) + dt;          // (time played, not paused: longer ranked wins are worth more)
     this.t = t;
     if (dt > 0) {
       this.royale?.advance(dt);
@@ -697,7 +699,7 @@ export class Battle {
   _ranked(outcome) {
     if (!this.opts.ranked || this.net) return '';
     this.opts.ranked = false;          // once a battle
-    return this.deps.onRanked?.(botRankedChange(this.deps.rating(), this.opts.level === 'medium' ? 'normal' : this.opts.level, outcome)) || '';
+    return this.deps.onRanked?.(botRankedChange(this.deps.rating(), this.opts.level === 'medium' ? 'normal' : this.opts.level, outcome, this.playT || 0, this.bots.filter((b) => !b.mate).length)) || '';
   }
   _showEnd(title, rows, canRestart, team, t, killer) {
     this.over = true;

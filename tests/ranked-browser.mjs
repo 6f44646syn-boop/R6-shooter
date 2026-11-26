@@ -20,9 +20,9 @@ try {
     await page.click('#net-via-lan');
   }
   await host.click('#net-host');
-  await watcher.selectOption('#net-watch', 'spectator');
   for (const peer of [player, watcher]) {
     await peer.click('#net-join');
+    if (peer === watcher) await watcher.selectOption('#net-watch', 'spectator');   // (Join as shows once you join)
     await peer.waitForFunction(() => document.getElementById('net-out-j').value.startsWith('RR1-'));
     await host.fill('#net-in-h', await peer.inputValue('#net-out-j'));
     const oldCode = await host.inputValue('#net-out-h');
@@ -94,7 +94,7 @@ try {
     rating:__range.profile().rating, history:__range.profile().rankedHistory, finale:__range.modeGame().over,
   }))));
   check('host and player apply the same signed match once and the watcher stays unrated',
-    ranks[0].rating === 1016 && ranks[1].rating === 984 && ranks[2].rating === 1000
+    ranks[0].rating >= 1016 && ranks[0].rating <= 1032 && ranks[1].rating === 984 && ranks[2].rating === 1000   // (the win: +16, more the longer the match lasted)
       && ranks[0].history[0].id === ranks[1].history[0].id && ranks[2].history.length === 0 && ranks.every(r=>r.finale), ranks);
 
   async function stopMatch() {

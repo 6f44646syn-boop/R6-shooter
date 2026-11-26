@@ -1597,7 +1597,7 @@ export class ModeGame {
     this.deps.sfx.listen(h.camera);
   }
   _botRanked(outcome) {
-    const label = this.deps.onRanked?.(botRankedChange(this.opts.botRating, this.opts.difficulty, outcome)) || '';
+    const label = this.deps.onRanked?.(botRankedChange(this.opts.botRating, this.opts.difficulty, outcome, this.m?.t || 0, this.m ? this.m.actors.filter((a) => a.team !== this.me.team).length : 3)) || '';
     this.opts.botRanked = false;          // once a match
     return label;
   }
