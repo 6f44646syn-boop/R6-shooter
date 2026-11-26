@@ -35,7 +35,8 @@ const RANK_SHARDS = 4;
 const RANK_TTL = 45_000;
 const RECEIPT_TTL = 86_400_000;
 const MATCH_ID = /^[0-9a-f]{32}$/;
-const WORLD_ID = /^[0-9a-f]{32}$/, WORLD_MAX = 100_000;
+const RESET = 1;   // one-time resets (see _resetOnce)
+const DEFAULT_NAME = /^player\s*\d*$/i;   // "Player", "Player 1"...: the game's default name, never an account
 const SAVE_CODE = /^RRS1-[A-Za-z0-9_-]{4,10000}$/, ACCOUNTS_MAX = 200_000;
 // A PIN is kept as SHA-256 of the name and the PIN (never the PIN itself).
 async function pinHash(key, pin) {
@@ -74,7 +75,7 @@ export default {
       return new Response(response.body, { status: response.status, headers: { ...rankedHeaders, 'Content-Type': 'application/json; charset=utf-8' } });
     }
     if (url.pathname === '/world' && (req.method === 'GET' || req.method === 'POST')) {
-      const response = await env.ROOMS.get(env.ROOMS.idFromName('world')).fetch('https://relay.internal/world' + url.search, { method: req.method, body: req.method === 'POST' ? await req.text() : undefined });
+      const response = await env.ROOMS.get(env.ROOMS.idFromName('accounts')).fetch('https://relay.internal/world' + url.search, { method: req.method, body: req.method === 'POST' ? await req.text() : undefined });
       return new Response(response.body, { status: response.status, headers: { ...rankedHeaders, 'Content-Type': 'application/json; charset=utf-8' } });
     }
     if (url.pathname === '/' || url.pathname === '/health') return new Response('Recoil Range relay: OK', { headers: cors });
@@ -229,42 +230,56 @@ export class Room {
   // best first. The numbers come from the players' own browsers, so these are friendly boards, not proof.
   async _world(req, url) {
     const sql = this.state.storage.sql, now = Date.now();
-    sql.exec('CREATE TABLE IF NOT EXISTS players (id TEXT PRIMARY KEY, name TEXT, rating INTEGER, kills INTEGER, skins INTEGER, points INTEGER, games INTEGER, at INTEGER)');
-    try { sql.exec('ALTER TABLE players ADD COLUMN minutes INTEGER DEFAULT 0'); } catch { /* there already: time played */ }
+    this._resetOnce(sql);
+    sql.exec('CREATE TABLE IF NOT EXISTS board (key TEXT PRIMARY KEY, name TEXT, rating INTEGER, kills INTEGER, skins INTEGER, points INTEGER, games INTEGER, minutes INTEGER, at INTEGER)');
     const by = Object.hasOwn(WORLD_STATS, url.searchParams.get('by')) ? url.searchParams.get('by') : 'rating';
-    let id = url.searchParams.get('id');
+    let key = String(url.searchParams.get('name') || '').trim().toLowerCase();
     if (req.method === 'POST') {
       const text = await req.text();
       if (text.length > 512) return new Response(null, { status: 413 });
       let b; try { b = JSON.parse(text); } catch { return new Response(null, { status: 400 }); }
-      const name = typeof b?.name === 'string' ? b.name.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 16) : '';
       if (b && b.minutes === undefined) b.minutes = 0;   // (older games do not send it)
       const ok = Object.entries(WORLD_STATS).every(([k, max]) => Number.isInteger(b[k]) && b[k] >= 0 && b[k] <= max);
-      if (!WORLD_ID.test(b?.id || '') || !name || !ok) return new Response(null, { status: 400 });
-      id = b.id;
-      const old = sql.exec('SELECT at FROM players WHERE id = ?', id).toArray()[0];
-      if (!old || now - old.at > 500) {           // (two writes a second a player at most)
-        sql.exec('INSERT OR REPLACE INTO players (id, name, rating, kills, skins, points, games, at, minutes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', id, name, b.rating, b.kills, b.skins, b.points, b.games, now, b.minutes);
-        sql.exec('DELETE FROM players WHERE id IN (SELECT id FROM players ORDER BY rating DESC, at ASC LIMIT -1 OFFSET ?)', WORLD_MAX);
-      }
+      if (!ok || typeof b.name !== 'string' || typeof b.token !== 'string') return new Response(null, { status: 400 });
+      // only signed-in accounts, under their own name (one row each)
+      key = b.name.trim().toLowerCase();
+      const acct = this._accountsTable(sql) && sql.exec('SELECT name, token FROM accounts WHERE key = ?', key).toArray()[0];
+      if (!acct || !acct.token || acct.token !== b.token) return new Response(null, { status: 403 });
+      sql.exec('INSERT OR REPLACE INTO board (key, name, rating, kills, skins, points, games, minutes, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', key, acct.name, b.rating, b.kills, b.skins, b.points, b.games, b.minutes, now);
     }
+    sql.exec('DELETE FROM board WHERE key NOT IN (SELECT key FROM accounts)');   // (renamed or gone accounts)
     // (by is one of WORLD_STATS' own names, so it is safe in the query)
-    const top = sql.exec('SELECT name, ' + by + ' AS v FROM players ORDER BY ' + by + ' DESC, at ASC LIMIT 50').toArray().map((r, i) => ({ pos: i + 1, name: r.name, value: r.v }));
-    const total = sql.exec('SELECT COUNT(*) AS n FROM players').one().n;
+    const top = sql.exec('SELECT name, ' + by + ' AS v FROM board ORDER BY ' + by + ' DESC, at ASC LIMIT 50').toArray().map((r, i) => ({ pos: i + 1, name: r.name, value: r.v }));
+    const total = sql.exec('SELECT COUNT(*) AS n FROM board').one().n;
     let me = null;
-    if (WORLD_ID.test(id || '')) {
-      const row = sql.exec('SELECT ' + by + ' AS v, at FROM players WHERE id = ?', id).toArray()[0];
-      if (row) me = { value: row.v, pos: sql.exec('SELECT COUNT(*) AS n FROM players WHERE ' + by + ' > ? OR (' + by + ' = ? AND at < ?)', row.v, row.v, row.at).one().n + 1 };
-    }
+    const row = key && sql.exec('SELECT ' + by + ' AS v, at FROM board WHERE key = ?', key).toArray()[0];
+    if (row) me = { value: row.v, pos: sql.exec('SELECT COUNT(*) AS n FROM board WHERE ' + by + ' > ? OR (' + by + ' = ? AND at < ?)', row.v, row.v, row.at).one().n + 1 };
     return Response.json({ by, top, me, total });
+  }
+
+  _accountsTable(sql) {
+    sql.exec('CREATE TABLE IF NOT EXISTS accounts (key TEXT PRIMARY KEY, name TEXT, pin TEXT, token TEXT, code TEXT, fails INTEGER, lock INTEGER, at INTEGER)');
+    try { sql.exec('ALTER TABLE accounts ADD COLUMN secs INTEGER DEFAULT 0'); } catch { /* there already: time played, in seconds */ }
+    return true;
+  }
+  // One-time resets (RESET goes up by one for each): 1 = everyone signs in again (sessions end; names, PINs and
+  // progress stay), and accounts with the default name ("Player", "Player 1"...) are deleted.
+  _resetOnce(sql) {
+    sql.exec('CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v INTEGER)');
+    const done = sql.exec("SELECT v FROM meta WHERE k = 'reset'").toArray()[0]?.v || 0;
+    if (done >= RESET) return;
+    this._accountsTable(sql);
+    sql.exec('UPDATE accounts SET token = NULL');
+    for (const { key } of sql.exec('SELECT key FROM accounts').toArray()) if (DEFAULT_NAME.test(key)) sql.exec('DELETE FROM accounts WHERE key = ?', key);   // (and the "Player 1" accounts go)
+    sql.exec("INSERT OR REPLACE INTO meta VALUES ('reset', ?)", RESET);
   }
 
   // Online accounts: a name (unique, any letter case) with a PIN, holding that player's save code.
   // The PIN is kept only as a hash; logging in gives a token the game keeps to save on its own.
   async _account(req) {
     const sql = this.state.storage.sql, now = Date.now();
-    sql.exec('CREATE TABLE IF NOT EXISTS accounts (key TEXT PRIMARY KEY, name TEXT, pin TEXT, token TEXT, code TEXT, fails INTEGER, lock INTEGER, at INTEGER)');
-    try { sql.exec('ALTER TABLE accounts ADD COLUMN secs INTEGER DEFAULT 0'); } catch { /* there already: time played, in seconds */ }
+    this._accountsTable(sql);
+    this._resetOnce(sql);
     const text = await req.text();
     if (text.length > 12000) return new Response(null, { status: 413 });
     let b; try { b = JSON.parse(text); } catch { return new Response(null, { status: 400 }); }
@@ -286,9 +301,12 @@ export class Room {
       if (!signedIn) return bad(403, 'Sign in again.');
       const to = clean(b.newName), toKey = to.toLowerCase();
       if (!to) return bad(400, 'Type the new name.');
+      if (DEFAULT_NAME.test(to)) return bad(400, 'Pick a name of your own (not ' + to + ').');
       if (toKey !== key && sql.exec('SELECT 1 FROM accounts WHERE key = ?', toKey).toArray().length) return bad(409, 'The name ' + to + ' is taken.');
       sql.exec('DELETE FROM accounts WHERE key = ?', key);
       sql.exec('INSERT INTO accounts (key, name, pin, token, code, fails, lock, at, secs) VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?)', toKey, to, row.pin, row.token, row.code, row.at, row.secs || 0);
+      sql.exec('CREATE TABLE IF NOT EXISTS board (key TEXT PRIMARY KEY, name TEXT, rating INTEGER, kills INTEGER, skins INTEGER, points INTEGER, games INTEGER, minutes INTEGER, at INTEGER)');
+      sql.exec('UPDATE board SET key = ?, name = ? WHERE key = ?', toKey, to, key);   // (your place on the boards moves with you)
       return Response.json({ name: to });
     }
     if (b.op === 'pull') {                          // the latest progress (another PC may have saved since)
@@ -296,11 +314,13 @@ export class Room {
       return Response.json({ code: row.code, at: row.at, name: row.name, secs: row.secs || 0 });
     }
     if (b.op !== 'login' && b.op !== 'create') return bad(400, 'Unknown request.');
+    if (b.op === 'create' && DEFAULT_NAME.test(name)) return bad(400, 'Pick a name of your own (not ' + name + ').');
     if (b.op === 'create' && row) return bad(409, 'The name ' + row.name + ' is taken: pick another, or sign in if it is yours.');
     if (typeof b.pin !== 'string' || !/^\d{4,8}$/.test(b.pin)) return bad(400, 'A PIN is 4 to 8 digits.');
     const hash = await pinHash(key, b.pin), token = [...crypto.getRandomValues(new Uint8Array(16))].map((x) => x.toString(16).padStart(2, '0')).join('');
     if (!row) {                                     // a new name: claim it with this PIN and your progress
       if (code === null) return bad(404, 'No player called ' + name + '.');
+      if (DEFAULT_NAME.test(name)) return bad(400, 'Pick a name of your own (not ' + name + ').');
       sql.exec('INSERT INTO accounts (key, name, pin, token, code, fails, lock, at, secs) VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?)', key, name, hash, token, code, now, secs ?? 0);
       sql.exec('DELETE FROM accounts WHERE key IN (SELECT key FROM accounts ORDER BY at DESC LIMIT -1 OFFSET ?)', ACCOUNTS_MAX);
       return Response.json({ token, code, name, at: now, created: true });

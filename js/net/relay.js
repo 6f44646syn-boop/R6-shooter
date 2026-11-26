@@ -184,12 +184,13 @@ export async function joinRelay(base, code) {
   return link;
 }
 
-// A world board (rating, kills, skins, points or games): { by, top: [{ pos, name, value }], me: { pos, value } | null, total }.
-// me: your id, name and numbers to record first (or null just to read; id then finds you).
-export async function worldBoard(base, by, me, id) {
-  const q = '/world?by=' + encodeURIComponent(by) + '&id=' + encodeURIComponent(id || '');
+// A world board (rating, kills, skins, points, games or minutes): { by, top: [{ pos, name, value }], me: { pos, value } | null, total }.
+// me: your account (name, token) and numbers to record first (or null just to read; name then finds you).
+// Only signed-in accounts are on the boards; a 403 means the account needs signing in again.
+export async function worldBoard(base, by, me, name) {
+  const q = '/world?by=' + encodeURIComponent(by) + '&name=' + encodeURIComponent(name || '');
   const response = await fetch(relayBase(base) + q, me ? { method: 'POST', body: JSON.stringify(me), cache: 'no-store' } : { cache: 'no-store' });   // (text/plain: no preflight)
-  if (!response.ok) throw new Error('The world boards are unavailable.');
+  if (!response.ok) throw Object.assign(new Error(response.status === 403 ? 'Sign in again to be on the world boards.' : 'The world boards are unavailable.'), { status: response.status });
   return response.json();
 }
 

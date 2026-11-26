@@ -31,7 +31,6 @@ import { warmScene, warmBudget } from './render/warm.js?v=9ab81ba-mwx0bk9g';
 import { addMatch, matches as pastMatches, totals as matchTotals, gamesPlayed } from './core/history.js?v=9ab81ba-mwx0bk9g';
 import { addXp, matchXp, XP, checkIn, seasonState, rewardOf, rewardText, TIERS, XP_PER_TIER } from './core/season.js?v=9ab81ba-mwx0bk9g';
 import { submit as submitBests, bests as myBests, BOARD } from './core/bests.js?v=9ab81ba-mwx0bk9g';
-import { mountAccounts } from './ui/accounts-ui.js?v=9ab81ba-mwx0bk9g';
 import { PAD_ASSIST, nearestAim, assistLook } from './core/pad-assist.js?v=9ab81ba-mwx0bk9g';
 import { record as recordChallenge, matchStats, challengesFor, progressOf, isPaid } from './core/challenges.js?v=9ab81ba-mwx0bk9g';
 import { reticleTextures } from './ui/reticle-tex.js?v=9ab81ba-mwx0bk9g';
@@ -108,7 +107,7 @@ if (embedded) {
 const ICONIC = 'iconicmussle736', ICONIC_KEY = 'recoilRange.iconic.v1';
 const ICONIC_ADS = { '1.0x': 25, '1.5x': 50, '2.0x': 50, '2.5x': 40, '3.0x': 50, '3.5x': 50, '4.0x': 51, '5.0x': 52, '8.0x': 52, '12.0x': 52 };   // (3.5x: Siege's 3x slider)
 function iconicSettings(settings, sens) {
-  try { if (currentAccount().toLowerCase() !== ICONIC || localStorage.getItem(ICONIC_KEY)) return; } catch { return; }
+  try { if (String(JSON.parse(localStorage.getItem('recoilRange.cloud.v1'))?.name || currentAccount()).toLowerCase() !== ICONIC || localStorage.getItem(ICONIC_KEY)) return; } catch { return; }   // (the account's name)
   const k = sens.ads['1.0x'] / sens.magnifications.find((m) => m.key === '1.0x').slider;
   Object.assign(settings, { sensH: 5, sensV: 6, cm360: sensToCm360(settings.dpi, 5), fov: 85, volume: 1, adsSens: 'game',
     opticOverrides: Object.fromEntries(Object.entries(ICONIC_ADS).map(([key, slider]) => [key, +(k * slider / parseFloat(key)).toFixed(4)])) });
@@ -1116,7 +1115,8 @@ async function boot(data) {
   packs.mountShop($('shop-root'));
   packs.mountSave($('save-root'));
   packs.mountBoard($('board-root'));
-  mountAccounts($('acct-root'));
+  // The account button (top of the menu): who is signed in, and the sign in / sign up page
+  { const b = Object.assign(document.createElement('button'), { type: 'button', id: 'acct-btn', className: 'acct-name' }); b.addEventListener('click', () => $('go-signin').click()); $('acct-root').append(b); }
   var dev;   // (var: flashNotice and logMatch can run before this line)
   dev = mountDev($('acct-root'), {
     profile, settings, save: () => saveSettings(settings), locked: () => fairOn && !!cur()?.active && !cur().over, canvas: renderer.domElement, weapons: () => { const g = cur(), h = g === battle ? g?.humans?.[0] : g?.h; return [weapon, h?.weapon].filter(Boolean); }, cur: () => cur(), giveXp,
@@ -1448,7 +1448,7 @@ async function boot(data) {
     link.onmessage = (m) => {
       if (m.k === 'hello') {
         if (typeof m.name === 'string' && m.name.trim()) {   // their account name, numbered if someone in the party already has it
-          const base = m.name.trim().slice(0, 14), taken = new Set([currentAccount(), ...net.peers.filter((e) => e !== entry).map((e) => e.name)]);
+          const base = m.name.trim().slice(0, 14), taken = new Set([myName(), ...net.peers.filter((e) => e !== entry).map((e) => e.name)]);
           let name = base; for (let k = 2; taken.has(name); k++) name = base + ' ' + k;
           entry.name = name;
         }
@@ -1485,7 +1485,7 @@ async function boot(data) {
     netUi(); netStatus(entry.name + ' connected.', 'ok');
   }
   // The party: who is in the lobby. The host sends the list to everyone when someone joins or leaves.
-  function partyNames() { return net.role === 'host' ? [currentAccount() + ' (host)', ...net.peers.filter((e) => e.ready).map((e) => e.name + (e.spectator ? ' (watching)' : ''))] : net.party || []; }
+  function partyNames() { return net.role === 'host' ? [myName() + ' (host)', ...net.peers.filter((e) => e.ready).map((e) => e.name + (e.spectator ? ' (watching)' : ''))] : net.party || []; }
   function sendParty() { const names = partyNames(); for (const e of net.peers) e.link.send({ k: 'party', names }); renderParty(); }
   function renderParty() {
     const client = net.role === 'client' && !!net.link, inLobby = !!net.role;
@@ -1512,7 +1512,7 @@ async function boot(data) {
   // Joiner: connected to the host.
   function joined(link) {
     net.request = null; net.link = link;
-    link.send({ k: 'hello', name: currentAccount(), gun: state.gunIndex, at: state.gun.attach || null, skin: equippedSkin(state.gunIndex), ops: modePrefs.op, side: modePrefs.side, atm: attachMap(), rating: profile.rating, spectator: $('net-watch').value === 'spectator', pendingRanked: [...rankPending.keys()].slice(-20) });
+    link.send({ k: 'hello', name: myName(), gun: state.gunIndex, at: state.gun.attach || null, skin: equippedSkin(state.gunIndex), ops: modePrefs.op, side: modePrefs.side, atm: attachMap(), rating: profile.rating, spectator: $('net-watch').value === 'spectator', pendingRanked: [...rankPending.keys()].slice(-20) });
     link.onmessage = (m) => {
       if (m.k === 'mrankResult') { void applyRankedPacket(m); return; }
       if (m.k === 'party') { net.party = Array.isArray(m.names) ? m.names.slice(0, 16).map((n) => String(n).slice(0, 32)) : []; renderParty(); return; }
@@ -1885,7 +1885,7 @@ async function boot(data) {
   function showHome() {
     controls.release();
     $('menu').classList.remove('over-home'); $('menu').hidden = true; $('title').hidden = true; $('home').hidden = false; $('hud').hidden = true;   // (the range's HUD would show through)
-    $('h-name').textContent = cloud?.get()?.name || currentAccount();   // (signed in: your online name)
+    $('h-name').textContent = cloud?.get()?.name || 'Not signed in';   // (your account name)
     $('h-online').textContent = home.online ? 'Online' : 'Offline';
     $('h-game').textContent = home.title || (home.ranked ? 'Ranked ' : '') + (GAME_NAMES[home.mode] || '');
     $('h-code').hidden = !home.online;
@@ -1903,23 +1903,19 @@ async function boot(data) {
   // Your rank's name; a Champion with a world number: "Champion #3" (as in Siege).
   function rankName(rating = profile.rating) { const r = rankOf(rating); return r === 'Champion' ? 'Champion' + (world?.champ ? ' #' + world.champ : '') : rankTitle(rating); }   // "Bronze 3", "Champion #7"
   /* ---------- world boards (on the relay): rating, kills, skins, points, games played ---------- */
-  const WORLD_ID_KEY = 'recoilRange.worldId.v1', WORLD_BOARDS = [['rating', 'Rank'], ['kills', 'Kills'], ['skins', 'Skins'], ['points', 'Points'], ['games', 'Games played'], ['minutes', 'Hours played']];
-  function worldId() {
-    let id = null; try { id = localStorage.getItem(WORLD_ID_KEY); } catch { /* blocked */ }
-    if (!/^[0-9a-f]{32}$/.test(id || '')) { id = [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, '0')).join(''); try { localStorage.setItem(WORLD_ID_KEY, id); } catch { /* new id each visit */ } }
-    return id;
-  }
-  const worldMe = () => ({ id: worldId(), name: cloud?.get()?.name || currentAccount(), rating: profile.rating, kills: profile.kills, skins: profile.ownedCount, points: Math.min(profile.points, 0xffffffff), games: gamesPlayed(), minutes: Math.floor((playtime?.get() || 0) / 60) });
+  const WORLD_BOARDS = [['rating', 'Rank'], ['kills', 'Kills'], ['skins', 'Skins'], ['points', 'Points'], ['games', 'Games played'], ['minutes', 'Hours played']];
+
+  const worldMe = () => ({ name: cloud?.get()?.name, token: cloud?.get()?.token, rating: profile.rating, kills: profile.kills, skins: profile.ownedCount, points: Math.min(profile.points, 0xffffffff), games: gamesPlayed(), minutes: Math.floor((playtime?.get() || 0) / 60) });
   // Send your numbers when they changed (else just read), then show the board.
   async function syncWorld(by = world.by) {
     if (testMode && !params.get('relay')) return;           // (tests never write to the real boards)
-    const me = worldMe(), key = JSON.stringify(me);
+    const me = cloud?.get() ? worldMe() : null, key = JSON.stringify(me);   // (signed in: your numbers go on the boards; else just read them)
     try {
-      const d = await worldBoard(relayUrl(), by, key !== world.sent ? me : null, me.id);
-      world.sent = d.me?.value === me[by] ? key : ''; world.by = by; world.data = d; world.error = '';   // (not taken yet, e.g. too soon after the last: sent again next time)
+      const d = await worldBoard(relayUrl(), by, me && key !== world.sent ? me : null, me?.name);
+      world.sent = !me || d.me?.value === me[by] ? key : ''; world.by = by; world.data = d; world.error = '';   // (not taken yet, e.g. too soon after the last: sent again next time)
       if (!world.sent) setTimeout(() => syncWorld(), 1000);
       if (by === 'rating') world.champ = rankOf(profile.rating) === 'Champion' ? d.me?.pos || 0 : 0;
-    } catch (e) { world.error = e.message || 'The world boards are unavailable.'; }
+    } catch (e) { world.error = e.message || 'The world boards are unavailable.'; if (e.status === 403) cloud.signedOut?.(); }
     if (flow.page === 'stats' && !$('menu').hidden) renderStats();
     if (!$('home').hidden) $('h-rank').replaceChildren(rankBadge());
   }
@@ -1932,15 +1928,16 @@ async function boot(data) {
       tabs.append(b);
     }
     const d = world.data && world.data.by === world.by ? world.data : null, unit = WORLD_BOARDS.find(([k]) => k === world.by)[1];
-    const you = el('p', 'small', world.error ? world.error : !d ? 'Loading...' : d.me ? 'You are #' + d.me.pos + ' of ' + d.total + ' players (' + (world.by === 'minutes' ? (d.me.value / 60).toFixed(1) + ' h' : d.me.value) + ').' : 'You are not on the board yet.');
+    const you = el('p', 'small', world.error ? world.error : !d ? 'Loading...' : !cloud.get() ? 'Sign in to be on the world boards.' : d.me ? 'You are #' + d.me.pos + ' of ' + d.total + ' players (' + (world.by === 'minutes' ? (d.me.value / 60).toFixed(1) + ' h' : d.me.value) + ').' : 'You are not on the board yet.');
     const list = el('ol', 'stats-list world-list');
     const show = (v) => (world.by === 'minutes' ? (v / 60).toFixed(1) + ' h' : v);
     for (const r of d?.top || []) list.append(el('li', r.pos === d.me?.pos ? 'me' : '', '#' + r.pos + ' ' + r.name + ' · ' + show(r.value) + (world.by === 'rating' ? ' · ' + (rankOf(r.value) === 'Champion' ? 'Champion #' + r.pos : rankTitle(r.value)) : '')));
-    box.append(el('h3', '', 'World leaderboards'), tabs, you, list, el('p', 'small', 'Your player name and these numbers are shared on the world boards (through the relay server). ' + unit + ': the top 50.'));
+    box.append(el('h3', '', 'World leaderboards'), tabs, you, list, el('p', 'small', 'Signed-in players are on the boards, under their account name. ' + unit + ': the top 50.'));
     return box;
   }
   var world = { by: 'rating', data: null, sent: '', champ: 0, error: '' };   // (var: badges can draw before this line)
   /* ---------- online account: a name and PIN that hold your progress (in the Save code box) ---------- */
+  function myName() { return cloud?.get()?.name || 'Player'; }   // (your name in games with friends: your account's)
   // Time played: seconds in a match or on the range (not in menus), for Player stats, the world boards and your account.
   var playtime = {
     KEY: 'recoilRange.playtime.v1',
@@ -1960,6 +1957,8 @@ async function boot(data) {
     const say = (t) => { msg.textContent = t; };
     // nothing played in this browser yet: signing in just loads the account (no question)
     let loading = false;                            // (loading another save: nothing of this browser's is sent meanwhile)
+    // The account needs signing in again (e.g. after a reset): signed out here, the sign-in page opens
+    cloud.signedOut = () => { if (!cloud.get()) return; cloud.set(null); render(); say('Please sign in again.'); if ($('title').hidden) $('go-signin').click(); toast('Please sign in again (your progress is safe).'); };
     // A new player (nothing played here) with no account signs in or creates one before playing.
     cloud.mustSignIn = () => !testMode && !cloud.offline && !cloud.get() && fresh();
     const fresh = () => profile.ownedCount === 0 && profile.kills === 0 && gamesPlayed() === 0 && profile.rating === 1000;
@@ -1967,7 +1966,8 @@ async function boot(data) {
     function render(pending = null) {
       const c = cloud.get();
       $('t-signin').textContent = c ? 'Signed in: ' + c.name : 'Sign in';
-      if (!$('home').hidden) $('h-name').textContent = c ? c.name : currentAccount();
+      $('h-name').textContent = c ? c.name : 'Not signed in';
+      $('acct-btn').textContent = c ? 'Signed in: ' + c.name : 'Sign in / Sign up';
       if (pending) {                                // signed in to an account with progress, and this browser has its own: which to keep
         box.replaceChildren(el('h4', { textContent: 'Signed in as ' + pending.name }),
           el('p', { className: 'small', textContent: 'This browser has its own progress. Load ' + pending.name + '\'s progress here (recommended), or replace ' + pending.name + '\'s online progress with this browser\'s.' }),
@@ -1989,7 +1989,7 @@ async function boot(data) {
           rename, el('div', { className: 'row' }, el('button', { type: 'button', textContent: 'Sign out', onclick: () => { cloud.set(null); say('Signed out (your progress stays in this browser).'); render(); } })), msg);
         return;
       }
-      const name = el('input', { type: 'text', maxLength: 16, value: currentAccount(), placeholder: 'Player name', autocomplete: 'username' }); name.setAttribute('aria-label', 'Player name');
+      const name = el('input', { type: 'text', maxLength: 16, value: '', placeholder: 'Player name', autocomplete: 'username' }); name.setAttribute('aria-label', 'Player name');
       const pin = el('input', { type: 'password', inputMode: 'numeric', maxLength: 8, placeholder: 'PIN (4-8 digits)', autocomplete: 'current-password' }); pin.setAttribute('aria-label', 'PIN');
       // Sign in: an account that exists; Create account: a new name (with this browser's progress)
       const send = async (create) => {
@@ -2017,7 +2017,7 @@ async function boot(data) {
       const c = cloud.get(); if (!c || loading) return;
       dirty = false;
       try { const r = await cloudAccount(relayUrl(), { op: 'save', name: c.name, token: c.token, code: profile.saveCode(), secs: playtime.get() }, closing); cloud.set({ ...c, at: r.at || c.at }); if (now) say('Saved online as ' + c.name + '.'); }
-      catch (e) { if (e.status === 403) { cloud.set(null); render(); say('Your online account needs signing in again.'); } }
+      catch (e) { if (e.status === 403) cloud.signedOut(); }
     }
     { let t = 0; profile.onChange(() => { if (!cloud.get()) return; dirty = true; clearTimeout(t); t = setTimeout(saveOnline, 4000); }); }
     addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && cloud.get() && dirty) saveOnline(false, true); });
@@ -2027,7 +2027,7 @@ async function boot(data) {
       cloudAccount(relayUrl(), { op: 'pull', name: c.name, token: c.token }).then((r) => {
         if ((r.at || 0) > (c.at || 0) && r.code && r.code !== profile.saveCode()) { load({ ...r, token: c.token }); }
         else { cloud.set({ ...c, at: Math.max(c.at || 0, r.at || 0) }); playtime.set(Math.max(playtime.get(), r.secs || 0)); }
-      }, (e) => { if (e.status === 403) { cloud.set(null); render(); toast('Your online account needs signing in again (Account).'); } });
+      }, (e) => { if (e.status === 403) cloud.signedOut(); });
     }
     render();
   }
@@ -2038,7 +2038,7 @@ async function boot(data) {
     const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
     const T = matchTotals(), S = seasonState(), rank = rankOf(profile.rating);
     const head = el('div', 'stats-head'); head.append(rankBadge(), Object.assign(el('div'), {}));
-    head.lastChild.append(el('b', '', cloud?.get()?.name || currentAccount()), el('span', 'small', rankName() + ' · rating ' + profile.rating + ' · season tier ' + S.tier + ' / ' + TIERS));
+    head.lastChild.append(el('b', '', cloud?.get()?.name || 'Not signed in'), el('span', 'small', rankName() + ' · rating ' + profile.rating + ' · season tier ' + S.tier + ' / ' + TIERS));
     const tile = (label, value) => { const d = el('div', 'stat'); d.append(el('b', '', String(value)), el('span', 'small', label)); return d; };
     const grid = el('div', 'stats-grid');
     grid.append(tile('hours played', (playtime.get() / 3600).toFixed(1)), tile('matches (last 50)', T.matches), tile('wins', T.wins), tile('kills', T.kills), tile('deaths', T.deaths), tile('K/D', T.kd.toFixed(2)),
