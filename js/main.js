@@ -71,7 +71,8 @@ import { effectiveGraphics, needsPack, maxMode } from './render/quality.js?v=8bf
 import { GraphicsUI } from './ui/graphics-ui.js?v=8bf57aa-mwwtkd1t';
 import { PerfHud } from './ui/perf-hud.js?v=8bf57aa-mwwtkd1t';
 import { WorldPost } from './render/world-post.js?v=8bf57aa-mwwtkd1t';
-import { rankOf, rankedSummary, ratingOf, rankedChange, validRankedTicket, verifyRankedResult } from './core/ranked.js?v=8bf57aa-mwwtkd1t';
+import { rankIconSvg } from './ui/rank-icon.js?v=8bf57aa-mwwtkd1t';
+import { rankOf, rankTitle, rankedSummary, ratingOf, rankedChange, validRankedTicket, verifyRankedResult } from './core/ranked.js?v=8bf57aa-mwwtkd1t';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
@@ -1395,8 +1396,8 @@ async function boot(data) {
   restoreRankedTickets();
   function rankedProfileUi() {
     const crest = document.createElement('span');
-    crest.className = 'rank-crest';
-    crest.dataset.rank = rankOf(profile.rating).toLowerCase();
+    crest.className = 'rank-crest rank-icon';
+    crest.innerHTML = rankIconSvg(profile.rating, world?.champ || 0);
     crest.setAttribute('aria-hidden', 'true');
     $('net-rank-info').replaceChildren(crest, rankName() + ' · ' + profile.rating + ' Elo · Stored on this profile');
     $('net-rank-history').replaceChildren(...profile.rankedHistory.map(entry => {
@@ -1893,13 +1894,13 @@ async function boot(data) {
   }
   // A rank as a small badge: its colour and first letter (Copper ... Diamond), from your rating.
   function rankBadge(rating = profile.rating) {
-    const rank = rankOf(rating), i = document.createElement('i');
-    i.className = 'rank-badge rank-' + rank.toLowerCase(); i.title = rankName(rating) + ' · ' + rating;
-    i.textContent = rank !== 'Champion' ? rank[0] : world?.champ && world.champ < 1000 ? '#' + world.champ : '♛';   // (Champions show their world number)
+    const i = document.createElement('i');
+    i.className = 'rank-badge rank-icon rank-' + rankOf(rating).toLowerCase(); i.title = rankName(rating) + ' · ' + rating;
+    i.innerHTML = rankIconSvg(rating, world?.champ || 0);   // (its own drawing per rank, the division on it; Champions their world number)
     return i;
   }
   // Your rank's name; a Champion with a world number: "Champion #3" (as in Siege).
-  function rankName(rating = profile.rating) { const r = rankOf(rating); return r === 'Champion' && world?.champ ? 'Champion #' + world.champ : r; }
+  function rankName(rating = profile.rating) { const r = rankOf(rating); return r === 'Champion' ? 'Champion' + (world?.champ ? ' #' + world.champ : '') : rankTitle(rating); }   // "Bronze 3", "Champion #7"
   /* ---------- world boards (on the relay): rating, kills, skins, points, games played ---------- */
   const WORLD_ID_KEY = 'recoilRange.worldId.v1', WORLD_BOARDS = [['rating', 'Rank'], ['kills', 'Kills'], ['skins', 'Skins'], ['points', 'Points'], ['games', 'Games played']];
   function worldId() {
@@ -1932,7 +1933,7 @@ async function boot(data) {
     const d = world.data && world.data.by === world.by ? world.data : null, unit = WORLD_BOARDS.find(([k]) => k === world.by)[1];
     const you = el('p', 'small', world.error ? world.error : !d ? 'Loading...' : d.me ? 'You are #' + d.me.pos + ' of ' + d.total + ' players (' + d.me.value + ').' : 'You are not on the board yet.');
     const list = el('ol', 'stats-list world-list');
-    for (const r of d?.top || []) list.append(el('li', r.pos === d.me?.pos && r.name === currentAccount() ? 'me' : '', '#' + r.pos + ' ' + r.name + ' · ' + r.value + (world.by === 'rating' ? ' · ' + rankOf(r.value) : '')));
+    for (const r of d?.top || []) list.append(el('li', r.pos === d.me?.pos && r.name === currentAccount() ? 'me' : '', '#' + r.pos + ' ' + r.name + ' · ' + r.value + (world.by === 'rating' ? ' · ' + (rankOf(r.value) === 'Champion' ? 'Champion #' + r.pos : rankTitle(r.value)) : '')));
     box.append(el('h3', '', 'World leaderboards'), tabs, you, list, el('p', 'small', 'Your player name and these numbers are shared on the world boards (through the relay server). ' + unit + ': the top 50.'));
     return box;
   }
@@ -2187,7 +2188,7 @@ async function boot(data) {
     $('md-note').textContent = m === 'tdm' ? 'First team to 40 kills, or the most kills when the time runs out. Respawn after 3 s. Tab: scoreboard.'
       : m === 'ctf' ? 'Take the enemy flag (walk over it) to your own stand while your flag is home. First to 3 captures; a tie after the time goes to the next capture. Tab: scoreboard.'
         : 'First to 4 rounds; sides swap after round 3. One life a round: ' + (P.prepTime || 30) + ' s to prepare (defenders reinforce walls and barricade with Interact, and lay barbed wire with the grenade action; attackers drone), ' + utilityFor('bomb').actionSeconds + ' s to plant (hold Interact for 5 s on the site). The bomb goes off after 40 s unless defused (hold Interact for 6 s).';
-    if (P.ranked) $('md-note').textContent += ' Ranked: you are ' + rankOf(profile.rating) + ' · ' + profile.rating + ' Elo. Bots count as Easy 850, Normal 1050, Hard 1250, Terminator 1500. Leaving early is a loss.';
+    if (P.ranked) $('md-note').textContent += ' Ranked: you are ' + rankName() + ' · ' + profile.rating + ' Elo. Bots count as Easy 850, Normal 1050, Hard 1250, Terminator 1500. Leaving early is a loss.';
   }
   function readModes() {
     const m = modeOf(), P = modePrefs;

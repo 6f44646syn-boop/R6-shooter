@@ -16,6 +16,16 @@ export function rankOf(rating) {
   return 'Copper';
 }
 
+// Divisions, as in Siege: each rank from Copper to Diamond has 5 (5 lowest ... 1 highest), 30 rating
+// points each (Copper's start 150 below Bronze: under 780 is Copper 5). Champion has none (its world number).
+const RANK_FLOOR = { Copper: 750, Bronze: 900, Silver: 1050, Gold: 1200, Platinum: 1350, Diamond: 1500 };
+export function rankDivision(rating) {
+  const r = rankOf(rating);
+  if (r === 'Champion') return 0;
+  return 5 - Math.max(0, Math.min(4, Math.floor((rating - RANK_FLOOR[r]) / 30)));
+}
+export const rankTitle = (rating) => rankOf(rating) + (rankDivision(rating) ? ' ' + rankDivision(rating) : '');   // "Bronze 3"
+
 // Elo with K 32. A win is worth more the longer the match lasted (x1 to x2, reached at 5 minutes),
 // and the number of enemy bots scales it: x(0.5 + bots / 6) for a win (1 bot x0.67, 3 x1, 6 x1.5), and a
 // loss divided by that (fewer bots: losing costs more). Online against players: time only (as 3 bots).
