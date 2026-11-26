@@ -7,19 +7,19 @@
 //
 // Coordinates: metres, x right, y up, z towards the "A" side. Same yaw convention as the
 // range: yaw 0 looks along -z, positive turns right.
-import { applyPackMaterials, revertPackMaterials } from '../render/pack-materials.js?v=72da9c3-mwws8gb3';
-import { maxMode, minimalMode } from '../render/quality.js?v=72da9c3-mwws8gb3';
-import * as THREE from '../../vendor/three/three.module.min.js?v=72da9c3-mwws8gb3';
-import { MAPS, SMALL } from './maps.js?v=72da9c3-mwws8gb3';
-import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=72da9c3-mwws8gb3';
-import { flatMaterial } from '../scene/low.js?v=72da9c3-mwws8gb3';
-import { BulletHoles } from '../scene/holes.js?v=72da9c3-mwws8gb3';
-import { smokeColumns, airLife, windU, swayed } from '../scene/smoke.js?v=72da9c3-mwws8gb3';
-import { LightPool } from '../render/light-pool.js?v=72da9c3-mwws8gb3';
-import { mulberry32 } from '../core/prng.js?v=72da9c3-mwws8gb3';
-import { layoutSolids, layoutPieces, edgeSolids, span, piece, stairCount, rampCount } from './solids.js?v=72da9c3-mwws8gb3';
-import { CoreWorld, BODY_R, STEP, BODY_H, VAULT_MAX } from '../wasm/world.js?v=72da9c3-mwws8gb3';
-import { ROYALE_MAPS, isRoyaleMap } from './royale-map.js?v=72da9c3-mwws8gb3';
+import { applyPackMaterials, revertPackMaterials } from '../render/pack-materials.js?v=f777da5-mwwsktcn';
+import { maxMode, minimalMode } from '../render/quality.js?v=f777da5-mwwsktcn';
+import * as THREE from '../../vendor/three/three.module.min.js?v=f777da5-mwwsktcn';
+import { MAPS, SMALL } from './maps.js?v=f777da5-mwwsktcn';
+import { mergeStatic, makeEnvMap } from '../scene/sight-model.js?v=f777da5-mwwsktcn';
+import { flatMaterial } from '../scene/low.js?v=f777da5-mwwsktcn';
+import { BulletHoles } from '../scene/holes.js?v=f777da5-mwwsktcn';
+import { smokeColumns, airLife, windU, swayed } from '../scene/smoke.js?v=f777da5-mwwsktcn';
+import { LightPool } from '../render/light-pool.js?v=f777da5-mwwsktcn';
+import { mulberry32 } from '../core/prng.js?v=f777da5-mwwsktcn';
+import { layoutSolids, layoutPieces, edgeSolids, span, piece, stairCount, rampCount } from './solids.js?v=f777da5-mwwsktcn';
+import { CoreWorld, BODY_R, STEP, BODY_H, VAULT_MAX } from '../wasm/world.js?v=f777da5-mwwsktcn';
+import { ROYALE_MAPS, isRoyaleMap } from './royale-map.js?v=f777da5-mwwsktcn';
 
 export const HALF_X = 18, HALF_Z = 14, WALL_H = 4.5;
 // Landmark names for callouts, by kind of cover.

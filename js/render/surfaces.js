@@ -1,10 +1,10 @@
 // Realistic building surfaces for High and up: brick, weathered concrete, plaster, planks, roof shingles and
 // rock, each a greyscale picture (the map's colour for that material tints it) and a normal map for depth.
 // Made once each, 512 px. Low / Standard keep the simple textures (surface(kind, fallback) picks).
-import * as THREE from '../../vendor/three/three.module.min.js?v=72da9c3-mwws8gb3';
-import { mulberry32 } from '../core/prng.js?v=72da9c3-mwws8gb3';
-import { normalFromHeight } from '../scene/range-tex.js?v=72da9c3-mwws8gb3';
-import { gfxLevel } from './quality.js?v=72da9c3-mwws8gb3';
+import * as THREE from '../../vendor/three/three.module.min.js?v=f777da5-mwwsktcn';
+import { mulberry32 } from '../core/prng.js?v=f777da5-mwwsktcn';
+import { normalFromHeight } from '../scene/range-tex.js?v=f777da5-mwwsktcn';
+import { gfxLevel } from './quality.js?v=f777da5-mwwsktcn';
 
 const S = 512, made = new Map();
 const hiNow = () => gfxLevel.q === 'high' || gfxLevel.q === 'ultra';
