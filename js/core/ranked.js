@@ -24,7 +24,8 @@ export function rankDivision(rating) {
   if (r === 'Champion') return 0;
   return 5 - Math.max(0, Math.min(4, Math.floor((rating - RANK_FLOOR[r]) / 30)));
 }
-export const rankTitle = (rating) => rankOf(rating) + (rankDivision(rating) ? ' ' + rankDivision(rating) : '');   // "Bronze 3"
+const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V'];
+export const rankTitle = (rating) => rankOf(rating) + (rankDivision(rating) ? ' ' + ROMAN[rankDivision(rating)] : '');   // "Bronze III"
 
 // Elo with K 32. A win is worth more the longer the match lasted (x1 to x2, reached at 5 minutes),
 // and the number of enemy bots scales it: x(0.5 + bots / 6) for a win (1 bot x0.67, 3 x1, 6 x1.5), and a

@@ -9,7 +9,7 @@ const TIER = {   // light, dark, laurel colour
   Gold: ['#ffe58f', '#b8860b', '#e6b230'],
   Platinum: ['#d4fff6', '#2f9e8c', '#5fc9b6'],
   Diamond: ['#e2f1ff', '#3f6fe0', '#7aa6ff'],
-  Champion: ['#ffc9f4', '#7a1fc0', '#ffd36b'],
+  Champion: ['#ff8a80', '#b0161b', '#ffd36b'],
 };
 // The emblem in the middle of each rank (64 x 64 box, centred on 32, 30).
 const EMBLEM = {
@@ -40,14 +40,15 @@ function laurel(color) {
   }
   return `<g fill="${color}" stroke="#0006" stroke-width=".6">${leaves}</g>`;
 }
+const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V'];   // divisions in Roman numerals (Champion: its world number)
 let uid = 0;
 // The badge as an SVG string. champ: a Champion's world number (0 if not known yet).
 export function rankIconSvg(rating, champ = 0) {
   const rank = rankOf(rating), div = rankDivision(rating), [hi, lo, leaf] = TIER[rank], id = 'rk' + (++uid);
-  const label = rank === 'Champion' ? (champ ? '#' + champ : '') : String(div);
+  const label = rank === 'Champion' ? (champ ? '#' + champ : '') : ROMAN[div];
   const ribbon = rank === 'Copper' || rank === 'Bronze'
     ? `<path d="M24 4 H31 L33 20 H26 Z" fill="${lo}"/><path d="M40 4 H33 L31 20 H38 Z" fill="${hi}" opacity=".85"/>` : '';
-  const text = label ? `<text x="32" y="${rank === 'Champion' ? 61 : 39}" text-anchor="middle" font-family="system-ui, sans-serif" font-weight="800" font-size="${rank === 'Champion' ? (label.length > 4 ? 9 : 11) : 14}" fill="${rank === 'Champion' ? '#ffd36b' : '#101418'}" stroke="${rank === 'Champion' ? '#2a0a40' : 'none'}" stroke-width="${rank === 'Champion' ? 2.5 : 0}" paint-order="stroke">${label}</text>` : '';
+  const text = label ? `<text x="32" y="${rank === 'Champion' ? 61 : 39}" text-anchor="middle" font-family="system-ui, sans-serif" font-weight="800" font-size="${rank === 'Champion' ? (label.length > 4 ? 9 : 11) : label.length > 2 ? 11 : 14}" fill="${rank === 'Champion' ? '#ffd36b' : '#101418'}" stroke="${rank === 'Champion' ? '#3a0608' : 'none'}" stroke-width="${rank === 'Champion' ? 2.5 : 0}" paint-order="stroke">${label}</text>` : '';
   return `<svg viewBox="0 0 64 64" width="100%" height="100%" role="img" aria-label="${rank}${label ? ' ' + label : ''}">`
     + `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="${hi}"/><stop offset="1" stop-color="${lo}"/></linearGradient></defs>`
     + ribbon + (leaf ? laurel(leaf) : '')

@@ -1048,8 +1048,8 @@ details.preset-save .row { gap: 6px; margin-top: 6px; }
 @media (prefers-reduced-motion: reduce) { .b-popup.on { animation-name: b-popup-still; } @keyframes b-popup-still { 0%, 75% { opacity: 1; } 100% { opacity: 0; } } }
 
 /* Champion: above Diamond, with the world number on the badge (as in Siege) */
-.rank-champion { background: linear-gradient(160deg, #ffb3f0, #8a1fd1 55%, #3a0a6b); color: #fff; font-size: 14px; letter-spacing: -0.02em; box-shadow: inset 0 -4px 0 #0004, 0 0 0 2px #ffd36b; }
-.rank-crest[data-rank="champion"] { background: #c44be8; }
+.rank-champion { background: linear-gradient(160deg, #ff8a80, #b0161b 55%, #5a0508); color: #fff; font-size: 14px; letter-spacing: -0.02em; box-shadow: inset 0 -4px 0 #0004, 0 0 0 2px #ffd36b; }
+.rank-crest[data-rank="champion"] { background: #d4262c; }
 .world-tabs { gap: 4px; flex-wrap: wrap; margin: 6px 0; }
 .world-tabs .seg-btn[aria-pressed="true"] { background: var(--accent); color: #fff; }
 .world-list li.me { color: var(--accent); font-weight: 700; }
