@@ -2,8 +2,8 @@
 // Holes live in the target group's frame (dummy + back wall), so moving the target moves
 // them too. Each hole faces along the surface normal it was made on. When the cap is
 // reached the oldest hole is recycled.
-import * as THREE from '../../vendor/three/three.module.min.js?v=bd1de4b-mwwsowvu';
-import { minimalMode } from '../render/quality.js?v=bd1de4b-mwwsowvu';
+import * as THREE from '../../vendor/three/three.module.min.js?v=34a315d-mwwt9yxe';
+import { minimalMode } from '../render/quality.js?v=34a315d-mwwt9yxe';
 
 export const MAX_HOLES = 300;
 

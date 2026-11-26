@@ -11,7 +11,7 @@
 // host) therefore uses the same effective numbers. All the numbers come from Rust.
 //
 // A loadout code is four digits, one per slot: muzzle, grip, underbarrel, magazine.
-import { smoothPath } from './recoil.js?v=bd1de4b-mwwsowvu';
+import { smoothPath } from './recoil.js?v=34a315d-mwwt9yxe';
 
 export const SLOTS = [
   { key: 'muzzle', name: 'Muzzle', options: ['None', 'Flash hider', 'Compensator', 'Muzzle brake', 'Suppressor', 'Extended barrel'] },
