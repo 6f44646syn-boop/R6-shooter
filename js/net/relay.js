@@ -193,6 +193,15 @@ export async function worldBoard(base, by, me, id) {
   return response.json();
 }
 
+// Online accounts: { op: 'login', name, pin, code } claims a new name or logs in ({ token, code, name, created });
+// { op: 'save', name, token, code } keeps your progress online. Throws an Error with the relay's message.
+export async function cloudAccount(base, body) {
+  const response = await fetch(relayBase(base) + '/account', { method: 'POST', body: JSON.stringify(body), cache: 'no-store' });   // (text/plain: no preflight)
+  let data = {}; try { data = await response.json(); } catch { /* empty */ }
+  if (!response.ok) throw Object.assign(new Error(data.error || 'The online accounts are unavailable.'), { status: response.status });
+  return data;
+}
+
 export async function rankedGames(base) {
   const response = await fetch(relayBase(base) + '/ranked', { cache: 'no-store' });
   if (!response.ok) throw new Error('Ranked games are unavailable on this relay.');

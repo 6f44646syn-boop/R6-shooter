@@ -8,6 +8,9 @@
 //   GET  /ranked               -> open ranked Bomb lobbies
 //   GET  /ranked-result/CODE/ID -> signed match receipt, if available
 //   GET  /world?by=STAT&id=ID   -> a world board (rating, kills, skins, points or games): the top 50, and where ID stands
+//   POST /account {op:'login', name, pin, code?} (text/plain JSON) -> claim a name (with your save code)
+//                 or log in to it: { token, code, created }; 403 for a wrong PIN (5 wrong: locked 15 min)
+//   POST /account {op:'save', name, token, code} -> keep your progress online
 //   POST /world?by=STAT  {id,name,rating,kills,skins,points,games} (text/plain JSON) -> record a player, then as GET
 //   WS   /room/CODE?role=host   -> host of game CODE (refused if the room already has a host)
 //   WS   /room/CODE?role=player -> player in game CODE (refused if there is no host, or full)
@@ -30,6 +33,12 @@ const RANK_TTL = 45_000;
 const RECEIPT_TTL = 86_400_000;
 const MATCH_ID = /^[0-9a-f]{32}$/;
 const WORLD_ID = /^[0-9a-f]{32}$/, WORLD_MAX = 100_000;
+const SAVE_CODE = /^RRS1-[A-Za-z0-9_-]{4,10000}$/, ACCOUNTS_MAX = 200_000;
+// A PIN is kept as SHA-256 of the name and the PIN (never the PIN itself).
+async function pinHash(key, pin) {
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('recoil-range-account\u0000' + key + '\u0000' + pin));
+  return [...new Uint8Array(d)].map((x) => x.toString(16).padStart(2, '0')).join('');
+}
 const WORLD_STATS = { rating: 3000, kills: 1e9, skins: 5000, points: 0xffffffff, games: 1e9 };   // each board, and the highest value it takes
 const rankedStub = (env, shard) => env.ROOMS.get(env.ROOMS.idFromName('ranked-' + shard));
 const rankedShard = code => code.charCodeAt(0) % RANK_SHARDS;
@@ -56,6 +65,10 @@ export default {
       }));
       const games = shards.flatMap(s => s.status === 'fulfilled' ? s.value : []).sort((a, b) => b.players - a.players || a.code.localeCompare(b.code));
       return Response.json(games, { headers: rankedHeaders });
+    }
+    if (url.pathname === '/account' && req.method === 'POST') {
+      const response = await env.ROOMS.get(env.ROOMS.idFromName('accounts')).fetch('https://relay.internal/account', { method: 'POST', body: await req.text() });
+      return new Response(response.body, { status: response.status, headers: { ...rankedHeaders, 'Content-Type': 'application/json; charset=utf-8' } });
     }
     if (url.pathname === '/world' && (req.method === 'GET' || req.method === 'POST')) {
       const response = await env.ROOMS.get(env.ROOMS.idFromName('world')).fetch('https://relay.internal/world' + url.search, { method: req.method, body: req.method === 'POST' ? await req.text() : undefined });
@@ -86,6 +99,7 @@ export class Room {
     if (url.pathname === '/directory') return this._directory(req);
     if (url.pathname === '/receipt') return this._receipt(req, url);
     if (url.pathname === '/world') return this._world(req, url);
+    if (url.pathname === '/account') return this._account(req);
     const role = url.searchParams.get('role') === 'host' ? 'host' : 'player';
     const all = this._all();
     const host = all.find((x) => x.a.role === 'host');
@@ -238,6 +252,44 @@ export class Room {
       if (row) me = { value: row.v, pos: sql.exec('SELECT COUNT(*) AS n FROM players WHERE ' + by + ' > ? OR (' + by + ' = ? AND at < ?)', row.v, row.v, row.at).one().n + 1 };
     }
     return Response.json({ by, top, me, total });
+  }
+
+  // Online accounts: a name (unique, any letter case) with a PIN, holding that player's save code.
+  // The PIN is kept only as a hash; logging in gives a token the game keeps to save on its own.
+  async _account(req) {
+    const sql = this.state.storage.sql, now = Date.now();
+    sql.exec('CREATE TABLE IF NOT EXISTS accounts (key TEXT PRIMARY KEY, name TEXT, pin TEXT, token TEXT, code TEXT, fails INTEGER, lock INTEGER, at INTEGER)');
+    const text = await req.text();
+    if (text.length > 12000) return new Response(null, { status: 413 });
+    let b; try { b = JSON.parse(text); } catch { return new Response(null, { status: 400 }); }
+    const name = typeof b?.name === 'string' ? b.name.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 16) : '', key = name.toLowerCase();
+    const code = b?.code === undefined ? null : b.code;
+    const bad = (status, error) => Response.json({ error }, { status });
+    if (!name) return bad(400, 'Type a player name.');
+    if (code !== null && !SAVE_CODE.test(code)) return bad(400, 'That save code is not valid.');
+    const row = sql.exec('SELECT * FROM accounts WHERE key = ?', key).toArray()[0];
+    if (b.op === 'save') {
+      if (!row || typeof b.token !== 'string' || b.token !== row.token || code === null) return bad(403, 'Log in again to save online.');
+      sql.exec('UPDATE accounts SET code = ?, at = ? WHERE key = ?', code, now, key);
+      return Response.json({ ok: true });
+    }
+    if (b.op !== 'login') return bad(400, 'Unknown request.');
+    if (typeof b.pin !== 'string' || !/^\d{4,8}$/.test(b.pin)) return bad(400, 'A PIN is 4 to 8 digits.');
+    const hash = await pinHash(key, b.pin), token = [...crypto.getRandomValues(new Uint8Array(16))].map((x) => x.toString(16).padStart(2, '0')).join('');
+    if (!row) {                                     // a new name: claim it with this PIN and your progress
+      if (code === null) return bad(404, 'No player called ' + name + '.');
+      sql.exec('INSERT INTO accounts VALUES (?, ?, ?, ?, ?, 0, 0, ?)', key, name, hash, token, code, now);
+      sql.exec('DELETE FROM accounts WHERE key IN (SELECT key FROM accounts ORDER BY at DESC LIMIT -1 OFFSET ?)', ACCOUNTS_MAX);
+      return Response.json({ token, code, name, created: true });
+    }
+    if (row.lock > now) return bad(429, 'Too many wrong PINs for ' + row.name + '. Try again in ' + Math.ceil((row.lock - now) / 60000) + ' min.');
+    if (row.pin !== hash) {
+      const fails = row.fails + 1;
+      sql.exec('UPDATE accounts SET fails = ?, lock = ? WHERE key = ?', fails >= 5 ? 0 : fails, fails >= 5 ? now + 15 * 60000 : 0, key);
+      return bad(403, 'Wrong PIN for ' + row.name + ' (or that name is taken).');
+    }
+    sql.exec('UPDATE accounts SET fails = 0, lock = 0, token = ? WHERE key = ?', token, key);
+    return Response.json({ token, code: row.code, name: row.name, created: false });
   }
 
   async webSocketClose(ws) { await this._gone(ws); }

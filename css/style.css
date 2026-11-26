@@ -1054,3 +1054,7 @@ details.preset-save .row { gap: 6px; margin-top: 6px; }
 .world-tabs .seg-btn[aria-pressed="true"] { background: var(--accent); color: #fff; }
 .world-list li.me { color: var(--accent); font-weight: 700; }
 .world-list { list-style: none; padding-left: 0; }
+.cloud { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--panel-edge, #2a3550); }
+.cloud h4 { margin: 0 0 4px; }
+.cloud .row { gap: 6px; flex-wrap: wrap; }
+.cloud input { flex: 1; min-width: 120px; max-width: 200px; }
