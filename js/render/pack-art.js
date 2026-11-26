@@ -1,7 +1,7 @@
 // Optional pack data shared by presentation only. No map or hit-test edits.
-import * as THREE from '../../vendor/three/three.module.min.js?v=e7475a5-mwx0ullj';
-import { HDPack } from './hd-pack.js?v=e7475a5-mwx0ullj';
-import { parseRRM } from './hd-mesh.js?v=e7475a5-mwx0ullj';
+import * as THREE from '../../vendor/three/three.module.min.js?v=f0bcd95-mwx1eekj';
+import { HDPack } from './hd-pack.js?v=f0bcd95-mwx1eekj';
+import { parseRRM } from './hd-mesh.js?v=f0bcd95-mwx1eekj';
 export const packArt = { soldier: null, finish: null, surfaces: new Map(), revision: 0 };
 let pending = null;
 export async function loadPackArt() {

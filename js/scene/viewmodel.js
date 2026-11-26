@@ -1,33 +1,33 @@
-import { Charm } from './charm.js?v=e7475a5-mwx0ullj';
-import { minimalMode } from '../render/quality.js?v=e7475a5-mwx0ullj';
-import { charmById } from '../core/charms.js?v=e7475a5-mwx0ullj';
-import { skinSheets } from '../render/skins2.js?v=e7475a5-mwx0ullj';
-import { packArt } from '../render/pack-art.js?v=e7475a5-mwx0ullj';
+import { Charm } from './charm.js?v=f0bcd95-mwx1eekj';
+import { minimalMode } from '../render/quality.js?v=f0bcd95-mwx1eekj';
+import { charmById } from '../core/charms.js?v=f0bcd95-mwx1eekj';
+import { skinSheets } from '../render/skins2.js?v=f0bcd95-mwx1eekj';
+import { packArt } from '../render/pack-art.js?v=f0bcd95-mwx1eekj';
 // First-person weapon: a blocky gun per type plus a procedural 3D sight (sight-model.js),
 // drawn in its own scene with a fixed-FOV camera so it keeps its size while the world camera
 // zooms. Handles the hip <-> aim raise, sway lag and recoil kick. Original low-poly shapes.
-import * as THREE from '../../vendor/three/three.module.min.js?v=e7475a5-mwx0ullj';
-import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=e7475a5-mwx0ullj';
-import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=e7475a5-mwx0ullj';
-import { matcap } from './matcap.js?v=e7475a5-mwx0ullj';
-import { mulberry32 } from '../core/prng.js?v=e7475a5-mwx0ullj';
-import { gunMaps } from './range-tex.js?v=e7475a5-mwx0ullj';
-import { skinById, SAKURA_ID, DEFAULT_SKINS, packSkin } from '../core/skins.js?v=e7475a5-mwx0ullj';
-import { legendCanvas, onLegendChange } from '../core/legend.js?v=e7475a5-mwx0ullj';
-import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=e7475a5-mwx0ullj';
-import { HDPack, SkinPack } from '../render/hd-pack.js?v=e7475a5-mwx0ullj';
-import { epicRelief } from './skin-relief.js?v=e7475a5-mwx0ullj';
-import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect, forgeInspect, orreryInspect, amberInspect, jadeInspect, velvetInspect, opalInspect, epicInspect } from './inspect-effects.js?v=e7475a5-mwx0ullj';
-import { F2 } from './f2-model.js?v=e7475a5-mwx0ullj';
-import { G8 } from './g8-model.js?v=e7475a5-mwx0ullj';
-import { C8 } from './c8-model.js?v=e7475a5-mwx0ullj';
-import { R4 } from './r4-model.js?v=e7475a5-mwx0ullj';
-import { AK } from './ak-model.js?v=e7475a5-mwx0ullj';
-import { EVO } from './evo-model.js?v=e7475a5-mwx0ullj';
-import { MP5K } from './compact-model.js?v=e7475a5-mwx0ullj';
-import { T5 } from './smg-model.js?v=e7475a5-mwx0ullj';
-import { SMG11 } from './machinepistol-model.js?v=e7475a5-mwx0ullj';
-import { MP7 } from './pdw-model.js?v=e7475a5-mwx0ullj';
+import * as THREE from '../../vendor/three/three.module.min.js?v=f0bcd95-mwx1eekj';
+import { packAnims, styleFor, sampleClip, eventsBetween } from './weapon-anims.js?v=f0bcd95-mwx1eekj';
+import { buildSight, makeEnvMap, mergeStatic, setSightShading, sightShading, setHighEnv, highEnv, highMaterial, VM_FOV, EYE_Z, VIEW_H } from './sight-model.js?v=f0bcd95-mwx1eekj';
+import { matcap } from './matcap.js?v=f0bcd95-mwx1eekj';
+import { mulberry32 } from '../core/prng.js?v=f0bcd95-mwx1eekj';
+import { gunMaps } from './range-tex.js?v=f0bcd95-mwx1eekj';
+import { skinById, SAKURA_ID, DEFAULT_SKINS, packSkin } from '../core/skins.js?v=f0bcd95-mwx1eekj';
+import { legendCanvas, onLegendChange } from '../core/legend.js?v=f0bcd95-mwx1eekj';
+import { bakeSkin, bakeDetail, disposeBaked, triplanar } from '../render/gpu-tex.js?v=f0bcd95-mwx1eekj';
+import { HDPack, SkinPack } from '../render/hd-pack.js?v=f0bcd95-mwx1eekj';
+import { epicRelief } from './skin-relief.js?v=f0bcd95-mwx1eekj';
+import { prepareFrost, frostInspect, sakuraInspect, kilnInspect, abyssInspect, vesperInspect, forgeInspect, orreryInspect, amberInspect, jadeInspect, velvetInspect, opalInspect, epicInspect } from './inspect-effects.js?v=f0bcd95-mwx1eekj';
+import { F2 } from './f2-model.js?v=f0bcd95-mwx1eekj';
+import { G8 } from './g8-model.js?v=f0bcd95-mwx1eekj';
+import { C8 } from './c8-model.js?v=f0bcd95-mwx1eekj';
+import { R4 } from './r4-model.js?v=f0bcd95-mwx1eekj';
+import { AK } from './ak-model.js?v=f0bcd95-mwx1eekj';
+import { EVO } from './evo-model.js?v=f0bcd95-mwx1eekj';
+import { MP5K } from './compact-model.js?v=f0bcd95-mwx1eekj';
+import { T5 } from './smg-model.js?v=f0bcd95-mwx1eekj';
+import { SMG11 } from './machinepistol-model.js?v=f0bcd95-mwx1eekj';
+import { MP7 } from './pdw-model.js?v=f0bcd95-mwx1eekj';
 
 export const MODEL_TYPES = ['rifle', 'carbine', 'smg', 'lmg', 'marksman'];
 
