@@ -5,7 +5,7 @@
 // texture covers +/- `half` 1080p pixels around the centre, so on screen it is drawn
 // 2 * half * (screen height / 1080) pixels wide when fully aimed.
 // Iron sights skip their "dark" shapes: the front post is real geometry.
-import * as THREE from '../../vendor/three/three.module.min.js?v=672d321-mwx5s550';
+import * as THREE from '../../vendor/three/three.module.min.js?v=7141ab8-mwx5zl37';
 
 const cache = new Map();
 

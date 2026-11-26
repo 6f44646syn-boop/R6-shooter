@@ -3,13 +3,13 @@
 // houses, walls and market stalls (plenty of cover), and high ground in the east: two terraces with
 // cliffs, open and exposed, a lighthouse on top. A jetty runs out from the town.
 // Everything structural sits on the 3.2 m build grid.
-import { BoxGeometry, BufferGeometry, ConeGeometry, PlaneGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, CanvasTexture, RepeatWrapping, SRGBColorSpace, ShaderMaterial, Mesh, Color } from '../../vendor/three/three.module.min.js?v=672d321-mwx5s550';
-import { wallPanels, duskSky } from '../scene/range-tex.js?v=672d321-mwx5s550';
-import { mulberry32 } from '../core/prng.js?v=672d321-mwx5s550';
-import { gfxLevel } from '../render/quality.js?v=672d321-mwx5s550';
-import { windU } from '../scene/smoke.js?v=672d321-mwx5s550';
-import { surface } from '../render/surfaces.js?v=672d321-mwx5s550';
-import { MAPS } from './maps.js?v=672d321-mwx5s550';
+import { BoxGeometry, BufferGeometry, ConeGeometry, PlaneGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, CanvasTexture, RepeatWrapping, SRGBColorSpace, ShaderMaterial, Mesh, Color } from '../../vendor/three/three.module.min.js?v=7141ab8-mwx5zl37';
+import { wallPanels, duskSky } from '../scene/range-tex.js?v=7141ab8-mwx5zl37';
+import { mulberry32 } from '../core/prng.js?v=7141ab8-mwx5zl37';
+import { gfxLevel } from '../render/quality.js?v=7141ab8-mwx5zl37';
+import { windU } from '../scene/smoke.js?v=7141ab8-mwx5zl37';
+import { surface } from '../render/surfaces.js?v=7141ab8-mwx5zl37';
+import { MAPS } from './maps.js?v=7141ab8-mwx5zl37';
 
 const G = 3.2, T = 0.4;
 const cellC = (k) => (k + 0.5) * G;                       // the centre of grid cell k
