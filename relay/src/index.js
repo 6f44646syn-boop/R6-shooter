@@ -10,6 +10,7 @@
 //   GET  /world?by=STAT&id=ID   -> a world board (rating, kills, skins, points or games): the top 50, and where ID stands
 //   POST /account {op:'login', name, pin, code?} (text/plain JSON) -> claim a name (with your save code)
 //                 or log in to it: { token, code, created }; 403 for a wrong PIN (5 wrong: locked 15 min)
+//   POST /account {op:'create', name, pin, code} -> a new account only (409 if the name is taken)
 //   POST /account {op:'save', name, token, code} -> keep your progress online
 //   POST /world?by=STAT  {id,name,rating,kills,skins,points,games} (text/plain JSON) -> record a player, then as GET
 //   WS   /room/CODE?role=host   -> host of game CODE (refused if the room already has a host)
@@ -273,7 +274,8 @@ export class Room {
       sql.exec('UPDATE accounts SET code = ?, at = ? WHERE key = ?', code, now, key);
       return Response.json({ ok: true });
     }
-    if (b.op !== 'login') return bad(400, 'Unknown request.');
+    if (b.op !== 'login' && b.op !== 'create') return bad(400, 'Unknown request.');
+    if (b.op === 'create' && row) return bad(409, 'The name ' + row.name + ' is taken: pick another, or sign in if it is yours.');
     if (typeof b.pin !== 'string' || !/^\d{4,8}$/.test(b.pin)) return bad(400, 'A PIN is 4 to 8 digits.');
     const hash = await pinHash(key, b.pin), token = [...crypto.getRandomValues(new Uint8Array(16))].map((x) => x.toString(16).padStart(2, '0')).join('');
     if (!row) {                                     // a new name: claim it with this PIN and your progress

@@ -1683,13 +1683,14 @@ async function boot(data) {
     for (const sp of $('menu').querySelectorAll('.steps button')) { sp.classList.toggle('on', Number(sp.dataset.step) === step); sp.classList.toggle('done', Number(sp.dataset.step) < step); }
     const names = { range: 'Shooting range', bots: 'Battle vs bots', ffa: 'Free for all', gungame: 'Gun Game', endless: 'Endless', royale: 'Battle Royale', net: { bomb: 'Bomb online', royale: 'Battle Royale online', endless: 'Endless online' }[netMode()] || 'Network battle', tdm: 'Team Deathmatch', ctf: 'Capture the Flag', bomb: 'Bomb' };
     $('menu-crumbs').textContent = name === 'mode' ? 'Choose a mode' : name === 'pause' ? names[flow.mode] + ' (paused)' :
-      name === 'setup' ? (flow.settingsOnly ? 'Settings' : names[flow.mode] + ': match options') : name === 'ops' ? names[flow.mode] + ': operator' : name === 'packs' ? 'Skins' : name === 'shop' ? 'Packs' : name === 'quick' ? 'Quick setup' : name === 'season' ? 'Season pass' : name === 'stats' ? 'Player stats' : name === 'save' ? 'Save code' : name === 'board' ? 'Leaderboards' : 'Controls';
+      name === 'setup' ? (flow.settingsOnly ? 'Settings' : names[flow.mode] + ': match options') : name === 'ops' ? names[flow.mode] + ': operator' : name === 'packs' ? 'Skins' : name === 'shop' ? 'Packs' : name === 'quick' ? 'Quick setup' : name === 'season' ? 'Season pass' : name === 'stats' ? 'Player stats' : name === 'save' ? 'Save code' : name === 'board' ? 'Leaderboards' : name === 'signin' ? 'Account' : 'Controls';
     document.querySelectorAll('[aria-label="Main menu"] button').forEach(b=>b.setAttribute('aria-current', b.id === ({mode:'go-play',pause:'go-play',setup:flow.settingsOnly ? 'go-settings' : 'go-play',controls:'go-controls',packs:'go-packs',shop:'go-shop'}[name]) ? 'page' : 'false'));
     $('mini-points').textContent = '(' + profile.points + ' points)';
     $('pause-points').textContent = '(' + profile.points + ' points)';
     if (name === 'mode') { renderChallenges(); renderPresets(); filterGames(); }
     if (name === 'season') renderSeason();
     if (name === 'packs' || name === 'save') (name === 'packs' ? $('packs-save') : $('save-root')).append(packs.saveEl);   // (one save code box: on the Skins page and its own page)
+    if (cloud?.box) (name === 'signin' ? $('signin-root') : packs.saveEl).append(cloud.box);   // (the online account: the Account page, else in the save code box)
     if (name === 'stats') { renderStats(); syncWorld(); }
     if (name === 'setup') $('preset-save-row').hidden = flow.settingsOnly || flow.mode === 'range' || flow.mode === 'net';
     if (name === 'setup') {
@@ -1944,11 +1945,12 @@ async function boot(data) {
   };
   {
     const el = (tag, attrs = {}, ...kids) => { const e = Object.assign(document.createElement(tag), attrs); e.append(...kids); return e; };
-    const box = el('div', { className: 'cloud' }), msg = el('p', { className: 'small', role: 'status' });
+    const box = cloud.box = el('div', { className: 'cloud' }), msg = el('p', { className: 'small', role: 'status' });
     packs.saveEl.append(box);
     const say = (t) => { msg.textContent = t; };
     function render(pending = null) {
       const c = cloud.get();
+      $('t-signin').textContent = c ? 'Signed in: ' + c.name : 'Sign in';
       if (pending) {                                // logged in to a name that already has progress: load it, or keep this browser's
         box.replaceChildren(el('h4', { textContent: 'Online account: ' + pending.name }),
           el('p', { className: 'small', textContent: 'This name already has progress online. Load it here (it replaces the progress in this browser), or keep this browser\'s progress and save it to the name.' }),
@@ -1958,29 +1960,31 @@ async function boot(data) {
         return;
       }
       if (c) {
-        box.replaceChildren(el('h4', { textContent: 'Online account' }), el('p', { className: 'small', textContent: 'Logged in as ' + c.name + '. Your progress saves online by itself; on another PC, log in with the same name and PIN.' }),
-          el('div', { className: 'row' }, el('button', { type: 'button', textContent: 'Log out', onclick: () => { cloud.set(null); say('Logged out (your progress stays in this browser).'); render(); } })), msg);
+        box.replaceChildren(el('h4', { textContent: 'Online account' }), el('p', { className: 'small', textContent: 'Signed in as ' + c.name + '. Your progress saves online by itself; on another PC, sign in with the same name and PIN.' }),
+          el('div', { className: 'row' }, el('button', { type: 'button', textContent: 'Sign out', onclick: () => { cloud.set(null); say('Signed out (your progress stays in this browser).'); render(); } })), msg);
         return;
       }
       const name = el('input', { type: 'text', maxLength: 16, value: currentAccount(), placeholder: 'Player name' }); name.setAttribute('aria-label', 'Player name');
       const pin = el('input', { type: 'password', inputMode: 'numeric', maxLength: 8, placeholder: 'PIN (4-8 digits)' }); pin.setAttribute('aria-label', 'PIN');
-      const go = el('button', { type: 'button', className: 'primary', textContent: 'Log in or claim this name', onclick: async () => {
-        go.disabled = true; say('Connecting...');
+      // Sign in: an account that exists; Create account: a new name (with this browser's progress)
+      const send = (create) => async () => {
+        for (const b of buttons) b.disabled = true; say('Connecting...');
         try {
-          const r = await cloudAccount(relayUrl(), { op: 'login', name: name.value, pin: pin.value, code: profile.saveCode() });
-          if (r.created) { cloud.set({ name: r.name, token: r.token }); say(r.name + ' is yours: your progress is saved online.'); render(); }
+          const r = await cloudAccount(relayUrl(), { op: create ? 'create' : 'login', name: name.value, pin: pin.value, ...(create ? { code: profile.saveCode() } : {}) });
+          if (r.created) { cloud.set({ name: r.name, token: r.token }); render(); say('Account ' + r.name + ' created: your progress is saved online.'); }
           else { say(''); render(r); }
-        } catch (e) { say(e.message); }
-        finally { go.disabled = false; }
-      } });
-      box.replaceChildren(el('h4', { textContent: 'Online account' }), el('p', { className: 'small', textContent: 'Like a save code, but just a name and PIN: claim a name to keep your progress online, then log in with it on any PC. Nobody else can use the name.' }),
-        el('div', { className: 'row' }, name, pin, go), msg);
+        } catch (e) { say(e.status === 404 ? e.message + ' Check the name, or create the account.' : e.message); }
+        finally { for (const b of buttons) b.disabled = false; }
+      };
+      const buttons = [el('button', { type: 'button', className: 'primary', textContent: 'Sign in', onclick: send(false) }), el('button', { type: 'button', textContent: 'Create account', onclick: send(true) })];
+      box.replaceChildren(el('h4', { textContent: 'Online account' }), el('p', { className: 'small', textContent: 'A name and PIN that hold your progress, like a save code: sign in on any PC to play with your skins, points and rank. Create an account to claim a name (with the progress in this browser); nobody else can use it.' }),
+        el('div', { className: 'row' }, name, pin, ...buttons), msg);
     }
     // keep the online copy up to date (a few seconds after any change)
     async function saveOnline(now = false) {
       const c = cloud.get(); if (!c) return;
       try { await cloudAccount(relayUrl(), { op: 'save', name: c.name, token: c.token, code: profile.saveCode() }); if (now) say('Saved online as ' + c.name + '.'); }
-      catch (e) { if (e.status === 403) { cloud.set(null); render(); say(c.name + ' was logged in on another PC: log in again here to keep saving online.'); } }
+      catch (e) { if (e.status === 403) { cloud.set(null); render(); say(c.name + ' signed in on another PC: sign in again here to keep saving online.'); } }
     }
     { let t = 0; profile.onChange(() => { if (!cloud.get()) return; clearTimeout(t); t = setTimeout(saveOnline, 4000); }); }
     render();
@@ -2034,6 +2038,7 @@ async function boot(data) {
   $('h-settings').addEventListener('click', () => { overHome(); openGame(home.mode, home.ranked, home.net); });   // the lined-up game's match options (Play skips them)
   $('h-board').addEventListener('click', () => { overHome(); showPage('board'); });   // your name on Home: the leaderboards
   $('go-save').addEventListener('click', () => { showHome(); overHome(); showPage('save'); });   // the save code: a pop-up over Home
+  $('go-signin').addEventListener('click', () => { showHome(); overHome(); showPage('signin'); });   // the account: sign in or create one
   for (const b of $('home').querySelectorAll('[data-gfx]')) b.addEventListener('click', () => graphicsUI.open('', b.dataset.gfx));
   for (const id of ['h-prev', 'h-next']) $(id).addEventListener('click', () => {
     home = home.online ? { mode: 'bots', ranked: false, online: false } : { mode: 'net', ranked: false, online: true, net: 'battle' };
