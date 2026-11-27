@@ -1276,7 +1276,7 @@ async function boot(data) {
         const peers = net.peers.map(e => ({ link: e.link, name: e.name, op: e.ops?.[mode], side: e.side,
           attach: e.attachMap, skin: e.skin, spectator: e.spectator, rating: e.rating }));
         net.hub?.ranked(null);
-        startMode(mode, { ranked, net: { hostName: 'Host', rating: profile.rating, peers } }).then(() => netUi());   // (leaves the lobby without telling the players: they go straight in)
+        startMode(mode, { ranked, net: { hostName: cg.username || 'Host', rating: profile.rating, peers } }).then(() => netUi());   // (leaves the lobby without telling the players: they go straight in)
         return;
       }
       if (net.role !== 'host' || (!lobby && !endless && !net.peers.length && B.bots < 1)) { flashNotice('Host a game and connect at least one player (or add bots) first.'); return; }
@@ -1290,7 +1290,7 @@ async function boot(data) {
     fairOn = (!!B.ranked && !royale && B.opponent === 'bots' && B.bots > 0 && !(B.mates > 0)) || B.opponent === 'net';
     try {
       battle.start({ lobby, ffa: !lobby && !royale && (flow.mode === 'ffa' || !!B.ffa), royale, royaleMap: B.royaleMap, royaleTime: B.royaleTime, endless, gungame, ranked: !!B.ranked && !royale && flow.mode !== 'ffa' && B.opponent === 'bots' && B.bots > 0 && !(B.mates > 0), opponent: B.opponent, bots: B.bots, mates: royale || B.opponent !== 'bots' ? 0 : B.mates, level: B.level, killsToWin: B.kills, map: B.map, night: B.night, weather: B.weather, fog: B.fog, noMist: !!B.noMist, p1Gun: state.gun, p2Gun: data.guns[Math.min(B.p2Gun, data.guns.length - 1)],
-        hostName: 'Host', spectators: B.opponent === 'net' ? net.peers.filter(e => e.spectator).map(e => e.link) : [],
+        hostName: cg.username || 'Host', spectators: B.opponent === 'net' ? net.peers.filter(e => e.spectator).map(e => e.link) : [],
         remotes: B.opponent === 'net' ? net.peers.filter(e => !e.spectator).map((e) => ({ link: e.link, name: e.name, gunIndex: e.gunIndex, attach: e.attach, skin: e.skin })) : [] });
     } catch (err) {
       // Usually a half-updated page (old files still cached): say so instead of doing nothing.
@@ -1982,7 +1982,7 @@ async function boot(data) {
   }
   var world = { by: 'rating', data: null, sent: '', champ: 0, error: '' };   // (var: badges can draw before this line)
   /* ---------- online account: a name and PIN that hold your progress (in the Save code box) ---------- */
-  function myName() { return cloud?.get()?.name || 'Player'; }   // (your name in games with friends: your account's)
+  function myName() { return cg.username || cloud?.get()?.name || 'Player'; }   // (your name in games with friends: your CrazyGames or account name)
   // Time played: seconds in a match or on the range (not in menus), for Player stats, the world boards and your account.
   var playtime = {
     KEY: 'recoilRange.playtime.v1',
