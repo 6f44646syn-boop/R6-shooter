@@ -122,6 +122,7 @@ fieldset, .xh-wrap { min-width: 0; }
 #embedded[hidden] { display: none; }
 .embedded-box { max-width: 420px; text-align: center; display: grid; gap: 12px; justify-items: center; }
 .embedded-box p { margin: 0; color: var(--muted); }
+.embedded-box a:not(.primary) { color: var(--fg); }
 
 [hidden] { display: none !important; }
 

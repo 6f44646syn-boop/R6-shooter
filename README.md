@@ -161,8 +161,11 @@ you can delete them from a deploy branch if you prefer.
 ### Google Sites
 
 Google Sites shows embeds in a sandboxed iframe that blocks pointer lock and fullscreen. When
-the page detects it is inside a frame, it replaces the start screen with an **Open in a full
-tab** button. Embed the GitHub Pages URL and players click through to a normal tab.
+the page detects it is inside a frame, it shows **Play here** and **Open in a full tab**. Play
+here tries mouse capture; if the frame refuses it, the game runs anyway and aims with the free
+mouse (cursor hidden), so turning stops at the frame edge. Make the Sites embed as large as the
+page allows; Esc pauses as usual. On CrazyGames (host or referrer `crazygames.*`) the game skips
+this screen and starts normally, since the portal allows mouse capture and rejects off-site links.
 
 ## Menus
 

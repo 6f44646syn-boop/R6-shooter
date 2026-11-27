@@ -78,8 +78,8 @@ const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
 
 
-// Gameplay events for GA4: index.html's GTM container forwards them (custom-event trigger).
-const track = (event, params) => window.dataLayer?.push({ event, ...params });
+// Gameplay events for GA4 (G-RJ1EPYESJC): index.html's tag (GTM-PC93L65R) is a Google tag, which reads gtag() events.
+const track = (event, params) => window.gtag?.('event', event, params);
 
 /* ---------- iframe check: Google Sites' sandbox blocks pointer lock and fullscreen ---------- */
 // Inside a frame we lead with "Open in a full tab". Some frames do allow mouse capture, so
@@ -88,7 +88,9 @@ const track = (event, params) => window.dataLayer?.push({ event, ...params });
 const loadAll = () => Promise.all([loadGameData(), initCore().catch((e) => { console.error(e); return null; })]).then(([d]) => d);
 let embedded = false;
 try { embedded = window.self !== window.top; } catch (e) { embedded = true; }
-if (embedded) {
+// Game portals (CrazyGames) frame the game with mouse capture allowed and reject links off-site: boot straight in.
+const onPortal = /(^|\.)crazygames\.[a-z.]+$/.test(location.hostname) || /^https?:\/\/([^/]+\.)?crazygames\./.test(document.referrer);
+if (embedded && !onPortal) {
   $('menu').hidden = true;
   $('boot-screen').style.display = 'none';      // (shown again once 'Play here' starts loading)
   $('embedded').hidden = false;
@@ -577,6 +579,7 @@ async function boot(data) {
   const notice = $('notice');
   const lock = new PointerLock(canvas, {
     onChange(locked) {
+      canvas.style.cursor = locked && lock.frame ? 'none' : '';
       if (locked) {
         $('menu').hidden = true; closeArmory(); $('lock-hint').hidden = true;
         $('start-btn').textContent = 'Resume';
@@ -609,7 +612,10 @@ async function boot(data) {
     sfx.unlock();
     void audioPack.sync();
     if (touch.recent() && !document.fullscreenElement) { document.documentElement.requestFullscreen?.().then(() => screen.orientation?.lock?.('landscape')).catch(() => {}); }   // phones: the whole screen, sideways
-    const ok = pad.recent() || touch.recent() ? lock.holdVirtual() : await lock.request();   // a controller or a touch screen needs no mouse capture
+    let ok = pad.recent() || touch.recent() ? lock.holdVirtual() : await lock.request();   // a controller or a touch screen needs no mouse capture
+    // Google Sites' frame has no allow-pointer-lock: play anyway, aiming with the free mouse.
+    // shortcut: turning stops when the cursor leaves the frame; a wider embed on the Sites page helps.
+    if (!ok && embedded) { $('lock-hint').hidden = true; ok = lock.holdVirtual(true); }
     if (ok) {
       notice.textContent = 'Raw input unavailable: Windows pointer settings may affect aim.';
       notice.hidden = lock.raw;
@@ -621,7 +627,7 @@ async function boot(data) {
   canvas.addEventListener('click', () => { if (!lock.locked && flow.inGame && $('armory').hidden && !(cur()?.active && cur().over)) startLock(); });
 
   /* ---------- mouse look: every event, straight to yaw/pitch ---------- */
-  document.addEventListener('mousemove', (e) => { if (lock.locked && !lock.virtual) lookBy(e.movementX, e.movementY); });
+  document.addEventListener('mousemove', (e) => { if (lock.locked && (!lock.virtual || lock.frame)) lookBy(e.movementX, e.movementY); });
   // Mouse counts (or the controller's right stick turned into counts) to yaw / pitch.
   function lookBy(mx, my) {
     const ads = cur()?.active ? cur().h?.ads || cur().humans?.[0]?.ads : state.ads;
