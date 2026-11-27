@@ -1,4 +1,4 @@
-import { ACTIONS, inputCode, inputLabel } from "./m7-raw-input.js?v=7141ab8-mwx5zl37";
+import { ACTIONS, inputCode, inputLabel } from "./m7-raw-input.js?v=baf45fb-mwym4iwy";
 const node = (tag, text) => {
   const n = document.createElement(tag);
   if (text) n.textContent = text;
@@ -75,6 +75,7 @@ export function mountControls(root, api, padPanel = null, royaleExtra = null) {
     b.addEventListener("click", () => {
       api.setProfile(id);
       api.selected = true;
+      devicePanel.before(status);     // back from under a binding row (keybinds tab)
       save();
       render();
     });
@@ -103,6 +104,7 @@ export function mountControls(root, api, padPanel = null, royaleExtra = null) {
     input.addEventListener("change", () => {
       change(type === "checkbox" ? input.checked : Number(input.value));
       api.release();
+      devicePanel.before(status);
       save();
       render();
     });
@@ -165,6 +167,7 @@ export function mountControls(root, api, padPanel = null, royaleExtra = null) {
       b.dataset.slot = slot;
       b.addEventListener("click", () => {
         capture = { a, slot };
+        row.after(status);            // messages about this bind show under its row, not at the panel's top
         render();
         status.textContent =
           "Press a key or mouse button, or scroll the wheel. Escape cancels; Delete clears this slot.";
@@ -181,6 +184,7 @@ export function mountControls(root, api, padPanel = null, royaleExtra = null) {
       api.bind(a, 0, 0);
       api.bind(a, 1, 0);
       capture = null;
+      row.after(status);
       status.textContent = title + ": all binds cleared.";
       save();
       render();
@@ -274,7 +278,7 @@ export function mountControls(root, api, padPanel = null, royaleExtra = null) {
   );
   root.append(status, devicePanel, table);
   if (padPanel) root.append(padPanel);
-  tabs(
+  const showTab = tabs(
     root,
     [
       { label: "Device & aim", panel: devicePanel },
@@ -290,6 +294,7 @@ export function mountControls(root, api, padPanel = null, royaleExtra = null) {
     render();
   };
   render();
+  return showTab;     // showTab(1): open on Keybinds
 }
 
 // First launch: mouse or trackpad, then (askGraphics) one simple graphics question; onDone(level or undefined).

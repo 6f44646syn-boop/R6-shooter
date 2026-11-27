@@ -18,6 +18,7 @@ import { addXp, checkIn, seasonState, rewardOf, TIERS, XP_PER_TIER } from '../js
 import { submit, myCode, addFriend, ranking, bests } from '../js/core/bests.js';
 import { accounts, switchTo, createAccount, deleteAccount } from '../js/core/accounts.js';
 import { MatchHost } from '../js/modes/net-match.js';
+import { Weapon } from '../js/core/weapon.js';
 
 const results = [];
 function test(name, fn) {
@@ -298,6 +299,17 @@ test('RecoilEngine: same seed gives the same jitter, another seed differs', () =
   eq(run(42), run(42), 'same seed');
   if (run(42) === run(43)) throw new Error('different seeds gave identical sprays');
 });
+test('Weapon: a tap let go before the next frame still fires one shot; a cancelled press fires none', () => {
+  const w = new Weapon(); w.setGun({ rpm: 600, magSize: 30, reloadSeconds: 2, fireMode: 'auto' });
+  let n = 0; const shot = () => n++;
+  w.pressTrigger(1); w.releaseTrigger(true); w.update(1.5, shot);
+  eq(n, 1, 'shots from a tap');
+  w.update(2, shot); eq(n, 1, 'shots after the tap');
+  w.pressTrigger(3); w.releaseTrigger(); w.update(3.5, shot);
+  eq(n, 1, 'shots from a cancelled press');
+  w.pressTrigger(4); w.update(4.25, shot); eq(n, 4, 'shots from a held trigger');
+});
+
 test('Gaussian PRNG: mean ~0, sd ~1, deterministic', () => {
   const g = new GaussianRng(7);
   let s = 0, s2 = 0;

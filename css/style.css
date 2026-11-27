@@ -733,11 +733,12 @@ button:disabled, .primary:disabled { opacity: 0.45; cursor: default; }
 .h-pass:hover { border-color: var(--accent); }
 .h-pass b { font-size: 18px; }
 @media (max-width: 760px) {
-  #home { grid-template-columns: 1fr; grid-template-rows: auto auto auto 1fr auto auto auto; overflow-y: auto; }
+  #home { grid-template-columns: 1fr; grid-template-rows: max-content auto auto 1fr auto auto auto; overflow-y: auto; }   /* (max-content: the top bar's row never shrinks under the Offline switch) */
   .h-tabs, .h-online, .h-skin, .h-ch, .h-play, .h-pass { grid-column: 1; grid-row: auto; justify-self: stretch; }
-  .h-tabs { flex-wrap: wrap; } .h-tabs button { padding: 14px 8px; font-size: 15px; }
+  .h-tabs { overflow-x: auto; scrollbar-width: none; } .h-tabs button { flex: 0 0 auto; padding: 14px 12px; font-size: 15px; }   /* phones: one row that scrolls sideways */
   .h-skin { min-height: 160px; }
 }
+@media (max-width: 1100px) { .h-tabs button { padding-inline: 8px; font-size: 15px; } .h-who { flex: 0 0 auto; padding: 8px 12px; } #h-name { white-space: nowrap; } }   /* the name never wraps (800 px: "Not signed in" took three lines) */
 /* Pick game: every game has a Settings tab; the Season pass has its own page */
 .mode-item { display: grid; grid-template-rows: 1fr auto; }
 .mode-item[hidden] { display: none; }
@@ -1071,3 +1072,15 @@ details.preset-save .row { gap: 6px; margin-top: 6px; }
 .pk-pickable { cursor: pointer; color: inherit; font: inherit; }
 .pk-pickable.on { outline: 3px solid var(--accent); outline-offset: -3px; opacity: 0.75; }
 .pk-pickable.on .pk-rar::before { content: 'Giving up · '; color: var(--accent); }
+
+/* Touch play (js/ui/touch.js): a stick that comes to the left thumb, drag the right side to look, buttons bottom right */
+#touch { position: fixed; inset: 0; z-index: 7; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+#touch[hidden] { display: none; }
+#touch .t-look { position: absolute; inset: 0; }
+#touch .t-stick { position: absolute; left: max(24px, env(safe-area-inset-left)); bottom: 28px; width: 112px; height: 112px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .28); background: rgba(8, 10, 12, .25); pointer-events: none; }
+#touch .t-stick i { position: absolute; left: 32px; top: 32px; width: 48px; height: 48px; border-radius: 50%; background: rgba(255, 255, 255, .4); }
+#touch .t-pause { position: absolute; left: max(12px, env(safe-area-inset-left)); top: 10px; width: 44px; height: 44px; border-radius: 50%; font-weight: 700; }
+#touch .t-btns { position: absolute; right: max(12px, env(safe-area-inset-right)); bottom: 16px; display: grid; grid-template-columns: repeat(3, 58px); gap: 8px; direction: rtl; }
+#touch .t-btns button { width: 58px; height: 58px; padding: 0; border-radius: 50%; font-size: 12px; font-weight: 600; background: rgba(8, 10, 12, .45); border: 2px solid rgba(255, 255, 255, .3); color: #fff; direction: ltr; touch-action: none; }
+#touch .t-btns .t-big { grid-row: span 2; grid-column: span 1; width: 58px; height: 124px; border-radius: 29px; background: rgba(242, 179, 61, .35); border-color: var(--accent); }
+#touch .t-btns button.on { background: rgba(242, 179, 61, .55); border-color: var(--accent); }

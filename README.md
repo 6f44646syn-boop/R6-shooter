@@ -38,6 +38,11 @@ Pick a gun, hold the trigger, pull against the recoil, and read the spray on the
 | F4 | Sight gallery |
 | Esc | Release the mouse and open the menu / settings |
 
+**Phones and tablets**: a move stick comes to your left thumb; drag anywhere on the right to look;
+Fire (drag it to aim while shooting), Aim, Reload, Crouch, Jump, Use, Nade, Ability and Sprint
+buttons sit bottom right, and II pauses. Touch screens play like a trackpad (no recoil; Aim, Crouch
+and Sprint are toggles) and go full screen, sideways, when a game starts.
+
 ## Sensitivity
 
 Set your **mouse DPI** and the Siege-style **horizontal / vertical sensitivity** (1-50) in the
@@ -165,7 +170,9 @@ Main menu: choose a mode (Shooting range, Battle vs bots, Free for all, Network 
 its settings (bots, level, kills to win, the network lobby), then your weapon: sights on the
 left, the gun turning in 3D in the middle, skins on the right (Battle Royale skips it: guns come
 from chests; Team Deathmatch, Capture the Flag and Bomb pick an operator instead). Deploy starts.
-Esc pauses: Resume, Change weapon, Settings, Skins & packs, Main menu.
+Esc pauses: Resume, Change weapon, Settings, Skins & packs, Main menu. Esc also closes a game's
+settings. New players sign in, create an account, or **Play as a guest** (progress stays in that
+browser until they make an account).
 
 **Endless online**: Network battle > Game > Endless. Every player on one side against waves of
 bots; each player adds 3 lives to a shared pool and anyone's kills bring the next wave. In Endless

@@ -1,8 +1,8 @@
 // Daily and weekly challenges, one of each for every mode. The same for everyone on a given
 // day / week (picked from the date), progress kept in this browser, points paid out once.
 // Skin challenges: long ones that never reset, each paying one skin (core/skins.js, the Challenge skins).
-import { mulberry32 } from './prng.js?v=7141ab8-mwx5zl37';
-import { CATALOGUE } from './skins.js?v=7141ab8-mwx5zl37';
+import { mulberry32 } from './prng.js?v=baf45fb-mwym4iwy';
+import { CATALOGUE } from './skins.js?v=baf45fb-mwym4iwy';
 
 export const DAILY_POINTS = 60, WEEKLY_POINTS = 250;
 const MODES = { range: 'Shooting range', battle: 'Battle vs bots', endless: 'Endless', royale: 'Battle Royale', tdm: 'Team Deathmatch', ctf: 'Capture the Flag', bomb: 'Bomb' };

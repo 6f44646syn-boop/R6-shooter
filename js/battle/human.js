@@ -8,16 +8,16 @@
 //                       B crouch, A vault, L3 sprint, LB/RB lean.
 //   keys  (player 2, no gamepad): I J K L move, arrow keys look, Enter fire,
 //                       Right Shift aim, Backspace reload, / crouch.
-import * as THREE from '../../vendor/three/three.module.min.js?v=7141ab8-mwx5zl37';
-import { Look, PITCH_LIMIT } from '../core/look.js?v=7141ab8-mwx5zl37';
-import { Weapon } from '../core/weapon.js?v=7141ab8-mwx5zl37';
-import { RecoilEngine } from '../core/recoil.js?v=7141ab8-mwx5zl37';
-import { Spread } from '../core/spread.js?v=7141ab8-mwx5zl37';
-import { focalRatio } from '../core/sensitivity.js?v=7141ab8-mwx5zl37';
-import { WeaponRig } from '../scene/viewmodel.js?v=7141ab8-mwx5zl37';
-import { EYE_Z, VIEW_H } from '../scene/sight-model.js?v=7141ab8-mwx5zl37';
-import { reticleTextures } from '../ui/reticle-tex.js?v=7141ab8-mwx5zl37';
-import { RETICLE_COLORS } from '../ui/scope.js?v=7141ab8-mwx5zl37';
+import * as THREE from '../../vendor/three/three.module.min.js?v=baf45fb-mwym4iwy';
+import { Look, PITCH_LIMIT } from '../core/look.js?v=baf45fb-mwym4iwy';
+import { Weapon } from '../core/weapon.js?v=baf45fb-mwym4iwy';
+import { RecoilEngine } from '../core/recoil.js?v=baf45fb-mwym4iwy';
+import { Spread } from '../core/spread.js?v=baf45fb-mwym4iwy';
+import { focalRatio } from '../core/sensitivity.js?v=baf45fb-mwym4iwy';
+import { WeaponRig } from '../scene/viewmodel.js?v=baf45fb-mwym4iwy';
+import { EYE_Z, VIEW_H } from '../scene/sight-model.js?v=baf45fb-mwym4iwy';
+import { reticleTextures } from '../ui/reticle-tex.js?v=baf45fb-mwym4iwy';
+import { RETICLE_COLORS } from '../ui/scope.js?v=baf45fb-mwym4iwy';
 
 const DEG = Math.PI / 180;
 const WALK = 3.4, SPRINT = 5.6, CROUCH_WALK = 1.6, ADS_WALK = 2.2;
@@ -197,13 +197,15 @@ export class Human {
     if (!f.alive) { this.weapon.releaseTrigger(); this.setAds(false); }
     // Trigger and aim from the input state.
     if (this.gun && f.alive && !this.vault) {
-      if (this.in.fire && !this._fireWas) {
+      if ((this.in.fire || this.in.tap) && !this._fireWas) {
         if (this.weapon.ammo === 0 && !this.weapon.reloading) this.deps.sfx.click();
         this.weapon.pressTrigger(t);
+        if (!this.in.fire) this.weapon.releaseTrigger(true);
       } else if (!this.in.fire && this._fireWas) this.weapon.releaseTrigger();
       this.setAds(this.in.ads);
     }
     this._fireWas = this.in.fire;
+    this.in.tap = false;
     if (t < f.protectUntil && this.in.fire) f.protectUntil = t;     // shooting ends spawn protection
     const ammoBefore = this.weapon.ammo;
     const ev = this.weapon.update(t, (shotT) => battle.fire(this, shotT));

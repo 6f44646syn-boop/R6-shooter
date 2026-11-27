@@ -1,81 +1,85 @@
-import { track as trackLoad } from './ui/busy.js?v=7141ab8-mwx5zl37';
-import { loadPackArt } from './render/pack-art.js?v=7141ab8-mwx5zl37';
-import { loadPackAnims } from './scene/weapon-anims.js?v=7141ab8-mwx5zl37';
-import { packMats } from './render/pack-materials.js?v=7141ab8-mwx5zl37';
-import { loadSkinSheets } from './render/skins2.js?v=7141ab8-mwx5zl37';
-import { connectAudioPack } from './audio/pack-bridge.js?v=7141ab8-mwx5zl37';
-import { initBombUtility, utilityFor } from './balance/bomb-utility.js?v=7141ab8-mwx5zl37';
-import { createAcoustics } from './audio/acoustics.js?v=7141ab8-mwx5zl37';
-import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=7141ab8-mwx5zl37';
-import { mountControls, mountFirstLaunch } from './ui/m7-menu.js?v=7141ab8-mwx5zl37';
+import { track as trackLoad } from './ui/busy.js?v=baf45fb-mwym4iwy';
+import { loadPackArt } from './render/pack-art.js?v=baf45fb-mwym4iwy';
+import { loadPackAnims } from './scene/weapon-anims.js?v=baf45fb-mwym4iwy';
+import { packMats } from './render/pack-materials.js?v=baf45fb-mwym4iwy';
+import { loadSkinSheets } from './render/skins2.js?v=baf45fb-mwym4iwy';
+import { connectAudioPack } from './audio/pack-bridge.js?v=baf45fb-mwym4iwy';
+import { initBombUtility, utilityFor } from './balance/bomb-utility.js?v=baf45fb-mwym4iwy';
+import { createAcoustics } from './audio/acoustics.js?v=baf45fb-mwym4iwy';
+import { createControls, attachRawInput } from './ui/m7-raw-input.js?v=baf45fb-mwym4iwy';
+import { mountControls, mountFirstLaunch } from './ui/m7-menu.js?v=baf45fb-mwym4iwy';
 // Recoil Range entry point: wires input, camera, scene, HUD and the frame loop together.
-import * as THREE from '../vendor/three/three.module.min.js?v=7141ab8-mwx5zl37';
-import { Look, PITCH_LIMIT } from './core/look.js?v=7141ab8-mwx5zl37';
-import { Player } from './core/player.js?v=7141ab8-mwx5zl37';
-import { PointerLock } from './core/pointer-lock.js?v=7141ab8-mwx5zl37';
-import { loadSettings, saveSettings, DISTANCES, DEFAULTS } from './core/settings.js?v=7141ab8-mwx5zl37';
-import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio, sensToCm360 } from './core/sensitivity.js?v=7141ab8-mwx5zl37';
-import { Weapon } from './core/weapon.js?v=7141ab8-mwx5zl37';
-import { RecoilEngine } from './core/recoil.js?v=7141ab8-mwx5zl37';
-import { Spread } from './core/spread.js?v=7141ab8-mwx5zl37';
-import { loadGameData } from './core/guns.js?v=7141ab8-mwx5zl37';
-import { initLoadout, effectiveGun, sanitize, slotIn, baseOf, SLOTS as ATTACH_SLOTS, allowed as attachAllowed, measuredCode, describe as describeAttach, hint as attachHint } from './core/loadout.js?v=7141ab8-mwx5zl37';
-import { randomSeed } from './core/prng.js?v=7141ab8-mwx5zl37';
-import { Range, EYE_HEIGHT } from './scene/range.js?v=7141ab8-mwx5zl37';
-import { RING_STEP } from './scene/range-tex.js?v=7141ab8-mwx5zl37';
-import { Gamepad, padPanel } from './ui/gamepad.js?v=7141ab8-mwx5zl37';
-import { buildKeysPanel, buildKey } from './ui/build-keys.js?v=7141ab8-mwx5zl37';
-import { WeaponRig, setUltraTexSize, skinName, setSkinResolver, setHiResSkins, setSkinsOff, setCharmResolver } from './scene/viewmodel.js?v=7141ab8-mwx5zl37';
-import { LensPost } from './render/lens-post.js?v=7141ab8-mwx5zl37';
-import { warmScene, warmBudget } from './render/warm.js?v=7141ab8-mwx5zl37';
-import { addMatch, matches as pastMatches, totals as matchTotals, gamesPlayed } from './core/history.js?v=7141ab8-mwx5zl37';
-import { addXp, matchXp, XP, checkIn, seasonState, rewardOf, rewardText, TIERS, XP_PER_TIER } from './core/season.js?v=7141ab8-mwx5zl37';
-import { submit as submitBests, bests as myBests, BOARD } from './core/bests.js?v=7141ab8-mwx5zl37';
-import { PAD_ASSIST, nearestAim, assistLook } from './core/pad-assist.js?v=7141ab8-mwx5zl37';
-import { record as recordChallenge, matchStats, challengesFor, progressOf, isPaid, SKIN_CHALLENGES } from './core/challenges.js?v=7141ab8-mwx5zl37';
-import { reticleTextures } from './ui/reticle-tex.js?v=7141ab8-mwx5zl37';
-import { DOT_POINTS } from './scene/dots.js?v=7141ab8-mwx5zl37';
-import { Voices } from './audio/voice.js?v=7141ab8-mwx5zl37';
-import { ModeGame } from './modes/game.js?v=7141ab8-mwx5zl37';
-import { Sfx } from './audio/sfx.js?v=7141ab8-mwx5zl37';
-import { Captions } from './ui/captions.js?v=7141ab8-mwx5zl37';
-import { DebugHud } from './ui/debug-hud.js?v=7141ab8-mwx5zl37';
-import { buildHitboxes, syncFighterBoxes, RayTrail } from './scene/range-debug.js?v=7141ab8-mwx5zl37';
-import { mountDev } from './ui/dev.js?v=7141ab8-mwx5zl37';
-import { drawCrosshair } from './ui/crosshair.js?v=7141ab8-mwx5zl37';
-import { Hud } from './ui/hud.js?v=7141ab8-mwx5zl37';
-import { MagPlot } from './ui/plot.js?v=7141ab8-mwx5zl37';
-import { SettingsUI } from './ui/settings-ui.js?v=7141ab8-mwx5zl37';
-import { sensKeys, zoomKey } from './core/optics.js?v=7141ab8-mwx5zl37';
+import * as THREE from '../vendor/three/three.module.min.js?v=baf45fb-mwym4iwy';
+import { Look, PITCH_LIMIT } from './core/look.js?v=baf45fb-mwym4iwy';
+import { Player } from './core/player.js?v=baf45fb-mwym4iwy';
+import { PointerLock } from './core/pointer-lock.js?v=baf45fb-mwym4iwy';
+import { loadSettings, saveSettings, DISTANCES, DEFAULTS } from './core/settings.js?v=baf45fb-mwym4iwy';
+import { degPerCount, horizontalFovDeg, zoomedFovDeg, focalRatio, sensToCm360 } from './core/sensitivity.js?v=baf45fb-mwym4iwy';
+import { Weapon } from './core/weapon.js?v=baf45fb-mwym4iwy';
+import { RecoilEngine } from './core/recoil.js?v=baf45fb-mwym4iwy';
+import { Spread } from './core/spread.js?v=baf45fb-mwym4iwy';
+import { loadGameData } from './core/guns.js?v=baf45fb-mwym4iwy';
+import { initLoadout, effectiveGun, sanitize, slotIn, baseOf, SLOTS as ATTACH_SLOTS, allowed as attachAllowed, measuredCode, describe as describeAttach, hint as attachHint } from './core/loadout.js?v=baf45fb-mwym4iwy';
+import { randomSeed } from './core/prng.js?v=baf45fb-mwym4iwy';
+import { Range, EYE_HEIGHT } from './scene/range.js?v=baf45fb-mwym4iwy';
+import { RING_STEP } from './scene/range-tex.js?v=baf45fb-mwym4iwy';
+import { Gamepad, padPanel } from './ui/gamepad.js?v=baf45fb-mwym4iwy';
+import { buildKeysPanel, buildKey } from './ui/build-keys.js?v=baf45fb-mwym4iwy';
+import { WeaponRig, setUltraTexSize, skinName, setSkinResolver, setHiResSkins, setSkinsOff, setCharmResolver } from './scene/viewmodel.js?v=baf45fb-mwym4iwy';
+import { LensPost } from './render/lens-post.js?v=baf45fb-mwym4iwy';
+import { warmScene, warmBudget } from './render/warm.js?v=baf45fb-mwym4iwy';
+import { addMatch, matches as pastMatches, totals as matchTotals, gamesPlayed } from './core/history.js?v=baf45fb-mwym4iwy';
+import { addXp, matchXp, XP, checkIn, seasonState, rewardOf, rewardText, TIERS, XP_PER_TIER } from './core/season.js?v=baf45fb-mwym4iwy';
+import { submit as submitBests, bests as myBests, BOARD } from './core/bests.js?v=baf45fb-mwym4iwy';
+import { PAD_ASSIST, nearestAim, assistLook } from './core/pad-assist.js?v=baf45fb-mwym4iwy';
+import { record as recordChallenge, matchStats, challengesFor, progressOf, isPaid, SKIN_CHALLENGES } from './core/challenges.js?v=baf45fb-mwym4iwy';
+import { reticleTextures } from './ui/reticle-tex.js?v=baf45fb-mwym4iwy';
+import { DOT_POINTS } from './scene/dots.js?v=baf45fb-mwym4iwy';
+import { Voices } from './audio/voice.js?v=baf45fb-mwym4iwy';
+import { ModeGame } from './modes/game.js?v=baf45fb-mwym4iwy';
+import { Sfx } from './audio/sfx.js?v=baf45fb-mwym4iwy';
+import { Captions } from './ui/captions.js?v=baf45fb-mwym4iwy';
+import { DebugHud } from './ui/debug-hud.js?v=baf45fb-mwym4iwy';
+import { buildHitboxes, syncFighterBoxes, RayTrail } from './scene/range-debug.js?v=baf45fb-mwym4iwy';
+import { mountDev } from './ui/dev.js?v=baf45fb-mwym4iwy';
+import { drawCrosshair } from './ui/crosshair.js?v=baf45fb-mwym4iwy';
+import { Hud } from './ui/hud.js?v=baf45fb-mwym4iwy';
+import { MagPlot } from './ui/plot.js?v=baf45fb-mwym4iwy';
+import { SettingsUI } from './ui/settings-ui.js?v=baf45fb-mwym4iwy';
+import { sensKeys, zoomKey } from './core/optics.js?v=baf45fb-mwym4iwy';
 
 // Sens table rows: the magnifications listed in data/sens.json plus any used by a sight.
 function sensRows(catalogue, sens) {
   const keys = new Set([...sens.magnifications.map((m) => m.key), ...sensKeys(catalogue)]);
   return [...keys].sort((a, b) => parseFloat(a) - parseFloat(b));
 }
-import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=7141ab8-mwx5zl37';
-import { Battle } from './battle/battle.js?v=7141ab8-mwx5zl37';
-import { setOutlineColors } from './battle/fighter.js?v=7141ab8-mwx5zl37';
-import { initCore, coreLoaded } from './wasm/core.js?v=7141ab8-mwx5zl37';
-import { createJoinRequest, acceptJoin } from './net/link.js?v=7141ab8-mwx5zl37';
-import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt, worldBoard, cloudAccount } from './net/relay.js?v=7141ab8-mwx5zl37';
-import { Profile, WIN_POINTS } from './core/profile.js?v=7141ab8-mwx5zl37';
-import { skinFits, skinById, CATALOGUE } from './core/skins.js?v=7141ab8-mwx5zl37';
-import { currentAccount, dropAccounts } from './core/accounts.js?v=7141ab8-mwx5zl37';
-import { CHARMS } from './core/charms.js?v=7141ab8-mwx5zl37';
-import { gunDamage } from './battle/fighter.js?v=7141ab8-mwx5zl37';
-import { PackUI } from './ui/packs.js?v=7141ab8-mwx5zl37';
-import { HDPack, SkinPack } from './render/hd-pack.js?v=7141ab8-mwx5zl37';
-import { effectiveGraphics, needsPack, maxMode } from './render/quality.js?v=7141ab8-mwx5zl37';
-import { GraphicsUI } from './ui/graphics-ui.js?v=7141ab8-mwx5zl37';
-import { PerfHud } from './ui/perf-hud.js?v=7141ab8-mwx5zl37';
-import { WorldPost } from './render/world-post.js?v=7141ab8-mwx5zl37';
-import { rankIconSvg } from './ui/rank-icon.js?v=7141ab8-mwx5zl37';
-import { rankOf, rankTitle, rankedSummary, ratingOf, rankedChange, validRankedTicket, verifyRankedResult } from './core/ranked.js?v=7141ab8-mwx5zl37';
+import { RETICLE_COLORS, drawScope, drawBackdrop } from './ui/scope.js?v=baf45fb-mwym4iwy';
+import { Battle } from './battle/battle.js?v=baf45fb-mwym4iwy';
+import { setOutlineColors } from './battle/fighter.js?v=baf45fb-mwym4iwy';
+import { initCore, coreLoaded } from './wasm/core.js?v=baf45fb-mwym4iwy';
+import { createJoinRequest, acceptJoin } from './net/link.js?v=baf45fb-mwym4iwy';
+import { hostRelay, joinRelay, relayUrl, setRelayUrl, pingRelay, cleanCode, rankedGames, rankedReceipt, worldBoard, cloudAccount } from './net/relay.js?v=baf45fb-mwym4iwy';
+import { Profile, WIN_POINTS } from './core/profile.js?v=baf45fb-mwym4iwy';
+import { skinFits, skinById, CATALOGUE } from './core/skins.js?v=baf45fb-mwym4iwy';
+import { currentAccount, dropAccounts } from './core/accounts.js?v=baf45fb-mwym4iwy';
+import { CHARMS } from './core/charms.js?v=baf45fb-mwym4iwy';
+import { gunDamage } from './battle/fighter.js?v=baf45fb-mwym4iwy';
+import { PackUI } from './ui/packs.js?v=baf45fb-mwym4iwy';
+import { HDPack, SkinPack } from './render/hd-pack.js?v=baf45fb-mwym4iwy';
+import { effectiveGraphics, needsPack, maxMode } from './render/quality.js?v=baf45fb-mwym4iwy';
+import { GraphicsUI } from './ui/graphics-ui.js?v=baf45fb-mwym4iwy';
+import { PerfHud } from './ui/perf-hud.js?v=baf45fb-mwym4iwy';
+import { WorldPost } from './render/world-post.js?v=baf45fb-mwym4iwy';
+import { rankIconSvg } from './ui/rank-icon.js?v=baf45fb-mwym4iwy';
+import { Touch } from './ui/touch.js?v=baf45fb-mwym4iwy';
+import { rankOf, rankTitle, rankedSummary, ratingOf, rankedChange, validRankedTicket, verifyRankedResult } from './core/ranked.js?v=baf45fb-mwym4iwy';
 
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
 
+
+// Gameplay events for GA4: index.html's GTM container forwards them (custom-event trigger).
+const track = (event, params) => window.dataLayer?.push({ event, ...params });
 
 /* ---------- iframe check: Google Sites' sandbox blocks pointer lock and fullscreen ---------- */
 // Inside a frame we lead with "Open in a full tab". Some frames do allow mouse capture, so
@@ -89,7 +93,9 @@ if (embedded) {
   $('boot-screen').style.display = 'none';      // (shown again once 'Play here' starts loading)
   $('embedded').hidden = false;
   $('open-tab').href = location.href;
+  $('open-tab').addEventListener('click', () => track('embed_open_tab'));
   $('play-here').addEventListener('click', () => {
+    track('embed_play_here');
     $('embedded').hidden = true;
     $('boot-screen').style.display = 'grid';
     $('menu').hidden = false;
@@ -166,6 +172,9 @@ async function boot(data) {
       back?.click();
     },
   };
+  const touch = new Touch(padHooks);   // phones and tablets: on-screen stick and buttons, through the controller's hooks (js/ui/touch.js)
+  // Phones and tablets play like a trackpad (no recoil, aim and crouch toggles), so the first-launch question is skipped
+  if (touch.phone && (controls.profile !== 'trackpad' || !controls.selected)) { controls.setProfile('trackpad'); controls.selected = true; controls.save(); }
   if (dropAccounts(ICONIC)) { location.reload(); return; }   // (once per browser: the old iconicmussle736 accounts go; the next player takes over)
   const settings = loadSettings();
   iconicSettings(settings, data.sens);
@@ -187,7 +196,9 @@ async function boot(data) {
   range.holes.setSize(settings.holeSizeCm / 100);
   renderer.info.autoReset = false; // several passes per frame; reset once per frame
   // Your skins and points (localStorage + save code). The gun model asks it which skin a slot wears.
-  const flow = { page: null, prev: 'mode', mode: 'range', inGame: false, armoryFrom: 'setup', setupFromPause: false, settingsOnly: false };
+  const flow = { page: null, prev: 'mode', mode: 'range', armoryFrom: 'setup', setupFromPause: false, settingsOnly: false,
+    _inGame: false, get inGame() { return this._inGame; },
+    set inGame(v) { if (v && !this._inGame) track('game_start', { game_mode: this.mode }); this._inGame = v; } };   // out of a game -> in: a new game started
   const profile = new Profile();
   // a skin challenge finished in this browser whose skin you do not have (an older save code loaded since): yours again
   for (const c of SKIN_CHALLENGES) if (isPaid(c) && !profile.has(c.skin)) profile.grant({ skin: c.skin });
@@ -597,7 +608,8 @@ async function boot(data) {
   async function startLock() {
     sfx.unlock();
     void audioPack.sync();
-    const ok = pad.recent() ? lock.holdVirtual() : await lock.request();   // a controller needs no mouse capture
+    if (touch.recent() && !document.fullscreenElement) { document.documentElement.requestFullscreen?.().then(() => screen.orientation?.lock?.('landscape')).catch(() => {}); }   // phones: the whole screen, sideways
+    const ok = pad.recent() || touch.recent() ? lock.holdVirtual() : await lock.request();   // a controller or a touch screen needs no mouse capture
     if (ok) {
       notice.textContent = 'Raw input unavailable: Windows pointer settings may affect aim.';
       notice.hidden = lock.raw;
@@ -636,7 +648,7 @@ async function boot(data) {
   }
   function handleMouseUp(e) {
     if (cur() && cur().active) { cur().mouseButton(e.button, false); return; }
-    if (e.button === 0) weapon.releaseTrigger();
+    if (e.button === 0) weapon.releaseTrigger(true);
     else if (e.button === 2) setAds(false);
     else if (e.button === 3) { e.preventDefault(); player.leanL = false; }
     else if (e.button === 4) { e.preventDefault(); player.leanR = false; }
@@ -678,6 +690,7 @@ async function boot(data) {
     if (c === 'F4') { e.preventDefault(); toggleGallery(); return; }
     if (c === 'Escape' && !$('gallery').hidden) { toggleGallery(false); return; }
     if (c === 'Escape' && !$('armory').hidden) { $('arm-back').click(); return; }
+    if (c === 'Escape' && flow.page === 'setup' && !lock.locked && !document.querySelector('dialog[open]') && !$('menu').hidden) { $('menu-x').click(); return; }   // Esc closes a game's settings, like the ×
     if (c === 'F3') {
       e.preventDefault();
       settings.debugHud = !settings.debugHud;
@@ -1222,6 +1235,7 @@ async function boot(data) {
     if (!sum || !game || game._loggedFor === game.opts) return;
     game._loggedFor = game.opts;
     dev?.note('match-end', sum);
+    track('match_end', { game_mode: sum.mode, result: sum.result });
     addMatch(sum);
     payChallenges(recordChallenge(sum.mode, matchStats(sum)));
     giveXp(matchXp(sum));
@@ -1756,6 +1770,8 @@ async function boot(data) {
     const e = isEndless();                                             // (Endless: the waves set the bots and there is no kill target)
     if (e) for (const id of ['b-bots', 'b-kills']) $(id).closest('label').hidden = true;
     $('b-level').closest('label').hidden = e; $('endless-rules').hidden = !e;
+    const zero = $('b-bots').options[0]; zero.hidden = zero.disabled = flow.mode !== 'net';   // 0 bots: only online, where players fill the match
+    if (zero.disabled && $('b-bots').value === '0') { $('b-bots').value = '1'; $('b-bots').dispatchEvent(new Event('change')); }
     $('b-rmap-field').hidden = !r;                                     // (which island)
     $('b-rtime-field').hidden = !r;                                    // (dusk, midday or night)
     // the Free for all switch: every game but Bomb and Battle Royale (the Free for all card is always on)
@@ -1770,6 +1786,7 @@ async function boot(data) {
     const sel = $(id), box = document.createElement('div'); box.id = id + '-choice'; box.className = 'choice' + (pics && picture ? ' pictures' : '');
     const opts = document.createElement('div'); opts.className = 'choice-opts'; opts.setAttribute('role', 'radiogroup'); opts.setAttribute('aria-label', question);
     for (const o of sel.options) {
+      if (o.disabled) continue;
       const [main, sub] = o.textContent.split(/ \((.*)\)$/);
       const btn = document.createElement('button'); btn.type = 'button'; btn.setAttribute('role', 'radio'); btn.setAttribute('aria-checked', String(sel.value === o.value));
       if (pics && picture) { const img = document.createElement('img'); img.src = 'data/menu/' + id + '-' + o.value + '.webp'; img.alt = ''; img.loading = 'lazy'; btn.append(img); }
@@ -1841,7 +1858,7 @@ async function boot(data) {
     choicePage = pages[i - 1]; choiceUi(); return true;
   }
   function chooseMode(m) {
-    if (cloud?.mustSignIn?.()) { $('go-signin').click(); toast('Sign in, or create an account, to play.'); return; }
+    if (cloud?.mustSignIn?.()) { $('go-signin').click(); toast('Sign in, create an account, or play as a guest.'); return; }
     choicePage = 'where';
     if (battle && battle.active) leaveBattle();
     controls.release();
@@ -1976,7 +1993,7 @@ async function boot(data) {
     // The account needs signing in again (e.g. after a reset): signed out here, the sign-in page opens
     cloud.signedOut = () => { if (!cloud.get()) return; cloud.set(null); render(); say('Please sign in again.'); if ($('title').hidden) $('go-signin').click(); toast('Please sign in again (your progress is safe).'); };
     // A new player (nothing played here) with no account signs in or creates one before playing.
-    cloud.mustSignIn = () => !testMode && !cloud.offline && !cloud.get() && fresh();
+    cloud.mustSignIn = () => !testMode && !cloud.guest && !cloud.get() && fresh();
     const fresh = () => profile.ownedCount === 0 && profile.kills === 0 && gamesPlayed() === 0 && profile.rating === 1000;
     function load(r) { loading = true; playtime.set(Math.max(playtime.get(), r.secs || 0)); profile.loadCode(r.code); cloud.set({ name: r.name, token: r.token, at: r.at || 0 }); location.reload(); }
     function render(pending = null) {
@@ -2019,13 +2036,13 @@ async function boot(data) {
           else { say(''); render(r); }
         } catch (e) {
           say(e.status === 404 ? e.message + ' Check the name, or create the account.' : e.message);
-          if (!e.status && cloud.mustSignIn()) form.after(el('button', { type: 'button', textContent: 'Play without an account (the server cannot be reached)', onclick: () => { cloud.offline = true; showHome(); } }));   // (never locked out by a blocked network)
         }
         finally { for (const b of buttons) b.disabled = false; }
       };
       const buttons = [el('button', { type: 'submit', className: 'primary', textContent: 'Sign in' }), el('button', { type: 'button', textContent: 'Create account', onclick: () => send(true) })];
       const form = el('form', { className: 'row', onsubmit: (e) => { e.preventDefault(); send(false); } }, name, pin, ...buttons);   // (Enter signs in)
-      box.replaceChildren(el('h4', { textContent: 'Online account' }), el('p', { className: 'small', textContent: 'Sign in on any PC to play with your skins, points and rank. New here? Create an account: it claims the name (nobody else can use it) and saves the progress in this browser. The PIN is optional, but without one anyone who knows your name can sign in as you.' }), form, msg);
+      box.replaceChildren(el('h4', { textContent: 'Online account' }), el('p', { className: 'small', textContent: 'Sign in on any PC to play with your skins, points and rank. New here? Create an account: it claims the name (nobody else can use it) and saves the progress in this browser. The PIN is optional, but without one anyone who knows your name can sign in as you.' }), form,
+        ...(cloud.mustSignIn() ? [el('div', { className: 'row' }, el('button', { type: 'button', textContent: 'Play as a guest', onclick: () => { cloud.guest = true; $('go-play').click(); } }), el('span', { className: 'small', textContent: 'Your progress stays in this browser. Create an account any time to keep it.' }))] : []), msg);
     }
     // keep the online copy up to date (a few seconds after any change, and when the game closes)
     let dirty = false;                              // changes here not saved online yet (closing never sends old progress over a newer save)
@@ -2092,7 +2109,7 @@ async function boot(data) {
   // Home's menus open as a pop-up over Home (it shows through); anything that then hides the menu (a match, an inspect) hides Home too
   const overHome = () => { $('menu').classList.add('over-home'); $('menu').hidden = false; };
   new MutationObserver(() => { if ($('menu').hidden && $('menu').classList.contains('over-home')) { $('menu').classList.remove('over-home'); $('home').hidden = true; } }).observe($('menu'), { attributes: true, attributeFilter: ['hidden'] });
-  for (const b of $('home').querySelectorAll('[data-go]')) b.addEventListener('click', () => { overHome(); $(b.dataset.go).click(); });
+  for (const b of $('home').querySelectorAll('[data-go]')) b.addEventListener('click', () => { overHome(); $(b.dataset.go).click(); if (b.dataset.tab) controlsTab(+b.dataset.tab); });
   $('h-settings').addEventListener('click', () => { overHome(); openGame(home.mode, home.ranked, home.net); });   // the lined-up game's match options (Play skips them)
   $('h-board').addEventListener('click', () => { overHome(); showPage('board'); });   // your name on Home: the leaderboards
   $('go-save').addEventListener('click', () => { showHome(); overHome(); showPage('save'); });   // the save code: a pop-up over Home
@@ -2515,7 +2532,7 @@ async function boot(data) {
     r.render(previewRig.scene, previewCam);
     r.autoClear = false;
   }
-  mountControls($('controls-root'), controls, padPanel(pad), buildKeysPanel(settings, () => saveSettings(settings)));
+  const controlsTab = mountControls($('controls-root'), controls, padPanel(pad), buildKeysPanel(settings, () => saveSettings(settings)));
   // First launch walks through the steps in order: controls, graphics, settings, then a mode and a weapon.
   // First launch: after the title, two questions (mouse or trackpad, then graphics), then Home. (Tests skip the title and the graphics question unless ?wizard.)
   let firstRun = !controls.selected;
@@ -2563,7 +2580,7 @@ async function boot(data) {
   }
   function hideTitle(go) {
     $('title').hidden = true; clearInterval(titleTimer);
-    if (cloud?.mustSignIn?.()) { $('go-signin').click(); toast('Sign in, or create an account, to play.'); return; }   // (new players: an account first)
+    if (cloud?.mustSignIn?.()) { $('go-signin').click(); toast('Sign in, create an account, or play as a guest.'); return; }   // (new players: an account first)
     if (firstRun && go !== 'go-signin') { firstLaunch(); return; }   // (Sign in first: the setup comes with Play)
     if (go === 'go-play' && flow.page !== 'quick') showHome();
     else if (go && flow.page !== 'quick') $(go).click();
@@ -2790,7 +2807,7 @@ async function boot(data) {
       dbg.fb = dbg.hitboxes.visible && !fairOn;
       syncFighterBoxes(list, dbg.fb, g === battle ? g.humans[0]?.f : g.fig?.get(g.me?.id));
     }
-    pad.poll(Math.min(0.05, (nowMs - (padT || nowMs)) / 1000), padHooks); padT = nowMs;
+    pad.poll(Math.min(0.05, (nowMs - (padT || nowMs)) / 1000), padHooks); padT = nowMs; touch.frame();
     const c0 = performance.now();
     if (!manualClock) update(clockNow());
     const updMs = performance.now() - c0;
@@ -2948,7 +2965,7 @@ async function boot(data) {
       setAds,
       dpc: currentDpc,
       look: () => ({ yaw: look.yaw, pitch: look.pitch, unwrappedYaw: look.unwrappedYaw, countsX: look.countsX, discarded: look.discarded }),
-      trigger(down) { if (down) weapon.pressTrigger(clockNow()); else weapon.releaseTrigger(); },
+      trigger(down) { if (down) weapon.pressTrigger(clockNow()); else weapon.releaseTrigger(true); },
       reload() { if (weapon.startReload(clockNow())) finishMagazine(); },
       holes() {
         const h = range.holes, out = [];

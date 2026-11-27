@@ -15,6 +15,7 @@ export class Weapon {
     this.nextShotTime = 0;
     this.triggerHeld = false;
     this.semiReady = false;   // semi-auto: one shot per press
+    this.tapPending = false;  // a press not yet seen by update(): a tap released before the next frame still fires
   }
 
   // Most rounds the gun can hold: magSize, plus one in the chamber if "chambered" is set.
@@ -26,18 +27,23 @@ export class Weapon {
     this.ammo = this.capacity;
     this.reloading = false;
     this.nextShotTime = 0;
+    this.tapPending = false;
     if (!gun) this.releaseTrigger();
   }
 
   pressTrigger(t) {
     this.triggerHeld = true;
     this.semiReady = true;
+    this.tapPending = true;
     // Can't fire faster than the rpm even by clicking quickly.
     if (this.nextShotTime < t) this.nextShotTime = t;
   }
 
-  releaseTrigger() {
+  // tap: a button let go (the press still fires if update() has not run since); otherwise the trigger is
+  // cancelled (death, pause, leaving) and a pending press is dropped.
+  releaseTrigger(tap = false) {
     this.triggerHeld = false;
+    if (!tap) this.tapPending = false;
   }
 
   // Returns true if a reload started.
@@ -67,7 +73,9 @@ export class Weapon {
       if (this.nextShotTime < this.reloadEnd) this.nextShotTime = this.reloadEnd;
       event = 'reloaded';
     }
-    if (!this.gun || !this.triggerHeld || this.reloading) return event;
+    const tap = this.tapPending;
+    this.tapPending = false;
+    if (!this.gun || !(this.triggerHeld || tap) || this.reloading) return event;
     const semi = this.gun.fireMode === 'semi';
     while (this.ammo > 0 && this.nextShotTime <= t) {
       if (semi && !this.semiReady) break;
@@ -76,6 +84,7 @@ export class Weapon {
       this.nextShotTime += this.interval;
       this.semiReady = false;
       onShot(shotTime);
+      if (!this.triggerHeld) break;     // a released tap: one shot
     }
     return event;
   }
