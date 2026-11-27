@@ -2139,7 +2139,7 @@ async function boot(data) {
   $('pause-loadout').addEventListener('click', () => openArmory('pause'));
   $('pause-go').addEventListener('click', () => startBattle(true));
   $('pause-match').addEventListener('click', () => { flow.settingsOnly = false; flow.setupFromPause = true; choicePage = 'where'; showPage('setup'); });   // (the lobby: the next match's settings, page by page)
-  $('pause-quit').addEventListener('click', () => { if (cur() && cur().active) leaveBattle(); flow.inGame = false; showPage('mode'); });
+  $('pause-quit').addEventListener('click', () => { if (cur() && cur().active) leaveBattle(); flow.inGame = false; $('lock-hint').hidden = true; showPage('mode'); });   // (nothing left to resume)
 
   /* ---------- match modes: settings and operator select ---------- */
   const MODE_DEFAULTS = { map: { tdm: 'containers', ctf: 'yard', bomb: 'ranch' }, abilities: { tdm: false, ctf: false, bomb: true }, op: { tdm: 'glitch', ctf: 'dash', bomb: 'pace' }, difficulty: 'normal', teamSize: 5, minutes: 10, prepTime: 30, headshot: 'lethal', side: 'attack' };

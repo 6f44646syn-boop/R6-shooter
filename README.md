@@ -184,13 +184,14 @@ Battle Royale). In Team Deathmatch and Capture the Flag the setting opens Free f
 ## Skins, packs and save codes
 
 Menu > Skins & packs. Battle kills earn points (20, +10 for a headshot kill; +50 for winning
-a battle; in split screen, player 1's kills count). A pack costs 100 points and spins a
-slot-machine reel that lands on one of 212 skins. Black Ice drops in 5% of packs. Legendaries drop in 1% of packs. Duplicates refund points based on rarity.
+a battle). A pack costs 100 points and spins a
+slot-machine reel that lands on one of the pack skins (250 skins in all; the 7 rank skins and 10
+challenge skins never drop: they are earned in ranked and in skin challenges). Black Ice drops in 5% of packs. Legendaries drop in 1% of packs. Duplicates refund points based on rarity.
 Click a skin in your collection to equip it on the gun selected in Loadout. Some skins are
 exclusive: each Black Ice and half the Epics fit one gun only, and some Rares one gun
 family (SMGs, or rifles and carbines).
 
-Press **I** to inspect your equipped skin. All ten Black Ice variants
+Press **I** to inspect your equipped skin (not on Low or Minimal graphics). All ten Black Ice variants
 grow a layer of frost and release a pulse of cold vapour and ice flecks. Sakura Gilt's
 raised blossoms open in 3D and shed petals. Particle density scales with graphics quality.
 Firing, aiming, reloading or switching weapons cancels the inspect.
@@ -212,8 +213,8 @@ pillars, chandeliers, neon signs) and **School** (lockers, desks and chairs, caf
 tables, trophy case, vending machine, whiteboards). Each is point-symmetric, drawn in code
 (js/battle/maps.js), and the host's map is used in network games.
 
-Main menu > Battle vs bots: you against 1-6 bots (Easy, Medium or Hard). First side to the kill target (5, 10,
-20 or 30) wins; you respawn 3 s after dying, with 1.5 s of spawn protection, and health
+Main menu > Battle vs bots: you against 1-6 bots (Easy, Medium, Hard or Terminator). First side to the kill target (5, 10,
+20 or 30) wins; you respawn 3 s after dying, with 3 s of spawn protection (shooting ends it), and health
 regenerates after 5 s without damage.
 
 - Arena: an original walled yard with shipping containers, stacked crates, tall walls, low
@@ -227,7 +228,7 @@ regenerates after 5 s without damage.
   retreats to cover when hurt. Hard: quick, accurate, aims for the head, strafes, crouch-peeks
   low cover. They roam the arena on A* paths. (Stationary at 12 m, a single bot kills you in
   about 3 s on Easy and 0.5 s on Hard; Medium was made softer and sits between them.)
-- Esc pauses and opens the menu (Resume battle / Leave battle).
+- Esc pauses and opens the menu (Resume / Main menu leaves the battle).
 
 ### Network battle (other PCs on the same network)
 
