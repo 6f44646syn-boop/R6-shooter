@@ -73,6 +73,7 @@ import { WorldPost } from './render/world-post.js?v=baf45fb-mwym4iwy';
 import { rankIconSvg } from './ui/rank-icon.js?v=baf45fb-mwym4iwy';
 import { Touch } from './ui/touch.js?v=baf45fb-mwym4iwy';
 import { onPortal } from './core/portal.js?v=baf45fb-mwym4iwy';
+import { cg, ready as cgReady } from './core/crazygames.js?v=baf45fb-mwym4iwy';
 import { rankOf, rankTitle, rankedSummary, ratingOf, rankedChange, validRankedTicket, verifyRankedResult } from './core/ranked.js?v=baf45fb-mwym4iwy';
 
 const DEG = Math.PI / 180;
@@ -86,6 +87,7 @@ const track = (event, params) => window.gtag?.('event', event, params);
 // Inside a frame we lead with "Open in a full tab". Some frames do allow mouse capture, so
 // "Play here" boots the game in place; if capture is refused, the menu says so.
 // The game data and the Rust core (wasm) load together; the range still works without the core.
+cgReady.then(() => cg.loadingStart());   // CrazyGames: loading ends with the boot screen (end of boot)
 const loadAll = () => Promise.all([loadGameData(), initCore().catch((e) => { console.error(e); return null; })]).then(([d]) => d);
 let embedded = false;
 try { embedded = window.self !== window.top; } catch (e) { embedded = true; }
@@ -579,6 +581,7 @@ async function boot(data) {
   const lock = new PointerLock(canvas, {
     onChange(locked) {
       canvas.style.cursor = locked && lock.frame ? 'none' : '';
+      cg.gameplay(locked);   // CrazyGames: playing while the mouse is captured; menus, pauses and end screens release it
       if (locked) {
         $('menu').hidden = true; closeArmory(); $('lock-hint').hidden = true;
         $('start-btn').textContent = 'Resume';
@@ -1450,6 +1453,7 @@ async function boot(data) {
       capacity, map: modePrefs.map.bomb } : null);
   }
   function netReset() {
+    if (net.hub || net.link) cg.leftRoom();
     if (net.hub) net.hub.close();             // first, so players hear "the host left" (not "removed")
     for (const e of net.peers) e.link.close();
     if (net.link) net.link.close();
@@ -1599,6 +1603,7 @@ async function boot(data) {
         if (battle && battle.active && battle.net) leaveBattle();
         netReset(); netStatus('Lost the relay: ' + msg, 'bad');
       };
+      cg.room(hub.code);   // CrazyGames: friends can join or be invited into this game
       netUi(); netStatus('Game open. Players press "Join a game" and type the code.', 'ok');
     } catch (err) { net.role = null; netUi(); netStatus(err.message, 'bad'); }
     finally { net.busy = false; }
@@ -1612,6 +1617,7 @@ async function boot(data) {
       const link = await joinRelay(relayUrl(), code);
       if (net.role !== 'client') { link.close(); return; }
       joined(link);
+      cg.room(code);
     } catch (err) { netStatus(err.message, 'bad'); }
     finally { net.busy = false; }
   }
@@ -2878,6 +2884,14 @@ async function boot(data) {
 
   warmScene(renderer, scene);   // the range's materials, hidden ones too, compiled under the boot screen
   requestAnimationFrame(() => requestAnimationFrame(() => { $('boot-screen').style.display = 'none'; }));   // everything is built and painted: the black loading screen gives way to the menu
+  // CrazyGames: an invite (on load, or accepted while playing) joins that game; Instant Multiplayer hosts one at once
+  cgReady.then(() => {
+    cg.loadingStop();
+    const join = (code) => { if (net.role) $('net-reset').click(); $('h-code-in').value = code; homeNet(true); };
+    cg.onJoin(join);
+    if (cg.inviteCode) join(cg.inviteCode);
+    else if (cg.instant) homeNet(false);
+  });
   /* ---------- test hooks (only with ?test in the URL) ---------- */
   if (testMode) {
     window.__range = {

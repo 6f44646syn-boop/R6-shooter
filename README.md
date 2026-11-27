@@ -169,6 +169,11 @@ this screen and starts normally, since the portal allows mouse capture and rejec
 The CrazyGames upload is the core only (`index.html css js data wasm vendor`, about 14 MB; the
 limit is 50 MB, 20 MB for their mobile homepage). There the optional packs (`hd/`, `skinpack/`)
 download from the GitHub Pages copy (`js/core/portal.js`), and the game does not ask for fullscreen.
+There the CrazyGames SDK v3 is loaded (`js/core/crazygames.js`; a no-op anywhere else): loading
+start/stop around the boot screen, gameplay start/stop with mouse capture, and multiplayer rooms.
+A relay game code is the room id: hosting or joining one calls `updateRoom`, leaving calls
+`leftRoom`, an invite (on load or accepted mid-game) joins that code, and Instant Multiplayer
+hosts a game straight away.
 
 ## Menus
 
