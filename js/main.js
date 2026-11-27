@@ -88,6 +88,7 @@ const track = (event, params) => window.gtag?.('event', event, params);
 // "Play here" boots the game in place; if capture is refused, the menu says so.
 // The game data and the Rust core (wasm) load together; the range still works without the core.
 cgReady.then(() => cg.loadingStart());   // CrazyGames: loading ends with the boot screen (end of boot)
+if (onPortal) document.documentElement.classList.add('portal');   // css: no account sign-in on a portal (progress saves in the browser)
 const loadAll = () => Promise.all([loadGameData(), initCore().catch((e) => { console.error(e); return null; })]).then(([d]) => d);
 let embedded = false;
 try { embedded = window.self !== window.top; } catch (e) { embedded = true; }
@@ -2004,7 +2005,7 @@ async function boot(data) {
     // The account needs signing in again (e.g. after a reset): signed out here, the sign-in page opens
     cloud.signedOut = () => { if (!cloud.get()) return; cloud.set(null); render(); say('Please sign in again.'); if ($('title').hidden) $('go-signin').click(); toast('Please sign in again (your progress is safe).'); };
     // A new player (nothing played here) with no account signs in or creates one before playing.
-    cloud.mustSignIn = () => !testMode && !cloud.guest && !cloud.get() && fresh();
+    cloud.mustSignIn = () => !testMode && !onPortal && !cloud.guest && !cloud.get() && fresh();   // (portals allow no outside logins)
     const fresh = () => profile.ownedCount === 0 && profile.kills === 0 && gamesPlayed() === 0 && profile.rating === 1000;
     function load(r) { loading = true; playtime.set(Math.max(playtime.get(), r.secs || 0)); profile.loadCode(r.code); cloud.set({ name: r.name, token: r.token, at: r.at || 0 }); location.reload(); }
     function render(pending = null) {

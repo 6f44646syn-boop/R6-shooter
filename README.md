@@ -173,7 +173,9 @@ There the CrazyGames SDK v3 is loaded (`js/core/crazygames.js`; a no-op anywhere
 start/stop around the boot screen, gameplay start/stop with mouse capture, and multiplayer rooms.
 A relay game code is the room id: hosting or joining one calls `updateRoom`, leaving calls
 `leftRoom`, an invite (on load or accepted mid-game) joins that code, and Instant Multiplayer
-hosts a game straight away.
+hosts a game straight away. CrazyGames allows no outside logins and the game shows no privacy
+notice, so there the online account (Sign in) is hidden (`.portal` in `css/style.css`; progress
+still saves in the browser) and Google Analytics is not loaded (`index.html`).
 
 ## Menus
 
