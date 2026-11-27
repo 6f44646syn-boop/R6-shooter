@@ -9,6 +9,7 @@
 // state: 'none' (not installed), 'downloading', 'installed', 'update' (installed, newer one
 // on the site), 'unsupported' (this browser cannot store or unpack it), 'error'.
 import { parseRRM } from './hd-mesh.js?v=baf45fb-mwym4iwy';
+import { onPortal, PACK_HOME } from '../core/portal.js?v=baf45fb-mwym4iwy';
 
 const hasCaches = () => typeof caches !== 'undefined' && typeof caches.open === 'function';
 const canUnpack = () => typeof DecompressionStream === 'function' && typeof crypto !== 'undefined' && !!crypto.subtle;
@@ -16,7 +17,7 @@ const canUnpack = () => typeof DecompressionStream === 'function' && typeof cryp
 // dir: the pack's folder on the site; CACHE: its Cache Storage name; KEY: localStorage key of
 // the installed manifest ({ version, total, files }).
 function makePack(dir, CACHE, KEY) {
-  const BASE = new URL(dir, import.meta.url);
+  const BASE = onPortal ? new URL(dir.replace('../../', ''), PACK_HOME) : new URL(dir, import.meta.url);   // (not uploaded to the portal)
   const listeners = new Set();
   let memory = null;                          // no Cache Storage: files kept for this visit only
   const meshes = new Map();                   // gun name -> parsed mesh (promise)

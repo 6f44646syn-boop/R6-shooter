@@ -166,6 +166,9 @@ here tries mouse capture; if the frame refuses it, the game runs anyway and aims
 mouse (cursor hidden), so turning stops at the frame edge. Make the Sites embed as large as the
 page allows; Esc pauses as usual. On CrazyGames (host or referrer `crazygames.*`) the game skips
 this screen and starts normally, since the portal allows mouse capture and rejects off-site links.
+The CrazyGames upload is the core only (`index.html css js data wasm vendor`, about 14 MB; the
+limit is 50 MB, 20 MB for their mobile homepage). There the optional packs (`hd/`, `skinpack/`)
+download from the GitHub Pages copy (`js/core/portal.js`), and the game does not ask for fullscreen.
 
 ## Menus
 

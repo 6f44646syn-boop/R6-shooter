@@ -72,6 +72,7 @@ import { PerfHud } from './ui/perf-hud.js?v=baf45fb-mwym4iwy';
 import { WorldPost } from './render/world-post.js?v=baf45fb-mwym4iwy';
 import { rankIconSvg } from './ui/rank-icon.js?v=baf45fb-mwym4iwy';
 import { Touch } from './ui/touch.js?v=baf45fb-mwym4iwy';
+import { onPortal } from './core/portal.js?v=baf45fb-mwym4iwy';
 import { rankOf, rankTitle, rankedSummary, ratingOf, rankedChange, validRankedTicket, verifyRankedResult } from './core/ranked.js?v=baf45fb-mwym4iwy';
 
 const DEG = Math.PI / 180;
@@ -88,9 +89,7 @@ const track = (event, params) => window.gtag?.('event', event, params);
 const loadAll = () => Promise.all([loadGameData(), initCore().catch((e) => { console.error(e); return null; })]).then(([d]) => d);
 let embedded = false;
 try { embedded = window.self !== window.top; } catch (e) { embedded = true; }
-// Game portals (CrazyGames) frame the game with mouse capture allowed and reject links off-site: boot straight in.
-const onPortal = /(^|\.)crazygames\.[a-z.]+$/.test(location.hostname) || /^https?:\/\/([^/]+\.)?crazygames\./.test(document.referrer);
-if (embedded && !onPortal) {
+if (embedded && !onPortal) {   // (a portal allows mouse capture and rejects off-site links: boot straight in)
   $('menu').hidden = true;
   $('boot-screen').style.display = 'none';      // (shown again once 'Play here' starts loading)
   $('embedded').hidden = false;
@@ -611,7 +610,7 @@ async function boot(data) {
   async function startLock() {
     sfx.unlock();
     void audioPack.sync();
-    if (touch.recent() && !document.fullscreenElement) { document.documentElement.requestFullscreen?.().then(() => screen.orientation?.lock?.('landscape')).catch(() => {}); }   // phones: the whole screen, sideways
+    if (touch.recent() && !onPortal && !document.fullscreenElement) {   // (a portal provides its own fullscreen) document.documentElement.requestFullscreen?.().then(() => screen.orientation?.lock?.('landscape')).catch(() => {}); }   // phones: the whole screen, sideways
     let ok = pad.recent() || touch.recent() ? lock.holdVirtual() : await lock.request();   // a controller or a touch screen needs no mouse capture
     // Google Sites' frame has no allow-pointer-lock: play anyway, aiming with the free mouse.
     // shortcut: turning stops when the cursor leaves the frame; a wider embed on the Sites page helps.
