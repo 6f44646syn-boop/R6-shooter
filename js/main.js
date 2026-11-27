@@ -610,7 +610,7 @@ async function boot(data) {
   async function startLock() {
     sfx.unlock();
     void audioPack.sync();
-    if (touch.recent() && !onPortal && !document.fullscreenElement) {   // (a portal provides its own fullscreen) document.documentElement.requestFullscreen?.().then(() => screen.orientation?.lock?.('landscape')).catch(() => {}); }   // phones: the whole screen, sideways
+    if (touch.recent() && !onPortal && !document.fullscreenElement) { document.documentElement.requestFullscreen?.().then(() => screen.orientation?.lock?.('landscape')).catch(() => {}); }   // phones: the whole screen, sideways (a portal provides its own)
     let ok = pad.recent() || touch.recent() ? lock.holdVirtual() : await lock.request();   // a controller or a touch screen needs no mouse capture
     // Google Sites' frame has no allow-pointer-lock: play anyway, aiming with the free mouse.
     // shortcut: turning stops when the cursor leaves the frame; a wider embed on the Sites page helps.
