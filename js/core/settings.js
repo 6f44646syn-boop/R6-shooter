@@ -48,6 +48,7 @@ export const DEFAULTS = Object.freeze({
   weaponShading: 'fast', // gun and sight look: 'fast' (matcap, cheap) or 'detailed' (PBR metal)
   lensQuality: '0',      // off by default (aiming +50% fps on a laptop RTX); ADS lens pass: 'auto' or 3 (all) / 2 (no blur) / 1 (no blur, fringing) / 0 (no glare either)
   showViewmodel: true,
+  viewBob: true,         // camera bobs gently while walking
   targetMode: 'dummy',   // 'dummy', 'paper' or 'dots' (M cycles dummy -> paper -> still dots -> moving dots)
   dotCount: 5,
   dotMoving: false,
@@ -137,6 +138,7 @@ export function sanitize(input) {
   out.antialias = typeof s.antialias === 'boolean' ? s.antialias : DEFAULTS.antialias;
   if (out.renderScale > 0 && out.renderScale < 0.5) out.renderScale = 0.5;
   out.showViewmodel = typeof s.showViewmodel === 'boolean' ? s.showViewmodel : DEFAULTS.showViewmodel;
+  out.viewBob = typeof s.viewBob === 'boolean' ? s.viewBob : DEFAULTS.viewBob;
   out.debugHud = typeof s.debugHud === 'boolean' ? s.debugHud : DEFAULTS.debugHud;
   out.fpsCounter = s.fpsCounter === true;
   out.fpsTarget = [60, 120, 144, 240].includes(s.fpsTarget) ? s.fpsTarget : DEFAULTS.fpsTarget;

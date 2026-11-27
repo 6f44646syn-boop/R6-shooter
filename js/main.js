@@ -2605,7 +2605,7 @@ async function boot(data) {
     camera.rotation.x = pitch * DEG;
     // Movement: WASD in a small box behind the firing line, Space crouches.
     player.update(dt, look.yaw, state.ads);
-    camera.position.set(player.ex, player.ey, player.ez);
+    camera.position.set(player.ex, player.ey + viewBob(walkPhase, player.speed, state.adsE), player.ez);
     camera.rotation.z = -player.roll * DEG;   // lean tilt (positive roll = leaning right)
     sfx.observeSteps([{id:0,x:player.x,y:0,z:player.z,crouch:+player.crouched,alive:true,team:'range'}], camera, null, t, null, 0);
     aimAssist(dt, t);
@@ -2654,6 +2654,8 @@ async function boot(data) {
   let crossOpacity = 1;
   let xhGap = -1;
   let walkPhase = 0;
+  // Camera bob (metres) on the same step phase as the weapon bob; softened when aiming.
+  const viewBob = (phase, speed, adsE) => settings.viewBob ? Math.sin(phase) * 0.012 * Math.min(1, speed / 3) * (1 - 0.8 * adsE) : 0;
 
   const reloadEl = $('reload-bar'), reloadFill = reloadEl.firstElementChild;
   let reloadShown = -2;

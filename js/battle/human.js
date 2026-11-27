@@ -301,7 +301,7 @@ export class Human {
     const y = this.look.yaw * DEG;
     const cam = this.camera;
     if (f.alive) {
-      cam.position.set(f.x + Math.cos(y) * LEAN_DIST * this.lean, this.camY + f.eyeH - 0.05 * Math.abs(this.lean), f.z + Math.sin(y) * LEAN_DIST * this.lean);
+      cam.position.set(f.x + Math.cos(y) * LEAN_DIST * this.lean, this.camY + f.eyeH - 0.05 * Math.abs(this.lean) + (s.viewBob ? Math.sin(this.walkPhase) * 0.012 * Math.min(1, Math.hypot(f.vx, f.vz) / 3) * (1 - 0.8 * this.adsE) : 0), f.z + Math.sin(y) * LEAN_DIST * this.lean);
       cam.rotation.set(Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, this.look.pitch + this.offset[1])) * DEG, -(this.look.yaw + this.offset[0]) * DEG, -LEAN_ROLL * this.lean * DEG);
     } else {
       cam.position.set(f.x, f.y + 0.45, f.z);
