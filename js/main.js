@@ -88,6 +88,7 @@ const track = (event, params) => window.gtag?.('event', event, params);
 // "Play here" boots the game in place; if capture is refused, the menu says so.
 // The game data and the Rust core (wasm) load together; the range still works without the core.
 cgReady.then(() => cg.loadingStart());   // CrazyGames: loading ends with the boot screen (end of boot)
+if (new URLSearchParams(location.search).has('film')) import('./ui/film.js?v=baf45fb-mwym4iwy');   // ?film: F9 records the CrazyGames preview videos
 if (onPortal) document.documentElement.classList.add('portal');   // css: no account sign-in on a portal (progress saves in the browser)
 const loadAll = () => Promise.all([loadGameData(), initCore().catch((e) => { console.error(e); return null; })]).then(([d]) => d);
 let embedded = false;
